@@ -14,6 +14,7 @@ package io.prestosql.execution.warnings.statswarnings;
  * limitations under the License.
  */
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
@@ -24,7 +25,7 @@ import io.prestosql.metadata.SessionPropertyManager;
 import io.prestosql.spi.PrestoWarning;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.security.Identity;
-import org.testng.annotations.BeforeTest;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -32,6 +33,11 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static io.prestosql.SystemSessionProperties.QUERY_CPU_AND_MEMORY_WARNING_THRESHOLD;
+import static io.prestosql.SystemSessionProperties.QUERY_MAX_CPU_TIME;
+import static io.prestosql.spi.connector.StandardWarningCode.STAGE_SKEW;
+import static io.prestosql.spi.connector.StandardWarningCode.TOTAL_CPU_TIME_OVER_THRESHOLD_VAL;
+import static io.prestosql.spi.connector.StandardWarningCode.TOTAL_MEMORY_LIMIT_OVER_THRESHOLD_VAL;
+import static io.prestosql.spi.connector.StandardWarningCode.USER_MEMORY_LIMIT_OVER_THRESHOLD_VAL;
 import static org.testng.Assert.assertTrue;
 
 public class TestExecutionStatisticsWarner
@@ -40,13 +46,14 @@ public class TestExecutionStatisticsWarner
     private QueryInfo queryInfo2;
     private Session session;
 
-    @BeforeTest
-    public void setup()
+    @BeforeClass
+    public void setup() throws Exception
     {
         Session session = Session.builder(new SessionPropertyManager())
                 .setQueryId(new QueryId("test_query_id"))
                 .setIdentity(new Identity("testUser", Optional.empty()))
                 .setSystemProperty(QUERY_CPU_AND_MEMORY_WARNING_THRESHOLD, "0.7")
+                .setSystemProperty(QUERY_MAX_CPU_TIME, "1d")
                 .setCatalogSessionProperty("testCatalog", "explicit_set", "explicit_set")
                 .build();
         this.session = session;
@@ -54,13 +61,11 @@ public class TestExecutionStatisticsWarner
         queryInfo2 = TestExecutionStatisticsWarnerUtil.getQueryInfo2();
     }
 
-    private void assertWarning(List<PrestoWarning> warningList, int warningCode, String warningMessage)
+    private void assertWarning(List<PrestoWarning> warningList, List<PrestoWarning> expectedWarnings)
     {
-        assertTrue(warningList.stream().anyMatch(t -> t.getWarningCode().getCode() == warningCode));
+        assertTrue(warningList.size() == expectedWarnings.size());
         for (PrestoWarning warning : warningList) {
-            if (warning.getWarningCode().getCode() == warningCode) {
-                assertTrue(warning.getMessage().equals(warningMessage));
-            }
+            assertTrue(expectedWarnings.contains(warning));
         }
     }
 
@@ -68,32 +73,39 @@ public class TestExecutionStatisticsWarner
     public void testCombinedWarnings()
     {
         ExecutionStatisticsWarner statsWarner = new ExecutionStatisticsWarner(new MemoryManagerConfig(), new QueryManagerConfig());
-        List<PrestoWarning> warningList = statsWarner.collectStatsWarnings(queryInfo1, session);
-        assertWarning(warningList, 259, "Query Id 0's peakUserMemoryReservation has exceeded the threshold warning value. This query used 24GB of the userMemoryLimit of 20GB.");
-        assertWarning(warningList, 261, "Query Id 0 has exceeded the max cpu warning threshold value. This query used 800000000.00d of the maxCPU of 1000000000.00d.");
-        assertWarning(warningList, 262, "StageId: 1 has these skews: [Task Id: 1.1.1 CPU skew: 12.0],StageId: 2 has these skews: [Task Id: 1.1.1 CPU skew: 12.0]");
-        assertWarning(warningList, 263, "Try swapping the join ordering for: (Tablename: [hive:table:sf1.0]) InnerJoin (Stage IDs: [2]) in StageId: 1");
+        List<PrestoWarning> warningList = statsWarner.collectExecutionStatisticsWarnings(queryInfo1, session);
+        List<PrestoWarning> expectedWarnings = ImmutableList.of(
+                new PrestoWarning(USER_MEMORY_LIMIT_OVER_THRESHOLD_VAL, "Query Id 0's peak user memory reached 17179869184B of the maximum allowed value of 21474836480B."),
+                new PrestoWarning(TOTAL_CPU_TIME_OVER_THRESHOLD_VAL, "Query Id 0 has exceeded the max cpu warning threshold value. This query used 79200000.00ms of the maxCPU of 86400000.00ms."),
+                new PrestoWarning(STAGE_SKEW, "StageId 1 has these tasks' CPU times take long than others [Task Id 1.1]. Mean 2.833, Median 1.000"),
+                new PrestoWarning(STAGE_SKEW, "StageId 2 has these tasks' CPU times take long than others [Task Id 2.1]. Mean 2.833, Median 1.000"));
 
-        warningList = statsWarner.collectStatsWarnings(queryInfo2, session);
-        assertWarning(warningList, 263, "Try swapping the join ordering for: (Stage IDs: [1]) InnerJoin (Stage IDs: [2]) in StageId: 1");
+        assertWarning(warningList, expectedWarnings);
+
+        warningList = statsWarner.collectExecutionStatisticsWarnings(queryInfo2, session);
+        assertWarning(warningList, ImmutableList.of(
+                new PrestoWarning(TOTAL_CPU_TIME_OVER_THRESHOLD_VAL, "Query Id 0 has exceeded the max cpu warning threshold value. This query used 79200000.00ms of the maxCPU of 86400000.00ms.")));
     }
 
     @Test
     public void testThresholdWarnings()
     {
-        MemoryAndCPUThresholdWarningsGenerator thresholdWarningsGenerator =
-                new MemoryAndCPUThresholdWarningsGenerator(
-                        new Duration(20000000000.0, TimeUnit.DAYS),
-                        new DataSize(200000.0, DataSize.Unit.GIGABYTE),
+        CPUAndMemoryThresholdWarningsGenerator thresholdWarningsGenerator =
+                new CPUAndMemoryThresholdWarningsGenerator(
+                        new Duration(30.0, TimeUnit.DAYS),
+                        new DataSize(20.0, DataSize.Unit.GIGABYTE),
                         new DataSize(20.0, DataSize.Unit.GIGABYTE));
 
-        List<PrestoWarning> warningList = thresholdWarningsGenerator.generateStatsWarnings(queryInfo1, session);
-        assertWarning(warningList, 259, "Query Id 0's peakUserMemoryReservation has exceeded the threshold warning value. This query used 24GB of the userMemoryLimit of 20GB.");
-        assertWarning(warningList, 260, "Query Id 0's peakTotalMemoryReservation has exceeded the threshold warning value. This query used 26GB of the totalMemoryLimit of 20GB");
-        assertWarning(warningList, 261, "Query Id 0 has exceeded the max cpu warning threshold value. This query used 800000000.00d of the maxCPU of 1000000000.00d.");
+        List<PrestoWarning> warningList = thresholdWarningsGenerator.generateExecutionStatisticsWarnings(queryInfo1, session);
+        List<PrestoWarning> expectedWarnings = ImmutableList.of(
+                new PrestoWarning(USER_MEMORY_LIMIT_OVER_THRESHOLD_VAL, "Query Id 0's peak user memory reached 17179869184B of the maximum allowed value of 21474836480B."),
+                new PrestoWarning(TOTAL_MEMORY_LIMIT_OVER_THRESHOLD_VAL, "Query Id 0's peak total memory reached 17179869184B of the maximum allowed value of 21474836480B"),
+                new PrestoWarning(TOTAL_CPU_TIME_OVER_THRESHOLD_VAL, "Query Id 0 has exceeded the max cpu warning threshold value. This query used 79200000.00ms of the maxCPU of 86400000.00ms."));
+        assertWarning(warningList, expectedWarnings);
 
-        warningList = thresholdWarningsGenerator.generateStatsWarnings(queryInfo2, session);
-        assertWarning(warningList, 260, "Query Id 1's peakTotalMemoryReservation has exceeded the threshold warning value. This query used 26GB of the totalMemoryLimit of 20GB");
+        warningList = thresholdWarningsGenerator.generateExecutionStatisticsWarnings(queryInfo2, session);
+        assertWarning(warningList, ImmutableList.of(
+                new PrestoWarning(TOTAL_CPU_TIME_OVER_THRESHOLD_VAL, "Query Id 0 has exceeded the max cpu warning threshold value. This query used 79200000.00ms of the maxCPU of 86400000.00ms.")));
     }
 
     @Test
@@ -101,20 +113,11 @@ public class TestExecutionStatisticsWarner
     {
         SkewWarningsGenerator skewWarningsGenerator = new SkewWarningsGenerator();
 
-        List<PrestoWarning> warningList = skewWarningsGenerator.generateStatsWarnings(queryInfo1, session);
-        assertWarning(warningList, 262, "StageId: 1 has these skews: [Task Id: 1.1.1 CPU skew: 12.0],StageId: 2 has these skews: [Task Id: 1.1.1 CPU skew: 12.0]");
-        assertTrue(skewWarningsGenerator.generateStatsWarnings(queryInfo2, session).isEmpty());
-    }
-
-    @Test
-    public void testJoinAdvice()
-    {
-        JoinWarningsGenerator joinWarningsGenerator = new JoinWarningsGenerator();
-
-        List<PrestoWarning> warningList = joinWarningsGenerator.generateStatsWarnings(queryInfo1, session);
-        assertWarning(warningList, 263, "Try swapping the join ordering for: (Tablename: [hive:table:sf1.0]) InnerJoin (Stage IDs: [2]) in StageId: 1");
-
-        warningList = joinWarningsGenerator.generateStatsWarnings(queryInfo2, session);
-        assertWarning(warningList, 263, "Try swapping the join ordering for: (Stage IDs: [1]) InnerJoin (Stage IDs: [2]) in StageId: 1");
+        List<PrestoWarning> warningList = skewWarningsGenerator.generateExecutionStatisticsWarnings(queryInfo1, session);
+        List<PrestoWarning> expectedWarnings = ImmutableList.of(
+                new PrestoWarning(STAGE_SKEW, "StageId 1 has these tasks' CPU times take long than others [Task Id 1.1]. Mean 2.833, Median 1.000"),
+                new PrestoWarning(STAGE_SKEW, "StageId 2 has these tasks' CPU times take long than others [Task Id 2.1]. Mean 2.833, Median 1.000"));
+        assertWarning(warningList, expectedWarnings);
+        assertTrue(skewWarningsGenerator.generateExecutionStatisticsWarnings(queryInfo2, session).isEmpty());
     }
 }

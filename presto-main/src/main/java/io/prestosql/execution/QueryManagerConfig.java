@@ -356,7 +356,7 @@ public class QueryManagerConfig
         return queryCpuAndMemoryWarningThreshold;
     }
 
-    @Config("query_cpu_and_memory_warning_threshold")
+    @Config("query.cpu-and-memory-warning-threshold")
     public QueryManagerConfig setQueryCpuAndMemoryWarningThreshold(double queryCpuAndMemoryWarningThreshold)
     {
         this.queryCpuAndMemoryWarningThreshold = queryCpuAndMemoryWarningThreshold;

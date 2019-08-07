@@ -31,9 +31,17 @@ public interface WarningCollector
                 {
                     return ImmutableList.of();
                 }
+
+                @Override
+                public QueryPhaseWarningCollector getQueryPhaseWarningCollector(String phase)
+                {
+                    return QueryPhaseWarningCollector.NOOP;
+                }
             };
 
     void add(PrestoWarning warning);
 
     List<PrestoWarning> getWarnings();
+
+    QueryPhaseWarningCollector getQueryPhaseWarningCollector(String phase);
 }

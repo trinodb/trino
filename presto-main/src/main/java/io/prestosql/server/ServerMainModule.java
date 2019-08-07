@@ -253,7 +253,6 @@ public class ServerMainModule
                 config -> FLAT.equalsIgnoreCase(config.getNetworkTopology()),
                 moduleBinder -> moduleBinder.bind(NetworkTopology.class).to(FlatNetworkTopology.class).in(Scopes.SINGLETON)));
 
-        //ExecutionStatisticsWarner
         binder.bind(ExecutionStatisticsWarner.class).in(Scopes.SINGLETON);
 
         // task execution

@@ -26,24 +26,24 @@ import java.util.List;
 
 public class ExecutionStatisticsWarner
 {
-    private final List<ExecutionStatisticsWarningsGenerator> statsWarningsGenerators;
+    private final List<ExecutionStatisticsWarningsGenerator> executionStatisticsWarningsGenerators;
 
     @Inject
     public ExecutionStatisticsWarner(MemoryManagerConfig memoryManagerConfig, QueryManagerConfig queryManagerConfig)
     {
-        this.statsWarningsGenerators =
+        this.executionStatisticsWarningsGenerators =
              ImmutableList.of(
-                new MemoryAndCPUThresholdWarningsGenerator(queryManagerConfig.getQueryMaxCpuTime(), memoryManagerConfig.getMaxQueryMemory(), memoryManagerConfig.getMaxQueryTotalMemory()),
+                new CPUAndMemoryThresholdWarningsGenerator(queryManagerConfig.getQueryMaxCpuTime(), memoryManagerConfig.getMaxQueryMemory(), memoryManagerConfig.getMaxQueryTotalMemory()),
                 new SkewWarningsGenerator(),
                 new JoinWarningsGenerator());
     }
 
-    public List<PrestoWarning> collectStatsWarnings(QueryInfo queryInfo, Session session)
+    public List<PrestoWarning> collectExecutionStatisticsWarnings(QueryInfo queryInfo, Session session)
     {
         ImmutableList.Builder<PrestoWarning> allWarnings = new ImmutableList.Builder<>();
 
-        for (ExecutionStatisticsWarningsGenerator statsWarningsGenerator : statsWarningsGenerators) {
-            allWarnings.addAll(statsWarningsGenerator.generateStatsWarnings(queryInfo, session));
+        for (ExecutionStatisticsWarningsGenerator statsWarningsGenerator : executionStatisticsWarningsGenerators) {
+            allWarnings.addAll(statsWarningsGenerator.generateExecutionStatisticsWarnings(queryInfo, session));
         }
         return allWarnings.build();
     }

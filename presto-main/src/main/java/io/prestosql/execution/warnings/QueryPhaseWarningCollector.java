@@ -12,15 +12,27 @@
  * limitations under the License.
  */
 
-package io.prestosql.execution.warnings.statswarnings;
+package io.prestosql.execution.warnings;
 
-import io.prestosql.Session;
-import io.prestosql.execution.QueryInfo;
+import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.PrestoWarning;
 
 import java.util.List;
 
-public interface ExecutionStatisticsWarningsGenerator
+public interface QueryPhaseWarningCollector
 {
-    List<PrestoWarning> generateExecutionStatisticsWarnings(QueryInfo queryInfo, Session session);
+    QueryPhaseWarningCollector NOOP = new QueryPhaseWarningCollector() {
+        @Override
+        public void add(PrestoWarning warning) {}
+
+        @Override
+        public List<PrestoWarning> getWarnings()
+        {
+            return ImmutableList.of();
+        }
+    };
+
+    void add(PrestoWarning warning);
+
+    List<PrestoWarning> getWarnings();
 }

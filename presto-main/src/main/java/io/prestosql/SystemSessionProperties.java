@@ -938,7 +938,7 @@ public final class SystemSessionProperties
         return session.getSystemProperty(QUERY_MAX_TOTAL_MEMORY_PER_NODE, DataSize.class);
     }
 
-    public static double getQueryWarningThreshold(Session session)
+    public static double getQueryCPUAndMemoryWarningThreshold(Session session)
     {
         return session.getSystemProperty(QUERY_CPU_AND_MEMORY_WARNING_THRESHOLD, Double.class);
     }

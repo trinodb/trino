@@ -21,9 +21,9 @@ import io.prestosql.execution.StageId;
 import io.prestosql.execution.StageInfo;
 import io.prestosql.operator.OperatorStats;
 import io.prestosql.spi.PrestoWarning;
+import io.prestosql.sql.planner.PlanFragment;
 import io.prestosql.sql.planner.plan.IndexJoinNode;
 import io.prestosql.sql.planner.plan.JoinNode;
-import io.prestosql.sql.planner.plan.LateralJoinNode;
 import io.prestosql.sql.planner.plan.PlanFragmentId;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanVisitor;
@@ -34,9 +34,7 @@ import io.prestosql.sql.planner.plan.TableScanNode;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 import static io.prestosql.spi.connector.StandardWarningCode.BETTER_JOIN_ORDERING;
@@ -45,60 +43,79 @@ import static java.lang.String.format;
 public class JoinWarningsGenerator
         implements ExecutionStatisticsWarningsGenerator
 {
-    @Override
-    public List<PrestoWarning> generateStatsWarnings(QueryInfo queryInfo, Session session)
-    {
-        Map<String, List<String>> stageToJoinWarnings = new HashMap<>();
-        visitStage(queryInfo, stageToJoinWarnings);
-        ImmutableList.Builder<PrestoWarning> allWarnings = new ImmutableList.Builder<>();
+//    This class will give join warnings if the number of rows on the
+//    left side is less than the number of rows on the right side. It
+//    will give you all the sources to help you identify the join. Sources
+//    are table names and stage ids. For more complicated cases involving
+//    multiple joins in a stage and multiple sources in the same stage, the
+//    message will change slightly and give you all sources on the left and
+//    right side.
+//
+//    Example:
+//            Join
+//
+//        /           \
+//
+//    Table A        Table B
+//
+//    Try swapping the join ordering of Tables [A] InnerJoin Tables [B] in StageId 1
+//
+//
+//            Join
+//
+//        /           \
+//
+//   fragmentId 2    Join
+//
+//                /         \
+//
+//            Table A     Table B
+//
+//    Try swapping the join in StageId 1 where the left side has sources StageIds [2]
+//    and right side has sources Tables [Table A, Table B]
 
-        List<String> warningsMessageBuilder = new ArrayList<>();
-        for (String stageId : stageToJoinWarnings.keySet()) {
-            warningsMessageBuilder.addAll(stageToJoinWarnings.get(stageId));
-        }
-        if (!warningsMessageBuilder.isEmpty()) {
-            allWarnings.add(new PrestoWarning(BETTER_JOIN_ORDERING, String.join(",", warningsMessageBuilder)));
-        }
+    @Override
+    public List<PrestoWarning> generateExecutionStatisticsWarnings(QueryInfo queryInfo, Session session)
+    {
+        ImmutableList.Builder<PrestoWarning> allWarnings = new ImmutableList.Builder<>();
+        processStage(queryInfo, allWarnings);
         return allWarnings.build();
     }
 
-    private void visitStage(QueryInfo queryInfo, Map<String, List<String>> stageToJoinWarnings)
+    private void processStage(QueryInfo queryInfo, ImmutableList.Builder<PrestoWarning> allWarnings)
     {
         if (queryInfo.getOutputStage().isPresent()) {
-            Visitor visitor = new Visitor(stageToJoinWarnings);
-            visitStageHelper(queryInfo.getOutputStage().get(), visitor);
+            processStageHelper(queryInfo.getOutputStage().get(), allWarnings);
         }
     }
 
-    private void visitStageHelper(StageInfo stage, Visitor visitor)
+    private void processStageHelper(StageInfo stage, ImmutableList.Builder<PrestoWarning> allWarnings)
     {
         for (StageInfo stageInfo : stage.getSubStages()) {
-            visitStageHelper(stageInfo, visitor);
+            processStageHelper(stageInfo, allWarnings);
         }
-        visitor.setOperatorStatsList(stage.getStageStats().getOperatorSummaries());
-        visitor.setStageId(stage.getStageId());
-        stage.getPlan().getRoot().accept(visitor, null);
+        Visitor visitor = new Visitor(allWarnings, stage.getStageStats().getOperatorSummaries(), stage.getStageId());
+        PlanFragment planFragment = stage.getPlan();
+        if (planFragment != null) {
+            planFragment.getRoot().accept(visitor, null);
+        }
     }
 
     private final class Visitor
             extends PlanVisitor<WarningSource, Void>
     {
-        private final Map<String, List<String>> stageToJoinWarnings;
-        private List<OperatorStats> operatorStatsList;
-        private StageId stageId;
+        private final ImmutableList.Builder<PrestoWarning> allWarnings;
+        private final List<OperatorStats> operatorStatsList;
+        private final StageId stageId;
 
-        private Visitor(Map<String, List<String>> stageToJoinWarnings)
-        {
-            this.stageToJoinWarnings = stageToJoinWarnings;
-        }
+        private Visitor(
+                ImmutableList.Builder<PrestoWarning> allWarnings,
+                List<OperatorStats> operatorStatsList,
+                StageId stageId)
 
-        private void setOperatorStatsList(List<OperatorStats> operatorStatsList)
         {
+            this.allWarnings = allWarnings;
             this.operatorStatsList = operatorStatsList;
-        }
-
-        private void setStageId(StageId stageId)
-        {
             this.stageId = stageId;
         }
 
@@ -122,20 +139,27 @@ public class JoinWarningsGenerator
             String joinLabel = node.getType().getJoinLabel();
             WarningSource left = leftNode.accept(this, context);
             WarningSource right = rightNode.accept(this, context);
-            generateJoinWarnings(left, right, leftNode, rightNode, joinLabel, id);
-            return combineWarningSources(left, right);
-        }
+            if (!node.isCrossJoin()) {
+                generateJoinWarnings(
+                        left,
+                        right,
+                        node,
+                        "LookupJoinOperator",
+                        "HashBuilderOperator",
+                        joinLabel,
+                        id);
+            }
+            else {
+                generateJoinWarnings(
+                        left,
+                        right,
+                        node,
+                        "NestedLoopJoinOperator",
+                        "NestedLoopBuildOperator",
+                        joinLabel,
+                        id);
+            }
 
-        @Override
-        public WarningSource visitLateralJoin(LateralJoinNode node, Void context)
-        {
-            String id = Integer.toString(stageId.getId());
-            PlanNode leftNode = node.getInput();
-            PlanNode rightNode = node.getSubquery();
-            String joinLabel = node.getType().toJoinNodeType().getJoinLabel();
-            WarningSource left = leftNode.accept(this, context);
-            WarningSource right = rightNode.accept(this, context);
-            generateJoinWarnings(left, right, leftNode, rightNode, joinLabel, id);
             return combineWarningSources(left, right);
         }
 
@@ -148,7 +172,14 @@ public class JoinWarningsGenerator
             String joinLabel = node.getType().getJoinLabel();
             WarningSource left = leftNode.accept(this, context);
             WarningSource right = rightNode.accept(this, context);
-            generateJoinWarnings(left, right, leftNode, rightNode, joinLabel, id);
+            generateJoinWarnings(
+                    left,
+                    right,
+                    node,
+                    "SpatialJoinOperator",
+                    "SpatialIndexBuilderOperator",
+                    joinLabel,
+                    id);
             return combineWarningSources(left, right);
         }
 
@@ -161,7 +192,14 @@ public class JoinWarningsGenerator
             String joinLabel = "IndexJoin";
             WarningSource left = leftNode.accept(this, context);
             WarningSource right = rightNode.accept(this, context);
-            generateJoinWarnings(left, right, leftNode, rightNode, joinLabel, id);
+            generateJoinWarnings(
+                    left,
+                    right,
+                    node,
+                    "LookupJoinOperator",
+                    "IndexSourceOperator",
+                    joinLabel,
+                    id);
             return combineWarningSources(left, right);
         }
 
@@ -174,7 +212,14 @@ public class JoinWarningsGenerator
             String joinLabel = "SemiJoin";
             WarningSource left = leftNode.accept(this, context);
             WarningSource right = rightNode.accept(this, context);
-            generateJoinWarnings(left, right, leftNode, rightNode, joinLabel, id);
+            generateJoinWarnings(
+                    left,
+                    right,
+                    node,
+                    "HashSemiJoinOperator",
+                    "SetBuilderOperator",
+                    joinLabel,
+                    id);
             return combineWarningSources(left, right);
         }
 
@@ -194,21 +239,27 @@ public class JoinWarningsGenerator
             return warningSource;
         }
 
-        private long getOperatorstats(PlanNode planNode)
+        private long getOperatorstats(PlanNode planNode, String operatorType)
         {
-            List<OperatorStats> operatorStats = operatorStatsList;
-            for (OperatorStats operatorStat : operatorStats) {
-                if (operatorStat.getPlanNodeId().equals(planNode.getId())) {
-                    return operatorStat.getOutputPositions();
+            for (OperatorStats operatorStat : operatorStatsList) {
+                if (operatorStat.getPlanNodeId().equals(planNode.getId()) && operatorType.equals(operatorStat.getOperatorType())) {
+                    return operatorStat.getInputPositions();
                 }
             }
             return 0;
         }
 
-        private void generateJoinWarnings(WarningSource left, WarningSource right, PlanNode leftNode, PlanNode rightNode, String joinLabel, String stageId)
+        private void generateJoinWarnings(
+                WarningSource left,
+                WarningSource right,
+                PlanNode joinNode,
+                String leftOperatorType,
+                String rightOperatorType,
+                String joinLabel,
+                String stageId)
         {
-            long leftNumberOfRow = getOperatorstats(leftNode);
-            long rightNumberOfRow = getOperatorstats(rightNode);
+            long leftNumberOfRow = getOperatorstats(joinNode, leftOperatorType);
+            long rightNumberOfRow = getOperatorstats(joinNode, rightOperatorType);
 
             if (!(leftNumberOfRow < rightNumberOfRow)) {
                 return;
@@ -220,30 +271,33 @@ public class JoinWarningsGenerator
             String rightMessage;
 
             if (!left.getTableNames().isEmpty()) {
-                leftMessageBuilder.add(format("Tablename: %s", left.getTableNames().toString()));
+                leftMessageBuilder.add(format("Tables %s", left.getTableNames().toString()));
             }
             if (!left.getStageIds().isEmpty()) {
-                leftMessageBuilder.add(format("Stage IDs: %s", left.getStageIds().toString()));
+                leftMessageBuilder.add(format("Stage IDs %s", left.getStageIds().toString()));
             }
 
             if (!right.getTableNames().isEmpty()) {
-                rightMessageBuilder.add(format("Tablename: %s", right.getTableNames().toString()));
+                rightMessageBuilder.add(format("Tables %s", right.getTableNames().toString()));
             }
             if (!right.getStageIds().isEmpty()) {
-                rightMessageBuilder.add(format("Stage IDs: %s", right.getStageIds().toString()));
+                rightMessageBuilder.add(format("Stage IDs %s", right.getStageIds().toString()));
             }
 
             leftMessage = String.join(",", leftMessageBuilder);
             rightMessage = String.join(",", rightMessageBuilder);
 
-            String warning = format("Try swapping the join ordering for: (%s) %s (%s) in StageId: %s",
-                    leftMessage, joinLabel, rightMessage, stageId);
-
-            if (stageToJoinWarnings.get(stageId) == null) {
-                stageToJoinWarnings.put(stageId, new ArrayList<>());
+            if (left.getTableNames().size() + left.getStageIds().size() == 1 && right.getTableNames().size() + right.getStageIds().size() == 1) {
+                String warning = format("Try swapping the join ordering for %s %s %s in StageId %s",
+                        leftMessage, joinLabel, rightMessage, stageId);
+                allWarnings.add(new PrestoWarning(BETTER_JOIN_ORDERING, warning));
+                return;
             }
-            List<String> stageWarnings = stageToJoinWarnings.get(stageId);
-            stageWarnings.add(warning);
+
+            String warning = format("Try swapping the join in StageId %s where the left side has sources %s "
+                    + "and right side has sources %s", stageId, leftMessage, rightMessage);
+
+            allWarnings.add(new PrestoWarning(BETTER_JOIN_ORDERING, warning));
         }
 
         private WarningSource combineWarningSources(WarningSource left, WarningSource right)
@@ -256,14 +310,8 @@ public class JoinWarningsGenerator
 
     private static class WarningSource
     {
-        private final List<String> tableNames;
-        private final List<String> stageIds;
-
-        public WarningSource()
-        {
-            tableNames = new ArrayList<>();
-            stageIds = new ArrayList<>();
-        }
+        private final List<String> tableNames = new ArrayList<>();
+        private final List<String> stageIds = new ArrayList<>();
 
         public void addTableNames(List<String> tableNames)
         {

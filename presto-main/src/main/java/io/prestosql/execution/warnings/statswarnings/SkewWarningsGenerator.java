@@ -15,79 +15,84 @@
 package io.prestosql.execution.warnings.statswarnings;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.math.Quantiles;
+import com.google.common.math.Stats;
 import io.prestosql.Session;
 import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.StageInfo;
 import io.prestosql.execution.TaskInfo;
 import io.prestosql.spi.PrestoWarning;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static io.prestosql.spi.connector.StandardWarningCode.STAGE_SKEW;
+import static java.lang.String.format;
 
 public class SkewWarningsGenerator
         implements ExecutionStatisticsWarningsGenerator
 {
     @Override
-    public List<PrestoWarning> generateStatsWarnings(QueryInfo queryInfo, Session session)
+    public List<PrestoWarning> generateExecutionStatisticsWarnings(QueryInfo queryInfo, Session session)
     {
-        List<String> skewMessages = new ArrayList<>();
-        visitStage(queryInfo, skewMessages);
-
         ImmutableList.Builder<PrestoWarning> allWarnings = new ImmutableList.Builder<>();
-
-        if (!skewMessages.isEmpty()) {
-            allWarnings.add(new PrestoWarning(STAGE_SKEW, String.join(",", skewMessages)));
-        }
+        processStage(queryInfo, allWarnings);
         return allWarnings.build();
     }
 
-    private void visitStage(QueryInfo queryInfo, List<String> skewMessages)
+    private void processStage(QueryInfo queryInfo, ImmutableList.Builder<PrestoWarning> allWarnings)
     {
         if (queryInfo.getOutputStage().isPresent()) {
-            visitStageHelper(queryInfo.getOutputStage().get(), skewMessages);
+            processStageHelper(queryInfo.getOutputStage().get(), allWarnings);
         }
     }
 
-    private void visitStageHelper(StageInfo stage, List<String> skewMessages)
+    private void processStageHelper(StageInfo stage, ImmutableList.Builder<PrestoWarning> allWarnings)
     {
         String stageId = Integer.toString(stage.getStageId().getId());
-        List<String> skewWarnings = generateSkewWarning(stage.getTasks());
-        if (!skewWarnings.isEmpty()) {
-            skewMessages.add(String.format("StageId: %s has these skews: %s", stageId, skewWarnings));
+        Optional<PrestoWarning> skewWarning = generateSkewWarning(stage.getTasks(), stageId);
+        if (skewWarning.isPresent()) {
+            allWarnings.add(skewWarning.get());
         }
 
         for (StageInfo stageInfo : stage.getSubStages()) {
-            visitStageHelper(stageInfo, skewMessages);
+            processStageHelper(stageInfo, allWarnings);
         }
     }
 
-    private List<String> generateSkewWarning(List<TaskInfo> taskInfos)
+    private Optional<PrestoWarning> generateSkewWarning(List<TaskInfo> taskInfos, String stageId)
     {
         List<Double> cpuValues = taskInfos
                 .stream()
                 .map(taskInfo -> taskInfo.getStats().getTotalCpuTime().getValue())
                 .collect(Collectors.toList());
 
-        double squaredSum = cpuValues
-                .stream().map(val -> Math.pow(val, 2))
-                .mapToDouble(Double::doubleValue)
-                .sum();
+        double cpuMean = Stats.meanOf(cpuValues);
+        double cpuMedian = Quantiles.median().compute(cpuValues);
+        double cpuSTD = Stats.of(cpuValues).populationStandardDeviation();
 
-        double cpuMean = (cpuValues
+        if (cpuSTD == 0) {
+            return Optional.empty();
+        }
+
+        List<String> skewMessages = taskInfos
                 .stream()
-                .mapToDouble(Double::doubleValue)
-                .sum() / cpuValues.size());
+                .filter(taskInfo -> (taskInfo.getStats().getTotalCpuTime().getValue() - cpuMean) / cpuSTD >= 2)
+                .map(taskInfo -> String.format("Task Id %s.%s", taskInfo.getTaskStatus().getTaskId().getStageId().getId(),
+                        taskInfo.getTaskStatus().getTaskId().getId()))
+                .collect(ImmutableList.toImmutableList());
 
-        double cpuSTD = Math.sqrt(squaredSum / taskInfos.size() - Math.pow(cpuMean, 2));
+        if (!skewMessages.isEmpty()) {
+            return Optional.of(
+                    new PrestoWarning(STAGE_SKEW,
+                            format("StageId %s has these tasks' CPU times take long than others %s. Mean %.3f, Median %.3f",
+                            stageId,
+                            skewMessages,
+                            cpuMean,
+                            cpuMedian)));
+        }
 
-        return taskInfos
-            .stream()
-            .filter(taskInfo -> (taskInfo.getStats().getTotalCpuTime().getValue() - cpuMean) / cpuSTD >= 2)
-            .map(taskInfo -> String.format("Task Id: %s CPU skew: %s", taskInfo.getTaskStatus().getTaskId(),
-                    taskInfo.getStats().getTotalCpuTime().getValue()))
-            .collect(ImmutableList.toImmutableList());
+        return Optional.empty();
     }
 }

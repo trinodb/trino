@@ -189,7 +189,7 @@ public class SqlQueryExecution
             this.analysis = analyzer.analyze(preparedQuery.getStatement());
 
             stateMachine.setUpdateType(analysis.getUpdateType());
-            stateMachine.setExecutionStatisticWarner(executionStatisticsWarner);
+            stateMachine.setExecutionStatisticsWarner(executionStatisticsWarner);
 
             // when the query finishes cache the final query info, and clear the reference to the output stage
             AtomicReference<SqlQueryScheduler> queryScheduler = this.queryScheduler;

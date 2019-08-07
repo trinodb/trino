@@ -15,6 +15,8 @@ package io.prestosql.testing;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.execution.warnings.DefaultQueryPhaseWarningCollector;
+import io.prestosql.execution.warnings.QueryPhaseWarningCollector;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.execution.warnings.WarningCollectorConfig;
 import io.prestosql.spi.PrestoWarning;
@@ -37,6 +39,7 @@ public class TestingWarningCollector
 {
     @GuardedBy("this")
     private final Map<WarningCode, PrestoWarning> warnings = new LinkedHashMap<>();
+    private final Map<String, QueryPhaseWarningCollector> phaseWarnings = new LinkedHashMap<>();
     private final WarningCollectorConfig config;
 
     private final boolean addWarnings;
@@ -69,7 +72,22 @@ public class TestingWarningCollector
         if (addWarnings) {
             add(createTestWarning(warningCode.incrementAndGet()));
         }
-        return ImmutableList.copyOf(warnings.values());
+
+        ImmutableList.Builder<PrestoWarning> allWarnings = new ImmutableList.Builder<>();
+        allWarnings.addAll(warnings.values());
+        for (String phase : phaseWarnings.keySet()) {
+            allWarnings.addAll(phaseWarnings.get(phase).getWarnings());
+        }
+        return allWarnings.build();
+    }
+
+    @Override
+    public synchronized QueryPhaseWarningCollector getQueryPhaseWarningCollector(String phase)
+    {
+        if (phaseWarnings.get(phase) == null) {
+            phaseWarnings.put(phase, new DefaultQueryPhaseWarningCollector());
+        }
+        return phaseWarnings.get(phase);
     }
 
     @VisibleForTesting

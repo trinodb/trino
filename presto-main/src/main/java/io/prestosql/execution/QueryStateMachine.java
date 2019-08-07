@@ -27,6 +27,7 @@ import io.airlift.units.Duration;
 import io.prestosql.Session;
 import io.prestosql.execution.QueryExecution.QueryOutputInfo;
 import io.prestosql.execution.StateMachine.StateChangeListener;
+import io.prestosql.execution.warnings.QueryPhaseWarningCollector;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.execution.warnings.statswarnings.ExecutionStatisticsWarner;
 import io.prestosql.memory.VersionedMemoryPoolId;
@@ -151,6 +152,7 @@ public class QueryStateMachine
     private final StateMachine<Optional<QueryInfo>> finalQueryInfo;
     private final AtomicReference<ExecutionStatisticsWarner> executionStatisticsWarner = new AtomicReference<>();
     private final WarningCollector warningCollector;
+    private static final String QUERY_FINISHED_PHASE = "query_finished_phase";
 
     private QueryStateMachine(
             String query,
@@ -965,6 +967,7 @@ public class QueryStateMachine
         QueryInfo queryInfo = getQueryInfo(stageInfo);
         if (queryInfo.isFinalQueryInfo()) {
             generateExecutionStatisticsWarnings(queryInfo);
+            queryInfo = getQueryInfo(stageInfo);
             finalQueryInfo.compareAndSet(Optional.empty(), Optional.of(queryInfo));
         }
         return queryInfo;
@@ -973,8 +976,11 @@ public class QueryStateMachine
     private void generateExecutionStatisticsWarnings(QueryInfo queryInfo)
     {
         if (executionStatisticsWarner.get() != null) {
-            List<PrestoWarning> warnings = executionStatisticsWarner.get().collectStatsWarnings(queryInfo, session);
-            warnings.forEach(warningCollector::add);
+            List<PrestoWarning> warnings = executionStatisticsWarner.get()
+                    .collectExecutionStatisticsWarnings(queryInfo, session);
+            QueryPhaseWarningCollector queryFinishedWarningCollector =
+                    warningCollector.getQueryPhaseWarningCollector(QUERY_FINISHED_PHASE);
+            warnings.forEach(warning -> queryFinishedWarningCollector.add(warning));
         }
     }
 
@@ -1086,7 +1092,7 @@ public class QueryStateMachine
                 ImmutableList.of()); // Remove the operator summaries as OperatorInfo (especially ExchangeClientStatus) can hold onto a large amount of memory
     }
 
-    public void setExecutionStatisticWarner(ExecutionStatisticsWarner executionStatisticsWarner)
+    public void setExecutionStatisticsWarner(ExecutionStatisticsWarner executionStatisticsWarner)
     {
         this.executionStatisticsWarner.set(executionStatisticsWarner);
     }
