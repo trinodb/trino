@@ -1480,6 +1480,16 @@ class StatementAnalyzer
                     throw semanticException(NOT_SUPPORTED, node, "DISTINCT in window function parameters not yet supported: %s", windowFunction);
                 }
 
+                // TODO get function requirements from window function metadata when we have it
+                if (windowFunction.getName().toString().equalsIgnoreCase("lag") || windowFunction.getName().toString().equalsIgnoreCase("lead")) {
+                    if (!window.getOrderBy().isPresent()) {
+                        throw semanticException(MISSING_ORDER_BY, window, "%s function requires an ORDER BY window clause", windowFunction.getName());
+                    }
+                    if (window.getFrame().isPresent()) {
+                        throw semanticException(INVALID_WINDOW_FRAME, window.getFrame().get(), "Cannot specify window frame for %s function", windowFunction.getName());
+                    }
+                }
+
                 if (window.getFrame().isPresent()) {
                     analyzeWindowFrame(window.getFrame().get());
                 }
