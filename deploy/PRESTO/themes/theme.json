@@ -1,0 +1,218 @@
+{
+  "name": "default",
+  "description": "Default theme for Presto service",
+  "configuration": {
+    "layouts": [
+      {
+        "name": "default",
+        "tabs": [
+          {
+            "name": "settings",
+            "display-name": "Settings",
+            "layout": {
+              "tab-columns": "2",
+              "tab-rows": "3",
+              "sections": [
+                {
+                  "name": "section-node-config",
+                  "display-name": "Node Config",
+                  "row-index": "0",
+                  "column-index": "0",
+                  "row-span": "1",
+                  "column-span": "1",
+                  "subsections": [
+                    {
+                      "name": "subsection-node-config",
+                      "row-index": "0",
+                      "column-index": "0",
+                      "row-span": "1",
+                      "column-span": "1"
+                    }
+                  ]
+                },
+                {
+                  "name": "section-general-config",
+                  "display-name": "General Config",
+                  "row-index": "0",
+                  "column-index": "1",
+                  "row-span": "3",
+                  "column-span": "1",
+                  "subsections": [
+                    {
+                      "name": "subsection-general-config",
+                      "row-index": "0",
+                      "column-index": "0",
+                      "row-span": "3",
+                      "column-span": "1"
+                    }
+                  ]
+                },
+                {
+                  "name": "section-connector-config",
+                  "display-name": "Connectors",
+                  "row-index": "1",
+                  "column-index": "0",
+                  "row-span": "1",
+                  "column-span": "1",
+                  "subsections": [
+                    {
+                      "name": "subsection-connector-config",
+                      "row-index": "0",
+                      "column-index": "0",
+                      "row-span": "1",
+                      "column-span": "1"
+                    }
+                  ]
+                },
+                {
+                  "name": "section-jvm-config",
+                  "display-name": "JVM Config",
+                  "row-index": "2",
+                  "column-index": "0",
+                  "row-span": "1",
+                  "column-span": "1",
+                  "subsections": [
+                    {
+                      "name": "subsection-jvm-config",
+                      "row-index": "0",
+                      "column-index": "0",
+                      "row-span": "1",
+                      "column-span": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ],
+    "placement": {
+      "configuration-layout": "default",
+      "configs": [
+        {
+          "config": "node.properties/node.environment",
+          "subsection-name": "subsection-node-config"
+        },
+        {
+          "config": "node.properties/plugin.config-dir",
+          "subsection-name": "subsection-node-config"
+        },
+        {
+          "config": "node.properties/plugin.dir",
+          "subsection-name": "subsection-node-config"
+        },
+        {
+          "config": "connectors.properties/connectors.to.add",
+          "subsection-name": "subsection-connector-config"
+        },
+        {
+          "config": "connectors.properties/connectors.to.delete",
+          "subsection-name": "subsection-connector-config"
+        },
+        {
+          "config": "config.properties/node-scheduler.include-coordinator",
+          "subsection-name": "subsection-general-config"
+        },
+        {
+          "config": "config.properties/http-server.http.port",
+          "subsection-name": "subsection-general-config"
+        },
+        {
+          "config": "config.properties/query.max-memory",
+          "subsection-name": "subsection-general-config"
+        },
+        {
+          "config": "config.properties/query.max-memory-per-node",
+          "subsection-name": "subsection-general-config"
+        },
+        {
+          "config": "config.properties/discovery.uri",
+          "subsection-name": "subsection-general-config"
+        },
+        {
+          "config": "jvm.config/jvm.config",
+          "subsection-name": "subsection-jvm-config"
+        }
+      ]
+    },
+    "widgets": [
+      {
+        "config": "node.properties/node.environment",
+        "widget": {
+          "type": "text-area"
+        }
+      },
+      {
+        "config": "node.properties/plugin.config-dir",
+        "widget": {
+          "type": "directory"
+        }
+      },
+      {
+        "config": "node.properties/plugin.dir",
+        "widget": {
+          "type": "directory"
+        }
+      },
+      {
+        "config": "connectors.properties/connectors.to.add",
+        "widget": {
+          "type": "text-area"
+        }
+      },
+      {
+        "config": "connectors.properties/connectors.to.delete",
+        "widget": {
+          "type": "text-area"
+        }
+      },
+      {
+        "config": "config.properties/node-scheduler.include-coordinator",
+        "widget": {
+          "type": "toggle"
+        }
+      },
+      {
+        "config": "config.properties/http-server.http.port",
+        "widget": {
+          "type": "text-area"
+        }
+      },
+      {
+        "config": "config.properties/query.max-memory",
+        "widget": {
+          "type": "slider",
+          "units": [
+            {
+              "unit-name": "GB"
+            }
+          ]
+        }
+      },
+      {
+        "config": "config.properties/query.max-memory-per-node",
+        "widget": {
+          "type": "slider",
+          "units": [
+            {
+              "unit-name": "GB"
+            }
+          ]
+        }
+      },
+      {
+        "config": "config.properties/discovery.uri",
+        "widget": {
+          "type": "text-area"
+        }
+      },
+      {
+        "config": "jvm.config/jvm.config",
+        "widget": {
+          "type": "text-area"
+        }
+      }
+    ]
+  }
+}

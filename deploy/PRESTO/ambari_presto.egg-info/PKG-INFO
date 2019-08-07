@@ -1,0 +1,31 @@
+Metadata-Version: 1.1
+Name: ambari-presto
+Version: 1.2
+Summary: This project contains the integration code for integrating Presto as a service in Ambari.
+Home-page: https://github.com/TeradataCenterForHadoop/ambari-presto-service
+Author: Teradata Corporation
+Author-email: anton.petrov@teradata.com
+License: APLv2
+Description: # ambari-presto-service [![BuildStatus](https://travis-ci.org/prestodb/ambari-presto-service.svg?branch=master)](https://travis-ci.org/prestodb/ambari-presto-service)
+        
+        This project contains the code and configuration needed to integrate Presto with Ambari. The
+        full documentation can be found [here](https://prestodb.io/ambari-presto-service/).
+        
+        
+        
+        
+        Release History
+        ===============
+        
+        0.1.0 (TBD)
+        ---------------------
+        Initial release!
+Keywords: presto,ambari,hadoop
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: APLv2 License
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.6
+Classifier: Programming Language :: Python :: 2.7

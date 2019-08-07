@@ -1,0 +1,44 @@
+<?xml version="1.0"?>
+<!--
+# -*- coding: utf-8 -*-
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+-->
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<configuration>
+  <property>
+    <name>connectors.to.add</name>
+    <value>{}</value>
+    <description>
+        Modify this property to add connectors. The format should be {'connector1':
+        ['key1=value1', 'key2=value2'..], 'connector2' :['key1=value1',
+        'key2=value2'..]..}. Note the single quotes around each value! This example will
+        create files connector1.properties, connector2.properties for Presto with entries
+        key1=value1 etc. If you don't want to add any connectors then leave the value as {};
+        Ambari will not accept an empty value for this property. For deleting connectors, please
+        use the connectors.to.remove property.
+    </description>
+  </property>
+  <property>
+    <name>connectors.to.delete</name>
+    <value>[]</value>
+    <description>
+        Modify this property to delete connectors. The format should be
+        ['connector1', 'connector2', 'connector3', ...]. Note the single quotes around each value!
+        This example will delete the files connector1.properties, connector2.properties
+        and connector3.properties in the Presto connector directory. If you don't want to delete
+        any connectors then leave the value as []; Ambari will not accept an empty value for
+        this property.
+    </description>
+  </property>
+</configuration>

@@ -1,0 +1,116 @@
+<?xml version="1.0"?>
+<!--
+# -*- coding: utf-8 -*-
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+-->
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<configuration>
+  <property>
+    <name>node-scheduler.include-coordinator</name>
+    <value>false</value>
+    <description>
+      Allow scheduling work on the coordinator. For larger clusters, processing
+      work on the coordinator can impact query performance because the machine’s
+      resources are not available for the critical task of scheduling, managing
+      and monitoring query execution.
+    </description>
+    <value-attributes>
+      <type>value-list</type>
+      <entries>
+        <entry>
+          <value>true</value>
+          <label>Enabled</label>
+        </entry>
+        <entry>
+          <value>false</value>
+          <label>Disabled</label>
+        </entry>
+      </entries>
+      <selection-cardinality>1</selection-cardinality>
+    </value-attributes>
+  </property>
+
+  <property>
+    <name>http-server.http.port</name>
+    <value>8285</value>
+    <description>
+      Specifies the port for the HTTP server. Presto uses HTTP for all
+      communication, internal and external
+    </description>
+  </property>
+
+  <property>
+    <name>query.max-memory</name>
+    <value>50GB</value>
+    <description>
+      The maximum amount of distributed memory that a query may use.
+
+      If you'd like to enter a value higher than the maximum on the slider,
+      click on the pencil that appears when you hover over the setting and
+      ignore that higher values are not recommended.
+    </description>
+    <value-attributes>
+      <type>int</type>
+      <minimum>0</minimum>
+      <maximum>300</maximum>
+      <increment-step>2</increment-step>
+      <unit>GB</unit>
+    </value-attributes>
+  </property>
+
+  <property>
+    <name>query.max-memory-per-node</name>
+    <value>1GB</value>
+    <description>
+      The maximum amount of memory that a query may use on any one machine.
+
+      If you'd like to enter a value higher than the maximum on the slider,
+      click on the pencil that appears when you hover over the setting and
+      ignore that higher values are not recommended.
+    </description>
+    <value-attributes>
+      <type>int</type>
+      <minimum>0</minimum>
+      <maximum>100</maximum>
+      <increment-step>1</increment-step>
+      <unit>GB</unit>
+    </value-attributes>
+  </property>
+
+  <property require-input="true">
+    <name>discovery.uri</name>
+    <value></value>
+    <description>
+      The URI to the Discovery server. Because we have enabled the embedded
+      version of Discovery in the Presto coordinator, this should be the URI of
+      the Presto coordinator. For example: http://master.net:8285 but make sure
+      to replace master.net with the actual hostname of your coordinator node.
+      Ensure the port in the URI matches the port set in the http-server.http.port
+      property. This URI must not end in a slash.
+    </description>
+  </property>
+
+<!-- TODO, figure out how to make this optional
+  <property require-input="false">
+    <name>query.queue-config-file</name>
+    <value></value>
+    <description>
+        Specifies the file to read the queue configuration from. See
+        https://prestodb.io/docs/current/admin/queue.html for more info in the
+        file and the expected options.
+    </description>
+  </property>
+-->
+
+</configuration>
