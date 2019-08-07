@@ -38,6 +38,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/ranger-systemaccesscontrol">
+        <artifact id="${project.groupId}:presto-ranger-systemaccesscontrol:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/session-property-managers">
         <artifact id="${project.groupId}:presto-session-property-managers:zip:${project.version}">
             <unpack />
