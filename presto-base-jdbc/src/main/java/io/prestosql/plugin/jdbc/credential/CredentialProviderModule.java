@@ -44,14 +44,15 @@ public class CredentialProviderModule
                 INLINE,
                 internalBinder -> {
                     configBinder(internalBinder).bindConfig(CredentialConfig.class);
-                    internalBinder.bind(CredentialProvider.class).to(ConfigFileBasedCredentialProvider.class).in(SINGLETON);
+                    internalBinder.bind(CredentialProvider.class).annotatedWith(ForExtraCredentialProvider.class).to(ConfigFileBasedCredentialProvider.class).in(SINGLETON);
                 });
         bindCredentialProviderModule(
                 FILE,
                 internalBinder -> {
                     configBinder(binder).bindConfig(ConfigFileBasedCredentialProviderConfig.class);
-                    internalBinder.bind(CredentialProvider.class).toProvider(ConfigFileBasedCredentialProviderFactory.class).in(SINGLETON);
+                    internalBinder.bind(CredentialProvider.class).annotatedWith(ForExtraCredentialProvider.class).toProvider(ConfigFileBasedCredentialProviderFactory.class).in(SINGLETON);
                 });
+        binder.bind(CredentialProvider.class).to(ExtraCredentialProvider.class).in(SINGLETON);
     }
 
     private void bindCredentialProviderModule(CredentialProviderType name, Module module)
