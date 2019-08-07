@@ -26,12 +26,10 @@ import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.jdbc.credential.CredentialProvider;
 
 import java.sql.SQLException;
-import java.util.Optional;
 import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.prestosql.plugin.jdbc.DriverConnectionFactory.basicConnectionProperties;
 
 public class MySqlClientModule
         extends AbstractConfigurationAwareModule
@@ -62,7 +60,7 @@ public class MySqlClientModule
     public static ConnectionFactory createConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, MySqlConfig mySqlConfig)
             throws SQLException
     {
-        Properties connectionProperties = basicConnectionProperties(credentialProvider);
+        Properties connectionProperties = new Properties();
         connectionProperties.setProperty("useInformationSchema", "true");
         connectionProperties.setProperty("nullCatalogMeansCurrent", "false");
         connectionProperties.setProperty("useUnicode", "true");
@@ -79,8 +77,7 @@ public class MySqlClientModule
         return new DriverConnectionFactory(
                 new Driver(),
                 config.getConnectionUrl(),
-                Optional.ofNullable(config.getUserCredentialName()),
-                Optional.ofNullable(config.getPasswordCredentialName()),
-                connectionProperties);
+                connectionProperties,
+                credentialProvider);
     }
 }
