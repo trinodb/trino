@@ -152,6 +152,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/prometheus">
+        <artifact id="${project.groupId}:presto-prometheus:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/redshift">
         <artifact id="${project.groupId}:presto-redshift:zip:${project.version}">
             <unpack />
