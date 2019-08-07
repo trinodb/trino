@@ -134,6 +134,7 @@
         <module>presto-thrift</module>
         <module>presto-matching</module>
         <module>presto-memory-context</module>
+        <module>presto-prometheus</module>
         <module>presto-proxy</module>
         <module>presto-kudu</module>
         <module>presto-elasticsearch</module>
