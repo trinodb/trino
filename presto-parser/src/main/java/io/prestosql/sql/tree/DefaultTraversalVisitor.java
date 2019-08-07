@@ -13,6 +13,8 @@
  */
 package io.prestosql.sql.tree;
 
+import io.prestosql.sql.parser.hive.RLikePredicate;
+
 public abstract class DefaultTraversalVisitor<R, C>
         extends AstVisitor<R, C>
 {
@@ -327,6 +329,16 @@ public abstract class DefaultTraversalVisitor<R, C>
 
     @Override
     protected R visitLikePredicate(LikePredicate node, C context)
+    {
+        process(node.getValue(), context);
+        process(node.getPattern(), context);
+        node.getEscape().ifPresent(value -> process(value, context));
+
+        return null;
+    }
+
+    @Override
+    public R visitRLikePredicate(RLikePredicate node, C context)
     {
         process(node.getValue(), context);
         process(node.getPattern(), context);

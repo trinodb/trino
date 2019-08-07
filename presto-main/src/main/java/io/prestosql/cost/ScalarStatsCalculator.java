@@ -292,6 +292,14 @@ public class ScalarStatsCalculator
                     return left / right;
                 case MODULUS:
                     return left % right;
+                case PIPE:
+                    return (int)left | (int)right;
+                case AMPERSAND:
+                    return (int)left & (int)right;
+                case HAT:
+                    return (int)left ^ (int)right;
+                case DIV:
+                    return (int)left / (int)right;
                 default:
                     throw new IllegalStateException("Unsupported ArithmeticBinaryExpression.Operator: " + operator);
             }

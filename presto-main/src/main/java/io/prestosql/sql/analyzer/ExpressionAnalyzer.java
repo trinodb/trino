@@ -40,6 +40,7 @@ import io.prestosql.spi.type.TypeNotFoundException;
 import io.prestosql.spi.type.TypeSignatureParameter;
 import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.parser.SqlParser;
+import io.prestosql.sql.parser.hive.RLikePredicate;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.tree.ArithmeticBinaryExpression;
@@ -632,6 +633,25 @@ public class ExpressionAnalyzer
                 Expression escape = node.getEscape().get();
                 Type escapeType = getVarcharType(escape, context);
                 coerceType(context, escape, escapeType, "Escape for LIKE expression");
+            }
+
+            return setExpressionType(node, BOOLEAN);
+        }
+
+        @Override
+        public Type visitRLikePredicate(RLikePredicate node, StackableAstVisitorContext<Context> context)
+        {
+            Type valueType = process(node.getValue(), context);
+            if (!(valueType instanceof CharType) && !(valueType instanceof VarcharType)) {
+                coerceType(context, node.getValue(), VARCHAR, "Left side of RLIKE expression");
+            }
+
+            Type patternType = getVarcharType(node.getPattern(), context);
+            coerceType(context, node.getPattern(), patternType, "Pattern for RLIKE expression");
+            if (node.getEscape().isPresent()) {
+                Expression escape = node.getEscape().get();
+                Type escapeType = getVarcharType(escape, context);
+                coerceType(context, escape, escapeType, "Escape for RLIKE expression");
             }
 
             return setExpressionType(node, BOOLEAN);

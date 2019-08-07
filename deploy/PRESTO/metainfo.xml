@@ -1,0 +1,83 @@
+<?xml version="1.0"?>
+<!--
+# -*- coding: utf-8 -*-
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+-->
+<metainfo>
+  <schemaVersion>2.0</schemaVersion>
+  <services>
+    <service>
+      <name>PRESTO</name>
+      <displayName>Presto</displayName>
+      <comment>Presto is an open source distributed SQL query engine for running
+        interactive analytic queries against data sources of all sizes ranging
+        from gigabytes to petabytes.
+      </comment>
+      <version>0.161</version>
+      <components>
+        <component>
+          <name>PRESTO_COORDINATOR</name>
+          <displayName>Presto coordinator</displayName>
+          <category>MASTER</category>
+          <cardinality>1</cardinality>
+          <versionAdvertised>true</versionAdvertised>
+          <commandScript>
+            <script>scripts/presto_coordinator.py</script>
+            <scriptType>PYTHON</scriptType>
+            <timeout>1200</timeout>
+          </commandScript>
+        </component>
+
+        <component>
+          <name>PRESTO_WORKER</name>
+          <displayName>Presto worker</displayName>
+          <category>SLAVE</category>
+          <cardinality>0+</cardinality>
+          <versionAdvertised>true</versionAdvertised>
+          <commandScript>
+            <script>scripts/presto_worker.py</script>
+            <scriptType>PYTHON</scriptType>
+          </commandScript>
+        </component>
+
+        <component>
+          <name>PRESTO_CLI</name>
+          <displayName>Presto command line interface</displayName>
+          <category>CLIENT</category>
+          <cardinality>1+</cardinality>
+          <versionAdvertised>true</versionAdvertised>
+          <commandScript>
+            <script>scripts/presto_cli.py</script>
+            <scriptType>PYTHON</scriptType>
+          </commandScript>
+        </component>
+      </components>
+
+      <configuration-dependencies>
+        <config-type>node.properties</config-type>
+        <config-type>config.properties</config-type>
+        <config-type>jvm.config</config-type>
+        <config-type>connectors.properties</config-type>
+      </configuration-dependencies>
+
+      <themes>
+        <theme>
+          <fileName>theme.json</fileName>
+          <default>true</default>
+        </theme>
+      </themes>
+
+    </service>
+  </services>
+</metainfo>
