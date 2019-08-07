@@ -744,6 +744,15 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testWindowAttributesForLagLeadFunctions()
+    {
+        assertFails("SELECT lag(x, 2) OVER() FROM (VALUES 1, 2, 3, 4, 5) t(x) ")
+                .hasErrorCode(MISSING_ORDER_BY);
+        assertFails("SELECT lag(x, 2) OVER(ORDER BY x ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) FROM (VALUES 1, 2, 3, 4, 5) t(x) ")
+                .hasErrorCode(INVALID_WINDOW_FRAME);
+    }
+
+    @Test
     public void testWindowFunctionWithoutOverClause()
     {
         assertFails("SELECT row_number()")
