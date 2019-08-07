@@ -14,11 +14,20 @@
 
 package io.prestosql.sql.planner;
 
+import io.prestosql.metadata.TableHandle;
 import io.prestosql.sql.planner.plan.TableWriterNode;
+
+import java.util.Optional;
 
 public class TestingWriterTarget
         extends TableWriterNode.WriterTarget
 {
+    @Override
+    public Optional<TableHandle> getTableHandle()
+    {
+        return Optional.empty();
+    }
+
     @Override
     public String toString()
     {

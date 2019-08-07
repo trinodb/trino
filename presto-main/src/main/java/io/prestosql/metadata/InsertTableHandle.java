@@ -20,6 +20,7 @@ import io.prestosql.spi.connector.ConnectorInsertTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -28,6 +29,7 @@ public final class InsertTableHandle
     private final CatalogName catalogName;
     private final ConnectorTransactionHandle transactionHandle;
     private final ConnectorInsertTableHandle connectorHandle;
+    private final Optional<TableHandle> tableHandle;
 
     @JsonCreator
     public InsertTableHandle(
@@ -35,9 +37,20 @@ public final class InsertTableHandle
             @JsonProperty("transactionHandle") ConnectorTransactionHandle transactionHandle,
             @JsonProperty("connectorHandle") ConnectorInsertTableHandle connectorHandle)
     {
+        this(catalogName, transactionHandle, connectorHandle, Optional.empty());
+    }
+
+    // tableHandle is not serialized
+    public InsertTableHandle(
+            CatalogName catalogName,
+            ConnectorTransactionHandle transactionHandle,
+            ConnectorInsertTableHandle connectorHandle,
+            Optional<TableHandle> tableHandle)
+    {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
         this.connectorHandle = requireNonNull(connectorHandle, "connectorHandle is null");
+        this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
     }
 
     @JsonProperty
@@ -56,6 +69,11 @@ public final class InsertTableHandle
     public ConnectorInsertTableHandle getConnectorHandle()
     {
         return connectorHandle;
+    }
+
+    public Optional<TableHandle> getTableHandle()
+    {
+        return tableHandle;
     }
 
     @Override

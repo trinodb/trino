@@ -774,7 +774,7 @@ public final class MetadataManager
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
         ConnectorTransactionHandle transactionHandle = catalogMetadata.getTransactionHandleFor(catalogName);
         ConnectorInsertTableHandle handle = metadata.beginInsert(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle());
-        return new InsertTableHandle(tableHandle.getCatalogName(), transactionHandle, handle);
+        return new InsertTableHandle(tableHandle.getCatalogName(), transactionHandle, handle, Optional.of(tableHandle));
     }
 
     @Override

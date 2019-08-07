@@ -177,6 +177,8 @@ public class TableWriterNode
     @SuppressWarnings({"EmptyClass", "ClassMayBeInterface"})
     public abstract static class WriterTarget
     {
+        public abstract Optional<TableHandle> getTableHandle();
+
         @Override
         public abstract String toString();
     }
@@ -209,6 +211,12 @@ public class TableWriterNode
         public Optional<NewTableLayout> getLayout()
         {
             return layout;
+        }
+
+        @Override
+        public Optional<TableHandle> getTableHandle()
+        {
+            return Optional.empty();
         }
 
         @Override
@@ -246,6 +254,12 @@ public class TableWriterNode
         }
 
         @Override
+        public Optional<TableHandle> getTableHandle()
+        {
+            return Optional.empty();
+        }
+
+        @Override
         public String toString()
         {
             return handle.toString();
@@ -266,6 +280,12 @@ public class TableWriterNode
         public TableHandle getHandle()
         {
             return handle;
+        }
+
+        @Override
+        public Optional<TableHandle> getTableHandle()
+        {
+            return Optional.of(handle);
         }
 
         @Override
@@ -303,6 +323,12 @@ public class TableWriterNode
         }
 
         @Override
+        public Optional<TableHandle> getTableHandle()
+        {
+            return handle.getTableHandle();
+        }
+
+        @Override
         public String toString()
         {
             return handle.toString();
@@ -334,6 +360,12 @@ public class TableWriterNode
         public SchemaTableName getSchemaTableName()
         {
             return schemaTableName;
+        }
+
+        @Override
+        public Optional<TableHandle> getTableHandle()
+        {
+            return Optional.of(handle);
         }
 
         @Override

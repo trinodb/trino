@@ -37,7 +37,6 @@ import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.failuredetector.FailureDetector;
 import io.prestosql.memory.VersionedMemoryPoolId;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.TableHandle;
 import io.prestosql.operator.ForScheduler;
 import io.prestosql.security.AccessControl;
 import io.prestosql.server.BasicQueryInfo;
@@ -62,6 +61,7 @@ import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.PlanOptimizers;
 import io.prestosql.sql.planner.StageExecutionPlan;
 import io.prestosql.sql.planner.SubPlan;
+import io.prestosql.sql.planner.TableHandleExtractor;
 import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.optimizations.PlanOptimizer;
 import io.prestosql.sql.tree.Explain;
@@ -407,23 +407,7 @@ public class SqlQueryExecution
         SubPlan fragmentedPlan = planFragmenter.createSubPlans(stateMachine.getSession(), plan, false, stateMachine.getWarningCollector());
 
         boolean explainAnalyze = analysis.getStatement() instanceof Explain && ((Explain) analysis.getStatement()).isAnalyze();
-        return new PlanRoot(fragmentedPlan, !explainAnalyze, extractTableHandles(analysis));
-    }
-
-    private static Multimap<CatalogName, ConnectorTableHandle> extractTableHandles(Analysis analysis)
-    {
-        ImmutableMultimap.Builder<CatalogName, ConnectorTableHandle> tableHandles = ImmutableMultimap.builder();
-
-        for (TableHandle tableHandle : analysis.getTables()) {
-            tableHandles.put(tableHandle.getCatalogName(), tableHandle.getConnectorHandle());
-        }
-
-        if (analysis.getInsert().isPresent()) {
-            TableHandle target = analysis.getInsert().get().getTarget();
-            tableHandles.put(target.getCatalogName(), target.getConnectorHandle());
-        }
-
-        return tableHandles.build();
+        return new PlanRoot(fragmentedPlan, !explainAnalyze, new TableHandleExtractor().extractTableHandles(plan.getRoot()));
     }
 
     private void planDistribution(PlanRoot plan)
