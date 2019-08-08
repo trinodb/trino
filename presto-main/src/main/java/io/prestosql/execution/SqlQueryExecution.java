@@ -13,6 +13,7 @@
  */
 package io.prestosql.execution;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -42,8 +43,10 @@ import io.prestosql.operator.ForScheduler;
 import io.prestosql.security.AccessControl;
 import io.prestosql.server.BasicQueryInfo;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.PrestoWarning;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.ConnectorTableHandle;
+import io.prestosql.spi.connector.TableConnectorWarningContext;
 import io.prestosql.split.SplitManager;
 import io.prestosql.split.SplitSource;
 import io.prestosql.sql.analyzer.Analysis;
@@ -64,6 +67,7 @@ import io.prestosql.sql.planner.StageExecutionPlan;
 import io.prestosql.sql.planner.SubPlan;
 import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.optimizations.PlanOptimizer;
+import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.tree.Explain;
 import org.joda.time.DateTime;
 
@@ -86,6 +90,7 @@ import static io.prestosql.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID
 import static io.prestosql.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static io.prestosql.execution.scheduler.SqlQueryScheduler.createSqlQueryScheduler;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -326,7 +331,7 @@ public class SqlQueryExecution
                     // query already started or finished
                     return;
                 }
-
+                collectConnectorMetadataWarnings();
                 // if query is not finished, start the scheduler, otherwise cancel it
                 SqlQueryScheduler scheduler = queryScheduler.get();
 
@@ -359,6 +364,24 @@ public class SqlQueryExecution
     public void addFinalQueryInfoListener(StateChangeListener<QueryInfo> stateChangeListener)
     {
         stateMachine.addQueryInfoStateChangeListener(stateChangeListener);
+    }
+
+    private void collectConnectorMetadataWarnings()
+    {
+        WarningCollector warningCollector = stateMachine.getWarningCollector();
+        List<TableConnectorWarningContext> tableConnectorWarningContexts = searchFrom(queryPlan.get().getRoot())
+                .where(TableScanNode.class::isInstance)
+                .findAll()
+                .stream()
+                .map(TableScanNode.class::cast)
+                .map(tableScanNode -> new TableConnectorWarningContext(tableScanNode.getTable().getConnectorHandle(), tableScanNode.getTable().getCatalogName().getCatalogName()))
+                .collect(ImmutableList.toImmutableList());
+
+        for (TableConnectorWarningContext tableConnectorWarningContext : tableConnectorWarningContexts) {
+            String catalogName = tableConnectorWarningContext.getCatalogName();
+            List<PrestoWarning> connectorMetadataWarnings = metadata.getWarnings(getSession(), tableConnectorWarningContext);
+            connectorMetadataWarnings.forEach(connectorMetadataWarning -> warningCollector.addConnectorMetadataWarning(catalogName, connectorMetadataWarning));
+        }
     }
 
     private PlanRoot analyzeQuery()

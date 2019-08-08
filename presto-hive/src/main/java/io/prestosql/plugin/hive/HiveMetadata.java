@@ -254,6 +254,7 @@ public class HiveMetadata
     private final String prestoVersion;
     private final HiveStatisticsProvider hiveStatisticsProvider;
     private final AccessControlMetadata accessControlMetadata;
+    private final HiveWarningManager hiveWarningManager;
 
     public HiveMetadata(
             SemiTransactionalHiveMetastore metastore,
@@ -269,7 +270,9 @@ public class HiveMetadata
             TypeTranslator typeTranslator,
             String prestoVersion,
             HiveStatisticsProvider hiveStatisticsProvider,
-            AccessControlMetadata accessControlMetadata)
+            AccessControlMetadata accessControlMetadata,
+            HiveWarningManager hiveWarningManager)
+
     {
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
 
@@ -286,6 +289,7 @@ public class HiveMetadata
         this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
         this.hiveStatisticsProvider = requireNonNull(hiveStatisticsProvider, "hiveStatisticsProvider is null");
         this.accessControlMetadata = requireNonNull(accessControlMetadata, "accessControlMetadata is null");
+        this.hiveWarningManager = requireNonNull(hiveWarningManager, "hiveWarningManager is null");
     }
 
     public SemiTransactionalHiveMetastore getMetastore()

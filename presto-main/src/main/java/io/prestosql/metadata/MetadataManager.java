@@ -27,6 +27,7 @@ import io.prestosql.operator.aggregation.InternalAggregationFunction;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 import io.prestosql.operator.window.WindowFunctionSupplier;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.PrestoWarning;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.block.ArrayBlockEncoding;
 import io.prestosql.spi.block.BlockEncoding;
@@ -71,6 +72,7 @@ import io.prestosql.spi.connector.SampleType;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.connector.SystemTable;
+import io.prestosql.spi.connector.TableConnectorWarningContext;
 import io.prestosql.spi.expression.ConnectorExpression;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.predicate.TupleDomain;
@@ -224,6 +226,18 @@ public final class MetadataManager
     public Set<ConnectorCapabilities> getConnectorCapabilities(Session session, CatalogName catalogName)
     {
         return getCatalogMetadata(session, catalogName).getConnectorCapabilities();
+    }
+
+    @Override
+    public List<PrestoWarning> getWarnings(Session session, TableConnectorWarningContext tableConnectorWarningContext)
+    {
+        Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, tableConnectorWarningContext.getCatalogName());
+        if (catalogMetadata.isPresent()) {
+            ConnectorMetadata metadata = catalogMetadata.get().getMetadata();
+            CatalogName catalogName = catalogMetadata.get().getCatalogName();
+            return metadata.getWarnings(session.toConnectorSession(catalogName), tableConnectorWarningContext);
+        }
+        return ImmutableList.of();
     }
 
     @Override

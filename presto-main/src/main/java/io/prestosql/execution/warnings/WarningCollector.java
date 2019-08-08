@@ -31,9 +31,14 @@ public interface WarningCollector
                 {
                     return ImmutableList.of();
                 }
+
+                @Override
+                public void addConnectorMetadataWarning(String catalogName, PrestoWarning warning) {}
             };
 
     void add(PrestoWarning warning);
 
     List<PrestoWarning> getWarnings();
+
+    void addConnectorMetadataWarning(String catalogName, PrestoWarning warning);
 }

@@ -160,6 +160,8 @@ public class HiveConfig
     private Duration fileStatusCacheExpireAfterWrite = new Duration(1, TimeUnit.MINUTES);
     private long fileStatusCacheMaxSize = 1000 * 1000;
     private List<String> fileStatusCacheTables = ImmutableList.of();
+    private HiveStorageFormat preferredFileFormat = HiveStorageFormat.ORC;
+    private int tooManyPartitionsLimit = 300;
 
     public int getMaxInitialSplits()
     {
@@ -1263,5 +1265,29 @@ public class HiveConfig
     public String getTemporaryStagingDirectoryPath()
     {
         return temporaryStagingDirectoryPath;
+    }
+
+    public HiveStorageFormat getPreferredFileFormat()
+    {
+        return preferredFileFormat;
+    }
+
+    @Config("hive.preferred-file-format")
+    public HiveConfig setPreferredFileFormat(HiveStorageFormat preferredFileFormat)
+    {
+        this.preferredFileFormat = preferredFileFormat;
+        return this;
+    }
+
+    public int getTooManyPartitionsLimit()
+    {
+        return tooManyPartitionsLimit;
+    }
+
+    @Config("hive.too-many-partitions-limit")
+    public HiveConfig setTooManyPartitionsLimit(int tooManyPartitionsLimit)
+    {
+        this.tooManyPartitionsLimit = tooManyPartitionsLimit;
+        return this;
     }
 }

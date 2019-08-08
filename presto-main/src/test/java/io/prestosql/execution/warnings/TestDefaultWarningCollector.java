@@ -38,4 +38,15 @@ public class TestDefaultWarningCollector
         warningCollector.add(new PrestoWarning(new WarningCode(3, "3"), "warning 3"));
         assertEquals(warningCollector.getWarnings().size(), 2);
     }
+
+    @Test
+    public void testConnectorMetadataWarnings()
+    {
+        WarningCollector warningCollector = new DefaultWarningCollector(new WarningCollectorConfig().setMaxWarnings(2));
+        warningCollector.addConnectorMetadataWarning("hive", new PrestoWarning(new WarningCode(1, "1"), "warning 1"));
+        warningCollector.addConnectorMetadataWarning("hive", new PrestoWarning(new WarningCode(1, "1"), "warning 1"));
+        warningCollector.addConnectorMetadataWarning("hive", new PrestoWarning(new WarningCode(2, "2"), "warning 2"));
+        warningCollector.addConnectorMetadataWarning("tpch", new PrestoWarning(new WarningCode(1, "1"), "warning 1"));
+        assertEquals(warningCollector.getWarnings().size(), 3);
+    }
 }

@@ -53,6 +53,7 @@ public class HiveMetadataFactory
     private final TypeTranslator typeTranslator;
     private final String prestoVersion;
     private final AccessControlMetadataFactory accessControlMetadataFactory;
+    private final HiveWarningManager hiveWarningManager;
 
     @Inject
     @SuppressWarnings("deprecation")
@@ -67,7 +68,8 @@ public class HiveMetadataFactory
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             TypeTranslator typeTranslator,
             NodeVersion nodeVersion,
-            AccessControlMetadataFactory accessControlMetadataFactory)
+            AccessControlMetadataFactory accessControlMetadataFactory,
+            HiveWarningManager hiveWarningManager)
     {
         this(
                 metastore,
@@ -87,7 +89,8 @@ public class HiveMetadataFactory
                 executorService,
                 typeTranslator,
                 nodeVersion.toString(),
-                accessControlMetadataFactory);
+                accessControlMetadataFactory,
+                hiveWarningManager);
     }
 
     public HiveMetadataFactory(
@@ -108,7 +111,8 @@ public class HiveMetadataFactory
             ExecutorService executorService,
             TypeTranslator typeTranslator,
             String prestoVersion,
-            AccessControlMetadataFactory accessControlMetadataFactory)
+            AccessControlMetadataFactory accessControlMetadataFactory,
+            HiveWarningManager hiveWarningManager)
     {
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
         this.skipDeletionForAlter = skipDeletionForAlter;
@@ -127,6 +131,7 @@ public class HiveMetadataFactory
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
         this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
         this.accessControlMetadataFactory = requireNonNull(accessControlMetadataFactory, "accessControlMetadataFactory is null");
+        this.hiveWarningManager = requireNonNull(hiveWarningManager, "hiveWarningManager is null");
 
         if (!allowCorruptWritesForTesting && !timeZone.equals(DateTimeZone.getDefault())) {
             log.warn("Hive writes are disabled. " +
@@ -162,6 +167,7 @@ public class HiveMetadataFactory
                 typeTranslator,
                 prestoVersion,
                 new MetastoreHiveStatisticsProvider(metastore),
-                accessControlMetadataFactory.create(metastore));
+                accessControlMetadataFactory.create(metastore),
+                hiveWarningManager);
     }
 }

@@ -78,6 +78,8 @@ public final class HiveSessionProperties
     private static final String S3_SELECT_PUSHDOWN_ENABLED = "s3_select_pushdown_enabled";
     private static final String TEMPORARY_STAGING_DIRECTORY_ENABLED = "temporary_staging_directory_enabled";
     private static final String TEMPORARY_STAGING_DIRECTORY_PATH = "temporary_staging_directory_path";
+    private static final String PREFERRED_FILE_FORMAT = "preferred_file_format";
+    private static final String TOO_MANY_PARTITIONS_LIMIT = "too_many_partitions_limit";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -308,6 +310,16 @@ public final class HiveSessionProperties
                         TEMPORARY_STAGING_DIRECTORY_PATH,
                         "Temporary staging directory location",
                         hiveConfig.getTemporaryStagingDirectoryPath(),
+                        false),
+                stringProperty(
+                        PREFERRED_FILE_FORMAT,
+                        "Preferred hive file format to use. Will trigger a warning otherwise",
+                        hiveConfig.getPreferredFileFormat().toString(),
+                        false),
+                integerProperty(
+                        TOO_MANY_PARTITIONS_LIMIT,
+                        "Number of partitions that can be used before a warning is triggered",
+                        hiveConfig.getTooManyPartitionsLimit(),
                         false));
     }
 
@@ -515,5 +527,15 @@ public final class HiveSessionProperties
     public static String getTemporaryStagingDirectoryPath(ConnectorSession session)
     {
         return session.getProperty(TEMPORARY_STAGING_DIRECTORY_PATH, String.class);
+    }
+
+    public static String getPreferredFileFormatSuggestion(ConnectorSession session)
+    {
+        return session.getProperty(PREFERRED_FILE_FORMAT, String.class);
+    }
+
+    public static int getTooManyPartitionsLimit(ConnectorSession session)
+    {
+        return session.getProperty(TOO_MANY_PARTITIONS_LIMIT, Integer.class);
     }
 }

@@ -20,9 +20,11 @@ import io.prestosql.spi.WarningCode;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -32,6 +34,8 @@ public class DefaultWarningCollector
 {
     @GuardedBy("this")
     private final Map<WarningCode, PrestoWarning> warnings = new LinkedHashMap<>();
+    @GuardedBy("this")
+    private final Map<String, Set<PrestoWarning>> connectorMetadataWarnings = new LinkedHashMap<>();
     private final WarningCollectorConfig config;
 
     public DefaultWarningCollector(WarningCollectorConfig config)
@@ -51,6 +55,20 @@ public class DefaultWarningCollector
     @Override
     public synchronized List<PrestoWarning> getWarnings()
     {
-        return ImmutableList.copyOf(warnings.values());
+        ImmutableList.Builder<PrestoWarning> allWarnings = new ImmutableList.Builder();
+        allWarnings.addAll(warnings.values());
+        for (String connector : connectorMetadataWarnings.keySet()) {
+            allWarnings.addAll(connectorMetadataWarnings.get(connector));
+        }
+        return allWarnings.build();
+    }
+
+    @Override
+    public synchronized void addConnectorMetadataWarning(String catalogName, PrestoWarning warning)
+    {
+        if (connectorMetadataWarnings.get(catalogName) == null) {
+            connectorMetadataWarnings.put(catalogName, new HashSet<>());
+        }
+        connectorMetadataWarnings.get(catalogName).add(warning);
     }
 }

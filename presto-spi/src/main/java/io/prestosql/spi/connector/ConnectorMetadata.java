@@ -15,6 +15,7 @@ package io.prestosql.spi.connector;
 
 import io.airlift.slice.Slice;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.PrestoWarning;
 import io.prestosql.spi.expression.ConnectorExpression;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.GrantInfo;
@@ -791,5 +792,10 @@ public interface ConnectorMetadata
     default Optional<ConnectorTableHandle> applySample(ConnectorSession session, ConnectorTableHandle handle, SampleType sampleType, double sampleRatio)
     {
         return Optional.empty();
+    }
+
+    default List<PrestoWarning> getWarnings(ConnectorSession session, TableConnectorWarningContext tableConnectorWarningContext)
+    {
+        return emptyList();
     }
 }

@@ -108,6 +108,8 @@ public class HiveModule
         fileWriterFactoryBinder.addBinding().to(RcFileFileWriterFactory.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(ParquetFileWriterConfig.class);
+
+        binder.bind(HiveWarningManager.class).in(Scopes.SINGLETON);
     }
 
     @ForHive

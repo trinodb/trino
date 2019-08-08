@@ -14,6 +14,7 @@
 package io.prestosql.spi.connector.classloader;
 
 import io.airlift.slice.Slice;
+import io.prestosql.spi.PrestoWarning;
 import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -40,6 +41,7 @@ import io.prestosql.spi.connector.SampleType;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.connector.SystemTable;
+import io.prestosql.spi.connector.TableConnectorWarningContext;
 import io.prestosql.spi.expression.ConnectorExpression;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.GrantInfo;
@@ -640,6 +642,14 @@ public class ClassLoaderSafeConnectorMetadata
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.applySample(session, table, sampleType, sampleRatio);
+        }
+    }
+
+    @Override
+    public List<PrestoWarning> getWarnings(ConnectorSession session, TableConnectorWarningContext tableConnectorWarningContext)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getWarnings(session, tableConnectorWarningContext);
         }
     }
 }

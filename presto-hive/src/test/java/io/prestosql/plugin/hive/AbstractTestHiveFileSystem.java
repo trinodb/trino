@@ -120,6 +120,7 @@ public abstract class AbstractTestHiveFileSystem
     protected ConnectorSplitManager splitManager;
     protected ConnectorPageSinkProvider pageSinkProvider;
     protected ConnectorPageSourceProvider pageSourceProvider;
+    protected HiveWarningManager hiveWarningManager;
 
     private ExecutorService executor;
     private HiveConfig config;
@@ -170,6 +171,7 @@ public abstract class AbstractTestHiveFileSystem
                 hdfsEnvironment);
         locationService = new HiveLocationService(hdfsEnvironment);
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
+        hiveWarningManager = new HiveWarningManager();
         metadataFactory = new HiveMetadataFactory(
                 config,
                 metastoreClient,
@@ -181,7 +183,9 @@ public abstract class AbstractTestHiveFileSystem
                 partitionUpdateCodec,
                 new HiveTypeTranslator(),
                 new NodeVersion("test_version"),
-                SqlStandardAccessControlMetadata::new);
+                SqlStandardAccessControlMetadata::new,
+                hiveWarningManager);
+
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(
                 transactionHandle -> ((HiveMetadata) transactionManager.get(transactionHandle)).getMetastore(),
