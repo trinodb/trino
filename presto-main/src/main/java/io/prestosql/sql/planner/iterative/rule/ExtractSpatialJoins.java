@@ -366,7 +366,17 @@ public class ExtractSpatialJoins
     {
         // TODO Add support for distributed left spatial joins
         Optional<String> spatialPartitioningTableName = joinNode.getType() == INNER ? getSpatialPartitioningTableName(context.getSession()) : Optional.empty();
-        Optional<KdbTree> kdbTree = spatialPartitioningTableName.map(tableName -> loadKdbTree(tableName, context.getSession(), metadata, splitManager, pageSourceManager));
+        Optional<TableHandle> tableHandle = spatialPartitioningTableName.map(tableName -> {
+            Session session = context.getSession();
+            QualifiedObjectName name = toQualifiedObjectName(tableName, session.getCatalog().get(), session.getSchema().get());
+            return metadata.getTableHandle(session, name)
+                    .orElseThrow(() -> new PrestoException(INVALID_SPATIAL_PARTITIONING, format("Table not found: %s", name)));
+        });
+        if (tableHandle.isPresent() && tableHandle.get().isTransactionalTable()) {
+            return Result.empty();
+        }
+
+        Optional<KdbTree> kdbTree = tableHandle.map(handle -> loadKdbTree(spatialPartitioningTableName.get(), handle, context.getSession(), metadata, splitManager, pageSourceManager));
 
         List<Expression> arguments = spatialFunction.getArguments();
         verify(arguments.size() == 2);
@@ -448,11 +458,9 @@ public class ExtractSpatialJoins
                 kdbTree.map(KdbTreeUtils::toJson)));
     }
 
-    private static KdbTree loadKdbTree(String tableName, Session session, Metadata metadata, SplitManager splitManager, PageSourceManager pageSourceManager)
+    private static KdbTree loadKdbTree(String tableName, TableHandle tableHandle, Session session, Metadata metadata, SplitManager splitManager, PageSourceManager pageSourceManager)
     {
         QualifiedObjectName name = toQualifiedObjectName(tableName, session.getCatalog().get(), session.getSchema().get());
-        TableHandle tableHandle = metadata.getTableHandle(session, name)
-                .orElseThrow(() -> new PrestoException(INVALID_SPATIAL_PARTITIONING, format("Table not found: %s", name)));
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
         List<ColumnHandle> visibleColumnHandles = columnHandles.values().stream()
                 .filter(handle -> !metadata.getColumnMetadata(session, tableHandle, handle).isHidden())
