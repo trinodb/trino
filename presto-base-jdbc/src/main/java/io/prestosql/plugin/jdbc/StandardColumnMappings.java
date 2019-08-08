@@ -311,18 +311,19 @@ public final class StandardColumnMappings
 
     public static ColumnMapping timestampColumnMapping(ConnectorSession session)
     {
-        if (session.isLegacyTimestamp()) {
-            ZoneId sessionZone = ZoneId.of(session.getTimeZoneKey().getId());
-            return ColumnMapping.longMapping(
-                    TIMESTAMP,
-                    (resultSet, columnIndex) -> toPrestoLegacyTimestamp(resultSet.getObject(columnIndex, LocalDateTime.class), sessionZone),
-                    timestampWriteFunction(session));
-        }
-
         return ColumnMapping.longMapping(
                 TIMESTAMP,
-                (resultSet, columnIndex) -> toPrestoTimestamp(resultSet.getObject(columnIndex, LocalDateTime.class)),
+                timestampReadFunction(session),
                 timestampWriteFunction(session));
+    }
+
+    public static LongReadFunction timestampReadFunction(ConnectorSession session)
+    {
+        if (session.isLegacyTimestamp()) {
+            ZoneId sessionZone = ZoneId.of(session.getTimeZoneKey().getId());
+            return (resultSet, columnIndex) -> toPrestoLegacyTimestamp(resultSet.getObject(columnIndex, LocalDateTime.class), sessionZone);
+        }
+        return (resultSet, columnIndex) -> toPrestoTimestamp(resultSet.getObject(columnIndex, LocalDateTime.class));
     }
 
     /**
