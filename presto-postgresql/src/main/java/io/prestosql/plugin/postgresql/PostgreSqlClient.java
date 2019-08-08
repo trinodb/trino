@@ -72,6 +72,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -87,8 +89,9 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedLongArray;
 import static io.prestosql.plugin.jdbc.ColumnMapping.DISABLE_PUSHDOWN;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
-import static io.prestosql.plugin.jdbc.StandardColumnMappings.timestampColumnMapping;
-import static io.prestosql.plugin.jdbc.StandardColumnMappings.timestampWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.fromPrestoLegacyTimestamp;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.fromPrestoTimestamp;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.timestampReadFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
 import static io.prestosql.plugin.postgresql.TypeUtils.getArrayElementPgTypeName;
@@ -285,7 +288,10 @@ public class PostgreSqlClient
             return Optional.of(typedVarcharColumnMapping(jdbcTypeName));
         }
         if (typeHandle.getJdbcType() == Types.TIMESTAMP) {
-            return Optional.of(timestampColumnMapping(session));
+            return Optional.of(ColumnMapping.longMapping(
+                    TIMESTAMP,
+                    timestampReadFunction(session),
+                    timestampWriteFunction(session)));
         }
         if (typeHandle.getJdbcType() == Types.ARRAY && supportArrays) {
             if (!typeHandle.getArrayDimensions().isPresent()) {
@@ -355,6 +361,24 @@ public class PostgreSqlClient
     public boolean isLimitGuaranteed()
     {
         return true;
+    }
+
+    // When writing with setObject() using LocalDateTime, driver converts the value to string representing date-time in JVM zone,
+    // therefore cannot represent local date-time which is a "gap" in this zone.
+    // TODO replace this method with StandardColumnMappings#timestampWriteFunction when https://github.com/pgjdbc/pgjdbc/issues/1390 is done
+    private static LongWriteFunction timestampWriteFunction(ConnectorSession session)
+    {
+        ZoneId sessionZone = ZoneId.of(session.getTimeZoneKey().getId());
+        boolean legacyTimestamp = session.isLegacyTimestamp();
+        return (statement, index, value) -> {
+            LocalDateTime localDateTime = legacyTimestamp
+                    ? fromPrestoLegacyTimestamp(value, sessionZone)
+                    : fromPrestoTimestamp(value);
+            PGobject pgObject = new PGobject();
+            pgObject.setType("timestamp");
+            pgObject.setValue(localDateTime.toString());
+            statement.setObject(index, pgObject);
+        };
     }
 
     private static ColumnMapping timestampWithTimeZoneColumnMapping()
