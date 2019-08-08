@@ -404,6 +404,21 @@ public class OrcRecordReader
         return currentBatchSize;
     }
 
+    public Block readBlock(int columnIndex, int[] positions, int offset, int length)
+            throws IOException
+    {
+        Block block = streamReaders[columnIndex].readBlock(positions, offset, length);
+        if (block.getPositionCount() > 0) {
+            long bytesPerCell = block.getSizeInBytes() / block.getPositionCount();
+            if (maxBytesPerCell[columnIndex] < bytesPerCell) {
+                maxCombinedBytesPerRow = maxCombinedBytesPerRow - maxBytesPerCell[columnIndex] + bytesPerCell;
+                maxBytesPerCell[columnIndex] = bytesPerCell;
+                maxBatchSize = toIntExact(min(maxBatchSize, max(1, maxBlockBytes / maxCombinedBytesPerRow)));
+            }
+        }
+        return block;
+    }
+
     public Block readBlock(int columnIndex)
             throws IOException
     {
