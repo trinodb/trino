@@ -127,10 +127,10 @@ credentials for the internal communication, in addition to the SSL/TLS propertie
 
     The service name and keytab file used for internal Kerberos authentication is
     taken from server Kerberos authentication properties, documented in :doc:`Kerberos</security/server>`,
-    ``http.server.authentication.krb5.service-name`` and ``http.server.authentication.krb5.keytab``
+    ``http-server.authentication.krb5.service-name`` and ``http-server.authentication.krb5.keytab``
     respectively. Make sure you have the Kerberos setup done on the worker nodes as well.
     The Kerberos principal for internal communication is built from
-    ``http.server.authentication.krb5.service-name`` after appending it with the hostname of
+    ``http-server.authentication.krb5.service-name`` after appending it with the hostname of
     the node where Presto is running on and default realm from Kerberos configuration.
 
 Performance with SSL/TLS enabled
