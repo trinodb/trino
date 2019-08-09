@@ -26,7 +26,6 @@ import static java.lang.Math.toIntExact;
 @WindowFunctionSignature(name = "lead", typeVariable = "T", returnType = "T", argumentTypes = "T")
 @WindowFunctionSignature(name = "lead", typeVariable = "T", returnType = "T", argumentTypes = {"T", "bigint"})
 @WindowFunctionSignature(name = "lead", typeVariable = "T", returnType = "T", argumentTypes = {"T", "bigint", "T"})
-@WindowFunctionSignature(name = "lead", typeVariable = "T", returnType = "T", argumentTypes = {"bigint", "T", "boolean"})
 public class LeadFunction
         extends ValueWindowFunction
 {
@@ -53,20 +52,23 @@ public class LeadFunction
             long offset = (offsetChannel < 0) ? 1 : windowIndex.getLong(offsetChannel, currentPosition);
             checkCondition(offset >= 0, INVALID_FUNCTION_ARGUMENT, "Offset must be at least 0");
 
-            long valuePosition = currentPosition + offset;
-            boolean withinParition = (valuePosition >= 0) && (valuePosition < windowIndex.size());
+            long valuePosition;
 
             if (ignoreNulls) {
-                while (withinParition) {
-                    if (!windowIndex.isNull(valueChannel, toIntExact(valuePosition))) {
+                long count = 0;
+                valuePosition = currentPosition + 1;
+                while (withinPartition(valuePosition)) {
+                    if (!windowIndex.isNull(valueChannel, toIntExact(valuePosition)) && ++count == offset) {
                         break;
                     }
                     valuePosition++;
-                    withinParition = (valuePosition >= 0) && (valuePosition < windowIndex.size());
                 }
             }
+            else {
+                valuePosition = currentPosition + offset;
+            }
 
-            if (withinParition) {
+            if (withinPartition(valuePosition)) {
                 windowIndex.appendTo(valueChannel, toIntExact(valuePosition), output);
             }
             else if (defaultChannel >= 0) {
@@ -76,5 +78,10 @@ public class LeadFunction
                 output.appendNull();
             }
         }
+    }
+
+    private boolean withinPartition(long valuePosition)
+    {
+        return valuePosition >= 0 && valuePosition < windowIndex.size();
     }
 }

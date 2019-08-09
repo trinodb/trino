@@ -373,7 +373,7 @@ public final class ExpressionFormatter
 
             builder.append(')');
 
-            if (node.ignoreNulls()) {
+            if (node.isIgnoreNulls()) {
                 builder.append(" IGNORE NULLS");
             }
 

@@ -192,16 +192,13 @@ public class UnaliasSymbolReferences
             PlanNode source = context.rewrite(node.getSource());
 
             ImmutableMap.Builder<Symbol, WindowNode.Function> functions = ImmutableMap.builder();
-            for (Map.Entry<Symbol, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
-                Symbol symbol = entry.getKey();
-
-                WindowNode.Function function = entry.getValue();
+            node.getWindowFunctions().forEach((symbol, function) -> {
                 Signature signature = function.getSignature();
                 List<Expression> arguments = canonicalize(function.getArguments());
                 WindowNode.Frame canonicalFrame = canonicalize(function.getFrame());
 
-                functions.put(canonicalize(symbol), new WindowNode.Function(signature, arguments, canonicalFrame, function.ignoreNulls()));
-            }
+                functions.put(canonicalize(symbol), new WindowNode.Function(signature, arguments, canonicalFrame, function.isIgnoreNulls()));
+            });
 
             return new WindowNode(
                     node.getId(),

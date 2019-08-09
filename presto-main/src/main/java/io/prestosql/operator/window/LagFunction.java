@@ -26,7 +26,6 @@ import static java.lang.Math.toIntExact;
 @WindowFunctionSignature(name = "lag", typeVariable = "T", returnType = "T", argumentTypes = "T")
 @WindowFunctionSignature(name = "lag", typeVariable = "T", returnType = "T", argumentTypes = {"T", "bigint"})
 @WindowFunctionSignature(name = "lag", typeVariable = "T", returnType = "T", argumentTypes = {"T", "bigint", "T"})
-@WindowFunctionSignature(name = "lag", typeVariable = "T", returnType = "T", argumentTypes = {"bigint", "T", "boolean"})
 public class LagFunction
         extends ValueWindowFunction
 {
@@ -53,20 +52,23 @@ public class LagFunction
             long offset = (offsetChannel < 0) ? 1 : windowIndex.getLong(offsetChannel, currentPosition);
             checkCondition(offset >= 0, INVALID_FUNCTION_ARGUMENT, "Offset must be at least 0");
 
-            long valuePosition = currentPosition - offset;
-            boolean withinPartition = (valuePosition >= 0) && (valuePosition <= currentPosition);
+            long valuePosition;
 
             if (ignoreNulls) {
-                while (withinPartition) {
-                    if (!windowIndex.isNull(valueChannel, toIntExact(valuePosition))) {
+                long count = 0;
+                valuePosition = currentPosition - 1;
+                while (withinPartition(valuePosition, currentPosition)) {
+                    if (!windowIndex.isNull(valueChannel, toIntExact(valuePosition)) && ++count == offset) {
                         break;
                     }
                     valuePosition--;
-                    withinPartition = (valuePosition >= 0) && (valuePosition <= currentPosition);
                 }
             }
+            else {
+                valuePosition = currentPosition - offset;
+            }
 
-            if (withinPartition) {
+            if (withinPartition(valuePosition, currentPosition)) {
                 windowIndex.appendTo(valueChannel, toIntExact(valuePosition), output);
             }
             else if (defaultChannel >= 0) {
@@ -76,5 +78,10 @@ public class LagFunction
                 output.appendNull();
             }
         }
+    }
+
+    private boolean withinPartition(long valuePosition, long currentPosition)
+    {
+        return valuePosition >= 0 && valuePosition <= currentPosition;
     }
 }

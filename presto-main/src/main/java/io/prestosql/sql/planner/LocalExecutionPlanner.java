@@ -910,7 +910,7 @@ public class LocalExecutionPlanner
                 Symbol symbol = entry.getKey();
                 WindowFunctionSupplier windowFunctionSupplier = metadata.getWindowFunctionImplementation(signature);
                 Type type = metadata.getType(signature.getReturnType());
-                windowFunctionsBuilder.add(window(windowFunctionSupplier, type, frameInfo, function.ignoreNulls(), arguments.build()));
+                windowFunctionsBuilder.add(window(windowFunctionSupplier, type, frameInfo, function.isIgnoreNulls(), arguments.build()));
                 windowFunctionOutputSymbolsBuilder.add(symbol);
             }
 

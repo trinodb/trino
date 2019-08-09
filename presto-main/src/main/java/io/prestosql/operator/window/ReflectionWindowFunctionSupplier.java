@@ -30,8 +30,8 @@ import static java.util.Objects.requireNonNull;
 public class ReflectionWindowFunctionSupplier<T extends WindowFunction>
         extends AbstractWindowFunctionSupplier
 {
-    private final Constructor<T> constructor;
-    private final boolean canIgnoreNulls;
+    private Constructor<T> constructor;
+    private boolean canIgnoreNulls;
 
     public ReflectionWindowFunctionSupplier(String name, Type returnType, List<? extends Type> argumentTypes, Class<T> type)
     {
@@ -41,15 +41,20 @@ public class ReflectionWindowFunctionSupplier<T extends WindowFunction>
     public ReflectionWindowFunctionSupplier(Signature signature, Class<T> type)
     {
         super(signature, getDescription(requireNonNull(type, "type is null")));
-        this.canIgnoreNulls = ValueWindowFunction.class.isAssignableFrom(type);
+        canIgnoreNulls = ValueWindowFunction.class.isAssignableFrom(type);
         try {
             if (signature.getArgumentTypes().isEmpty()) {
                 constructor = type.getConstructor();
             }
             else if (canIgnoreNulls) {
-                constructor = type.getConstructor(List.class, boolean.class);
+                try {
+                    constructor = type.getConstructor(List.class, boolean.class);
+                }
+                catch (NoSuchMethodException e) {
+                    // Ignore and fallback to default constructor.
+                }
             }
-            else {
+            if (constructor == null) {
                 constructor = type.getConstructor(List.class);
             }
         }

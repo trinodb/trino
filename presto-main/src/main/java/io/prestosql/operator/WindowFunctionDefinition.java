@@ -32,16 +32,6 @@ public class WindowFunctionDefinition
     private final List<Integer> argumentChannels;
     private final boolean ignoreNulls;
 
-    public static WindowFunctionDefinition window(WindowFunctionSupplier functionSupplier, Type type, FrameInfo frameInfo, List<Integer> inputs)
-    {
-        return new WindowFunctionDefinition(functionSupplier, type, frameInfo, false, inputs);
-    }
-
-    public static WindowFunctionDefinition window(WindowFunctionSupplier functionSupplier, Type type, FrameInfo frameInfo, Integer... inputs)
-    {
-        return window(functionSupplier, type, frameInfo, Arrays.asList(inputs));
-    }
-
     public static WindowFunctionDefinition window(WindowFunctionSupplier functionSupplier, Type type, FrameInfo frameInfo, boolean ignoreNulls, List<Integer> inputs)
     {
         return new WindowFunctionDefinition(functionSupplier, type, frameInfo, ignoreNulls, inputs);

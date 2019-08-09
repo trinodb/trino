@@ -103,7 +103,7 @@ class FunctionCallProvider
                     .collect(Collectors.toList())));
         }
 
-        return new FunctionCall(Optional.empty(), name, Optional.empty(), Optional.empty(), orderByClause, distinct, symbolReferences);
+        return new FunctionCall(Optional.empty(), name, Optional.empty(), Optional.empty(), orderByClause, distinct, false, symbolReferences);
     }
 
     private class ExpectedWindowFunctionCall

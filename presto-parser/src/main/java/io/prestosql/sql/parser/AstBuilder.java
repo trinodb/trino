@@ -1476,12 +1476,13 @@ class AstBuilder
 
         boolean distinct = isDistinct(context.setQuantifier());
 
-        boolean ignoreNulls = ignoreNulls(context.nullTreatment());
+        SqlBaseParser.NullTreatmentContext nullTreatment = context.nullTreatment();
 
         if (name.toString().equalsIgnoreCase("if")) {
             check(context.expression().size() == 2 || context.expression().size() == 3, "Invalid number of arguments for 'if' function", context);
             check(!window.isPresent(), "OVER clause not valid for 'if' function", context);
             check(!distinct, "DISTINCT not valid for 'if' function", context);
+            check(nullTreatment == null, "Null treatment clause not valid for 'if' function", context);
             check(!filter.isPresent(), "FILTER not valid for 'if' function", context);
 
             Expression elseExpression = null;
@@ -1500,6 +1501,7 @@ class AstBuilder
             check(context.expression().size() == 2, "Invalid number of arguments for 'nullif' function", context);
             check(!window.isPresent(), "OVER clause not valid for 'nullif' function", context);
             check(!distinct, "DISTINCT not valid for 'nullif' function", context);
+            check(nullTreatment == null, "Null treatment clause not valid for 'nullif' function", context);
             check(!filter.isPresent(), "FILTER not valid for 'nullif' function", context);
 
             return new NullIfExpression(
@@ -1512,6 +1514,7 @@ class AstBuilder
             check(context.expression().size() >= 2, "The 'coalesce' function must have at least two arguments", context);
             check(!window.isPresent(), "OVER clause not valid for 'coalesce' function", context);
             check(!distinct, "DISTINCT not valid for 'coalesce' function", context);
+            check(nullTreatment == null, "Null treatment clause not valid for 'coalesce' function", context);
             check(!filter.isPresent(), "FILTER not valid for 'coalesce' function", context);
 
             return new CoalesceExpression(getLocation(context), visit(context.expression(), Expression.class));
@@ -1521,6 +1524,7 @@ class AstBuilder
             check(context.expression().size() == 1, "The 'try' function must have exactly one argument", context);
             check(!window.isPresent(), "OVER clause not valid for 'try' function", context);
             check(!distinct, "DISTINCT not valid for 'try' function", context);
+            check(nullTreatment == null, "Null treatment clause not valid for 'try' function", context);
             check(!filter.isPresent(), "FILTER not valid for 'try' function", context);
 
             return new TryExpression(getLocation(context), (Expression) visit(getOnlyElement(context.expression())));
@@ -1530,6 +1534,7 @@ class AstBuilder
             check(context.expression().size() >= 2, "The 'format' function must have at least two arguments", context);
             check(!window.isPresent(), "OVER clause not valid for 'format' function", context);
             check(!distinct, "DISTINCT not valid for 'format' function", context);
+            check(nullTreatment == null, "Null treatment clause not valid for 'format' function", context);
             check(!filter.isPresent(), "FILTER not valid for 'format' function", context);
 
             return new Format(getLocation(context), visit(context.expression(), Expression.class));
@@ -1539,6 +1544,7 @@ class AstBuilder
             check(context.expression().size() >= 1, "The '$internal$bind' function must have at least one arguments", context);
             check(!window.isPresent(), "OVER clause not valid for '$internal$bind' function", context);
             check(!distinct, "DISTINCT not valid for '$internal$bind' function", context);
+            check(nullTreatment == null, "Null treatment clause not valid for '$internal$bind' function", context);
             check(!filter.isPresent(), "FILTER not valid for '$internal$bind' function", context);
 
             int numValues = context.expression().size() - 1;
@@ -1560,7 +1566,7 @@ class AstBuilder
                 filter,
                 orderBy,
                 distinct,
-                ignoreNulls,
+                nullTreatment != null && nullTreatment.IGNORE() != null,
                 visit(context.expression(), Expression.class));
     }
 
@@ -1990,11 +1996,6 @@ class AstBuilder
     private static boolean isDistinct(SqlBaseParser.SetQuantifierContext setQuantifier)
     {
         return setQuantifier != null && setQuantifier.DISTINCT() != null;
-    }
-
-    private static boolean ignoreNulls(SqlBaseParser.NullTreatmentContext nullTreatment)
-    {
-        return nullTreatment != null && nullTreatment.IGNORE() != null;
     }
 
     private static boolean isHexDigit(char c)
