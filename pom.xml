@@ -136,6 +136,7 @@
         <module>presto-kudu</module>
         <module>presto-elasticsearch</module>
         <module>presto-iceberg</module>
+        <module>presto-google-sheets</module>
     </modules>
 
     <dependencyManagement>
