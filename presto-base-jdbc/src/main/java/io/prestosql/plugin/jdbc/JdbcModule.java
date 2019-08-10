@@ -19,11 +19,15 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
+import io.airlift.log.Logger;
+import io.prestosql.plugin.base.util.LoggingInvocationHandler;
+import io.prestosql.plugin.base.util.LoggingInvocationHandler.ParameterNamesProvider;
 import io.prestosql.plugin.jdbc.jmx.StatisticsAwareConnectionFactory;
 import io.prestosql.plugin.jdbc.jmx.StatisticsAwareJdbcClient;
 import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.procedure.Procedure;
 
+import static com.google.common.reflect.Reflection.newProxy;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -62,7 +66,16 @@ public class JdbcModule
     @InternalBaseJdbc
     public static JdbcClient createJdbcClientWithStats(JdbcClient client)
     {
-        return new StatisticsAwareJdbcClient(client);
+        StatisticsAwareJdbcClient statisticsAwareJdbcClient = new StatisticsAwareJdbcClient(client);
+
+        Logger logger = Logger.get(JdbcClient.class);
+        if (!logger.isDebugEnabled()) {
+            return statisticsAwareJdbcClient;
+        }
+
+        ParameterNamesProvider parameterNamesProvider = new LoggingInvocationHandler.AirliftParameterNamesProvider(JdbcClient.class, StatisticsAwareJdbcClient.class);
+        LoggingInvocationHandler loggingInvocationHandler = new LoggingInvocationHandler(statisticsAwareJdbcClient, parameterNamesProvider, logger::debug);
+        return newProxy(JdbcClient.class, loggingInvocationHandler);
     }
 
     @Provides
