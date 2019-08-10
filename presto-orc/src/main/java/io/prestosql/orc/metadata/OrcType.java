@@ -38,6 +38,7 @@ import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.StandardTypes.ARRAY;
 import static io.prestosql.spi.type.StandardTypes.MAP;
 import static io.prestosql.spi.type.StandardTypes.ROW;
+import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
@@ -210,6 +211,9 @@ public class OrcType
         }
         if (DATE.equals(type)) {
             return ImmutableList.of(new OrcType(OrcTypeKind.DATE));
+        }
+        if (TIME.equals(type)) {
+            return ImmutableList.of(new OrcType(OrcTypeKind.INT));
         }
         if (TIMESTAMP.equals(type)) {
             return ImmutableList.of(new OrcType(OrcTypeKind.TIMESTAMP));
