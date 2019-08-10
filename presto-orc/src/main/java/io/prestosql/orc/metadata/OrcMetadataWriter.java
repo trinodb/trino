@@ -34,6 +34,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.TimeZone;
 
@@ -145,7 +146,8 @@ public class OrcMetadataWriter
         Builder builder = Type.newBuilder()
                 .setKind(toTypeKind(type.getOrcTypeKind()))
                 .addAllSubtypes(type.getFieldTypeIndexes())
-                .addAllFieldNames(type.getFieldNames());
+                .addAllFieldNames(type.getFieldNames())
+                .addAllAttributes(toStringPairList(type.getAttributes()));
 
         if (type.getLength().isPresent()) {
             builder.setMaximumLength(type.getLength().get());
@@ -200,6 +202,18 @@ public class OrcMetadataWriter
                 return OrcProto.Type.Kind.UNION;
         }
         throw new IllegalArgumentException("Unsupported type: " + orcTypeKind);
+    }
+
+    private static List<OrcProto.StringPair> toStringPairList(Map<String, String> attributes)
+    {
+        ImmutableList.Builder<OrcProto.StringPair> results = new ImmutableList.Builder<>();
+        for (Entry<String, String> attribute : attributes.entrySet()) {
+            OrcProto.StringPair.Builder builder = OrcProto.StringPair.newBuilder();
+            builder.setKey(attribute.getKey());
+            builder.setValue(attribute.getValue());
+            results.add(builder.build());
+        }
+        return results.build();
     }
 
     private static OrcProto.ColumnStatistics toColumnStatistics(ColumnStatistics columnStatistics)
