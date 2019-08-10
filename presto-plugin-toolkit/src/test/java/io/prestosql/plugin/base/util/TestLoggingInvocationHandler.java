@@ -11,11 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive.util;
+package io.prestosql.plugin.base.util;
 
-import io.prestosql.plugin.hive.util.LoggingInvocationHandler.AirliftParameterNamesProvider;
-import io.prestosql.plugin.hive.util.LoggingInvocationHandler.ReflectiveParameterNamesProvider;
-import org.apache.hadoop.hive.metastore.api.ThriftHiveMetastore;
+import io.prestosql.plugin.base.util.LoggingInvocationHandler.ReflectiveParameterNamesProvider;
 import org.testng.annotations.Test;
 
 import java.lang.reflect.InvocationHandler;
@@ -23,7 +21,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.google.common.reflect.Reflection.newProxy;
-import static java.lang.reflect.Proxy.newProxyInstance;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -61,31 +58,6 @@ public class TestLoggingInvocationHandler
                     assertThat(list.get(1)).matches("\\QInvocation of run(ok=false, s='bad') took\\E " + DURATION_PATTERN +
                             " \\Qand failed with java.lang.ArrayStoreException: bad\\E");
                 });
-    }
-
-    @Test
-    public void testWithThriftHiveMetastoreClient()
-            throws Exception
-    {
-        List<String> messages = new ArrayList<>();
-        // LoggingInvocationHandler is used e.g. with ThriftHiveMetastore.Iface. Since the logging is reflection-based,
-        // we test it with this interface as well.
-        ThriftHiveMetastore.Iface proxy = newProxy(ThriftHiveMetastore.Iface.class, new LoggingInvocationHandler(
-                dummyThriftHiveMetastoreClient(),
-                new AirliftParameterNamesProvider(ThriftHiveMetastore.Iface.class, ThriftHiveMetastore.Client.class),
-                messages::add));
-        proxy.get_table("some_database", "some_table_name");
-        assertThat(messages)
-                .hasSize(1)
-                .element(0).matches(message -> message.matches("\\QInvocation of get_table(dbname='some_database', tbl_name='some_table_name') succeeded in\\E " + DURATION_PATTERN));
-    }
-
-    private static ThriftHiveMetastore.Iface dummyThriftHiveMetastoreClient()
-    {
-        return (ThriftHiveMetastore.Iface) newProxyInstance(
-                TestLoggingInvocationHandler.class.getClassLoader(),
-                new Class<?>[] {ThriftHiveMetastore.Iface.class},
-                (proxy, method, args) -> null);
     }
 
     private interface SomeInterface
