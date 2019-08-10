@@ -15,9 +15,9 @@ package io.prestosql.plugin.hive.metastore.thrift;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
-import io.prestosql.plugin.hive.util.LoggingInvocationHandler;
-import io.prestosql.plugin.hive.util.LoggingInvocationHandler.AirliftParameterNamesProvider;
-import io.prestosql.plugin.hive.util.LoggingInvocationHandler.ParameterNamesProvider;
+import io.prestosql.plugin.base.util.LoggingInvocationHandler;
+import io.prestosql.plugin.base.util.LoggingInvocationHandler.AirliftParameterNamesProvider;
+import io.prestosql.plugin.base.util.LoggingInvocationHandler.ParameterNamesProvider;
 import org.apache.hadoop.hive.metastore.api.ColumnStatistics;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsDesc;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
