@@ -21,6 +21,7 @@ import io.prestosql.orc.OrcWriter;
 import io.prestosql.orc.OrcWriterOptions;
 import io.prestosql.orc.OrcWriterStats;
 import io.prestosql.orc.metadata.CompressionKind;
+import io.prestosql.orc.metadata.OrcType;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
@@ -65,6 +66,7 @@ public class OrcFileWriter
             Callable<Void> rollbackAction,
             List<String> columnNames,
             List<Type> fileColumnTypes,
+            List<OrcType> flattenedOrcTypes,
             CompressionKind compression,
             OrcWriterOptions options,
             boolean writeLegacyVersion,
@@ -81,6 +83,7 @@ public class OrcFileWriter
                 orcDataSink,
                 columnNames,
                 fileColumnTypes,
+                flattenedOrcTypes,
                 compression,
                 options,
                 writeLegacyVersion,

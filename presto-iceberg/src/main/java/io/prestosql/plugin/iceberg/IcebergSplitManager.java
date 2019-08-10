@@ -24,11 +24,13 @@ import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.classloader.ClassLoaderSafeConnectorSplitSource;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
 
 import javax.inject.Inject;
 
+import static io.prestosql.plugin.iceberg.IcebergUtil.getFileFormat;
 import static io.prestosql.plugin.iceberg.IcebergUtil.getIcebergTable;
 import static io.prestosql.plugin.iceberg.IcebergUtil.getTableScan;
 import static java.util.Objects.requireNonNull;
@@ -57,9 +59,11 @@ public class IcebergSplitManager
 
         TableScan tableScan = getTableScan(session, table.getPredicate(), table.getSnapshotId(), icebergTable);
 
+        FileFormat fileFormat = getFileFormat(icebergTable);
+
         // TODO Use residual. Right now there is no way to propagate residual to presto but at least we can
         //      propagate it at split level so the parquet pushdown can leverage it.
-        IcebergSplitSource splitSource = new IcebergSplitSource(tableScan.planTasks(), table.getPredicate(), icebergTable.schema());
+        IcebergSplitSource splitSource = new IcebergSplitSource(tableScan.planTasks(), table.getPredicate(), icebergTable.schema(), fileFormat);
 
         return new ClassLoaderSafeConnectorSplitSource(splitSource, Thread.currentThread().getContextClassLoader());
     }

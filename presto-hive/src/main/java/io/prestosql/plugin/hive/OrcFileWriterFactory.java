@@ -21,6 +21,7 @@ import io.prestosql.orc.OrcWriterOptions;
 import io.prestosql.orc.OrcWriterStats;
 import io.prestosql.orc.OutputStreamOrcDataSink;
 import io.prestosql.orc.metadata.CompressionKind;
+import io.prestosql.orc.metadata.OrcType;
 import io.prestosql.plugin.hive.metastore.StorageFormat;
 import io.prestosql.plugin.hive.orc.HdfsOrcDataSource;
 import io.prestosql.spi.PrestoException;
@@ -140,6 +141,7 @@ public class OrcFileWriterFactory
         List<Type> fileColumnTypes = getColumnTypes(schema).stream()
                 .map(hiveType -> hiveType.getType(typeManager))
                 .collect(toList());
+        List<OrcType> flattenedOrcTypes = OrcType.createOrcRowType(0, fileColumnNames, fileColumnTypes);
 
         int[] fileInputColumnIndexes = fileColumnNames.stream()
                 .mapToInt(inputColumnNames::indexOf)
@@ -179,6 +181,7 @@ public class OrcFileWriterFactory
                     rollbackAction,
                     fileColumnNames,
                     fileColumnTypes,
+                    flattenedOrcTypes,
                     compression,
                     orcWriterOptions
                             .withStripeMinSize(getOrcOptimizedWriterMinStripeSize(session))

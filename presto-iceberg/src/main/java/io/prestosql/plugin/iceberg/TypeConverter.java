@@ -15,6 +15,7 @@ package io.prestosql.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.orc.metadata.OrcType;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.BigintType;
@@ -44,6 +45,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.plugin.iceberg.IcebergUtil.ICEBERG_FIELD_ID_KEY;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 
@@ -159,5 +161,114 @@ public final class TypeConverter
     private static org.apache.iceberg.types.Type fromMap(MapType type)
     {
         return Types.MapType.ofOptional(1, 2, toIcebergType(type.getKeyType()), toIcebergType(type.getValueType()));
+    }
+
+    private static List<OrcType> toOrcType(int nextFieldTypeIndex, org.apache.iceberg.types.Type type, int fieldId)
+    {
+        switch (type.typeId()) {
+            case BOOLEAN:
+                return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.BOOLEAN, ImmutableList.of(), ImmutableList.of(), ImmutableMap.of(ICEBERG_FIELD_ID_KEY, Integer.toString(fieldId)), Optional.empty(), Optional.empty(), Optional.empty()));
+            case INTEGER:
+                return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.INT, ImmutableList.of(), ImmutableList.of(), ImmutableMap.of(ICEBERG_FIELD_ID_KEY, Integer.toString(fieldId)), Optional.empty(), Optional.empty(), Optional.empty()));
+            case LONG:
+                return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.LONG, ImmutableList.of(), ImmutableList.of(), ImmutableMap.of(ICEBERG_FIELD_ID_KEY, Integer.toString(fieldId)), Optional.empty(), Optional.empty(), Optional.empty()));
+            case FLOAT:
+                return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.FLOAT, ImmutableList.of(), ImmutableList.of(), ImmutableMap.of(ICEBERG_FIELD_ID_KEY, Integer.toString(fieldId)), Optional.empty(), Optional.empty(), Optional.empty()));
+            case DOUBLE:
+                return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.DOUBLE, ImmutableList.of(), ImmutableList.of(), ImmutableMap.of(ICEBERG_FIELD_ID_KEY, Integer.toString(fieldId)), Optional.empty(), Optional.empty(), Optional.empty()));
+            case DATE:
+                return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.DATE, ImmutableList.of(), ImmutableList.of(), ImmutableMap.of(ICEBERG_FIELD_ID_KEY, Integer.toString(fieldId)), Optional.empty(), Optional.empty(), Optional.empty()));
+            case TIME:
+                return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.INT, ImmutableList.of(), ImmutableList.of(), ImmutableMap.of(ICEBERG_FIELD_ID_KEY, Integer.toString(fieldId)), Optional.empty(), Optional.empty(), Optional.empty()));
+            case TIMESTAMP:
+                return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.TIMESTAMP, ImmutableList.of(), ImmutableList.of(), ImmutableMap.of(ICEBERG_FIELD_ID_KEY, Integer.toString(fieldId)), Optional.empty(), Optional.empty(), Optional.empty()));
+            case STRING:
+                return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.STRING, ImmutableList.of(), ImmutableList.of(), ImmutableMap.of(ICEBERG_FIELD_ID_KEY, Integer.toString(fieldId)), Optional.empty(), Optional.empty(), Optional.empty()));
+            case UUID:
+                return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.BINARY, ImmutableList.of(), ImmutableList.of(), ImmutableMap.of(ICEBERG_FIELD_ID_KEY, Integer.toString(fieldId)), Optional.empty(), Optional.empty(), Optional.empty()));
+            case FIXED:
+                return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.BINARY, ImmutableList.of(), ImmutableList.of(), ImmutableMap.of(ICEBERG_FIELD_ID_KEY, Integer.toString(fieldId)), Optional.empty(), Optional.empty(), Optional.empty()));
+            case BINARY:
+                return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.BINARY, ImmutableList.of(), ImmutableList.of(), ImmutableMap.of(ICEBERG_FIELD_ID_KEY, Integer.toString(fieldId)), Optional.empty(), Optional.empty(), Optional.empty()));
+            case DECIMAL:
+                DecimalType decimalType = (DecimalType) type;
+                return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.DECIMAL, ImmutableList.of(), ImmutableList.of(), ImmutableMap.of(ICEBERG_FIELD_ID_KEY, Integer.toString(fieldId)), Optional.empty(), Optional.of(decimalType.getPrecision()), Optional.of(decimalType.getScale())));
+            case STRUCT:
+                return toOrcStructType(nextFieldTypeIndex, (Types.StructType) type, fieldId);
+            case LIST:
+                return toOrcListType(nextFieldTypeIndex, (Types.ListType) type, fieldId);
+            case MAP:
+                return toOrcMapType(nextFieldTypeIndex, (Types.MapType) type, fieldId);
+            default:
+                throw new PrestoException(NOT_SUPPORTED, format("Unsupported Iceberg type: %s", type));
+        }
+    }
+
+    public static List<OrcType> toOrcStructType(int nextFieldTypeIndex, Types.StructType structType, int fieldId)
+    {
+        nextFieldTypeIndex++;
+        List<Integer> fieldTypeIndexes = new ArrayList<>();
+        List<String> fieldNames = new ArrayList<>();
+        List<List<OrcType>> fieldTypesList = new ArrayList<>();
+        for (Types.NestedField field : structType.fields()) {
+            fieldTypeIndexes.add(nextFieldTypeIndex);
+            fieldNames.add(field.name());
+            List<OrcType> fieldOrcTypes = toOrcType(nextFieldTypeIndex, field.type(), field.fieldId());
+            fieldTypesList.add(fieldOrcTypes);
+            nextFieldTypeIndex += fieldOrcTypes.size();
+        }
+
+        ImmutableList.Builder<OrcType> orcTypes = ImmutableList.builder();
+        orcTypes.add(new OrcType(
+                OrcType.OrcTypeKind.STRUCT,
+                fieldTypeIndexes,
+                fieldNames,
+                ImmutableMap.of(ICEBERG_FIELD_ID_KEY, Integer.toString(fieldId)),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty()));
+        fieldTypesList.forEach(orcTypes::addAll);
+
+        return orcTypes.build();
+    }
+
+    private static List<OrcType> toOrcListType(int nextFieldTypeIndex, Types.ListType listType, int fieldId)
+    {
+        nextFieldTypeIndex++;
+        List<OrcType> itemTypes = toOrcType(nextFieldTypeIndex, listType.elementType(), listType.elementId());
+
+        List<OrcType> orcTypes = new ArrayList<>();
+        orcTypes.add(new OrcType(
+                OrcType.OrcTypeKind.LIST,
+                ImmutableList.of(nextFieldTypeIndex),
+                ImmutableList.of("item"),
+                ImmutableMap.of(ICEBERG_FIELD_ID_KEY, Integer.toString(fieldId)),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty()));
+
+        orcTypes.addAll(itemTypes);
+        return orcTypes;
+    }
+
+    private static List<OrcType> toOrcMapType(int nextFieldTypeIndex, Types.MapType mapType, int fieldId)
+    {
+        nextFieldTypeIndex++;
+        List<OrcType> keyTypes = toOrcType(nextFieldTypeIndex, mapType.keyType(), mapType.keyId());
+        List<OrcType> valueTypes = toOrcType(nextFieldTypeIndex + keyTypes.size(), mapType.valueType(), mapType.valueId());
+
+        List<OrcType> orcTypes = new ArrayList<>();
+        orcTypes.add(new OrcType(
+                OrcType.OrcTypeKind.MAP,
+                ImmutableList.of(nextFieldTypeIndex, nextFieldTypeIndex + keyTypes.size()),
+                ImmutableList.of("key", "value"),
+                ImmutableMap.of(ICEBERG_FIELD_ID_KEY, Integer.toString(fieldId)),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty()));
+
+        orcTypes.addAll(keyTypes);
+        orcTypes.addAll(valueTypes);
+        return orcTypes;
     }
 }

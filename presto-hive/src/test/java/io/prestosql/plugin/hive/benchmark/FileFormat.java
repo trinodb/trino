@@ -19,6 +19,7 @@ import io.prestosql.orc.OrcWriter;
 import io.prestosql.orc.OrcWriterOptions;
 import io.prestosql.orc.OrcWriterStats;
 import io.prestosql.orc.OutputStreamOrcDataSink;
+import io.prestosql.orc.metadata.OrcType;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.plugin.hive.GenericHiveRecordCursorProvider;
 import io.prestosql.plugin.hive.HdfsEnvironment;
@@ -447,6 +448,7 @@ public enum FileFormat
                     new OutputStreamOrcDataSink(new FileOutputStream(targetFile)),
                     columnNames,
                     types,
+                    OrcType.createOrcRowType(0, columnNames, types),
                     compressionCodec.getOrcCompressionKind(),
                     new OrcWriterOptions(),
                     false,

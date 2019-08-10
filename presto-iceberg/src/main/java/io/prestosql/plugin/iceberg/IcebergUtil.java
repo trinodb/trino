@@ -57,6 +57,7 @@ import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT_DEFAULT;
 
 final class IcebergUtil
 {
+    public static final String ICEBERG_FIELD_ID_KEY = "ICEBERG_FIELD_ID_KEY";
     private static final TypeTranslator TYPE_TRANSLATOR = new HiveTypeTranslator();
 
     private IcebergUtil() {}

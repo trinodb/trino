@@ -22,6 +22,7 @@ import io.prestosql.plugin.hive.HivePartitionKey;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.predicate.TupleDomain;
+import org.apache.iceberg.FileFormat;
 
 import java.util.List;
 import java.util.Map;
@@ -39,6 +40,7 @@ public class IcebergSplit
     private final Map<String, Integer> nameToId;
     private final TupleDomain<HiveColumnHandle> predicate;
     private final List<HivePartitionKey> partitionKeys;
+    private final FileFormat fileFormat;
 
     @JsonCreator
     public IcebergSplit(
@@ -48,7 +50,8 @@ public class IcebergSplit
             @JsonProperty("addresses") List<HostAddress> addresses,
             @JsonProperty("nameToId") Map<String, Integer> nameToId,
             @JsonProperty("predicate") TupleDomain<HiveColumnHandle> predicate,
-            @JsonProperty("partitionKeys") List<HivePartitionKey> partitionKeys)
+            @JsonProperty("partitionKeys") List<HivePartitionKey> partitionKeys,
+            @JsonProperty("fileFormat") FileFormat fileFormat)
     {
         this.path = requireNonNull(path, "path is null");
         this.start = start;
@@ -57,6 +60,7 @@ public class IcebergSplit
         this.nameToId = ImmutableMap.copyOf(requireNonNull(nameToId, "nameToId is null"));
         this.predicate = requireNonNull(predicate, "predicate is null");
         this.partitionKeys = ImmutableList.copyOf(requireNonNull(partitionKeys, "partitionKeys is null"));
+        this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
     }
 
     @Override
@@ -106,6 +110,12 @@ public class IcebergSplit
     public List<HivePartitionKey> getPartitionKeys()
     {
         return partitionKeys;
+    }
+
+    @JsonProperty
+    public FileFormat getFileFormat()
+    {
+        return fileFormat;
     }
 
     @Override

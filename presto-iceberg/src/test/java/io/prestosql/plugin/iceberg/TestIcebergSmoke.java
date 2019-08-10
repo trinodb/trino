@@ -162,7 +162,7 @@ public class TestIcebergSmoke
                         "   order_status varchar\n" +
                         ")\n" +
                         "WITH (\n" +
-                        "   format = 'PARQUET',\n" +
+                        "   format = '" + fileFormat + "',\n" +
                         "   partitioning = ARRAY['order_status','ship_priority','bucket(order_key, 9)']\n" +
                         ")",
                 getSession().getCatalog().get(),
@@ -182,6 +182,7 @@ public class TestIcebergSmoke
     private void testWithAllFileFormats(BiConsumer<Session, FileFormat> test)
     {
         test.accept(getSession(), FileFormat.PARQUET);
+        test.accept(getSession(), FileFormat.ORC);
     }
 
     private void dropTable(Session session, String table)

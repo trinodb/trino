@@ -24,6 +24,7 @@ import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.orc.metadata.CompressionKind;
+import io.prestosql.orc.metadata.OrcType;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
@@ -575,10 +576,14 @@ public class OrcTester
         metadata.put("columns", "test");
         metadata.put("columns.types", createSettableStructObjectInspector("test", type).getTypeName());
 
+        List<String> columnNames = ImmutableList.of("test");
+        List<Type> types = ImmutableList.of(type);
+
         OrcWriter writer = new OrcWriter(
                 new OutputStreamOrcDataSink(new FileOutputStream(outputFile)),
-                ImmutableList.of("test"),
-                ImmutableList.of(type),
+                columnNames,
+                types,
+                OrcType.createOrcRowType(0, columnNames, types),
                 compression,
                 new OrcWriterOptions(),
                 false,

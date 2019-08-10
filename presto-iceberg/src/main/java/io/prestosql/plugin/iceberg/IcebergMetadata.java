@@ -51,6 +51,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.DataFiles;
+import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
@@ -99,6 +100,7 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.iceberg.TableMetadata.newTableMetadata;
+import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.Transactions.createTableTransaction;
 
 public class IcebergMetadata
@@ -290,7 +292,8 @@ public class IcebergMetadata
             throw new TableAlreadyExistsException(schemaTableName);
         }
 
-        TableMetadata metadata = newTableMetadata(operations, schema, partitionSpec, targetPath.toString());
+        FileFormat fileFormat = (FileFormat) tableMetadata.getProperties().get(FILE_FORMAT_PROPERTY);
+        TableMetadata metadata = newTableMetadata(operations, schema, partitionSpec, targetPath.toString(), ImmutableMap.of(DEFAULT_FILE_FORMAT, fileFormat.toString()));
 
         transaction = createTableTransaction(operations, metadata);
 
@@ -301,7 +304,7 @@ public class IcebergMetadata
                 PartitionSpecParser.toJson(metadata.spec()),
                 getColumns(metadata.schema(), metadata.spec(), typeManager),
                 targetPath.toString(),
-                getFileFormat(tableMetadata.getProperties()));
+                fileFormat);
     }
 
     @Override

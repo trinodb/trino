@@ -22,6 +22,7 @@ import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.predicate.TupleDomain;
 import org.apache.iceberg.CombinedScanTask;
+import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
@@ -68,10 +69,13 @@ public class IcebergSplitSource
     private final Map<String, Integer> nameToId;
     private final Iterator<FileScanTask> fileScanIterator;
 
+    private final FileFormat fileFormat;
+
     public IcebergSplitSource(
             CloseableIterable<CombinedScanTask> combinedScanIterable,
             TupleDomain<HiveColumnHandle> predicate,
-            Schema schema)
+            Schema schema,
+            FileFormat fileFormat)
     {
         this.combinedScanIterable = requireNonNull(combinedScanIterable, "combinedScanIterable is null");
         this.predicate = requireNonNull(predicate, "predicate is null");
@@ -83,6 +87,8 @@ public class IcebergSplitSource
                 .map(CombinedScanTask::files)
                 .flatMap(Collection::stream)
                 .iterator();
+
+        this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
     }
 
     @Override
@@ -130,7 +136,8 @@ public class IcebergSplitSource
                 ImmutableList.of(),
                 nameToId,
                 predicate,
-                getPartitionKeys(task));
+                getPartitionKeys(task),
+                fileFormat);
     }
 
     private static List<HivePartitionKey> getPartitionKeys(FileScanTask scanTask)

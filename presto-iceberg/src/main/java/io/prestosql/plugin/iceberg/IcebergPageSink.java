@@ -14,13 +14,27 @@
 package io.prestosql.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
+import io.prestosql.orc.OrcDataSink;
+import io.prestosql.orc.OrcDataSource;
+import io.prestosql.orc.OrcWriteValidation;
+import io.prestosql.orc.OrcWriterOptions;
+import io.prestosql.orc.OrcWriterStats;
+import io.prestosql.orc.OutputStreamOrcDataSink;
+import io.prestosql.orc.metadata.CompressionKind;
+import io.prestosql.orc.metadata.OrcType;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.HiveColumnHandle;
+import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HiveFileWriter;
+import io.prestosql.plugin.hive.HiveMetadata;
 import io.prestosql.plugin.hive.HiveStorageFormat;
+import io.prestosql.plugin.hive.NodeVersion;
+import io.prestosql.plugin.hive.OrcFileWriter;
+import io.prestosql.plugin.hive.OrcFileWriterConfig;
 import io.prestosql.plugin.hive.RecordFileWriter;
 import io.prestosql.plugin.iceberg.PartitionTransforms.ColumnTransform;
 import io.prestosql.spi.Page;
@@ -34,6 +48,7 @@ import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.IOConstants;
 import org.apache.hadoop.mapred.JobConf;
@@ -44,9 +59,14 @@ import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.hadoop.HadoopInputFile;
+import org.apache.iceberg.orc.OrcMetrics;
 import org.apache.iceberg.parquet.ParquetUtil;
 import org.apache.iceberg.transforms.Transform;
+import org.apache.iceberg.types.Types;
+import org.apache.orc.OrcConf;
+import org.joda.time.DateTimeZone;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -54,24 +74,38 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import java.util.function.Supplier;
+import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
+import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcOptimizedWriterMaxDictionaryMemory;
+import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcOptimizedWriterMaxStripeRows;
+import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcOptimizedWriterMaxStripeSize;
+import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcOptimizedWriterMinStripeSize;
+import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcOptimizedWriterValidateMode;
+import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcStringStatisticsLimit;
 import static io.prestosql.plugin.hive.ParquetRecordWriterUtil.setParquetSchema;
 import static io.prestosql.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.toJobConf;
 import static io.prestosql.plugin.iceberg.IcebergErrorCode.ICEBERG_TOO_MANY_OPEN_PARTITIONS;
 import static io.prestosql.plugin.iceberg.PartitionTransforms.getColumnTransform;
+import static io.prestosql.plugin.iceberg.TypeConverter.toOrcStructType;
+import static io.prestosql.plugin.iceberg.TypeConverter.toPrestoType;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.Decimals.readBigDecimal;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -104,6 +138,10 @@ public class IcebergPageSink
     private long systemMemoryUsage;
     private long validationCpuNanos;
 
+    private final HiveConfig hiveConfig;
+    private final OrcFileWriterConfig orcFileWriterConfig;
+    private final NodeVersion nodeVersion;
+
     public IcebergPageSink(
             Schema outputSchema,
             PartitionSpec partitionSpec,
@@ -115,7 +153,10 @@ public class IcebergPageSink
             TypeManager typeManager,
             JsonCodec<CommitTaskData> jsonCodec,
             ConnectorSession session,
-            FileFormat fileFormat)
+            FileFormat fileFormat,
+            HiveConfig hiveConfig,
+            OrcFileWriterConfig orcFileWriterConfig,
+            NodeVersion nodeVersion)
     {
         requireNonNull(inputColumns, "inputColumns is null");
         this.outputSchema = requireNonNull(outputSchema, "outputSchema is null");
@@ -130,6 +171,9 @@ public class IcebergPageSink
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
         this.inputColumns = ImmutableList.copyOf(inputColumns);
         this.pagePartitioner = new PagePartitioner(pageIndexerFactory, toPartitionColumns(typeManager, inputColumns, partitionSpec));
+        this.hiveConfig = requireNonNull(hiveConfig, "hiveConfig is null");
+        this.orcFileWriterConfig = requireNonNull(orcFileWriterConfig, "orcFileWriterConfig is null");
+        this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
     }
 
     @Override
@@ -321,6 +365,8 @@ public class IcebergPageSink
         switch (fileFormat) {
             case PARQUET:
                 return createParquetWriter(outputPath);
+            case ORC:
+                return createOrcWriter(outputPath);
         }
         throw new PrestoException(NOT_SUPPORTED, "File format not supported for Iceberg: " + fileFormat);
     }
@@ -356,6 +402,9 @@ public class IcebergPageSink
         switch (fileFormat) {
             case PARQUET:
                 return ParquetUtil.fileMetrics(HadoopInputFile.fromPath(path, jobConf), MetricsConfig.getDefault());
+            case ORC:
+                //TODO:LXY
+                return OrcMetrics.fromInputFile(HadoopInputFile.fromPath(path, jobConf), jobConf);
         }
         throw new PrestoException(NOT_SUPPORTED, "File format not supported for Iceberg: " + fileFormat);
     }
@@ -542,5 +591,72 @@ public class IcebergPageSink
         {
             return blockTransform;
         }
+    }
+
+    private HiveFileWriter createOrcWriter(Path path)
+    {
+        try {
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getUser(), path, jobConf);
+            OrcDataSink orcDataSink = new OutputStreamOrcDataSink(fileSystem.create(path));
+            Callable<Void> rollbackAction = () -> {
+                fileSystem.delete(path, false);
+                return null;
+            };
+            List<Types.NestedField> columnFields = outputSchema.columns();
+            List<String> columnNames = columnFields.stream().map(Types.NestedField::name).collect(toImmutableList());
+            List<Type> columnTypes = columnFields.stream().map(Types.NestedField::type).map(type -> toPrestoType(type, typeManager)).collect(toImmutableList());
+            List<OrcType> flattenedOrcTypes = toOrcStructType(0, outputSchema.asStruct(), -1);
+            CompressionKind compression = getCompression(jobConf);
+            OrcWriterOptions orcWriterOptions = orcFileWriterConfig.toOrcWriterOptions()
+                    .withStripeMinSize(getOrcOptimizedWriterMinStripeSize(session))
+                    .withStripeMaxSize(getOrcOptimizedWriterMaxStripeSize(session))
+                    .withStripeMaxRowCount(getOrcOptimizedWriterMaxStripeRows(session))
+                    .withDictionaryMaxMemory(getOrcOptimizedWriterMaxDictionaryMemory(session))
+                    .withMaxStringStatisticsLimit(getOrcStringStatisticsLimit(session));
+            boolean writeLegacyVersion = hiveConfig.isOrcWriteLegacyVersion();
+            int[] fileInputColumnIndexes = IntStream.range(0, columnNames.size()).toArray();
+            Map<String, String> metadata = ImmutableMap.<String, String>builder()
+                    .put(HiveMetadata.PRESTO_VERSION_NAME, nodeVersion.toString())
+                    .put(HiveMetadata.PRESTO_QUERY_ID_NAME, session.getQueryId())
+                    .build();
+            DateTimeZone hiveStorageTimeZone = hiveConfig.getDateTimeZone();
+            Optional<Supplier<OrcDataSource>> validationInputFactory = Optional.empty();
+            OrcWriteValidation.OrcWriteValidationMode validationMode = getOrcOptimizedWriterValidateMode(session);
+            OrcWriterStats stats = new OrcWriterStats();
+            return new OrcFileWriter(
+                    orcDataSink,
+                    rollbackAction,
+                    columnNames,
+                    columnTypes,
+                    flattenedOrcTypes,
+                    compression,
+                    orcWriterOptions,
+                    writeLegacyVersion,
+                    fileInputColumnIndexes,
+                    metadata,
+                    hiveStorageTimeZone,
+                    validationInputFactory,
+                    validationMode,
+                    stats);
+        }
+        catch (IOException e) {
+            throw new PrestoException(HIVE_WRITER_OPEN_ERROR, "Error creating ORC file", e);
+        }
+    }
+
+    private static CompressionKind getCompression(JobConf configuration)
+    {
+        String compressionName = OrcConf.COMPRESS.getString(configuration);
+        if (compressionName == null) {
+            return CompressionKind.ZLIB;
+        }
+        CompressionKind compression;
+        try {
+            compression = CompressionKind.valueOf(compressionName.toUpperCase(ENGLISH));
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, "Unknown ORC compression type " + compressionName);
+        }
+        return compression;
     }
 }

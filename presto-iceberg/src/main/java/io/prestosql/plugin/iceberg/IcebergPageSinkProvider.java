@@ -16,6 +16,9 @@ package io.prestosql.plugin.iceberg;
 import io.airlift.json.JsonCodec;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.prestosql.plugin.hive.HiveConfig;
+import io.prestosql.plugin.hive.NodeVersion;
+import io.prestosql.plugin.hive.OrcFileWriterConfig;
 import io.prestosql.spi.PageIndexerFactory;
 import io.prestosql.spi.connector.ConnectorInsertTableHandle;
 import io.prestosql.spi.connector.ConnectorOutputTableHandle;
@@ -40,18 +43,27 @@ public class IcebergPageSinkProvider
     private final JsonCodec<CommitTaskData> jsonCodec;
     private final TypeManager typeManager;
     private final PageIndexerFactory pageIndexerFactory;
+    private final HiveConfig hiveConfig;
+    private final OrcFileWriterConfig orcFileWriterConfig;
+    private final NodeVersion nodeVersion;
 
     @Inject
     public IcebergPageSinkProvider(
             HdfsEnvironment hdfsEnvironment,
             JsonCodec<CommitTaskData> jsonCodec,
             TypeManager typeManager,
-            PageIndexerFactory pageIndexerFactory)
+            PageIndexerFactory pageIndexerFactory,
+            HiveConfig hiveConfig,
+            OrcFileWriterConfig orcFileWriterConfig,
+            NodeVersion nodeVersion)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
+        this.hiveConfig = requireNonNull(hiveConfig, "hiveConfig is null");
+        this.orcFileWriterConfig = requireNonNull(orcFileWriterConfig, "orcFileWriterConfig is null");
+        this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
     }
 
     @Override
@@ -82,6 +94,9 @@ public class IcebergPageSinkProvider
                 typeManager,
                 jsonCodec,
                 session,
-                tableHandle.getFileFormat());
+                tableHandle.getFileFormat(),
+                hiveConfig,
+                orcFileWriterConfig,
+                nodeVersion);
     }
 }

@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.orc.metadata.OrcType;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
@@ -217,10 +218,14 @@ public class TestStructStreamReader
     private void write(TempFile tempFile, Type writerType, List<String> data)
             throws IOException
     {
+        List<String> columnNames = ImmutableList.of(STRUCT_COL_NAME);
+        List<Type> types = ImmutableList.of(writerType);
+
         OrcWriter writer = new OrcWriter(
                 new OutputStreamOrcDataSink(new FileOutputStream(tempFile.getFile())),
-                ImmutableList.of(STRUCT_COL_NAME),
-                ImmutableList.of(writerType),
+                columnNames,
+                types,
+                OrcType.createOrcRowType(0, columnNames, types),
                 NONE,
                 new OrcWriterOptions()
                         .withStripeMinSize(new DataSize(0, MEGABYTE))

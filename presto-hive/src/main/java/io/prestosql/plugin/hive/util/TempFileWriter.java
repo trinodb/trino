@@ -20,6 +20,7 @@ import io.prestosql.orc.OrcWriteValidation.OrcWriteValidationMode;
 import io.prestosql.orc.OrcWriter;
 import io.prestosql.orc.OrcWriterOptions;
 import io.prestosql.orc.OrcWriterStats;
+import io.prestosql.orc.metadata.OrcType;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.type.Type;
 
@@ -77,6 +78,7 @@ public class TempFileWriter
                 sink,
                 columnNames,
                 types,
+                OrcType.createOrcRowType(0, columnNames, types),
                 LZ4,
                 new OrcWriterOptions()
                         .withMaxStringStatisticsLimit(new DataSize(0, BYTE))
