@@ -16,6 +16,7 @@ package io.prestosql.operator;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.LazyBlock;
 import io.prestosql.spi.type.Type;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 
@@ -23,6 +24,7 @@ import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
+import static io.prestosql.operator.project.PageProcessor.MAX_BATCH_SIZE;
 import static io.prestosql.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static java.util.Objects.requireNonNull;
 
@@ -48,7 +50,9 @@ public class LookupJoinPageBuilder
 
     public boolean isFull()
     {
-        return estimatedProbeBlockBytes + buildPageBuilder.getSizeInBytes() >= DEFAULT_MAX_PAGE_SIZE_IN_BYTES || buildPageBuilder.isFull();
+        return estimatedProbeBlockBytes + buildPageBuilder.getSizeInBytes() >= DEFAULT_MAX_PAGE_SIZE_IN_BYTES ||
+                buildPageBuilder.getPositionCount() >= MAX_BATCH_SIZE ||
+                buildPageBuilder.isFull();
     }
 
     public boolean isEmpty()
@@ -104,7 +108,14 @@ public class LookupJoinPageBuilder
         for (int i = 0; i < probeOutputChannels.length; i++) {
             Block probeBlock = probe.getPage().getBlock(probeOutputChannels[i]);
             if (!isSequentialProbeIndices || length == 0) {
-                blocks[i] = probeBlock.getPositions(probeIndices, 0, probeIndices.length);
+                if (probeBlock.isLoaded()) {
+                    blocks[i] = probeBlock.getPositions(probeIndices, 0, probeIndices.length);
+                }
+                else {
+                    blocks[i] = new LazyBlock(
+                            probeIndices.length,
+                            lazyBlock -> lazyBlock.setBlock(probeBlock.getPositions(probeIndices, 0, probeIndices.length)));
+                }
             }
             else if (length == probeBlock.getPositionCount()) {
                 // probeIndices are a simple covering of the block
@@ -115,7 +126,14 @@ public class LookupJoinPageBuilder
             else {
                 // probeIndices are sequential without holes
                 verify(probeIndices[length - 1] - probeIndices[0] == length - 1);
-                blocks[i] = probeBlock.getRegion(probeIndices[0], length);
+                if (probeBlock.isLoaded()) {
+                    blocks[i] = probeBlock.getRegion(probeIndices[0], length);
+                }
+                else {
+                    blocks[i] = new LazyBlock(
+                            length,
+                            lazyBlock -> lazyBlock.setBlock(probeBlock.getRegion(probeIndices[0], length)));
+                }
             }
         }
 
@@ -179,7 +197,9 @@ public class LookupJoinPageBuilder
         for (int index : probe.getOutputChannels()) {
             Block block = probe.getPage().getBlock(index);
             // Estimate the size of the current row
-            estimatedProbeBlockBytes += block.getSizeInBytes() / block.getPositionCount();
+            if (!block.isLoaded()) {
+                estimatedProbeBlockBytes += block.getSizeInBytes() / block.getPositionCount();
+            }
         }
     }
 }
