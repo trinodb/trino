@@ -20,10 +20,14 @@ import io.prestosql.tempto.ProductTest;
 import io.prestosql.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.COMMENT;
 import static java.lang.String.format;
-import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestComments
         extends ProductTest
@@ -57,7 +61,7 @@ public class TestComments
 
         query(createTableSql);
         QueryResult actualResult = query("SHOW CREATE TABLE " + COMMENT_TABLE_NAME);
-        assertEquals(actualResult.row(0).get(0), createTableSql);
+        assertShowCreateTableOutput(actualResult.row(0).get(0), createTableSql);
 
         String commentedCreateTableSql = format("" +
                         "CREATE TABLE hive.default.%s (\n" +
@@ -71,7 +75,7 @@ public class TestComments
 
         query(format("COMMENT ON TABLE %s IS 'new comment'", COMMENT_TABLE_NAME));
         actualResult = query("SHOW CREATE TABLE " + COMMENT_TABLE_NAME);
-        assertEquals(actualResult.row(0).get(0), commentedCreateTableSql);
+        assertShowCreateTableOutput(actualResult.row(0).get(0), commentedCreateTableSql);
 
         commentedCreateTableSql = format("" +
                         "CREATE TABLE hive.default.%s (\n" +
@@ -85,7 +89,7 @@ public class TestComments
 
         query(format("COMMENT ON TABLE %s IS ''", COMMENT_TABLE_NAME));
         actualResult = query("SHOW CREATE TABLE " + COMMENT_TABLE_NAME);
-        assertEquals(actualResult.row(0).get(0), commentedCreateTableSql);
+        assertShowCreateTableOutput(actualResult.row(0).get(0), commentedCreateTableSql);
 
         commentedCreateTableSql = format("" +
                         "CREATE TABLE hive.default.%s (\n" +
@@ -98,6 +102,18 @@ public class TestComments
 
         query(format("COMMENT ON TABLE %s IS NULL", COMMENT_TABLE_NAME));
         actualResult = query("SHOW CREATE TABLE " + COMMENT_TABLE_NAME);
-        assertEquals(actualResult.row(0).get(0), commentedCreateTableSql);
+        assertShowCreateTableOutput(actualResult.row(0).get(0), commentedCreateTableSql);
+    }
+
+    private void assertShowCreateTableOutput(Object actual, String expected)
+    {
+        List<String> expectedLines = Stream.of(
+                expected.split("\n"))
+                .map(line -> line.lastIndexOf(',') == (line.length() - 1) ? line.substring(0, line.length() - 1) : line)
+                .collect(Collectors.toList());
+
+        List<String> absentLines = expectedLines.stream().filter(line -> !actual.toString().contains(line)).collect(Collectors.toList());
+
+        assertTrue(absentLines.isEmpty(), format("Expected %s\nFound %s\nMissing lines in output %s", expected, actual, absentLines));
     }
 }

@@ -75,7 +75,9 @@ import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.LongStream;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -2140,7 +2142,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(createTableSql);
         MaterializedResult actualResult = computeActual("SHOW CREATE TABLE test_show_create_table");
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
+        assertShowCreateTableOutput(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
 
         createTableSql = format("" +
                         "CREATE TABLE %s.%s.%s (\n" +
@@ -2164,7 +2166,7 @@ public class TestHiveIntegrationSmokeTest
                 "\"test_show_create_table'2\"");
         assertUpdate(createTableSql);
         actualResult = computeActual("SHOW CREATE TABLE \"test_show_create_table'2\"");
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
+        assertShowCreateTableOutput(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
     }
 
     @Test
@@ -2175,31 +2177,61 @@ public class TestHiveIntegrationSmokeTest
         File dataFile = new File(tempDir, "test.txt");
         Files.write("hello\u0001world\nbye\u0001world", dataFile, UTF_8);
 
-        @Language("SQL") String createTableSql = format("" +
-                        "CREATE TABLE %s.%s.test_create_external (\n" +
-                        "   action varchar,\n" +
-                        "   name varchar\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   external_location = '%s',\n" +
-                        "   format = 'TEXTFILE',\n" +
-                        "   textfile_field_separator = U&'\\0001'\n" +
-                        ")",
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
-                new Path(tempDir.toURI().toASCIIString()).toString());
-
-        assertUpdate(createTableSql);
-        MaterializedResult actual = computeActual("SHOW CREATE TABLE test_create_external");
-        assertEquals(actual.getOnlyValue(), createTableSql);
-
-        assertQuery("SELECT action, name FROM test_create_external", "VALUES ('hello', 'world'), ('bye', 'world')");
-        assertUpdate("DROP TABLE test_create_external");
+        testCreateTable("test_create_external", tempDir.toURI().toASCIIString(), true);
 
         // file should still exist after drop
         assertFile(dataFile);
 
         deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
+    }
+
+    @Test
+    public void testCreateManagedTable()
+            throws Exception
+    {
+        File tempDir = createTempDir();
+        File location = new File(tempDir, "tableLocation");
+
+        testCreateTable("test_create_managed", location.getPath(), false);
+
+        deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
+    }
+
+    private void testCreateTable(String tableName, String location, boolean isExternal)
+            throws Exception
+    {
+        @Language("SQL") String createTableSql = format("" +
+                        "CREATE TABLE %s.%s.%s (\n" +
+                        "   action varchar,\n" +
+                        "   name varchar\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   location = '%s',\n" +
+                        "   external = %s,\n" +
+                        "   format = 'TEXTFILE',\n" +
+                        "   textfile_field_separator = U&'\\0001'\n" +
+                        ")",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                tableName,
+                new Path(location).toString(),
+                isExternal);
+
+        assertUpdate(createTableSql);
+        MaterializedResult actual = computeActual("SHOW CREATE TABLE " + tableName);
+        assertShowCreateTableOutput(actual.getOnlyValue(), createTableSql);
+
+        if (!isExternal) {
+            computeActual(format(
+                    "INSERT INTO %s.%s.%s SELECT * FROM (VALUES('hello', 'world') union VALUES('bye', 'world')) as t(action, name) ORDER BY action desc",
+                    getSession().getCatalog().get(),
+                    getSession().getSchema().get(),
+                    tableName));
+        }
+
+        assertQuery("SELECT action, name FROM " + tableName, "VALUES ('hello', 'world'), ('bye', 'world')");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -2218,8 +2250,9 @@ public class TestHiveIntegrationSmokeTest
                         "   name varchar\n" +
                         ")\n" +
                         "WITH (\n" +
-                        "   external_location = '%s',\n" +
+                        "   external = true,\n" +
                         "   format = 'TEXTFILE',\n" +
+                        "   location = '%s',\n" +
                         "   textfile_field_separator = 'F',\n" +
                         "   textfile_field_separator_escape = 'E'\n" +
                         ")",
@@ -2257,7 +2290,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(createTableSql);
         MaterializedResult actualResult = computeActual("SHOW CREATE TABLE test_comment_table");
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
+        assertShowCreateTableOutput(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
 
         assertUpdate("COMMENT ON TABLE test_comment_table IS 'new comment'");
         String commentedCreateTableSql = format("" +
@@ -2272,7 +2305,7 @@ public class TestHiveIntegrationSmokeTest
                 getSession().getSchema().get(),
                 "test_comment_table");
         actualResult = computeActual("SHOW CREATE TABLE test_comment_table");
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), commentedCreateTableSql);
+        assertShowCreateTableOutput(getOnlyElement(actualResult.getOnlyColumnAsSet()), commentedCreateTableSql);
 
         assertUpdate("COMMENT ON TABLE test_comment_table IS 'updated comment'");
         commentedCreateTableSql = format("" +
@@ -2287,7 +2320,7 @@ public class TestHiveIntegrationSmokeTest
                 getSession().getSchema().get(),
                 "test_comment_table");
         actualResult = computeActual("SHOW CREATE TABLE test_comment_table");
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), commentedCreateTableSql);
+        assertShowCreateTableOutput(getOnlyElement(actualResult.getOnlyColumnAsSet()), commentedCreateTableSql);
 
         assertUpdate("COMMENT ON TABLE test_comment_table IS ''");
         commentedCreateTableSql = format("" +
@@ -2302,7 +2335,7 @@ public class TestHiveIntegrationSmokeTest
                 getSession().getSchema().get(),
                 "test_comment_table");
         actualResult = computeActual("SHOW CREATE TABLE test_comment_table");
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), commentedCreateTableSql);
+        assertShowCreateTableOutput(getOnlyElement(actualResult.getOnlyColumnAsSet()), commentedCreateTableSql);
 
         assertUpdate("DROP TABLE test_comment_table");
     }
@@ -2324,7 +2357,7 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(createTableSql);
 
         MaterializedResult actual = computeActual("SHOW CREATE TABLE test_table_skip_header");
-        assertEquals(actual.getOnlyValue(), createTableSql);
+        assertShowCreateTableOutput(actual.getOnlyValue(), createTableSql);
         assertUpdate("DROP TABLE test_table_skip_header");
 
         createTableSql = format("" +
@@ -2341,7 +2374,7 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(createTableSql);
 
         actual = computeActual("SHOW CREATE TABLE test_table_skip_footer");
-        assertEquals(actual.getOnlyValue(), createTableSql);
+        assertShowCreateTableOutput(actual.getOnlyValue(), createTableSql);
         assertUpdate("DROP TABLE test_table_skip_footer");
 
         createTableSql = format("" +
@@ -2359,7 +2392,7 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(createTableSql);
 
         actual = computeActual("SHOW CREATE TABLE test_table_skip_header_footer");
-        assertEquals(actual.getOnlyValue(), createTableSql);
+        assertShowCreateTableOutput(actual.getOnlyValue(), createTableSql);
         assertUpdate("DROP TABLE test_table_skip_header_footer");
     }
 
@@ -4211,7 +4244,7 @@ public class TestHiveIntegrationSmokeTest
 
         try {
             MaterializedResult actual = computeActual(format("SHOW CREATE TABLE %s", tableName));
-            assertEquals(actual.getOnlyValue(), expectedShowCreateTable);
+            assertShowCreateTableOutput(actual.getOnlyValue(), expectedShowCreateTable);
         }
         finally {
             assertUpdate(format("DROP TABLE %s", tableName));
@@ -4528,6 +4561,23 @@ public class TestHiveIntegrationSmokeTest
             formats.add(new TestingHiveStorageFormat(session, hiveStorageFormat));
         }
         return formats.build();
+    }
+
+    /*
+     * Expected output is the original CREATE TABLE query
+     * While actual output has additional data like location and external table properties
+     * Verify that all the lines of expected result are present in actual result
+     */
+    private void assertShowCreateTableOutput(Object actual, String expected)
+    {
+        List<String> expectedLines = Stream.of(
+                expected.split("\n"))
+                .map(line -> line.lastIndexOf(',') == (line.length() - 1) ? line.substring(0, line.length() - 1) : line)
+                .collect(Collectors.toList());
+
+        List<String> absentLines = expectedLines.stream().filter(line -> !actual.toString().contains(line)).collect(Collectors.toList());
+
+        assertTrue(absentLines.isEmpty(), format("Expected %s\nFound %s\nMissing lines in output %s", expected, actual, absentLines));
     }
 
     private static class TestingHiveStorageFormat

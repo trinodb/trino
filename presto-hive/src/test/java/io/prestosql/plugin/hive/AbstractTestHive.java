@@ -191,6 +191,7 @@ import static io.prestosql.plugin.hive.HiveStorageFormat.SEQUENCEFILE;
 import static io.prestosql.plugin.hive.HiveStorageFormat.TEXTFILE;
 import static io.prestosql.plugin.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static io.prestosql.plugin.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
+import static io.prestosql.plugin.hive.HiveTableProperties.IS_EXTERNAL_TABLE;
 import static io.prestosql.plugin.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static io.prestosql.plugin.hive.HiveTableProperties.SORTED_BY_PROPERTY;
 import static io.prestosql.plugin.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
@@ -2143,7 +2144,7 @@ public abstract class AbstractTestHive
         try {
             try (Transaction transaction = newTransaction()) {
                 LocationService locationService = getLocationService();
-                LocationHandle locationHandle = locationService.forNewTable(transaction.getMetastore(), session, schemaName, tableName);
+                LocationHandle locationHandle = locationService.forNewTable(transaction.getMetastore(), session, schemaName, tableName, Optional.empty());
                 targetPath = locationService.getQueryWriteInfo(locationHandle).getTargetPath();
                 Table table = createSimpleTable(schemaTableName, columns, session, targetPath, "q1");
                 transaction.getMetastore()
@@ -2254,6 +2255,7 @@ public abstract class AbstractTestHive
                                     .add(new SortingColumn("value_asc", SortingColumn.Order.ASCENDING))
                                     .add(new SortingColumn("value_desc", SortingColumn.Order.DESCENDING))
                                     .build())
+                            .put(IS_EXTERNAL_TABLE, false)
                             .build());
 
             ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(session, tableMetadata, Optional.empty());
@@ -2642,7 +2644,7 @@ public abstract class AbstractTestHive
             String tableOwner = session.getUser();
             String schemaName = schemaTableName.getSchemaName();
             String tableName = schemaTableName.getTableName();
-            LocationHandle locationHandle = locationService.forNewTable(transaction.getMetastore(), session, schemaName, tableName);
+            LocationHandle locationHandle = locationService.forNewTable(transaction.getMetastore(), session, schemaName, tableName, Optional.empty());
             Path targetPath = locationService.getQueryWriteInfo(locationHandle).getTargetPath();
             //create table whose storage format is null
             Table.Builder tableBuilder = Table.builder()
@@ -4375,6 +4377,7 @@ public abstract class AbstractTestHive
                 .put(BUCKETED_BY_PROPERTY, ImmutableList.of())
                 .put(BUCKET_COUNT_PROPERTY, 0)
                 .put(SORTED_BY_PROPERTY, ImmutableList.of())
+                .put(IS_EXTERNAL_TABLE, false)
                 .build();
     }
 
@@ -4411,7 +4414,7 @@ public abstract class AbstractTestHive
             String tableName = schemaTableName.getTableName();
 
             LocationService locationService = getLocationService();
-            LocationHandle locationHandle = locationService.forNewTable(transaction.getMetastore(), session, schemaName, tableName);
+            LocationHandle locationHandle = locationService.forNewTable(transaction.getMetastore(), session, schemaName, tableName, Optional.empty());
             targetPath = locationService.getQueryWriteInfo(locationHandle).getTargetPath();
 
             Table.Builder tableBuilder = Table.builder()

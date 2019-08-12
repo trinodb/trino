@@ -255,8 +255,15 @@ public class FileHiveMetastore
             checkArgument(table.getStorage().getLocation().isEmpty(), "Storage location for view must be empty");
         }
         else if (table.getTableType().equals(MANAGED_TABLE.name())) {
-            if (!tableMetadataDirectory.equals(new Path(table.getStorage().getLocation()))) {
-                throw new PrestoException(HIVE_METASTORE_ERROR, "Table directory must be " + tableMetadataDirectory);
+            try {
+                Path location = new Path(table.getStorage().getLocation());
+                FileSystem fileSystem = hdfsEnvironment.getFileSystem(hdfsContext, location);
+                if (fileSystem.isFile(location)) {
+                    throw new PrestoException(HIVE_METASTORE_ERROR, "Table location must be a directory: " + location);
+                }
+            }
+            catch (IOException e) {
+                throw new PrestoException(HIVE_METASTORE_ERROR, "Could not validate managed table location", e);
             }
         }
         else if (table.getTableType().equals(EXTERNAL_TABLE.name())) {
@@ -496,6 +503,14 @@ public class FileHiveMetastore
         try {
             if (!metadataFileSystem.rename(oldPath, newPath)) {
                 throw new PrestoException(HIVE_METASTORE_ERROR, "Could not rename table directory");
+            }
+
+            if (table.getTableType().equals(MANAGED_TABLE.name())) {
+                // Change the table location
+                Table.Builder newTable = Table.builder(table);
+                newTable.getStorageBuilder().setLocation(newPath.toString());
+
+                writeSchemaFile("table", newPath, tableCodec, new TableMetadata(newTable.build()), true);
             }
         }
         catch (IOException e) {

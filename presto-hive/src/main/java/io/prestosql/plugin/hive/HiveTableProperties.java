@@ -32,6 +32,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.hive.metastore.SortingColumn.Order.ASCENDING;
 import static io.prestosql.plugin.hive.metastore.SortingColumn.Order.DESCENDING;
 import static io.prestosql.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
+import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
 import static io.prestosql.spi.session.PropertyMetadata.doubleProperty;
 import static io.prestosql.spi.session.PropertyMetadata.enumProperty;
 import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
@@ -42,7 +43,11 @@ import static java.util.Locale.ENGLISH;
 
 public class HiveTableProperties
 {
+    @Deprecated
     public static final String EXTERNAL_LOCATION_PROPERTY = "external_location";
+
+    public static final String LOCATION_PROPERTY = "location";
+    public static final String IS_EXTERNAL_TABLE = "external";
     public static final String STORAGE_FORMAT_PROPERTY = "format";
     public static final String PARTITIONED_BY_PROPERTY = "partitioned_by";
     public static final String BUCKETED_BY_PROPERTY = "bucketed_by";
@@ -59,6 +64,8 @@ public class HiveTableProperties
     public static final String CSV_QUOTE = "csv_quote";
     public static final String CSV_ESCAPE = "csv_escape";
 
+    public static final List<String> NON_INHERITABLE_PROPERTIES = ImmutableList.of(EXTERNAL_LOCATION_PROPERTY, IS_EXTERNAL_TABLE, LOCATION_PROPERTY);
+
     private final List<PropertyMetadata<?>> tableProperties;
 
     @Inject
@@ -70,8 +77,18 @@ public class HiveTableProperties
         tableProperties = ImmutableList.of(
                 stringProperty(
                         EXTERNAL_LOCATION_PROPERTY,
-                        "File system location URI for external table",
+                        format("Deprecated, use '%s' and '%s' table properties instead", LOCATION_PROPERTY, IS_EXTERNAL_TABLE),
                         null,
+                        false),
+                stringProperty(
+                        LOCATION_PROPERTY,
+                        "File system location URI for the table",
+                        null,
+                        false),
+                booleanProperty(
+                        IS_EXTERNAL_TABLE,
+                        "Is the table external Hive table",
+                        false,
                         false),
                 enumProperty(
                         STORAGE_FORMAT_PROPERTY,
@@ -154,6 +171,16 @@ public class HiveTableProperties
         return (String) tableProperties.get(EXTERNAL_LOCATION_PROPERTY);
     }
 
+    public static Optional<String> getLocation(Map<String, Object> tableProperties)
+    {
+        return Optional.ofNullable((String) tableProperties.get(LOCATION_PROPERTY));
+    }
+
+    public static boolean isExternalTable(Map<String, Object> tableProperties)
+    {
+        return (Boolean) tableProperties.get(IS_EXTERNAL_TABLE);
+    }
+
     public static String getAvroSchemaUrl(Map<String, Object> tableProperties)
     {
         return (String) tableProperties.get(AVRO_SCHEMA_URL);
@@ -199,6 +226,15 @@ public class HiveTableProperties
             throw new PrestoException(INVALID_TABLE_PROPERTY, format("%s and %s must be specified together", BUCKETED_BY_PROPERTY, BUCKET_COUNT_PROPERTY));
         }
         return Optional.of(new HiveBucketProperty(bucketedBy, bucketCount, sortedBy));
+    }
+
+    public static Map<String, Object> filterInheritableProperties(Map<String, Object> properties)
+    {
+        return properties
+                .entrySet()
+                .stream()
+                .filter(entry -> !NON_INHERITABLE_PROPERTIES.contains(entry.getKey()))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
     @SuppressWarnings("unchecked")
