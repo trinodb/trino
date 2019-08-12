@@ -35,12 +35,6 @@ public class FloatInputStream
     }
 
     @Override
-    public Class<FloatStreamCheckpoint> getCheckpointType()
-    {
-        return FloatStreamCheckpoint.class;
-    }
-
-    @Override
     public void seekToCheckpoint(FloatStreamCheckpoint checkpoint)
             throws IOException
     {

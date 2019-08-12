@@ -43,12 +43,6 @@ public class DecimalInputStream
     }
 
     @Override
-    public Class<? extends DecimalStreamCheckpoint> getCheckpointType()
-    {
-        return DecimalStreamCheckpoint.class;
-    }
-
-    @Override
     public void seekToCheckpoint(DecimalStreamCheckpoint checkpoint)
             throws IOException
     {
