@@ -228,30 +228,29 @@ public class BaseJdbcClient
     @Override
     public List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle)
     {
-        try (Connection connection = connectionFactory.openConnection(JdbcIdentity.from(session))) {
-            try (ResultSet resultSet = getColumns(tableHandle, connection.getMetaData())) {
-                List<JdbcColumnHandle> columns = new ArrayList<>();
-                while (resultSet.next()) {
-                    JdbcTypeHandle typeHandle = new JdbcTypeHandle(
-                            resultSet.getInt("DATA_TYPE"),
-                            Optional.ofNullable(resultSet.getString("TYPE_NAME")),
-                            resultSet.getInt("COLUMN_SIZE"),
-                            resultSet.getInt("DECIMAL_DIGITS"),
-                            Optional.empty());
-                    Optional<ColumnMapping> columnMapping = toPrestoType(session, connection, typeHandle);
-                    // skip unsupported column types
-                    if (columnMapping.isPresent()) {
-                        String columnName = resultSet.getString("COLUMN_NAME");
-                        boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
-                        columns.add(new JdbcColumnHandle(columnName, typeHandle, columnMapping.get().getType(), nullable));
-                    }
+        try (Connection connection = connectionFactory.openConnection(JdbcIdentity.from(session));
+                ResultSet resultSet = getColumns(tableHandle, connection.getMetaData())) {
+            List<JdbcColumnHandle> columns = new ArrayList<>();
+            while (resultSet.next()) {
+                JdbcTypeHandle typeHandle = new JdbcTypeHandle(
+                        resultSet.getInt("DATA_TYPE"),
+                        Optional.ofNullable(resultSet.getString("TYPE_NAME")),
+                        resultSet.getInt("COLUMN_SIZE"),
+                        resultSet.getInt("DECIMAL_DIGITS"),
+                        Optional.empty());
+                Optional<ColumnMapping> columnMapping = toPrestoType(session, connection, typeHandle);
+                // skip unsupported column types
+                if (columnMapping.isPresent()) {
+                    String columnName = resultSet.getString("COLUMN_NAME");
+                    boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
+                    columns.add(new JdbcColumnHandle(columnName, typeHandle, columnMapping.get().getType(), nullable));
                 }
-                if (columns.isEmpty()) {
-                    // In rare cases (e.g. PostgreSQL) a table might have no columns.
-                    throw new TableNotFoundException(tableHandle.getSchemaTableName());
-                }
-                return ImmutableList.copyOf(columns);
             }
+            if (columns.isEmpty()) {
+                // In rare cases (e.g. PostgreSQL) a table might have no columns.
+                throw new TableNotFoundException(tableHandle.getSchemaTableName());
+            }
+            return ImmutableList.copyOf(columns);
         }
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);
