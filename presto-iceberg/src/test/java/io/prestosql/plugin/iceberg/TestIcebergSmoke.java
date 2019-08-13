@@ -70,6 +70,7 @@ public class TestIcebergSmoke
     public void testCreatePartitionedTable()
     {
         testWithAllFileFormats(this::testCreatePartitionedTable);
+        testWithAllFileFormats(this::testCreatePartitionedTableWithNestedTypes);
     }
 
     private void testCreatePartitionedTable(Session session, FileFormat fileFormat)
@@ -133,6 +134,24 @@ public class TestIcebergSmoke
                 select);
 
         dropTable(session, "test_partitioned_table");
+    }
+
+    private void testCreatePartitionedTableWithNestedTypes(Session session, FileFormat fileFormat)
+    {
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE test_partitioned_table_nested_type (" +
+                "  _string VARCHAR" +
+                ", _struct ROW(_field1 INT, _field2 VARCHAR)" +
+                ", _date DATE" +
+                ") " +
+                "WITH (" +
+                "format = '" + fileFormat + "', " +
+                "partitioning = ARRAY['_date']" +
+                ")";
+
+        assertUpdate(session, createTable);
+
+        dropTable(session, "test_partitioned_table_nested_type");
     }
 
     @Test
