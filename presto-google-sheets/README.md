@@ -1,5 +1,26 @@
 # Setting up google sheets plugin
 
+## Creating the configuration file
+Create a configuration file in path `presto-main/etc/catalog/gsheets.properties` with the example contents below
+```
+#
+# WARNING
+# ^^^^^^^
+# This configuration file is for development only and should NOT be used
+# in production. For example configuration, see the Presto documentation.
+#
+
+connector.name=gsheets
+credentials-path=/usr/local/presto/credentials/google-sheets-credentials.json
+
+# Metadata sheet id contains table name mapping with sheet id
+metadata-sheet-id={{ metatdata sheet id }}
+
+# Enable caching to avoid rate limits
+sheets-data-expire-after-write=5m
+sheets-data-max-cache-size=1000
+```
+
 ## How to generate google-sheets service account credentials
 1. Open https://console.developers.google.com/apis/library and search "google sheets api"
 
