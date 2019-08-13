@@ -158,7 +158,7 @@ public class CreateTableTask
                 TableHandle likeTable = metadata.getTableHandle(session, likeTableName)
                         .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, statement, "LIKE table '%s' does not exist", likeTableName));
 
-                TableMetadata likeTableMetadata = metadata.getTableMetadata(session, likeTable);
+                TableMetadata likeTableMetadata = metadata.getTableMetadata(session, likeTable, true);
 
                 Optional<LikeClause.PropertiesOption> propertiesOption = likeClause.getPropertiesOption();
                 if (propertiesOption.isPresent() && propertiesOption.get().equals(LikeClause.PropertiesOption.INCLUDING)) {

@@ -107,7 +107,12 @@ public interface Metadata
      *
      * @throws RuntimeException if table handle is no longer valid
      */
-    TableMetadata getTableMetadata(Session session, TableHandle tableHandle);
+    default TableMetadata getTableMetadata(Session session, TableHandle tableHandle)
+    {
+        return getTableMetadata(session, tableHandle, false);
+    }
+
+    TableMetadata getTableMetadata(Session session, TableHandle tableHandle, boolean onlyInheritable);
 
     /**
      * Return statistics for specified table for given filtering contraint.
