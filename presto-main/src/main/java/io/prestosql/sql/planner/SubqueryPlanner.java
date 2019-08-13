@@ -248,8 +248,7 @@ class SubqueryPlanner
                         ImmutableList.copyOf(SymbolsExtractor.extractUnique(correlation.values())),
                         type,
                         filterCondition,
-                        query),
-                analysis.getParameters());
+                        query));
     }
 
     private PlanBuilder appendExistsSubqueryApplyNodes(PlanBuilder builder, Set<ExistsPredicate> existsPredicates, boolean correlationAllowed)
@@ -447,8 +446,7 @@ class SubqueryPlanner
                         subqueryNode,
                         subqueryAssignments,
                         ImmutableList.copyOf(SymbolsExtractor.extractUnique(correlation.values())),
-                        subquery),
-                analysis.getParameters());
+                        subquery));
     }
 
     private Map<Expression, Expression> extractCorrelation(PlanBuilder subPlan, PlanNode subquery)
@@ -490,7 +488,7 @@ class SubqueryPlanner
             translations.put((Expression) node, getOnlyElement(relationPlan.getFieldMappings()));
         }
 
-        return new PlanBuilder(translations, relationPlan.getRoot(), analysis.getParameters());
+        return new PlanBuilder(translations, relationPlan.getRoot());
     }
 
     /**
