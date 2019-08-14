@@ -51,6 +51,7 @@ public class SystemConnectorTests
                 "  query," +
                 "  resource_group_id," +
                 "  queued_time_ms," +
+                "  analysis_time_ms," +
                 "  planning_time_ms," +
                 "  created," +
                 "  started," +
@@ -60,7 +61,7 @@ public class SystemConnectorTests
         JDBCType arrayType = usingTeradataJdbcDriver(defaultQueryExecutor().getConnection()) ? VARCHAR : ARRAY;
         assertThat(query(sql))
                 .hasColumns(VARCHAR, VARCHAR, VARCHAR, VARCHAR, arrayType,
-                        BIGINT, BIGINT, TIMESTAMP, TIMESTAMP, TIMESTAMP, VARCHAR)
+                        BIGINT, BIGINT, BIGINT, TIMESTAMP, TIMESTAMP, TIMESTAMP, VARCHAR)
                 .hasAnyRows();
     }
 

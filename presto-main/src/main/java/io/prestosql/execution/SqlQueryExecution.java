@@ -173,18 +173,7 @@ public class SqlQueryExecution
             this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
 
             // analyze query
-            requireNonNull(preparedQuery, "preparedQuery is null");
-            Analyzer analyzer = new Analyzer(
-                    stateMachine.getSession(),
-                    metadata,
-                    sqlParser,
-                    accessControl,
-                    Optional.of(queryExplainer),
-                    preparedQuery.getParameters(),
-                    warningCollector);
-            this.analysis = analyzer.analyze(preparedQuery.getStatement());
-
-            stateMachine.setUpdateType(analysis.getUpdateType());
+            this.analysis = analyze(preparedQuery, stateMachine, metadata, accessControl, sqlParser, queryExplainer, warningCollector);
 
             // when the query finishes cache the final query info, and clear the reference to the output stage
             AtomicReference<SqlQueryScheduler> queryScheduler = this.queryScheduler;
@@ -202,6 +191,35 @@ public class SqlQueryExecution
 
             this.remoteTaskFactory = new MemoryTrackingRemoteTaskFactory(requireNonNull(remoteTaskFactory, "remoteTaskFactory is null"), stateMachine);
         }
+    }
+
+    private Analysis analyze(
+            PreparedQuery preparedQuery,
+            QueryStateMachine stateMachine,
+            Metadata metadata,
+            AccessControl accessControl,
+            SqlParser sqlParser,
+            QueryExplainer queryExplainer,
+            WarningCollector warningCollector)
+    {
+        stateMachine.beginAnalysis();
+
+        requireNonNull(preparedQuery, "preparedQuery is null");
+        Analyzer analyzer = new Analyzer(
+                stateMachine.getSession(),
+                metadata,
+                sqlParser,
+                accessControl,
+                Optional.of(queryExplainer),
+                preparedQuery.getParameters(),
+                warningCollector);
+        Analysis analysis = analyzer.analyze(preparedQuery.getStatement());
+
+        stateMachine.setUpdateType(analysis.getUpdateType());
+
+        stateMachine.endAnalysis();
+
+        return analysis;
     }
 
     @Override
