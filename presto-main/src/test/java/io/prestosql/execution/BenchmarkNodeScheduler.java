@@ -63,6 +63,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -173,7 +174,7 @@ public class BenchmarkNodeScheduler
             InMemoryNodeManager nodeManager = new InMemoryNodeManager();
             nodeManager.addNode(CONNECTOR_ID, nodes);
             NodeScheduler nodeScheduler = new NodeScheduler(getNodeSelectorFactory(nodeManager, nodeTaskMap));
-            nodeSelector = nodeScheduler.createNodeSelector(CONNECTOR_ID);
+            nodeSelector = nodeScheduler.createNodeSelector(Optional.of(CONNECTOR_ID));
         }
 
         @TearDown

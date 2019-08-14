@@ -37,6 +37,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -55,9 +56,9 @@ public class NodeScheduler
         this.nodeSelectorFactory = requireNonNull(nodeSelectorFactory, "nodeSelectorFactory is null");
     }
 
-    public NodeSelector createNodeSelector(CatalogName catalogName)
+    public NodeSelector createNodeSelector(Optional<CatalogName> catalogName)
     {
-        return nodeSelectorFactory.createNodeSelector(catalogName);
+        return nodeSelectorFactory.createNodeSelector(requireNonNull(catalogName, "catalogName is null"));
     }
 
     public static List<InternalNode> selectNodes(int limit, Iterator<InternalNode> candidates)

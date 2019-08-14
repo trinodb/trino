@@ -34,6 +34,7 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
@@ -108,8 +109,10 @@ public class TopologyAwareNodeSelectorFactory
     }
 
     @Override
-    public NodeSelector createNodeSelector(CatalogName catalogName)
+    public NodeSelector createNodeSelector(Optional<CatalogName> catalogName)
     {
+        requireNonNull(catalogName, "catalogName is null");
+
         // this supplier is thread-safe. TODO: this logic should probably move to the scheduler since the choice of which node to run in should be
         // done as close to when the the split is about to be scheduled
         Supplier<NodeMap> nodeMap = Suppliers.memoizeWithExpiration(
@@ -128,15 +131,11 @@ public class TopologyAwareNodeSelectorFactory
                 networkTopology);
     }
 
-    private NodeMap createNodeMap(CatalogName catalogName)
+    private NodeMap createNodeMap(Optional<CatalogName> catalogName)
     {
-        Set<InternalNode> nodes;
-        if (catalogName != null) {
-            nodes = nodeManager.getActiveConnectorNodes(catalogName);
-        }
-        else {
-            nodes = nodeManager.getNodes(ACTIVE);
-        }
+        Set<InternalNode> nodes = catalogName
+                .map(nodeManager::getActiveConnectorNodes)
+                .orElseGet(() -> nodeManager.getNodes(ACTIVE));
 
         Set<String> coordinatorNodeIds = nodeManager.getCoordinators().stream()
                 .map(InternalNode::getNodeIdentifier)
