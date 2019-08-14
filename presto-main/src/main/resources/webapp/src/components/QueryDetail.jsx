@@ -1244,6 +1244,14 @@ export class QueryDetail extends React.Component {
                             </tr>
                             <tr>
                                 <td className="info-title">
+                                    Analysis Time
+                                </td>
+                                <td className="info-text">
+                                    {query.queryStats.analysisTime}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td className="info-title">
                                     Planning Time
                                 </td>
                                 <td className="info-text">
