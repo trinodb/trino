@@ -57,6 +57,7 @@ public class WorkProcessorOperatorAdapter
         this.workProcessorOperator = requireNonNull(workProcessorOperatorFactory, "workProcessorOperatorFactory is null")
                 .create(operatorContext.getSession(), memoryTrackingContext, operatorContext.getDriverContext().getYieldSignal());
         this.pages = workProcessorOperator.getOutputPages();
+        operatorContext.setInfoSupplier(() -> workProcessorOperator.getOperatorInfo().orElse(null));
     }
 
     @Override
