@@ -15,7 +15,9 @@ package io.prestosql.execution.scheduler;
 
 import io.prestosql.connector.CatalogName;
 
+import java.util.Optional;
+
 public interface NodeSelectorFactory
 {
-    NodeSelector createNodeSelector(CatalogName catalogName);
+    NodeSelector createNodeSelector(Optional<CatalogName> catalogName);
 }
