@@ -282,4 +282,14 @@ public class TestDistinctAggregations
                 "             (UUID'be0b0518-35a1-4d10-b7f1-1b61355fa741')) AS t (uuid_col)",
                 "VALUES UUID'be0b0518-35a1-4d10-b7f1-1b61355fa741'");
     }
+
+    @Test
+    public void testIpAddressDistinct()
+    {
+        assertions.assertQuery(
+                "SELECT DISTINCT ipaddress_col " +
+                        "FROM (VALUES (IPADDRESS'2001:db8:0:0:1::1')," +
+                        "             (IPADDRESS'2001:db8:0:0:1::1')) AS t (ipaddress_col)",
+                "VALUES IPADDRESS'2001:db8:0:0:1::1'");
+    }
 }
