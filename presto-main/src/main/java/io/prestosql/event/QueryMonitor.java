@@ -383,7 +383,7 @@ public class QueryMonitor
             }
 
             // planning duration -- start to end of planning
-            long planning = queryStats.getTotalPlanningTime().toMillis();
+            long planning = queryStats.getPlanningTime().toMillis();
 
             // Time spent waiting for required no. of worker nodes to be present
             long waiting = queryStats.getResourceWaitingTime().toMillis();

@@ -1247,7 +1247,7 @@ export class QueryDetail extends React.Component {
                                     Planning Time
                                 </td>
                                 <td className="info-text">
-                                    {query.queryStats.totalPlanningTime}
+                                    {query.queryStats.planningTime}
                                 </td>
                             </tr>
                             <tr>

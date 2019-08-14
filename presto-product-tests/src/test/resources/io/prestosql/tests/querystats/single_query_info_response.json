@@ -31,7 +31,7 @@
     "queuedTime": "2.11ms",
     "dispatchingTime": "1111.00ms",
     "executionTime": "13.00ms",
-    "totalPlanningTime": "9.99ms",
+    "planningTime": "9.99ms",
     "finishingTime": "17.00ms",
     "totalTasks": 1,
     "runningTasks": 0,

@@ -1010,7 +1010,7 @@ public class QueryStateMachine
                 queryStats.getResourceWaitingTime(),
                 queryStats.getDispatchingTime(),
                 queryStats.getExecutionTime(),
-                queryStats.getTotalPlanningTime(),
+                queryStats.getPlanningTime(),
                 queryStats.getFinishingTime(),
                 queryStats.getTotalTasks(),
                 queryStats.getRunningTasks(),
