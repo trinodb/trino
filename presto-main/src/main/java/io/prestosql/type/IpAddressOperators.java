@@ -221,7 +221,7 @@ public final class IpAddressOperators
             if (left.isNull(leftPosition)) {
                 return false;
             }
-            return left.compareTo(leftPosition, 0, IPADDRESS.getFixedSize(), right, rightPosition, 0, IPADDRESS.getFixedSize()) != 0;
+            return !IPADDRESS.equalTo(left, leftPosition, right, rightPosition);
         }
     }
 
