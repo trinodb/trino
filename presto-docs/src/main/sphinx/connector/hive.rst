@@ -285,6 +285,8 @@ Property Name                                Description
 ``hive.s3.signer-type``                      Specify a different signer type for S3-compatible storage.
                                              Example: ``S3SignerType`` for v2 signer type
 
+``hive.s3.signer-class``                     Specify a different signer class for S3-compatible storage.
+
 ``hive.s3.path-style-access``                Use path-style access for all requests to the S3-compatible storage.
                                              This is for S3-compatible storage that doesn't support virtual-hosted-style access.
                                              (defaults to ``false``)
