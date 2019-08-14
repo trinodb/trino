@@ -62,6 +62,7 @@ public class QuerySystemTable
             .column("resource_group_id", new ArrayType(createUnboundedVarcharType()))
 
             .column("queued_time_ms", BIGINT)
+            .column("analysis_time_ms", BIGINT)
             .column("planning_time_ms", BIGINT)
 
             .column("created", TIMESTAMP)
@@ -117,6 +118,7 @@ public class QuerySystemTable
                     queryInfo.getResourceGroupId().map(QuerySystemTable::resourceGroupIdToBlock).orElse(null),
 
                     toMillis(queryStats.getQueuedTime()),
+                    toMillis(queryStats.getAnalysisTime()),
                     toMillis(queryStats.getPlanningTime()),
 
                     toTimeStamp(queryStats.getCreateTime()),
