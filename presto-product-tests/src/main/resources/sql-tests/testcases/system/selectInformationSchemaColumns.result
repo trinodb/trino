@@ -73,6 +73,7 @@ system| runtime| queries| source| varchar| YES| null| null|
 system| runtime| queries| query| varchar| YES| null| null|
 system| runtime| queries| resource_group_id| array(varchar)| YES| null| null|
 system| runtime| queries| queued_time_ms| bigint| YES| null| null|
+system| runtime| queries| planning_time_ms| bigint| YES| null| null|
 system| runtime| queries| created| timestamp| YES| null| null|
 system| runtime| queries| started| timestamp| YES| null| null|
 system| runtime| queries| last_heartbeat| timestamp| YES| null| null|
