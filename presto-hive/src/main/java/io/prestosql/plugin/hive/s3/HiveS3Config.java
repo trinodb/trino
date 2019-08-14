@@ -36,6 +36,7 @@ public class HiveS3Config
     private String s3AwsSecretKey;
     private String s3Endpoint;
     private PrestoS3SignerType s3SignerType;
+    private String s3SignerClass;
     private boolean s3PathStyleAccess;
     private boolean s3UseInstanceCredentials = true;
     private String s3IamRole;
@@ -106,6 +107,18 @@ public class HiveS3Config
     public HiveS3Config setS3SignerType(PrestoS3SignerType s3SignerType)
     {
         this.s3SignerType = s3SignerType;
+        return this;
+    }
+
+    public String getS3SignerClass()
+    {
+        return s3SignerClass;
+    }
+
+    @Config("hive.s3.signer-class")
+    public HiveS3Config setS3SignerClass(String s3SignerClass)
+    {
+        this.s3SignerClass = s3SignerClass;
         return this;
     }
 
