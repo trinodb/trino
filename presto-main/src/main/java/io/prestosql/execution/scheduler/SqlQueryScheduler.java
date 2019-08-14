@@ -321,10 +321,8 @@ public class SqlQueryScheduler
             Entry<PlanNodeId, SplitSource> entry = Iterables.getOnlyElement(plan.getSplitSources().entrySet());
             PlanNodeId planNodeId = entry.getKey();
             SplitSource splitSource = entry.getValue();
-            CatalogName catalogName = splitSource.getCatalogName();
-            if (isInternalSystemConnector(catalogName)) {
-                catalogName = null;
-            }
+            Optional<CatalogName> catalogName = Optional.of(splitSource.getCatalogName())
+                    .filter(catalog -> !isInternalSystemConnector(catalog));
             NodeSelector nodeSelector = nodeScheduler.createNodeSelector(catalogName);
             SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeSelector, stage::getAllTasks);
 
@@ -340,7 +338,8 @@ public class SqlQueryScheduler
             if (!splitSources.isEmpty()) {
                 // contains local source
                 List<PlanNodeId> schedulingOrder = plan.getFragment().getPartitionedSources();
-                CatalogName catalogName = partitioningHandle.getConnectorId().orElseThrow(IllegalStateException::new);
+                Optional<CatalogName> catalogName = partitioningHandle.getConnectorId();
+                catalogName.orElseThrow(() -> new IllegalArgumentException("No connector ID for partitioning handle: " + partitioningHandle));
                 List<ConnectorPartitionHandle> connectorPartitionHandles;
                 boolean groupedExecutionForStage = plan.getFragment().getStageExecutionDescriptor().isStageGroupedExecution();
                 if (groupedExecutionForStage) {
@@ -450,7 +449,7 @@ public class SqlQueryScheduler
                     stage,
                     sourceTasksProvider,
                     writerTasksProvider,
-                    nodeScheduler.createNodeSelector(null),
+                    nodeScheduler.createNodeSelector(Optional.empty()),
                     schedulerExecutor,
                     getWriterMinSize(session));
             whenAllStages(childStages, StageState::isDone)
