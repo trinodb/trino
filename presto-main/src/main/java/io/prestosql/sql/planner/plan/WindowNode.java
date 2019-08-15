@@ -334,7 +334,7 @@ public class WindowNode
                 @JsonProperty("signature") Signature signature,
                 @JsonProperty("arguments") List<Expression> arguments,
                 @JsonProperty("frame") Frame frame,
-                @JsonProperty("isIgnoreNulls") boolean ignoreNulls)
+                @JsonProperty("ignoreNulls") boolean ignoreNulls)
         {
             this.signature = requireNonNull(signature, "Signature is null");
             this.arguments = requireNonNull(arguments, "arguments is null");

@@ -19,10 +19,13 @@ import io.prestosql.spi.function.Description;
 import io.prestosql.spi.function.ValueWindowFunction;
 import io.prestosql.spi.function.WindowFunction;
 import io.prestosql.spi.type.Type;
+import org.apache.bval.jsr.xml.ConstructorType;
 
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Constructor;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static io.prestosql.metadata.FunctionKind.WINDOW;
 import static java.util.Objects.requireNonNull;
@@ -30,8 +33,35 @@ import static java.util.Objects.requireNonNull;
 public class ReflectionWindowFunctionSupplier<T extends WindowFunction>
         extends AbstractWindowFunctionSupplier
 {
-    private Constructor<T> constructor;
-    private boolean canIgnoreNulls;
+    @SuppressWarnings("unchecked")
+    private enum ConstructorType
+    {
+        NO_INPUTS(0),
+        INPUTS(1),
+        INPUTS_IGNORE_NULLS(2);
+
+        private int value;
+        private static Map map = new HashMap<>();
+
+        ConstructorType(int value)
+        {
+            this.value = value;
+        }
+
+        static {
+            for (ConstructorType constructorType : ConstructorType.values()) {
+                map.put(constructorType.value, constructorType);
+            }
+        }
+
+        public static ConstructorType valueOf(int nParameters)
+        {
+            return (ConstructorType) map.get(nParameters);
+        }
+    }
+
+    private final Constructor<T> constructor;
+    private final ConstructorType constructorType;
 
     public ReflectionWindowFunctionSupplier(String name, Type returnType, List<? extends Type> argumentTypes, Class<T> type)
     {
@@ -41,22 +71,27 @@ public class ReflectionWindowFunctionSupplier<T extends WindowFunction>
     public ReflectionWindowFunctionSupplier(Signature signature, Class<T> type)
     {
         super(signature, getDescription(requireNonNull(type, "type is null")));
-        canIgnoreNulls = ValueWindowFunction.class.isAssignableFrom(type);
         try {
+            Constructor<T> tmpConstructor;
+
             if (signature.getArgumentTypes().isEmpty()) {
-                constructor = type.getConstructor();
+                tmpConstructor = type.getConstructor();
             }
-            else if (canIgnoreNulls) {
+            else if (ValueWindowFunction.class.isAssignableFrom(type)) {
                 try {
-                    constructor = type.getConstructor(List.class, boolean.class);
+                    tmpConstructor = type.getConstructor(List.class, boolean.class);
                 }
                 catch (NoSuchMethodException e) {
-                    // Ignore and fallback to default constructor.
+                    // Fallback to default constructor.
+                    tmpConstructor = type.getConstructor(List.class);
                 }
             }
-            if (constructor == null) {
-                constructor = type.getConstructor(List.class);
+            else {
+                tmpConstructor = type.getConstructor(List.class);
             }
+
+            constructor = tmpConstructor;
+            constructorType = ConstructorType.valueOf(constructor.getParameterCount());
         }
         catch (NoSuchMethodException e) {
             throw new RuntimeException(e);
@@ -67,14 +102,16 @@ public class ReflectionWindowFunctionSupplier<T extends WindowFunction>
     protected T newWindowFunction(List<Integer> inputs, boolean ignoreNulls)
     {
         try {
-            if (getSignature().getArgumentTypes().isEmpty()) {
-                return constructor.newInstance();
-            }
-            else if (canIgnoreNulls) {
-                return constructor.newInstance(inputs, ignoreNulls);
-            }
-            else {
-                return constructor.newInstance(inputs);
+            switch (constructorType) {
+                case NO_INPUTS:
+                    return constructor.newInstance();
+                case INPUTS:
+                    return constructor.newInstance(inputs);
+                case INPUTS_IGNORE_NULLS:
+                    return constructor.newInstance(inputs, ignoreNulls);
+                default:
+                    // This should never happen.
+                    throw new RuntimeException("Invalid constructor type.");
             }
         }
         catch (ReflectiveOperationException e) {

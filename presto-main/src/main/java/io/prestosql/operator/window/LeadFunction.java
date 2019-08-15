@@ -58,8 +58,11 @@ public class LeadFunction
                 long count = 0;
                 valuePosition = currentPosition + 1;
                 while (withinPartition(valuePosition)) {
-                    if (!windowIndex.isNull(valueChannel, toIntExact(valuePosition)) && ++count == offset) {
-                        break;
+                    if (!windowIndex.isNull(valueChannel, toIntExact(valuePosition))) {
+                        count += 1;
+                        if (count == offset) {
+                            break;
+                        }
                     }
                     valuePosition++;
                 }

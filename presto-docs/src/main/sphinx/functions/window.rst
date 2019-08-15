@@ -90,6 +90,11 @@ Ranking Functions
 Value Functions
 ---------------
 
+By default, null values are respected. If ``IGNORE NULLS`` is specified, all rows where
+``x`` is null are excluded from the calculation. If ``IGNORE NULLS`` is specified and ``x``
+is null for all rows, the ``default_value`` is returned, or if it is not specified,
+``null`` is returned.
+
 .. function:: first_value(x) -> [same as input]
 
     Returns the first value of the window.
@@ -121,11 +126,3 @@ Value Functions
     offset can be any scalar expression.  The default ``offset`` is ``1``. If the
     offset is null or larger than the window, the ``default_value`` is returned,
     or if it is not specified ``null`` is returned.
-
-Null Treatment
-==============
-
-By default, null values are respected. If ``IGNORE NULLS`` is specified, all rows where
-``x`` is null are excluded from the calculation. If ``IGNORE NULLS`` is specified and ``x``
-is null for all rows, the ``default_value`` is returned, or if it is not specified,
-``null`` is returned.
