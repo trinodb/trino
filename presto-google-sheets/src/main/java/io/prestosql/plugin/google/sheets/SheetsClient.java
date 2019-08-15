@@ -25,6 +25,7 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.prestosql.spi.PrestoException;
@@ -42,9 +43,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 
 import static com.google.api.client.googleapis.javanet.GoogleNetHttpTransport.newTrustedTransport;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.cache.CacheLoader.from;
 import static io.prestosql.plugin.google.sheets.SheetsErrorCode.SHEETS_BAD_CREDENTIALS_ERROR;
 import static io.prestosql.plugin.google.sheets.SheetsErrorCode.SHEETS_METASTORE_ERROR;
@@ -135,7 +136,7 @@ public class SheetsClient
     {
         ImmutableSet.Builder<String> tables = ImmutableSet.builder();
         try {
-            List<List<Object>> tableMetadata = sheetDataCache.get(metadataSheetId);
+            List<List<Object>> tableMetadata = sheetDataCache.getUnchecked(metadataSheetId);
             for (int i = 1; i < tableMetadata.size(); i++) {
                 if (tableMetadata.get(i).size() > 0) {
                     tables.add(String.valueOf(tableMetadata.get(i).get(0)));
@@ -143,7 +144,8 @@ public class SheetsClient
             }
             return tables.build();
         }
-        catch (ExecutionException e) {
+        catch (UncheckedExecutionException e) {
+            throwIfInstanceOf(e.getCause(), PrestoException.class);
             throw new PrestoException(SHEETS_METASTORE_ERROR, e);
         }
     }
@@ -151,14 +153,15 @@ public class SheetsClient
     public List<List<Object>> readAllValues(String tableName)
     {
         try {
-            Optional<String> sheetExpression = tableSheetMappingCache.get(tableName);
+            Optional<String> sheetExpression = tableSheetMappingCache.getUnchecked(tableName);
             if (!sheetExpression.isPresent()) {
                 throw new PrestoException(SHEETS_UNKNOWN_TABLE_ERROR, "Sheet expression not found for table " + tableName);
             }
-            return sheetDataCache.get(sheetExpression.get());
+            return sheetDataCache.getUnchecked(sheetExpression.get());
         }
-        catch (ExecutionException e) {
-            throw new PrestoException(SHEETS_TABLE_LOAD_ERROR, "Error loading data for table " + tableName);
+        catch (UncheckedExecutionException e) {
+            throwIfInstanceOf(e.getCause(), PrestoException.class);
+            throw new PrestoException(SHEETS_TABLE_LOAD_ERROR, "Error loading data for table: " + tableName, e);
         }
     }
 
@@ -210,7 +213,7 @@ public class SheetsClient
             return sheetsService.spreadsheets().values().get(sheetId, defaultRange).execute().getValues();
         }
         catch (IOException e) {
-            throw new PrestoException(SHEETS_UNKNOWN_TABLE_ERROR, e);
+            throw new PrestoException(SHEETS_UNKNOWN_TABLE_ERROR, "Failed reading data from sheet: " + sheetExpression, e);
         }
     }
 
