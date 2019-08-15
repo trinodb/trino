@@ -25,14 +25,17 @@ import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.tree.GrantorSpecification;
+import io.prestosql.sql.tree.Identifier;
 import io.prestosql.sql.tree.Node;
 import io.prestosql.sql.tree.PrincipalSpecification;
 import io.prestosql.sql.tree.QualifiedName;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.metadata.NameCanonicalizer.LEGACY_NAME_CANONICALIZER;
 import static io.prestosql.spi.StandardErrorCode.MISSING_CATALOG_NAME;
 import static io.prestosql.spi.StandardErrorCode.MISSING_SCHEMA_NAME;
 import static io.prestosql.spi.StandardErrorCode.SYNTAX_ERROR;
@@ -108,20 +111,23 @@ public final class MetadataUtil
         return sessionCatalog.get();
     }
 
-    public static CatalogSchemaName createCatalogSchemaName(Session session, Node node, Optional<QualifiedName> schema)
+    public static CatalogSchemaName createCatalogSchemaName(Session session, Node node, Optional<QualifiedName> schema, BiFunction<Session, String, NameCanonicalizer> nameCanonicalizerProvider)
     {
         String catalogName = session.getCatalog().orElse(null);
         String schemaName = session.getSchema().orElse(null);
 
         if (schema.isPresent()) {
-            List<String> parts = schema.get().getLegacyParts();
+            List<Identifier> parts = schema.get().getParts();
             if (parts.size() > 2) {
                 throw semanticException(SYNTAX_ERROR, node, "Too many parts in schema name: %s", schema.get());
             }
             if (parts.size() == 2) {
-                catalogName = parts.get(0);
+                catalogName = LEGACY_NAME_CANONICALIZER.canonicalizeName(parts.get(0).getValue(), parts.get(0).isDelimited());
             }
-            schemaName = schema.get().getLegacySuffix();
+            if (catalogName == null) {
+                throw semanticException(MISSING_CATALOG_NAME, node, "Catalog must be specified when session catalog is not set");
+            }
+            schemaName = nameCanonicalizerProvider.apply(session, catalogName).canonicalizeName(schema.get().getSuffix().getValue(), schema.get().getSuffix().isDelimited());
         }
 
         if (catalogName == null) {

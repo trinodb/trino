@@ -181,7 +181,7 @@ final class ShowQueriesRewrite
         @Override
         protected Node visitShowTables(ShowTables showTables, Void context)
         {
-            CatalogSchemaName schema = createCatalogSchemaName(session, showTables, showTables.getSchema());
+            CatalogSchemaName schema = createCatalogSchemaName(session, showTables, showTables.getSchema(), metadata::getNameCanonicalizer);
 
             accessControl.checkCanShowTablesMetadata(session.toSecurityContext(), schema);
 

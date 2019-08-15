@@ -47,16 +47,17 @@ public class UseTask
         if (!statement.getCatalog().isPresent() && !session.getCatalog().isPresent()) {
             throw semanticException(MISSING_CATALOG_NAME, statement, "Catalog must be specified when session catalog is not set");
         }
-
+        String catalogName = session.getCatalog().orElse(null);
         if (statement.getCatalog().isPresent()) {
             String catalog = statement.getCatalog().get().getValue().toLowerCase(ENGLISH);
             if (!metadata.getCatalogHandle(session, catalog).isPresent()) {
                 throw new PrestoException(NOT_FOUND, "Catalog does not exist: " + catalog);
             }
             stateMachine.setSetCatalog(catalog);
+            catalogName = catalog;
         }
 
-        stateMachine.setSetSchema(statement.getSchema().getValue().toLowerCase(ENGLISH));
+        stateMachine.setSetSchema(metadata.getNameCanonicalizer(session, catalogName).canonicalizeName(statement.getSchema().getValue(), statement.getSchema().isDelimited()));
 
         return immediateFuture(null);
     }

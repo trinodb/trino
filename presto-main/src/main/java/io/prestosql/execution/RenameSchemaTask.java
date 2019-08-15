@@ -44,8 +44,8 @@ public class RenameSchemaTask
     public ListenableFuture<?> execute(RenameSchema statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         Session session = stateMachine.getSession();
-        CatalogSchemaName source = createCatalogSchemaName(session, statement, Optional.of(statement.getSource()));
-        CatalogSchemaName target = new CatalogSchemaName(source.getCatalogName(), statement.getTarget().getValue());
+        CatalogSchemaName source = createCatalogSchemaName(session, statement, Optional.of(statement.getSource()), metadata::getNameCanonicalizer);
+        CatalogSchemaName target = new CatalogSchemaName(source.getCatalogName(), metadata.getNameCanonicalizer(session, source.getCatalogName()).canonicalizeName(statement.getTarget().getValue(), statement.getTarget().isDelimited()));
 
         if (!metadata.schemaExists(session, source)) {
             throw semanticException(SCHEMA_NOT_FOUND, statement, "Schema '%s' does not exist", source);
