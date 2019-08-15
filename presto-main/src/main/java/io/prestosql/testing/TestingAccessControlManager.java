@@ -26,11 +26,12 @@ import io.prestosql.transaction.TransactionManager;
 import javax.inject.Inject;
 
 import java.security.Principal;
+import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
-import java.util.Objects;
+import java.util.LinkedList;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.prestosql.spi.security.AccessDeniedException.denyAddColumn;
@@ -75,7 +76,7 @@ import static java.util.Objects.requireNonNull;
 public class TestingAccessControlManager
         extends AccessControlManager
 {
-    private final Set<TestingPrivilege> denyPrivileges = new HashSet<>();
+    private final Collection<TestingPrivilegePattern> denyPrivileges = new LinkedList<>();
 
     @Inject
     public TestingAccessControlManager(TransactionManager transactionManager)
@@ -84,17 +85,17 @@ public class TestingAccessControlManager
         setSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
     }
 
-    public static TestingPrivilege privilege(String entityName, TestingPrivilegeType type)
+    public static TestingPrivilegePattern privilege(String entityName, TestingPrivilegeType type)
     {
-        return new TestingPrivilege(Optional.empty(), entityName, type);
+        return new TestingPrivilegePattern((actor) -> true, entityName, type);
     }
 
-    public static TestingPrivilege privilege(String userName, String entityName, TestingPrivilegeType type)
+    public static TestingPrivilegePattern privilege(String actorName, String entityName, TestingPrivilegeType type)
     {
-        return new TestingPrivilege(Optional.of(userName), entityName, type);
+        return new TestingPrivilegePattern((otherActorName) -> Optional.ofNullable(actorName).equals(otherActorName), entityName, type);
     }
 
-    public void deny(TestingPrivilege... deniedPrivileges)
+    public void deny(TestingPrivilegePattern... deniedPrivileges)
     {
         Collections.addAll(this.denyPrivileges, deniedPrivileges);
     }
@@ -107,7 +108,7 @@ public class TestingAccessControlManager
     @Override
     public void checkCanSetUser(Optional<Principal> principal, String userName)
     {
-        if (shouldDenyPrivilege(userName, userName, SET_USER)) {
+        if (shouldDenyPrivilege(principal.map(Principal::getName), userName, SET_USER)) {
             denySetUser(principal, userName);
         }
         if (denyPrivileges.isEmpty()) {
@@ -312,11 +313,15 @@ public class TestingAccessControlManager
         }
     }
 
-    private boolean shouldDenyPrivilege(String userName, String entityName, TestingPrivilegeType type)
+    private boolean shouldDenyPrivilege(String actor, String object, TestingPrivilegeType verb)
     {
-        TestingPrivilege testPrivilege = privilege(userName, entityName, type);
-        for (TestingPrivilege denyPrivilege : denyPrivileges) {
-            if (denyPrivilege.matches(testPrivilege)) {
+        return shouldDenyPrivilege(Optional.of(actor), object, verb);
+    }
+
+    private boolean shouldDenyPrivilege(Optional<String> actor, String object, TestingPrivilegeType verb)
+    {
+        for (TestingPrivilegePattern denyPrivilege : denyPrivileges) {
+            if (denyPrivilege.matches(actor, object, verb)) {
                 return true;
             }
         }
@@ -333,51 +338,31 @@ public class TestingAccessControlManager
         SET_SESSION
     }
 
-    public static class TestingPrivilege
+    public static class TestingPrivilegePattern
     {
-        private final Optional<String> userName;
         private final String entityName;
         private final TestingPrivilegeType type;
+        private final Predicate<Optional<String>> actorNamePredicate;
 
-        private TestingPrivilege(Optional<String> userName, String entityName, TestingPrivilegeType type)
+        private TestingPrivilegePattern(Predicate<Optional<String>> actorNamePredicate, String entityName, TestingPrivilegeType type)
         {
-            this.userName = requireNonNull(userName, "userName is null");
+            this.actorNamePredicate = requireNonNull(actorNamePredicate);
             this.entityName = requireNonNull(entityName, "entityName is null");
             this.type = requireNonNull(type, "type is null");
         }
 
-        public boolean matches(TestingPrivilege testPrivilege)
+        public boolean matches(Optional<String> actor, String entityName, TestingPrivilegeType type)
         {
-            return userName.map(name -> testPrivilege.userName.get().equals(name)).orElse(true) &&
-                    entityName.equals(testPrivilege.entityName) &&
-                    type == testPrivilege.type;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            TestingPrivilege that = (TestingPrivilege) o;
-            return Objects.equals(entityName, that.entityName) &&
-                    Objects.equals(type, that.type);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(entityName, type);
+            return actorNamePredicate.test(actor) &&
+                    this.entityName.equals(entityName) &&
+                    this.type == type;
         }
 
         @Override
         public String toString()
         {
             return toStringHelper(this)
-                    .add("userName", userName)
+                    .add("actorNamePredicate", actorNamePredicate)
                     .add("entityName", entityName)
                     .add("type", type)
                     .toString();

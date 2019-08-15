@@ -39,7 +39,7 @@ import io.prestosql.sql.planner.optimizations.PlanOptimizer;
 import io.prestosql.sql.tree.ExplainType;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.testing.TestingAccessControlManager.TestingPrivilege;
+import io.prestosql.testing.TestingAccessControlManager.TestingPrivilegePattern;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
@@ -238,12 +238,12 @@ public abstract class AbstractTestQueryFramework
         QueryAssertions.assertQueryReturnsEmptyResult(queryRunner, session, sql);
     }
 
-    protected void assertAccessAllowed(@Language("SQL") String sql, TestingPrivilege... deniedPrivileges)
+    protected void assertAccessAllowed(@Language("SQL") String sql, TestingPrivilegePattern... deniedPrivileges)
     {
         assertAccessAllowed(getSession(), sql, deniedPrivileges);
     }
 
-    protected void assertAccessAllowed(Session session, @Language("SQL") String sql, TestingPrivilege... deniedPrivileges)
+    protected void assertAccessAllowed(Session session, @Language("SQL") String sql, TestingPrivilegePattern... deniedPrivileges)
     {
         executeExclusively(() -> {
             try {
@@ -256,7 +256,7 @@ public abstract class AbstractTestQueryFramework
         });
     }
 
-    protected void assertAccessDenied(@Language("SQL") String sql, @Language("RegExp") String exceptionsMessageRegExp, TestingPrivilege... deniedPrivileges)
+    protected void assertAccessDenied(@Language("SQL") String sql, @Language("RegExp") String exceptionsMessageRegExp, TestingPrivilegePattern... deniedPrivileges)
     {
         assertAccessDenied(getSession(), sql, exceptionsMessageRegExp, deniedPrivileges);
     }
@@ -265,7 +265,7 @@ public abstract class AbstractTestQueryFramework
             Session session,
             @Language("SQL") String sql,
             @Language("RegExp") String exceptionsMessageRegExp,
-            TestingPrivilege... deniedPrivileges)
+            TestingPrivilegePattern... deniedPrivileges)
     {
         executeExclusively(() -> {
             try {

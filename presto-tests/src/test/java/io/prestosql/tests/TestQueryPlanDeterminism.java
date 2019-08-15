@@ -185,22 +185,22 @@ public class TestQueryPlanDeterminism
     }
 
     @Override
-    protected void assertAccessAllowed(@Language("SQL") String sql, TestingAccessControlManager.TestingPrivilege... deniedPrivileges)
+    protected void assertAccessAllowed(@Language("SQL") String sql, TestingAccessControlManager.TestingPrivilegePattern... deniedPrivileges)
     {
     }
 
     @Override
-    protected void assertAccessAllowed(Session session, @Language("SQL") String sql, TestingAccessControlManager.TestingPrivilege... deniedPrivileges)
+    protected void assertAccessAllowed(Session session, @Language("SQL") String sql, TestingAccessControlManager.TestingPrivilegePattern... deniedPrivileges)
     {
     }
 
     @Override
-    protected void assertAccessDenied(@Language("SQL") String sql, @Language("RegExp") String exceptionsMessageRegExp, TestingAccessControlManager.TestingPrivilege... deniedPrivileges)
+    protected void assertAccessDenied(@Language("SQL") String sql, @Language("RegExp") String exceptionsMessageRegExp, TestingAccessControlManager.TestingPrivilegePattern... deniedPrivileges)
     {
     }
 
     @Override
-    protected void assertAccessDenied(Session session, @Language("SQL") String sql, @Language("RegExp") String exceptionsMessageRegExp, TestingAccessControlManager.TestingPrivilege... deniedPrivileges)
+    protected void assertAccessDenied(Session session, @Language("SQL") String sql, @Language("RegExp") String exceptionsMessageRegExp, TestingAccessControlManager.TestingPrivilegePattern... deniedPrivileges)
     {
     }
 
