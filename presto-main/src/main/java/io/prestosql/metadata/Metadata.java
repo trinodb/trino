@@ -75,6 +75,8 @@ public interface Metadata
 
     List<String> listSchemaNames(Session session, String catalogName);
 
+    NameCanonicalizer getNameCanonicalizer(Session session, String catalogName);
+
     /**
      * Returns a table handle for the specified table name.
      */

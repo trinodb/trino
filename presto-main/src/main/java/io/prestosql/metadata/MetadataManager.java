@@ -113,6 +113,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.prestosql.metadata.NameCanonicalizer.LEGACY_NAME_CANONICALIZER;
 import static io.prestosql.metadata.QualifiedObjectName.convertFromSchemaTableName;
 import static io.prestosql.spi.StandardErrorCode.INVALID_VIEW;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -257,6 +258,16 @@ public final class MetadataManager
             }
         }
         return ImmutableList.copyOf(schemaNames.build());
+    }
+
+    @Override
+    public NameCanonicalizer getNameCanonicalizer(Session session, String catalogName)
+    {
+        Optional<CatalogMetadata> metadata = getOptionalCatalogMetadata(session, catalogName);
+        if (metadata.isPresent()) {
+            return (identifier, delimited) -> metadata.get().getMetadata().canonicalize(session.toConnectorSession(metadata.get().getCatalogName()), identifier, delimited);
+        }
+        return LEGACY_NAME_CANONICALIZER;
     }
 
     @Override
