@@ -26,7 +26,7 @@ import java.util.Objects;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.metadata.MetadataUtil.checkObjectName;
+import static io.prestosql.metadata.MetadataUtil.checkCatalogName;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -49,10 +49,9 @@ public class QualifiedObjectName
 
     public QualifiedObjectName(String catalogName, String schemaName, String objectName)
     {
-        checkObjectName(catalogName, schemaName, objectName);
-        this.catalogName = catalogName;
-        this.schemaName = schemaName;
-        this.objectName = objectName;
+        this.catalogName = checkCatalogName(catalogName);
+        this.schemaName = requireNonNull(schemaName, "schemaName is null");
+        this.objectName = requireNonNull(objectName, "objectName is null");
     }
 
     public String getCatalogName()

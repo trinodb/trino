@@ -41,7 +41,6 @@ import io.prestosql.transaction.TransactionManager;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -172,10 +171,10 @@ public class CreateTableTask
                 likeTableMetadata.getColumns().stream()
                         .filter(column -> !column.isHidden())
                         .forEach(column -> {
-                            if (columns.containsKey(column.getName().toLowerCase(Locale.ENGLISH))) {
+                            if (columns.containsKey(column.getName())) {
                                 throw semanticException(DUPLICATE_COLUMN_NAME, element, "Column name '%s' specified more than once", column.getName());
                             }
-                            columns.put(column.getName().toLowerCase(Locale.ENGLISH), column);
+                            columns.put(column.getName(), column);
                         });
             }
             else {

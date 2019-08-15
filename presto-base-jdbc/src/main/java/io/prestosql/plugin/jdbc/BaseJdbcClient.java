@@ -192,8 +192,8 @@ public class BaseJdbcClient
             try (ResultSet resultSet = getTables(connection, remoteSchema, Optional.empty())) {
                 ImmutableList.Builder<SchemaTableName> list = ImmutableList.builder();
                 while (resultSet.next()) {
-                    String tableSchema = getTableSchemaName(resultSet);
-                    String tableName = resultSet.getString("TABLE_NAME");
+                    String tableSchema = getTableSchemaName(resultSet).toLowerCase(ENGLISH);
+                    String tableName = resultSet.getString("TABLE_NAME").toLowerCase(ENGLISH);
                     list.add(new SchemaTableName(tableSchema, tableName));
                 }
                 return list.build();
@@ -702,7 +702,6 @@ public class BaseJdbcClient
     {
         requireNonNull(remoteSchema, "remoteSchema is null");
         requireNonNull(tableName, "tableName is null");
-        verify(CharMatcher.forPredicate(Character::isUpperCase).matchesNoneOf(tableName), "Expected table name from internal metadata to be lowercase: %s", tableName);
 
         if (caseInsensitiveNameMatching) {
             try {
