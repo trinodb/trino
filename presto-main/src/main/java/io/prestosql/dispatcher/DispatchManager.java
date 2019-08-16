@@ -158,6 +158,7 @@ public class DispatchManager
     private <C> void createQueryInternal(QueryId queryId, String slug, SessionContext sessionContext, String query, ResourceGroupManager<C> resourceGroupManager)
     {
         Session session = null;
+        PreparedQuery preparedQuery = null;
         try {
             if (query.length() > maxQueryLength) {
                 int queryLength = query.length();
@@ -169,7 +170,7 @@ public class DispatchManager
             session = sessionSupplier.createSession(queryId, sessionContext);
 
             // prepare query
-            PreparedQuery preparedQuery = queryPreparer.prepareQuery(session, query);
+            preparedQuery = queryPreparer.prepareQuery(session, query);
 
             // select resource group
             Optional<String> queryType = getQueryType(preparedQuery.getStatement().getClass()).map(Enum::name);
@@ -214,7 +215,8 @@ public class DispatchManager
                         .setSource(sessionContext.getSource())
                         .build();
             }
-            DispatchQuery failedDispatchQuery = failedDispatchQueryFactory.createFailedDispatchQuery(session, query, Optional.empty(), throwable);
+            Optional<String> preparedSql = Optional.ofNullable(preparedQuery).flatMap(PreparedQuery::getPrepareSql);
+            DispatchQuery failedDispatchQuery = failedDispatchQueryFactory.createFailedDispatchQuery(session, query, preparedSql, Optional.empty(), throwable);
             queryCreated(failedDispatchQuery);
         }
     }
@@ -267,6 +269,11 @@ public class DispatchManager
     public BasicQueryInfo getQueryInfo(QueryId queryId)
     {
         return queryTracker.getQuery(queryId).getBasicQueryInfo();
+    }
+
+    public QueryInfo getFullQueryInfo(QueryId queryId)
+    {
+        return queryTracker.getQuery(queryId).getFullQueryInfo();
     }
 
     public Optional<DispatchInfo> getDispatchInfo(QueryId queryId)
