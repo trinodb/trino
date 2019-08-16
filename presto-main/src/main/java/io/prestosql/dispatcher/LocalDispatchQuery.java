@@ -78,6 +78,7 @@ public class LocalDispatchQuery
         stateMachine.addStateChangeListener(state -> {
             if (state.isDone()) {
                 submitted.set(null);
+                queryExecutionFuture.cancel(true);
             }
         });
     }
