@@ -344,17 +344,22 @@ public class InformationSchemaMetadata
                             .map(table -> table.toLowerCase(ENGLISH))
                             .map(table -> new QualifiedObjectName(catalogName, prefix.getSchemaName().get(), table)))
                     .filter(objectName -> metadata.getTableHandle(session, objectName).isPresent() || metadata.getView(session, objectName).isPresent())
+                    .filter(objectName -> !predicate.isPresent() || predicate.get().test(asFixedValues(objectName)))
                     .map(QualifiedObjectName::asQualifiedTablePrefix)
                     .collect(toImmutableSet());
         }
 
-        return prefixes.stream()
-                .flatMap(prefix -> Stream.concat(
-                        metadata.listTables(session, prefix).stream(),
-                        metadata.listViews(session, prefix).stream()))
-                .filter(objectName -> !predicate.isPresent() || predicate.get().test(asFixedValues(objectName)))
-                .map(QualifiedObjectName::asQualifiedTablePrefix)
-                .collect(toImmutableSet());
+        if (predicate.isPresent()) {
+            return prefixes.stream()
+                    .flatMap(prefix -> Stream.concat(
+                            metadata.listTables(session, prefix).stream(),
+                            metadata.listViews(session, prefix).stream()))
+                    .filter(objectName -> predicate.get().test(asFixedValues(objectName)))
+                    .map(QualifiedObjectName::asQualifiedTablePrefix)
+                    .collect(toImmutableSet());
+        }
+
+        return prefixes;
     }
 
     private <T> Optional<Set<String>> filterString(TupleDomain<T> constraint, T column)
