@@ -32,7 +32,6 @@ import static io.prestosql.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
-import static java.util.Locale.ENGLISH;
 
 public class DropColumnTask
         implements DataDefinitionTask<DropColumn>
@@ -51,7 +50,7 @@ public class DropColumnTask
         TableHandle tableHandle = metadata.getTableHandle(session, tableName)
                 .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName));
 
-        String column = statement.getColumn().getValue().toLowerCase(ENGLISH);
+        String column = metadata.getNameCanonicalizer(session, tableName.getCatalogName()).canonicalizeName(statement.getColumn().getValue(), statement.getColumn().isDelimited());
 
         accessControl.checkCanDropColumn(session.toSecurityContext(), tableName);
 

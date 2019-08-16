@@ -111,7 +111,7 @@ public class CreateTableTask
         for (TableElement element : statement.getElements()) {
             if (element instanceof ColumnDefinition) {
                 ColumnDefinition column = (ColumnDefinition) element;
-                String name = column.getName().getValue().toLowerCase(Locale.ENGLISH);
+                String name = metadata.getNameCanonicalizer(session, tableName.getCatalogName()).canonicalizeName(column.getName().getValue(), column.getName().isDelimited());
                 Type type;
                 try {
                     type = metadata.getType(parseTypeSignature(column.getType()));

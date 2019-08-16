@@ -48,7 +48,6 @@ import static io.prestosql.sql.NodeUtils.mapFromProperties;
 import static io.prestosql.sql.ParameterUtils.parameterExtractor;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static io.prestosql.type.UnknownType.UNKNOWN;
-import static java.util.Locale.ENGLISH;
 
 public class AddColumnTask
         implements DataDefinitionTask<AddColumn>
@@ -87,7 +86,7 @@ public class AddColumnTask
         if (type.equals(UNKNOWN)) {
             throw semanticException(COLUMN_TYPE_UNKNOWN, element, "Unknown type '%s' for column '%s'", element.getType(), element.getName());
         }
-        if (columnHandles.containsKey(element.getName().getValue().toLowerCase(ENGLISH))) {
+        if (columnHandles.containsKey(metadata.getNameCanonicalizer(session, catalogName.getCatalogName()).canonicalizeName(element.getName().getValue(), element.getName().isDelimited()))) {
             throw semanticException(COLUMN_ALREADY_EXISTS, statement, "Column '%s' already exists", element.getName());
         }
         if (!element.isNullable() && !metadata.getConnectorCapabilities(session, catalogName).contains(NOT_NULL_COLUMN_CONSTRAINT)) {

@@ -34,7 +34,6 @@ import static io.prestosql.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
-import static java.util.Locale.ENGLISH;
 
 public class RenameColumnTask
         implements DataDefinitionTask<RenameColumn>
@@ -53,8 +52,8 @@ public class RenameColumnTask
         TableHandle tableHandle = metadata.getTableHandle(session, tableName)
                 .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName));
 
-        String source = statement.getSource().getValue().toLowerCase(ENGLISH);
-        String target = statement.getTarget().getValue().toLowerCase(ENGLISH);
+        String source = metadata.getNameCanonicalizer(session, tableName.getCatalogName()).canonicalizeName(statement.getSource().getValue(), statement.getSource().isDelimited());
+        String target = metadata.getNameCanonicalizer(session, tableName.getCatalogName()).canonicalizeName(statement.getTarget().getValue(), statement.getTarget().isDelimited());
 
         accessControl.checkCanRenameColumn(session.toSecurityContext(), tableName);
 
