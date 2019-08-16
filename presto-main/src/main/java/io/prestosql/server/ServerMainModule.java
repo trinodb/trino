@@ -18,6 +18,7 @@ import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.multibindings.OptionalBinder;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.http.server.HttpServerConfig;
@@ -35,6 +36,7 @@ import io.prestosql.client.NodeVersion;
 import io.prestosql.client.ServerInfo;
 import io.prestosql.connector.ConnectorManager;
 import io.prestosql.connector.system.SystemConnectorModule;
+import io.prestosql.dispatcher.DispatchManager;
 import io.prestosql.event.SplitMonitor;
 import io.prestosql.execution.ExecutionFailureInfo;
 import io.prestosql.execution.ExplainAnalyzeContext;
@@ -429,6 +431,10 @@ public class ServerMainModule
         newExporter(binder).export(SpillerFactory.class).withGeneratedName();
         binder.bind(LocalSpillManager.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(NodeSpillConfig.class);
+
+        // dispatcher
+        // TODO remove dispatcher fromm ServerMainModule, and bind dependent components only on coordinators
+        OptionalBinder.newOptionalBinder(binder, DispatchManager.class);
 
         // cleanup
         binder.bind(ExecutorCleanup.class).in(Scopes.SINGLETON);

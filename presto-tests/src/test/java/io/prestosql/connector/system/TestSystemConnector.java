@@ -136,7 +136,7 @@ public class TestSystemConnector
 
         assertQuery(
                 format("SELECT state FROM system.runtime.queries WHERE query LIKE '%%%s%%' AND query NOT LIKE '%%system.runtime.queries%%'", testQueryId),
-                "SELECT 1 WHERE false");
+                "VALUES 'WAITING_FOR_RESOURCES'");
         assertFalse(metadataFuture.isDone());
         assertFalse(queryFuture.isDone());
 
