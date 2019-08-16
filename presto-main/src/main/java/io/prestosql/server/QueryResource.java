@@ -133,21 +133,16 @@ public class QueryResource
         requireNonNull(queryId, "queryId is null");
 
         try {
-            QueryState state = queryManager.getQueryState(queryId);
+            QueryState state = dispatchManager.getQueryInfo(queryId).getState();
 
             // check before killing to provide the proper error code (this is racy)
             if (state.isDone()) {
                 return Response.status(Status.CONFLICT).build();
             }
 
-            queryManager.failQuery(queryId, queryException);
+            dispatchManager.failQuery(queryId, queryException);
 
-            // verify if the query was failed (if not, we lost the race)
-            if (!queryException.getErrorCode().equals(queryManager.getQueryInfo(queryId).getErrorCode())) {
-                return Response.status(Status.CONFLICT).build();
-            }
-
-            return Response.status(Status.OK).build();
+            return Response.status(Status.ACCEPTED).build();
         }
         catch (NoSuchElementException e) {
             return Response.status(Status.GONE).build();
