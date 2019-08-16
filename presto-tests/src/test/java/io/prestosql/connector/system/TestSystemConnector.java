@@ -184,18 +184,10 @@ public class TestSystemConnector
         assertFalse(queryFuture.isDone());
         assertTrue(queryId.isPresent());
 
-        // not effective
-        assertQueryFails(format("CALL system.runtime.kill_query('%s', 'because')", queryId.get()), "Target query not found: .*");
+        getQueryRunner().execute(format("CALL system.runtime.kill_query('%s', 'because')", queryId.get()));
 
         Thread.sleep(100);
-        assertFalse(metadataFuture.isDone());
-        assertFalse(queryFuture.isDone());
-
-        metadataFuture.set(CONNECTOR_TABLE_METADATA);
-        Thread.sleep(100);
-        assertQuery(
-                format("SELECT state FROM system.runtime.queries WHERE query LIKE '%%%s%%' AND query NOT LIKE '%%system.runtime.queries%%'", testQueryId),
-                "VALUES 'FINISHED'");
         assertTrue(queryFuture.isDone());
+        assertTrue(metadataFuture.isCancelled());
     }
 }
