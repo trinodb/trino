@@ -14,16 +14,9 @@
 package io.prestosql.server;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 import io.prestosql.dispatcher.DispatchManager;
-import io.prestosql.dispatcher.DispatchQuery;
 import io.prestosql.execution.QueryInfo;
-import io.prestosql.execution.QueryManager;
 import io.prestosql.execution.QueryState;
-import io.prestosql.execution.QueryStats;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
 
@@ -40,10 +33,7 @@ import javax.ws.rs.core.Response.Status;
 import java.util.List;
 import java.util.Locale;
 import java.util.NoSuchElementException;
-import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.connector.system.KillQueryProcedure.createKillQueryException;
 import static io.prestosql.connector.system.KillQueryProcedure.createPreemptQueryException;
 import static java.util.Objects.requireNonNull;
@@ -54,18 +44,12 @@ import static java.util.Objects.requireNonNull;
 @Path("/v1/query")
 public class QueryResource
 {
-    private static final DataSize ZERO_BYTES = new DataSize(0, DataSize.Unit.BYTE);
-    private static final Duration ZERO_MILLIS = new Duration(0, TimeUnit.MILLISECONDS);
-
-    // TODO There should be a combined interface for this
     private final DispatchManager dispatchManager;
-    private final QueryManager queryManager;
 
     @Inject
-    public QueryResource(DispatchManager dispatchManager, QueryManager queryManager)
+    public QueryResource(DispatchManager dispatchManager)
     {
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
-        this.queryManager = requireNonNull(queryManager, "queryManager is null");
     }
 
     @GET
@@ -88,17 +72,8 @@ public class QueryResource
         requireNonNull(queryId, "queryId is null");
 
         try {
-            QueryInfo queryInfo = queryManager.getFullQueryInfo(queryId);
+            QueryInfo queryInfo = dispatchManager.getFullQueryInfo(queryId);
             return Response.ok(queryInfo).build();
-        }
-        catch (NoSuchElementException ignored) {
-        }
-
-        try {
-            DispatchQuery query = dispatchManager.getQuery(queryId);
-            if (query.isDone()) {
-                return Response.ok(toFullQueryInfo(query)).build();
-            }
         }
         catch (NoSuchElementException ignored) {
         }
@@ -147,95 +122,5 @@ public class QueryResource
         catch (NoSuchElementException e) {
             return Response.status(Status.GONE).build();
         }
-    }
-
-    private static QueryInfo toFullQueryInfo(DispatchQuery query)
-    {
-        checkArgument(query.isDone(), "query is not done");
-        BasicQueryInfo info = query.getBasicQueryInfo();
-        BasicQueryStats stats = info.getQueryStats();
-
-        QueryStats queryStats = new QueryStats(
-                query.getCreateTime(),
-                query.getExecutionStartTime().orElse(null),
-                query.getLastHeartbeat(),
-                query.getEndTime().orElse(null),
-                stats.getElapsedTime(),
-                stats.getQueuedTime(),
-                ZERO_MILLIS,
-                ZERO_MILLIS,
-                ZERO_MILLIS,
-                ZERO_MILLIS,
-                ZERO_MILLIS,
-                ZERO_MILLIS,
-                ZERO_MILLIS,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                ZERO_BYTES,
-                ZERO_BYTES,
-                ZERO_BYTES,
-                ZERO_BYTES,
-                ZERO_BYTES,
-                ZERO_BYTES,
-                ZERO_BYTES,
-                ZERO_BYTES,
-                ZERO_BYTES,
-                info.isScheduled(),
-                ZERO_MILLIS,
-                ZERO_MILLIS,
-                ZERO_MILLIS,
-                false,
-                ImmutableSet.of(),
-                ZERO_BYTES,
-                0,
-                ZERO_BYTES,
-                0,
-                ZERO_BYTES,
-                0,
-                ZERO_BYTES,
-                0,
-                ZERO_BYTES,
-                0,
-                ZERO_BYTES,
-                ImmutableList.of(),
-                ImmutableList.of());
-
-        return new QueryInfo(
-                info.getQueryId(),
-                info.getSession(),
-                info.getState(),
-                info.getMemoryPool(),
-                info.isScheduled(),
-                info.getSelf(),
-                ImmutableList.of(),
-                info.getQuery(),
-                info.getPreparedQuery(),
-                queryStats,
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                ImmutableMap.of(),
-                ImmutableSet.of(),
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                ImmutableSet.of(),
-                Optional.empty(),
-                false,
-                null,
-                Optional.empty(),
-                query.getDispatchInfo().getFailureInfo().orElse(null),
-                info.getErrorCode(),
-                ImmutableList.of(),
-                ImmutableSet.of(),
-                Optional.empty(),
-                true,
-                info.getResourceGroupId());
     }
 }

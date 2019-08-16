@@ -245,6 +245,11 @@ class Query
         return this.slug.equals(slug);
     }
 
+    public QueryInfo getQueryInfo()
+    {
+        return queryManager.getFullQueryInfo(queryId);
+    }
+
     public synchronized Optional<String> getSetCatalog()
     {
         return setCatalog;
