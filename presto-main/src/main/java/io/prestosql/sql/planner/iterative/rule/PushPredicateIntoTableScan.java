@@ -176,6 +176,9 @@ public class PushPredicateIntoTableScan
                             domainTranslator.toPredicate(newDomain.simplify().transform(assignments::get))));
             constraint = new Constraint(newDomain, evaluator::isCandidate);
         }
+        else if (newDomain.isAll()) {
+            return Optional.empty();
+        }
         else {
             // Currently, invoking the expression interpreter is very expensive.
             // TODO invoke the interpreter unconditionally when the interpreter becomes cheap enough.
