@@ -22,6 +22,7 @@ import io.prestosql.Session;
 import io.prestosql.execution.ClusterSizeMonitor;
 import io.prestosql.execution.ExecutionFailureInfo;
 import io.prestosql.execution.QueryExecution;
+import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.QueryState;
 import io.prestosql.execution.QueryStateMachine;
 import io.prestosql.execution.StateMachine.StateChangeListener;
@@ -213,6 +214,14 @@ public class LocalDispatchQuery
         return tryGetQueryExecution()
                 .map(QueryExecution::getBasicQueryInfo)
                 .orElse(stateMachine.getBasicQueryInfo(Optional.empty()));
+    }
+
+    @Override
+    public QueryInfo getFullQueryInfo()
+    {
+        return tryGetQueryExecution()
+                .map(QueryExecution::getQueryInfo)
+                .orElse(stateMachine.updateQueryInfo(Optional.empty()));
     }
 
     @Override
