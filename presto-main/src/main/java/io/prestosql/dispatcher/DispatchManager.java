@@ -284,6 +284,14 @@ public class DispatchManager
                 .ifPresent(DispatchQuery::cancel);
     }
 
+    public void failQuery(QueryId queryId, Throwable cause)
+    {
+        requireNonNull(cause, "cause is null");
+
+        queryTracker.tryGetQuery(queryId)
+                .ifPresent(query -> query.fail(cause));
+    }
+
     private static class DispatchQueryCreationFuture
             extends AbstractFuture<QueryInfo>
     {

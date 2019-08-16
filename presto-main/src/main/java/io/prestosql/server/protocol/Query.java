@@ -225,6 +225,11 @@ class Query
         queryManager.cancelStage(stageId);
     }
 
+    public void fail(Throwable throwable)
+    {
+        queryManager.failQuery(queryId, throwable);
+    }
+
     public synchronized void dispose()
     {
         exchangeClient.close();
