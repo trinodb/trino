@@ -14,8 +14,7 @@
 package io.prestosql.connector.system;
 
 import io.airlift.units.Duration;
-import io.prestosql.execution.QueryInfo;
-import io.prestosql.execution.QueryManager;
+import io.prestosql.dispatcher.DispatchManager;
 import io.prestosql.execution.QueryStats;
 import io.prestosql.server.BasicQueryInfo;
 import io.prestosql.spi.block.Block;
@@ -36,10 +35,9 @@ import org.joda.time.DateTime;
 import javax.inject.Inject;
 
 import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.Objects;
+import java.util.Optional;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.prestosql.spi.connector.SystemTable.Distribution.ALL_COORDINATORS;
@@ -71,12 +69,12 @@ public class QuerySystemTable
             .column("end", TIMESTAMP)
             .build();
 
-    private final QueryManager queryManager;
+    private final Optional<DispatchManager> dispatchManager;
 
     @Inject
-    public QuerySystemTable(QueryManager queryManager)
+    public QuerySystemTable(Optional<DispatchManager> dispatchManager)
     {
-        this.queryManager = queryManager;
+        this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
     }
 
     @Override
@@ -94,21 +92,10 @@ public class QuerySystemTable
     @Override
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
+        checkState(dispatchManager.isPresent(), "Query system table can return results only on coordinator");
         Builder table = InMemoryRecordSet.builder(QUERY_TABLE);
-        List<QueryInfo> queryInfos = queryManager.getQueries().stream()
-                .map(BasicQueryInfo::getQueryId)
-                .map(queryId -> {
-                    try {
-                        return queryManager.getFullQueryInfo(queryId);
-                    }
-                    catch (NoSuchElementException e) {
-                        return null;
-                    }
-                })
-                .filter(Objects::nonNull)
-                .collect(toImmutableList());
-        for (QueryInfo queryInfo : queryInfos) {
-            QueryStats queryStats = queryInfo.getQueryStats();
+        for (BasicQueryInfo queryInfo : dispatchManager.get().getQueries()) {
+            QueryStats queryStats = dispatchManager.get().getFullQueryInfo(queryInfo.getQueryId()).getQueryStats();
             table.addRow(
                     queryInfo.getQueryId().toString(),
                     queryInfo.getState().toString(),
