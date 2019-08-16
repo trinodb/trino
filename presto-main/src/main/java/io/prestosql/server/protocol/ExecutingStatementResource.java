@@ -297,6 +297,17 @@ public class ExecutingStatementResource
         }
     }
 
+    @DELETE
+    @Path("/v1/statement/partialCancel/{queryId}/{stage}/{slug}")
+    public void partialCancel(
+            @PathParam("queryId") QueryId queryId,
+            @PathParam("stage") int stage,
+            @PathParam("slug") String slug)
+    {
+        Query query = getQuery(queryId, slug);
+        query.partialCancel(stage);
+    }
+
     private static WebApplicationException badRequest(Status status, String message)
     {
         throw new WebApplicationException(
