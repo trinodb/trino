@@ -162,7 +162,8 @@ public class PushPredicateIntoTableScan
         Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
 
         Constraint constraint;
-        if (pruneWithPredicateExpression) {
+        // use evaluator only when there is some predicate which could not be translated into tuple domain
+        if (pruneWithPredicateExpression && !TRUE_LITERAL.equals(decomposedPredicate.getRemainingExpression())) {
             LayoutConstraintEvaluator evaluator = new LayoutConstraintEvaluator(
                     metadata,
                     typeAnalyzer,
