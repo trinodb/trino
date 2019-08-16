@@ -33,12 +33,15 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
 
+import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
@@ -143,6 +146,53 @@ public class TestSystemConnector
         metadataFuture.set(CONNECTOR_TABLE_METADATA);
         Thread.sleep(100);
 
+        assertQuery(
+                format("SELECT state FROM system.runtime.queries WHERE query LIKE '%%%s%%' AND query NOT LIKE '%%system.runtime.queries%%'", testQueryId),
+                "VALUES 'FINISHED'");
+        assertTrue(queryFuture.isDone());
+    }
+
+    @Test(timeOut = 60_000)
+    public void testQueryKillingDuringAnalysis()
+            throws InterruptedException
+    {
+        SettableFuture<ConnectorTableMetadata> metadataFuture = SettableFuture.create();
+        getTableMetadata = (session, tableHandle) -> {
+            try {
+                return metadataFuture.get();
+            }
+            catch (InterruptedException e) {
+                metadataFuture.cancel(true);
+                Thread.currentThread().interrupt();
+                throw new RuntimeException(e);
+            }
+            catch (ExecutionException e) {
+                throw new RuntimeException(e);
+            }
+        };
+        String testQueryId = "test_query_id_" + counter.incrementAndGet();
+        Future<?> queryFuture = executor.submit(() -> {
+            getQueryRunner().execute(format("EXPLAIN SELECT 1 AS %s FROM test_table", testQueryId));
+        });
+
+        Thread.sleep(100);
+
+        Optional<Object> queryId = computeActual(format("SELECT query_id FROM system.runtime.queries WHERE query LIKE '%%%s%%' AND query NOT LIKE '%%system.runtime.queries%%'", testQueryId))
+                .getOnlyColumn()
+                .collect(toOptional());
+        assertFalse(metadataFuture.isDone());
+        assertFalse(queryFuture.isDone());
+        assertTrue(queryId.isPresent());
+
+        // not effective
+        assertQueryFails(format("CALL system.runtime.kill_query('%s', 'because')", queryId.get()), "Target query not found: .*");
+
+        Thread.sleep(100);
+        assertFalse(metadataFuture.isDone());
+        assertFalse(queryFuture.isDone());
+
+        metadataFuture.set(CONNECTOR_TABLE_METADATA);
+        Thread.sleep(100);
         assertQuery(
                 format("SELECT state FROM system.runtime.queries WHERE query LIKE '%%%s%%' AND query NOT LIKE '%%system.runtime.queries%%'", testQueryId),
                 "VALUES 'FINISHED'");
