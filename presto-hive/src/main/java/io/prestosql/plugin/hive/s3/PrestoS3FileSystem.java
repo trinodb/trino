@@ -28,6 +28,7 @@ import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
 import com.amazonaws.event.ProgressEvent;
 import com.amazonaws.event.ProgressEventType;
 import com.amazonaws.event.ProgressListener;
+import com.amazonaws.metrics.RequestMetricCollector;
 import com.amazonaws.regions.Region;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
@@ -158,7 +159,7 @@ public class PrestoS3FileSystem
 
     private static final Logger log = Logger.get(PrestoS3FileSystem.class);
     private static final PrestoS3FileSystemStats STATS = new PrestoS3FileSystemStats();
-    private static final PrestoS3FileSystemMetricCollector METRIC_COLLECTOR = new PrestoS3FileSystemMetricCollector(STATS);
+    private static final RequestMetricCollector METRIC_COLLECTOR = new PrestoS3FileSystemMetricCollector(STATS);
     private static final String DIRECTORY_SUFFIX = "_$folder$";
     private static final DataSize BLOCK_SIZE = new DataSize(32, MEGABYTE);
     private static final DataSize MAX_SKIP_SIZE = new DataSize(1, MEGABYTE);
@@ -216,7 +217,7 @@ public class PrestoS3FileSystem
         verify(!(useInstanceCredentials && this.iamRole != null),
                 "Invalid configuration: either use instance credentials or specify an iam role");
         this.pinS3ClientToCurrentRegion = conf.getBoolean(S3_PIN_CLIENT_TO_CURRENT_REGION, defaults.isPinS3ClientToCurrentRegion());
-        verify((pinS3ClientToCurrentRegion && conf.get(S3_ENDPOINT) == null) || !pinS3ClientToCurrentRegion,
+        verify(!pinS3ClientToCurrentRegion || conf.get(S3_ENDPOINT) == null,
                 "Invalid configuration: either endpoint can be set or S3 client can be pinned to the current region");
         this.sseEnabled = conf.getBoolean(S3_SSE_ENABLED, defaults.isS3SseEnabled());
         this.sseType = PrestoS3SseType.valueOf(conf.get(S3_SSE_TYPE, defaults.getS3SseType().name()));
@@ -551,7 +552,7 @@ public class PrestoS3FileSystem
                 .iterator();
     }
 
-    private boolean isGlacierObject(S3ObjectSummary object)
+    private static boolean isGlacierObject(S3ObjectSummary object)
     {
         return Glacier.toString().equals(object.getStorageClass());
     }
@@ -667,7 +668,7 @@ public class PrestoS3FileSystem
     private AmazonS3 createAmazonS3Client(Configuration hadoopConfig, ClientConfiguration clientConfig)
     {
         Optional<EncryptionMaterialsProvider> encryptionMaterialsProvider = createEncryptionMaterialsProvider(hadoopConfig);
-        AmazonS3Builder<? extends AmazonS3Builder, ? extends AmazonS3> clientBuilder;
+        AmazonS3Builder<? extends AmazonS3Builder<?, ?>, ? extends AmazonS3> clientBuilder;
 
         String signerType = hadoopConfig.get(S3_SIGNER_TYPE);
         if (signerType != null) {
@@ -694,23 +695,23 @@ public class PrestoS3FileSystem
         if (pinS3ClientToCurrentRegion) {
             Region region = Regions.getCurrentRegion();
             if (region != null) {
-                clientBuilder = clientBuilder.withRegion(region.getName());
+                clientBuilder.setRegion(region.getName());
                 regionOrEndpointSet = true;
             }
         }
 
         String endpoint = hadoopConfig.get(S3_ENDPOINT);
         if (endpoint != null) {
-            clientBuilder = clientBuilder.withEndpointConfiguration(new EndpointConfiguration(endpoint, null));
+            clientBuilder.setEndpointConfiguration(new EndpointConfiguration(endpoint, null));
             regionOrEndpointSet = true;
         }
 
         if (isPathStyleAccess) {
-            clientBuilder = clientBuilder.enablePathStyleAccess();
+            clientBuilder.enablePathStyleAccess();
         }
 
         if (!regionOrEndpointSet) {
-            clientBuilder = clientBuilder.withRegion(US_EAST_1);
+            clientBuilder.withRegion(US_EAST_1);
             clientBuilder.setForceGlobalBucketAccessEnabled(true);
         }
 
