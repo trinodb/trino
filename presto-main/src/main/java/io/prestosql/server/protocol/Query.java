@@ -41,6 +41,7 @@ import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.QueryManager;
 import io.prestosql.execution.QueryState;
 import io.prestosql.execution.QueryStats;
+import io.prestosql.execution.StageId;
 import io.prestosql.execution.StageInfo;
 import io.prestosql.execution.TaskInfo;
 import io.prestosql.execution.buffer.PagesSerde;
@@ -216,6 +217,12 @@ class Query
     {
         queryManager.cancelQuery(queryId);
         dispose();
+    }
+
+    public void partialCancel(int id)
+    {
+        StageId stageId = new StageId(queryId, id);
+        queryManager.cancelStage(stageId);
     }
 
     public synchronized void dispose()
@@ -441,6 +448,8 @@ class Query
         if (nextToken.isPresent()) {
             nextResultsUri = createNextResultsUri(scheme, uriInfo, nextToken.getAsLong());
         }
+        Optional<URI> partialCancelUri = findCancelableLeafStage(queryInfo)
+                .map(stage -> this.createPartialCancelUri(stage, scheme, uriInfo));
 
         // update catalog, schema, and path
         setCatalog = queryInfo.getSetCatalog();
@@ -466,7 +475,7 @@ class Query
         QueryResults queryResults = new QueryResults(
                 queryId.toString(),
                 queryHtmlUri,
-                findCancelableLeafStage(queryInfo),
+                partialCancelUri.orElse(null),
                 nextResultsUri,
                 columns,
                 data,
@@ -534,6 +543,18 @@ class Query
                 .path(queryId.toString())
                 .path(slug)
                 .path(String.valueOf(nextToken))
+                .replaceQuery("")
+                .build();
+    }
+
+    private URI createPartialCancelUri(int stage, String scheme, UriInfo uriInfo)
+    {
+        return uriInfo.getBaseUriBuilder()
+                .scheme(scheme)
+                .replacePath("/v1/statement/partialCancel")
+                .path(queryId.toString())
+                .path(String.valueOf(stage))
+                .path(slug)
                 .replaceQuery("")
                 .build();
     }
@@ -648,30 +669,30 @@ class Query
         return nodes.build();
     }
 
-    private static URI findCancelableLeafStage(QueryInfo queryInfo)
+    private static Optional<Integer> findCancelableLeafStage(QueryInfo queryInfo)
     {
         // if query is running, find the leaf-most running stage
-        return queryInfo.getOutputStage().map(Query::findCancelableLeafStage).orElse(null);
+        return queryInfo.getOutputStage().flatMap(Query::findCancelableLeafStage);
     }
 
-    private static URI findCancelableLeafStage(StageInfo stage)
+    private static Optional<Integer> findCancelableLeafStage(StageInfo stage)
     {
         // if this stage is already done, we can't cancel it
         if (stage.getState().isDone()) {
-            return null;
+            return Optional.empty();
         }
 
         // attempt to find a cancelable sub stage
         // check in reverse order since build side of a join will be later in the list
         for (StageInfo subStage : Lists.reverse(stage.getSubStages())) {
-            URI leafStage = findCancelableLeafStage(subStage);
-            if (leafStage != null) {
+            Optional<Integer> leafStage = findCancelableLeafStage(subStage);
+            if (leafStage.isPresent()) {
                 return leafStage;
             }
         }
 
         // no matching sub stage, so return this stage
-        return stage.getSelf();
+        return Optional.of(stage.getStageId().getId());
     }
 
     private static QueryError toQueryError(QueryInfo queryInfo)

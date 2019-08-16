@@ -24,7 +24,6 @@ import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.QueryManager;
 import io.prestosql.execution.QueryState;
 import io.prestosql.execution.QueryStats;
-import io.prestosql.execution.StageId;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
 
@@ -112,7 +111,7 @@ public class QueryResource
     public void cancelQuery(@PathParam("queryId") QueryId queryId)
     {
         requireNonNull(queryId, "queryId is null");
-        queryManager.cancelQuery(queryId);
+        dispatchManager.cancelQuery(queryId);
     }
 
     @PUT
@@ -153,14 +152,6 @@ public class QueryResource
         catch (NoSuchElementException e) {
             return Response.status(Status.GONE).build();
         }
-    }
-
-    @DELETE
-    @Path("stage/{stageId}")
-    public void cancelStage(@PathParam("stageId") StageId stageId)
-    {
-        requireNonNull(stageId, "stageId is null");
-        queryManager.cancelStage(stageId);
     }
 
     private static QueryInfo toFullQueryInfo(DispatchQuery query)
