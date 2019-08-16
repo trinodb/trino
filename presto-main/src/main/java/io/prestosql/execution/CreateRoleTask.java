@@ -33,7 +33,6 @@ import static io.prestosql.spi.StandardErrorCode.ROLE_ALREADY_EXISTS;
 import static io.prestosql.spi.StandardErrorCode.ROLE_NOT_FOUND;
 import static io.prestosql.spi.security.PrincipalType.ROLE;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
-import static java.util.Locale.ENGLISH;
 
 public class CreateRoleTask
         implements DataDefinitionTask<CreateRole>
@@ -49,7 +48,7 @@ public class CreateRoleTask
     {
         Session session = stateMachine.getSession();
         String catalog = createCatalogName(session, statement);
-        String role = statement.getName().getValue().toLowerCase(ENGLISH);
+        String role = metadata.getNameCanonicalizer(session, catalog).canonicalizeName(statement.getName().getValue(), statement.getName().isDelimited());
         Optional<PrestoPrincipal> grantor = statement.getGrantor().map(specification -> createPrincipal(session, specification));
         accessControl.checkCanCreateRole(session.toSecurityContext(), role, grantor, catalog);
         Set<String> existingRoles = metadata.listRoles(session, catalog);

@@ -28,7 +28,6 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.prestosql.metadata.MetadataUtil.createCatalogName;
 import static io.prestosql.spi.StandardErrorCode.ROLE_NOT_FOUND;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
-import static java.util.Locale.ENGLISH;
 
 public class DropRoleTask
         implements DataDefinitionTask<DropRole>
@@ -44,7 +43,7 @@ public class DropRoleTask
     {
         Session session = stateMachine.getSession();
         String catalog = createCatalogName(session, statement);
-        String role = statement.getName().getValue().toLowerCase(ENGLISH);
+        String role = metadata.getNameCanonicalizer(session, catalog).canonicalizeName(statement.getName().getValue(), statement.getName().isDelimited());
         accessControl.checkCanDropRole(session.toSecurityContext(), role, catalog);
         Set<String> existingRoles = metadata.listRoles(session, catalog);
         if (!existingRoles.contains(role)) {

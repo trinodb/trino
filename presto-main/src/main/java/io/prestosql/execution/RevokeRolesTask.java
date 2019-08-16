@@ -25,7 +25,6 @@ import io.prestosql.transaction.TransactionManager;
 
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 
@@ -50,14 +49,16 @@ public class RevokeRolesTask
     public ListenableFuture<?> execute(RevokeRoles statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         Session session = stateMachine.getSession();
+        String catalog = createCatalogName(session, statement);
 
-        Set<String> roles = statement.getRoles().stream().map(role -> role.getValue().toLowerCase(Locale.ENGLISH)).collect(toImmutableSet());
+        Set<String> roles = statement.getRoles().stream()
+                .map(role -> metadata.getNameCanonicalizer(session, catalog).canonicalizeName(role.getValue(), role.isDelimited()))
+                .collect(toImmutableSet());
         Set<PrestoPrincipal> grantees = statement.getGrantees().stream()
                 .map(MetadataUtil::createPrincipal)
                 .collect(toImmutableSet());
         boolean adminOptionFor = statement.isAdminOptionFor();
         Optional<PrestoPrincipal> grantor = statement.getGrantor().map(specification -> createPrincipal(session, specification));
-        String catalog = createCatalogName(session, statement);
 
         Set<String> availableRoles = metadata.listRoles(session, catalog);
         Set<String> specifiedRoles = new LinkedHashSet<>();
