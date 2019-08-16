@@ -27,6 +27,7 @@ import javax.inject.Inject;
 import java.lang.invoke.MethodHandle;
 import java.util.NoSuchElementException;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.prestosql.spi.StandardErrorCode.ADMINISTRATIVELY_KILLED;
 import static io.prestosql.spi.StandardErrorCode.ADMINISTRATIVELY_PREEMPTED;
@@ -65,6 +66,7 @@ public class KillQueryProcedure
             queryManager.failQuery(query, createKillQueryException(message));
 
             // verify if the query was killed (if not, we lost the race)
+            checkState(state.isDone(), "Failure to fail the query: %s", query);
             if (!ADMINISTRATIVELY_KILLED.toErrorCode().equals(queryManager.getQueryInfo(query).getErrorCode())) {
                 throw new PrestoException(NOT_SUPPORTED, "Target query is not running: " + queryId);
             }
