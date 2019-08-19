@@ -25,13 +25,16 @@ import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 import org.joda.time.DateTimeZone;
+import org.postgresql.util.PGobject;
 
 import java.lang.reflect.Array;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
 import java.sql.Date;
+import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.fromPrestoLegacyTimestamp;
@@ -89,6 +92,7 @@ public final class TypeUtils
     }
 
     public static Object[] getJdbcObjectArray(ConnectorSession session, Type elementType, Block block)
+            throws SQLException
     {
         int positionCount = block.getPositionCount();
         Object[] valuesArray = new Object[positionCount];
@@ -117,6 +121,7 @@ public final class TypeUtils
     }
 
     private static Object prestoNativeToJdbcObject(ConnectorSession session, Type prestoType, Object prestoNative)
+            throws SQLException
     {
         if (prestoNative == null) {
             return null;
@@ -161,9 +166,9 @@ public final class TypeUtils
         if (TIMESTAMP.equals(prestoType)) {
             if (session.isLegacyTimestamp()) {
                 ZoneId sessionZone = ZoneId.of(session.getTimeZoneKey().getId());
-                return Timestamp.valueOf(fromPrestoLegacyTimestamp((long) prestoNative, sessionZone));
+                return toPgTimestamp(fromPrestoLegacyTimestamp((long) prestoNative, sessionZone));
             }
-            return Timestamp.valueOf(fromPrestoTimestamp((long) prestoNative));
+            return toPgTimestamp(fromPrestoTimestamp((long) prestoNative));
         }
 
         if (TIMESTAMP_WITH_TIME_ZONE.equals(prestoType)) {
@@ -182,5 +187,14 @@ public final class TypeUtils
         }
 
         throw new PrestoException(NOT_SUPPORTED, "Unsupported type: " + prestoType);
+    }
+
+    public static PGobject toPgTimestamp(LocalDateTime localDateTime)
+            throws SQLException
+    {
+        PGobject pgObject = new PGobject();
+        pgObject.setType("timestamp");
+        pgObject.setValue(localDateTime.toString());
+        return pgObject;
     }
 }
