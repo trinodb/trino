@@ -14,6 +14,8 @@
 package io.prestosql.tests;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Multimaps;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.testng.IClassListener;
@@ -27,6 +29,7 @@ import javax.annotation.concurrent.GuardedBy;
 
 import java.lang.management.ThreadInfo;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
@@ -37,6 +40,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
@@ -117,9 +121,24 @@ public class LogTestDurationListener
 
     private static void dumpAllThreads(String message)
     {
-        LOG.warn("%s\n\nFull Thread Dump:\n%s", message,
-                Arrays.stream(getThreadMXBean().dumpAllThreads(true, true))
-                        .map(ThreadInfo::toString)
+        ListMultimap<String, ThreadInfo> threadInfos = Multimaps.index(
+                Arrays.asList(getThreadMXBean().dumpAllThreads(true, true)),
+                threadInfo -> Arrays.toString(threadInfo.getStackTrace()));
+        LOG.warn("%s\n\nThread Dump:\n%s", message,
+                threadInfos.keySet().stream()
+                        .map(threadStack -> {
+                            List<ThreadInfo> similarThreads = threadInfos.get(threadStack);
+                            checkState(!similarThreads.isEmpty());
+                            if (similarThreads.size() == 1) {
+                                return similarThreads.get(0).toString();
+                            }
+                            return format("There are %s threads: %s that look similar to:\n%s",
+                                    similarThreads.size(),
+                                    similarThreads.stream()
+                                            .map(ThreadInfo::getThreadName)
+                                            .collect(toImmutableList()),
+                                    similarThreads.get(0));
+                        })
                         .collect(joining("")));
     }
 
