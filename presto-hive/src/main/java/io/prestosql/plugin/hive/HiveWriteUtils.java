@@ -425,7 +425,7 @@ public final class HiveWriteUtils
         // verify transactional
         if (isTransactionalTable(parameters)) {
             // TODO support writing to transactional tables
-            throw new PrestoException(NOT_SUPPORTED, "Inserting into Hive transactional tables is not supported: " + tableName);
+            throw new PrestoException(NOT_SUPPORTED, "Hive transactional tables are not supported: " + tableName);
         }
     }
 
