@@ -58,13 +58,13 @@ import static java.lang.Math.toIntExact;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static org.joda.time.DateTimeZone.UTC;
 
-public final class TypeUtils
+final class TypeUtils
 {
     private TypeUtils() {}
 
     // PostgreSQL jdbc array element names understood by org.postgresql.jdbc2.TypeInfoCache#getPGArrayType
     // for multidimensional arrays, this should return the base type (e.g. array(array(integer)) returns 'integer')
-    public static String getArrayElementPgTypeName(ConnectorSession session, PostgreSqlClient client, Type elementType)
+    static String getArrayElementPgTypeName(ConnectorSession session, PostgreSqlClient client, Type elementType)
     {
         if (DOUBLE.equals(elementType)) {
             return "float";
@@ -91,7 +91,7 @@ public final class TypeUtils
         return client.toWriteMapping(session, elementType).getDataType();
     }
 
-    public static Object[] getJdbcObjectArray(ConnectorSession session, Type elementType, Block block)
+    static Object[] getJdbcObjectArray(ConnectorSession session, Type elementType, Block block)
             throws SQLException
     {
         int positionCount = block.getPositionCount();
@@ -189,7 +189,7 @@ public final class TypeUtils
         throw new PrestoException(NOT_SUPPORTED, "Unsupported type: " + prestoType);
     }
 
-    public static PGobject toPgTimestamp(LocalDateTime localDateTime)
+    static PGobject toPgTimestamp(LocalDateTime localDateTime)
             throws SQLException
     {
         PGobject pgObject = new PGobject();
