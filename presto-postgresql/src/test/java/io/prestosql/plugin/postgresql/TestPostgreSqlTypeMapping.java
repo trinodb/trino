@@ -607,15 +607,9 @@ public class TestPostgreSqlTypeMapping
                     .addRoundTrip(dataType, asList(timeDoubledInJvmZone))
                     .addRoundTrip(dataType, asList(timeDoubledInVilnius));
 
-            if (insertWithPresto) {
-                // When inserting with Presto, we effectively go through PostgreSQL driver's PreparedStatement.
-                // TODO https://github.com/pgjdbc/pgjdbc/issues/1225 the driver needs to support writing arrays using LocalDateTime objects
-            }
-            else {
-                addArrayTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, dataType, epoch);
-                addArrayTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, dataType, timeGapInJvmZone1);
-                addArrayTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, dataType, timeGapInJvmZone2);
-            }
+            addArrayTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, dataType, epoch);
+            addArrayTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, dataType, timeGapInJvmZone1);
+            addArrayTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, dataType, timeGapInJvmZone2);
             addArrayTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, dataType, timeGapInVilnius);
             addArrayTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, dataType, timeGapInKathmandu);
 

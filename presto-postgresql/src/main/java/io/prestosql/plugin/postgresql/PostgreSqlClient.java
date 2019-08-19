@@ -96,6 +96,7 @@ import static io.prestosql.plugin.jdbc.StandardColumnMappings.tinyintWriteFuncti
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
 import static io.prestosql.plugin.postgresql.TypeUtils.getArrayElementPgTypeName;
 import static io.prestosql.plugin.postgresql.TypeUtils.getJdbcObjectArray;
+import static io.prestosql.plugin.postgresql.TypeUtils.toPgTimestamp;
 import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -378,10 +379,7 @@ public class PostgreSqlClient
             LocalDateTime localDateTime = legacyTimestamp
                     ? fromPrestoLegacyTimestamp(value, sessionZone)
                     : fromPrestoTimestamp(value);
-            PGobject pgObject = new PGobject();
-            pgObject.setType("timestamp");
-            pgObject.setValue(localDateTime.toString());
-            statement.setObject(index, pgObject);
+            statement.setObject(index, toPgTimestamp(localDateTime));
         };
     }
 
