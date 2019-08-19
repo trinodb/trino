@@ -160,7 +160,7 @@ public class BaseJdbcClient
 
     protected Collection<String> listSchemas(Connection connection)
     {
-        try (ResultSet resultSet = connection.getMetaData().getSchemas()) {
+        try (ResultSet resultSet = connection.getMetaData().getSchemas(connection.getCatalog(), null)) {
             ImmutableSet.Builder<String> schemaNames = ImmutableSet.builder();
             while (resultSet.next()) {
                 String schemaName = resultSet.getString("TABLE_SCHEM");
