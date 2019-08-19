@@ -120,7 +120,7 @@ public class LogTestDurationListener
         LOG.warn("%s\n\nFull Thread Dump:\n%s", message,
                 Arrays.stream(getThreadMXBean().dumpAllThreads(true, true))
                         .map(ThreadInfo::toString)
-                        .collect(joining("\n")));
+                        .collect(joining("")));
     }
 
     private void resetHangMonitor()
