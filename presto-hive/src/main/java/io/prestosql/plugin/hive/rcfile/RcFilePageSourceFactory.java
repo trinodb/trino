@@ -188,7 +188,7 @@ public class RcFilePageSourceFactory
 
         // the first three separators are set by old-old properties
         separators[0] = getByte(schema.getProperty(FIELD_DELIM, schema.getProperty(SERIALIZATION_FORMAT)), DEFAULT_SEPARATORS[0]);
-        // for map field collection deliminator, hive 1.x use "collection.delim" but hive 3.x use "colelction.delim"
+        // for map field collection deliminator, hive 1.x use "collection.delim" but hive 3.x use "colelction.delim" 
         separators[1] = getByte(schema.getProperty(COLLECTION_DELIM, schema.getProperty("colelction.delim")), DEFAULT_SEPARATORS[1]);
         separators[2] = getByte(schema.getProperty(MAPKEY_DELIM), DEFAULT_SEPARATORS[2]);
 
