@@ -40,6 +40,8 @@ import java.util.Map;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.hive.HiveTestUtils.TYPE_MANAGER;
 import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
+import static java.lang.Double.longBitsToDouble;
+import static java.lang.Float.intBitsToFloat;
 import static java.util.Arrays.asList;
 import static java.util.Map.Entry;
 import static org.testng.Assert.assertEquals;
@@ -74,12 +76,21 @@ public class TestHiveBucketing
         assertBucketEquals("float", Float.MIN_VALUE, 1);
         assertBucketEquals("float", Float.POSITIVE_INFINITY, 2139095040);
         assertBucketEquals("float", Float.NEGATIVE_INFINITY, -8388608);
+        assertBucketEquals("float", Float.NaN, 2143289344);
+        assertBucketEquals("float", intBitsToFloat(0xffc00000), 2143289344); // also a NaN
+        assertBucketEquals("float", intBitsToFloat(0x7fc00000), 2143289344); // also a NaN
+        assertBucketEquals("float", intBitsToFloat(0x7fc01234), 2143289344); // also a NaN
+        assertBucketEquals("float", intBitsToFloat(0xffc01234), 2143289344); // also a NaN
         assertBucketEquals("double", null, 0);
         assertBucketEquals("double", 12.34, 986311098);
         assertBucketEquals("double", -Double.MAX_VALUE, 1048576);
         assertBucketEquals("double", Double.MIN_VALUE, 1);
         assertBucketEquals("double", Double.POSITIVE_INFINITY, 2146435072);
         assertBucketEquals("double", Double.NEGATIVE_INFINITY, -1048576);
+        assertBucketEquals("double", Double.NaN, 2146959360);
+        assertBucketEquals("double", longBitsToDouble(0xfff8000000000000L), 2146959360);
+        assertBucketEquals("double", longBitsToDouble(0x7ff8123412341234L), 2146959360);
+        assertBucketEquals("double", longBitsToDouble(0xfff8123412341234L), 2146959360);
         assertBucketEquals("varchar(15)", null, 0);
         assertBucketEquals("varchar(15)", "", 1);
         assertBucketEquals("varchar(15)", "test string", -189841218);
