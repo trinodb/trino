@@ -40,8 +40,17 @@ import static com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguratio
 import static com.amazonaws.regions.Regions.US_EAST_1;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_ACCESS_KEY;
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_CONNECT_TIMEOUT;
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_CREDENTIALS_PROVIDER;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_ENDPOINT;
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_MAX_ERROR_RETRIES;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_PIN_CLIENT_TO_CURRENT_REGION;
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_SECRET_KEY;
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_SOCKET_TIMEOUT;
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_SSL_ENABLED;
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_USER_AGENT_PREFIX;
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_USE_INSTANCE_CREDENTIALS;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
@@ -54,15 +63,6 @@ import static java.lang.String.format;
  */
 public class PrestoS3ClientFactory
 {
-    private static final String S3_ACCESS_KEY = "presto.s3.access-key";
-    private static final String S3_SECRET_KEY = "presto.s3.secret-key";
-    private static final String S3_CREDENTIALS_PROVIDER = "presto.s3.credentials-provider";
-    private static final String S3_USE_INSTANCE_CREDENTIALS = "presto.s3.use-instance-credentials";
-    private static final String S3_CONNECT_TIMEOUT = "presto.s3.connect-timeout";
-    private static final String S3_SOCKET_TIMEOUT = "presto.s3.socket-timeout";
-    private static final String S3_SSL_ENABLED = "presto.s3.ssl.enabled";
-    private static final String S3_MAX_ERROR_RETRIES = "presto.s3.max-error-retries";
-    private static final String S3_USER_AGENT_PREFIX = "presto.s3.user-agent-prefix";
     private static final String S3_SELECT_PUSHDOWN_MAX_CONNECTIONS = "hive.s3select-pushdown.max-connections";
     private static String s3UserAgentSuffix = "presto";
 
