@@ -114,7 +114,7 @@ public class TestSystemConnector
     }
 
     @Test(timeOut = 60_000)
-    public void testQueryDuringAnalisysIsCaptured()
+    public void testQueryDuringAnalysisIsCaptured()
             throws InterruptedException
     {
         SettableFuture<List<ColumnMetadata>> metadataFuture = SettableFuture.create();
