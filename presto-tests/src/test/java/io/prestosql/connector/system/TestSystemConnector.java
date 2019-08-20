@@ -18,13 +18,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.SettableFuture;
 import io.prestosql.Session;
 import io.prestosql.connector.MockConnectorFactory;
-import io.prestosql.plugin.tpch.TpchColumnHandle;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorFactory;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.tests.AbstractTestQueryFramework;
@@ -33,16 +29,18 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.BiFunction;
+import java.util.function.Function;
 
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.airlift.concurrent.Threads.threadsNamed;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
@@ -54,11 +52,10 @@ public class TestSystemConnector
         extends AbstractTestQueryFramework
 {
     private static final SchemaTableName SCHEMA_TABLE_NAME = new SchemaTableName("default", "test_table");
-    private static final ConnectorTableMetadata CONNECTOR_TABLE_METADATA = new ConnectorTableMetadata(SCHEMA_TABLE_NAME, ImmutableList.of(new ColumnMetadata("c", VARCHAR)));
-    private static final BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableMetadata> DEFAULT_GET_METADATA = (session, tableHandle) -> CONNECTOR_TABLE_METADATA;
+    private static final Function<SchemaTableName, List<ColumnMetadata>> DEFAULT_GET_COLUMNS = table -> ImmutableList.of(new ColumnMetadata("c", VARCHAR));
     private static final AtomicLong counter = new AtomicLong();
 
-    private static BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableMetadata> getTableMetadata = DEFAULT_GET_METADATA;
+    private static Function<SchemaTableName, List<ColumnMetadata>> getColumns = DEFAULT_GET_COLUMNS;
 
     private final ExecutorService executor = Executors.newSingleThreadScheduledExecutor(threadsNamed(TestSystemConnector.class.getSimpleName()));
 
@@ -84,8 +81,7 @@ public class TestSystemConnector
                 MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
                         .withGetViews((session, schemaTablePrefix) -> ImmutableMap.of())
                         .withListTables((session, s) -> ImmutableList.of(SCHEMA_TABLE_NAME))
-                        .withGetTableMetadata((session, tableHandle) -> getTableMetadata.apply(session, tableHandle))
-                        .withGetColumnHandles((session, tableHandle) -> ImmutableMap.of("c", new TpchColumnHandle("c", VARCHAR)))
+                        .withGetColumns(tableName -> getColumns.apply(tableName))
                         .build();
                 return ImmutableList.of(connectorFactory);
             }
@@ -97,7 +93,7 @@ public class TestSystemConnector
     @BeforeMethod
     public void cleanup()
     {
-        getTableMetadata = DEFAULT_GET_METADATA;
+        getColumns = DEFAULT_GET_COLUMNS;
     }
 
     @AfterClass(alwaysRun = true)
@@ -121,8 +117,8 @@ public class TestSystemConnector
     public void testQueryDuringAnalisysIsCaptured()
             throws InterruptedException
     {
-        SettableFuture<ConnectorTableMetadata> metadataFuture = SettableFuture.create();
-        getTableMetadata = (session, tableHandle) -> {
+        SettableFuture<List<ColumnMetadata>> metadataFuture = SettableFuture.create();
+        getColumns = schemaTableName -> {
             try {
                 return metadataFuture.get();
             }
@@ -143,7 +139,7 @@ public class TestSystemConnector
         assertFalse(metadataFuture.isDone());
         assertFalse(queryFuture.isDone());
 
-        metadataFuture.set(CONNECTOR_TABLE_METADATA);
+        metadataFuture.set(ImmutableList.of(new ColumnMetadata("a", BIGINT)));
         Thread.sleep(100);
 
         assertQuery(
@@ -156,8 +152,8 @@ public class TestSystemConnector
     public void testQueryKillingDuringAnalysis()
             throws InterruptedException
     {
-        SettableFuture<ConnectorTableMetadata> metadataFuture = SettableFuture.create();
-        getTableMetadata = (session, tableHandle) -> {
+        SettableFuture<List<ColumnMetadata>> metadataFuture = SettableFuture.create();
+        getColumns = schemaTableName -> {
             try {
                 return metadataFuture.get();
             }
