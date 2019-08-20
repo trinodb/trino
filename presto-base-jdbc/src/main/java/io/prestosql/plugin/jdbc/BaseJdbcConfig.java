@@ -13,6 +13,8 @@
  */
 package io.prestosql.plugin.jdbc;
 
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
@@ -21,6 +23,9 @@ import io.prestosql.plugin.jdbc.credential.CredentialProviderType;
 import javax.annotation.Nullable;
 import javax.validation.constraints.NotNull;
 
+import java.util.Set;
+
+import static com.google.common.base.Strings.nullToEmpty;
 import static io.prestosql.plugin.jdbc.credential.CredentialProviderType.INLINE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -33,6 +38,7 @@ public class BaseJdbcConfig
     private boolean caseInsensitiveNameMatching;
     private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
     private CredentialProviderType credentialProviderType = INLINE;
+    private Set<String> jdbcTypesMappedToVarchar = ImmutableSet.of();
 
     @NotNull
     public String getConnectionUrl()
@@ -109,6 +115,18 @@ public class BaseJdbcConfig
     public BaseJdbcConfig setCredentialProviderType(CredentialProviderType credentialProviderType)
     {
         this.credentialProviderType = requireNonNull(credentialProviderType, "credentialProviderType is null");
+        return this;
+    }
+
+    public Set<String> getJdbcTypesMappedToVarchar()
+    {
+        return jdbcTypesMappedToVarchar;
+    }
+
+    @Config("jdbc-types-mapped-to-varchar")
+    public BaseJdbcConfig setJdbcTypesMappedToVarchar(String jdbcTypesMappedToVarchar)
+    {
+        this.jdbcTypesMappedToVarchar = ImmutableSet.copyOf(Splitter.on(",").omitEmptyStrings().trimResults().split(nullToEmpty(jdbcTypesMappedToVarchar)));
         return this;
     }
 }
