@@ -271,6 +271,10 @@ public class PostgreSqlClient
         String jdbcTypeName = typeHandle.getJdbcTypeName()
                 .orElseThrow(() -> new PrestoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
 
+        Optional<ColumnMapping> mapping = getForcedMappingToVarchar(typeHandle);
+        if (mapping.isPresent()) {
+            return mapping;
+        }
         switch (jdbcTypeName) {
             case "uuid":
                 return Optional.of(uuidColumnMapping());

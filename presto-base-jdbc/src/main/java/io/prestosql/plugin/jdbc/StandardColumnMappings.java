@@ -202,7 +202,12 @@ public final class StandardColumnMappings
 
     public static ColumnMapping varcharColumnMapping(VarcharType varcharType)
     {
-        return ColumnMapping.sliceMapping(varcharType, (resultSet, columnIndex) -> utf8Slice(resultSet.getString(columnIndex)), varcharWriteFunction());
+        return ColumnMapping.sliceMapping(varcharType, varcharReadFunction(), varcharWriteFunction());
+    }
+
+    public static SliceReadFunction varcharReadFunction()
+    {
+        return (resultSet, columnIndex) -> utf8Slice(resultSet.getString(columnIndex));
     }
 
     public static SliceWriteFunction varcharWriteFunction()
