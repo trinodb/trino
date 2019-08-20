@@ -25,7 +25,6 @@ import io.prestosql.spi.block.LazyBlock;
 import io.prestosql.spi.block.LazyBlockLoader;
 import io.prestosql.spi.block.RunLengthEncodedBlock;
 import io.prestosql.spi.connector.ConnectorPageSource;
-import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import org.apache.parquet.io.MessageColumnIO;
@@ -73,12 +72,10 @@ public class ParquetPageSource
             TypeManager typeManager,
             Properties splitSchema,
             List<HiveColumnHandle> columns,
-            TupleDomain<HiveColumnHandle> effectivePredicate,
             boolean useParquetColumnNames)
     {
         requireNonNull(splitSchema, "splitSchema is null");
         requireNonNull(columns, "columns is null");
-        requireNonNull(effectivePredicate, "effectivePredicate is null");
         this.parquetReader = requireNonNull(parquetReader, "parquetReader is null");
         this.fileSchema = requireNonNull(fileSchema, "fileSchema is null");
         this.useParquetColumnNames = useParquetColumnNames;
