@@ -100,6 +100,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Lists.newArrayList;
 import static com.google.common.collect.Lists.transform;
+import static io.prestosql.plugin.hive.HiveBucketing.isHiveBucketingV1;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.prestosql.plugin.hive.HiveColumnHandle.bucketColumnHandle;
@@ -832,7 +833,7 @@ public final class HiveUtil
 
         // add hidden columns
         columns.add(pathColumnHandle());
-        if (table.getStorage().getBucketProperty().isPresent()) {
+        if (table.getStorage().getBucketProperty().isPresent() && isHiveBucketingV1(table)) {
             columns.add(bucketColumnHandle());
         }
 
