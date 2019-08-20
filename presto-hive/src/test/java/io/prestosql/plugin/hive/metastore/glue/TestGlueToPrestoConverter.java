@@ -33,6 +33,7 @@ import static io.prestosql.plugin.hive.metastore.glue.TestingMetastoreObjects.ge
 import static io.prestosql.plugin.hive.metastore.glue.TestingMetastoreObjects.getGlueTestDatabase;
 import static io.prestosql.plugin.hive.metastore.glue.TestingMetastoreObjects.getGlueTestPartition;
 import static io.prestosql.plugin.hive.metastore.glue.TestingMetastoreObjects.getGlueTestTable;
+import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
@@ -81,6 +82,15 @@ public class TestGlueToPrestoConverter
         assertStorage(prestoTable.getStorage(), testTable.getStorageDescriptor());
         assertEquals(prestoTable.getViewOriginalText().get(), testTable.getViewOriginalText());
         assertEquals(prestoTable.getViewExpandedText().get(), testTable.getViewExpandedText());
+    }
+
+    @Test
+    public void testConvertTableWithoutTableType()
+    {
+        Table table = getGlueTestTable(testDatabase.getName());
+        table.setTableType(null);
+        io.prestosql.plugin.hive.metastore.Table prestoTable = GlueToPrestoConverter.convertTable(table, testDatabase.getName());
+        assertEquals(prestoTable.getTableType(), MANAGED_TABLE.name());
     }
 
     @Test
