@@ -15,6 +15,7 @@ package io.prestosql.connector.system;
 
 import io.airlift.units.Duration;
 import io.prestosql.dispatcher.DispatchManager;
+import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.QueryStats;
 import io.prestosql.server.BasicQueryInfo;
 import io.prestosql.spi.block.Block;
@@ -95,7 +96,11 @@ public class QuerySystemTable
         checkState(dispatchManager.isPresent(), "Query system table can return results only on coordinator");
         Builder table = InMemoryRecordSet.builder(QUERY_TABLE);
         for (BasicQueryInfo queryInfo : dispatchManager.get().getQueries()) {
-            QueryStats queryStats = dispatchManager.get().getFullQueryInfo(queryInfo.getQueryId()).getQueryStats();
+            Optional<QueryInfo> fullQueryInfo = dispatchManager.get().getFullQueryInfo(queryInfo.getQueryId());
+            if (!fullQueryInfo.isPresent()) {
+                continue;
+            }
+            QueryStats queryStats = fullQueryInfo.get().getQueryStats();
             table.addRow(
                     queryInfo.getQueryId().toString(),
                     queryInfo.getState().toString(),
