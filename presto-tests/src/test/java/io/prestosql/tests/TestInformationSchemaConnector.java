@@ -24,14 +24,20 @@ import io.prestosql.spi.connector.SchemaTableName;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.connector.MockConnectorFactory.Builder.defaultGetColumns;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static org.testng.Assert.assertEquals;
 
+@Test(singleThreaded = true)
 public class TestInformationSchemaConnector
         extends AbstractTestQueryFramework
 {
+    private static final AtomicLong METADATA_CALLS_COUNTER = new AtomicLong();
+
     public TestInformationSchemaConnector()
     {
         super(TestInformationSchemaConnector::createQueryRunner);
@@ -96,9 +102,12 @@ public class TestInformationSchemaConnector
     @Test(timeOut = 60_000)
     public void testLargeData()
     {
+        long metadataCallsCountBeforeTests = METADATA_CALLS_COUNTER.get();
         assertQuery("SELECT count(*) from test_catalog.information_schema.tables", "VALUES 300008");
         assertQuery("SELECT count(*) from test_catalog.information_schema.tables WHERE table_schema = 'test_schema1'", "VALUES 100000");
         assertQuery("SELECT count(*) from test_catalog.information_schema.tables WHERE table_name = 'test_table1'", "VALUES 2");
+        assertQuery("SELECT count(*) from test_catalog.information_schema.columns WHERE table_schema = 'test_schema1' AND table_name = 'test_table1'", "VALUES 100");
+        assertEquals(METADATA_CALLS_COUNTER.get() - metadataCallsCountBeforeTests, 12);
     }
 
     private static DistributedQueryRunner createQueryRunner()
@@ -112,7 +121,8 @@ public class TestInformationSchemaConnector
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
-            queryRunner.installPlugin(new Plugin() {
+            queryRunner.installPlugin(new Plugin()
+            {
                 @Override
                 public Iterable<ConnectorFactory> getConnectorFactories()
                 {
@@ -127,8 +137,12 @@ public class TestInformationSchemaConnector
                             .addAll(tablesTestSchema2)
                             .build();
                     MockConnectorFactory mockConnectorFactory = MockConnectorFactory.builder()
-                            .withListSchemaNames(connectorSession -> ImmutableList.of("test_schema1", "test_schema2"))
+                            .withListSchemaNames(connectorSession -> {
+                                METADATA_CALLS_COUNTER.incrementAndGet();
+                                return ImmutableList.of("test_schema1", "test_schema2");
+                            })
                             .withListTables((connectorSession, schemaNameOrNull) -> {
+                                METADATA_CALLS_COUNTER.incrementAndGet();
                                 if (schemaNameOrNull == null) {
                                     return allTables;
                                 }
@@ -137,6 +151,10 @@ public class TestInformationSchemaConnector
                                             .filter(schemaTableName -> schemaTableName.getSchemaName().equals(schemaNameOrNull))
                                             .collect(toImmutableList());
                                 }
+                            })
+                            .withGetColumns(schemaTableName -> {
+                                METADATA_CALLS_COUNTER.incrementAndGet();
+                                return defaultGetColumns().apply(schemaTableName);
                             })
                             .build();
                     return ImmutableList.of(mockConnectorFactory);
