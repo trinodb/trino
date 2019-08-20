@@ -204,7 +204,6 @@ public class ParquetPageSourceFactory
                     typeManager,
                     schema,
                     columns,
-                    effectivePredicate,
                     useParquetColumnNames);
         }
         catch (Exception e) {
