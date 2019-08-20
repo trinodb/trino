@@ -2317,7 +2317,7 @@ public class TestHiveIntegrationSmokeTest
                         ")\n" +
                         "WITH (\n" +
                         "   format = 'TEXTFILE',\n" +
-                        "   textfile_skip_header_line_count = 1\n" +
+                        "   skip_header_line_count = 1\n" +
                         ")",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get());
@@ -2334,7 +2334,7 @@ public class TestHiveIntegrationSmokeTest
                         ")\n" +
                         "WITH (\n" +
                         "   format = 'TEXTFILE',\n" +
-                        "   textfile_skip_footer_line_count = 1\n" +
+                        "   skip_footer_line_count = 1\n" +
                         ")",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get());
@@ -2351,8 +2351,8 @@ public class TestHiveIntegrationSmokeTest
                         ")\n" +
                         "WITH (\n" +
                         "   format = 'TEXTFILE',\n" +
-                        "   textfile_skip_footer_line_count = 1,\n" +
-                        "   textfile_skip_header_line_count = 1\n" +
+                        "   skip_footer_line_count = 1,\n" +
+                        "   skip_header_line_count = 1\n" +
                         ")",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get());
@@ -2372,14 +2372,14 @@ public class TestHiveIntegrationSmokeTest
                 .hasMessageMatching("Cannot specify orc_bloom_filter_columns table property for storage format: TEXTFILE");
 
         // TEXTFILE
-        assertThatThrownBy(() -> assertUpdate("CREATE TABLE test_orc_skip_header (col1 bigint) WITH (format = 'ORC', textfile_skip_header_line_count = 1)"))
-                .hasMessageMatching("Cannot specify textfile_skip_header_line_count table property for storage format: ORC");
-        assertThatThrownBy(() -> assertUpdate("CREATE TABLE test_orc_skip_footer (col1 bigint) WITH (format = 'ORC', textfile_skip_footer_line_count = 1)"))
-                .hasMessageMatching("Cannot specify textfile_skip_footer_line_count table property for storage format: ORC");
-        assertThatThrownBy(() -> assertUpdate("CREATE TABLE test_invalid_skip_header (col1 bigint) WITH (format = 'TEXTFILE', textfile_skip_header_line_count = -1)"))
-                .hasMessageMatching("Invalid value for textfile_skip_header_line_count property: -1");
-        assertThatThrownBy(() -> assertUpdate("CREATE TABLE test_invalid_skip_footer (col1 bigint) WITH (format = 'TEXTFILE', textfile_skip_footer_line_count = -1)"))
-                .hasMessageMatching("Invalid value for textfile_skip_footer_line_count property: -1");
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE test_orc_skip_header (col1 bigint) WITH (format = 'ORC', skip_header_line_count = 1)"))
+                .hasMessageMatching("Cannot specify skip_header_line_count table property for storage format: ORC");
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE test_orc_skip_footer (col1 bigint) WITH (format = 'ORC', skip_footer_line_count = 1)"))
+                .hasMessageMatching("Cannot specify skip_footer_line_count table property for storage format: ORC");
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE test_invalid_skip_header (col1 bigint) WITH (format = 'TEXTFILE', skip_header_line_count = -1)"))
+                .hasMessageMatching("Invalid value for skip_header_line_count property: -1");
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE test_invalid_skip_footer (col1 bigint) WITH (format = 'TEXTFILE', skip_footer_line_count = -1)"))
+                .hasMessageMatching("Invalid value for skip_footer_line_count property: -1");
 
         // CSV
         assertThatThrownBy(() -> assertUpdate("CREATE TABLE invalid_table (col1 bigint) WITH (format = 'ORC', csv_separator = 'S')"))
