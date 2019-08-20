@@ -13,6 +13,8 @@
  */
 package io.prestosql.connector;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.plugin.tpch.TpchColumnHandle;
@@ -56,21 +58,18 @@ public class MockConnectorFactory
     private final Function<ConnectorSession, List<String>> listSchemaNames;
     private final BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables;
     private final BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews;
-    private final BiFunction<ConnectorSession, ConnectorTableHandle, Map<String, TpchColumnHandle>> getColumnHandles;
-    private final BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableMetadata> getTableMetadata;
+    private final Function<SchemaTableName, List<ColumnMetadata>> getColumns;
 
     private MockConnectorFactory(
             Function<ConnectorSession, List<String>> listSchemaNames,
             BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables,
             BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews,
-            BiFunction<ConnectorSession, ConnectorTableHandle, Map<String, TpchColumnHandle>> getColumnHandles,
-            BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableMetadata> getTableMetadata)
+            Function<SchemaTableName, List<ColumnMetadata>> getColumns)
     {
         this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
         this.listTables = requireNonNull(listTables, "listTables is null");
         this.getViews = requireNonNull(getViews, "getViews is null");
-        this.getColumnHandles = requireNonNull(getColumnHandles, "getColumnHandles is null");
-        this.getTableMetadata = requireNonNull(getTableMetadata, "getTableMetadata is null");
+        this.getColumns = getColumns;
     }
 
     @Override
@@ -88,7 +87,7 @@ public class MockConnectorFactory
     @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        return new MockConnector(context, listSchemaNames, listTables, getViews, getColumnHandles, getTableMetadata);
+        return new MockConnector(context, listSchemaNames, listTables, getViews, getColumns);
     }
 
     public static Builder builder()
@@ -103,23 +102,20 @@ public class MockConnectorFactory
         private final Function<ConnectorSession, List<String>> listSchemaNames;
         private final BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables;
         private final BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews;
-        private final BiFunction<ConnectorSession, ConnectorTableHandle, Map<String, TpchColumnHandle>> getColumnHandles;
-        private final BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableMetadata> getTableMetadata;
+        private final Function<SchemaTableName, List<ColumnMetadata>> getColumns;
 
-        public MockConnector(
+        private MockConnector(
                 ConnectorContext context,
                 Function<ConnectorSession, List<String>> listSchemaNames,
                 BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables,
                 BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews,
-                BiFunction<ConnectorSession, ConnectorTableHandle, Map<String, TpchColumnHandle>> getColumnHandles,
-                BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableMetadata> getTableMetadata)
+                Function<SchemaTableName, List<ColumnMetadata>> getColumns)
         {
             this.context = requireNonNull(context, "context is null");
             this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
             this.listTables = requireNonNull(listTables, "listTables is null");
             this.getViews = requireNonNull(getViews, "getViews is null");
-            this.getColumnHandles = requireNonNull(getColumnHandles, "getColumnHandles is null");
-            this.getTableMetadata = requireNonNull(getTableMetadata, "getTableMetadata is null");
+            this.getColumns = requireNonNull(getColumns, "getColumns is null");
         }
 
         @Override
@@ -158,25 +154,30 @@ public class MockConnectorFactory
             @Override
             public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
             {
-                return new ConnectorTableHandle() {};
+                return new MockConnectorTableHandle(tableName);
             }
 
             @Override
-            public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
+            public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
             {
-                return getTableMetadata.apply(session, table);
+                MockConnectorTableHandle table = (MockConnectorTableHandle) tableHandle;
+                return new ConnectorTableMetadata(table.getTableName(), getColumns.apply(table.getTableName()));
             }
 
             @Override
             public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
             {
-                return listTables.apply(session, schemaName.orElse(null));
+                return listTables.apply(session, schemaName.orElse(null)).stream()
+                        .filter(schemaTableName -> !schemaName.isPresent() || schemaTableName.getSchemaName().equals(schemaName.get()))
+                        .collect(toImmutableList());
             }
 
             @Override
             public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
             {
-                return ImmutableMap.copyOf(getColumnHandles.apply(session, tableHandle));
+                MockConnectorTableHandle table = (MockConnectorTableHandle) tableHandle;
+                return getColumns.apply(table.getTableName()).stream()
+                        .collect(toImmutableMap(column -> column.getName(), column -> new TpchColumnHandle(column.getName(), column.getType())));
             }
 
             @Override
@@ -190,10 +191,8 @@ public class MockConnectorFactory
             public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
             {
                 return listTables(session, prefix.getSchema()).stream()
-                        .collect(toImmutableMap(table -> table, table -> IntStream.range(0, 100)
-                                .boxed()
-                                .map(i -> new ColumnMetadata("column_" + i, createUnboundedVarcharType()))
-                                .collect(toImmutableList())));
+                        .filter(prefix::matches)
+                        .collect(toImmutableMap(table -> table, getColumns));
             }
 
             @Override
@@ -219,16 +218,33 @@ public class MockConnectorFactory
             {
                 return new ConnectorTableProperties();
             }
+
+            private class MockConnectorTableHandle
+                    implements ConnectorTableHandle
+            {
+                private final SchemaTableName tableName;
+
+                @JsonCreator
+                public MockConnectorTableHandle(@JsonProperty SchemaTableName tableName)
+                {
+                    this.tableName = requireNonNull(tableName, "tableName is null");
+                }
+
+                @JsonProperty
+                public SchemaTableName getTableName()
+                {
+                    return tableName;
+                }
+            }
         }
     }
 
     public static final class Builder
     {
-        private Function<ConnectorSession, List<String>> listSchemaNames = (session) -> ImmutableList.of();
-        private BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables = (session, schemaName) -> ImmutableList.of();
-        private BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews = (session, schemaTablePrefix) -> ImmutableMap.of();
-        private BiFunction<ConnectorSession, ConnectorTableHandle, Map<String, TpchColumnHandle>> getColumnHandles = (session, tableHandle) -> notSupported();
-        private BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableMetadata> getTableMetadata = (session, tableHandle) -> notSupported();
+        private Function<ConnectorSession, List<String>> listSchemaNames = defaultListSchemaNames();
+        private BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables = defaultListTables();
+        private BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews = defaultGetViews();
+        private Function<SchemaTableName, List<ColumnMetadata>> getColumns = defaultGetColumns();
 
         public Builder withListSchemaNames(Function<ConnectorSession, List<String>> listSchemaNames)
         {
@@ -248,26 +264,38 @@ public class MockConnectorFactory
             return this;
         }
 
-        public Builder withGetColumnHandles(BiFunction<ConnectorSession, ConnectorTableHandle, Map<String, TpchColumnHandle>> getColumnHandles)
+        public Builder withGetColumns(Function<SchemaTableName, List<ColumnMetadata>> getColumns)
         {
-            this.getColumnHandles = requireNonNull(getColumnHandles, "getColumnHandles is null");
-            return this;
-        }
-
-        public Builder withGetTableMetadata(BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableMetadata> getTableMetadata)
-        {
-            this.getTableMetadata = requireNonNull(getTableMetadata, "getTableMetadata is null");
+            this.getColumns = requireNonNull(getColumns, "getColumns is null");
             return this;
         }
 
         public MockConnectorFactory build()
         {
-            return new MockConnectorFactory(listSchemaNames, listTables, getViews, getColumnHandles, getTableMetadata);
+            return new MockConnectorFactory(listSchemaNames, listTables, getViews, getColumns);
         }
 
-        private static <T> T notSupported()
+        public static Function<ConnectorSession, List<String>> defaultListSchemaNames()
         {
-            throw new UnsupportedOperationException();
+            return (session) -> ImmutableList.of();
+        }
+
+        public static BiFunction<ConnectorSession, String, List<SchemaTableName>> defaultListTables()
+        {
+            return (session, schemaName) -> ImmutableList.of();
+        }
+
+        public static BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> defaultGetViews()
+        {
+            return (session, schemaTablePrefix) -> ImmutableMap.of();
+        }
+
+        public static Function<SchemaTableName, List<ColumnMetadata>> defaultGetColumns()
+        {
+            return table -> IntStream.range(0, 100)
+                    .boxed()
+                    .map(i -> new ColumnMetadata("column_" + i, createUnboundedVarcharType()))
+                    .collect(toImmutableList());
         }
     }
 }
