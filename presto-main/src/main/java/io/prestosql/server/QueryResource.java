@@ -33,6 +33,7 @@ import javax.ws.rs.core.Response.Status;
 import java.util.List;
 import java.util.Locale;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 
 import static io.prestosql.connector.system.KillQueryProcedure.createKillQueryException;
 import static io.prestosql.connector.system.KillQueryProcedure.createPreemptQueryException;
@@ -71,13 +72,10 @@ public class QueryResource
     {
         requireNonNull(queryId, "queryId is null");
 
-        try {
-            QueryInfo queryInfo = dispatchManager.getFullQueryInfo(queryId);
-            return Response.ok(queryInfo).build();
+        Optional<QueryInfo> queryInfo = dispatchManager.getFullQueryInfo(queryId);
+        if (queryInfo.isPresent()) {
+            return Response.ok(queryInfo.get()).build();
         }
-        catch (NoSuchElementException ignored) {
-        }
-
         return Response.status(Status.GONE).build();
     }
 
