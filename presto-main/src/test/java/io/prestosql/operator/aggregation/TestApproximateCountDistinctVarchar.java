@@ -25,7 +25,7 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 
-public class TestApproximateCountDistinctVarBinary
+public class TestApproximateCountDistinctVarchar
         extends AbstractTestApproximateCountDistinct
 {
     @Override
