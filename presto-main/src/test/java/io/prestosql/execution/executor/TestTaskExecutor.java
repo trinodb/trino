@@ -152,22 +152,22 @@ public class TestTaskExecutor
             TaskHandle shortQuantaTaskHandle = taskExecutor.addTask(new TaskId("shortQuanta", 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
             TaskHandle longQuantaTaskHandle = taskExecutor.addTask(new TaskId("longQuanta", 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
 
-            Phaser globalPhaser = new Phaser();
+            Phaser endQuantaPhaser = new Phaser();
 
-            TestingJob shortQuantaDriver = new TestingJob(ticker, new Phaser(), new Phaser(), globalPhaser, 10, 10);
-            TestingJob longQuantaDriver = new TestingJob(ticker, new Phaser(), new Phaser(), globalPhaser, 10, 20);
+            TestingJob shortQuantaDriver = new TestingJob(ticker, new Phaser(), new Phaser(), endQuantaPhaser, 10, 10);
+            TestingJob longQuantaDriver = new TestingJob(ticker, new Phaser(), new Phaser(), endQuantaPhaser, 10, 20);
 
             taskExecutor.enqueueSplits(shortQuantaTaskHandle, true, ImmutableList.of(shortQuantaDriver));
             taskExecutor.enqueueSplits(longQuantaTaskHandle, true, ImmutableList.of(longQuantaDriver));
 
             for (int i = 0; i < 11; i++) {
-                globalPhaser.arriveAndAwaitAdvance();
+                endQuantaPhaser.arriveAndAwaitAdvance();
             }
 
             assertTrue(shortQuantaDriver.getCompletedPhases() >= 7 && shortQuantaDriver.getCompletedPhases() <= 8);
             assertTrue(longQuantaDriver.getCompletedPhases() >= 3 && longQuantaDriver.getCompletedPhases() <= 4);
 
-            globalPhaser.arriveAndDeregister();
+            endQuantaPhaser.arriveAndDeregister();
         }
         finally {
             taskExecutor.stop();
