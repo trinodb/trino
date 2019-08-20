@@ -16,6 +16,7 @@ package io.prestosql.connector.system;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.SettableFuture;
+import io.airlift.units.Duration;
 import io.prestosql.Session;
 import io.prestosql.connector.MockConnectorFactory;
 import io.prestosql.spi.Plugin;
@@ -44,6 +45,7 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -115,7 +117,6 @@ public class TestSystemConnector
 
     @Test(timeOut = 60_000)
     public void testQueryDuringAnalysisIsCaptured()
-            throws InterruptedException
     {
         SettableFuture<List<ColumnMetadata>> metadataFuture = SettableFuture.create();
         getColumns = schemaTableName -> {
@@ -131,20 +132,21 @@ public class TestSystemConnector
             getQueryRunner().execute(format("EXPLAIN SELECT 1 AS %s FROM test_table", testQueryId));
         });
 
-        Thread.sleep(100);
-
-        assertQuery(
+        assertQueryEventually(
+                getSession(),
                 format("SELECT state FROM system.runtime.queries WHERE query LIKE '%%%s%%' AND query NOT LIKE '%%system.runtime.queries%%'", testQueryId),
-                "VALUES 'WAITING_FOR_RESOURCES'");
+                "VALUES 'WAITING_FOR_RESOURCES'",
+                new Duration(10, SECONDS));
         assertFalse(metadataFuture.isDone());
         assertFalse(queryFuture.isDone());
 
         metadataFuture.set(ImmutableList.of(new ColumnMetadata("a", BIGINT)));
-        Thread.sleep(100);
 
-        assertQuery(
+        assertQueryEventually(
+                getSession(),
                 format("SELECT state FROM system.runtime.queries WHERE query LIKE '%%%s%%' AND query NOT LIKE '%%system.runtime.queries%%'", testQueryId),
-                "VALUES 'FINISHED'");
+                "VALUES 'FINISHED'",
+                new Duration(10, SECONDS));
         assertTrue(queryFuture.isDone());
     }
 

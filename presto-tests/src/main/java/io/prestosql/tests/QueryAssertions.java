@@ -204,6 +204,20 @@ public final class QueryAssertions
         }
     }
 
+    public static void assertQueryEventually(
+            QueryRunner actualQueryRunner,
+            Session session,
+            @Language("SQL") String actual,
+            H2QueryRunner h2QueryRunner,
+            @Language("SQL") String expected,
+            boolean ensureOrdering,
+            boolean compareUpdate,
+            Optional<Consumer<Plan>> planAssertion,
+            Duration timeout)
+    {
+        assertEventually(timeout, () -> assertQuery(actualQueryRunner, session, actual, h2QueryRunner, expected, ensureOrdering, compareUpdate, planAssertion));
+    }
+
     public static void assertEqualsIgnoreOrder(Iterable<?> actual, Iterable<?> expected)
     {
         assertEqualsIgnoreOrder(actual, expected, null);
