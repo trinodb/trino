@@ -17,11 +17,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.connector.MockConnectorFactory;
-import io.prestosql.plugin.tpch.TpchColumnHandle;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.ConnectorFactory;
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
@@ -51,8 +49,6 @@ import java.util.function.Function;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 
 @SuppressWarnings("MethodMayBeStatic")
@@ -123,15 +119,10 @@ public class BenchmarkInformationSchema
                                 .collect(toImmutableList());
                     };
 
-                    BiFunction<ConnectorSession, ConnectorTableHandle, Map<String, TpchColumnHandle>> getColumnHandles = (session, tableHandle) -> IntStream.range(0, Integer.parseInt(columnsCount))
-                            .boxed()
-                            .map(i -> "column_" + i)
-                            .collect(toImmutableMap(column -> column, column -> new TpchColumnHandle(column, createUnboundedVarcharType()) {}));
                     MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
                             .withListSchemaNames(listSchemaNames)
                             .withListTables(listTables)
                             .withGetViews((session, prefix) -> ImmutableMap.of())
-                            .withGetColumnHandles(getColumnHandles)
                             .build();
                     return ImmutableList.of(connectorFactory);
                 }
