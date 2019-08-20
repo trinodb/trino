@@ -14,6 +14,7 @@
 package io.prestosql.plugin.jdbc;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
@@ -26,6 +27,7 @@ import static io.prestosql.plugin.jdbc.credential.CredentialProviderType.FILE;
 import static io.prestosql.plugin.jdbc.credential.CredentialProviderType.INLINE;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.testng.Assert.assertEquals;
 
 public class TestBaseJdbcConfig
 {
@@ -38,7 +40,8 @@ public class TestBaseJdbcConfig
                 .setPasswordCredentialName(null)
                 .setCaseInsensitiveNameMatching(false)
                 .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES))
-                .setCredentialProviderType(INLINE));
+                .setCredentialProviderType(INLINE)
+                .setJdbcTypesMappedToVarchar(null));
     }
 
     @Test
@@ -51,6 +54,7 @@ public class TestBaseJdbcConfig
                 .put("case-insensitive-name-matching", "true")
                 .put("case-insensitive-name-matching.cache-ttl", "1s")
                 .put("credential-provider.type", "FILE")
+                .put("jdbc-types-mapped-to-varchar", "mytype,struct_type1")
                 .build();
 
         BaseJdbcConfig expected = new BaseJdbcConfig()
@@ -59,8 +63,11 @@ public class TestBaseJdbcConfig
                 .setPasswordCredentialName("bar")
                 .setCaseInsensitiveNameMatching(true)
                 .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, SECONDS))
-                .setCredentialProviderType(FILE);
+                .setCredentialProviderType(FILE)
+                .setJdbcTypesMappedToVarchar("mytype, struct_type1");
 
         assertFullMapping(properties, expected);
+
+        assertEquals(expected.getJdbcTypesMappedToVarchar(), ImmutableSet.of("mytype", "struct_type1"));
     }
 }

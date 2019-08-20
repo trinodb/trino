@@ -67,6 +67,7 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.BiFunction;
@@ -121,6 +122,7 @@ public class PhoenixClient
         super(
                 ESCAPE_CHARACTER,
                 connectionFactory,
+                ImmutableSet.of(),
                 config.isCaseInsensitiveNameMatching(),
                 config.getCaseInsensitiveNameMatchingCacheTtl());
         this.configuration = new Configuration(false);

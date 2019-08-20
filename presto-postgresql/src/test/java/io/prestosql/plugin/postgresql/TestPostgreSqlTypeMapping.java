@@ -114,7 +114,11 @@ public class TestPostgreSqlTypeMapping
 
     private TestPostgreSqlTypeMapping(TestingPostgreSqlServer postgreSqlServer)
     {
-        super(() -> createPostgreSqlQueryRunner(postgreSqlServer, ImmutableMap.of("postgresql.experimental.array-mapping", "AS_ARRAY"), ImmutableList.of()));
+        super(() -> createPostgreSqlQueryRunner(
+                postgreSqlServer,
+                ImmutableMap.of("postgresql.experimental.array-mapping", "AS_ARRAY",
+                                "jdbc-types-mapped-to-varchar", "tsrange, inet"),
+                ImmutableList.of()));
         this.postgreSqlServer = postgreSqlServer;
     }
 
@@ -296,6 +300,25 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip(decimalDataType(30, 5), new BigDecimal("-3141592653589793238462643.38327"))
                 .addRoundTrip(decimalDataType(38, 0), new BigDecimal("27182818284590452353602874713526624977"))
                 .addRoundTrip(decimalDataType(38, 0), new BigDecimal("-27182818284590452353602874713526624977"));
+    }
+
+    @Test
+    public void testForcedMappingToVarchar()
+    {
+        JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl());
+        jdbcSqlExecutor.execute("CREATE TABLE tpch.test_forced_varchar_mapping(tsrange_col tsrange, inet_col inet, tsrange_arr_col tsrange[], unsupported_nonforced_column tstzrange)");
+        jdbcSqlExecutor.execute("INSERT INTO tpch.test_forced_varchar_mapping(tsrange_col, inet_col, tsrange_arr_col, unsupported_nonforced_column) " +
+                "VALUES ('[2010-01-01 14:30, 2010-01-01 15:30)'::tsrange, '172.0.0.1'::inet, array['[2010-01-01 14:30, 2010-01-01 15:30)'::tsrange], '[2010-01-01 14:30, 2010-01-01 15:30)'::tstzrange)");
+        try {
+            assertQuery(
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = 'test_forced_varchar_mapping'",
+                    "VALUES ('tsrange_col','varchar'),('inet_col','varchar'),('tsrange_arr_col','array(varchar)')"); // no 'unsupported_nonforced_column'
+
+            assertQuery("SELECT * FROM tpch.test_forced_varchar_mapping", "VALUES ('[\"2010-01-01 14:30:00\",\"2010-01-01 15:30:00\")','172.0.0.1',ARRAY['[\"2010-01-01 14:30:00\",\"2010-01-01 15:30:00\")'])");
+        }
+        finally {
+            jdbcSqlExecutor.execute("DROP TABLE tpch.test_forced_varchar_mapping");
+        }
     }
 
     @Test
