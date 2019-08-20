@@ -117,8 +117,8 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALU
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_VIEW_DATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_SERDE_NOT_FOUND;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
-import static io.prestosql.plugin.hive.HiveMetadata.TEXT_SKIP_FOOTER_COUNT_KEY;
-import static io.prestosql.plugin.hive.HiveMetadata.TEXT_SKIP_HEADER_COUNT_KEY;
+import static io.prestosql.plugin.hive.HiveMetadata.SKIP_FOOTER_COUNT_KEY;
+import static io.prestosql.plugin.hive.HiveMetadata.SKIP_HEADER_COUNT_KEY;
 import static io.prestosql.plugin.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static io.prestosql.plugin.hive.HiveType.toHiveTypes;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.copy;
@@ -966,12 +966,12 @@ public final class HiveUtil
 
     public static int getHeaderCount(Properties schema)
     {
-        return getPositiveIntegerValue(schema, TEXT_SKIP_HEADER_COUNT_KEY, "0");
+        return getPositiveIntegerValue(schema, SKIP_HEADER_COUNT_KEY, "0");
     }
 
     public static int getFooterCount(Properties schema)
     {
-        return getPositiveIntegerValue(schema, TEXT_SKIP_FOOTER_COUNT_KEY, "0");
+        return getPositiveIntegerValue(schema, SKIP_FOOTER_COUNT_KEY, "0");
     }
 
     private static int getPositiveIntegerValue(Properties schema, String key, String defaultValue)

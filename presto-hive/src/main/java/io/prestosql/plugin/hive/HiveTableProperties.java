@@ -51,10 +51,10 @@ public class HiveTableProperties
     public static final String ORC_BLOOM_FILTER_COLUMNS = "orc_bloom_filter_columns";
     public static final String ORC_BLOOM_FILTER_FPP = "orc_bloom_filter_fpp";
     public static final String AVRO_SCHEMA_URL = "avro_schema_url";
-    public static final String TEXTFILE_SKIP_HEADER_LINE_COUNT = "textfile_skip_header_line_count";
-    public static final String TEXTFILE_SKIP_FOOTER_LINE_COUNT = "textfile_skip_footer_line_count";
     public static final String TEXTFILE_FIELD_SEPARATOR = "textfile_field_separator";
     public static final String TEXTFILE_FIELD_SEPARATOR_ESCAPE = "textfile_field_separator_escape";
+    public static final String SKIP_HEADER_LINE_COUNT = "skip_header_line_count";
+    public static final String SKIP_FOOTER_LINE_COUNT = "skip_footer_line_count";
     public static final String CSV_SEPARATOR = "csv_separator";
     public static final String CSV_QUOTE = "csv_quote";
     public static final String CSV_ESCAPE = "csv_escape";
@@ -135,8 +135,8 @@ public class HiveTableProperties
                         false),
                 integerProperty(BUCKET_COUNT_PROPERTY, "Number of buckets", 0, false),
                 stringProperty(AVRO_SCHEMA_URL, "URI pointing to Avro schema for the table", null, false),
-                integerProperty(TEXTFILE_SKIP_HEADER_LINE_COUNT, "Number of header lines", null, false),
-                integerProperty(TEXTFILE_SKIP_FOOTER_LINE_COUNT, "Number of footer lines", null, false),
+                integerProperty(SKIP_HEADER_LINE_COUNT, "Number of header lines", null, false),
+                integerProperty(SKIP_FOOTER_LINE_COUNT, "Number of footer lines", null, false),
                 stringProperty(TEXTFILE_FIELD_SEPARATOR, "TEXTFILE field separator character", null, false),
                 stringProperty(TEXTFILE_FIELD_SEPARATOR_ESCAPE, "TEXTFILE field separator escape character", null, false),
                 stringProperty(CSV_SEPARATOR, "CSV separator character", null, false),
@@ -159,14 +159,14 @@ public class HiveTableProperties
         return (String) tableProperties.get(AVRO_SCHEMA_URL);
     }
 
-    public static Optional<Integer> getTextHeaderSkipCount(Map<String, Object> tableProperties)
+    public static Optional<Integer> getHeaderSkipCount(Map<String, Object> tableProperties)
     {
-        return Optional.ofNullable((Integer) tableProperties.get(TEXTFILE_SKIP_HEADER_LINE_COUNT));
+        return Optional.ofNullable((Integer) tableProperties.get(SKIP_HEADER_LINE_COUNT));
     }
 
-    public static Optional<Integer> getTextFooterSkipCount(Map<String, Object> tableProperties)
+    public static Optional<Integer> getFooterSkipCount(Map<String, Object> tableProperties)
     {
-        return Optional.ofNullable((Integer) tableProperties.get(TEXTFILE_SKIP_FOOTER_LINE_COUNT));
+        return Optional.ofNullable((Integer) tableProperties.get(SKIP_FOOTER_LINE_COUNT));
     }
 
     public static HiveStorageFormat getHiveStorageFormat(Map<String, Object> tableProperties)
