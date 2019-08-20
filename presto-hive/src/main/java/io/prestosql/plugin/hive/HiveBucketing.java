@@ -51,6 +51,8 @@ import static io.prestosql.plugin.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.prestosql.plugin.hive.HiveUtil.getRegularColumnHandles;
 import static java.lang.Double.doubleToLongBits;
+import static java.lang.Float.floatToIntBits;
+import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Map.Entry;
@@ -141,7 +143,8 @@ final class HiveBucketing
                         long bigintValue = prestoType.getLong(block, position);
                         return (int) ((bigintValue >>> 32) ^ bigintValue);
                     case FLOAT:
-                        return (int) prestoType.getLong(block, position);
+                        // convert to canonical NaN if necessary
+                        return floatToIntBits(intBitsToFloat(toIntExact(prestoType.getLong(block, position))));
                     case DOUBLE:
                         long doubleValue = doubleToLongBits(prestoType.getDouble(block, position));
                         return (int) ((doubleValue >>> 32) ^ doubleValue);
@@ -197,7 +200,8 @@ final class HiveBucketing
                         long bigintValue = (long) value;
                         return (int) ((bigintValue >>> 32) ^ bigintValue);
                     case FLOAT:
-                        return (int) (long) value;
+                        // convert to canonical NaN if necessary
+                        return floatToIntBits(intBitsToFloat(toIntExact((long) value)));
                     case DOUBLE:
                         long doubleValue = doubleToLongBits((double) value);
                         return (int) ((doubleValue >>> 32) ^ doubleValue);
