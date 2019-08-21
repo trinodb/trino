@@ -17,7 +17,6 @@ import com.google.common.io.Resources;
 import com.google.inject.Inject;
 import io.prestosql.tempto.AfterTestWithContext;
 import io.prestosql.tempto.BeforeTestWithContext;
-import io.prestosql.tempto.ProductTest;
 import io.prestosql.tempto.hadoop.hdfs.HdfsClient;
 import io.prestosql.tempto.query.QueryExecutionException;
 import io.prestosql.tempto.query.QueryResult;
@@ -37,7 +36,7 @@ import static io.prestosql.tests.utils.QueryExecutors.onPresto;
 import static java.lang.String.format;
 
 public class TestAvroSchemaUrl
-        extends ProductTest
+        extends HiveProductTest
 {
     @Inject
     private HdfsClient hdfsClient;
@@ -187,11 +186,11 @@ public class TestAvroSchemaUrl
     @Test(groups = {STORAGE_FORMATS})
     public void testPartitionedTableWithLongColumnType()
     {
-        if (isOnHdp()) {
+        if (isOnHdp() && getHiveVersionMajor() < 3) {
             // HDP 2.6 won't allow to define a partitioned table with schema having a column with type definition over 2000 characters.
             // It is possible to create table with simpler schema and then alter the schema, but that results in different end state on CDH.
             // To retain proper test coverage on CDH, this test needs to be disabled on HDP.
-            throw new SkipException("Skipping on HDP");
+            throw new SkipException("Skipping on HDP 2");
         }
 
         onHive().executeQuery("DROP TABLE IF EXISTS test_avro_schema_url_partitioned_long_column");
