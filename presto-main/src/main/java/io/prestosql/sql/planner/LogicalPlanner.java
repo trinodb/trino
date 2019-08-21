@@ -184,8 +184,7 @@ public class LogicalPlanner
 
     public PlanNode planStatement(Analysis analysis, Statement statement)
     {
-        if (statement instanceof CreateTableAsSelect && analysis.isCreateTableAsSelectNoOp()) {
-            checkState(analysis.getCreateTableDestination().isPresent(), "Table destination is missing");
+        if (statement instanceof CreateTableAsSelect && analysis.getCreate().get().isCreateTableAsSelectNoOp()) {
             Symbol symbol = symbolAllocator.newSymbol("rows", BIGINT);
             PlanNode source = new ValuesNode(idAllocator.getNextId(), ImmutableList.of(symbol), ImmutableList.of(ImmutableList.of(new LongLiteral("0"))));
             return new OutputNode(idAllocator.getNextId(), source, ImmutableList.of("rows"), ImmutableList.of(symbol));
@@ -196,7 +195,7 @@ public class LogicalPlanner
     private RelationPlan planStatementWithoutOutput(Analysis analysis, Statement statement)
     {
         if (statement instanceof CreateTableAsSelect) {
-            if (analysis.isCreateTableAsSelectNoOp()) {
+            if (analysis.getCreate().get().isCreateTableAsSelectNoOp()) {
                 throw new PrestoException(NOT_SUPPORTED, "CREATE TABLE IF NOT EXISTS is not supported in this context " + statement.getClass().getSimpleName());
             }
             return createTableCreationPlan(analysis, ((CreateTableAsSelect) statement).getQuery());
@@ -278,17 +277,18 @@ public class LogicalPlanner
 
     private RelationPlan createTableCreationPlan(Analysis analysis, Query query)
     {
-        QualifiedObjectName destination = analysis.getCreateTableDestination().get();
+        Analysis.Create create = analysis.getCreate().get();
+        QualifiedObjectName destination = create.getDestination().get();
 
         RelationPlan plan = createRelationPlan(analysis, query);
-        if (!analysis.isCreateTableAsSelectWithData()) {
+        if (!create.isCreateTableAsSelectWithData()) {
             PlanNode root = new LimitNode(idAllocator.getNextId(), plan.getRoot(), 0L, false);
             plan = new RelationPlan(root, plan.getScope(), plan.getFieldMappings());
         }
 
-        ConnectorTableMetadata tableMetadata = analysis.getCreateTableMetadata().get();
+        ConnectorTableMetadata tableMetadata = create.getMetadata().get();
 
-        Optional<NewTableLayout> newTableLayout = analysis.getCreateTableLayout();
+        Optional<NewTableLayout> newTableLayout = create.getLayout();
 
         List<String> columnNames = tableMetadata.getColumns().stream()
                 .filter(column -> !column.isHidden()) // todo this filter is redundant

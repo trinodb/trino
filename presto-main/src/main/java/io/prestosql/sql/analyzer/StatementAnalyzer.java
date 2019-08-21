@@ -471,12 +471,16 @@ class StatementAnalyzer
 
             // turn this into a query that has a new table writer node on top.
             QualifiedObjectName targetTable = createQualifiedObjectName(session, node, node.getName());
-            analysis.setCreateTableDestination(targetTable);
 
             Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
             if (targetTableHandle.isPresent()) {
                 if (node.isNotExists()) {
-                    analysis.setCreateTableAsSelectNoOp(true);
+                    analysis.setCreate(new Analysis.Create(
+                            Optional.of(targetTable),
+                            Optional.empty(),
+                            Optional.empty(),
+                            node.isWithData(),
+                            true));
                     return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
                 }
                 throw semanticException(TABLE_ALREADY_EXISTS, node, "Destination table '%s' already exists", targetTable);
@@ -484,11 +488,7 @@ class StatementAnalyzer
 
             validateProperties(node.getProperties(), scope);
 
-            analysis.setCreateTableComment(node.getComment());
-
             accessControl.checkCanCreateTable(session.toSecurityContext(), targetTable);
-
-            analysis.setCreateTableAsSelectWithData(node.isWithData());
 
             // analyze the query that creates the table
             Scope queryScope = process(node.getQuery(), scope);
@@ -528,7 +528,6 @@ class StatementAnalyzer
                     analysis.getParameters());
 
             ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(targetTable.asSchemaTableName(), columns.build(), properties, node.getComment());
-            analysis.setCreateTableMetadata(tableMetadata);
 
             // analyze target table layout
             Optional<NewTableLayout> newTableLayout = metadata.getNewTableLayout(session, targetTable.getCatalogName(), tableMetadata);
@@ -542,7 +541,13 @@ class StatementAnalyzer
                     throw new PrestoException(NOT_SUPPORTED, "INSERT must write all distribution columns: " + layout.getPartitionColumns());
                 }
             });
-            analysis.setCreateTableLayout(newTableLayout);
+
+            analysis.setCreate(new Analysis.Create(
+                    Optional.of(targetTable),
+                    Optional.of(tableMetadata),
+                    newTableLayout,
+                    node.isWithData(),
+                    false));
 
             return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
         }
