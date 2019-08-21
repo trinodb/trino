@@ -874,6 +874,13 @@ public final class MetadataManager
     {
         requireNonNull(prefix, "prefix is null");
 
+        Optional<QualifiedObjectName> objectName = prefix.asQualifiedObjectName();
+        if (objectName.isPresent()) {
+            return getView(session, objectName.get())
+                    .map(handle -> ImmutableList.of(objectName.get()))
+                    .orElseGet(ImmutableList::of);
+        }
+
         Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, prefix.getCatalogName());
 
         Set<QualifiedObjectName> views = new LinkedHashSet<>();
