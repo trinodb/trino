@@ -1,0 +1,8 @@
+hdfs:
+  webhdfs:
+    uri: http://${databases.hive.host}:50070
+
+databases:
+  hive:
+    prepare_statement:
+      - USE ${databases.hive.schema}

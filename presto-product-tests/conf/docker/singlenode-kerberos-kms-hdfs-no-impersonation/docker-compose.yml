@@ -14,4 +14,4 @@ services:
   application-runner:
     image: 'prestodev/cdh5.15-hive-kerberized-kms:${DOCKER_IMAGES_VERSION}'
     environment:
-    - TEMPTO_PROFILE_CONFIG_FILE=/docker/volumes/conf/tempto/tempto-configuration-for-docker-kerberos-kms.yaml
+    - TEMPTO_PROFILE_CONFIG_FILE=/docker/volumes/conf/tempto/tempto-configuration-for-hadoop2.yaml,/docker/volumes/conf/tempto/tempto-configuration-for-docker-kerberos-kms.yaml
