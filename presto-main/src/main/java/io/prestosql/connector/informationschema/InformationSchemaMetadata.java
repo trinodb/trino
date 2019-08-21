@@ -56,6 +56,7 @@ import java.util.stream.Stream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.compose;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -344,6 +345,10 @@ public class InformationSchemaMetadata
         Optional<Set<String>> tables = filterString(constraint, TABLE_NAME_COLUMN_HANDLE);
         if (tables.isPresent()) {
             return prefixes.stream()
+                    .peek(prefix -> verify(!prefix.asQualifiedObjectName().isPresent()))
+                    .flatMap(prefix -> prefix.getSchemaName()
+                            .map(schemaName -> Stream.of(prefix))
+                            .orElseGet(() -> listSchemaNames(session)))
                     .flatMap(prefix -> tables.get().stream()
                             .filter(this::isLowerCase)
                             .map(table -> table.toLowerCase(ENGLISH))
