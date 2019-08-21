@@ -129,14 +129,7 @@ public class Analysis
 
     private final Map<NodeRef<QuerySpecification>, List<GroupingOperation>> groupingOperations = new LinkedHashMap<>();
 
-    // for create table
-    private Optional<QualifiedObjectName> createTableDestination = Optional.empty();
-    private Optional<ConnectorTableMetadata> createTableMetadata = Optional.empty();
-    private Optional<NewTableLayout> createTableLayout = Optional.empty();
-    private boolean createTableAsSelectWithData = true;
-    private boolean createTableAsSelectNoOp;
-    private Optional<String> createTableComment = Optional.empty();
-
+    private Optional<Create> create = Optional.empty();
     private Optional<Insert> insert = Optional.empty();
     private Optional<TableHandle> analyzeTarget = Optional.empty();
 
@@ -168,26 +161,6 @@ public class Analysis
     public void setUpdateType(String updateType)
     {
         this.updateType = updateType;
-    }
-
-    public boolean isCreateTableAsSelectWithData()
-    {
-        return createTableAsSelectWithData;
-    }
-
-    public void setCreateTableAsSelectWithData(boolean createTableAsSelectWithData)
-    {
-        this.createTableAsSelectWithData = createTableAsSelectWithData;
-    }
-
-    public boolean isCreateTableAsSelectNoOp()
-    {
-        return createTableAsSelectNoOp;
-    }
-
-    public void setCreateTableAsSelectNoOp(boolean createTableAsSelectNoOp)
-    {
-        this.createTableAsSelectNoOp = createTableAsSelectNoOp;
     }
 
     public void setAggregates(QuerySpecification node, List<FunctionCall> aggregates)
@@ -548,16 +521,6 @@ public class Analysis
         return columns.get(field);
     }
 
-    public void setCreateTableDestination(QualifiedObjectName destination)
-    {
-        this.createTableDestination = Optional.of(destination);
-    }
-
-    public Optional<QualifiedObjectName> getCreateTableDestination()
-    {
-        return createTableDestination;
-    }
-
     public Optional<TableHandle> getAnalyzeTarget()
     {
         return analyzeTarget;
@@ -568,34 +531,14 @@ public class Analysis
         this.analyzeTarget = Optional.of(analyzeTarget);
     }
 
-    public void setCreateTableMetadata(ConnectorTableMetadata tableMetadata)
+    public void setCreate(Create create)
     {
-        this.createTableMetadata = Optional.of(tableMetadata);
+        this.create = Optional.of(create);
     }
 
-    public Optional<ConnectorTableMetadata> getCreateTableMetadata()
+    public Optional<Create> getCreate()
     {
-        return createTableMetadata;
-    }
-
-    public void setCreateTableLayout(Optional<NewTableLayout> layout)
-    {
-        this.createTableLayout = layout;
-    }
-
-    public Optional<NewTableLayout> getCreateTableLayout()
-    {
-        return createTableLayout;
-    }
-
-    public void setCreateTableComment(Optional<String> createTableComment)
-    {
-        this.createTableComment = requireNonNull(createTableComment);
-    }
-
-    public Optional<String> getCreateTableComment()
-    {
-        return createTableComment;
+        return create;
     }
 
     public void setInsert(Insert insert)
@@ -706,6 +649,55 @@ public class Analysis
     public boolean isOrderByRedundant(OrderBy orderBy)
     {
         return redundantOrderBy.contains(NodeRef.of(orderBy));
+    }
+
+    @Immutable
+    public static final class Create
+    {
+        private final Optional<QualifiedObjectName> destination;
+        private final Optional<ConnectorTableMetadata> metadata;
+        private final Optional<NewTableLayout> layout;
+        private final boolean createTableAsSelectWithData;
+        private final boolean createTableAsSelectNoOp;
+
+        public Create(
+                Optional<QualifiedObjectName> destination,
+                Optional<ConnectorTableMetadata> metadata,
+                Optional<NewTableLayout> layout,
+                boolean createTableAsSelectWithData,
+                boolean createTableAsSelectNoOp)
+        {
+            this.destination = requireNonNull(destination, "destination is null");
+            this.metadata = requireNonNull(metadata, "metadata is null");
+            this.layout = requireNonNull(layout, "layout is null");
+            this.createTableAsSelectWithData = createTableAsSelectWithData;
+            this.createTableAsSelectNoOp = createTableAsSelectNoOp;
+        }
+
+        public Optional<QualifiedObjectName> getDestination()
+        {
+            return destination;
+        }
+
+        public Optional<ConnectorTableMetadata> getMetadata()
+        {
+            return metadata;
+        }
+
+        public Optional<NewTableLayout> getLayout()
+        {
+            return layout;
+        }
+
+        public boolean isCreateTableAsSelectWithData()
+        {
+            return createTableAsSelectWithData;
+        }
+
+        public boolean isCreateTableAsSelectNoOp()
+        {
+            return createTableAsSelectNoOp;
+        }
     }
 
     @Immutable
