@@ -22,6 +22,7 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.prestosql.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.FLAT;
 import static io.prestosql.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.LEGACY;
 
 public class TestNodeSchedulerConfig
@@ -51,7 +52,7 @@ public class TestNodeSchedulerConfig
                 .build();
 
         NodeSchedulerConfig expected = new NodeSchedulerConfig()
-                .setNetworkTopology("flat")
+                .setNetworkTopology(FLAT)
                 .setIncludeCoordinator(false)
                 .setMaxSplitsPerNode(101)
                 .setMaxPendingSplitsPerTask(11)

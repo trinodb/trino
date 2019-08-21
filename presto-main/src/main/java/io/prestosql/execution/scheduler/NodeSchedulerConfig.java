@@ -23,28 +23,29 @@ import javax.validation.constraints.NotNull;
 @DefunctConfig({"node-scheduler.location-aware-scheduling-enabled", "node-scheduler.multiple-tasks-per-node-enabled"})
 public class NodeSchedulerConfig
 {
-    public static final class NetworkTopologyType
+    public enum NetworkTopologyType
     {
-        public static final String LEGACY = "legacy";
-        public static final String FLAT = "flat";
-        public static final String BENCHMARK = "benchmark";
+        LEGACY,
+        FLAT,
+        BENCHMARK,
+        /**/;
     }
 
     private int minCandidates = 10;
     private boolean includeCoordinator = true;
     private int maxSplitsPerNode = 100;
     private int maxPendingSplitsPerTask = 10;
-    private String networkTopology = NetworkTopologyType.LEGACY;
+    private NetworkTopologyType networkTopology = NetworkTopologyType.LEGACY;
     private boolean optimizedLocalScheduling = true;
 
     @NotNull
-    public String getNetworkTopology()
+    public NetworkTopologyType getNetworkTopology()
     {
         return networkTopology;
     }
 
     @Config("node-scheduler.network-topology")
-    public NodeSchedulerConfig setNetworkTopology(String networkTopology)
+    public NodeSchedulerConfig setNetworkTopology(NetworkTopologyType networkTopology)
     {
         this.networkTopology = networkTopology;
         return this;

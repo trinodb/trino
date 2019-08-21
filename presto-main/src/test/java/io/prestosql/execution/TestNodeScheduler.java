@@ -60,6 +60,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.prestosql.execution.scheduler.NetworkLocation.ROOT_LOCATION;
+import static io.prestosql.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.BENCHMARK;
 import static io.prestosql.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 import static java.lang.String.format;
@@ -167,7 +168,7 @@ public class TestNodeScheduler
         NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig()
                 .setMaxSplitsPerNode(25)
                 .setIncludeCoordinator(false)
-                .setNetworkTopology("test")
+                .setNetworkTopology(BENCHMARK)
                 .setMaxPendingSplitsPerTask(20);
 
         TestNetworkTopology topology = new TestNetworkTopology();

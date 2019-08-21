@@ -101,7 +101,7 @@ public class NodeScheduler
         this.optimizedLocalScheduling = config.getOptimizedLocalScheduling();
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
         checkArgument(maxSplitsPerNode >= maxPendingSplitsPerTask, "maxSplitsPerNode must be > maxPendingSplitsPerTask");
-        this.useNetworkTopology = !config.getNetworkTopology().equals(NetworkTopologyType.LEGACY);
+        this.useNetworkTopology = config.getNetworkTopology() != NetworkTopologyType.LEGACY;
 
         ImmutableList.Builder<CounterStat> builder = ImmutableList.builder();
         if (useNetworkTopology) {

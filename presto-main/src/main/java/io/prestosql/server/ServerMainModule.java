@@ -247,11 +247,11 @@ public class ServerMainModule
         // TODO: move to CoordinatorModule when NodeScheduler is moved
         install(installModuleIf(
                 NodeSchedulerConfig.class,
-                config -> LEGACY.equalsIgnoreCase(config.getNetworkTopology()),
+                config -> LEGACY == config.getNetworkTopology(),
                 moduleBinder -> moduleBinder.bind(NetworkTopology.class).to(LegacyNetworkTopology.class).in(Scopes.SINGLETON)));
         install(installModuleIf(
                 NodeSchedulerConfig.class,
-                config -> FLAT.equalsIgnoreCase(config.getNetworkTopology()),
+                config -> FLAT == config.getNetworkTopology(),
                 moduleBinder -> moduleBinder.bind(NetworkTopology.class).to(FlatNetworkTopology.class).in(Scopes.SINGLETON)));
 
         // task execution

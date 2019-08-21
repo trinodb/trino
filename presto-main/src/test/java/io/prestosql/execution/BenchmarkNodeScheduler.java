@@ -26,6 +26,7 @@ import io.prestosql.execution.scheduler.NetworkLocation;
 import io.prestosql.execution.scheduler.NetworkTopology;
 import io.prestosql.execution.scheduler.NodeScheduler;
 import io.prestosql.execution.scheduler.NodeSchedulerConfig;
+import io.prestosql.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType;
 import io.prestosql.execution.scheduler.NodeSelector;
 import io.prestosql.metadata.InMemoryNodeManager;
 import io.prestosql.metadata.InternalNode;
@@ -66,8 +67,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.prestosql.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.BENCHMARK;
-import static io.prestosql.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.FLAT;
 import static io.prestosql.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.LEGACY;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -126,10 +125,8 @@ public class BenchmarkNodeScheduler
     @State(Scope.Thread)
     public static class BenchmarkData
     {
-        @Param({LEGACY,
-                BENCHMARK,
-                FLAT})
-        private String topologyName = LEGACY;
+        @Param({"LEGACY", "BENCHMARK", "FLAT"})
+        private NetworkTopologyType topologyName = LEGACY;
 
         private FinalizerService finalizerService = new FinalizerService();
         private NodeSelector nodeSelector;
