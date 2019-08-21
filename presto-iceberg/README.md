@@ -73,8 +73,6 @@ as a time travel feature which lets you query your table's snapshot at a given t
 
 * Update the README to reflect the current status, and convert it to proper connector documentation
   before announcing the connector as ready for use.
-* Fix table listing to skip non-Iceberg tables. This will need a new metastore method to list tables
-  filtered on a property name, similar to how view listing works in `ThriftHiveMetastore`.
 * Predicate pushdown is currently broken, which means delete is also broken. The code from the
   original `getTableLayouts()` implementation needs to be updated for `applyFilter()`.
 * All of the `HdfsContext` calls that use `/tmp` need to be fixed.
