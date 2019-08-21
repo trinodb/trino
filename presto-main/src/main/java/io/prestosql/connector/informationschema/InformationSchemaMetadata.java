@@ -320,6 +320,7 @@ public class InformationSchemaMetadata
         if (schemas.isPresent()) {
             return schemas.get().stream()
                     .filter(this::isLowerCase)
+                    .filter(schema -> !predicate.isPresent() || predicate.get().test(schemaAsFixedValues(schema)))
                     .map(schema -> new QualifiedTablePrefix(catalogName, schema))
                     .collect(toImmutableSet());
         }
