@@ -139,6 +139,27 @@ public class TestInformationSchemaMetadata
     }
 
     @Test
+    public void testInformationSchemaPredicatePushdownWithoutSchemaPredicate()
+    {
+        TransactionId transactionId = transactionManager.beginTransaction(false);
+
+        // predicate without schema predicates should cause schemas to be enumerated when table predicates are present
+        ImmutableMap.Builder<ColumnHandle, Domain> domains = new ImmutableMap.Builder<>();
+        domains.put(new InformationSchemaColumnHandle("table_name"), Domain.singleValue(VARCHAR, Slices.utf8Slice("test_view")));
+        Constraint constraint = new Constraint(TupleDomain.withColumnDomains(domains.build()));
+
+        ConnectorSession session = createNewSession(transactionId);
+        ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata);
+        InformationSchemaTableHandle tableHandle = (InformationSchemaTableHandle)
+                metadata.getTableHandle(session, new SchemaTableName("information_schema", "views"));
+        tableHandle = metadata.applyFilter(session, tableHandle, constraint)
+                .map(ConstraintApplicationResult::getHandle)
+                .map(InformationSchemaTableHandle.class::cast)
+                .orElseThrow(AssertionError::new);
+        assertEquals(tableHandle.getPrefixes(), ImmutableSet.of(new QualifiedTablePrefix("test_catalog", "test_schema", "test_view")));
+    }
+
+    @Test
     public void testInformationSchemaPredicatePushdownWithoutTablePredicate()
     {
         TransactionId transactionId = transactionManager.beginTransaction(false);
