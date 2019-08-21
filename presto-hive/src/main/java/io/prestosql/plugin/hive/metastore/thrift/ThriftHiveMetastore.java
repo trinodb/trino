@@ -73,6 +73,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -121,6 +122,9 @@ public class ThriftHiveMetastore
 
     private final AtomicInteger chosenGetTableAlternative = new AtomicInteger(Integer.MAX_VALUE);
     private final AtomicInteger chosenTableParamAlternative = new AtomicInteger(Integer.MAX_VALUE);
+
+    private static final Pattern TABLE_PARAMETER_SAFE_KEY_PATTERN = Pattern.compile("^[a-zA-Z_]+$");
+    private static final Pattern TABLE_PARAMETER_SAFE_VALUE_PATTERN = Pattern.compile("^[a-zA-Z0-9]*$");
 
     @Inject
     public ThriftHiveMetastore(MetastoreLocator metastoreLocator, ThriftHiveMetastoreConfig thriftConfig)
@@ -198,6 +202,27 @@ public class ThriftHiveMetastore
                     });
         }
         catch (NoSuchObjectException e) {
+            return ImmutableList.of();
+        }
+        catch (TException e) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            throw propagate(e);
+        }
+    }
+
+    @Override
+    public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
+    {
+        try {
+            return retry()
+                    .stopOn(UnknownDBException.class)
+                    .stopOnIllegalExceptions()
+                    .run("getTablesWithParameter", stats.getGetTablesWithParameter().wrap(
+                            () -> doGetTablesWithParameter(databaseName, parameterKey, parameterValue)));
+        }
+        catch (UnknownDBException e) {
             return ImmutableList.of();
         }
         catch (TException e) {
@@ -718,7 +743,7 @@ public class ThriftHiveMetastore
                     .stopOn(UnknownDBException.class)
                     .stopOnIllegalExceptions()
                     .run("getAllViews", stats.getGetAllViews().wrap(
-                            () -> getPrestoViews(databaseName)));
+                            () -> doGetTablesWithParameter(databaseName, PRESTO_VIEW_FLAG, "true")));
         }
         catch (UnknownDBException e) {
             return ImmutableList.of();
@@ -731,16 +756,25 @@ public class ThriftHiveMetastore
         }
     }
 
-    private List<String> getPrestoViews(String databaseName)
+    private List<String> doGetTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
             throws TException
     {
+        checkArgument(TABLE_PARAMETER_SAFE_KEY_PATTERN.matcher(parameterKey).matches(), "Parameter key contains invalid characters: '%s'", parameterKey);
+        /*
+         * The parameter value is restricted to have only alphanumeric characters so that it's safe
+         * to be used against HMS. When using with a LIKE operator, the HMS may want the parameter
+         * value to follow a Java regex pattern or a SQL pattern. And it's hard to predict the
+         * HMS's behavior from outside. Also, by restricting parameter values, we avoid the problem
+         * of how to quote them when passing within the filter string.
+         */
+        checkArgument(TABLE_PARAMETER_SAFE_VALUE_PATTERN.matcher(parameterValue).matches(), "Parameter value contains invalid characters: '%s'", parameterValue);
         /*
          * Thrift call `get_table_names_by_filter` may be translated by Metastore to a SQL query against Metastore database.
          * Hive 2.3 on some databases uses CLOB for table parameter value column and some databases disallow `=` predicate over
          * CLOB values. At the same time, they allow `LIKE` predicates over them.
          */
-        String filterWithEquals = HIVE_FILTER_FIELD_PARAMS + PRESTO_VIEW_FLAG + " = \"true\"";
-        String filterWithLike = HIVE_FILTER_FIELD_PARAMS + PRESTO_VIEW_FLAG + " LIKE \"true\"";
+        String filterWithEquals = HIVE_FILTER_FIELD_PARAMS + parameterKey + " = \"" + parameterValue + "\"";
+        String filterWithLike = HIVE_FILTER_FIELD_PARAMS + parameterKey + " LIKE \"" + parameterValue + "\"";
 
         return alternativeCall(
                 chosenTableParamAlternative,

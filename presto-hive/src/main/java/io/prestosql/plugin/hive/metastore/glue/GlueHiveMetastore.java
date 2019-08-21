@@ -366,6 +366,13 @@ public class GlueHiveMetastore
     }
 
     @Override
+    public synchronized List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
+    {
+        // TODO
+        throw new UnsupportedOperationException("getTablesWithParameter for GlueHiveMetastore is not implemented");
+    }
+
+    @Override
     public List<String> getAllViews(String databaseName)
     {
         try {
