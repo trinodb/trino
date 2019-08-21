@@ -338,7 +338,7 @@ public class InformationSchemaMetadata
                 .collect(toImmutableSet());
     }
 
-    public Set<QualifiedTablePrefix> calculatePrefixesWithTableName(
+    private Set<QualifiedTablePrefix> calculatePrefixesWithTableName(
             SchemaTableName schemaTableName,
             ConnectorSession connectorSession,
             Set<QualifiedTablePrefix> prefixes,
