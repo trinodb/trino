@@ -290,9 +290,10 @@ public class InformationSchemaMetadata
             return ImmutableSet.of();
         }
 
+        SchemaTableName schemaTableName = handle.getSchemaTableName();
         Set<QualifiedTablePrefix> prefixes = calculatePrefixesWithSchemaName(session, constraint.getSummary(), constraint.predicate());
         if (isTablesEnumeratingTable(handle.getSchemaTableName())) {
-            Set<QualifiedTablePrefix> tablePrefixes = calculatePrefixesWithTableName(session, prefixes, constraint.getSummary(), constraint.predicate());
+            Set<QualifiedTablePrefix> tablePrefixes = calculatePrefixesWithTableName(schemaTableName, session, prefixes, constraint.getSummary(), constraint.predicate());
             // in case of high number of prefixes it is better to populate all data and then filter
             if (tablePrefixes.size() <= MAX_PREFIXES_COUNT) {
                 prefixes = tablePrefixes;
@@ -332,6 +333,7 @@ public class InformationSchemaMetadata
     }
 
     public Set<QualifiedTablePrefix> calculatePrefixesWithTableName(
+            SchemaTableName schemaTableName,
             ConnectorSession connectorSession,
             Set<QualifiedTablePrefix> prefixes,
             TupleDomain<ColumnHandle> constraint,
@@ -346,23 +348,28 @@ public class InformationSchemaMetadata
                             .filter(this::isLowerCase)
                             .map(table -> table.toLowerCase(ENGLISH))
                             .map(table -> new QualifiedObjectName(catalogName, prefix.getSchemaName().get(), table)))
-                    .filter(objectName -> metadata.getTableHandle(session, objectName).isPresent() || metadata.getView(session, objectName).isPresent())
+                    .filter(objectName -> !isColumnsEnumeratingTable(schemaTableName) || metadata.getTableHandle(session, objectName).isPresent() || metadata.getView(session, objectName).isPresent())
                     .filter(objectName -> !predicate.isPresent() || predicate.get().test(asFixedValues(objectName)))
                     .map(QualifiedObjectName::asQualifiedTablePrefix)
                     .collect(toImmutableSet());
         }
 
-        if (predicate.isPresent()) {
-            return prefixes.stream()
-                    .flatMap(prefix -> Stream.concat(
-                            metadata.listTables(session, prefix).stream(),
-                            metadata.listViews(session, prefix).stream()))
-                    .filter(objectName -> predicate.get().test(asFixedValues(objectName)))
-                    .map(QualifiedObjectName::asQualifiedTablePrefix)
-                    .collect(toImmutableSet());
+        if (!predicate.isPresent() || !isColumnsEnumeratingTable(schemaTableName)) {
+            return prefixes;
         }
 
-        return prefixes;
+        return prefixes.stream()
+                .flatMap(prefix -> Stream.concat(
+                        metadata.listTables(session, prefix).stream(),
+                        metadata.listViews(session, prefix).stream()))
+                .filter(objectName -> predicate.get().test(asFixedValues(objectName)))
+                .map(QualifiedObjectName::asQualifiedTablePrefix)
+                .collect(toImmutableSet());
+    }
+
+    private boolean isColumnsEnumeratingTable(SchemaTableName schemaTableName)
+    {
+        return TABLE_COLUMNS.equals(schemaTableName);
     }
 
     private Stream<QualifiedTablePrefix> listSchemaNames(Session session)
