@@ -60,7 +60,7 @@ public class TestRoles
         cleanup();
     }
 
-    public void cleanup()
+    private void cleanup()
     {
         Set<String> existentRoles = listRoles();
         for (String role : TEST_ROLES) {
