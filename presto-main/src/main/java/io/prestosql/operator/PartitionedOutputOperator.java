@@ -218,7 +218,8 @@ public class PartitionedOutputOperator
                 outputBuffer,
                 serdeFactory,
                 sourceTypes,
-                maxMemory);
+                maxMemory,
+                operatorContext);
 
         operatorContext.setInfoSupplier(this::getInfo);
         this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext(PartitionedOutputOperator.class.getSimpleName());
@@ -275,8 +276,6 @@ public class PartitionedOutputOperator
         page = pagePreprocessor.apply(page);
         partitionFunction.partitionPage(page);
 
-        operatorContext.recordOutput(page.getSizeInBytes(), page.getPositionCount());
-
         // We use getSizeInBytes() here instead of getRetainedSizeInBytes() for an approximation of
         // the amount of memory used by the pageBuilders, because calculating the retained
         // size can be expensive especially for complex types.
@@ -306,6 +305,7 @@ public class PartitionedOutputOperator
         private final AtomicLong rowsAdded = new AtomicLong();
         private final AtomicLong pagesAdded = new AtomicLong();
         private boolean hasAnyRowBeenReplicated;
+        private OperatorContext operatorContext;
 
         public PagePartitioner(
                 PartitionFunction partitionFunction,
@@ -316,7 +316,8 @@ public class PartitionedOutputOperator
                 OutputBuffer outputBuffer,
                 PagesSerdeFactory serdeFactory,
                 List<Type> sourceTypes,
-                DataSize maxMemory)
+                DataSize maxMemory,
+                OperatorContext operatorContext)
         {
             this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");
             this.partitionChannels = requireNonNull(partitionChannels, "partitionChannels is null");
@@ -328,6 +329,7 @@ public class PartitionedOutputOperator
             this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
             this.sourceTypes = requireNonNull(sourceTypes, "sourceTypes is null");
             this.serde = requireNonNull(serdeFactory, "serdeFactory is null").createPagesSerde();
+            this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
 
             int partitionCount = partitionFunction.getPartitionCount();
             int pageSize = min(DEFAULT_MAX_PAGE_SIZE_IN_BYTES, ((int) maxMemory.toBytes()) / partitionCount);
@@ -427,6 +429,8 @@ public class PartitionedOutputOperator
                 if (!partitionPageBuilder.isEmpty() && (force || partitionPageBuilder.isFull())) {
                     Page pagePartition = partitionPageBuilder.build();
                     partitionPageBuilder.reset();
+
+                    operatorContext.recordOutput(pagePartition.getSizeInBytes(), pagePartition.getPositionCount());
 
                     List<SerializedPage> serializedPages = splitPage(pagePartition, DEFAULT_MAX_PAGE_SIZE_IN_BYTES).stream()
                             .map(serde::serialize)
