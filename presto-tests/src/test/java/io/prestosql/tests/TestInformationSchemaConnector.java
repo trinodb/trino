@@ -113,7 +113,7 @@ public class TestInformationSchemaConnector
         assertQuery("SELECT count(*) from test_catalog.information_schema.tables WHERE table_name LIKE 'test_t_ble1'", "VALUES 2");
         assertQuery("SELECT count(*) from test_catalog.information_schema.tables WHERE table_name LIKE 'test_t_ble1' AND table_name IN ('test_table1', 'test_table2')", "VALUES 2");
         assertQuery("SELECT count(*) from test_catalog.information_schema.columns WHERE table_schema = 'test_schema1' AND table_name = 'test_table1'", "VALUES 100");
-        assertEquals(METADATA_CALLS_COUNTER.get() - metadataCallsCountBeforeTests, 35);
+        assertEquals(METADATA_CALLS_COUNTER.get() - metadataCallsCountBeforeTests, 30);
     }
 
     private static DistributedQueryRunner createQueryRunner()
