@@ -1062,7 +1062,7 @@ public abstract class AbstractTestHive
             Table.Builder newTable = Table.builder(oldTable)
                     .setDataColumns(dataColumns);
 
-            transaction.getMetastore().replaceView(schemaName, tableName, newTable.build(), principalPrivileges);
+            transaction.getMetastore().replaceTable(schemaName, tableName, newTable.build(), principalPrivileges);
 
             transaction.commit();
         }
@@ -4436,8 +4436,7 @@ public abstract class AbstractTestHive
             Table.Builder tableBuilder = Table.builder(table.get());
             tableBuilder.getStorageBuilder().setBucketProperty(bucketProperty);
             PrincipalPrivileges principalPrivileges = testingPrincipalPrivilege(tableOwner, session.getUser());
-            // hack: replaceView can be used as replaceTable despite its name
-            transaction.getMetastore().replaceView(schemaName, tableName, tableBuilder.build(), principalPrivileges);
+            transaction.getMetastore().replaceTable(schemaName, tableName, tableBuilder.build(), principalPrivileges);
 
             transaction.commit();
         }
