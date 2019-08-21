@@ -73,6 +73,7 @@ public class RecordingHiveMetastore
     private final Cache<HiveTableName, PartitionStatistics> tableStatisticsCache;
     private final Cache<Set<HivePartitionName>, Map<String, PartitionStatistics>> partitionStatisticsCache;
     private final Cache<String, List<String>> allTablesCache;
+    private final Cache<TablesWithParameterCacheKey, List<String>> tablesWithParameterCache;
     private final Cache<String, List<String>> allViewsCache;
     private final Cache<HivePartitionName, Optional<Partition>> partitionCache;
     private final Cache<HiveTableName, Optional<List<String>>> partitionNamesCache;
@@ -96,6 +97,7 @@ public class RecordingHiveMetastore
         tableStatisticsCache = createCache(hiveConfig);
         partitionStatisticsCache = createCache(hiveConfig);
         allTablesCache = createCache(hiveConfig);
+        tablesWithParameterCache = createCache(hiveConfig);
         allViewsCache = createCache(hiveConfig);
         partitionCache = createCache(hiveConfig);
         partitionNamesCache = createCache(hiveConfig);
@@ -123,6 +125,7 @@ public class RecordingHiveMetastore
         tableStatisticsCache.putAll(toMap(recording.getTableStatistics()));
         partitionStatisticsCache.putAll(toMap(recording.getPartitionStatistics()));
         allTablesCache.putAll(toMap(recording.getAllTables()));
+        tablesWithParameterCache.putAll(toMap(recording.getTablesWithParameter()));
         allViewsCache.putAll(toMap(recording.getAllViews()));
         partitionCache.putAll(toMap(recording.getPartitions()));
         partitionNamesCache.putAll(toMap(recording.getPartitionNames()));
@@ -161,6 +164,7 @@ public class RecordingHiveMetastore
                 toPairs(tableStatisticsCache),
                 toPairs(partitionStatisticsCache),
                 toPairs(allTablesCache),
+                toPairs(tablesWithParameterCache),
                 toPairs(allViewsCache),
                 toPairs(partitionCache),
                 toPairs(partitionNamesCache),
@@ -251,6 +255,13 @@ public class RecordingHiveMetastore
     public List<String> getAllTables(String databaseName)
     {
         return loadValue(allTablesCache, databaseName, () -> delegate.getAllTables(databaseName));
+    }
+
+    @Override
+    public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
+    {
+        TablesWithParameterCacheKey key = new TablesWithParameterCacheKey(databaseName, parameterKey, parameterValue);
+        return loadValue(tablesWithParameterCache, key, () -> delegate.getTablesWithParameter(databaseName, parameterKey, parameterValue));
     }
 
     @Override
@@ -502,6 +513,7 @@ public class RecordingHiveMetastore
         private final List<Pair<HiveTableName, PartitionStatistics>> tableStatistics;
         private final List<Pair<Set<HivePartitionName>, Map<String, PartitionStatistics>>> partitionStatistics;
         private final List<Pair<String, List<String>>> allTables;
+        private final List<Pair<TablesWithParameterCacheKey, List<String>>> tablesWithParameter;
         private final List<Pair<String, List<String>>> allViews;
         private final List<Pair<HivePartitionName, Optional<Partition>>> partitions;
         private final List<Pair<HiveTableName, Optional<List<String>>>> partitionNames;
@@ -520,6 +532,7 @@ public class RecordingHiveMetastore
                 @JsonProperty("tableStatistics") List<Pair<HiveTableName, PartitionStatistics>> tableStatistics,
                 @JsonProperty("partitionStatistics") List<Pair<Set<HivePartitionName>, Map<String, PartitionStatistics>>> partitionStatistics,
                 @JsonProperty("allTables") List<Pair<String, List<String>>> allTables,
+                @JsonProperty("tablesWithParameter") List<Pair<TablesWithParameterCacheKey, List<String>>> tablesWithParameter,
                 @JsonProperty("allViews") List<Pair<String, List<String>>> allViews,
                 @JsonProperty("partitions") List<Pair<HivePartitionName, Optional<Partition>>> partitions,
                 @JsonProperty("partitionNames") List<Pair<HiveTableName, Optional<List<String>>>> partitionNames,
@@ -536,6 +549,7 @@ public class RecordingHiveMetastore
             this.tableStatistics = tableStatistics;
             this.partitionStatistics = partitionStatistics;
             this.allTables = allTables;
+            this.tablesWithParameter = tablesWithParameter;
             this.allViews = allViews;
             this.partitions = partitions;
             this.partitionNames = partitionNames;
@@ -567,6 +581,12 @@ public class RecordingHiveMetastore
         public List<Pair<HiveTableName, Optional<Table>>> getTables()
         {
             return tables;
+        }
+
+        @JsonProperty
+        public List<Pair<TablesWithParameterCacheKey, List<String>>> getTablesWithParameter()
+        {
+            return tablesWithParameter;
         }
 
         @JsonProperty

@@ -126,6 +126,12 @@ public class BridgingHiveMetastore
     }
 
     @Override
+    public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
+    {
+        return delegate.getTablesWithParameter(databaseName, parameterKey, parameterValue);
+    }
+
+    @Override
     public List<String> getAllViews(String databaseName)
     {
         return delegate.getAllViews(databaseName);
