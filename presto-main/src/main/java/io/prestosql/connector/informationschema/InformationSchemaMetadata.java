@@ -292,7 +292,7 @@ public class InformationSchemaMetadata
         }
 
         SchemaTableName schemaTableName = handle.getSchemaTableName();
-        Set<QualifiedTablePrefix> prefixes = calculatePrefixesWithSchemaName(session, constraint.getSummary(), constraint.predicate());
+        Set<QualifiedTablePrefix> prefixes = calculatePrefixesWithSchemaName(schemaTableName, session, constraint.getSummary(), constraint.predicate());
         if (isTablesEnumeratingTable(handle.getSchemaTableName())) {
             Set<QualifiedTablePrefix> tablePrefixes = calculatePrefixesWithTableName(schemaTableName, session, prefixes, constraint.getSummary(), constraint.predicate());
             // in case of high number of prefixes it is better to populate all data and then filter
@@ -314,6 +314,7 @@ public class InformationSchemaMetadata
     }
 
     private Set<QualifiedTablePrefix> calculatePrefixesWithSchemaName(
+            SchemaTableName schemaTableName,
             ConnectorSession connectorSession,
             TupleDomain<ColumnHandle> constraint,
             Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate)
@@ -327,9 +328,13 @@ public class InformationSchemaMetadata
                     .collect(toImmutableSet());
         }
 
+        if (!predicate.isPresent() || !isTablesEnumeratingTable(schemaTableName)) {
+            return ImmutableSet.of(new QualifiedTablePrefix(catalogName));
+        }
+
         Session session = ((FullConnectorSession) connectorSession).getSession();
         return listSchemaNames(session)
-                .filter(prefix -> !predicate.isPresent() || predicate.get().test(schemaAsFixedValues(prefix.getSchemaName().get())))
+                .filter(prefix -> predicate.get().test(schemaAsFixedValues(prefix.getSchemaName().get())))
                 .collect(toImmutableSet());
     }
 
