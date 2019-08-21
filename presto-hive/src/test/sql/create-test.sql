@@ -278,13 +278,13 @@ SELECT
 , CASE WHEN n % 27 = 0 THEN NULL ELSE map('test key', 'test value') END
 , CASE WHEN n % 29 = 0 THEN NULL ELSE array('abc', 'xyz', 'data') END
 , CASE WHEN n % 31 = 0 THEN NULL ELSE
-     array(named_struct('s_string', 'test abc', 's_double', 0.1),
-           named_struct('s_string' , 'test xyz', 's_double', 0.2)) END
+     array(named_struct('s_string', 'test abc', 's_double', 1e-1),
+           named_struct('s_string' , 'test xyz', 's_double', 2e-1)) END
 , CASE WHEN n % 31 = 0 THEN NULL ELSE
-     named_struct('s_string', 'test abc', 's_double', 0.1) END
+     named_struct('s_string', 'test abc', 's_double', 1e-1) END
 , CASE WHEN n % 33 = 0 THEN NULL ELSE
-     map(1, array(named_struct('s_string', 'test abc', 's_double', 0.1),
-                  named_struct('s_string' , 'test xyz', 's_double', 0.2))) END
+     map(1, array(named_struct('s_string', 'test abc', 's_double', 1e-1),
+                  named_struct('s_string' , 'test xyz', 's_double', 2e-1))) END
 FROM presto_test_sequence
 LIMIT 100
 ;
