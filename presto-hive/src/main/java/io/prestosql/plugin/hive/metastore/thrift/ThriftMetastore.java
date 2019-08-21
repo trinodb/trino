@@ -54,6 +54,8 @@ public interface ThriftMetastore
 
     List<String> getAllTables(String databaseName);
 
+    List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue);
+
     List<String> getAllViews(String databaseName);
 
     Optional<Database> getDatabase(String databaseName);

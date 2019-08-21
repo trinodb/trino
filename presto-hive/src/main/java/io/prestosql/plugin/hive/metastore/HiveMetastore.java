@@ -45,6 +45,8 @@ public interface HiveMetastore
 
     List<String> getAllTables(String databaseName);
 
+    List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue);
+
     List<String> getAllViews(String databaseName);
 
     void createDatabase(Database database);

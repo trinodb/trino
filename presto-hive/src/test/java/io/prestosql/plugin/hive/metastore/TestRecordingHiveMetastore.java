@@ -131,6 +131,7 @@ public class TestRecordingHiveMetastore
         assertEquals(hiveMetastore.getTableStatistics("database", "table"), PARTITION_STATISTICS);
         assertEquals(hiveMetastore.getPartitionStatistics("database", "table", ImmutableSet.of("value")), ImmutableMap.of("value", PARTITION_STATISTICS));
         assertEquals(hiveMetastore.getAllTables("database"), ImmutableList.of("table"));
+        assertEquals(hiveMetastore.getTablesWithParameter("database", "param", "value3"), ImmutableList.of("table"));
         assertEquals(hiveMetastore.getAllViews("database"), ImmutableList.of());
         assertEquals(hiveMetastore.getPartition("database", "table", ImmutableList.of("value")), Optional.of(PARTITION));
         assertEquals(hiveMetastore.getPartitionNames("database", "table"), Optional.of(ImmutableList.of("value")));
@@ -207,6 +208,15 @@ public class TestRecordingHiveMetastore
                 return ImmutableList.of("table");
             }
 
+            return ImmutableList.of();
+        }
+
+        @Override
+        public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
+        {
+            if (databaseName.equals("database") && parameterKey.equals("param") && parameterValue.equals("value3")) {
+                return ImmutableList.of("table");
+            }
             return ImmutableList.of();
         }
 

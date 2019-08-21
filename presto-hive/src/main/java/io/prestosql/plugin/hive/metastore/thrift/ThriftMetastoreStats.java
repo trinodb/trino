@@ -21,6 +21,7 @@ public class ThriftMetastoreStats
     private final ThriftMetastoreApiStats getAllDatabases = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats getDatabase = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats getAllTables = new ThriftMetastoreApiStats();
+    private final ThriftMetastoreApiStats getTablesWithParameter = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats getAllViews = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats getTable = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats getFields = new ThriftMetastoreApiStats();
@@ -68,6 +69,13 @@ public class ThriftMetastoreStats
     public ThriftMetastoreApiStats getGetAllTables()
     {
         return getAllTables;
+    }
+
+    @Managed
+    @Nested
+    public ThriftMetastoreApiStats getGetTablesWithParameter()
+    {
+        return getTablesWithParameter;
     }
 
     @Managed
