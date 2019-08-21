@@ -14,7 +14,6 @@
 package io.prestosql.execution.scheduler;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
@@ -41,6 +40,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 import static io.prestosql.execution.scheduler.NodeScheduler.calculateLowWatermark;
 import static io.prestosql.execution.scheduler.NodeScheduler.randomizedNodes;

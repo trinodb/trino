@@ -13,7 +13,6 @@
  */
 package io.prestosql.tests.tpch;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.plugin.tpch.TpchColumnHandle;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -32,6 +31,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
