@@ -24,7 +24,6 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.metadata.TableMetadata;
-import io.prestosql.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -95,7 +94,6 @@ import static io.prestosql.plugin.hive.HiveQueryRunner.HIVE_CATALOG;
 import static io.prestosql.plugin.hive.HiveQueryRunner.TPCH_SCHEMA;
 import static io.prestosql.plugin.hive.HiveQueryRunner.createBucketedSession;
 import static io.prestosql.plugin.hive.HiveQueryRunner.createQueryRunner;
-import static io.prestosql.plugin.hive.HiveSessionProperties.getInsertExistingPartitionsBehavior;
 import static io.prestosql.plugin.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static io.prestosql.plugin.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
 import static io.prestosql.plugin.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
@@ -897,11 +895,6 @@ public class TestHiveIntegrationSmokeTest
 
         verifyPartitionedBucketedTableAsFewRows(storageFormat, tableName);
 
-        assertThatThrownBy(() -> assertUpdate(session, "INSERT INTO " + tableName + " VALUES ('a0', 'b0', 'c')", 1))
-                .hasMessage(getExpectedErrorMessageForInsertExistingBucketedTable(
-                        getInsertExistingPartitionsBehavior(getConnectorSession(session)),
-                        "partition_key=c"));
-
         assertUpdate(session, "DROP TABLE " + tableName);
         assertFalse(getQueryRunner().tableExists(session, tableName));
     }
@@ -998,11 +991,6 @@ public class TestHiveIntegrationSmokeTest
                     format("SELECT * FROM %s WHERE custkey = %d AND custkey2 = %d", tableName, i, i),
                     format("SELECT custkey, custkey, comment, orderstatus FROM orders WHERE custkey = %d", i));
         }
-
-        assertThatThrownBy(() -> assertUpdate("INSERT INTO " + tableName + " VALUES (1, 1, 'comment', 'O')", 1))
-                .hasMessage(getExpectedErrorMessageForInsertExistingBucketedTable(
-                        getInsertExistingPartitionsBehavior(getConnectorSession(getSession())),
-                        "orderstatus=O"));
     }
 
     @Test
@@ -1095,11 +1083,6 @@ public class TestHiveIntegrationSmokeTest
                 3);
 
         verifyPartitionedBucketedTableAsFewRows(storageFormat, tableName);
-
-        assertThatThrownBy(() -> assertUpdate(session, "INSERT INTO test_insert_partitioned_bucketed_table_few_rows VALUES ('a0', 'b0', 'c')", 1))
-                .hasMessage(getExpectedErrorMessageForInsertExistingBucketedTable(
-                        getInsertExistingPartitionsBehavior(getConnectorSession(session)),
-                        "partition_key=c"));
 
         assertUpdate(session, "DROP TABLE test_insert_partitioned_bucketed_table_few_rows");
         assertFalse(getQueryRunner().tableExists(session, tableName));
@@ -1286,6 +1269,27 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate("DROP TABLE " + tableName);
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+    }
+
+    @Test
+    public void testInsertTwiceToSamePartitionedBucket()
+    {
+        String tableName = "test_insert_twice_to_same_partitioned_bucket";
+        createPartitionedBucketedTable(tableName, HiveStorageFormat.RCBINARY);
+
+        String insert = "INSERT INTO " + tableName +
+                " VALUES (1, 1, 'first_comment', 'F'), (2, 2, 'second_comment', 'G')";
+        assertUpdate(insert, 2);
+        assertUpdate(insert, 2);
+
+        assertQuery(
+                "SELECT custkey, custkey2, comment, orderstatus FROM " + tableName + " ORDER BY custkey",
+                "VALUES (1, 1, 'first_comment', 'F'), (1, 1, 'first_comment', 'F'), (2, 2, 'second_comment', 'G'), (2, 2, 'second_comment', 'G')");
+        assertQuery(
+                "SELECT custkey, custkey2, comment, orderstatus FROM " + tableName + " WHERE custkey = 1 and custkey2 = 1",
+                "VALUES (1, 1, 'first_comment', 'F'), (1, 1, 'first_comment', 'F')");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -4263,17 +4267,6 @@ public class TestHiveIntegrationSmokeTest
     private static class RollbackException
             extends RuntimeException
     {
-    }
-
-    private static String getExpectedErrorMessageForInsertExistingBucketedTable(InsertExistingPartitionsBehavior behavior, String partitionName)
-    {
-        if (behavior == InsertExistingPartitionsBehavior.APPEND) {
-            return "Cannot insert into existing partition of bucketed Hive table: " + partitionName;
-        }
-        if (behavior == InsertExistingPartitionsBehavior.ERROR) {
-            return "Cannot insert into an existing partition of Hive table: " + partitionName;
-        }
-        throw new IllegalArgumentException("Unexpected insertExistingPartitionsBehavior: " + behavior);
     }
 
     private static ConnectorSession getConnectorSession(Session session)
