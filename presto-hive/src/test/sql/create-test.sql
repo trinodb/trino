@@ -61,7 +61,7 @@ CREATE TABLE presto_test_bucketed_by_string_int (
 )
 COMMENT 'Presto test bucketed table'
 PARTITIONED BY (ds STRING)
-CLUSTERED BY (t_string, t_int) INTO 32 BUCKETS
+CLUSTERED BY (t_string, t_int) INTO 11 BUCKETS -- TODO https://github.com/prestosql/presto/issues/538 restore 32 buckets
 STORED AS RCFILE
 TBLPROPERTIES ('bucketing_version'='1') -- TODO https://github.com/prestosql/presto/issues/538 remove
 ;
@@ -78,7 +78,7 @@ CREATE TABLE presto_test_bucketed_by_bigint_boolean (
 )
 COMMENT 'Presto test bucketed table'
 PARTITIONED BY (ds STRING)
-CLUSTERED BY (t_bigint, t_boolean) INTO 32 BUCKETS
+CLUSTERED BY (t_bigint, t_boolean) INTO 11 BUCKETS -- TODO https://github.com/prestosql/presto/issues/538 restore 32 buckets
 STORED AS RCFILE
 TBLPROPERTIES ('bucketing_version'='1') -- TODO https://github.com/prestosql/presto/issues/538 remove
 ;
@@ -95,7 +95,7 @@ CREATE TABLE presto_test_bucketed_by_double_float (
 )
 COMMENT 'Presto test bucketed table'
 PARTITIONED BY (ds STRING)
-CLUSTERED BY (t_double, t_float) INTO 32 BUCKETS
+CLUSTERED BY (t_double, t_float) INTO 11 BUCKETS -- TODO https://github.com/prestosql/presto/issues/538 restore 32 buckets
 STORED AS RCFILE
 TBLPROPERTIES ('bucketing_version'='1') -- TODO https://github.com/prestosql/presto/issues/538 remove
 ;

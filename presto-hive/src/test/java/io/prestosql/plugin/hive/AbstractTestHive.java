@@ -1518,7 +1518,7 @@ public abstract class AbstractTestHive
                     .build();
 
             // floats and doubles are not supported, so we should see all splits
-            MaterializedResult result = readTable(transaction, tableHandle, columnHandles, session, TupleDomain.fromFixedValues(bindings), OptionalInt.of(32), Optional.empty());
+            MaterializedResult result = readTable(transaction, tableHandle, columnHandles, session, TupleDomain.fromFixedValues(bindings), OptionalInt.of(11), Optional.empty());
             assertEquals(result.getRowCount(), 100);
         }
     }
@@ -1653,9 +1653,9 @@ public abstract class AbstractTestHive
 
     private void assertTableIsBucketed(ConnectorTableHandle tableHandle)
     {
-        // the bucketed test tables should have exactly 32 splits
+        // the bucketed test tables should have exactly 11 splits
         List<ConnectorSplit> splits = getAllSplits(tableHandle);
-        assertEquals(splits.size(), 32);
+        assertEquals(splits.size(), 11);
 
         // verify all paths are unique
         Set<String> paths = new HashSet<>();
