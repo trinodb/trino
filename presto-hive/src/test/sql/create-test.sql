@@ -202,8 +202,6 @@ SELECT 'test' FROM presto_test_sequence LIMIT 100;
 INSERT INTO TABLE presto_test_offline_partition PARTITION (ds='2012-12-30')
 SELECT 'test' FROM presto_test_sequence LIMIT 100;
 
-ALTER TABLE presto_test_offline_partition PARTITION (ds='2012-12-30') ENABLE OFFLINE;
-
 SET hive.enforce.bucketing = true;
 
 INSERT OVERWRITE TABLE presto_test_bucketed_by_string_int
