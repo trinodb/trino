@@ -326,9 +326,8 @@ public class InformationSchemaMetadata
         }
 
         Session session = ((FullConnectorSession) connectorSession).getSession();
-        return metadata.listSchemaNames(session, catalogName).stream()
-                .filter(schema -> !predicate.isPresent() || predicate.get().test(schemaAsFixedValues(schema)))
-                .map(schema -> new QualifiedTablePrefix(catalogName, schema))
+        return listSchemaNames(session)
+                .filter(prefix -> !predicate.isPresent() || predicate.get().test(schemaAsFixedValues(prefix.getSchemaName().get())))
                 .collect(toImmutableSet());
     }
 
@@ -364,6 +363,12 @@ public class InformationSchemaMetadata
         }
 
         return prefixes;
+    }
+
+    private Stream<QualifiedTablePrefix> listSchemaNames(Session session)
+    {
+        return metadata.listSchemaNames(session, catalogName).stream()
+                .map(schema -> new QualifiedTablePrefix(catalogName, schema));
     }
 
     private <T> Optional<Set<String>> filterString(TupleDomain<T> constraint, T column)
