@@ -199,6 +199,25 @@ public class TestInformationSchemaMetadata
         assertEquals(tableHandle.getPrefixes(), ImmutableSet.of(new QualifiedTablePrefix("test_catalog", "test_schema")));
     }
 
+    @Test
+    public void testInformationSchemaPredicatePushdownWithConstraintPredicateOnSchemasTable()
+    {
+        TransactionId transactionId = transactionManager.beginTransaction(false);
+
+        // predicate on non tables enumerating table should not cause schemas to be enumerated
+        Constraint constraint = new Constraint(TupleDomain.all(), TestInformationSchemaMetadata::testConstraint);
+        ConnectorSession session = createNewSession(transactionId);
+        ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata);
+        InformationSchemaTableHandle tableHandle = (InformationSchemaTableHandle)
+                metadata.getTableHandle(session, new SchemaTableName("information_schema", "schemata"));
+        tableHandle = metadata.applyFilter(session, tableHandle, constraint)
+                .map(ConstraintApplicationResult::getHandle)
+                .map(InformationSchemaTableHandle.class::cast)
+                .orElseThrow(AssertionError::new);
+
+        assertEquals(tableHandle.getPrefixes(), ImmutableSet.of(new QualifiedTablePrefix("test_catalog")));
+    }
+
     private static boolean testConstraint(Map<ColumnHandle, NullableValue> bindings)
     {
         // test_schema has a table named "another_table" and we filter that out in this predicate
