@@ -18,7 +18,7 @@ import io.prestosql.cost.StatsProvider;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.plan.ApplyNode;
-import io.prestosql.sql.planner.plan.LateralJoinNode;
+import io.prestosql.sql.planner.plan.CorrelatedJoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 
 import java.util.List;
@@ -42,7 +42,7 @@ public class CorrelationMatcher
     @Override
     public boolean shapeMatches(PlanNode node)
     {
-        return node instanceof ApplyNode || node instanceof LateralJoinNode;
+        return node instanceof ApplyNode || node instanceof CorrelatedJoinNode;
     }
 
     @Override
@@ -72,8 +72,8 @@ public class CorrelationMatcher
         if (node instanceof ApplyNode) {
             return ((ApplyNode) node).getCorrelation();
         }
-        else if (node instanceof LateralJoinNode) {
-            return ((LateralJoinNode) node).getCorrelation();
+        else if (node instanceof CorrelatedJoinNode) {
+            return ((CorrelatedJoinNode) node).getCorrelation();
         }
         else {
             throw new IllegalStateException("Unexpected plan node: " + node);

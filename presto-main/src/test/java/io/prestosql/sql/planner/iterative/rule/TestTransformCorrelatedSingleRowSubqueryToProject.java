@@ -49,7 +49,7 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
     {
         tester().assertThat(new TransformCorrelatedSingleRowSubqueryToProject())
                 .on(p ->
-                        p.lateral(
+                        p.correlatedJoin(
                                 ImmutableList.of(p.symbol("l_nationkey")),
                                 p.tableScan(
                                         new TableHandle(
@@ -78,7 +78,7 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
     {
         tester().assertThat(new TransformCorrelatedSingleRowSubqueryToProject())
                 .on(p ->
-                        p.lateral(
+                        p.correlatedJoin(
                                 ImmutableList.of(p.symbol("a")),
                                 p.values(p.symbol("a")),
                                 p.values(p.symbol("a"))))

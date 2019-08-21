@@ -31,7 +31,7 @@ import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
 import io.prestosql.sql.planner.plan.ApplyNode;
 import io.prestosql.sql.planner.plan.Assignments;
-import io.prestosql.sql.planner.plan.LateralJoinNode;
+import io.prestosql.sql.planner.plan.CorrelatedJoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.planner.plan.SimplePlanRewriter;
@@ -70,12 +70,12 @@ import static io.prestosql.sql.tree.QuantifiedComparisonExpression.Quantifier.AL
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
-public class TransformQuantifiedComparisonApplyToLateralJoin
+public class TransformQuantifiedComparisonApplyToCorrelatedJoin
         implements PlanOptimizer
 {
     private final Metadata metadata;
 
-    public TransformQuantifiedComparisonApplyToLateralJoin(Metadata metadata)
+    public TransformQuantifiedComparisonApplyToCorrelatedJoin(Metadata metadata)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
     }
@@ -177,12 +177,12 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                     Optional.empty(),
                     Optional.empty());
 
-            PlanNode lateralJoinNode = new LateralJoinNode(
+            PlanNode join = new CorrelatedJoinNode(
                     node.getId(),
                     context.rewrite(node.getInput()),
                     subqueryPlan,
                     node.getCorrelation(),
-                    LateralJoinNode.Type.INNER,
+                    CorrelatedJoinNode.Type.INNER,
                     TRUE_LITERAL,
                     node.getOriginSubquery());
 
@@ -190,7 +190,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
 
             Symbol quantifiedComparisonSymbol = getOnlyElement(node.getSubqueryAssignments().getSymbols());
 
-            return projectExpressions(lateralJoinNode, Assignments.of(quantifiedComparisonSymbol, valueComparedToSubquery));
+            return projectExpressions(join, Assignments.of(quantifiedComparisonSymbol, valueComparedToSubquery));
         }
 
         public Expression rewriteUsingBounds(QuantifiedComparisonExpression quantifiedComparison, Symbol minValue, Symbol maxValue, Symbol countAllValue, Symbol countNonNullValue)

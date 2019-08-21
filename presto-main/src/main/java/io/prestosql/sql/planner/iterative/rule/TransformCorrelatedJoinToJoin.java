@@ -20,8 +20,8 @@ import io.prestosql.matching.Pattern;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.optimizations.PlanNodeDecorrelator;
 import io.prestosql.sql.planner.optimizations.PlanNodeDecorrelator.DecorrelatedNode;
+import io.prestosql.sql.planner.plan.CorrelatedJoinNode;
 import io.prestosql.sql.planner.plan.JoinNode;
-import io.prestosql.sql.planner.plan.LateralJoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.tree.Expression;
 
@@ -29,46 +29,46 @@ import java.util.Optional;
 
 import static io.prestosql.matching.Pattern.nonEmpty;
 import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
-import static io.prestosql.sql.planner.plan.Patterns.LateralJoin.correlation;
-import static io.prestosql.sql.planner.plan.Patterns.lateralJoin;
+import static io.prestosql.sql.planner.plan.Patterns.CorrelatedJoin.correlation;
+import static io.prestosql.sql.planner.plan.Patterns.correlatedJoin;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 /**
  * Tries to decorrelate subquery and rewrite it using normal join.
  * Decorrelated predicates are part of join condition.
  */
-public class TransformCorrelatedLateralJoinToJoin
-        implements Rule<LateralJoinNode>
+public class TransformCorrelatedJoinToJoin
+        implements Rule<CorrelatedJoinNode>
 {
-    private static final Pattern<LateralJoinNode> PATTERN = lateralJoin()
+    private static final Pattern<CorrelatedJoinNode> PATTERN = correlatedJoin()
             .with(nonEmpty(correlation()));
 
     @Override
-    public Pattern<LateralJoinNode> getPattern()
+    public Pattern<CorrelatedJoinNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Result apply(LateralJoinNode lateralJoinNode, Captures captures, Context context)
+    public Result apply(CorrelatedJoinNode correlatedJoinNode, Captures captures, Context context)
     {
-        PlanNode subquery = lateralJoinNode.getSubquery();
+        PlanNode subquery = correlatedJoinNode.getSubquery();
 
         PlanNodeDecorrelator planNodeDecorrelator = new PlanNodeDecorrelator(context.getIdAllocator(), context.getLookup());
-        Optional<DecorrelatedNode> decorrelatedNodeOptional = planNodeDecorrelator.decorrelateFilters(subquery, lateralJoinNode.getCorrelation());
+        Optional<DecorrelatedNode> decorrelatedNodeOptional = planNodeDecorrelator.decorrelateFilters(subquery, correlatedJoinNode.getCorrelation());
 
         return decorrelatedNodeOptional
                 .map(decorrelatedNode -> {
                     Expression joinFilter = combineConjuncts(
                             decorrelatedNode.getCorrelatedPredicates().orElse(TRUE_LITERAL),
-                            lateralJoinNode.getFilter());
+                            correlatedJoinNode.getFilter());
                     return Result.ofPlanNode(new JoinNode(
                             context.getIdAllocator().getNextId(),
-                            lateralJoinNode.getType().toJoinNodeType(),
-                            lateralJoinNode.getInput(),
+                            correlatedJoinNode.getType().toJoinNodeType(),
+                            correlatedJoinNode.getInput(),
                             decorrelatedNode.getNode(),
                             ImmutableList.of(),
-                            lateralJoinNode.getOutputSymbols(),
+                            correlatedJoinNode.getOutputSymbols(),
                             joinFilter.equals(TRUE_LITERAL) ? Optional.empty() : Optional.of(joinFilter),
                             Optional.empty(),
                             Optional.empty(),

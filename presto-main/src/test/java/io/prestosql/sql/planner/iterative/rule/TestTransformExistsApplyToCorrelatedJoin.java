@@ -31,19 +31,19 @@ import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
 import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expression;
 
-public class TestTransformExistsApplyToLateralJoin
+public class TestTransformExistsApplyToCorrelatedJoin
         extends BaseRuleTest
 {
     @Test
     public void testDoesNotFire()
     {
-        tester().assertThat(new TransformExistsApplyToLateralNode(tester().getMetadata()))
+        tester().assertThat(new TransformExistsApplyToCorrelatedJoin(tester().getMetadata()))
                 .on(p -> p.values(p.symbol("a")))
                 .doesNotFire();
 
-        tester().assertThat(new TransformExistsApplyToLateralNode(tester().getMetadata()))
+        tester().assertThat(new TransformExistsApplyToCorrelatedJoin(tester().getMetadata()))
                 .on(p ->
-                        p.lateral(
+                        p.correlatedJoin(
                                 ImmutableList.of(p.symbol("a")),
                                 p.values(p.symbol("a")),
                                 p.values(p.symbol("a"))))
@@ -53,7 +53,7 @@ public class TestTransformExistsApplyToLateralJoin
     @Test
     public void testRewrite()
     {
-        tester().assertThat(new TransformExistsApplyToLateralNode(tester().getMetadata()))
+        tester().assertThat(new TransformExistsApplyToCorrelatedJoin(tester().getMetadata()))
                 .on(p ->
                         p.apply(
                                 Assignments.of(p.symbol("b", BOOLEAN), expression("EXISTS(SELECT TRUE)")),
@@ -72,7 +72,7 @@ public class TestTransformExistsApplyToLateralJoin
     @Test
     public void testRewritesToLimit()
     {
-        tester().assertThat(new TransformExistsApplyToLateralNode(tester().getMetadata()))
+        tester().assertThat(new TransformExistsApplyToCorrelatedJoin(tester().getMetadata()))
                 .on(p ->
                         p.apply(
                                 Assignments.of(p.symbol("b", BOOLEAN), expression("EXISTS(SELECT TRUE)")),
