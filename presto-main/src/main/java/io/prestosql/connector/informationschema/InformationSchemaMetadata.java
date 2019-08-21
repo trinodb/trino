@@ -39,6 +39,8 @@ import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.EquatableValueSet;
 import io.prestosql.spi.predicate.NullableValue;
+import io.prestosql.spi.predicate.Range;
+import io.prestosql.spi.predicate.SortedRangeSet;
 import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.Collection;
@@ -52,6 +54,7 @@ import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.compose;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -382,6 +385,19 @@ public class InformationSchemaMetadata
                     .map(Slice.class::cast)
                     .map(Slice::toStringUtf8)
                     .collect(toImmutableSet()));
+        }
+        if (domain.getValues() instanceof SortedRangeSet) {
+            ImmutableSet.Builder<String> result = ImmutableSet.builder();
+            for (Range range : domain.getValues().getRanges().getOrderedRanges()) {
+                checkState(!range.isAll()); // Already checked
+                if (!range.isSingleValue()) {
+                    return Optional.empty();
+                }
+
+                result.add(((Slice) range.getSingleValue()).toStringUtf8());
+            }
+
+            return Optional.of(result.build());
         }
         return Optional.empty();
     }
