@@ -36,7 +36,7 @@ import static java.util.Objects.requireNonNull;
  * LEFT - does return input completed with NULL values when subquery relation is empty
  */
 @Immutable
-public class LateralJoinNode
+public class CorrelatedJoinNode
         extends PlanNode
 {
     public enum Type
@@ -94,7 +94,7 @@ public class LateralJoinNode
     private final Node originSubquery;
 
     @JsonCreator
-    public LateralJoinNode(
+    public CorrelatedJoinNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("input") PlanNode input,
             @JsonProperty("subquery") PlanNode subquery,
@@ -176,12 +176,12 @@ public class LateralJoinNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
-        return new LateralJoinNode(getId(), newChildren.get(0), newChildren.get(1), correlation, type, filter, originSubquery);
+        return new CorrelatedJoinNode(getId(), newChildren.get(0), newChildren.get(1), correlation, type, filter, originSubquery);
     }
 
     @Override
     public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
-        return visitor.visitLateralJoin(this, context);
+        return visitor.visitCorrelatedJoin(this, context);
     }
 }

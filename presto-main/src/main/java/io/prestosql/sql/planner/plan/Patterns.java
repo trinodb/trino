@@ -82,9 +82,9 @@ public final class Patterns
         return typeOf(SpatialJoinNode.class);
     }
 
-    public static Pattern<LateralJoinNode> lateralJoin()
+    public static Pattern<CorrelatedJoinNode> correlatedJoin()
     {
-        return typeOf(LateralJoinNode.class);
+        return typeOf(CorrelatedJoinNode.class);
     }
 
     public static Pattern<OffsetNode> offset()
@@ -241,21 +241,21 @@ public final class Patterns
         }
     }
 
-    public static final class LateralJoin
+    public static final class CorrelatedJoin
     {
-        public static Property<LateralJoinNode, Lookup, List<Symbol>> correlation()
+        public static Property<CorrelatedJoinNode, Lookup, List<Symbol>> correlation()
         {
-            return property("correlation", LateralJoinNode::getCorrelation);
+            return property("correlation", CorrelatedJoinNode::getCorrelation);
         }
 
-        public static Property<LateralJoinNode, Lookup, PlanNode> subquery()
+        public static Property<CorrelatedJoinNode, Lookup, PlanNode> subquery()
         {
-            return property("subquery", LateralJoinNode::getSubquery);
+            return property("subquery", CorrelatedJoinNode::getSubquery);
         }
 
-        public static Property<LateralJoinNode, Lookup, Expression> filter()
+        public static Property<CorrelatedJoinNode, Lookup, Expression> filter()
         {
-            return property("filter", LateralJoinNode::getFilter);
+            return property("filter", CorrelatedJoinNode::getFilter);
         }
     }
 

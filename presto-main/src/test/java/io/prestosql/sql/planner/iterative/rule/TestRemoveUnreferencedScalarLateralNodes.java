@@ -28,7 +28,7 @@ public class TestRemoveUnreferencedScalarLateralNodes
     public void testRemoveUnreferencedInput()
     {
         tester().assertThat(new RemoveUnreferencedScalarLateralNodes())
-                .on(p -> p.lateral(
+                .on(p -> p.correlatedJoin(
                         emptyList(),
                         p.values(p.symbol("x", BigintType.BIGINT)),
                         p.values(emptyList(), ImmutableList.of(emptyList()))))
@@ -39,7 +39,7 @@ public class TestRemoveUnreferencedScalarLateralNodes
     public void testRemoveUnreferencedSubquery()
     {
         tester().assertThat(new RemoveUnreferencedScalarLateralNodes())
-                .on(p -> p.lateral(
+                .on(p -> p.correlatedJoin(
                         emptyList(),
                         p.values(emptyList(), ImmutableList.of(emptyList())),
                         p.values(p.symbol("x", BigintType.BIGINT))))
@@ -50,7 +50,7 @@ public class TestRemoveUnreferencedScalarLateralNodes
     public void testDoesNotFire()
     {
         tester().assertThat(new RemoveUnreferencedScalarLateralNodes())
-                .on(p -> p.lateral(
+                .on(p -> p.correlatedJoin(
                         emptyList(),
                         p.values(),
                         p.values()))

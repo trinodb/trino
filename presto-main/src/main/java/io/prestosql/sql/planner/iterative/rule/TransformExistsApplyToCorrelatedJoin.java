@@ -26,7 +26,7 @@ import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
 import io.prestosql.sql.planner.plan.ApplyNode;
 import io.prestosql.sql.planner.plan.Assignments;
-import io.prestosql.sql.planner.plan.LateralJoinNode;
+import io.prestosql.sql.planner.plan.CorrelatedJoinNode;
 import io.prestosql.sql.planner.plan.LimitNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
@@ -46,8 +46,8 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.sql.planner.plan.AggregationNode.globalAggregation;
-import static io.prestosql.sql.planner.plan.LateralJoinNode.Type.INNER;
-import static io.prestosql.sql.planner.plan.LateralJoinNode.Type.LEFT;
+import static io.prestosql.sql.planner.plan.CorrelatedJoinNode.Type.INNER;
+import static io.prestosql.sql.planner.plan.CorrelatedJoinNode.Type.LEFT;
 import static io.prestosql.sql.planner.plan.Patterns.applyNode;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
@@ -57,7 +57,7 @@ import static java.util.Objects.requireNonNull;
  * EXISTS is modeled as (if correlated predicates are equality comparisons):
  * <pre>
  *     - Project(exists := COALESCE(subqueryTrue, false))
- *       - LateralJoin(LEFT)
+ *       - CorrelatedJoin(LEFT)
  *         - input
  *         - Project(subqueryTrue := true)
  *           - Limit(count=1)
@@ -65,7 +65,7 @@ import static java.util.Objects.requireNonNull;
  * </pre>
  * or:
  * <pre>
- *     - LateralJoin(LEFT)
+ *     - CorrelatedJoin(LEFT)
  *       - input
  *       - Project($0 > 0)
  *         - Aggregation(COUNT(*))
@@ -73,7 +73,7 @@ import static java.util.Objects.requireNonNull;
  * </pre>
  * otherwise
  */
-public class TransformExistsApplyToLateralNode
+public class TransformExistsApplyToCorrelatedJoin
         implements Rule<ApplyNode>
 {
     private static final Pattern<ApplyNode> PATTERN = applyNode();
@@ -81,7 +81,7 @@ public class TransformExistsApplyToLateralNode
     private static final QualifiedName COUNT = QualifiedName.of("count");
     private final Signature countSignature;
 
-    public TransformExistsApplyToLateralNode(Metadata metadata)
+    public TransformExistsApplyToCorrelatedJoin(Metadata metadata)
     {
         requireNonNull(metadata, "metadata is null");
         countSignature = metadata.resolveFunction(COUNT, ImmutableList.of());
@@ -137,7 +137,7 @@ public class TransformExistsApplyToLateralNode
         }
 
         return Optional.of(new ProjectNode(context.getIdAllocator().getNextId(),
-                new LateralJoinNode(
+                new CorrelatedJoinNode(
                         applyNode.getId(),
                         applyNode.getInput(),
                         subquery,
@@ -153,7 +153,7 @@ public class TransformExistsApplyToLateralNode
         Symbol count = context.getSymbolAllocator().newSymbol(COUNT.toString(), BIGINT);
         Symbol exists = getOnlyElement(parent.getSubqueryAssignments().getSymbols());
 
-        return new LateralJoinNode(
+        return new CorrelatedJoinNode(
                 parent.getId(),
                 parent.getInput(),
                 new ProjectNode(

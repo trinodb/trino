@@ -47,6 +47,7 @@ import io.prestosql.sql.planner.plan.AggregationNode.Step;
 import io.prestosql.sql.planner.plan.ApplyNode;
 import io.prestosql.sql.planner.plan.AssignUniqueId;
 import io.prestosql.sql.planner.plan.Assignments;
+import io.prestosql.sql.planner.plan.CorrelatedJoinNode;
 import io.prestosql.sql.planner.plan.DeleteNode;
 import io.prestosql.sql.planner.plan.DistinctLimitNode;
 import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
@@ -57,7 +58,6 @@ import io.prestosql.sql.planner.plan.IndexJoinNode;
 import io.prestosql.sql.planner.plan.IndexSourceNode;
 import io.prestosql.sql.planner.plan.IntersectNode;
 import io.prestosql.sql.planner.plan.JoinNode;
-import io.prestosql.sql.planner.plan.LateralJoinNode;
 import io.prestosql.sql.planner.plan.LimitNode;
 import io.prestosql.sql.planner.plan.MarkDistinctNode;
 import io.prestosql.sql.planner.plan.OffsetNode;
@@ -418,15 +418,15 @@ public class PlanBuilder
         return new AssignUniqueId(idAllocator.getNextId(), source, unique);
     }
 
-    public LateralJoinNode lateral(List<Symbol> correlation, PlanNode input, PlanNode subquery)
+    public CorrelatedJoinNode correlatedJoin(List<Symbol> correlation, PlanNode input, PlanNode subquery)
     {
-        return lateral(correlation, input, LateralJoinNode.Type.INNER, TRUE_LITERAL, subquery);
+        return correlatedJoin(correlation, input, CorrelatedJoinNode.Type.INNER, TRUE_LITERAL, subquery);
     }
 
-    public LateralJoinNode lateral(List<Symbol> correlation, PlanNode input, LateralJoinNode.Type type, Expression filter, PlanNode subquery)
+    public CorrelatedJoinNode correlatedJoin(List<Symbol> correlation, PlanNode input, CorrelatedJoinNode.Type type, Expression filter, PlanNode subquery)
     {
         NullLiteral originSubquery = new NullLiteral(); // does not matter for tests
-        return new LateralJoinNode(idAllocator.getNextId(), input, subquery, correlation, type, filter, originSubquery);
+        return new CorrelatedJoinNode(idAllocator.getNextId(), input, subquery, correlation, type, filter, originSubquery);
     }
 
     public TableScanNode tableScan(List<Symbol> symbols, Map<Symbol, ColumnHandle> assignments)

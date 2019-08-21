@@ -33,13 +33,13 @@ import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.ApplyNode;
+import io.prestosql.sql.planner.plan.CorrelatedJoinNode;
 import io.prestosql.sql.planner.plan.DistinctLimitNode;
 import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
 import io.prestosql.sql.planner.plan.ExchangeNode;
 import io.prestosql.sql.planner.plan.ExplainAnalyzeNode;
 import io.prestosql.sql.planner.plan.IndexJoinNode;
 import io.prestosql.sql.planner.plan.JoinNode;
-import io.prestosql.sql.planner.plan.LateralJoinNode;
 import io.prestosql.sql.planner.plan.LimitNode;
 import io.prestosql.sql.planner.plan.MarkDistinctNode;
 import io.prestosql.sql.planner.plan.OutputNode;
@@ -141,7 +141,7 @@ public class AddLocalExchanges
         }
 
         @Override
-        public PlanWithProperties visitLateralJoin(LateralJoinNode node, StreamPreferredProperties parentPreferences)
+        public PlanWithProperties visitCorrelatedJoin(CorrelatedJoinNode node, StreamPreferredProperties parentPreferences)
         {
             throw new IllegalStateException("Unexpected node: " + node.getClass().getName());
         }
