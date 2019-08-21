@@ -36,6 +36,6 @@ public class TestingMetastoreLocator
     public ThriftMetastoreClient createMetastoreClient()
             throws TException
     {
-        return new ThriftMetastoreClientFactory(config, new NoHiveMetastoreAuthentication()).create(address);
+        return new ThriftMetastoreClientFactory(config, new ThriftHiveMetastoreConfig(), new NoHiveMetastoreAuthentication()).create(address);
     }
 }

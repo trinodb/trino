@@ -21,13 +21,30 @@ import io.prestosql.plugin.hive.util.RetryDriver;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
+import java.util.concurrent.TimeUnit;
+
 public class ThriftHiveMetastoreConfig
 {
+    private Duration metastoreTimeout = new Duration(10, TimeUnit.SECONDS);
     private int maxRetries = RetryDriver.DEFAULT_MAX_ATTEMPTS - 1;
     private double backoffScaleFactor = RetryDriver.DEFAULT_SCALE_FACTOR;
     private Duration minBackoffDelay = RetryDriver.DEFAULT_SLEEP_TIME;
     private Duration maxBackoffDelay = RetryDriver.DEFAULT_SLEEP_TIME;
     private Duration maxRetryTime = RetryDriver.DEFAULT_MAX_RETRY_TIME;
+
+
+    @NotNull
+    public Duration getMetastoreTimeout()
+    {
+        return metastoreTimeout;
+    }
+
+    @Config("hive.metastore-timeout")
+    public ThriftHiveMetastoreConfig setMetastoreTimeout(Duration metastoreTimeout)
+    {
+        this.metastoreTimeout = metastoreTimeout;
+        return this;
+    }
 
     @Min(0)
     public int getMaxRetries()
