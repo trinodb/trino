@@ -23,15 +23,15 @@ import static io.prestosql.sql.planner.assertions.PlanMatchPattern.join;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
 import static java.util.Collections.emptyList;
 
-public class TestTransformUncorrelatedLateralToJoin
+public class TestTransformUncorrelatedSubqueryToJoin
         extends BaseRuleTest
 {
     @Test
     public void test()
     {
         tester()
-                .assertThat(new TransformUncorrelatedLateralToJoin())
-                .on(p -> p.lateral(emptyList(), p.values(), p.values()))
+                .assertThat(new TransformUncorrelatedSubqueryToJoin())
+                .on(p -> p.correlatedJoin(emptyList(), p.values(), p.values()))
                 .matches(join(JoinNode.Type.INNER, emptyList(), values(), values()));
     }
 
@@ -40,8 +40,8 @@ public class TestTransformUncorrelatedLateralToJoin
     {
         Symbol symbol = new Symbol("x");
         tester()
-                .assertThat(new TransformUncorrelatedLateralToJoin())
-                .on(p -> p.lateral(ImmutableList.of(symbol), p.values(symbol), p.values()))
+                .assertThat(new TransformUncorrelatedSubqueryToJoin())
+                .on(p -> p.correlatedJoin(ImmutableList.of(symbol), p.values(symbol), p.values()))
                 .doesNotFire();
     }
 }

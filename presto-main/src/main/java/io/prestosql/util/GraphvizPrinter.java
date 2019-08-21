@@ -26,6 +26,7 @@ import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
 import io.prestosql.sql.planner.plan.ApplyNode;
 import io.prestosql.sql.planner.plan.AssignUniqueId;
+import io.prestosql.sql.planner.plan.CorrelatedJoinNode;
 import io.prestosql.sql.planner.plan.DistinctLimitNode;
 import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
 import io.prestosql.sql.planner.plan.ExchangeNode;
@@ -34,7 +35,6 @@ import io.prestosql.sql.planner.plan.GroupIdNode;
 import io.prestosql.sql.planner.plan.IndexJoinNode;
 import io.prestosql.sql.planner.plan.IndexSourceNode;
 import io.prestosql.sql.planner.plan.JoinNode;
-import io.prestosql.sql.planner.plan.LateralJoinNode;
 import io.prestosql.sql.planner.plan.LimitNode;
 import io.prestosql.sql.planner.plan.MarkDistinctNode;
 import io.prestosql.sql.planner.plan.OutputNode;
@@ -509,7 +509,7 @@ public final class GraphvizPrinter
         }
 
         @Override
-        public Void visitLateralJoin(LateralJoinNode node, Void context)
+        public Void visitCorrelatedJoin(CorrelatedJoinNode node, Void context)
         {
             String correlationSymbols = Joiner.on(",").join(node.getCorrelation());
             String filterExpression = "";
@@ -517,7 +517,7 @@ public final class GraphvizPrinter
                 filterExpression = " " + node.getFilter().toString();
             }
 
-            printNode(node, "LateralJoin", correlationSymbols + filterExpression, NODE_COLORS.get(NodeType.JOIN));
+            printNode(node, "CorrelatedJoin", correlationSymbols + filterExpression, NODE_COLORS.get(NodeType.JOIN));
 
             node.getInput().accept(this, context);
             node.getSubquery().accept(this, context);

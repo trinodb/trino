@@ -28,9 +28,9 @@ import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
 import io.prestosql.sql.planner.plan.AssignUniqueId;
 import io.prestosql.sql.planner.plan.Assignments;
+import io.prestosql.sql.planner.plan.CorrelatedJoinNode;
 import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
 import io.prestosql.sql.planner.plan.JoinNode;
-import io.prestosql.sql.planner.plan.LateralJoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.tree.Expression;
@@ -67,12 +67,12 @@ public class ScalarAggregationToJoinRewriter
         this.planNodeDecorrelator = new PlanNodeDecorrelator(idAllocator, lookup);
     }
 
-    public PlanNode rewriteScalarAggregation(LateralJoinNode lateralJoinNode, AggregationNode aggregation)
+    public PlanNode rewriteScalarAggregation(CorrelatedJoinNode correlatedJoinNode, AggregationNode aggregation)
     {
-        List<Symbol> correlation = lateralJoinNode.getCorrelation();
+        List<Symbol> correlation = correlatedJoinNode.getCorrelation();
         Optional<DecorrelatedNode> source = planNodeDecorrelator.decorrelateFilters(lookup.resolve(aggregation.getSource()), correlation);
         if (!source.isPresent()) {
-            return lateralJoinNode;
+            return correlatedJoinNode;
         }
 
         Symbol nonNull = symbolAllocator.newSymbol("non_null", BooleanType.BOOLEAN);
@@ -86,7 +86,7 @@ public class ScalarAggregationToJoinRewriter
                 scalarAggregationSourceAssignments);
 
         return rewriteScalarAggregation(
-                lateralJoinNode,
+                correlatedJoinNode,
                 aggregation,
                 scalarAggregationSourceWithNonNullableSymbol,
                 source.get().getCorrelatedPredicates(),
@@ -94,7 +94,7 @@ public class ScalarAggregationToJoinRewriter
     }
 
     private PlanNode rewriteScalarAggregation(
-            LateralJoinNode lateralJoinNode,
+            CorrelatedJoinNode correlatedJoinNode,
             AggregationNode scalarAggregation,
             PlanNode scalarAggregationSource,
             Optional<Expression> joinExpression,
@@ -102,7 +102,7 @@ public class ScalarAggregationToJoinRewriter
     {
         AssignUniqueId inputWithUniqueColumns = new AssignUniqueId(
                 idAllocator.getNextId(),
-                lateralJoinNode.getInput(),
+                correlatedJoinNode.getInput(),
                 symbolAllocator.newSymbol("unique", BigintType.BIGINT));
 
         JoinNode leftOuterJoin = new JoinNode(
@@ -128,15 +128,15 @@ public class ScalarAggregationToJoinRewriter
                 nonNull);
 
         if (!aggregationNode.isPresent()) {
-            return lateralJoinNode;
+            return correlatedJoinNode;
         }
 
-        Optional<ProjectNode> subqueryProjection = searchFrom(lateralJoinNode.getSubquery(), lookup)
+        Optional<ProjectNode> subqueryProjection = searchFrom(correlatedJoinNode.getSubquery(), lookup)
                 .where(ProjectNode.class::isInstance)
                 .recurseOnlyWhen(EnforceSingleRowNode.class::isInstance)
                 .findFirst();
 
-        List<Symbol> aggregationOutputSymbols = getTruncatedAggregationSymbols(lateralJoinNode, aggregationNode.get());
+        List<Symbol> aggregationOutputSymbols = getTruncatedAggregationSymbols(correlatedJoinNode, aggregationNode.get());
 
         if (subqueryProjection.isPresent()) {
             Assignments assignments = Assignments.builder()
@@ -157,9 +157,9 @@ public class ScalarAggregationToJoinRewriter
         }
     }
 
-    private static List<Symbol> getTruncatedAggregationSymbols(LateralJoinNode lateralJoinNode, AggregationNode aggregationNode)
+    private static List<Symbol> getTruncatedAggregationSymbols(CorrelatedJoinNode correlatedJoinNode, AggregationNode aggregationNode)
     {
-        Set<Symbol> applySymbols = new HashSet<>(lateralJoinNode.getOutputSymbols());
+        Set<Symbol> applySymbols = new HashSet<>(correlatedJoinNode.getOutputSymbols());
         return aggregationNode.getOutputSymbols().stream()
                 .filter(applySymbols::contains)
                 .collect(toImmutableList());

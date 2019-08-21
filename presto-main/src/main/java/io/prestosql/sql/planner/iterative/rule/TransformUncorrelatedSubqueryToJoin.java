@@ -19,43 +19,43 @@ import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.plan.CorrelatedJoinNode;
 import io.prestosql.sql.planner.plan.JoinNode;
-import io.prestosql.sql.planner.plan.LateralJoinNode;
 import io.prestosql.sql.tree.Expression;
 
 import java.util.Optional;
 
 import static io.prestosql.matching.Pattern.empty;
-import static io.prestosql.sql.planner.plan.Patterns.LateralJoin.correlation;
-import static io.prestosql.sql.planner.plan.Patterns.lateralJoin;
+import static io.prestosql.sql.planner.plan.Patterns.CorrelatedJoin.correlation;
+import static io.prestosql.sql.planner.plan.Patterns.correlatedJoin;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
-public class TransformUncorrelatedLateralToJoin
-        implements Rule<LateralJoinNode>
+public class TransformUncorrelatedSubqueryToJoin
+        implements Rule<CorrelatedJoinNode>
 {
-    private static final Pattern<LateralJoinNode> PATTERN = lateralJoin()
+    private static final Pattern<CorrelatedJoinNode> PATTERN = correlatedJoin()
             .with(empty(correlation()));
 
     @Override
-    public Pattern<LateralJoinNode> getPattern()
+    public Pattern<CorrelatedJoinNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Result apply(LateralJoinNode lateralJoinNode, Captures captures, Context context)
+    public Result apply(CorrelatedJoinNode correlatedJoinNode, Captures captures, Context context)
     {
         return Result.ofPlanNode(new JoinNode(
                 context.getIdAllocator().getNextId(),
-                lateralJoinNode.getType().toJoinNodeType(),
-                lateralJoinNode.getInput(),
-                lateralJoinNode.getSubquery(),
+                correlatedJoinNode.getType().toJoinNodeType(),
+                correlatedJoinNode.getInput(),
+                correlatedJoinNode.getSubquery(),
                 ImmutableList.of(),
                 ImmutableList.<Symbol>builder()
-                        .addAll(lateralJoinNode.getInput().getOutputSymbols())
-                        .addAll(lateralJoinNode.getSubquery().getOutputSymbols())
+                        .addAll(correlatedJoinNode.getInput().getOutputSymbols())
+                        .addAll(correlatedJoinNode.getSubquery().getOutputSymbols())
                         .build(),
-                filter(lateralJoinNode.getFilter()),
+                filter(correlatedJoinNode.getFilter()),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
@@ -63,12 +63,12 @@ public class TransformUncorrelatedLateralToJoin
                 ImmutableMap.of()));
     }
 
-    private Optional<Expression> filter(Expression lateralJoinFilter)
+    private Optional<Expression> filter(Expression criteria)
     {
-        if (lateralJoinFilter.equals(TRUE_LITERAL)) {
+        if (criteria.equals(TRUE_LITERAL)) {
             return Optional.empty();
         }
 
-        return Optional.of(lateralJoinFilter);
+        return Optional.of(criteria);
     }
 }

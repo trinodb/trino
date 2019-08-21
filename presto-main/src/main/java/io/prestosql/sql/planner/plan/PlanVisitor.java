@@ -209,7 +209,7 @@ public abstract class PlanVisitor<R, C>
         return visitPlan(node, context);
     }
 
-    public R visitLateralJoin(LateralJoinNode node, C context)
+    public R visitCorrelatedJoin(CorrelatedJoinNode node, C context)
     {
         return visitPlan(node, context);
     }
