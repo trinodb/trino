@@ -103,11 +103,17 @@ public class TestInformationSchemaConnector
     public void testLargeData()
     {
         long metadataCallsCountBeforeTests = METADATA_CALLS_COUNTER.get();
+        assertQuery("SELECT count(*) from test_catalog.information_schema.schemata WHERE schema_name LIKE 'test_sch_ma1'", "VALUES 1");
+        assertQuery("SELECT count(*) from test_catalog.information_schema.schemata WHERE schema_name LIKE 'test_sch_ma1' AND schema_name IN ('test_schema1', 'test_schema2')", "VALUES 1");
         assertQuery("SELECT count(*) from test_catalog.information_schema.tables", "VALUES 300008");
         assertQuery("SELECT count(*) from test_catalog.information_schema.tables WHERE table_schema = 'test_schema1'", "VALUES 100000");
+        assertQuery("SELECT count(*) from test_catalog.information_schema.tables WHERE table_schema LIKE 'test_sch_ma1'", "VALUES 100000");
+        assertQuery("SELECT count(*) from test_catalog.information_schema.tables WHERE table_schema LIKE 'test_sch_ma1' AND table_schema IN ('test_schema1', 'test_schema2')", "VALUES 100000");
         assertQuery("SELECT count(*) from test_catalog.information_schema.tables WHERE table_name = 'test_table1'", "VALUES 2");
+        assertQuery("SELECT count(*) from test_catalog.information_schema.tables WHERE table_name LIKE 'test_t_ble1'", "VALUES 2");
+        assertQuery("SELECT count(*) from test_catalog.information_schema.tables WHERE table_name LIKE 'test_t_ble1' AND table_name IN ('test_table1', 'test_table2')", "VALUES 2");
         assertQuery("SELECT count(*) from test_catalog.information_schema.columns WHERE table_schema = 'test_schema1' AND table_name = 'test_table1'", "VALUES 100");
-        assertEquals(METADATA_CALLS_COUNTER.get() - metadataCallsCountBeforeTests, 12);
+        assertEquals(METADATA_CALLS_COUNTER.get() - metadataCallsCountBeforeTests, 39);
     }
 
     private static DistributedQueryRunner createQueryRunner()
