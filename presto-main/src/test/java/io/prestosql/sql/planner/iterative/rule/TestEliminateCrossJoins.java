@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.GroupReference;
+import io.prestosql.sql.planner.iterative.Lookup;
 import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.prestosql.sql.planner.iterative.rule.test.PlanBuilder;
 import io.prestosql.sql.planner.optimizations.joins.JoinGraph;
@@ -38,7 +39,6 @@ import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.any;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.join;
@@ -115,7 +115,7 @@ public class TestEliminateCrossJoins
                         symbol("a"), symbol("c"),
                         symbol("c"), symbol("b"));
 
-        JoinGraph joinGraph = getOnlyElement(JoinGraph.buildFrom(plan));
+        JoinGraph joinGraph = JoinGraph.buildFrom(plan, Lookup.noLookup());
 
         assertEquals(
                 getJoinOrder(joinGraph),
@@ -145,7 +145,7 @@ public class TestEliminateCrossJoins
 
         PlanNode plan = joinNode(leftPlan, rightPlan);
 
-        JoinGraph joinGraph = getOnlyElement(JoinGraph.buildFrom(plan));
+        JoinGraph joinGraph = JoinGraph.buildFrom(plan, Lookup.noLookup());
 
         assertEquals(
                 getJoinOrder(joinGraph),
@@ -165,7 +165,7 @@ public class TestEliminateCrossJoins
                         symbol("c1"), symbol("b1"),
                         symbol("c2"), symbol("b2"));
 
-        JoinGraph joinGraph = getOnlyElement(JoinGraph.buildFrom(plan));
+        JoinGraph joinGraph = JoinGraph.buildFrom(plan, Lookup.noLookup());
 
         assertEquals(
                 getJoinOrder(joinGraph),
@@ -184,7 +184,7 @@ public class TestEliminateCrossJoins
                         values(symbol("c")),
                         symbol("c"), symbol("b"));
 
-        JoinGraph joinGraph = getOnlyElement(JoinGraph.buildFrom(plan));
+        JoinGraph joinGraph = JoinGraph.buildFrom(plan, Lookup.noLookup());
 
         assertEquals(
                 getJoinOrder(joinGraph),
@@ -202,7 +202,7 @@ public class TestEliminateCrossJoins
                         values(symbol("c")),
                         symbol("c"), symbol("b"));
 
-        JoinGraph joinGraph = getOnlyElement(JoinGraph.buildFrom(plan));
+        JoinGraph joinGraph = JoinGraph.buildFrom(plan, Lookup.noLookup());
 
         assertEquals(
                 getJoinOrder(joinGraph),
@@ -221,10 +221,9 @@ public class TestEliminateCrossJoins
                                 symbol("a2"),
                                 new ArithmeticUnaryExpression(MINUS, new SymbolReference("a1"))),
                         values(symbol("c")),
-                        symbol("a2"), symbol("c"),
-                        symbol("c"), symbol("b"));
+                        symbol("a2"), symbol("c"));
 
-        assertEquals(JoinGraph.buildFrom(plan).size(), 2);
+        assertEquals(JoinGraph.buildFrom(plan, Lookup.noLookup()).size(), 2);
     }
 
     private Function<PlanBuilder, PlanNode> crossJoinAndJoin(JoinNode.Type secondJoinType)
