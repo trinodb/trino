@@ -356,7 +356,6 @@ public class InformationSchemaMetadata
                             .orElseGet(() -> listSchemaNames(session)))
                     .flatMap(prefix -> tables.get().stream()
                             .filter(this::isLowerCase)
-                            .map(table -> table.toLowerCase(ENGLISH))
                             .map(table -> new QualifiedObjectName(catalogName, prefix.getSchemaName().get(), table)))
                     .filter(objectName -> !isColumnsEnumeratingTable(schemaTableName) || metadata.getTableHandle(session, objectName).isPresent() || metadata.getView(session, objectName).isPresent())
                     .filter(objectName -> !predicate.isPresent() || predicate.get().test(asFixedValues(objectName)))
