@@ -27,7 +27,6 @@ import io.prestosql.sql.planner.plan.PlanVisitor;
 import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.tree.Expression;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -53,30 +52,11 @@ public class JoinGraph
     private final PlanNodeId rootId;
 
     /**
-     * Builds all (distinct) {@link JoinGraph}-es whole plan tree.
-     */
-    public static List<JoinGraph> buildFrom(PlanNode plan)
-    {
-        return buildFrom(plan, Lookup.noLookup());
-    }
-
-    /**
      * Builds {@link JoinGraph} containing {@code plan} node.
      */
-    public static JoinGraph buildShallowFrom(PlanNode plan, Lookup lookup)
+    public static JoinGraph buildFrom(PlanNode plan, Lookup lookup)
     {
-        JoinGraph graph = plan.accept(new Builder(true, lookup), new Context());
-        return graph;
-    }
-
-    private static List<JoinGraph> buildFrom(PlanNode plan, Lookup lookup)
-    {
-        Context context = new Context();
-        JoinGraph graph = plan.accept(new Builder(false, lookup), context);
-        if (graph.size() > 1) {
-            context.addSubGraph(graph);
-        }
-        return context.getGraphs();
+        return plan.accept(new Builder(lookup), new Context());
     }
 
     public JoinGraph(PlanNode node)
@@ -125,11 +105,6 @@ public class JoinGraph
     public PlanNodeId getRootId()
     {
         return rootId;
-    }
-
-    public JoinGraph withRootId(PlanNodeId rootId)
-    {
-        return new JoinGraph(nodes, edges, rootId, filters, assignments);
     }
 
     public boolean isEmpty()
@@ -218,29 +193,16 @@ public class JoinGraph
     private static class Builder
             extends PlanVisitor<JoinGraph, Context>
     {
-        // TODO When io.prestosql.sql.planner.optimizations.EliminateCrossJoins is removed, remove 'shallow' flag
-        private final boolean shallow;
         private final Lookup lookup;
 
-        private Builder(boolean shallow, Lookup lookup)
+        private Builder(Lookup lookup)
         {
-            this.shallow = shallow;
             this.lookup = requireNonNull(lookup, "lookup cannot be null");
         }
 
         @Override
         protected JoinGraph visitPlan(PlanNode node, Context context)
         {
-            if (!shallow) {
-                for (PlanNode child : node.getSources()) {
-                    JoinGraph graph = child.accept(this, context);
-                    if (graph.size() < 2) {
-                        continue;
-                    }
-                    context.addSubGraph(graph.withRootId(child.getId()));
-                }
-            }
-
             for (Symbol symbol : node.getOutputSymbols()) {
                 context.setSymbolSource(symbol, node);
             }
@@ -345,17 +307,9 @@ public class JoinGraph
     {
         private final Map<Symbol, PlanNode> symbolSources = new HashMap<>();
 
-        // TODO When io.prestosql.sql.planner.optimizations.EliminateCrossJoins is removed, remove 'joinGraphs'
-        private final List<JoinGraph> joinGraphs = new ArrayList<>();
-
         public void setSymbolSource(Symbol symbol, PlanNode node)
         {
             symbolSources.put(symbol, node);
-        }
-
-        public void addSubGraph(JoinGraph graph)
-        {
-            joinGraphs.add(graph);
         }
 
         public boolean containsSymbol(Symbol symbol)
@@ -367,11 +321,6 @@ public class JoinGraph
         {
             checkState(containsSymbol(symbol));
             return symbolSources.get(symbol);
-        }
-
-        public List<JoinGraph> getGraphs()
-        {
-            return joinGraphs;
         }
     }
 }
