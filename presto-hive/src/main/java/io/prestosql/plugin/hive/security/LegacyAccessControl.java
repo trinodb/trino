@@ -36,6 +36,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyDropColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameTable;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class LegacyAccessControl
@@ -110,7 +111,7 @@ public class LegacyAccessControl
         }
 
         if (!context.getIdentity().getUser().equals(target.get().getOwner())) {
-            denyDropTable(tableName.toString(), "Owner of the table is different from session user");
+            denyDropTable(tableName.toString(), format("Owner of the table ('%s') is different from session user ('%s')", target.get().getOwner(), context.getIdentity().getUser()));
         }
     }
 
