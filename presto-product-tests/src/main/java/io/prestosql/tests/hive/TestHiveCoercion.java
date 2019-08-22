@@ -112,13 +112,13 @@ public class TestHiveCoercion
                         "    float_to_double            " + floatType + "," +
                         "    double_to_float            DOUBLE," +
                         "    shortdecimal_to_shortdecimal          DECIMAL(10,2)," +
-                        "    shortdecimal_to_longdecimal          DECIMAL(10,2)," +
-                        "    longdecimal_to_shortdecimal          DECIMAL(20,12)," +
-                        "    longdecimal_to_longdecimal          DECIMAL(20,12)," +
-                        "    float_to_decimal            " + floatType + "," +
-                        "    double_to_decimal           DOUBLE," +
-                        "    decimal_to_float            DECIMAL(10,5)," +
-                        "    decimal_to_double           DECIMAL(10,5)," +
+                        "    shortdecimal_to_longdecimal           DECIMAL(10,2)," +
+                        "    longdecimal_to_shortdecimal           DECIMAL(20,12)," +
+                        "    longdecimal_to_longdecimal            DECIMAL(20,12)," +
+                        "    float_to_decimal           " + floatType + "," +
+                        "    double_to_decimal          DOUBLE," +
+                        "    decimal_to_float           DECIMAL(10,5)," +
+                        "    decimal_to_double          DECIMAL(10,5)," +
                         // all nested primitive/varchar coercions and adding/removing tailing nested fields are covered across row_to_row, list_to_list, and map_to_map
                         "    row_to_row                 STRUCT<keep: STRING, ti2si: TINYINT, si2int: SMALLINT, int2bi: INT, bi2vc: BIGINT>," +
                         "    list_to_list               ARRAY<STRUCT<ti2int: TINYINT, si2bi: SMALLINT, bi2vc: BIGINT, remove: STRING>>," +
@@ -274,24 +274,58 @@ public class TestHiveCoercion
         String decimalToFloatVal = tableName.toLowerCase(Locale.ENGLISH).contains("parquet") ? "12345.12345" : "12345.124";
 
         query(format(
-                "INSERT INTO %s\n" +
-                        "VALUES\n" +
-                        "  (TINYINT '-1', TINYINT '2', TINYINT '-3', SMALLINT '100', SMALLINT '-101', INTEGER '2323', 12345, REAL '0.5', DOUBLE '0.5', DECIMAL '12345678.12', DECIMAL '12345678.12', DECIMAL '12345678.123456123456', DECIMAL '12345678.123456123456', %s '12345.12345', DOUBLE '12345.12345', DECIMAL '12345.12345', DECIMAL '12345.12345',\n" +
-                        "    CAST(ROW ('as is', -1, 100, 2323, 12345) AS ROW(keep VARCHAR, ti2si TINYINT, si2int SMALLINT, int2bi INTEGER, bi2vc BIGINT)),\n" +
-                        "    ARRAY [CAST(ROW (2, -101, 12345, 'removed') AS ROW (ti2int TINYINT, si2bi SMALLINT, bi2vc BIGINT, remove VARCHAR))],\n" +
-                        "    MAP (ARRAY [TINYINT '2'], ARRAY [CAST(ROW (-3, 2323, REAL '0.5') AS ROW (ti2bi TINYINT, int2bi INTEGER, float2double %s))]),\n" +
-                        "    1),\n" +
-                        "  (TINYINT '1', TINYINT '-2', NULL, SMALLINT '-100', SMALLINT '101', INTEGER '-2323', -12345, REAL '-1.5', DOUBLE '-1.5', DECIMAL '-12345678.12', DECIMAL '-12345678.12', DECIMAL '-12345678.123456123456', DECIMAL '-12345678.123456123456', %s '-12345.12345', DOUBLE '-12345.12345', DECIMAL '-12345.12345', DECIMAL '-12345.12345',\n" +
-                        "    CAST(ROW (NULL, 1, -100, -2323, -12345) AS ROW(keep VARCHAR, ti2si TINYINT, si2int SMALLINT, int2bi INTEGER, bi2vc BIGINT)),\n" +
-                        "    ARRAY [CAST(ROW (-2, 101, -12345, NULL) AS ROW (ti2int TINYINT, si2bi SMALLINT, bi2vc BIGINT, remove VARCHAR))],\n" +
-                        "    MAP (ARRAY [TINYINT '-2'], ARRAY [CAST(ROW (null, -2323, REAL '-1.5') AS ROW (ti2bi TINYINT, int2bi INTEGER, float2double %s))]),\n" +
-                        "    1)",
-                tableName, floatToDoubleType, floatToDoubleType, floatToDoubleType, floatToDoubleType));
+                "INSERT INTO %1$s VALUES " +
+                        "(" +
+                        "  TINYINT '-1', " +
+                        "  TINYINT '2', " +
+                        "  TINYINT '-3', " +
+                        "  SMALLINT '100', " +
+                        "  SMALLINT '-101', " +
+                        "  INTEGER '2323', " +
+                        "  12345, " +
+                        "  REAL '0.5', " +
+                        "  DOUBLE '0.5', " +
+                        "  DECIMAL '12345678.12', " +
+                        "  DECIMAL '12345678.12', " +
+                        "  DECIMAL '12345678.123456123456', " +
+                        "  DECIMAL '12345678.123456123456', " +
+                        "  %2$s '12345.12345', " +
+                        "  DOUBLE '12345.12345', " +
+                        "  DECIMAL '12345.12345', " +
+                        "  DECIMAL '12345.12345', " +
+                        "  CAST(ROW ('as is', -1, 100, 2323, 12345) AS ROW(keep VARCHAR, ti2si TINYINT, si2int SMALLINT, int2bi INTEGER, bi2vc BIGINT)), " +
+                        "  ARRAY [CAST(ROW (2, -101, 12345, 'removed') AS ROW (ti2int TINYINT, si2bi SMALLINT, bi2vc BIGINT, remove VARCHAR))], " +
+                        "  MAP (ARRAY [TINYINT '2'], ARRAY [CAST(ROW (-3, 2323, REAL '0.5') AS ROW (ti2bi TINYINT, int2bi INTEGER, float2double %2$s))]), " +
+                        "  1), " +
+                        "(" +
+                        "  TINYINT '1', " +
+                        "  TINYINT '-2', " +
+                        "  NULL, " +
+                        "  SMALLINT '-100', " +
+                        "  SMALLINT '101', " +
+                        "  INTEGER '-2323', " +
+                        "  -12345, " +
+                        "  REAL '-1.5', " +
+                        "  DOUBLE '-1.5', " +
+                        "  DECIMAL '-12345678.12', " +
+                        "  DECIMAL '-12345678.12', " +
+                        "  DECIMAL '-12345678.123456123456', " +
+                        "  DECIMAL '-12345678.123456123456', " +
+                        "  %2$s '-12345.12345', " +
+                        "  DOUBLE '-12345.12345', " +
+                        "  DECIMAL '-12345.12345', " +
+                        "  DECIMAL '-12345.12345', " +
+                        "  CAST(ROW (NULL, 1, -100, -2323, -12345) AS ROW(keep VARCHAR, ti2si TINYINT, si2int SMALLINT, int2bi INTEGER, bi2vc BIGINT)), " +
+                        "  ARRAY [CAST(ROW (-2, 101, -12345, NULL) AS ROW (ti2int TINYINT, si2bi SMALLINT, bi2vc BIGINT, remove VARCHAR))], " +
+                        "  MAP (ARRAY [TINYINT '-2'], ARRAY [CAST(ROW (null, -2323, REAL '-1.5') AS ROW (ti2bi TINYINT, int2bi INTEGER, float2double %2$s))]), " +
+                        "  1)",
+                tableName,
+                floatToDoubleType));
 
         alterTableColumnTypes(tableName);
         assertProperAlteredTableSchema(tableName);
 
-        QueryResult queryResult = query(format("SELECT * FROM %s", tableName));
+        QueryResult queryResult = query("SELECT * FROM " + tableName);
         assertColumnTypes(queryResult, tableName);
         List<Row> expectedRows;
         Connection connection = defaultQueryExecutor().getConnection();
