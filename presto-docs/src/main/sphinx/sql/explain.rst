@@ -139,7 +139,14 @@ IO:
                }
              } ]
            }
-         } ]
+         } ],
+         "estimate" : {
+           "outputRowCount" : 15000.0,
+           "outputSizeInBytes" : 1597294.0,
+           "cpuCost" : 1597294.0,
+           "maxMemory" : 0.0,
+           "networkCost" : 0.0
+         },
        } ],
        "outputTable" : {
          "catalog" : "hive",
@@ -147,6 +154,13 @@ IO:
            "schema" : "tpch",
            "table" : "test_nation"
          }
+       },
+       "estimate" : {
+         "outputRowCount" : 15000.0,
+         "outputSizeInBytes" : 1597294.0,
+         "cpuCost" : 1597294.0,
+         "maxMemory" : 0.0,
+         "networkCost" : 1597294.0
        }
      }
 

@@ -47,6 +47,7 @@ import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.planner.Plan;
 import io.prestosql.sql.planner.plan.ExchangeNode;
 import io.prestosql.sql.planner.planprinter.IoPlanPrinter.ColumnConstraint;
+import io.prestosql.sql.planner.planprinter.IoPlanPrinter.EstimatedStatsAndCost;
 import io.prestosql.sql.planner.planprinter.IoPlanPrinter.FormattedDomain;
 import io.prestosql.sql.planner.planprinter.IoPlanPrinter.FormattedMarker;
 import io.prestosql.sql.planner.planprinter.IoPlanPrinter.FormattedRange;
@@ -65,6 +66,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -183,6 +185,7 @@ public class TestHiveIntegrationSmokeTest
         // Test IO explain with small number of discrete components.
         computeActual("CREATE TABLE test_orders WITH (partitioned_by = ARRAY['orderkey', 'processing']) AS SELECT custkey, orderkey, orderstatus = 'P' processing FROM orders WHERE orderkey < 3");
 
+        EstimatedStatsAndCost estimate = new EstimatedStatsAndCost(2.0, 40.0, 40.0, 0.0, 0.0);
         MaterializedResult result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_orders SELECT custkey, orderkey, processing FROM test_orders WHERE custkey <= 10");
         assertEquals(
                 jsonCodec(IoPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
@@ -211,14 +214,17 @@ public class TestHiveIntegrationSmokeTest
                                                                 ImmutableSet.of(
                                                                         new FormattedRange(
                                                                                 new FormattedMarker(Optional.of("false"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("false"), EXACTLY)))))))),
-                        Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_orders"))));
+                                                                                new FormattedMarker(Optional.of("false"), EXACTLY)))))),
+                                        estimate)),
+                        Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_orders")),
+                        estimate));
 
         assertUpdate("DROP TABLE test_orders");
 
         // Test IO explain with large number of discrete components where Domain::simpify comes into play.
         computeActual("CREATE TABLE test_orders WITH (partitioned_by = ARRAY['orderkey']) AS SELECT custkey, orderkey FROM orders WHERE orderkey < 200");
 
+        estimate = new EstimatedStatsAndCost(55.0, 990.0, 990.0, 0.0, 0.0);
         result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_orders SELECT custkey, orderkey + 10 FROM test_orders WHERE custkey <= 10");
         assertEquals(
                 jsonCodec(IoPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
@@ -235,8 +241,10 @@ public class TestHiveIntegrationSmokeTest
                                                                 ImmutableSet.of(
                                                                         new FormattedRange(
                                                                                 new FormattedMarker(Optional.of("1"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("199"), EXACTLY)))))))),
-                        Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_orders"))));
+                                                                                new FormattedMarker(Optional.of("199"), EXACTLY)))))),
+                                        estimate)),
+                        Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_orders")),
+                        estimate));
 
         assertUpdate("DROP TABLE test_orders");
     }
@@ -244,43 +252,51 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testIoExplainWithPrimitiveTypes()
     {
-        Map<Object, Type> data = new HashMap<>();
-        data.put("foo", VarcharType.createUnboundedVarcharType());
-        data.put(Byte.toString((byte) (Byte.MAX_VALUE / 2)), TinyintType.TINYINT);
-        data.put(Short.toString((short) (Short.MAX_VALUE / 2)), SmallintType.SMALLINT);
-        data.put(Integer.toString(Integer.MAX_VALUE / 2), IntegerType.INTEGER);
-        data.put(Long.toString(Long.MAX_VALUE / 2), BigintType.BIGINT);
-        data.put(Boolean.TRUE.toString(), BooleanType.BOOLEAN);
-        data.put("bar", CharType.createCharType(3));
-        data.put("1.2345678901234578E14", DoubleType.DOUBLE);
-        data.put("123456789012345678901234.567", DecimalType.createDecimalType(30, 3));
-        data.put("2019-01-01", DateType.DATE);
-        data.put("2019-01-01 23:22:21.123", TimestampType.TIMESTAMP);
-        for (Map.Entry<Object, Type> entry : data.entrySet()) {
-            @Language("SQL") String query = format(
+        // Use LinkedHashMap to maintain insertion order for ease of locating
+        // map entry if assertion in the loop below fails.
+        Map<Object, TypeAndEstimate> data = new LinkedHashMap<>();
+        data.put("foo", new TypeAndEstimate(VarcharType.createUnboundedVarcharType(), new EstimatedStatsAndCost(1.0, 16.0, 16.0, 0.0, 0.0)));
+        data.put(Byte.toString((byte) (Byte.MAX_VALUE / 2)), new TypeAndEstimate(TinyintType.TINYINT, new EstimatedStatsAndCost(1.0, 10.0, 10.0, 0.0, 0.0)));
+        data.put(Short.toString((short) (Short.MAX_VALUE / 2)), new TypeAndEstimate(SmallintType.SMALLINT, new EstimatedStatsAndCost(1.0, 11.0, 11.0, 0.0, 0.0)));
+        data.put(Integer.toString(Integer.MAX_VALUE / 2), new TypeAndEstimate(IntegerType.INTEGER, new EstimatedStatsAndCost(1.0, 13.0, 13.0, 0.0, 0.0)));
+        data.put(Long.toString(Long.MAX_VALUE / 2), new TypeAndEstimate(BigintType.BIGINT, new EstimatedStatsAndCost(1.0, 17.0, 17.0, 0.0, 0.0)));
+        data.put(Boolean.TRUE.toString(), new TypeAndEstimate(BooleanType.BOOLEAN, new EstimatedStatsAndCost(1.0, 10.0, 10.0, 0.0, 0.0)));
+        data.put("bar", new TypeAndEstimate(CharType.createCharType(3), new EstimatedStatsAndCost(1.0, 16.0, 16.0, 0.0, 0.0)));
+        data.put("1.2345678901234578E14", new TypeAndEstimate(DoubleType.DOUBLE, new EstimatedStatsAndCost(1.0, 17.0, 17.0, 0.0, 0.0)));
+        data.put("123456789012345678901234.567", new TypeAndEstimate(DecimalType.createDecimalType(30, 3), new EstimatedStatsAndCost(1.0, 25.0, 25.0, 0.0, 0.0)));
+        data.put("2019-01-01", new TypeAndEstimate(DateType.DATE, new EstimatedStatsAndCost(1.0, 13.0, 13.0, 0.0, 0.0)));
+        data.put("2019-01-01 23:22:21.123", new TypeAndEstimate(TimestampType.TIMESTAMP, new EstimatedStatsAndCost(1.0, 17.0, 17.0, 0.0, 0.0)));
+        int index = 0;
+        for (Map.Entry<Object, TypeAndEstimate> entry : data.entrySet()) {
+            index++;
+            Type type = entry.getValue().type;
+            EstimatedStatsAndCost estimate = entry.getValue().estimate;
+            @Language("SQL") String query = String.format(
                     "CREATE TABLE test_types_table  WITH (partitioned_by = ARRAY['my_col']) AS " +
                             "SELECT 'foo' my_non_partition_col, CAST('%s' AS %s) my_col",
                     entry.getKey(),
-                    entry.getValue().getDisplayName());
+                    type.getDisplayName());
 
             assertUpdate(query, 1);
-            MaterializedResult result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) SELECT * FROM test_types_table");
             assertEquals(
-                    jsonCodec(IoPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
+                    jsonCodec(IoPlan.class).fromJson((String) getOnlyElement(computeActual("EXPLAIN (TYPE IO, FORMAT JSON) SELECT * FROM test_types_table").getOnlyColumnAsSet())),
                     new IoPlan(
                             ImmutableSet.of(new TableColumnInfo(
                                     new CatalogSchemaTableName(catalog, "tpch", "test_types_table"),
                                     ImmutableSet.of(
                                             new ColumnConstraint(
                                                     "my_col",
-                                                    entry.getValue().getTypeSignature(),
+                                                    type.getTypeSignature(),
                                                     new FormattedDomain(
                                                             false,
                                                             ImmutableSet.of(
                                                                     new FormattedRange(
                                                                             new FormattedMarker(Optional.of(entry.getKey().toString()), EXACTLY),
-                                                                            new FormattedMarker(Optional.of(entry.getKey().toString()), EXACTLY)))))))),
-                            Optional.empty()));
+                                                                            new FormattedMarker(Optional.of(entry.getKey().toString()), EXACTLY)))))),
+                                    estimate)),
+                            Optional.empty(),
+                            estimate),
+                    format("%d) Type %s ", index, type));
 
             assertUpdate("DROP TABLE test_types_table");
         }
@@ -4336,6 +4352,18 @@ public class TestHiveIntegrationSmokeTest
         public HiveStorageFormat getFormat()
         {
             return format;
+        }
+    }
+
+    private static class TypeAndEstimate
+    {
+        public final Type type;
+        public final EstimatedStatsAndCost estimate;
+
+        public TypeAndEstimate(Type type, EstimatedStatsAndCost estimate)
+        {
+            this.type = requireNonNull(type, "type is null");
+            this.estimate = requireNonNull(estimate, "estimate is null");
         }
     }
 }
