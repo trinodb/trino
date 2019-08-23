@@ -926,10 +926,16 @@ public final class MetadataManager
     @Override
     public Optional<ConnectorViewDefinition> getView(Session session, QualifiedObjectName viewName)
     {
-        return getOptionalCatalogMetadata(session, viewName.getCatalogName())
-                .flatMap(catalog -> catalog.getMetadata().getView(
-                        session.toConnectorSession(catalog.getCatalogName()),
-                        viewName.asSchemaTableName()));
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, viewName.getCatalogName());
+        if (catalog.isPresent()) {
+            CatalogMetadata catalogMetadata = catalog.get();
+            CatalogName catalogName = catalogMetadata.getConnectorId(session, viewName);
+            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+
+            ConnectorSession connectorSession = session.toConnectorSession(catalogName);
+            return metadata.getView(connectorSession, viewName.asSchemaTableName());
+        }
+        return Optional.empty();
     }
 
     @Override
