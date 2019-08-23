@@ -14,6 +14,7 @@
 package io.prestosql.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
@@ -28,7 +29,7 @@ public class TestHiveTableHandle
     @Test
     public void testRoundTrip()
     {
-        HiveTableHandle expected = new HiveTableHandle("schema", "table", ImmutableList.of(), Optional.empty());
+        HiveTableHandle expected = new HiveTableHandle("schema", "table", ImmutableMap.of(), ImmutableList.of(), Optional.empty());
 
         String json = codec.toJson(expected);
         HiveTableHandle actual = codec.fromJson(json);
