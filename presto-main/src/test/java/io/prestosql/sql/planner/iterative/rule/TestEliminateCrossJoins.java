@@ -173,7 +173,7 @@ public class TestEliminateCrossJoins
     }
 
     @Test
-    public void testDonNotChangeOrderWithoutCrossJoin()
+    public void testDoesNotChangeOrderWithoutCrossJoin()
     {
         PlanNode plan =
                 joinNode(
