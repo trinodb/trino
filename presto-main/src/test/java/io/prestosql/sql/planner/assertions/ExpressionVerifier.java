@@ -14,6 +14,7 @@
 package io.prestosql.sql.planner.assertions;
 
 import io.prestosql.sql.tree.ArithmeticBinaryExpression;
+import io.prestosql.sql.tree.ArithmeticUnaryExpression;
 import io.prestosql.sql.tree.AstVisitor;
 import io.prestosql.sql.tree.BetweenPredicate;
 import io.prestosql.sql.tree.BooleanLiteral;
@@ -191,6 +192,19 @@ final class ExpressionVerifier
                 return process(actual.getLeft(), expected.getLeft()) && process(actual.getRight(), expected.getRight());
             }
         }
+        return false;
+    }
+
+    @Override
+    protected Boolean visitArithmeticUnary(ArithmeticUnaryExpression actual, Node expectedExpression)
+    {
+        if (expectedExpression instanceof ArithmeticUnaryExpression) {
+            ArithmeticUnaryExpression expected = (ArithmeticUnaryExpression) expectedExpression;
+            if (actual.getSign() == expected.getSign()) {
+                return process(actual.getValue(), expected.getValue());
+            }
+        }
+
         return false;
     }
 
