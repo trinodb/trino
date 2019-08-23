@@ -260,9 +260,9 @@ public class TestEliminateCrossJoins
                                                                         "a2", expression("-a1"),
                                                                         "a1", expression("a1")),
                                                                 PlanMatchPattern.values("a1")),
-                                                        any()),
+                                                        any(PlanMatchPattern.values("e"))),
                                                 any()),
-                                        any())));
+                                        any(PlanMatchPattern.values("b")))));
     }
 
     @Test
