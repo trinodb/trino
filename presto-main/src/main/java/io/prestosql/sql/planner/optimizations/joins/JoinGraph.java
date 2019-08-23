@@ -47,7 +47,6 @@ import static java.util.Objects.requireNonNull;
  */
 public class JoinGraph
 {
-    private final Optional<Map<Symbol, Expression>> assignments;
     private final List<Expression> filters;
     private final List<PlanNode> nodes; // nodes in order of their appearance in tree plan (left, right, parent)
     private final Multimap<PlanNodeId, Edge> edges;
@@ -64,7 +63,7 @@ public class JoinGraph
 
     public JoinGraph(PlanNode node)
     {
-        this(ImmutableList.of(node), ImmutableMultimap.of(), node.getId(), ImmutableList.of(), Optional.empty(), false);
+        this(ImmutableList.of(node), ImmutableMultimap.of(), node.getId(), ImmutableList.of(), false);
     }
 
     public JoinGraph(
@@ -72,25 +71,13 @@ public class JoinGraph
             Multimap<PlanNodeId, Edge> edges,
             PlanNodeId rootId,
             List<Expression> filters,
-            Optional<Map<Symbol, Expression>> assignments,
             boolean containsCrossJoin)
     {
         this.nodes = nodes;
         this.edges = edges;
         this.rootId = rootId;
         this.filters = filters;
-        this.assignments = assignments;
         this.containsCrossJoin = containsCrossJoin;
-    }
-
-    public JoinGraph withAssignments(Map<Symbol, Expression> assignments)
-    {
-        return new JoinGraph(nodes, edges, rootId, filters, Optional.of(assignments), containsCrossJoin);
-    }
-
-    public Optional<Map<Symbol, Expression>> getAssignments()
-    {
-        return assignments;
     }
 
     public JoinGraph withFilter(Expression expression)
@@ -99,7 +86,7 @@ public class JoinGraph
         filters.addAll(this.filters);
         filters.add(expression);
 
-        return new JoinGraph(nodes, edges, rootId, filters.build(), assignments, containsCrossJoin);
+        return new JoinGraph(nodes, edges, rootId, filters.build(), containsCrossJoin);
     }
 
     public List<Expression> getFilters()
@@ -197,7 +184,7 @@ public class JoinGraph
             edges.put(right.getId(), new Edge(left, rightSymbol, leftSymbol));
         }
 
-        return new JoinGraph(nodes, edges.build(), newRoot, joinedFilters, Optional.empty(), this.containsCrossJoin || containsCrossJoin);
+        return new JoinGraph(nodes, edges.build(), newRoot, joinedFilters, this.containsCrossJoin || containsCrossJoin);
     }
 
     private static class Builder
@@ -250,11 +237,6 @@ public class JoinGraph
         @Override
         public JoinGraph visitProject(ProjectNode node, Context context)
         {
-            if (node.isIdentity()) {
-                JoinGraph graph = node.getSource().accept(this, context);
-                return graph.withAssignments(node.getAssignments().getMap());
-            }
-
             Optional<PlanNode> rewrittenNode = pushProjectionThroughJoin(node, lookup, planNodeIdAllocator);
             if (rewrittenNode.isPresent()) {
                 return rewrittenNode.get().accept(this, context);
@@ -276,7 +258,7 @@ public class JoinGraph
 
         private boolean isTrivialGraph(JoinGraph graph)
         {
-            return graph.nodes.size() < 2 && graph.edges.isEmpty() && graph.filters.isEmpty() && !graph.assignments.isPresent();
+            return graph.nodes.size() < 2 && graph.edges.isEmpty() && graph.filters.isEmpty();
         }
 
         private JoinGraph replacementGraph(PlanNode oldNode, PlanNode newNode, Context context)
