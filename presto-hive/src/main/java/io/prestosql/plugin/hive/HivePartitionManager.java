@@ -222,6 +222,7 @@ public class HivePartitionManager
         return new HiveTableHandle(
                 handle.getSchemaName(),
                 handle.getTableName(),
+                handle.getTableParameters(),
                 ImmutableList.copyOf(partitions.getPartitionColumns()),
                 Optional.of(getPartitionsAsList(partitions)),
                 partitions.getCompactEffectivePredicate(),
