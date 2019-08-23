@@ -30,6 +30,7 @@ import io.prestosql.sql.tree.TryExpression;
 import io.prestosql.sql.util.AstUtils;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -65,9 +66,16 @@ public class InlineProjections
     {
         ProjectNode child = captures.get(CHILD);
 
+        return inlineProjections(parent, child)
+                .map(Result::ofPlanNode)
+                .orElse(Result.empty());
+    }
+
+    static Optional<ProjectNode> inlineProjections(ProjectNode parent, ProjectNode child)
+    {
         Set<Symbol> targets = extractInliningTargets(parent, child);
         if (targets.isEmpty()) {
-            return Result.empty();
+            return Optional.empty();
         }
 
         // inline the expressions
@@ -109,14 +117,14 @@ public class InlineProjections
                     newChildAssignments);
         }
 
-        return Result.ofPlanNode(
+        return Optional.of(
                 new ProjectNode(
                         parent.getId(),
                         newChild,
                         Assignments.copyOf(parentAssignments)));
     }
 
-    private Expression inlineReferences(Expression expression, Assignments assignments)
+    private static Expression inlineReferences(Expression expression, Assignments assignments)
     {
         Function<Symbol, Expression> mapping = symbol -> {
             Expression result = assignments.get(symbol);
@@ -130,7 +138,7 @@ public class InlineProjections
         return inlineSymbols(mapping, expression);
     }
 
-    private Set<Symbol> extractInliningTargets(ProjectNode parent, ProjectNode child)
+    private static Set<Symbol> extractInliningTargets(ProjectNode parent, ProjectNode child)
     {
         // candidates for inlining are
         //   1. references to simple constants
@@ -170,7 +178,7 @@ public class InlineProjections
         return Sets.union(singletons, constants);
     }
 
-    private Set<Symbol> extractTryArguments(Expression expression)
+    private static Set<Symbol> extractTryArguments(Expression expression)
     {
         return AstUtils.preOrder(expression)
                 .filter(TryExpression.class::isInstance)
