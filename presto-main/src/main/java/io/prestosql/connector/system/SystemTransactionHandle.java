@@ -15,12 +15,12 @@ package io.prestosql.connector.system;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.transaction.TransactionId;
 
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
