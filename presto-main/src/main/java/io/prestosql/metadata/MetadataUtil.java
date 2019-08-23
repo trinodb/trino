@@ -140,7 +140,7 @@ public final class MetadataUtil
         return new CatalogSchemaName(catalogName, schemaName);
     }
 
-    public static QualifiedObjectName createQualifiedObjectName(Session session, Node node, QualifiedName name)
+    public static QualifiedObjectName createQualifiedObjectName(Session session, Node node, QualifiedName name, BiFunction<Session, String, NameCanonicalizer> nameCanonicalizerProvider)
     {
         requireNonNull(session, "session is null");
         requireNonNull(name, "name is null");
@@ -148,12 +148,15 @@ public final class MetadataUtil
             throw new PrestoException(SYNTAX_ERROR, format("Too many dots in table name: %s", name));
         }
 
-        List<String> parts = Lists.reverse(name.getLegacyParts());
-        String objectName = parts.get(0);
-        String schemaName = (parts.size() > 1) ? parts.get(1) : session.getSchema().orElseThrow(() ->
-                semanticException(MISSING_SCHEMA_NAME, node, "Schema must be specified when session schema is not set"));
-        String catalogName = (parts.size() > 2) ? parts.get(2) : session.getCatalog().orElseThrow(() ->
+        List<Identifier> parts = Lists.reverse(name.getParts());
+
+        String catalogName = (parts.size() > 2) ? LEGACY_NAME_CANONICALIZER.canonicalizeName(parts.get(2).getValue(), parts.get(2).isDelimited()) : session.getCatalog().map(x -> x.toLowerCase(ENGLISH)).orElseThrow(() ->
                 semanticException(MISSING_CATALOG_NAME, node, "Catalog must be specified when session catalog is not set"));
+
+        String objectName = nameCanonicalizerProvider.apply(session, catalogName).canonicalizeName(parts.get(0).getValue(), parts.get(0).isDelimited());
+        Identifier schemaIdentifier = (parts.size() > 1) ? parts.get(1) : session.getSchema().map(schema -> new Identifier(schema, true)).orElseThrow(() ->
+                semanticException(MISSING_SCHEMA_NAME, node, "Schema must be specified when session schema is not set"));
+        String schemaName = nameCanonicalizerProvider.apply(session, catalogName).canonicalizeName(schemaIdentifier.getValue(), schemaIdentifier.isDelimited());
 
         return new QualifiedObjectName(catalogName, schemaName, objectName);
     }

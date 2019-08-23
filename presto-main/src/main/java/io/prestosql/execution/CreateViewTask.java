@@ -71,7 +71,7 @@ public class CreateViewTask
     public ListenableFuture<?> execute(CreateView statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName());
+        QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName(), metadata::getNameCanonicalizer);
 
         accessControl.checkCanCreateView(session.toSecurityContext(), name);
 

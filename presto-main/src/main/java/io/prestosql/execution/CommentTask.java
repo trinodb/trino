@@ -48,7 +48,7 @@ public class CommentTask
         Session session = stateMachine.getSession();
 
         if (statement.getType() == Comment.Type.TABLE) {
-            QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
+            QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName(), metadata::getNameCanonicalizer);
             Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
             if (!tableHandle.isPresent()) {
                 throw semanticException(TABLE_NOT_FOUND, statement, "Table does not exist: " + tableName);
