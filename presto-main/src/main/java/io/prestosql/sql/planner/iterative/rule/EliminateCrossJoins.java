@@ -74,7 +74,7 @@ public class EliminateCrossJoins
     public Result apply(JoinNode node, Captures captures, Context context)
     {
         JoinGraph joinGraph = JoinGraph.buildFrom(node, context.getLookup());
-        if (joinGraph.size() < 3) {
+        if (joinGraph.size() < 3 || !joinGraph.isContainsCrossJoin()) {
             return Result.empty();
         }
 

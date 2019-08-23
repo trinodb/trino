@@ -50,6 +50,7 @@ public class JoinGraph
     private final List<PlanNode> nodes; // nodes in order of their appearance in tree plan (left, right, parent)
     private final Multimap<PlanNodeId, Edge> edges;
     private final PlanNodeId rootId;
+    private final boolean containsCrossJoin;
 
     /**
      * Builds {@link JoinGraph} containing {@code plan} node.
@@ -61,7 +62,7 @@ public class JoinGraph
 
     public JoinGraph(PlanNode node)
     {
-        this(ImmutableList.of(node), ImmutableMultimap.of(), node.getId(), ImmutableList.of(), Optional.empty());
+        this(ImmutableList.of(node), ImmutableMultimap.of(), node.getId(), ImmutableList.of(), Optional.empty(), false);
     }
 
     public JoinGraph(
@@ -69,18 +70,20 @@ public class JoinGraph
             Multimap<PlanNodeId, Edge> edges,
             PlanNodeId rootId,
             List<Expression> filters,
-            Optional<Map<Symbol, Expression>> assignments)
+            Optional<Map<Symbol, Expression>> assignments,
+            boolean containsCrossJoin)
     {
         this.nodes = nodes;
         this.edges = edges;
         this.rootId = rootId;
         this.filters = filters;
         this.assignments = assignments;
+        this.containsCrossJoin = containsCrossJoin;
     }
 
     public JoinGraph withAssignments(Map<Symbol, Expression> assignments)
     {
-        return new JoinGraph(nodes, edges, rootId, filters, Optional.of(assignments));
+        return new JoinGraph(nodes, edges, rootId, filters, Optional.of(assignments), containsCrossJoin);
     }
 
     public Optional<Map<Symbol, Expression>> getAssignments()
@@ -94,7 +97,7 @@ public class JoinGraph
         filters.addAll(this.filters);
         filters.add(expression);
 
-        return new JoinGraph(nodes, edges, rootId, filters.build(), assignments);
+        return new JoinGraph(nodes, edges, rootId, filters.build(), assignments, containsCrossJoin);
     }
 
     public List<Expression> getFilters()
@@ -132,6 +135,11 @@ public class JoinGraph
         return ImmutableList.copyOf(edges.get(node.getId()));
     }
 
+    public boolean isContainsCrossJoin()
+    {
+        return containsCrossJoin;
+    }
+
     @Override
     public String toString()
     {
@@ -155,7 +163,7 @@ public class JoinGraph
         return builder.toString();
     }
 
-    private JoinGraph joinWith(JoinGraph other, List<JoinNode.EquiJoinClause> joinClauses, Context context, PlanNodeId newRoot)
+    private JoinGraph joinWith(JoinGraph other, List<JoinNode.EquiJoinClause> joinClauses, Context context, PlanNodeId newRoot, boolean containsCrossJoin)
     {
         for (PlanNode node : other.nodes) {
             checkState(!edges.containsKey(node.getId()), "Node [%s] appeared in two JoinGraphs", node);
@@ -187,7 +195,7 @@ public class JoinGraph
             edges.put(right.getId(), new Edge(left, rightSymbol, leftSymbol));
         }
 
-        return new JoinGraph(nodes, edges.build(), newRoot, joinedFilters, Optional.empty());
+        return new JoinGraph(nodes, edges.build(), newRoot, joinedFilters, Optional.empty(), this.containsCrossJoin || containsCrossJoin);
     }
 
     private static class Builder
@@ -227,7 +235,7 @@ public class JoinGraph
             JoinGraph left = node.getLeft().accept(this, context);
             JoinGraph right = node.getRight().accept(this, context);
 
-            JoinGraph graph = left.joinWith(right, node.getCriteria(), context, node.getId());
+            JoinGraph graph = left.joinWith(right, node.getCriteria(), context, node.getId(), node.isCrossJoin());
 
             if (node.getFilter().isPresent()) {
                 return graph.withFilter(node.getFilter().get());
