@@ -26,6 +26,7 @@ import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.join;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.strictTableScan;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
 
@@ -72,6 +73,23 @@ public class TestEliminateCrossJoins
                                                 anyTree(PART_TABLESCAN),
                                                 anyTree(LINEITEM_TABLESCAN))),
                                 anyTree(ORDERS_TABLESCAN))));
+    }
+
+    @Test
+    public void testDoesNotReorderJoinsWhenNoCrossJoinPresent()
+    {
+        assertPlan("SELECT o1.orderkey, o2.custkey, o3.orderstatus, o4.totalprice " +
+                        "FROM (orders o1 JOIN orders o2 ON o1.orderkey = o2.orderkey) " +
+                        "JOIN (orders o3 JOIN orders o4 ON o3.orderkey = o4.orderkey) ON o1.orderkey = o3.orderkey",
+                anyTree(
+                        join(INNER, ImmutableList.of(equiJoinClause("O1_ORDERKEY", "O3_ORDERKEY")),
+                                join(INNER, ImmutableList.of(equiJoinClause("O1_ORDERKEY", "O2_ORDERKEY")),
+                                        anyTree(strictTableScan("orders", ImmutableMap.of("O1_ORDERKEY", "orderkey"))),
+                                        anyTree(strictTableScan("orders", ImmutableMap.of("O2_ORDERKEY", "orderkey", "O2_CUSTKEY", "custkey")))),
+                                anyTree(
+                                        join(INNER, ImmutableList.of(equiJoinClause("O3_ORDERKEY", "O4_ORDERKEY")),
+                                                anyTree(strictTableScan("orders", ImmutableMap.of("O3_ORDERKEY", "orderkey", "O3_ORDERSTATUS", "orderstatus"))),
+                                                anyTree(strictTableScan("orders", ImmutableMap.of("O4_ORDERKEY", "orderkey", "O4_totalprice", "totalprice"))))))));
     }
 
     @Test
