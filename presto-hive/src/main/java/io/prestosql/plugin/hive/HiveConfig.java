@@ -80,7 +80,6 @@ public class HiveConfig
 
     private long perTransactionMetastoreCacheMaximumSize = 1000;
     private HostAndPort metastoreSocksProxy;
-    private Duration metastoreTimeout = new Duration(10, TimeUnit.SECONDS);
 
     private Duration ipcPingInterval = new Duration(10, TimeUnit.SECONDS);
     private Duration dfsTimeout = new Duration(60, TimeUnit.SECONDS);
@@ -404,19 +403,6 @@ public class HiveConfig
     public HiveConfig setMetastoreSocksProxy(HostAndPort metastoreSocksProxy)
     {
         this.metastoreSocksProxy = metastoreSocksProxy;
-        return this;
-    }
-
-    @NotNull
-    public Duration getMetastoreTimeout()
-    {
-        return metastoreTimeout;
-    }
-
-    @Config("hive.metastore-timeout")
-    public HiveConfig setMetastoreTimeout(Duration metastoreTimeout)
-    {
-        this.metastoreTimeout = metastoreTimeout;
         return this;
     }
 
