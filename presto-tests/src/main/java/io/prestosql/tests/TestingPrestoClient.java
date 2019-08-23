@@ -13,7 +13,6 @@
  */
 package io.prestosql.tests;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.Session;
 import io.prestosql.client.IntervalDayTime;
@@ -51,10 +50,10 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Iterables.transform;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.Chars.isCharType;
@@ -74,6 +73,7 @@ import static io.prestosql.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.prestosql.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.type.UuidType.UUID;
+import static io.prestosql.util.MoreLists.mappedCopy;
 import static java.util.stream.Collectors.toList;
 
 public class TestingPrestoClient
@@ -133,7 +133,7 @@ public class TestingPrestoClient
 
             if (data.getData() != null) {
                 checkState(types.get() != null, "data received without types");
-                rows.addAll(transform(data.getData(), dataToRow(types.get())));
+                rows.addAll(mappedCopy(data.getData(), dataToRow(types.get())));
             }
         }
 
