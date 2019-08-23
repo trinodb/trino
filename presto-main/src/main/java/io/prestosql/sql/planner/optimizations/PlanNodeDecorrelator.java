@@ -78,7 +78,7 @@ public class PlanNodeDecorrelator
     private class DecorrelatingVisitor
             extends PlanVisitor<Optional<DecorrelationResult>, Void>
     {
-        final List<Symbol> correlation;
+        private final List<Symbol> correlation;
 
         DecorrelatingVisitor(List<Symbol> correlation)
         {
