@@ -109,11 +109,11 @@ public class TestEliminateCrossJoins
         PlanNode plan =
                 joinNode(
                         joinNode(
-                                values(symbol("a")),
-                                values(symbol("b"))),
-                        values(symbol("c")),
-                        symbol("a"), symbol("c"),
-                        symbol("c"), symbol("b"));
+                                values("a"),
+                                values("b")),
+                        values("c"),
+                        "a", "c",
+                        "c", "b");
 
         JoinGraph joinGraph = getOnlyElement(JoinGraph.buildFrom(plan));
 
@@ -128,20 +128,20 @@ public class TestEliminateCrossJoins
         PlanNode leftPlan =
                 joinNode(
                         joinNode(
-                                values(symbol("a")),
-                                values(symbol("b"))),
-                        values(symbol("c")),
-                        symbol("a"), symbol("c"),
-                        symbol("c"), symbol("b"));
+                                values("a"),
+                                values("b")),
+                        values("c"),
+                        "a", "c",
+                        "c", "b");
 
         PlanNode rightPlan =
                 joinNode(
                         joinNode(
-                                values(symbol("x")),
-                                values(symbol("y"))),
-                        values(symbol("z")),
-                        symbol("x"), symbol("z"),
-                        symbol("z"), symbol("y"));
+                                values("x"),
+                                values("y")),
+                        values("z"),
+                        "x", "z",
+                        "z", "y");
 
         PlanNode plan = joinNode(leftPlan, rightPlan);
 
@@ -158,12 +158,12 @@ public class TestEliminateCrossJoins
         PlanNode plan =
                 joinNode(
                         joinNode(
-                                values(symbol("a")),
-                                values(symbol("b1"), symbol("b2"))),
-                        values(symbol("c1"), symbol("c2")),
-                        symbol("a"), symbol("c1"),
-                        symbol("c1"), symbol("b1"),
-                        symbol("c2"), symbol("b2"));
+                                values("a"),
+                                values("b1", "b2")),
+                        values("c1", "c2"),
+                        "a", "c1",
+                        "c1", "b1",
+                        "c2", "b2");
 
         JoinGraph joinGraph = getOnlyElement(JoinGraph.buildFrom(plan));
 
@@ -178,11 +178,11 @@ public class TestEliminateCrossJoins
         PlanNode plan =
                 joinNode(
                         joinNode(
-                                values(symbol("a")),
-                                values(symbol("b")),
-                                symbol("a"), symbol("b")),
-                        values(symbol("c")),
-                        symbol("c"), symbol("b"));
+                                values("a"),
+                                values("b"),
+                                "a", "b"),
+                        values("c"),
+                        "c", "b");
 
         JoinGraph joinGraph = getOnlyElement(JoinGraph.buildFrom(plan));
 
@@ -197,10 +197,10 @@ public class TestEliminateCrossJoins
         PlanNode plan =
                 joinNode(
                         joinNode(
-                                values(symbol("a")),
-                                values(symbol("b"))),
-                        values(symbol("c")),
-                        symbol("c"), symbol("b"));
+                                values("a"),
+                                values("b")),
+                        values("c"),
+                        "c", "b");
 
         JoinGraph joinGraph = getOnlyElement(JoinGraph.buildFrom(plan));
 
@@ -216,13 +216,12 @@ public class TestEliminateCrossJoins
                 joinNode(
                         projectNode(
                                 joinNode(
-                                        values(symbol("a1")),
-                                        values(symbol("b"))),
-                                symbol("a2"),
+                                        values("a1"),
+                                        values("b")),
+                                "a2",
                                 new ArithmeticUnaryExpression(MINUS, new SymbolReference("a1"))),
-                        values(symbol("c")),
-                        symbol("a2"), symbol("c"),
-                        symbol("c"), symbol("b"));
+                        values("c"),
+                        "a2", "c");
 
         assertEquals(JoinGraph.buildFrom(plan).size(), 2);
     }
@@ -252,11 +251,6 @@ public class TestEliminateCrossJoins
                 idAllocator.getNextId(),
                 source,
                 Assignments.of(new Symbol(symbol), expression));
-    }
-
-    private String symbol(String name)
-    {
-        return name;
     }
 
     private JoinNode joinNode(PlanNode left, PlanNode right, String... symbols)
