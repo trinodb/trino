@@ -24,6 +24,21 @@ public class TestHiveTransactionalTable
         extends ProductTest
 {
     @Test
+    public void testSelectFromTransactionalTable()
+    {
+        onHive().executeQuery("" +
+                "CREATE TABLE test_select_from_transactional_table(a bigint)" +
+                "CLUSTERED BY(a) INTO 4 BUCKETS STORED AS ORC TBLPROPERTIES ('transactional'='true', 'bucketing_version'='1')");
+        try {
+            assertThat(() -> query("SELECT * FROM test_select_from_transactional_table"))
+                    .failsWithMessage("Hive transactional tables are not supported: default.test_select_from_transactional_table");
+        }
+        finally {
+            onHive().executeQuery("DROP TABLE test_select_from_transactional_table");
+        }
+    }
+
+    @Test
     public void testInsertIntoTransactionalTable()
     {
         onHive().executeQuery("" +
