@@ -30,8 +30,8 @@ import static java.util.Objects.requireNonNull;
 
 public class QualifiedName
 {
-    private final List<String> parts;
-    private final List<Identifier> originalParts;
+    private final List<String> legacyParts;
+    private final List<Identifier> parts;
 
     public static QualifiedName of(String first, String... rest)
     {
@@ -53,26 +53,26 @@ public class QualifiedName
         return new QualifiedName(ImmutableList.copyOf(originalParts));
     }
 
-    private QualifiedName(List<Identifier> originalParts)
+    private QualifiedName(List<Identifier> parts)
     {
-        this.originalParts = originalParts;
-        this.parts = originalParts.stream().map(identifier -> identifier.getValue().toLowerCase(ENGLISH)).collect(toImmutableList());
+        this.parts = parts;
+        this.legacyParts = parts.stream().map(identifier -> identifier.getValue().toLowerCase(ENGLISH)).collect(toImmutableList());
     }
 
-    public List<String> getParts()
+    public List<Identifier> getParts()
     {
         return parts;
     }
 
-    public List<Identifier> getOriginalParts()
+    public List<String> getLegacyParts()
     {
-        return originalParts;
+        return legacyParts;
     }
 
     @Override
     public String toString()
     {
-        return Joiner.on('.').join(parts);
+        return Joiner.on('.').join(legacyParts);
     }
 
     /**
@@ -85,7 +85,7 @@ public class QualifiedName
             return Optional.empty();
         }
 
-        List<Identifier> subList = originalParts.subList(0, originalParts.size() - 1);
+        List<Identifier> subList = parts.subList(0, parts.size() - 1);
         return Optional.of(new QualifiedName(subList));
     }
 
@@ -97,12 +97,17 @@ public class QualifiedName
 
         int start = parts.size() - suffix.getParts().size();
 
-        return parts.subList(start, parts.size()).equals(suffix.getParts());
+        return legacyParts.subList(start, parts.size()).equals(suffix.getLegacyParts());
     }
 
-    public String getSuffix()
+    public Identifier getSuffix()
     {
         return Iterables.getLast(parts);
+    }
+
+    public String getLegacySuffix()
+    {
+        return Iterables.getLast(legacyParts);
     }
 
     @Override
@@ -114,12 +119,12 @@ public class QualifiedName
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        return parts.equals(((QualifiedName) o).parts);
+        return legacyParts.equals(((QualifiedName) o).legacyParts);
     }
 
     @Override
     public int hashCode()
     {
-        return parts.hashCode();
+        return legacyParts.hashCode();
     }
 }

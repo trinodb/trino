@@ -114,7 +114,7 @@ public final class MetadataUtil
         String schemaName = session.getSchema().orElse(null);
 
         if (schema.isPresent()) {
-            List<String> parts = schema.get().getParts();
+            List<String> parts = schema.get().getLegacyParts();
             if (parts.size() > 2) {
                 throw semanticException(SYNTAX_ERROR, node, "Too many parts in schema name: %s", schema.get());
             }
@@ -142,7 +142,7 @@ public final class MetadataUtil
             throw new PrestoException(SYNTAX_ERROR, format("Too many dots in table name: %s", name));
         }
 
-        List<String> parts = Lists.reverse(name.getParts());
+        List<String> parts = Lists.reverse(name.getLegacyParts());
         String objectName = parts.get(0);
         String schemaName = (parts.size() > 1) ? parts.get(1) : session.getSchema().orElseThrow(() ->
                 semanticException(MISSING_SCHEMA_NAME, node, "Schema must be specified when session schema is not set"));

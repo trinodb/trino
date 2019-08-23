@@ -1814,7 +1814,7 @@ class StatementAnalyzer
 
                     if (!field.isPresent()) {
                         if (name != null) {
-                            field = Optional.of(getLast(name.getOriginalParts()));
+                            field = Optional.of(getLast(name.getParts()));
                         }
                     }
 

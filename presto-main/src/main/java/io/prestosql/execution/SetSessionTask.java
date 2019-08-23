@@ -51,7 +51,7 @@ public class SetSessionTask
     {
         Session session = stateMachine.getSession();
         QualifiedName propertyName = statement.getName();
-        List<String> parts = propertyName.getParts();
+        List<String> parts = propertyName.getLegacyParts();
         if (parts.size() > 2) {
             throw semanticException(INVALID_SESSION_PROPERTY, statement, "Invalid session property '%s'", propertyName);
         }

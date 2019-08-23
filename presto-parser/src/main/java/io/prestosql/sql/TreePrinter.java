@@ -322,7 +322,7 @@ public class TreePrinter
             @Override
             protected Void visitFunctionCall(FunctionCall node, Integer indentLevel)
             {
-                String name = Joiner.on('.').join(node.getName().getParts());
+                String name = Joiner.on('.').join(node.getName().getLegacyParts());
                 print(indentLevel, "FunctionCall[" + name + "]");
 
                 super.visitFunctionCall(node, indentLevel + 1);
@@ -333,7 +333,7 @@ public class TreePrinter
             @Override
             protected Void visitTable(Table node, Integer indentLevel)
             {
-                String name = Joiner.on('.').join(node.getName().getParts());
+                String name = Joiner.on('.').join(node.getName().getLegacyParts());
                 print(indentLevel, "Table[" + name + "]");
 
                 return null;

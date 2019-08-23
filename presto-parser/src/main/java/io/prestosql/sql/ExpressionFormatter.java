@@ -114,7 +114,7 @@ public final class ExpressionFormatter
 
     private static String formatQualifiedName(QualifiedName name)
     {
-        return name.getParts().stream()
+        return name.getLegacyParts().stream()
                 .map(ExpressionFormatter::formatIdentifier)
                 .collect(joining("."));
     }
