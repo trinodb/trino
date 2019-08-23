@@ -289,7 +289,7 @@ public class TestRoles
                             row("alice", "USER", "alice", "USER", "hive", "default", "test_table", "INSERT", "YES", null)));
         }
         finally {
-            onPrestoAlice().executeQuery("DROP TABLE hive.default.test_table");
+            onPrestoAlice().executeQuery("DROP TABLE IF EXISTS hive.default.test_table");
         }
     }
 
@@ -687,8 +687,8 @@ public class TestRoles
                             row("alice", "USER", "bob", "USER", "hive", "default", "test_table_alice", "INSERT", "NO", null)));
         }
         finally {
-            onPrestoAlice().executeQuery("DROP TABLE hive.default.test_table_alice");
-            onPrestoAlice().executeQuery("DROP TABLE hive.default.test_table_bob");
+            onPrestoAlice().executeQuery("DROP TABLE IF EXISTS hive.default.test_table_alice");
+            onPrestoAlice().executeQuery("DROP TABLE IF EXISTS hive.default.test_table_bob");
             onPresto().executeQuery("REVOKE admin FROM alice");
         }
     }
@@ -728,9 +728,9 @@ public class TestRoles
                             row("alice", "USER", "alice", "USER", "hive", "test", "test_table_bob", "INSERT", "YES", null)));
         }
         finally {
-            onPresto().executeQuery("DROP TABLE hive.default.test_table_bob");
-            onPrestoAlice().executeQuery("DROP TABLE hive.test.test_table_bob");
-            onPresto().executeQuery("DROP SCHEMA hive.test");
+            onPresto().executeQuery("DROP TABLE IF EXISTS hive.default.test_table_bob");
+            onPrestoAlice().executeQuery("DROP TABLE IF EXISTS hive.test.test_table_bob");
+            onPresto().executeQuery("DROP SCHEMA IF EXISTS hive.test");
             onPresto().executeQuery("REVOKE admin FROM alice");
         }
     }
