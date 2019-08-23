@@ -36,7 +36,6 @@ public class TestEliminateCrossJoins
     private static final PlanMatchPattern ORDERS_WITH_SHIPPRIORITY_TABLESCAN = tableScan(
             "orders",
             ImmutableMap.of("O_ORDERKEY", "orderkey", "O_SHIPPRIORITY", "shippriority"));
-    private static final PlanMatchPattern SUPPLIER_TABLESCAN = tableScan("supplier", ImmutableMap.of("S_SUPPKEY", "suppkey"));
     private static final PlanMatchPattern PART_TABLESCAN = tableScan("part", ImmutableMap.of("P_PARTKEY", "partkey"));
     private static final PlanMatchPattern PART_WITH_NAME_TABLESCAN = tableScan("part", ImmutableMap.of("P_PARTKEY", "partkey", "P_NAME", "name"));
     private static final PlanMatchPattern LINEITEM_TABLESCAN = tableScan(
@@ -73,6 +72,21 @@ public class TestEliminateCrossJoins
                                                 anyTree(PART_TABLESCAN),
                                                 anyTree(LINEITEM_TABLESCAN))),
                                 anyTree(ORDERS_TABLESCAN))));
+    }
+
+    @Test
+    public void testDoesNotReorderJoinsWhenNoCrossJoinPresent()
+    {
+        assertPlan("SELECT * FROM (orders o1 join orders o2 on o1.orderkey = o2.orderkey) join (orders o3 join orders o4 on o3.orderkey = o4.orderkey) on o1.orderkey = o3.orderkey",
+                anyTree(
+                        join(INNER, ImmutableList.of(equiJoinClause("O1_ORDERKEY", "O3_ORDERKEY")),
+                                join(INNER, ImmutableList.of(equiJoinClause("O1_ORDERKEY", "O2_ORDERKEY")),
+                                        anyTree(tableScan("orders", ImmutableMap.of("O1_ORDERKEY", "orderkey"))),
+                                        anyTree(tableScan("orders", ImmutableMap.of("O2_ORDERKEY", "orderkey")))),
+                                anyTree(
+                                        join(INNER, ImmutableList.of(equiJoinClause("O3_ORDERKEY", "O4_ORDERKEY")),
+                                                anyTree(tableScan("orders", ImmutableMap.of("O3_ORDERKEY", "orderkey"))),
+                                                anyTree(tableScan("orders", ImmutableMap.of("O4_ORDERKEY", "orderkey"))))))));
     }
 
     @Test
