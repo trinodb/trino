@@ -23,6 +23,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Streams.stream;
 import static java.util.Objects.requireNonNull;
 
 public final class MoreLists
@@ -34,20 +35,20 @@ public final class MoreLists
                 .collect(toImmutableList());
     }
 
-    public static <T> List<T> filteredCopy(List<T> elements, Predicate<T> predicate)
+    public static <T> List<T> filteredCopy(Iterable<T> elements, Predicate<T> predicate)
     {
         requireNonNull(elements, "elements is null");
         requireNonNull(predicate, "predicate is null");
-        return elements.stream()
+        return stream(elements)
                 .filter(predicate)
                 .collect(toImmutableList());
     }
 
-    public static <T, R> List<R> mappedCopy(List<T> elements, Function<T, R> mapper)
+    public static <T, R> List<R> mappedCopy(Iterable<T> elements, Function<T, R> mapper)
     {
         requireNonNull(elements, "elements is null");
         requireNonNull(mapper, "mapper is null");
-        return elements.stream()
+        return stream(elements)
                 .map(mapper)
                 .collect(toImmutableList());
     }
