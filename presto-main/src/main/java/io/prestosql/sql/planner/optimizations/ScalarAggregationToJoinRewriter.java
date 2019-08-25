@@ -174,7 +174,8 @@ public class ScalarAggregationToJoinRewriter
         for (Map.Entry<Symbol, Aggregation> entry : scalarAggregation.getAggregations().entrySet()) {
             Aggregation aggregation = entry.getValue();
             Symbol symbol = entry.getKey();
-            if (aggregation.getSignature().getName().equals("count")) {
+            // Only count() and count(*) require rewriting to count(non_null) in order to preserve the row count. count(argument) shouldn't be rewritten.
+            if (aggregation.getSignature().getName().equals("count") && aggregation.getArguments().size() == 0) {
                 List<TypeSignature> scalarAggregationSourceTypeSignatures = ImmutableList.of(
                         symbolAllocator.getTypes().get(nonNullableAggregationSourceSymbol).getTypeSignature());
                 aggregations.put(symbol, new Aggregation(
