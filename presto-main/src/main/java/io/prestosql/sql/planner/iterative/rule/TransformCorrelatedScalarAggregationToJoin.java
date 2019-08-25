@@ -58,8 +58,8 @@ import static java.util.Objects.requireNonNull;
  *   - Join(LEFT_OUTER, D = C)
  *     - AssignUniqueId(adds symbol U)
  *       - (input) plan which produces symbols: [A, B, C]
- *     - Filter(E > 5)
- *       - projection which adds non null symbol used for count() function
+ *     - projection which adds non null symbol used for count() function
+ *       - Filter(E > 5)
  *         - plan which produces symbols: [D, E, F]
  * </pre>
  * <p>
