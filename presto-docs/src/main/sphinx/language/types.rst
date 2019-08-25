@@ -89,10 +89,9 @@ Fixed-Precision
 
         For compatibility reasons decimal literals without explicit type specifier (e.g. ``1.2``)
         are treated as the values of the ``DOUBLE`` type by default, but this is subject to change
-        in future releases. This behavior is controlled by:
-
-          - System wide property: ``parse-decimal-literals-as-double``
-          - Session wide property: ``parse_decimal_literals_as_double``
+        in future releases. This behavior can be controlled globally using the
+        ``parse-decimal-literals-as-double`` configuration property or on a per query basis
+        using the ``parse_decimal_literals_as_double`` session property.
 
 String
 ------
