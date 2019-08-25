@@ -85,15 +85,6 @@ Fixed-Precision
 
     Example literals: ``DECIMAL '10.3'``, ``DECIMAL '1234567890'``, ``1.1``
 
-    .. note::
-
-        For compatibility reasons decimal literals without explicit type specifier (e.g. ``1.2``)
-        are treated as the values of the ``DOUBLE`` type by default, but this is subject to change
-        in future releases. This behavior is controlled by:
-
-          - System wide property: ``parse-decimal-literals-as-double``
-          - Session wide property: ``parse_decimal_literals_as_double``
-
 String
 ------
 
