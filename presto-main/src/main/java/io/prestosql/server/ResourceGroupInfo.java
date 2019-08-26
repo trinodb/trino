@@ -14,6 +14,7 @@
 package io.prestosql.server;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
@@ -23,6 +24,7 @@ import io.prestosql.spi.resourcegroups.SchedulingPolicy;
 import javax.annotation.Nullable;
 
 import java.util.List;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -49,9 +51,8 @@ public class ResourceGroupInfo
     private final int numRunningQueries;
     private final int numEligibleSubGroups;
 
-    // Summaries do not include the following fields
-    private final List<ResourceGroupInfo> subGroups;
-    private final List<QueryStateInfo> runningQueries;
+    private final Optional<List<ResourceGroupInfo>> subGroups;
+    private final Optional<List<QueryStateInfo>> runningQueries;
 
     public ResourceGroupInfo(
             ResourceGroupId id,
@@ -71,8 +72,8 @@ public class ResourceGroupInfo
             int numRunningQueries,
             int numEligibleSubGroups,
 
-            @Nullable List<ResourceGroupInfo> subGroups,
-            @Nullable List<QueryStateInfo> runningQueries)
+            Optional<List<ResourceGroupInfo>> subGroups,
+            Optional<List<QueryStateInfo>> runningQueries)
     {
         this.id = requireNonNull(id, "id is null");
         this.state = requireNonNull(state, "state is null");
@@ -92,8 +93,8 @@ public class ResourceGroupInfo
         this.numRunningQueries = numRunningQueries;
         this.numEligibleSubGroups = numEligibleSubGroups;
 
-        this.subGroups = subGroups;
-        this.runningQueries = runningQueries;
+        this.subGroups = requireNonNull(subGroups, "subGroups is null").map(ImmutableList::copyOf);
+        this.runningQueries = requireNonNull(runningQueries, "runningQueries is null").map(ImmutableList::copyOf);
     }
 
     @JsonProperty
@@ -175,15 +176,14 @@ public class ResourceGroupInfo
     }
 
     @JsonProperty
-    @Nullable
-    public List<ResourceGroupInfo> getSubGroups()
+    public Optional<List<ResourceGroupInfo>> getSubGroups()
     {
         return subGroups;
     }
 
     @JsonProperty
     @Nullable
-    public List<QueryStateInfo> getRunningQueries()
+    public Optional<List<QueryStateInfo>> getRunningQueries()
     {
         return runningQueries;
     }
