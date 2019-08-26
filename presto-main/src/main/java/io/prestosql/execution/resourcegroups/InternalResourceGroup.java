@@ -168,11 +168,11 @@ public class InternalResourceGroup
                     getQueuedQueries(),
                     getRunningQueries(),
                     eligibleSubGroups.size(),
-                    subGroups.values().stream()
+                    Optional.of(subGroups.values().stream()
                             .filter(group -> group.getRunningQueries() + group.getQueuedQueries() > 0)
                             .map(InternalResourceGroup::getSummaryInfo)
-                            .collect(toImmutableList()),
-                    getAggregatedRunningQueriesInfo());
+                            .collect(toImmutableList())),
+                    Optional.of(getAggregatedRunningQueriesInfo()));
         }
     }
 
@@ -193,11 +193,11 @@ public class InternalResourceGroup
                     getQueuedQueries(),
                     getRunningQueries(),
                     eligibleSubGroups.size(),
-                    subGroups.values().stream()
+                    Optional.of(subGroups.values().stream()
                             .filter(group -> group.getRunningQueries() + group.getQueuedQueries() > 0)
                             .map(InternalResourceGroup::getSummaryInfo)
-                            .collect(toImmutableList()),
-                    null);
+                            .collect(toImmutableList())),
+                    Optional.empty());
         }
     }
 
@@ -218,8 +218,8 @@ public class InternalResourceGroup
                     getQueuedQueries(),
                     getRunningQueries(),
                     eligibleSubGroups.size(),
-                    null,
-                    null);
+                    Optional.empty(),
+                    Optional.empty());
         }
     }
 
