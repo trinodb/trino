@@ -359,11 +359,12 @@ final class ExpressionVerifier
             return false;
         }
 
-        boolean verified = true;
         for (int i = 0; i < actual.getOperands().size(); i++) {
-            verified &= process(actual.getOperands().get(i), expected.getOperands().get(i));
+            if (!process(actual.getOperands().get(i), expected.getOperands().get(i))) {
+                return false;
+            }
         }
-        return verified;
+        return true;
     }
 
     @Override
