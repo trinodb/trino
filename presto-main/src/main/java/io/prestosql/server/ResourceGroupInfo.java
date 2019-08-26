@@ -171,20 +171,6 @@ public class ResourceGroupInfo
     }
 
     @JsonProperty
-    @Deprecated
-    public int numAggregatedQueuedQueries()
-    {
-        return numQueuedQueries;
-    }
-
-    @JsonProperty
-    @Deprecated
-    public int numAggregatedRunningQueries()
-    {
-        return numRunningQueries;
-    }
-
-    @JsonProperty
     public int getNumEligibleSubGroups()
     {
         return numEligibleSubGroups;
