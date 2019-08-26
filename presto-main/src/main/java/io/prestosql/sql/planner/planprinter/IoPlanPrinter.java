@@ -471,12 +471,13 @@ public class IoPlanPrinter
         {
             TableMetadata tableMetadata = metadata.getTableMetadata(session, node.getTable());
             TupleDomain<ColumnHandle> predicate = metadata.getTableProperties(session, node.getTable()).getPredicate();
-            context.addInputTableColumnInfo(new IoPlan.TableColumnInfo(
-                    new CatalogSchemaTableName(
-                            tableMetadata.getCatalogName().getCatalogName(),
-                            tableMetadata.getTable().getSchemaName(),
-                            tableMetadata.getTable().getTableName()),
-                    parseConstraints(node.getTable(), predicate)));
+            context.addInputTableColumnInfo(
+                    new IoPlan.TableColumnInfo(
+                        new CatalogSchemaTableName(
+                                tableMetadata.getCatalogName().getCatalogName(),
+                                tableMetadata.getTable().getSchemaName(),
+                                tableMetadata.getTable().getTableName()),
+                        parseConstraints(node.getTable(), predicate)));
             return null;
         }
 
