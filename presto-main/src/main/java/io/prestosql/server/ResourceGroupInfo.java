@@ -71,9 +71,8 @@ public class ResourceGroupInfo
             int numRunningQueries,
             int numEligibleSubGroups,
 
-            List<ResourceGroupInfo> subGroups,
-
-            List<QueryStateInfo> runningQueries)
+            @Nullable List<ResourceGroupInfo> subGroups,
+            @Nullable List<QueryStateInfo> runningQueries)
     {
         this.id = requireNonNull(id, "id is null");
         this.state = requireNonNull(state, "state is null");
@@ -93,9 +92,8 @@ public class ResourceGroupInfo
         this.numRunningQueries = numRunningQueries;
         this.numEligibleSubGroups = numEligibleSubGroups;
 
-        this.runningQueries = runningQueries;
-
         this.subGroups = subGroups;
+        this.runningQueries = runningQueries;
     }
 
     @JsonProperty
@@ -129,18 +127,6 @@ public class ResourceGroupInfo
     }
 
     @JsonProperty
-    public DataSize getMemoryUsage()
-    {
-        return memoryUsage;
-    }
-
-    @JsonProperty
-    public Duration getCpuUsage()
-    {
-        return cpuUsage;
-    }
-
-    @JsonProperty
     public int getSoftConcurrencyLimit()
     {
         return softConcurrencyLimit;
@@ -156,6 +142,18 @@ public class ResourceGroupInfo
     public int getMaxQueuedQueries()
     {
         return maxQueuedQueries;
+    }
+
+    @JsonProperty
+    public DataSize getMemoryUsage()
+    {
+        return memoryUsage;
+    }
+
+    @JsonProperty
+    public Duration getCpuUsage()
+    {
+        return cpuUsage;
     }
 
     @JsonProperty
@@ -178,15 +176,15 @@ public class ResourceGroupInfo
 
     @JsonProperty
     @Nullable
-    public List<QueryStateInfo> getRunningQueries()
+    public List<ResourceGroupInfo> getSubGroups()
     {
-        return runningQueries;
+        return subGroups;
     }
 
     @JsonProperty
     @Nullable
-    public List<ResourceGroupInfo> getSubGroups()
+    public List<QueryStateInfo> getRunningQueries()
     {
-        return subGroups;
+        return runningQueries;
     }
 }
