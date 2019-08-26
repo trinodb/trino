@@ -187,30 +187,31 @@ public class TestHiveIntegrationSmokeTest
         assertEquals(
                 jsonCodec(IoPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
                 new IoPlan(
-                        ImmutableSet.of(new TableColumnInfo(
-                                new CatalogSchemaTableName(catalog, "tpch", "test_orders"),
-                                ImmutableSet.of(
-                                        new ColumnConstraint(
-                                                "orderkey",
-                                                BIGINT.getTypeSignature(),
-                                                new FormattedDomain(
-                                                        false,
-                                                        ImmutableSet.of(
-                                                                new FormattedRange(
-                                                                        new FormattedMarker(Optional.of("1"), EXACTLY),
-                                                                        new FormattedMarker(Optional.of("1"), EXACTLY)),
-                                                                new FormattedRange(
-                                                                        new FormattedMarker(Optional.of("2"), EXACTLY),
-                                                                        new FormattedMarker(Optional.of("2"), EXACTLY))))),
-                                        new ColumnConstraint(
-                                                "processing",
-                                                BOOLEAN.getTypeSignature(),
-                                                new FormattedDomain(
-                                                        false,
-                                                        ImmutableSet.of(
-                                                                new FormattedRange(
-                                                                        new FormattedMarker(Optional.of("false"), EXACTLY),
-                                                                        new FormattedMarker(Optional.of("false"), EXACTLY)))))))),
+                        ImmutableSet.of(
+                                new TableColumnInfo(
+                                        new CatalogSchemaTableName(catalog, "tpch", "test_orders"),
+                                        ImmutableSet.of(
+                                                new ColumnConstraint(
+                                                        "orderkey",
+                                                        BIGINT.getTypeSignature(),
+                                                        new FormattedDomain(
+                                                                false,
+                                                                ImmutableSet.of(
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.of("1"), EXACTLY),
+                                                                                new FormattedMarker(Optional.of("1"), EXACTLY)),
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.of("2"), EXACTLY),
+                                                                                new FormattedMarker(Optional.of("2"), EXACTLY))))),
+                                                new ColumnConstraint(
+                                                        "processing",
+                                                        BOOLEAN.getTypeSignature(),
+                                                        new FormattedDomain(
+                                                                false,
+                                                                ImmutableSet.of(
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.of("false"), EXACTLY),
+                                                                                new FormattedMarker(Optional.of("false"), EXACTLY)))))))),
                         Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_orders"))));
 
         assertUpdate("DROP TABLE test_orders");
@@ -222,18 +223,19 @@ public class TestHiveIntegrationSmokeTest
         assertEquals(
                 jsonCodec(IoPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
                 new IoPlan(
-                        ImmutableSet.of(new TableColumnInfo(
-                                new CatalogSchemaTableName(catalog, "tpch", "test_orders"),
-                                ImmutableSet.of(
-                                        new ColumnConstraint(
-                                                "orderkey",
-                                                BIGINT.getTypeSignature(),
-                                                new FormattedDomain(
-                                                        false,
-                                                        ImmutableSet.of(
-                                                                new FormattedRange(
-                                                                        new FormattedMarker(Optional.of("1"), EXACTLY),
-                                                                        new FormattedMarker(Optional.of("199"), EXACTLY)))))))),
+                        ImmutableSet.of(
+                                new TableColumnInfo(
+                                        new CatalogSchemaTableName(catalog, "tpch", "test_orders"),
+                                        ImmutableSet.of(
+                                                new ColumnConstraint(
+                                                        "orderkey",
+                                                        BIGINT.getTypeSignature(),
+                                                        new FormattedDomain(
+                                                                false,
+                                                                ImmutableSet.of(
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.of("1"), EXACTLY),
+                                                                                new FormattedMarker(Optional.of("199"), EXACTLY)))))))),
                         Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_orders"))));
 
         assertUpdate("DROP TABLE test_orders");
