@@ -38,8 +38,8 @@ public class KerberosConfig
         return kerberosConfig;
     }
 
-    @Config("http-server.authentication.krb5.config")
-    @LegacyConfig("http.authentication.krb5.config")
+    // This property name has to match the one from io.airlift.http.client.spnego.KerberosConfig
+    @Config("http.authentication.krb5.config")
     public KerberosConfig setKerberosConfig(File kerberosConfig)
     {
         this.kerberosConfig = kerberosConfig;
