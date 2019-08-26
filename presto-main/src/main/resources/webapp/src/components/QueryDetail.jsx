@@ -647,7 +647,7 @@ export class QueryDetail extends React.Component {
             reservedMemory: [],
 
             initialized: false,
-            ended: false,
+            queryEnded: false,
 
             lastRefresh: null,
             lastRender: null,
@@ -711,7 +711,7 @@ export class QueryDetail extends React.Component {
     resetTimer() {
         clearTimeout(this.timeoutId);
         // stop refreshing when query finishes or fails
-        if (this.state.query === null || !this.state.ended) {
+        if (this.state.query === null || !this.state.queryEnded) {
             // task.info-update-interval is set to 3 seconds by default
             this.timeoutId = setTimeout(this.refreshLoop, 3000);
         }
@@ -735,7 +735,7 @@ export class QueryDetail extends React.Component {
             const lastCpuTime = this.state.lastCpuTime;
             const lastRowInput = this.state.lastRowInput;
             const lastByteInput = this.state.lastByteInput;
-            const alreadyEnded = this.state.ended;
+            const alreadyEnded = this.state.queryEnded;
             const nowMillis = Date.now();
 
             this.setState({
@@ -749,7 +749,7 @@ export class QueryDetail extends React.Component {
                 lastByteInput: parseDataSize(query.queryStats.processedInputDataSize),
 
                 initialized: true,
-                ended: query.finalQueryInfo,
+                queryEnded: !!query.finalQueryInfo,
 
                 lastRefresh: nowMillis,
             });
