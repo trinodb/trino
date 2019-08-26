@@ -28,7 +28,6 @@ import javax.ws.rs.core.MediaType;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.util.Arrays;
-import java.util.NoSuchElementException;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -54,16 +53,12 @@ public class ResourceGroupStateInfoResource
     public ResourceGroupInfo getQueryStateInfos(@PathParam("resourceGroupId") String resourceGroupIdString)
     {
         if (!isNullOrEmpty(resourceGroupIdString)) {
-            try {
-                return resourceGroupManager.getResourceGroupInfo(
-                        new ResourceGroupId(
-                                Arrays.stream(resourceGroupIdString.split("/"))
-                                        .map(ResourceGroupStateInfoResource::urlDecode)
-                                        .collect(toImmutableList())));
-            }
-            catch (NoSuchElementException e) {
-                throw new WebApplicationException(NOT_FOUND);
-            }
+            return resourceGroupManager.tryGetResourceGroupInfo(
+                    new ResourceGroupId(
+                            Arrays.stream(resourceGroupIdString.split("/"))
+                                    .map(ResourceGroupStateInfoResource::urlDecode)
+                                    .collect(toImmutableList())))
+                    .orElseThrow(() -> new WebApplicationException(NOT_FOUND));
         }
         throw new WebApplicationException(NOT_FOUND);
     }

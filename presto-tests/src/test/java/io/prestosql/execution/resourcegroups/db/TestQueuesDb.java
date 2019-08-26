@@ -96,7 +96,9 @@ public class TestQueuesDb
     {
         queryRunner.execute("SELECT COUNT(*), clerk FROM orders GROUP BY clerk");
         while (true) {
-            ResourceGroupInfo global = queryRunner.getCoordinator().getResourceGroupManager().get().getResourceGroupInfo(new ResourceGroupId(new ResourceGroupId("global"), "bi-user"));
+            ResourceGroupInfo global = queryRunner.getCoordinator().getResourceGroupManager().get()
+                    .tryGetResourceGroupInfo(new ResourceGroupId(new ResourceGroupId("global"), "bi-user"))
+                    .orElseThrow(() -> new IllegalStateException("Resource group not found"));
             if (global.getSoftMemoryLimit().toBytes() > 0) {
                 break;
             }
