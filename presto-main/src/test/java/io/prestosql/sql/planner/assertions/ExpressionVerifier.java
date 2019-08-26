@@ -194,6 +194,7 @@ final class ExpressionVerifier
         return false;
     }
 
+    @Override
     protected Boolean visitGenericLiteral(GenericLiteral actual, Node expected)
     {
         if (expected instanceof GenericLiteral) {
