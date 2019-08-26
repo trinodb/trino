@@ -22,6 +22,7 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -62,7 +63,7 @@ public class StaticMetastoreLocator
      * connection succeeds or there are no more fallback metastores.
      */
     @Override
-    public ThriftMetastoreClient createMetastoreClient()
+    public ThriftMetastoreClient createMetastoreClient(Optional<String> username)
             throws TException
     {
         List<HostAndPort> metastores = new ArrayList<>(addresses);
@@ -72,7 +73,10 @@ public class StaticMetastoreLocator
         for (HostAndPort metastore : metastores) {
             try {
                 ThriftMetastoreClient client = clientFactory.create(metastore);
-                if (!isNullOrEmpty(metastoreUsername)) {
+                if (username.isPresent()) {
+                    client.setUGI(username.get());
+                }
+                else if (!isNullOrEmpty(metastoreUsername)) {
                     client.setUGI(metastoreUsername);
                 }
                 return client;

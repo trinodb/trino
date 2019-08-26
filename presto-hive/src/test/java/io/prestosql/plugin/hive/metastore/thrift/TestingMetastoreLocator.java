@@ -18,6 +18,8 @@ import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.authentication.NoHiveMetastoreAuthentication;
 import org.apache.thrift.TException;
 
+import java.util.Optional;
+
 import static java.util.Objects.requireNonNull;
 
 public class TestingMetastoreLocator
@@ -33,7 +35,7 @@ public class TestingMetastoreLocator
     }
 
     @Override
-    public ThriftMetastoreClient createMetastoreClient()
+    public ThriftMetastoreClient createMetastoreClient(Optional<String> username)
             throws TException
     {
         return new ThriftMetastoreClientFactory(config, new NoHiveMetastoreAuthentication()).create(address);
