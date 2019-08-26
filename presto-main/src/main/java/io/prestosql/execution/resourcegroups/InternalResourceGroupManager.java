@@ -41,6 +41,7 @@ import java.io.File;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -51,7 +52,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -92,17 +92,19 @@ public final class InternalResourceGroupManager<C>
     }
 
     @Override
-    public ResourceGroupInfo getResourceGroupInfo(ResourceGroupId id)
+    public Optional<ResourceGroupInfo> tryGetResourceGroupInfo(ResourceGroupId id)
     {
-        checkArgument(groups.containsKey(id), "Group %s does not exist", id);
-        return groups.get(id).getFullInfo();
+        InternalResourceGroup resourceGroup = groups.get(id);
+        return Optional.ofNullable(resourceGroup)
+                .map(InternalResourceGroup::getFullInfo);
     }
 
     @Override
-    public List<ResourceGroupInfo> getPathToRoot(ResourceGroupId id)
+    public Optional<List<ResourceGroupInfo>> tryGetPathToRoot(ResourceGroupId id)
     {
-        checkArgument(groups.containsKey(id), "Group %s does not exist", id);
-        return groups.get(id).getPathToRoot();
+        InternalResourceGroup resourceGroup = groups.get(id);
+        return Optional.ofNullable(resourceGroup)
+                .map(InternalResourceGroup::getPathToRoot);
     }
 
     @Override
