@@ -376,15 +376,9 @@ final class ExpressionVerifier
 
         SimpleCaseExpression expected = (SimpleCaseExpression) expectedExpression;
 
-        if (!process(actual.getOperand(), expected.getOperand())) {
-            return false;
-        }
-
-        if (!process(actual.getWhenClauses(), expected.getWhenClauses())) {
-            return false;
-        }
-
-        return process(actual.getDefaultValue(), expected.getDefaultValue());
+        return process(actual.getOperand(), expected.getOperand()) &&
+                process(actual.getWhenClauses(), expected.getWhenClauses()) &&
+                process(actual.getDefaultValue(), expected.getDefaultValue());
     }
 
     @Override
@@ -409,27 +403,11 @@ final class ExpressionVerifier
 
         FunctionCall expected = (FunctionCall) expectedExpression;
 
-        if (actual.isDistinct() != expected.isDistinct()) {
-            return false;
-        }
-
-        if (!actual.getName().equals(expected.getName())) {
-            return false;
-        }
-
-        if (!process(actual.getArguments(), expected.getArguments())) {
-            return false;
-        }
-
-        if (!process(actual.getFilter(), expected.getFilter())) {
-            return false;
-        }
-
-        if (!process(actual.getWindow(), expected.getWindow())) {
-            return false;
-        }
-
-        return true;
+        return actual.isDistinct() == expected.isDistinct() &&
+                actual.getName().equals(expected.getName()) &&
+                process(actual.getArguments(), expected.getArguments()) &&
+                process(actual.getFilter(), expected.getFilter()) &&
+                process(actual.getWindow(), expected.getWindow());
     }
 
     @Override
