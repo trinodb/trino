@@ -21,6 +21,7 @@ import io.prestosql.spi.resourcegroups.SelectionContext;
 import io.prestosql.spi.resourcegroups.SelectionCriteria;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.Executor;
 
 /**
@@ -36,13 +37,13 @@ public final class NoOpResourceGroupManager
     }
 
     @Override
-    public ResourceGroupInfo getResourceGroupInfo(ResourceGroupId id)
+    public Optional<ResourceGroupInfo> tryGetResourceGroupInfo(ResourceGroupId id)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public List<ResourceGroupInfo> getPathToRoot(ResourceGroupId id)
+    public Optional<List<ResourceGroupInfo>> tryGetPathToRoot(ResourceGroupId id)
     {
         throw new UnsupportedOperationException();
     }
