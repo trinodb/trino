@@ -193,7 +193,7 @@ public class BaseJdbcClient
                 while (resultSet.next()) {
                     String tableSchema = getTableSchemaName(resultSet);
                     String tableName = resultSet.getString("TABLE_NAME");
-                    list.add(new SchemaTableName(tableSchema.toLowerCase(ENGLISH), tableName.toLowerCase(ENGLISH)));
+                    list.add(new SchemaTableName(tableSchema, tableName));
                 }
                 return list.build();
             }
