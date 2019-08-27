@@ -20,7 +20,7 @@ General Changes
   ``query_max_memory_per_node`` and ``query_max_total_memory_per_node``. These properties
   can be used to decrease limits for a query, but not to increase them. (:issue:`1212`)
 * Add :doc:`/connector/googlesheets`. (:issue:`1030`)
-* Add ``planning_time_ms `` column to the ``system.runtime.queries`` table that shows
+* Add ``planning_time_ms`` column to the ``system.runtime.queries`` table that shows
   the time spent on query planning. This is the same value that used to be in the
   ``analysis_time_ms`` column, which was a misnomer. (:issue:`1084`)
 * Add :func:`last_day_of_month` function. (:issue:`1295`)
