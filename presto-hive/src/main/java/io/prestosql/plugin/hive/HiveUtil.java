@@ -290,7 +290,7 @@ public final class HiveUtil
             JobConf jobConf = toJobConf(configuration);
 
             Class<? extends InputFormat<?, ?>> inputFormatClass = getInputFormatClass(jobConf, inputFormatName);
-            if (symlinkTarget && (inputFormatClass == SymlinkTextInputFormat.class)) {
+            if (symlinkTarget && inputFormatClass == SymlinkTextInputFormat.class) {
                 // symlink targets are always TextInputFormat
                 inputFormatClass = TextInputFormat.class;
             }
