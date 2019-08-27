@@ -19,9 +19,11 @@ import io.prestosql.tempto.fulfillment.table.jdbc.RelationalTableDefinition;
 
 import java.sql.Date;
 import java.sql.Timestamp;
+import java.util.Collections;
 import java.util.List;
 
 import static io.prestosql.tests.sqlserver.TestConstants.CONNECTOR_NAME;
+import static java.util.Collections.emptyIterator;
 import static java.util.Collections.nCopies;
 
 public final class SqlServerDataTypesTableDefinition
@@ -62,51 +64,49 @@ public final class SqlServerDataTypesTableDefinition
             "CREATE TABLE %NAME% (bi bigint, si smallint, i int, f float,c char(4), vc varchar(6), pf30 float(30), d date) ";
 
     static {
-        RelationalDataSource dataSource = () -> {
-            return ImmutableList.<List<Object>>of(
-                    ImmutableList.of(
-                            Long.MIN_VALUE,
-                            Short.MIN_VALUE,
-                            Integer.MIN_VALUE,
-                            Byte.MIN_VALUE,
-                            Double.MIN_VALUE,
-                            -3.40E+38f,
-                            "\0",
-                            "\0",
-                            "\0",
-                            "\0",
-                            "\0",
-                            "\0",
-                            Date.valueOf("1953-01-02"),
-                            Timestamp.valueOf("1953-01-01 00:00:00.000"),
-                            Timestamp.valueOf("2001-01-01 00:00:00.123"),
-                            Timestamp.valueOf("1970-01-01 00:00:00"),
-                            Timestamp.valueOf("1960-01-01 00:00:00"),
-                            Double.MIN_VALUE,
-                            -3.40E+38f),
-                    ImmutableList.of(
-                            Long.MAX_VALUE,
-                            Short.MAX_VALUE,
-                            Integer.MAX_VALUE,
-                            Byte.MAX_VALUE,
-                            Double.MAX_VALUE,
-                            Float.MAX_VALUE,
-                            "abcd",
-                            "abcdef",
-                            "abcd",
-                            "abcde",
-                            "abcdefg",
-                            "abcd",
-                            Date.valueOf("9999-12-31"),
-                            Timestamp.valueOf("9999-12-31 23:59:59.997"),
-                            Timestamp.valueOf("9999-12-31 23:59:59.999"),
-                            Timestamp.valueOf("9999-12-31 23:59:59.999"),
-                            Timestamp.valueOf("2079-06-05 23:59:59"),
-                            12345678912.3456756,
-                            12345678.6557f),
-                    nCopies(19, null))
-                    .iterator();
-        };
+        RelationalDataSource dataSource = () -> ImmutableList.<List<Object>>of(
+                ImmutableList.of(
+                        Long.MIN_VALUE,
+                        Short.MIN_VALUE,
+                        Integer.MIN_VALUE,
+                        Byte.MIN_VALUE,
+                        Double.MIN_VALUE,
+                        -3.40E+38f,
+                        "\0",
+                        "\0",
+                        "\0",
+                        "\0",
+                        "\0",
+                        "\0",
+                        Date.valueOf("1953-01-02"),
+                        Timestamp.valueOf("1953-01-01 00:00:00.000"),
+                        Timestamp.valueOf("2001-01-01 00:00:00.123"),
+                        Timestamp.valueOf("1970-01-01 00:00:00"),
+                        Timestamp.valueOf("1960-01-01 00:00:00"),
+                        Double.MIN_VALUE,
+                        -3.40E+38f),
+                ImmutableList.of(
+                        Long.MAX_VALUE,
+                        Short.MAX_VALUE,
+                        Integer.MAX_VALUE,
+                        Byte.MAX_VALUE,
+                        Double.MAX_VALUE,
+                        Float.MAX_VALUE,
+                        "abcd",
+                        "abcdef",
+                        "abcd",
+                        "abcde",
+                        "abcdefg",
+                        "abcd",
+                        Date.valueOf("9999-12-31"),
+                        Timestamp.valueOf("9999-12-31 23:59:59.997"),
+                        Timestamp.valueOf("9999-12-31 23:59:59.999"),
+                        Timestamp.valueOf("9999-12-31 23:59:59.999"),
+                        Timestamp.valueOf("2079-06-05 23:59:59"),
+                        12345678912.3456756,
+                        12345678.6557f),
+                nCopies(19, null))
+                .iterator();
 
         SQLSERVER_ALL_TYPES = RelationalTableDefinition.builder(ALL_TYPES_TABLE_NAME)
                 .withDatabase(CONNECTOR_NAME)
@@ -117,8 +117,7 @@ public final class SqlServerDataTypesTableDefinition
         SQLSERVER_INSERT = RelationalTableDefinition.builder(INSERT_TABLE_NAME)
                 .withDatabase(CONNECTOR_NAME)
                 .setCreateTableDDLTemplate(INSERT_DDL)
-                .setDataSource(() ->
-                        ImmutableList.<List<Object>>of().iterator())
+                .setDataSource(Collections::emptyIterator)
                 .build();
     }
 }
