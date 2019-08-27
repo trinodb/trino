@@ -186,6 +186,12 @@ public class PushPredicateIntoTableScan
         TableHandle newTable;
         TupleDomain<ColumnHandle> remainingFilter;
         if (!metadata.usesLegacyTableLayouts(session, node.getTable())) {
+            if (!constraint.predicate().isPresent() && newDomain.contains(node.getEnforcedConstraint())) {
+                // new domain is wider than domain already provided by table scan
+                // TODO: remove deterministic filter predicate
+                return Optional.empty();
+            }
+
             if (newDomain.isNone()) {
                 // TODO: DomainTranslator.fromPredicate can infer that the expression is "false" in some cases (TupleDomain.none()).
                 // This should move to another rule that simplifies the filter using that logic and then rely on RemoveTrivialFilters
