@@ -64,7 +64,7 @@ public class InlineProjections
     {
         ProjectNode child = captures.get(CHILD);
 
-        Sets.SetView<Symbol> targets = extractInliningTargets(parent, child);
+        Set<Symbol> targets = extractInliningTargets(parent, child);
         if (targets.isEmpty()) {
             return Result.empty();
         }
@@ -122,7 +122,7 @@ public class InlineProjections
         return inlineSymbols(mapping, expression);
     }
 
-    private Sets.SetView<Symbol> extractInliningTargets(ProjectNode parent, ProjectNode child)
+    private Set<Symbol> extractInliningTargets(ProjectNode parent, ProjectNode child)
     {
         // candidates for inlining are
         //   1. references to simple constants
