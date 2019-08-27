@@ -29,6 +29,7 @@ import io.prestosql.hadoop.TextLineLengthLimitExceededException;
 import io.prestosql.plugin.hive.avro.PrestoAvroSerDe;
 import io.prestosql.plugin.hive.metastore.Column;
 import io.prestosql.plugin.hive.metastore.Table;
+import io.prestosql.plugin.hive.util.ConfigurationUtils;
 import io.prestosql.plugin.hive.util.FooterAwareRecordReader;
 import io.prestosql.spi.ErrorCodeSupplier;
 import io.prestosql.spi.PrestoException;
@@ -206,6 +207,7 @@ public final class HiveUtil
         List<Integer> readHiveColumnIndexes = ImmutableList.copyOf(transform(readColumns, HiveColumnHandle::getHiveColumnIndex));
 
         // Tell hive the columns we would like to read, this lets hive optimize reading column oriented files
+        configuration = ConfigurationUtils.copy(configuration);
         setReadColumns(configuration, readHiveColumnIndexes);
 
         InputFormat<?, ?> inputFormat = getInputFormat(configuration, schema, true);
