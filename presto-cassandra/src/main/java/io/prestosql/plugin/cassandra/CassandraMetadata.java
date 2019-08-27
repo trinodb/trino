@@ -219,7 +219,11 @@ public class CassandraMetadata
             unenforcedConstraint = clusteringPredicatesExtractor.getUnenforcedConstraints();
         }
 
-        if (handle.getPartitions().containsAll(partitionResult.getPartitions()) && handle.getClusteringKeyPredicates().equals(clusteringKeyPredicates)) {
+        Optional<List<CassandraPartition>> currentPartitions = handle.getPartitions();
+        if (currentPartitions.isPresent() &&
+                // TODO: we should skip only when new table handle does not narrow down enforced predicate
+                currentPartitions.get().containsAll(partitionResult.getPartitions()) &&
+                handle.getClusteringKeyPredicates().equals(clusteringKeyPredicates)) {
             return Optional.empty();
         }
 
@@ -227,9 +231,9 @@ public class CassandraMetadata
                 new ConstraintApplicationResult<>(new CassandraTableHandle(
                         handle.getSchemaName(),
                         handle.getTableName(),
-                        partitionResult.getPartitions(),
+                        Optional.of(partitionResult.getPartitions()),
                         clusteringKeyPredicates),
-                unenforcedConstraint));
+                        unenforcedConstraint));
     }
 
     @Override

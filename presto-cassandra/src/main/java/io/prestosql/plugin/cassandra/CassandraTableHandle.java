@@ -22,6 +22,7 @@ import io.prestosql.spi.connector.SchemaTableName;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -30,7 +31,7 @@ public class CassandraTableHandle
 {
     private final String schemaName;
     private final String tableName;
-    private final List<CassandraPartition> partitions;
+    private final Optional<List<CassandraPartition>> partitions;
     private final String clusteringKeyPredicates;
 
     @JsonCreator
@@ -38,18 +39,18 @@ public class CassandraTableHandle
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName)
     {
-        this(schemaName, tableName, ImmutableList.of(), "");
+        this(schemaName, tableName, Optional.empty(), "");
     }
 
     public CassandraTableHandle(
             String schemaName,
             String tableName,
-            List<CassandraPartition> partitions,
+            Optional<List<CassandraPartition>> partitions,
             String clusteringKeyPredicates)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
-        this.partitions = ImmutableList.copyOf(requireNonNull(partitions, "partitions is null"));
+        this.partitions = requireNonNull(partitions, "partitions is null").map(ImmutableList::copyOf);
         this.clusteringKeyPredicates = requireNonNull(clusteringKeyPredicates, "clusteringKeyPredicates is null");
     }
 
@@ -67,7 +68,7 @@ public class CassandraTableHandle
 
     // do not serialize partitions as they are not needed on workers
     @JsonIgnore
-    public List<CassandraPartition> getPartitions()
+    public Optional<List<CassandraPartition>> getPartitions()
     {
         return partitions;
     }
