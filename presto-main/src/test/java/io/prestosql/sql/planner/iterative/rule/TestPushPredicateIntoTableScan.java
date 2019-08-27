@@ -23,6 +23,7 @@ import io.prestosql.plugin.tpch.TpchTableLayoutHandle;
 import io.prestosql.plugin.tpch.TpchTransactionHandle;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.predicate.Domain;
+import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.parser.SqlParser;
@@ -103,8 +104,39 @@ public class TestPushPredicateIntoTableScan
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
                                 ImmutableMap.of(p.symbol("nationkey", BIGINT), columnHandle),
-                                TupleDomain.none())))
+                                TupleDomain.fromFixedValues(ImmutableMap.of(
+                                        columnHandle, NullableValue.of(BIGINT, (long) 45))))))
                 .matches(values("A"));
+    }
+
+    @Test
+    public void doesNotFireIfNewDomainIsSame()
+    {
+        ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
+        tester().assertThat(pushPredicateIntoTableScan)
+                .on(p -> p.filter(expression("nationkey = BIGINT '44'"),
+                        p.tableScan(
+                                nationTableHandle,
+                                ImmutableList.of(p.symbol("nationkey", BIGINT)),
+                                ImmutableMap.of(p.symbol("nationkey", BIGINT), columnHandle),
+                                TupleDomain.fromFixedValues(ImmutableMap.of(
+                                        columnHandle, NullableValue.of(BIGINT, (long) 44))))))
+                .doesNotFire();
+    }
+
+    @Test
+    public void doesNotFireIfNewDomainIsWider()
+    {
+        ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
+        tester().assertThat(pushPredicateIntoTableScan)
+                .on(p -> p.filter(expression("nationkey = BIGINT '44' OR nationkey = BIGINT '45'"),
+                        p.tableScan(
+                                nationTableHandle,
+                                ImmutableList.of(p.symbol("nationkey", BIGINT)),
+                                ImmutableMap.of(p.symbol("nationkey", BIGINT), columnHandle),
+                                TupleDomain.fromFixedValues(ImmutableMap.of(
+                                        columnHandle, NullableValue.of(BIGINT, (long) 44))))))
+                .doesNotFire();
     }
 
     @Test
