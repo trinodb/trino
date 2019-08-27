@@ -113,14 +113,14 @@ public final class ExpressionFormatter
         return new Formatter().process(expression, null);
     }
 
-    public static String formatQualifiedName(QualifiedName name)
+    private static String formatQualifiedName(QualifiedName name)
     {
         return name.getParts().stream()
                 .map(ExpressionFormatter::formatIdentifier)
                 .collect(joining("."));
     }
 
-    public static String formatIdentifier(String s)
+    private static String formatIdentifier(String s)
     {
         return '"' + s.replace("\"", "\"\"") + '"';
     }
@@ -741,7 +741,7 @@ public final class ExpressionFormatter
         return "ORDER BY " + formatSortItems(orderBy.getSortItems());
     }
 
-    static String formatSortItems(List<SortItem> sortItems)
+    private static String formatSortItems(List<SortItem> sortItems)
     {
         return Joiner.on(", ").join(sortItems.stream()
                 .map(sortItemFormatterFunction())
@@ -800,7 +800,7 @@ public final class ExpressionFormatter
                 .iterator()));
     }
 
-    public static Function<SortItem, String> sortItemFormatterFunction()
+    private static Function<SortItem, String> sortItemFormatterFunction()
     {
         return input -> {
             StringBuilder builder = new StringBuilder();
