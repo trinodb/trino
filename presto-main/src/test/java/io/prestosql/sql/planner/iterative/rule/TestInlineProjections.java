@@ -68,6 +68,27 @@ public class TestInlineProjections
     }
 
     @Test
+    public void testEliminatesIdentityProjection()
+    {
+        tester().assertThat(new InlineProjections())
+                .on(p ->
+                        p.project(
+                                Assignments.builder()
+                                        .put(p.symbol("single_complex"), expression("complex + 2")) // complex expression referenced only once
+                                        .build(),
+                                p.project(Assignments.builder()
+                                                .put(p.symbol("complex"), expression("x - 1"))
+                                                .build(),
+                                        p.values(p.symbol("x")))))
+                .matches(
+                        project(
+                                ImmutableMap.<String, ExpressionMatcher>builder()
+                                        .put("out1", PlanMatchPattern.expression("x - 1 + 2"))
+                                        .build(),
+                                values(ImmutableMap.of("x", 0))));
+    }
+
+    @Test
     public void testIdentityProjections()
     {
         tester().assertThat(new InlineProjections())
