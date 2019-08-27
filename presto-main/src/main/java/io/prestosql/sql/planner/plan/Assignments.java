@@ -128,6 +128,18 @@ public class Assignments
         return expression instanceof SymbolReference && ((SymbolReference) expression).getName().equals(output.getName());
     }
 
+    public boolean isIdentity()
+    {
+        for (Map.Entry<Symbol, Expression> entry : assignments.entrySet()) {
+            Expression expression = entry.getValue();
+            Symbol symbol = entry.getKey();
+            if (!(expression instanceof SymbolReference && ((SymbolReference) expression).getName().equals(symbol.getName()))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     private Collector<Entry<Symbol, Expression>, Builder, Assignments> toAssignments()
     {
         return Collector.of(
