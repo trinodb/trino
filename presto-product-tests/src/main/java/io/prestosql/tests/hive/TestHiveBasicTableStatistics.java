@@ -416,7 +416,7 @@ public class TestHiveBasicTableStatistics
     private static OptionalLong getTableParameterValue(QueryResult describeResult, String key)
     {
         verify(describeResult.getColumnsCount() == 3, "describe result is expected to have 3 columns");
-        for (List<Object> row : describeResult.rows()) {
+        for (List<?> row : describeResult.rows()) {
             Optional<String> parameterKey = Optional.ofNullable(row.get(1))
                     .map(Object::toString)
                     .map(String::trim);
