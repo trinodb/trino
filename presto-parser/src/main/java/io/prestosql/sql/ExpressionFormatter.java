@@ -90,7 +90,6 @@ import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
 import java.util.PrimitiveIterator;
 import java.util.function.Function;
 
@@ -747,11 +746,6 @@ public final class ExpressionFormatter
     }
 
     static String formatGroupBy(List<GroupingElement> groupingElements)
-    {
-        return formatGroupBy(groupingElements, Optional.empty());
-    }
-
-    static String formatGroupBy(List<GroupingElement> groupingElements, Optional<List<Expression>> parameters)
     {
         ImmutableList.Builder<String> resultStrings = ImmutableList.builder();
 
