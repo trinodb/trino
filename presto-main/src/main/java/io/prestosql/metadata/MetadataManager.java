@@ -227,12 +227,6 @@ public final class MetadataManager
     }
 
     @Override
-    public boolean catalogExists(Session session, String catalogName)
-    {
-        return getOptionalCatalogMetadata(session, catalogName).isPresent();
-    }
-
-    @Override
     public boolean schemaExists(Session session, CatalogSchemaName schema)
     {
         Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, schema.getCatalogName());
