@@ -592,8 +592,8 @@ public class InternalResourceGroup
             boolean canQueue = true;
             boolean canRun = true;
             while (true) {
-                canQueue &= group.canQueueMore();
-                canRun &= group.canRunMore();
+                canQueue = canQueue && group.canQueueMore();
+                canRun = canRun && group.canRunMore();
                 if (!group.parent.isPresent()) {
                     break;
                 }
