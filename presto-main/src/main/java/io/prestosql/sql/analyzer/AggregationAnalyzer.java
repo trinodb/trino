@@ -606,6 +606,7 @@ class AggregationAnalyzer
             return process(parameters.get(node.getPosition()), context);
         }
 
+        @Override
         public Boolean visitGroupingOperation(GroupingOperation node, Void context)
         {
             // ensure that no output fields are referenced from ORDER BY clause
