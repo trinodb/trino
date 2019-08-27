@@ -143,6 +143,14 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
+    protected R visitAllColumns(AllColumns node, C context)
+    {
+        node.getTarget().ifPresent(value -> process(value, context));
+
+        return null;
+    }
+
+    @Override
     protected R visitWhenClause(WhenClause node, C context)
     {
         process(node.getOperand(), context);
