@@ -706,7 +706,7 @@ public class SqlQueryExecution
         {
             String executionPolicyName = SystemSessionProperties.getExecutionPolicy(stateMachine.getSession());
             ExecutionPolicy executionPolicy = executionPolicies.get(executionPolicyName);
-            checkArgument(executionPolicy != null, "No execution policy %s", executionPolicy);
+            checkArgument(executionPolicy != null, "No execution policy %s", executionPolicyName);
 
             return new SqlQueryExecution(
                     preparedQuery,
