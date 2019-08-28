@@ -49,7 +49,7 @@ import static org.openjdk.jmh.annotations.Scope.Thread;
 @Fork(1)
 @Warmup(iterations = 10)
 @Measurement(iterations = 10)
-public class RegexpFunctionsBenchmark
+public class BenchmarkRegexpFunctions
 {
     @Benchmark
     public boolean benchmarkLikeJoni(DotStarAroundData data)
@@ -140,7 +140,7 @@ public class RegexpFunctionsBenchmark
     {
         Options options = new OptionsBuilder()
                 .verbosity(VerboseMode.NORMAL)
-                .include(".*" + RegexpFunctionsBenchmark.class.getSimpleName() + ".*")
+                .include(".*" + BenchmarkRegexpFunctions.class.getSimpleName() + ".*")
                 .build();
 
         new Runner(options).run();
