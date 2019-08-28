@@ -20,7 +20,6 @@ import com.google.common.collect.Sets;
 import io.airlift.log.Logger;
 import io.prestosql.plugin.cassandra.util.CassandraCqlUtils;
 import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.TupleDomain;
@@ -50,10 +49,8 @@ public class CassandraPartitionManager
         this.cassandraSession = requireNonNull(cassandraSession, "cassandraSession is null");
     }
 
-    public CassandraPartitionResult getPartitions(ConnectorTableHandle tableHandle, TupleDomain<ColumnHandle> tupleDomain)
+    public CassandraPartitionResult getPartitions(CassandraTableHandle cassandraTableHandle, TupleDomain<ColumnHandle> tupleDomain)
     {
-        CassandraTableHandle cassandraTableHandle = (CassandraTableHandle) tableHandle;
-
         CassandraTable table = cassandraSession.getTable(cassandraTableHandle.getSchemaTableName());
         List<CassandraColumnHandle> partitionKeys = table.getPartitionKeyColumns();
 
