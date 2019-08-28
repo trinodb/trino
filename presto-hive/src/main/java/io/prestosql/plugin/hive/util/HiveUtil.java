@@ -230,15 +230,7 @@ public final class HiveUtil
                 .filter(name -> name.startsWith("serialization."))
                 .forEach(name -> jobConf.set(name, schema.getProperty(name)));
 
-        // add Airlift LZO and LZOP to head of codecs list so as to not override existing entries
-        List<String> codecs = newArrayList(Splitter.on(",").trimResults().omitEmptyStrings().split(jobConf.get("io.compression.codecs", "")));
-        if (!codecs.contains(LzoCodec.class.getName())) {
-            codecs.add(0, LzoCodec.class.getName());
-        }
-        if (!codecs.contains(LzopCodec.class.getName())) {
-            codecs.add(0, LzopCodec.class.getName());
-        }
-        jobConf.set("io.compression.codecs", codecs.stream().collect(joining(",")));
+        configureCompressionCodecs(jobConf);
 
         try {
             RecordReader<WritableComparable, Writable> recordReader = (RecordReader<WritableComparable, Writable>) inputFormat.getRecordReader(fileSplit, jobConf, Reporter.NULL);
@@ -276,6 +268,19 @@ public final class HiveUtil
         configuration.setBoolean(READ_ALL_COLUMNS, false);
     }
 
+    private static void configureCompressionCodecs(JobConf jobConf)
+    {
+        // add Airlift LZO and LZOP to head of codecs list so as to not override existing entries
+        List<String> codecs = newArrayList(Splitter.on(",").trimResults().omitEmptyStrings().split(jobConf.get("io.compression.codecs", "")));
+        if (!codecs.contains(LzoCodec.class.getName())) {
+            codecs.add(0, LzoCodec.class.getName());
+        }
+        if (!codecs.contains(LzopCodec.class.getName())) {
+            codecs.add(0, LzopCodec.class.getName());
+        }
+        jobConf.set("io.compression.codecs", codecs.stream().collect(joining(",")));
+    }
+
     public static Optional<CompressionCodec> getCompressionCodec(TextInputFormat inputFormat, Path file)
     {
         CompressionCodecFactory compressionCodecFactory;
@@ -299,6 +304,7 @@ public final class HiveUtil
         String inputFormatName = getInputFormatName(schema);
         try {
             JobConf jobConf = toJobConf(configuration);
+            configureCompressionCodecs(jobConf);
 
             Class<? extends InputFormat<?, ?>> inputFormatClass = getInputFormatClass(jobConf, inputFormatName);
             if (symlinkTarget && inputFormatClass == SymlinkTextInputFormat.class) {
