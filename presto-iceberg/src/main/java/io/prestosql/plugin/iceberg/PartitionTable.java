@@ -339,8 +339,8 @@ public class PartitionTable
             this.recordCount = recordCount;
             this.fileCount = 1;
             this.size = size;
-            this.minValues = ImmutableMap.copyOf(requireNonNull(minValues, "minValues is null"));
-            this.maxValues = ImmutableMap.copyOf(requireNonNull(maxValues, "maxValues is null"));
+            this.minValues = new HashMap<>(requireNonNull(minValues, "minValues is null"));
+            this.maxValues = new HashMap<>(requireNonNull(maxValues, "maxValues is null"));
             // we are assuming if minValues is not present, max will be not be present either.
             this.corruptedStats = nonPartitionPrimitiveColumns.stream()
                     .map(Types.NestedField::fieldId)
