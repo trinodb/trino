@@ -43,6 +43,7 @@ import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.connector.SystemTable;
 import io.prestosql.spi.connector.TableNotFoundException;
+import io.prestosql.spi.connector.classloader.ClassLoaderSafeSystemTable;
 import io.prestosql.spi.statistics.ComputedStatistics;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.TimestampType;
@@ -153,7 +154,8 @@ public class IcebergMetadata
         IcebergTableHandle table = IcebergTableHandle.from(tableName);
         if (table.getTableType() == TableType.PARTITIONS) {
             org.apache.iceberg.Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, table.getSchemaTableName());
-            return Optional.of(new PartitionTable(table, session, typeManager, icebergTable));
+            SystemTable systemTable = new PartitionTable(table, session, typeManager, icebergTable);
+            return Optional.of(new ClassLoaderSafeSystemTable(systemTable, getClass().getClassLoader()));
         }
         return Optional.empty();
     }
