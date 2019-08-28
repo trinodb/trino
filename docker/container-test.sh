@@ -11,9 +11,8 @@ function cleanup {
 }
 
 function test_container {
-    local QUERY_TIMEOUT=150
-    local QUERY_PERIOD=15
-    local QUERY_RETRIES=$((QUERY_TIMEOUT/QUERY_PERIOD))
+    local QUERY_PERIOD=5
+    local QUERY_RETRIES=30
 
     trap cleanup EXIT
 
