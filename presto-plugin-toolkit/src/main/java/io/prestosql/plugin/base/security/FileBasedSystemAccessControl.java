@@ -49,16 +49,19 @@ import static io.prestosql.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static io.prestosql.spi.security.AccessDeniedException.denyAddColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyCatalogAccess;
 import static io.prestosql.spi.security.AccessDeniedException.denyCommentTable;
+import static io.prestosql.spi.security.AccessDeniedException.denyCreateSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateView;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateViewWithSelect;
 import static io.prestosql.spi.security.AccessDeniedException.denyDeleteTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropColumn;
+import static io.prestosql.spi.security.AccessDeniedException.denyDropSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropView;
 import static io.prestosql.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denyInsertTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameColumn;
+import static io.prestosql.spi.security.AccessDeniedException.denyRenameSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denySetUser;
@@ -214,16 +217,25 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanCreateSchema(SystemSecurityContext context, CatalogSchemaName schema)
     {
+        if (!canAccessCatalog(context.getIdentity(), schema.getCatalogName(), ALL)) {
+            denyCreateSchema(schema.toString());
+        }
     }
 
     @Override
     public void checkCanDropSchema(SystemSecurityContext context, CatalogSchemaName schema)
     {
+        if (!canAccessCatalog(context.getIdentity(), schema.getCatalogName(), ALL)) {
+            denyDropSchema(schema.toString());
+        }
     }
 
     @Override
     public void checkCanRenameSchema(SystemSecurityContext context, CatalogSchemaName schema, String newSchemaName)
     {
+        if (!canAccessCatalog(context.getIdentity(), schema.getCatalogName(), ALL)) {
+            denyRenameSchema(schema.toString(), newSchemaName);
+        }
     }
 
     @Override
