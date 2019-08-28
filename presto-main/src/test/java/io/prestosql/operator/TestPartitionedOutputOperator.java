@@ -41,7 +41,6 @@ import java.util.function.Function;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
-import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.block.BlockAssertions.createLongDictionaryBlock;
@@ -59,12 +58,13 @@ import static org.testng.Assert.assertEquals;
 
 public class TestPartitionedOutputOperator
 {
-    private static final int PAGE_COUNT = 100;
-    private static final int POSITIONS_PER_PAGE = 1000;
-
-    private static final int PARTITION_COUNT = 512;
-    private static final DataSize MAX_MEMORY = new DataSize(1, GIGABYTE);
+    private static final DataSize MAX_MEMORY = new DataSize(50, MEGABYTE);
     private static final DataSize PARTITION_MAX_MEMORY = new DataSize(5, MEGABYTE);
+
+    private static final int PAGE_COUNT = 10;
+    private static final int POSITIONS_PER_PAGE = 1000;
+    private static final int PARTITION_COUNT = 512;
+
     private static final List<Type> TYPES = ImmutableList.of(BIGINT);
     private static final List<Type> REPLICATION_TYPES = ImmutableList.of(BIGINT, BIGINT);
 
