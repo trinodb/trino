@@ -455,6 +455,9 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("bound_decimal_short in (123.455, 123.46, 123.45)", "true");
         assertOptimizedEquals("bound_decimal_long in (12345678901234567890.123, 9876543210.9874561204, 9876543210.98745612035)", "true");
         assertOptimizedEquals("bound_decimal_long in (9876543210.9874561204, null, 9876543210.98745612035)", "null");
+
+        assertOptimizedEquals("unbound_integer IN (1)", "unbound_integer = 1");
+        assertOptimizedEquals("unbound_long IN (unbound_long2)", "unbound_long = unbound_long2");
     }
 
     @Test
