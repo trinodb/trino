@@ -70,8 +70,7 @@ public class CassandraPartitionManager
                 remainingTupleDomain = tupleDomain;
             }
             else {
-                @SuppressWarnings({"rawtypes", "unchecked"})
-                List<ColumnHandle> partitionColumns = (List) partitionKeys;
+                List<ColumnHandle> partitionColumns = ImmutableList.copyOf(partitionKeys);
                 remainingTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(tupleDomain.getDomains().get(), not(in(partitionColumns))));
             }
         }
