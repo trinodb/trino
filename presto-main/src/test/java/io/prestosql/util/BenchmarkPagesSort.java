@@ -63,7 +63,7 @@ import static org.testng.Assert.assertEquals;
 @Fork(1)
 @Warmup(iterations = 5, time = 400, timeUnit = TimeUnit.MILLISECONDS)
 @Measurement(iterations = 10, time = 400, timeUnit = TimeUnit.MILLISECONDS)
-public class PagesSortBenchmark
+public class BenchmarkPagesSort
 {
     private static final OrderingCompiler ORDERING_COMPILER = new OrderingCompiler();
 
@@ -273,7 +273,7 @@ public class PagesSortBenchmark
     {
         Options options = new OptionsBuilder()
                 .verbosity(VerboseMode.NORMAL)
-                .include(".*" + PagesSortBenchmark.class.getSimpleName() + ".*")
+                .include(".*" + BenchmarkPagesSort.class.getSimpleName() + ".*")
                 .build();
 
         new Runner(options).run();

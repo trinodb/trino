@@ -85,7 +85,7 @@ import static java.util.stream.Collectors.toList;
 @Warmup(iterations = 20)
 @Fork(3)
 @SuppressWarnings("UseOfSystemOutOrSystemErr")
-public class HiveFileFormatBenchmark
+public class BenchmarkHiveFileFormat
 {
     private static final long MIN_DATA_SIZE = new DataSize(50, MEGABYTE).toBytes();
 
@@ -136,11 +136,11 @@ public class HiveFileFormatBenchmark
 
     private final File targetDir = createTempDir("presto-benchmark");
 
-    public HiveFileFormatBenchmark()
+    public BenchmarkHiveFileFormat()
     {
     }
 
-    public HiveFileFormatBenchmark(DataSet dataSet, HiveCompressionCodec compression, FileFormat fileFormat)
+    public BenchmarkHiveFileFormat(DataSet dataSet, HiveCompressionCodec compression, FileFormat fileFormat)
     {
         this.dataSet = dataSet;
         this.compression = compression;
@@ -466,7 +466,7 @@ public class HiveFileFormatBenchmark
     private static <E extends TpchEntity> TestData createTpchDataSet(FileFormat format, TpchTable<E> tpchTable, List<TpchColumn<E>> columns)
     {
         List<String> columnNames = columns.stream().map(TpchColumn::getColumnName).collect(toList());
-        List<Type> columnTypes = columns.stream().map(HiveFileFormatBenchmark::getColumnType)
+        List<Type> columnTypes = columns.stream().map(BenchmarkHiveFileFormat::getColumnType)
                 .map(type -> format.supportsDate() || !DATE.equals(type) ? type : createUnboundedVarcharType())
                 .collect(toList());
 
@@ -576,7 +576,7 @@ public class HiveFileFormatBenchmark
             throws Exception
     {
         Options opt = new OptionsBuilder()
-                .include(".*\\." + HiveFileFormatBenchmark.class.getSimpleName() + ".*")
+                .include(".*\\." + BenchmarkHiveFileFormat.class.getSimpleName() + ".*")
                 .jvmArgsAppend("-Xmx4g", "-Xms4g", "-XX:+UseG1GC")
                 .build();
 
