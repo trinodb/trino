@@ -45,6 +45,9 @@ public class HiveS3Module
             validateEmrFsClass();
             newSetBinder(binder, ConfigurationInitializer.class).addBinding().to(EmrFsS3ConfigurationInitializer.class).in(Scopes.SINGLETON);
         }
+        else if (type == S3FileSystemType.HADOOP_DEFAULT) {
+            // configuration is done using Hadoop configuration files
+        }
         else {
             throw new RuntimeException("Unknown file system type: " + type);
         }
