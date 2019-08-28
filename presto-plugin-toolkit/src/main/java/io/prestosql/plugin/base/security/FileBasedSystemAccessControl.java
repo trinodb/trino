@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.prestosql.plugin.base.security.CatalogAccessControlRule.AccessMode;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
@@ -40,10 +41,26 @@ import java.util.regex.Pattern;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Suppliers.memoizeWithExpiration;
 import static io.prestosql.plugin.base.JsonUtils.parseJson;
+import static io.prestosql.plugin.base.security.CatalogAccessControlRule.AccessMode.ALL;
+import static io.prestosql.plugin.base.security.CatalogAccessControlRule.AccessMode.READ_ONLY;
 import static io.prestosql.plugin.base.security.FileBasedAccessControlConfig.SECURITY_CONFIG_FILE;
 import static io.prestosql.plugin.base.security.FileBasedAccessControlConfig.SECURITY_REFRESH_PERIOD;
 import static io.prestosql.spi.StandardErrorCode.CONFIGURATION_INVALID;
+import static io.prestosql.spi.security.AccessDeniedException.denyAddColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyCatalogAccess;
+import static io.prestosql.spi.security.AccessDeniedException.denyCommentTable;
+import static io.prestosql.spi.security.AccessDeniedException.denyCreateTable;
+import static io.prestosql.spi.security.AccessDeniedException.denyCreateView;
+import static io.prestosql.spi.security.AccessDeniedException.denyCreateViewWithSelect;
+import static io.prestosql.spi.security.AccessDeniedException.denyDeleteTable;
+import static io.prestosql.spi.security.AccessDeniedException.denyDropColumn;
+import static io.prestosql.spi.security.AccessDeniedException.denyDropTable;
+import static io.prestosql.spi.security.AccessDeniedException.denyDropView;
+import static io.prestosql.spi.security.AccessDeniedException.denyGrantTablePrivilege;
+import static io.prestosql.spi.security.AccessDeniedException.denyInsertTable;
+import static io.prestosql.spi.security.AccessDeniedException.denyRenameColumn;
+import static io.prestosql.spi.security.AccessDeniedException.denyRenameTable;
+import static io.prestosql.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denySetUser;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -121,7 +138,7 @@ public class FileBasedSystemAccessControl
             // Hack to allow Presto Admin to access the "system" catalog for retrieving server status.
             // todo Change userRegex from ".*" to one particular user that Presto Admin will be restricted to run as
             catalogRulesBuilder.add(new CatalogAccessControlRule(
-                    true,
+                    ALL,
                     Optional.of(Pattern.compile(".*")),
                     Optional.of(Pattern.compile("system"))));
 
@@ -166,7 +183,7 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanAccessCatalog(SystemSecurityContext context, String catalogName)
     {
-        if (!canAccessCatalog(context.getIdentity(), catalogName)) {
+        if (!canAccessCatalog(context.getIdentity(), catalogName, READ_ONLY)) {
             denyCatalogAccess(catalogName);
         }
     }
@@ -176,19 +193,19 @@ public class FileBasedSystemAccessControl
     {
         ImmutableSet.Builder<String> filteredCatalogs = ImmutableSet.builder();
         for (String catalog : catalogs) {
-            if (canAccessCatalog(context.getIdentity(), catalog)) {
+            if (canAccessCatalog(context.getIdentity(), catalog, READ_ONLY)) {
                 filteredCatalogs.add(catalog);
             }
         }
         return filteredCatalogs.build();
     }
 
-    private boolean canAccessCatalog(Identity identity, String catalogName)
+    private boolean canAccessCatalog(Identity identity, String catalogName, AccessMode requiredAccess)
     {
         for (CatalogAccessControlRule rule : catalogRules) {
-            Optional<Boolean> allowed = rule.match(identity.getUser(), catalogName);
-            if (allowed.isPresent()) {
-                return allowed.get();
+            Optional<AccessMode> accessMode = rule.match(identity.getUser(), catalogName);
+            if (accessMode.isPresent()) {
+                return accessMode.get().implies(requiredAccess);
             }
         }
         return false;
@@ -217,7 +234,7 @@ public class FileBasedSystemAccessControl
     @Override
     public Set<String> filterSchemas(SystemSecurityContext context, String catalogName, Set<String> schemaNames)
     {
-        if (!canAccessCatalog(context.getIdentity(), catalogName)) {
+        if (!canAccessCatalog(context.getIdentity(), catalogName, READ_ONLY)) {
             return ImmutableSet.of();
         }
 
@@ -227,21 +244,33 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanCreateTable(SystemSecurityContext context, CatalogSchemaTableName table)
     {
+        if (!canAccessCatalog(context.getIdentity(), table.getCatalogName(), ALL)) {
+            denyCreateTable(table.toString());
+        }
     }
 
     @Override
     public void checkCanDropTable(SystemSecurityContext context, CatalogSchemaTableName table)
     {
+        if (!canAccessCatalog(context.getIdentity(), table.getCatalogName(), ALL)) {
+            denyDropTable(table.toString());
+        }
     }
 
     @Override
     public void checkCanRenameTable(SystemSecurityContext context, CatalogSchemaTableName table, CatalogSchemaTableName newTable)
     {
+        if (!canAccessCatalog(context.getIdentity(), table.getCatalogName(), ALL)) {
+            denyRenameTable(table.toString(), newTable.toString());
+        }
     }
 
     @Override
     public void checkCanSetTableComment(SystemSecurityContext context, CatalogSchemaTableName table)
     {
+        if (!canAccessCatalog(context.getIdentity(), table.getCatalogName(), ALL)) {
+            denyCommentTable(table.toString());
+        }
     }
 
     @Override
@@ -252,7 +281,7 @@ public class FileBasedSystemAccessControl
     @Override
     public Set<SchemaTableName> filterTables(SystemSecurityContext context, String catalogName, Set<SchemaTableName> tableNames)
     {
-        if (!canAccessCatalog(context.getIdentity(), catalogName)) {
+        if (!canAccessCatalog(context.getIdentity(), catalogName, READ_ONLY)) {
             return ImmutableSet.of();
         }
 
@@ -267,7 +296,7 @@ public class FileBasedSystemAccessControl
     @Override
     public List<ColumnMetadata> filterColumns(SystemSecurityContext context, CatalogSchemaTableName tableName, List<ColumnMetadata> columns)
     {
-        if (!canAccessCatalog(context.getIdentity(), tableName.getCatalogName())) {
+        if (!canAccessCatalog(context.getIdentity(), tableName.getCatalogName(), READ_ONLY)) {
             return ImmutableList.of();
         }
 
@@ -277,16 +306,25 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanAddColumn(SystemSecurityContext context, CatalogSchemaTableName table)
     {
+        if (!canAccessCatalog(context.getIdentity(), table.getCatalogName(), ALL)) {
+            denyAddColumn(table.toString());
+        }
     }
 
     @Override
     public void checkCanDropColumn(SystemSecurityContext context, CatalogSchemaTableName table)
     {
+        if (!canAccessCatalog(context.getIdentity(), table.getCatalogName(), ALL)) {
+            denyDropColumn(table.toString());
+        }
     }
 
     @Override
     public void checkCanRenameColumn(SystemSecurityContext context, CatalogSchemaTableName table)
     {
+        if (!canAccessCatalog(context.getIdentity(), table.getCatalogName(), ALL)) {
+            denyRenameColumn(table.toString());
+        }
     }
 
     @Override
@@ -297,26 +335,41 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanInsertIntoTable(SystemSecurityContext context, CatalogSchemaTableName table)
     {
+        if (!canAccessCatalog(context.getIdentity(), table.getCatalogName(), ALL)) {
+            denyInsertTable(table.toString());
+        }
     }
 
     @Override
     public void checkCanDeleteFromTable(SystemSecurityContext context, CatalogSchemaTableName table)
     {
+        if (!canAccessCatalog(context.getIdentity(), table.getCatalogName(), ALL)) {
+            denyDeleteTable(table.toString());
+        }
     }
 
     @Override
     public void checkCanCreateView(SystemSecurityContext context, CatalogSchemaTableName view)
     {
+        if (!canAccessCatalog(context.getIdentity(), view.getCatalogName(), ALL)) {
+            denyCreateView(view.toString());
+        }
     }
 
     @Override
     public void checkCanDropView(SystemSecurityContext context, CatalogSchemaTableName view)
     {
+        if (!canAccessCatalog(context.getIdentity(), view.getCatalogName(), ALL)) {
+            denyDropView(view.toString());
+        }
     }
 
     @Override
     public void checkCanCreateViewWithSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
     {
+        if (!canAccessCatalog(context.getIdentity(), table.getCatalogName(), ALL)) {
+            denyCreateViewWithSelect(table.toString(), context.getIdentity());
+        }
     }
 
     @Override
@@ -327,11 +380,17 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanGrantTablePrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaTableName table, PrestoPrincipal grantee, boolean withGrantOption)
     {
+        if (!canAccessCatalog(context.getIdentity(), table.getCatalogName(), ALL)) {
+            denyGrantTablePrivilege(privilege.toString(), table.toString());
+        }
     }
 
     @Override
     public void checkCanRevokeTablePrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaTableName table, PrestoPrincipal revokee, boolean grantOptionFor)
     {
+        if (!canAccessCatalog(context.getIdentity(), table.getCatalogName(), ALL)) {
+            denyRevokeTablePrivilege(privilege.toString(), table.toString());
+        }
     }
 
     @Override
