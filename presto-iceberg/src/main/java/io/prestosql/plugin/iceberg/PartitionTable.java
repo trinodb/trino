@@ -277,7 +277,7 @@ public class PartitionTable
                 .collect(Collectors.toMap(identity(), partitionColumns::get));
         TupleDomain<HiveColumnHandle> predicates = constraint.transform(fieldIdToColumnHandle::get);
 
-        return IcebergUtil.getTableScan(session, predicates, tableHandle.getSnapshotId(), icebergTable);
+        return IcebergUtil.getTableScan(session, predicates, tableHandle.getSnapshotId(), icebergTable).includeColumnStats();
     }
 
     private Map<Integer, Object> toMap(Map<Integer, ByteBuffer> idToMetricMap)
