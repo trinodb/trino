@@ -650,11 +650,11 @@ public final class ValidateDependenciesChecker
             checkDependencies(
                     node.getInput().getOutputSymbols(),
                     node.getCorrelation(),
-                    "LATERAL input must provide all the necessary correlation symbols for subquery");
+                    "Correlated JOIN input must provide all the necessary correlation symbols for subquery");
             checkDependencies(
                     SymbolsExtractor.extractUnique(node.getSubquery()),
                     node.getCorrelation(),
-                    "not all LATERAL correlation symbols are used in subquery");
+                    "not all correlated JOIN correlation symbols are used in subquery");
 
             Set<Symbol> inputs = ImmutableSet.<Symbol>builder()
                     .addAll(createInputs(node.getInput(), boundSymbols))

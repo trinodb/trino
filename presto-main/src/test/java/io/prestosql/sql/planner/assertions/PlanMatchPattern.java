@@ -510,7 +510,7 @@ public final class PlanMatchPattern
         return result;
     }
 
-    public static PlanMatchPattern lateral(List<String> correlationSymbolAliases, PlanMatchPattern inputPattern, PlanMatchPattern subqueryPattern)
+    public static PlanMatchPattern correlatedJoin(List<String> correlationSymbolAliases, PlanMatchPattern inputPattern, PlanMatchPattern subqueryPattern)
     {
         return node(CorrelatedJoinNode.class, inputPattern, subqueryPattern)
                 .with(new CorrelationMatcher(correlationSymbolAliases));

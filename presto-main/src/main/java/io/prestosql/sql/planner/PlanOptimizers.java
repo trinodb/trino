@@ -109,7 +109,7 @@ import io.prestosql.sql.planner.iterative.rule.RemoveRedundantSort;
 import io.prestosql.sql.planner.iterative.rule.RemoveRedundantTopN;
 import io.prestosql.sql.planner.iterative.rule.RemoveTrivialFilters;
 import io.prestosql.sql.planner.iterative.rule.RemoveUnreferencedScalarApplyNodes;
-import io.prestosql.sql.planner.iterative.rule.RemoveUnreferencedScalarLateralNodes;
+import io.prestosql.sql.planner.iterative.rule.RemoveUnreferencedScalarSubqueries;
 import io.prestosql.sql.planner.iterative.rule.RemoveUnsupportedDynamicFilters;
 import io.prestosql.sql.planner.iterative.rule.ReorderJoins;
 import io.prestosql.sql.planner.iterative.rule.RewriteSpatialPartitioningAggregation;
@@ -373,7 +373,7 @@ public class PlanOptimizers
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(
-                                new RemoveUnreferencedScalarLateralNodes(),
+                                new RemoveUnreferencedScalarSubqueries(),
                                 new TransformUncorrelatedSubqueryToJoin(),
                                 new TransformUncorrelatedInPredicateSubqueryToSemiJoin(),
                                 new TransformCorrelatedScalarAggregationToJoin(metadata),
