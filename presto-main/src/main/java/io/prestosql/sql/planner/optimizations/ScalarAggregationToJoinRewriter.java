@@ -64,7 +64,7 @@ public class ScalarAggregationToJoinRewriter
         this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         this.lookup = requireNonNull(lookup, "lookup is null");
-        this.planNodeDecorrelator = new PlanNodeDecorrelator(idAllocator, lookup);
+        this.planNodeDecorrelator = new PlanNodeDecorrelator(idAllocator, symbolAllocator, lookup);
     }
 
     public PlanNode rewriteScalarAggregation(CorrelatedJoinNode correlatedJoinNode, AggregationNode aggregation)

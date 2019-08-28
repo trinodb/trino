@@ -54,7 +54,7 @@ public class TransformCorrelatedJoinToJoin
     {
         PlanNode subquery = correlatedJoinNode.getSubquery();
 
-        PlanNodeDecorrelator planNodeDecorrelator = new PlanNodeDecorrelator(context.getIdAllocator(), context.getLookup());
+        PlanNodeDecorrelator planNodeDecorrelator = new PlanNodeDecorrelator(context.getIdAllocator(), context.getSymbolAllocator(), context.getLookup());
         Optional<DecorrelatedNode> decorrelatedNodeOptional = planNodeDecorrelator.decorrelateFilters(subquery, correlatedJoinNode.getCorrelation());
 
         return decorrelatedNodeOptional
