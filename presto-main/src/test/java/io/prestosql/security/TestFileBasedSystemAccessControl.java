@@ -165,6 +165,38 @@ public class TestFileBasedSystemAccessControl
     }
 
     @Test
+    public void testSchemaOperationsReadOnly()
+    {
+        TransactionManager transactionManager = createTestTransactionManager();
+        AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "catalog_read_only.json");
+
+        transaction(transactionManager, accessControlManager)
+                .execute(transactionId -> {
+                    Set<String> aliceSchemas = ImmutableSet.of("schema");
+                    assertEquals(accessControlManager.filterSchemas(new SecurityContext(transactionId, alice), "alice-catalog", aliceSchemas), aliceSchemas);
+                    assertEquals(accessControlManager.filterSchemas(new SecurityContext(transactionId, bob), "alice-catalog", aliceSchemas), ImmutableSet.of());
+
+                    accessControlManager.checkCanShowSchemas(new SecurityContext(transactionId, alice), "alice-catalog");
+                });
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanCreateSchema(new SecurityContext(transactionId, alice), aliceSchema);
+        }));
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanDropSchema(new SecurityContext(transactionId, alice), aliceSchema);
+        }));
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanRenameSchema(new SecurityContext(transactionId, alice), aliceSchema, "new-schema");
+        }));
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanCreateSchema(new SecurityContext(transactionId, bob), aliceSchema);
+        }));
+    }
+
+    @Test
     public void testTableOperations()
     {
         TransactionManager transactionManager = createTestTransactionManager();
@@ -253,12 +285,6 @@ public class TestFileBasedSystemAccessControl
         assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
             accessControlManager.checkCanCreateView(new SecurityContext(transactionId, bob), aliceView);
         }));
-    }
-
-    @Test
-    public void testEverythingImplemented()
-    {
-        assertAllMethodsOverridden(SystemAccessControl.class, FileBasedSystemAccessControl.class);
     }
 
     @Test
