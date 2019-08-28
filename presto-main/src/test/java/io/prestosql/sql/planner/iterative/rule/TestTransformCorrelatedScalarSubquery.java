@@ -40,9 +40,9 @@ import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.correlatedJoin;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.filter;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.lateral;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.markDistinct;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
@@ -58,7 +58,7 @@ public class TestTransformCorrelatedScalarSubquery
     private Rule<?> rule = new TransformCorrelatedScalarSubquery(createTestMetadataManager());
 
     @Test
-    public void doesNotFireOnPlanWithoutLateralNode()
+    public void doesNotFireOnPlanWithoutCorrelatedJoinlNode()
     {
         tester().assertThat(rule)
                 .on(p -> p.values(p.symbol("a")))
@@ -105,7 +105,7 @@ public class TestTransformCorrelatedScalarSubquery
                                         markDistinct(
                                                 "is_distinct",
                                                 ImmutableList.of("corr", "unique"),
-                                                lateral(
+                                                correlatedJoin(
                                                         ImmutableList.of("corr"),
                                                         assignUniqueId(
                                                                 "unique",
@@ -135,7 +135,7 @@ public class TestTransformCorrelatedScalarSubquery
                                         markDistinct(
                                                 "is_distinct",
                                                 ImmutableList.of("corr", "unique"),
-                                                lateral(
+                                                correlatedJoin(
                                                         ImmutableList.of("corr"),
                                                         assignUniqueId(
                                                                 "unique",
@@ -167,7 +167,7 @@ public class TestTransformCorrelatedScalarSubquery
                                         markDistinct(
                                                 "is_distinct",
                                                 ImmutableList.of("corr", "unique"),
-                                                lateral(
+                                                correlatedJoin(
                                                         ImmutableList.of("corr"),
                                                         assignUniqueId(
                                                                 "unique",
@@ -193,7 +193,7 @@ public class TestTransformCorrelatedScalarSubquery
                                         p.expression("1 = a"), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
                                         p.values(ImmutableList.of(p.symbol("a")), ONE_ROW)))))
                 .matches(
-                        lateral(
+                        correlatedJoin(
                                 ImmutableList.of("corr"),
                                 values("corr"),
                                 filter(

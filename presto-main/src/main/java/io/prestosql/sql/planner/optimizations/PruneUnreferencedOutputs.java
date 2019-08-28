@@ -846,13 +846,13 @@ public class PruneUnreferencedOutputs
 
             PlanNode subquery = context.rewrite(node.getSubquery(), expectedFilterAndContextSymbols);
 
-            // remove unused lateral nodes
+            // remove unused correlated join nodes
             if (intersection(ImmutableSet.copyOf(subquery.getOutputSymbols()), context.get()).isEmpty()) {
-                // remove unused lateral subquery of inner join
+                // remove unused subquery of inner join
                 if (node.getType() == INNER && isScalar(subquery) && node.getFilter().equals(TRUE_LITERAL)) {
                     return context.rewrite(node.getInput(), context.get());
                 }
-                // remove unused lateral subquery of left join
+                // remove unused subquery of left join
                 if (node.getType() == LEFT && isAtMostScalar(subquery)) {
                     return context.rewrite(node.getInput(), context.get());
                 }

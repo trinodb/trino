@@ -25,7 +25,7 @@ import static io.prestosql.sql.planner.plan.Patterns.CorrelatedJoin.filter;
 import static io.prestosql.sql.planner.plan.Patterns.correlatedJoin;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
-public class RemoveUnreferencedScalarLateralNodes
+public class RemoveUnreferencedScalarSubqueries
         implements Rule<CorrelatedJoinNode>
 {
     private static final Pattern<CorrelatedJoinNode> PATTERN = correlatedJoin()

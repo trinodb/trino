@@ -23,8 +23,8 @@ import org.testng.annotations.Test;
 
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.aggregation;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.correlatedJoin;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.functionCall;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.lateral;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.limit;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.node;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
@@ -60,7 +60,7 @@ public class TestTransformExistsApplyToCorrelatedJoin
                                 ImmutableList.of(),
                                 p.values(),
                                 p.values()))
-                .matches(lateral(
+                .matches(correlatedJoin(
                         ImmutableList.of(),
                         values(ImmutableMap.of()),
                         project(
@@ -84,7 +84,7 @@ public class TestTransformExistsApplyToCorrelatedJoin
                                                 p.values(p.symbol("column"))))))
                 .matches(
                         project(ImmutableMap.of("b", PlanMatchPattern.expression("COALESCE(subquerytrue, false)")),
-                                lateral(
+                                correlatedJoin(
                                         ImmutableList.of("corr"),
                                         values("corr"),
                                         project(

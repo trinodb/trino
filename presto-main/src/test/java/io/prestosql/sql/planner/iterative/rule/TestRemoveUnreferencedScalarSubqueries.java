@@ -21,13 +21,13 @@ import org.testng.annotations.Test;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
 import static java.util.Collections.emptyList;
 
-public class TestRemoveUnreferencedScalarLateralNodes
+public class TestRemoveUnreferencedScalarSubqueries
         extends BaseRuleTest
 {
     @Test
     public void testRemoveUnreferencedInput()
     {
-        tester().assertThat(new RemoveUnreferencedScalarLateralNodes())
+        tester().assertThat(new RemoveUnreferencedScalarSubqueries())
                 .on(p -> p.correlatedJoin(
                         emptyList(),
                         p.values(p.symbol("x", BigintType.BIGINT)),
@@ -38,7 +38,7 @@ public class TestRemoveUnreferencedScalarLateralNodes
     @Test
     public void testRemoveUnreferencedSubquery()
     {
-        tester().assertThat(new RemoveUnreferencedScalarLateralNodes())
+        tester().assertThat(new RemoveUnreferencedScalarSubqueries())
                 .on(p -> p.correlatedJoin(
                         emptyList(),
                         p.values(emptyList(), ImmutableList.of(emptyList())),
@@ -49,7 +49,7 @@ public class TestRemoveUnreferencedScalarLateralNodes
     @Test
     public void testDoesNotFire()
     {
-        tester().assertThat(new RemoveUnreferencedScalarLateralNodes())
+        tester().assertThat(new RemoveUnreferencedScalarSubqueries())
                 .on(p -> p.correlatedJoin(
                         emptyList(),
                         p.values(),
