@@ -50,6 +50,7 @@ public final class TestGroups
     public static final String HDFS_IMPERSONATION = "hdfs_impersonation";
     public static final String HDFS_NO_IMPERSONATION = "hdfs_no_impersonation";
     public static final String HIVE_PARTITIONING = "hive_partitioning";
+    public static final String HIVE_COMPRESSION = "hive_compression";
     public static final String AUTHORIZATION = "authorization";
     public static final String HIVE_COERCION = "hive_coercion";
     public static final String CASSANDRA = "cassandra";
