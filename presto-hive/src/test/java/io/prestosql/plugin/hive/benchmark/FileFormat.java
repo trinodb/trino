@@ -32,7 +32,7 @@ import io.prestosql.plugin.hive.HiveTypeName;
 import io.prestosql.plugin.hive.HiveTypeTranslator;
 import io.prestosql.plugin.hive.RecordFileWriter;
 import io.prestosql.plugin.hive.TypeTranslator;
-import io.prestosql.plugin.hive.benchmark.HiveFileFormatBenchmark.TestData;
+import io.prestosql.plugin.hive.benchmark.BenchmarkHiveFileFormat.TestData;
 import io.prestosql.plugin.hive.orc.OrcPageSourceFactory;
 import io.prestosql.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.prestosql.plugin.hive.rcfile.RcFilePageSourceFactory;
