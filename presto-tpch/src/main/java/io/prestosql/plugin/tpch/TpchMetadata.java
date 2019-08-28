@@ -449,8 +449,22 @@ public class TpchMetadata
                     new SortingProperty<>(columns.get(columnNaming.getName(LineItemColumn.LINE_NUMBER)), SortOrder.ASC_NULLS_FIRST));
         }
 
+        TupleDomain<ColumnHandle> constraint = tableHandle.getConstraint();
+        if (predicatePushdownEnabled && constraint.isAll()) {
+            if (tableHandle.getTableName().equals(TpchTable.ORDERS.getTableName())) {
+                constraint = toTupleDomain(ImmutableMap.of(toColumnHandle(OrderColumn.ORDER_STATUS), ORDER_STATUS_NULLABLE_VALUES));
+            }
+            else if (tableHandle.getTableName().equals(TpchTable.PART.getTableName())) {
+                constraint = toTupleDomain(ImmutableMap.of(
+                        toColumnHandle(PartColumn.CONTAINER),
+                        PART_CONTAINER_NULLABLE_VALUES,
+                        toColumnHandle(PartColumn.TYPE),
+                        PART_TYPE_NULLABLE_VALUES));
+            }
+        }
+
         return new ConnectorTableProperties(
-                tableHandle.getConstraint(),
+                constraint,
                 tablePartitioning,
                 partitioningColumns,
                 Optional.empty(),
