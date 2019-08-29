@@ -5088,7 +5088,7 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testLateralJoin()
+    public void testCorrelatedJoin()
     {
         assertQuery(
                 "SELECT name FROM nation, LATERAL (SELECT 1 WHERE false)",
