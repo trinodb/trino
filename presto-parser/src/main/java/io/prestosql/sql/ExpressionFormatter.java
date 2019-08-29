@@ -765,7 +765,7 @@ public final class ExpressionFormatter
             else if (groupingElement instanceof GroupingSets) {
                 result = format("GROUPING SETS (%s)", Joiner.on(", ").join(
                         ((GroupingSets) groupingElement).getSets().stream()
-                                .map(e -> formatGroupingSet(e))
+                                .map(ExpressionFormatter::formatGroupingSet)
                                 .iterator()));
             }
             else if (groupingElement instanceof Cube) {
