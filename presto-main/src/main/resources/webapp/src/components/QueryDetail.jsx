@@ -648,6 +648,7 @@ export class QueryDetail extends React.Component {
 
             initialized: false,
             queryEnded: false,
+            renderingEnded: false,
 
             lastRefresh: null,
             lastRender: null,
@@ -861,7 +862,7 @@ export class QueryDetail extends React.Component {
 
     componentDidUpdate() {
         // prevent multiple calls to componentDidUpdate (resulting from calls to setState or otherwise) within the refresh interval from re-rendering sparklines/charts
-        if (this.state.lastRender === null || (Date.now() - this.state.lastRender) >= 1000) {
+        if (this.state.lastRender === null || (Date.now() - this.state.lastRender) >= 1000 || (this.state.ended && !this.state.renderingEnded)) {
             const renderTimestamp = Date.now();
             $('#scheduled-time-rate-sparkline').sparkline(this.state.scheduledTimeRate, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {
                 chartRangeMin: 0,
@@ -879,6 +880,7 @@ export class QueryDetail extends React.Component {
             }
 
             this.setState({
+                renderingEnded: this.state.ended,
                 lastRender: renderTimestamp,
             });
         }
