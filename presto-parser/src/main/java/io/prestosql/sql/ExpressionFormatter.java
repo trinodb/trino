@@ -781,10 +781,7 @@ public final class ExpressionFormatter
 
     private static boolean isAsciiPrintable(int codePoint)
     {
-        if (codePoint >= 0x7F || codePoint < 0x20) {
-            return false;
-        }
-        return true;
+        return codePoint >= 0x20 && codePoint < 0x7F;
     }
 
     private static String formatGroupingSet(List<Expression> groupingSet)
