@@ -94,6 +94,10 @@ public class ArraySubscriptOperator
     public static Long longSubscript(Type elementType, Block array, long index)
     {
         checkIndex(array, index);
+        // when index is greater than array size, return null
+        if (array.getPositionCount() < index){
+            return null;
+        }
         int position = toIntExact(index - 1);
         if (array.isNull(position)) {
             return null;
@@ -106,6 +110,10 @@ public class ArraySubscriptOperator
     public static Boolean booleanSubscript(Type elementType, Block array, long index)
     {
         checkIndex(array, index);
+        // when index is greater than array size, return null
+        if (array.getPositionCount() < index){
+            return null;
+        }
         int position = toIntExact(index - 1);
         if (array.isNull(position)) {
             return null;
@@ -118,6 +126,10 @@ public class ArraySubscriptOperator
     public static Double doubleSubscript(Type elementType, Block array, long index)
     {
         checkIndex(array, index);
+        // when index is greater than array size, return null
+        if (array.getPositionCount() < index){
+            return null;
+        }
         int position = toIntExact(index - 1);
         if (array.isNull(position)) {
             return null;
@@ -130,6 +142,10 @@ public class ArraySubscriptOperator
     public static Slice sliceSubscript(Type elementType, Block array, long index)
     {
         checkIndex(array, index);
+        // when index is greater than array size, return null
+        if (array.getPositionCount() < index){
+            return null;
+        }
         int position = toIntExact(index - 1);
         if (array.isNull(position)) {
             return null;
@@ -142,6 +158,10 @@ public class ArraySubscriptOperator
     public static Object objectSubscript(Type elementType, Block array, long index)
     {
         checkIndex(array, index);
+        // when index is greater than array size, return null
+        if (array.getPositionCount() < index){
+            return null;
+        }
         int position = toIntExact(index - 1);
         if (array.isNull(position)) {
             return null;
@@ -163,8 +183,8 @@ public class ArraySubscriptOperator
     public static void checkIndex(Block array, long index)
     {
         checkArrayIndex(index);
-        if (index > array.getPositionCount()) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Array subscript must be less than or equal to array length: %s > %s", index, array.getPositionCount()));
-        }
+//        if (index > array.getPositionCount()) {
+//            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Array subscript must be less than or equal to array length: %s > %s", index, array.getPositionCount()));
+//        }
     }
 }
