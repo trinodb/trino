@@ -776,7 +776,7 @@ export class QueryDetail extends React.Component {
                     cpuTimeRate: addToHistory(currentCpuTimeRate, this.state.cpuTimeRate),
                     rowInputRate: addToHistory(currentRowInputRate, this.state.rowInputRate),
                     byteInputRate: addToHistory(currentByteInputRate, this.state.byteInputRate),
-                    reservedMemory: addToHistory(parseDataSize(query.queryStats.userMemoryReservation), this.state.reservedMemory),
+                    reservedMemory: addToHistory(parseDataSize(query.queryStats.totalMemoryReservation), this.state.reservedMemory),
                 });
             }
             this.resetTimer();
