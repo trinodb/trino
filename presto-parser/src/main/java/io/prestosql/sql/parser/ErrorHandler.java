@@ -43,6 +43,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static java.lang.String.format;
 import static org.antlr.v4.runtime.atn.ATNState.BLOCK_START;
 import static org.antlr.v4.runtime.atn.ATNState.RULE_START;
@@ -90,7 +91,7 @@ class ErrorHandler
                 context = parser.getContext();
             }
 
-            Analyzer analyzer = new Analyzer(atn, parser.getVocabulary(), specialRules, specialTokens, ignoredRules, parser.getTokenStream());
+            Analyzer analyzer = new Analyzer(parser, specialRules, specialTokens, ignoredRules);
             Multimap<Integer, String> candidates = analyzer.process(currentState, currentToken.getTokenIndex(), context);
 
             // pick the candidate tokens associated largest token index processed (i.e., the path that consumed the most input)
@@ -116,13 +117,38 @@ class ErrorHandler
         public final int tokenIndex;
         public final boolean suppressed;
         private final CallerContext caller;
+        public final Parser parser;
 
-        public ParsingState(ATNState state, int tokenIndex, boolean suppressed, CallerContext caller)
+        public ParsingState(ATNState state, int tokenIndex, boolean suppressed, CallerContext caller, Parser parser)
         {
             this.state = state;
             this.tokenIndex = tokenIndex;
             this.suppressed = suppressed;
             this.caller = caller;
+            this.parser = parser;
+        }
+
+        @Override
+        public String toString()
+        {
+            Token token = parser.getTokenStream().get(tokenIndex);
+
+            String text = firstNonNull(token.getText(), "?");
+            if (text != null) {
+                text = text.replace("\\", "\\\\");
+                text = text.replace("\n", "\\n");
+                text = text.replace("\r", "\\r");
+                text = text.replace("\t", "\\t");
+            }
+
+            return format(
+                    "%s%s:%s @ %s:<%s>:%s",
+                    suppressed ? "-" : "+",
+                    parser.getRuleNames()[state.ruleIndex],
+                    state.stateNumber,
+                    tokenIndex,
+                    parser.getVocabulary().getSymbolicName(token.getType()),
+                    text);
         }
     }
 
@@ -140,6 +166,7 @@ class ErrorHandler
 
     private static class Analyzer
     {
+        private final Parser parser;
         private final ATN atn;
         private final Vocabulary vocabulary;
         private final Map<Integer, String> specialRules;
@@ -148,16 +175,15 @@ class ErrorHandler
         private final TokenStream stream;
 
         public Analyzer(
-                ATN atn,
-                Vocabulary vocabulary,
+                Parser parser,
                 Map<Integer, String> specialRules,
                 Map<Integer, String> specialTokens,
-                Set<Integer> ignoredRules,
-                TokenStream stream)
+                Set<Integer> ignoredRules)
         {
-            this.stream = stream;
-            this.atn = atn;
-            this.vocabulary = vocabulary;
+            this.parser = parser;
+            this.stream = parser.getTokenStream();
+            this.atn = parser.getATN();
+            this.vocabulary = parser.getVocabulary();
             this.specialRules = specialRules;
             this.specialTokens = specialTokens;
             this.ignoredRules = ignoredRules;
@@ -165,7 +191,7 @@ class ErrorHandler
 
         public Multimap<Integer, String> process(ATNState currentState, int tokenIndex, RuleContext context)
         {
-            return process(new ParsingState(currentState, tokenIndex, false, makeCallStack(context)));
+            return process(new ParsingState(currentState, tokenIndex, false, makeCallStack(context), parser));
         }
 
         private Multimap<Integer, String> process(ParsingState start)
@@ -209,7 +235,7 @@ class ErrorHandler
                 if (state instanceof RuleStopState) {
                     if (caller != null) {
                         // continue from the target state of the rule transition in the parent rule
-                        activeStates.push(new ParsingState(caller.followState, tokenIndex, suppressed, caller.parent));
+                        activeStates.push(new ParsingState(caller.followState, tokenIndex, suppressed, caller.parent, parser));
                     }
                     else if (!suppressed) {
                         // we've reached the end of the top-level rule, so the only candidate left is EOF at this point
@@ -222,10 +248,10 @@ class ErrorHandler
                     Transition transition = state.transition(i);
 
                     if (transition instanceof RuleTransition) {
-                        activeStates.push(new ParsingState(transition.target, tokenIndex, suppressed, new CallerContext(caller, ((RuleTransition) transition).followState)));
+                        activeStates.push(new ParsingState(transition.target, tokenIndex, suppressed, new CallerContext(caller, ((RuleTransition) transition).followState), parser));
                     }
                     else if (transition.isEpsilon()) {
-                        activeStates.push(new ParsingState(transition.target, tokenIndex, suppressed, caller));
+                        activeStates.push(new ParsingState(transition.target, tokenIndex, suppressed, caller, parser));
                     }
                     else if (transition instanceof WildcardTransition) {
                         throw new UnsupportedOperationException("not yet implemented: wildcard transition");
@@ -238,7 +264,7 @@ class ErrorHandler
                         }
 
                         if (labels.contains(currentToken)) {
-                            activeStates.push(new ParsingState(transition.target, tokenIndex + 1, false, caller));
+                            activeStates.push(new ParsingState(transition.target, tokenIndex + 1, false, caller, parser));
                         }
                         else if (!suppressed) {
                             candidates.putAll(tokenIndex, getTokenNames(labels));
