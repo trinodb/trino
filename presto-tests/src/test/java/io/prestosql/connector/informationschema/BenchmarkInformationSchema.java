@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.connector.MockConnectorFactory;
 import io.prestosql.spi.Plugin;
+import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorFactory;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
@@ -49,6 +50,7 @@ import java.util.function.Function;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.connector.MockConnectorFactory.Builder.defaultGetColumns;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 
 @SuppressWarnings("MethodMayBeStatic")
@@ -95,12 +97,15 @@ public class BenchmarkInformationSchema
                 @Override
                 public Iterable<ConnectorFactory> getConnectorFactories()
                 {
-                    Function<ConnectorSession, List<String>> listSchemaNames = session -> IntStream.range(0, Integer.parseInt(schemasCount))
-                            .boxed()
-                            .map(i -> "stream_" + i)
-                            .collect(toImmutableList());
-
+                    Function<ConnectorSession, List<String>> listSchemaNames = session -> {
+                        emulateMetastoreCall();
+                        return IntStream.range(0, Integer.parseInt(schemasCount))
+                                .boxed()
+                                .map(i -> "stream_" + i)
+                                .collect(toImmutableList());
+                    };
                     BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables = (session, schemaNameOrNull) -> {
+                        emulateMetastoreCall();
                         List<String> tables = IntStream.range(0, Integer.parseInt(tablesCount))
                                 .boxed()
                                 .map(i -> "table_" + i)
@@ -116,11 +121,15 @@ public class BenchmarkInformationSchema
                                 .flatMap(schema -> tables.stream().map(table -> new SchemaTableName(schema, table)))
                                 .collect(toImmutableList());
                     };
-
+                    Function<SchemaTableName, List<ColumnMetadata>> getColumns = schemaTableName -> {
+                        emulateMetastoreCall();
+                        return defaultGetColumns().apply(schemaTableName);
+                    };
                     MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
                             .withListSchemaNames(listSchemaNames)
                             .withListTables(listTables)
                             .withGetViews((session, prefix) -> ImmutableMap.of())
+                            .withGetColumns(getColumns)
                             .build();
                     return ImmutableList.of(connectorFactory);
                 }
@@ -135,6 +144,16 @@ public class BenchmarkInformationSchema
         {
             queryRunner.close();
             queryRunner = null;
+        }
+    }
+
+    private static void emulateMetastoreCall()
+    {
+        try {
+            Thread.sleep(1);
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 
