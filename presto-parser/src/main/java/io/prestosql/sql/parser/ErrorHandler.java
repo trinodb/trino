@@ -36,10 +36,10 @@ import org.antlr.v4.runtime.misc.IntervalSet;
 
 import java.util.ArrayDeque;
 import java.util.Comparator;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Queue;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -174,11 +174,11 @@ class ErrorHandler
 
             // Simulates the ATN by consuming input tokens and walking transitions.
             // The ATN can be in multiple states (similar to an NFA)
-            Queue<ParsingState> activeStates = new ArrayDeque<>();
+            Deque<ParsingState> activeStates = new ArrayDeque<>();
             activeStates.add(start);
 
             while (!activeStates.isEmpty()) {
-                ParsingState current = activeStates.poll();
+                ParsingState current = activeStates.pop();
 
                 ATNState state = current.state;
                 int tokenIndex = current.tokenIndex;
@@ -209,7 +209,7 @@ class ErrorHandler
                 if (state instanceof RuleStopState) {
                     if (caller != null) {
                         // continue from the target state of the rule transition in the parent rule
-                        activeStates.add(new ParsingState(caller.followState, tokenIndex, suppressed, caller.parent));
+                        activeStates.push(new ParsingState(caller.followState, tokenIndex, suppressed, caller.parent));
                     }
                     else if (!suppressed) {
                         // we've reached the end of the top-level rule, so the only candidate left is EOF at this point
@@ -222,10 +222,10 @@ class ErrorHandler
                     Transition transition = state.transition(i);
 
                     if (transition instanceof RuleTransition) {
-                        activeStates.add(new ParsingState(transition.target, tokenIndex, suppressed, new CallerContext(caller, ((RuleTransition) transition).followState)));
+                        activeStates.push(new ParsingState(transition.target, tokenIndex, suppressed, new CallerContext(caller, ((RuleTransition) transition).followState)));
                     }
                     else if (transition.isEpsilon()) {
-                        activeStates.add(new ParsingState(transition.target, tokenIndex, suppressed, caller));
+                        activeStates.push(new ParsingState(transition.target, tokenIndex, suppressed, caller));
                     }
                     else if (transition instanceof WildcardTransition) {
                         throw new UnsupportedOperationException("not yet implemented: wildcard transition");
@@ -238,7 +238,7 @@ class ErrorHandler
                         }
 
                         if (labels.contains(currentToken)) {
-                            activeStates.add(new ParsingState(transition.target, tokenIndex + 1, false, caller));
+                            activeStates.push(new ParsingState(transition.target, tokenIndex + 1, false, caller));
                         }
                         else if (!suppressed) {
                             candidates.putAll(tokenIndex, getTokenNames(labels));
