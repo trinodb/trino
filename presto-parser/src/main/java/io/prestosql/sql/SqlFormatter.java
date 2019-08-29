@@ -813,7 +813,8 @@ public final class SqlFormatter
             }
 
             if (node.getComment().isPresent()) {
-                builder.append("\nCOMMENT " + formatStringLiteral(node.getComment().get()));
+                builder.append("\nCOMMENT ")
+                        .append(formatStringLiteral(node.getComment().get()));
             }
 
             builder.append(formatPropertiesMultiLine(node.getProperties()));
@@ -864,7 +865,8 @@ public final class SqlFormatter
             builder.append("\n").append(")");
 
             if (node.getComment().isPresent()) {
-                builder.append("\nCOMMENT " + formatStringLiteral(node.getComment().get()));
+                builder.append("\nCOMMENT ")
+                        .append(formatStringLiteral(node.getComment().get()));
             }
 
             builder.append(formatPropertiesMultiLine(node.getProperties()));

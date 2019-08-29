@@ -402,9 +402,11 @@ public final class ExpressionFormatter
 
             builder.append("\"$INTERNAL$BIND\"(");
             for (Expression value : node.getValues()) {
-                builder.append(process(value, context) + ", ");
+                builder.append(process(value, context))
+                        .append(", ");
             }
-            builder.append(process(node.getFunction(), context) + ")");
+            builder.append(process(node.getFunction(), context))
+                    .append(")");
             return builder.toString();
         }
 
