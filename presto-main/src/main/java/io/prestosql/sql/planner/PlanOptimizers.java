@@ -80,6 +80,7 @@ import io.prestosql.sql.planner.iterative.rule.PruneValuesColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneWindowColumns;
 import io.prestosql.sql.planner.iterative.rule.PushAggregationThroughOuterJoin;
 import io.prestosql.sql.planner.iterative.rule.PushDeleteIntoConnector;
+import io.prestosql.sql.planner.iterative.rule.PushDownDereferences;
 import io.prestosql.sql.planner.iterative.rule.PushLimitIntoTableScan;
 import io.prestosql.sql.planner.iterative.rule.PushLimitThroughMarkDistinct;
 import io.prestosql.sql.planner.iterative.rule.PushLimitThroughOffset;
@@ -381,6 +382,11 @@ public class PlanOptimizers
                                 new TransformUncorrelatedInPredicateSubqueryToSemiJoin(),
                                 new TransformCorrelatedScalarAggregationToJoin(metadata),
                                 new TransformCorrelatedJoinToJoin(metadata))),
+                new IterativeOptimizer(
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        new PushDownDereferences(typeAnalyzer).rules()),
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,

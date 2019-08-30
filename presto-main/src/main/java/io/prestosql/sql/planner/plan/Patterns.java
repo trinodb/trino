@@ -182,6 +182,11 @@ public final class Patterns
         return typeOf(ExceptNode.class);
     }
 
+    public static Pattern<UnnestNode> unnest()
+    {
+        return typeOf(UnnestNode.class);
+    }
+
     public static Property<PlanNode, Lookup, PlanNode> source()
     {
         return optionalProperty(

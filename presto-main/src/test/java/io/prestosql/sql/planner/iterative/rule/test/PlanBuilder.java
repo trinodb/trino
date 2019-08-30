@@ -77,6 +77,7 @@ import io.prestosql.sql.planner.plan.TableWriterNode;
 import io.prestosql.sql.planner.plan.TableWriterNode.DeleteTarget;
 import io.prestosql.sql.planner.plan.TopNNode;
 import io.prestosql.sql.planner.plan.UnionNode;
+import io.prestosql.sql.planner.plan.UnnestNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.planner.plan.WindowNode;
 import io.prestosql.sql.tree.Expression;
@@ -492,6 +493,25 @@ public class PlanBuilder
                 .singleDistributionPartitioningScheme(child.getOutputSymbols())
                 .addSource(child)
                 .addInputsSet(child.getOutputSymbols()));
+    }
+
+    public UnnestNode unnest(
+            List<Symbol> replicateSymbols,
+            Map<Symbol, List<Symbol>> unnestSymbols,
+            Optional<Symbol> ordinalitySymbol,
+            JoinNode.Type joinType,
+            Optional<Expression> filter,
+            PlanNode source)
+
+    {
+        return new UnnestNode(
+                idAllocator.getNextId(),
+                source,
+                replicateSymbols,
+                unnestSymbols,
+                ordinalitySymbol,
+                joinType,
+                filter);
     }
 
     public SemiJoinNode semiJoin(
