@@ -16,13 +16,18 @@ package io.prestosql.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.spi.type.RowType;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.prestosql.sql.planner.iterative.rule.test.PlanBuilder;
 import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.tree.ArithmeticBinaryExpression;
 import io.prestosql.sql.tree.LongLiteral;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.union;
@@ -31,6 +36,8 @@ import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
 public class TestPushProjectionThroughUnion
         extends BaseRuleTest
 {
+    private static final RowType ROW_TYPE = RowType.from(ImmutableList.of(new RowType.Field(Optional.of("x"), BIGINT), new RowType.Field(Optional.of("y"), BIGINT)));
+
     @Test
     public void testDoesNotFire()
     {
@@ -73,29 +80,38 @@ public class TestPushProjectionThroughUnion
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
                     Symbol c = p.symbol("c");
+                    Symbol d = p.symbol("d", ROW_TYPE);
                     Symbol cTimes3 = p.symbol("c_times_3");
+                    Symbol dX = p.symbol("d_x");
+                    Symbol z = p.symbol("z", ROW_TYPE);
+                    Symbol w = p.symbol("w", ROW_TYPE);
                     return p.project(
-                            Assignments.of(cTimes3, new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY, c.toSymbolReference(), new LongLiteral("3"))),
+                            Assignments.of(
+                                    cTimes3, new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY, c.toSymbolReference(), new LongLiteral("3")),
+                                    dX, PlanBuilder.expression("d.x")),
                             p.union(
                                     ImmutableListMultimap.<Symbol, Symbol>builder()
                                             .put(c, a)
                                             .put(c, b)
+                                            .put(d, z)
+                                            .put(d, w)
                                             .build(),
                                     ImmutableList.of(
-                                            p.values(a),
-                                            p.values(b))));
+                                            p.values(a, z),
+                                            p.values(b, w))));
                 })
                 .matches(
                         union(
                                 project(
-                                        ImmutableMap.of("a_times_3", expression("a * 3")),
-                                        values(ImmutableList.of("a"))),
+                                        ImmutableMap.of("a_times_3", expression("a * 3"), "z_x", expression("z.x")),
+                                        values(ImmutableList.of("a", "z"))),
                                 project(
-                                        ImmutableMap.of("b_times_3", expression("b * 3")),
-                                        values(ImmutableList.of("b"))))
-                                // verify that data originally on symbols aliased as x1 and x2 is part of exchange output
-                                .withNumberOfOutputColumns(1)
+                                        ImmutableMap.of("b_times_3", expression("b * 3"), "w_x", expression("w.x")),
+                                        values(ImmutableList.of("b", "w"))))
+                                .withNumberOfOutputColumns(2)
                                 .withAlias("a_times_3")
-                                .withAlias("b_times_3"));
+                                .withAlias("b_times_3")
+                                .withAlias("z_x")
+                                .withAlias("w_x"));
     }
 }
