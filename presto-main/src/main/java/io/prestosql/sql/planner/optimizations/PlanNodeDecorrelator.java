@@ -135,7 +135,7 @@ public class PlanNodeDecorrelator
 
             DecorrelationResult childDecorrelationResult = childDecorrelationResultOptional.get();
             FilterNode newFilterNode = new FilterNode(
-                    idAllocator.getNextId(),
+                    node.getId(),
                     childDecorrelationResult.node,
                     ExpressionUtils.combineConjuncts(uncorrelatedPredicates));
 
@@ -434,7 +434,7 @@ public class PlanNodeDecorrelator
                     .build();
 
             return Optional.of(new DecorrelationResult(
-                    new ProjectNode(idAllocator.getNextId(), childDecorrelationResult.node, assignments),
+                    new ProjectNode(node.getId(), childDecorrelationResult.node, assignments),
                     childDecorrelationResult.symbolsToPropagate,
                     childDecorrelationResult.correlatedPredicates,
                     childDecorrelationResult.correlatedSymbolsMapping,
