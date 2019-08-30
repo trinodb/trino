@@ -70,18 +70,15 @@ public class TestEqualityInference
     @Test
     public void testTransitivity()
     {
-        EqualityInference.Builder builder = new EqualityInference.Builder();
-        addEquality("a1", "b1", builder);
-        addEquality("b1", "c1", builder);
-        addEquality("d1", "c1", builder);
-
-        addEquality("a2", "b2", builder);
-        addEquality("b2", "a2", builder);
-        addEquality("b2", "c2", builder);
-        addEquality("d2", "b2", builder);
-        addEquality("c2", "d2", builder);
-
-        EqualityInference inference = builder.build();
+        EqualityInference inference = EqualityInference.newInstance(
+                equals("a1", "b1"),
+                equals("b1", "c1"),
+                equals("d1", "c1"),
+                equals("a2", "b2"),
+                equals("b2", "a2"),
+                equals("b2", "c2"),
+                equals("d2", "b2"),
+                equals("c2", "d2"));
 
         assertEquals(
                 inference.rewriteExpression(someExpression("a1", "a2"), matchesSymbols("d1", "d2")),
@@ -110,8 +107,7 @@ public class TestEqualityInference
     @Test
     public void testTriviallyRewritable()
     {
-        EqualityInference.Builder builder = new EqualityInference.Builder();
-        Expression expression = builder.build()
+        Expression expression = EqualityInference.newInstance()
                 .rewriteExpression(someExpression("a1", "a2"), matchesSymbols("a1", "a2"));
 
         assertEquals(expression, someExpression("a1", "a2"));
@@ -120,10 +116,9 @@ public class TestEqualityInference
     @Test
     public void testUnrewritable()
     {
-        EqualityInference.Builder builder = new EqualityInference.Builder();
-        addEquality("a1", "b1", builder);
-        addEquality("a2", "b2", builder);
-        EqualityInference inference = builder.build();
+        EqualityInference inference = EqualityInference.newInstance(
+                equals("a1", "b1"),
+                equals("a2", "b2"));
 
         assertNull(inference.rewriteExpression(someExpression("a1", "a2"), matchesSymbols("b1", "c1")));
         assertNull(inference.rewriteExpression(someExpression("c1", "c2"), matchesSymbols("a1", "a2")));
@@ -132,43 +127,20 @@ public class TestEqualityInference
     @Test
     public void testParseEqualityExpression()
     {
-        EqualityInference inference = new EqualityInference.Builder()
-                .addEquality(equals("a1", "b1"))
-                .addEquality(equals("a1", "c1"))
-                .addEquality(equals("c1", "a1"))
-                .build();
+        EqualityInference inference = EqualityInference.newInstance(
+                equals("a1", "b1"),
+                equals("a1", "c1"),
+                equals("c1", "a1"));
 
         Expression expression = inference.rewriteExpression(someExpression("a1", "b1"), matchesSymbols("c1"));
         assertEquals(expression, someExpression("c1", "c1"));
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
-    public void testInvalidEqualityExpression1()
-    {
-        new EqualityInference.Builder()
-                .addEquality(equals("a1", "a1"));
-    }
-
-    @Test(expectedExceptions = IllegalArgumentException.class)
-    public void testInvalidEqualityExpression2()
-    {
-        new EqualityInference.Builder()
-                .addEquality(someExpression("a1", "b1"));
-    }
-
-    @Test(expectedExceptions = IllegalArgumentException.class)
-    public void testInvalidEqualityExpression3()
-    {
-        EqualityInference.Builder builder = new EqualityInference.Builder();
-        addEquality("a1", "a1", builder);
-    }
-
     @Test
     public void testExtractInferrableEqualities()
     {
-        EqualityInference inference = new EqualityInference.Builder()
-                .extractInferenceCandidates(ExpressionUtils.and(equals("a1", "b1"), equals("b1", "c1"), someExpression("c1", "d1")))
-                .build();
+        EqualityInference inference = EqualityInference.newInstance(
+                ExpressionUtils.and(equals("a1", "b1"), equals("b1", "c1"), someExpression("c1", "d1")));
 
         // Able to rewrite to c1 due to equalities
         assertEquals(nameReference("c1"), inference.rewriteExpression(nameReference("a1"), matchesSymbols("c1")));
@@ -180,14 +152,12 @@ public class TestEqualityInference
     @Test
     public void testEqualityPartitionGeneration()
     {
-        EqualityInference.Builder builder = new EqualityInference.Builder();
-        builder.addEquality(nameReference("a1"), nameReference("b1"));
-        builder.addEquality(add("a1", "a1"), multiply(nameReference("a1"), number(2)));
-        builder.addEquality(nameReference("b1"), nameReference("c1"));
-        builder.addEquality(add("a1", "a1"), nameReference("c1"));
-        builder.addEquality(add("a1", "b1"), nameReference("c1"));
-
-        EqualityInference inference = builder.build();
+        EqualityInference inference = EqualityInference.newInstance(
+                equals(nameReference("a1"), nameReference("b1")),
+                equals(add("a1", "a1"), multiply(nameReference("a1"), number(2))),
+                equals(nameReference("b1"), nameReference("c1")),
+                equals(add("a1", "a1"), nameReference("c1")),
+                equals(add("a1", "b1"), nameReference("c1")));
 
         EqualityInference.EqualityPartition emptyScopePartition = inference.generateEqualitiesPartitionedBy(Predicates.alwaysFalse());
         // Cannot generate any scope equalities with no matching symbols
@@ -216,11 +186,12 @@ public class TestEqualityInference
 
         // There should be a "full cover" of all of the equalities used
         // THUS, we should be able to plug the generated equalities back in and get an equivalent set of equalities back the next time around
-        EqualityInference newInference = new EqualityInference.Builder()
-                .addAllEqualities(equalityPartition.getScopeEqualities())
-                .addAllEqualities(equalityPartition.getScopeComplementEqualities())
-                .addAllEqualities(equalityPartition.getScopeStraddlingEqualities())
-                .build();
+        EqualityInference newInference = EqualityInference.newInstance(
+                ImmutableList.<Expression>builder()
+                        .addAll(equalityPartition.getScopeEqualities())
+                        .addAll(equalityPartition.getScopeComplementEqualities())
+                        .addAll(equalityPartition.getScopeStraddlingEqualities())
+                        .build());
 
         EqualityInference.EqualityPartition newEqualityPartition = newInference.generateEqualitiesPartitionedBy(matchesSymbols("c1"));
 
@@ -232,16 +203,13 @@ public class TestEqualityInference
     @Test
     public void testMultipleEqualitySetsPredicateGeneration()
     {
-        EqualityInference.Builder builder = new EqualityInference.Builder();
-        addEquality("a1", "b1", builder);
-        addEquality("b1", "c1", builder);
-        addEquality("c1", "d1", builder);
-
-        addEquality("a2", "b2", builder);
-        addEquality("b2", "c2", builder);
-        addEquality("c2", "d2", builder);
-
-        EqualityInference inference = builder.build();
+        EqualityInference inference = EqualityInference.newInstance(
+                equals("a1", "b1"),
+                equals("b1", "c1"),
+                equals("c1", "d1"),
+                equals("a2", "b2"),
+                equals("b2", "c2"),
+                equals("c2", "d2"));
 
         // Generating equalities for disjoint groups
         EqualityInference.EqualityPartition equalityPartition = inference.generateEqualitiesPartitionedBy(symbolBeginsWith("a", "b"));
@@ -263,11 +231,12 @@ public class TestEqualityInference
 
         // Again, there should be a "full cover" of all of the equalities used
         // THUS, we should be able to plug the generated equalities back in and get an equivalent set of equalities back the next time around
-        EqualityInference newInference = new EqualityInference.Builder()
-                .addAllEqualities(equalityPartition.getScopeEqualities())
-                .addAllEqualities(equalityPartition.getScopeComplementEqualities())
-                .addAllEqualities(equalityPartition.getScopeStraddlingEqualities())
-                .build();
+        EqualityInference newInference = EqualityInference.newInstance(
+                ImmutableList.<Expression>builder()
+                        .addAll(equalityPartition.getScopeEqualities())
+                        .addAll(equalityPartition.getScopeComplementEqualities())
+                        .addAll(equalityPartition.getScopeStraddlingEqualities())
+                        .build());
 
         EqualityInference.EqualityPartition newEqualityPartition = newInference.generateEqualitiesPartitionedBy(symbolBeginsWith("a", "b"));
 
@@ -279,11 +248,10 @@ public class TestEqualityInference
     @Test
     public void testSubExpressionRewrites()
     {
-        EqualityInference.Builder builder = new EqualityInference.Builder();
-        builder.addEquality(nameReference("a1"), add("b", "c")); // a1 = b + c
-        builder.addEquality(nameReference("a2"), multiply(nameReference("b"), add("b", "c"))); // a2 = b * (b + c)
-        builder.addEquality(nameReference("a3"), multiply(nameReference("a1"), add("b", "c"))); // a3 = a1 * (b + c)
-        EqualityInference inference = builder.build();
+        EqualityInference inference = EqualityInference.newInstance(
+                equals(nameReference("a1"), add("b", "c")), // a1 = b + c
+                equals(nameReference("a2"), multiply(nameReference("b"), add("b", "c"))), // a2 = b * (b + c)
+                equals(nameReference("a3"), multiply(nameReference("a1"), add("b", "c")))); // a3 = a1 * (b + c)
 
         // Expression (b + c) should get entirely rewritten as a1
         assertEquals(inference.rewriteExpression(add("b", "c"), symbolBeginsWith("a")), nameReference("a1"));
@@ -298,11 +266,10 @@ public class TestEqualityInference
     @Test
     public void testConstantEqualities()
     {
-        EqualityInference.Builder builder = new EqualityInference.Builder();
-        addEquality("a1", "b1", builder);
-        addEquality("b1", "c1", builder);
-        builder.addEquality(nameReference("c1"), number(1));
-        EqualityInference inference = builder.build();
+        EqualityInference inference = EqualityInference.newInstance(
+                equals("a1", "b1"),
+                equals("b1", "c1"),
+                equals(nameReference("c1"), number(1)));
 
         // Should always prefer a constant if available (constant is part of all scopes)
         assertEquals(inference.rewriteExpression(nameReference("a1"), matchesSymbols("a1", "b1")), number(1));
@@ -321,11 +288,10 @@ public class TestEqualityInference
     @Test
     public void testEqualityGeneration()
     {
-        EqualityInference.Builder builder = new EqualityInference.Builder();
-        builder.addEquality(nameReference("a1"), add("b", "c")); // a1 = b + c
-        builder.addEquality(nameReference("e1"), add("b", "d")); // e1 = b + d
-        addEquality("c", "d", builder);
-        EqualityInference inference = builder.build();
+        EqualityInference inference = EqualityInference.newInstance(
+                equals(nameReference("a1"), add("b", "c")), // a1 = b + c
+                equals(nameReference("e1"), add("b", "d")), // e1 = b + d
+                equals("c", "d"));
 
         Expression scopedCanonical = inference.getScopedCanonical(nameReference("e1"), symbolBeginsWith("a"));
         assertEquals(scopedCanonical, nameReference("a1"));
@@ -337,9 +303,9 @@ public class TestEqualityInference
         List<Expression> candidates = ImmutableList.of(
                 new Cast(nameReference("b"), "BIGINT", true), // try_cast
                 new FunctionCallBuilder(metadata)
-                    .setName(QualifiedName.of(TryFunction.NAME))
-                    .addArgument(new FunctionType(ImmutableList.of(), VARCHAR), new LambdaExpression(ImmutableList.of(), nameReference("b")))
-                    .build(),
+                        .setName(QualifiedName.of(TryFunction.NAME))
+                        .addArgument(new FunctionType(ImmutableList.of(), VARCHAR), new LambdaExpression(ImmutableList.of(), nameReference("b")))
+                        .build(),
                 new NullIfExpression(nameReference("b"), number(1)),
                 new IfExpression(nameReference("b"), number(1), new NullLiteral()),
                 new DereferenceExpression(nameReference("b"), identifier("x")),
@@ -349,11 +315,10 @@ public class TestEqualityInference
                 new SubscriptExpression(new ArrayConstructor(ImmutableList.of(new NullLiteral())), nameReference("b")));
 
         for (Expression candidate : candidates) {
-            EqualityInference.Builder builder = new EqualityInference.Builder();
-            builder.extractInferenceCandidates(equals(nameReference("b"), nameReference("x")));
-            builder.extractInferenceCandidates(equals(nameReference("a"), candidate));
+            EqualityInference inference = EqualityInference.newInstance(
+                    equals(nameReference("b"), nameReference("x")),
+                    equals(nameReference("a"), candidate));
 
-            EqualityInference inference = builder.build();
             List<Expression> equalities = inference.generateEqualitiesPartitionedBy(matchesSymbols("b")).getScopeStraddlingEqualities();
             assertEquals(equalities.size(), 1);
             assertTrue(equalities.get(0).equals(equals(nameReference("x"), nameReference("b"))) || equalities.get(0).equals(equals(nameReference("b"), nameReference("x"))));
@@ -371,11 +336,6 @@ public class TestEqualityInference
             Set<Symbol> symbols = SymbolsExtractor.extractUnique(expression);
             return Iterables.any(symbols, symbolScope) && Iterables.any(symbols, not(symbolScope));
         };
-    }
-
-    private static void addEquality(String symbol1, String symbol2, EqualityInference.Builder builder)
-    {
-        builder.addEquality(nameReference(symbol1), nameReference(symbol2));
     }
 
     private static Expression someExpression(String symbol1, String symbol2)
