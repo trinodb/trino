@@ -94,7 +94,7 @@ public class ArraySubscriptOperator
     public static Long longSubscript(Type elementType, Block array, long index)
     {
         checkIndex(array, index);
-        // when index is greater than array size, return null
+        // when index is greater than array size, return null, not PrestoException
         if (array.getPositionCount() < index){
             return null;
         }
@@ -110,7 +110,7 @@ public class ArraySubscriptOperator
     public static Boolean booleanSubscript(Type elementType, Block array, long index)
     {
         checkIndex(array, index);
-        // when index is greater than array size, return null
+        // when index is greater than array size, return null, not PrestoException
         if (array.getPositionCount() < index){
             return null;
         }
@@ -126,7 +126,7 @@ public class ArraySubscriptOperator
     public static Double doubleSubscript(Type elementType, Block array, long index)
     {
         checkIndex(array, index);
-        // when index is greater than array size, return null
+        // when index is greater than array size, return null, not PrestoException
         if (array.getPositionCount() < index){
             return null;
         }
@@ -142,7 +142,7 @@ public class ArraySubscriptOperator
     public static Slice sliceSubscript(Type elementType, Block array, long index)
     {
         checkIndex(array, index);
-        // when index is greater than array size, return null
+        // when index is greater than array size, return null, not PrestoException
         if (array.getPositionCount() < index){
             return null;
         }
@@ -158,7 +158,7 @@ public class ArraySubscriptOperator
     public static Object objectSubscript(Type elementType, Block array, long index)
     {
         checkIndex(array, index);
-        // when index is greater than array size, return null
+        // when index is greater than array size, return null, not PrestoException
         if (array.getPositionCount() < index){
             return null;
         }
