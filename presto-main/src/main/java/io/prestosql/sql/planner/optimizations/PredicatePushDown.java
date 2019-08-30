@@ -460,7 +460,7 @@ public class PredicatePushDown
             List<JoinNode.EquiJoinClause> equiJoinClauses = new ArrayList<>();
             ImmutableList.Builder<Expression> joinFilterBuilder = ImmutableList.builder();
             for (Expression conjunct : extractConjuncts(newJoinPredicate)) {
-                if (joinEqualityExpression(node.getLeft().getOutputSymbols()).test(conjunct)) {
+                if (joinEqualityExpression(conjunct, node.getLeft().getOutputSymbols())) {
                     ComparisonExpression equality = (ComparisonExpression) conjunct;
 
                     boolean alignedComparison = Iterables.all(SymbolsExtractor.extractUnique(equality.getLeft()), in(node.getLeft().getOutputSymbols()));
@@ -1023,24 +1023,22 @@ public class PredicatePushDown
                     .optimize(symbol -> nullSymbols.contains(symbol) ? null : symbol.toSymbolReference());
         }
 
-        private static Predicate<Expression> joinEqualityExpression(final Collection<Symbol> leftSymbols)
+        private static boolean joinEqualityExpression(Expression expression, Collection<Symbol> leftSymbols)
         {
-            return expression -> {
-                // At this point in time, our join predicates need to be deterministic
-                if (isDeterministic(expression) && expression instanceof ComparisonExpression) {
-                    ComparisonExpression comparison = (ComparisonExpression) expression;
-                    if (comparison.getOperator() == ComparisonExpression.Operator.EQUAL) {
-                        Set<Symbol> symbols1 = SymbolsExtractor.extractUnique(comparison.getLeft());
-                        Set<Symbol> symbols2 = SymbolsExtractor.extractUnique(comparison.getRight());
-                        if (symbols1.isEmpty() || symbols2.isEmpty()) {
-                            return false;
-                        }
-                        return (Iterables.all(symbols1, in(leftSymbols)) && Iterables.all(symbols2, not(in(leftSymbols)))) ||
-                                (Iterables.all(symbols2, in(leftSymbols)) && Iterables.all(symbols1, not(in(leftSymbols))));
+            // At this point in time, our join predicates need to be deterministic
+            if (isDeterministic(expression) && expression instanceof ComparisonExpression) {
+                ComparisonExpression comparison = (ComparisonExpression) expression;
+                if (comparison.getOperator() == ComparisonExpression.Operator.EQUAL) {
+                    Set<Symbol> symbols1 = SymbolsExtractor.extractUnique(comparison.getLeft());
+                    Set<Symbol> symbols2 = SymbolsExtractor.extractUnique(comparison.getRight());
+                    if (symbols1.isEmpty() || symbols2.isEmpty()) {
+                        return false;
                     }
+                    return (Iterables.all(symbols1, in(leftSymbols)) && Iterables.all(symbols2, not(in(leftSymbols)))) ||
+                            (Iterables.all(symbols2, in(leftSymbols)) && Iterables.all(symbols1, not(in(leftSymbols))));
                 }
-                return false;
-            };
+            }
+            return false;
         }
 
         @Override

@@ -131,7 +131,7 @@ public class EqualityInference
         // larger subtrees over smaller subtrees
         // TODO: this rewrite can probably be made more sophisticated
         Expression rewritten = ExpressionTreeRewriter.rewriteWith(new ExpressionNodeInliner(expressionRemap.build()), expression);
-        if (!symbolToExpressionPredicate(symbolScope).apply(rewritten)) {
+        if (!isScoped(rewritten, symbolScope)) {
             // If the rewritten is still not compliant with the symbol scope, just give up
             return null;
         }
@@ -244,32 +244,30 @@ public class EqualityInference
         if (canonicalIndex == null) {
             return null;
         }
-        return getCanonical(filter(equalitySets.get(canonicalIndex), symbolToExpressionPredicate(symbolScope)));
+        return getCanonical(filter(equalitySets.get(canonicalIndex), equivalentExpression -> isScoped(equivalentExpression, symbolScope)));
     }
 
-    private static Predicate<Expression> symbolToExpressionPredicate(final Predicate<Symbol> symbolScope)
+    private static boolean isScoped(Expression expression, Predicate<Symbol> symbolScope)
     {
-        return expression -> Iterables.all(SymbolsExtractor.extractUnique(expression), symbolScope);
+        return Iterables.all(SymbolsExtractor.extractUnique(expression), symbolScope);
     }
 
     /**
      * Determines whether an Expression may be successfully applied to the equality inference
      */
-    public static Predicate<Expression> isInferenceCandidate()
+    public static boolean isInferenceCandidate(Expression expression)
     {
-        return expression -> {
-            expression = normalizeInPredicateToEquality(expression);
-            if (expression instanceof ComparisonExpression &&
-                    isDeterministic(expression) &&
-                    !mayReturnNullOnNonNullInput(expression)) {
-                ComparisonExpression comparison = (ComparisonExpression) expression;
-                if (comparison.getOperator() == ComparisonExpression.Operator.EQUAL) {
-                    // We should only consider equalities that have distinct left and right components
-                    return !comparison.getLeft().equals(comparison.getRight());
-                }
+        expression = normalizeInPredicateToEquality(expression);
+        if (expression instanceof ComparisonExpression &&
+                isDeterministic(expression) &&
+                !mayReturnNullOnNonNullInput(expression)) {
+            ComparisonExpression comparison = (ComparisonExpression) expression;
+            if (comparison.getOperator() == ComparisonExpression.Operator.EQUAL) {
+                // We should only consider equalities that have distinct left and right components
+                return !comparison.getLeft().equals(comparison.getRight());
             }
-            return false;
-        };
+        }
+        return false;
     }
 
     /**
@@ -294,7 +292,7 @@ public class EqualityInference
      */
     public static Iterable<Expression> nonInferrableConjuncts(Expression expression)
     {
-        return filter(extractConjuncts(expression), not(isInferenceCandidate()));
+        return filter(extractConjuncts(expression), not(EqualityInference::isInferenceCandidate));
     }
 
     public static EqualityInference createEqualityInference(Expression... expressions)
@@ -342,7 +340,7 @@ public class EqualityInference
 
         public Builder extractInferenceCandidates(Expression expression)
         {
-            return addAllEqualities(filter(extractConjuncts(expression), isInferenceCandidate()));
+            return addAllEqualities(filter(extractConjuncts(expression), EqualityInference::isInferenceCandidate));
         }
 
         @VisibleForTesting
@@ -358,7 +356,7 @@ public class EqualityInference
         Builder addEquality(Expression expression)
         {
             expression = normalizeInPredicateToEquality(expression);
-            checkArgument(isInferenceCandidate().apply(expression), "Expression must be a simple equality: " + expression);
+            checkArgument(isInferenceCandidate(expression), "Expression must be a simple equality: " + expression);
             ComparisonExpression comparison = (ComparisonExpression) expression;
             addEquality(comparison.getLeft(), comparison.getRight());
             return this;

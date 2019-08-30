@@ -202,17 +202,17 @@ public class TestEqualityInference
         // There should be equalities in the scope, that only use c1 and are all inferrable equalities
         assertFalse(equalityPartition.getScopeEqualities().isEmpty());
         assertTrue(Iterables.all(equalityPartition.getScopeEqualities(), matchesSymbolScope(matchesSymbols("c1"))));
-        assertTrue(Iterables.all(equalityPartition.getScopeEqualities(), EqualityInference.isInferenceCandidate()));
+        assertTrue(Iterables.all(equalityPartition.getScopeEqualities(), EqualityInference::isInferenceCandidate));
 
         // There should be equalities in the inverse scope, that never use c1 and are all inferrable equalities
         assertFalse(equalityPartition.getScopeComplementEqualities().isEmpty());
         assertTrue(Iterables.all(equalityPartition.getScopeComplementEqualities(), matchesSymbolScope(not(matchesSymbols("c1")))));
-        assertTrue(Iterables.all(equalityPartition.getScopeComplementEqualities(), EqualityInference.isInferenceCandidate()));
+        assertTrue(Iterables.all(equalityPartition.getScopeComplementEqualities(), EqualityInference::isInferenceCandidate));
 
         // There should be equalities in the straddling scope, that should use both c1 and not c1 symbols
         assertFalse(equalityPartition.getScopeStraddlingEqualities().isEmpty());
         assertTrue(Iterables.any(equalityPartition.getScopeStraddlingEqualities(), matchesStraddlingScope(matchesSymbols("c1"))));
-        assertTrue(Iterables.all(equalityPartition.getScopeStraddlingEqualities(), EqualityInference.isInferenceCandidate()));
+        assertTrue(Iterables.all(equalityPartition.getScopeStraddlingEqualities(), EqualityInference::isInferenceCandidate));
 
         // There should be a "full cover" of all of the equalities used
         // THUS, we should be able to plug the generated equalities back in and get an equivalent set of equalities back the next time around
@@ -249,17 +249,17 @@ public class TestEqualityInference
         // There should be equalities in the scope, that only use a* and b* symbols and are all inferrable equalities
         assertFalse(equalityPartition.getScopeEqualities().isEmpty());
         assertTrue(Iterables.all(equalityPartition.getScopeEqualities(), matchesSymbolScope(symbolBeginsWith("a", "b"))));
-        assertTrue(Iterables.all(equalityPartition.getScopeEqualities(), EqualityInference.isInferenceCandidate()));
+        assertTrue(Iterables.all(equalityPartition.getScopeEqualities(), EqualityInference::isInferenceCandidate));
 
         // There should be equalities in the inverse scope, that never use a* and b* symbols and are all inferrable equalities
         assertFalse(equalityPartition.getScopeComplementEqualities().isEmpty());
         assertTrue(Iterables.all(equalityPartition.getScopeComplementEqualities(), matchesSymbolScope(not(symbolBeginsWith("a", "b")))));
-        assertTrue(Iterables.all(equalityPartition.getScopeComplementEqualities(), EqualityInference.isInferenceCandidate()));
+        assertTrue(Iterables.all(equalityPartition.getScopeComplementEqualities(), EqualityInference::isInferenceCandidate));
 
         // There should be equalities in the straddling scope, that should use both c1 and not c1 symbols
         assertFalse(equalityPartition.getScopeStraddlingEqualities().isEmpty());
         assertTrue(Iterables.any(equalityPartition.getScopeStraddlingEqualities(), matchesStraddlingScope(symbolBeginsWith("a", "b"))));
-        assertTrue(Iterables.all(equalityPartition.getScopeStraddlingEqualities(), EqualityInference.isInferenceCandidate()));
+        assertTrue(Iterables.all(equalityPartition.getScopeStraddlingEqualities(), EqualityInference::isInferenceCandidate));
 
         // Again, there should be a "full cover" of all of the equalities used
         // THUS, we should be able to plug the generated equalities back in and get an equivalent set of equalities back the next time around
