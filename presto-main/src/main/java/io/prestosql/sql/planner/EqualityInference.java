@@ -345,7 +345,8 @@ public class EqualityInference
             return addAllEqualities(filter(extractConjuncts(expression), isInferenceCandidate()));
         }
 
-        public Builder addAllEqualities(Iterable<Expression> expressions)
+        @VisibleForTesting
+        Builder addAllEqualities(Iterable<Expression> expressions)
         {
             for (Expression expression : expressions) {
                 addEquality(expression);
@@ -353,7 +354,8 @@ public class EqualityInference
             return this;
         }
 
-        public Builder addEquality(Expression expression)
+        @VisibleForTesting
+        Builder addEquality(Expression expression)
         {
             expression = normalizeInPredicateToEquality(expression);
             checkArgument(isInferenceCandidate().apply(expression), "Expression must be a simple equality: " + expression);
@@ -362,7 +364,8 @@ public class EqualityInference
             return this;
         }
 
-        public Builder addEquality(Expression expression1, Expression expression2)
+        @VisibleForTesting
+        Builder addEquality(Expression expression1, Expression expression2)
         {
             checkArgument(!expression1.equals(expression2), "Need to provide equality between different expressions");
             checkArgument(isDeterministic(expression1), "Expression must be deterministic: " + expression1);
