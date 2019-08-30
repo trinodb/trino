@@ -37,8 +37,8 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.sql.planner.SymbolsExtractor.extractUnique;
 
 /**
- * Utility class for pushing simple projections through join so that joins can participate
- * in cross join elimination or join reordering.
+ * Utility class for pushing projections through join so that joins are not separated
+ * by a project node and can participate in cross join elimination or join reordering.
  */
 public final class PushProjectionThroughJoin
 {
