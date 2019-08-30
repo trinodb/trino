@@ -64,7 +64,6 @@ import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
 import static io.prestosql.sql.ExpressionUtils.expressionOrNullSymbols;
 import static io.prestosql.sql.ExpressionUtils.extractConjuncts;
 import static io.prestosql.sql.ExpressionUtils.filterDeterministicConjuncts;
-import static io.prestosql.sql.planner.EqualityInference.createEqualityInference;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static java.util.Objects.requireNonNull;
@@ -433,7 +432,7 @@ public class EffectivePredicateExtractor
 
         private static Expression pullExpressionThroughSymbols(Expression expression, Collection<Symbol> symbols)
         {
-            EqualityInference equalityInference = createEqualityInference(expression);
+            EqualityInference equalityInference = EqualityInference.newInstance(expression);
 
             ImmutableList.Builder<Expression> effectiveConjuncts = ImmutableList.builder();
             for (Expression conjunct : EqualityInference.nonInferrableConjuncts(expression)) {
