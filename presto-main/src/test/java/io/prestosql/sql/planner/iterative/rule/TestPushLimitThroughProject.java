@@ -15,14 +15,20 @@ package io.prestosql.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.spi.type.RowType;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.assertions.ExpressionMatcher;
 import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.tree.ArithmeticBinaryExpression;
+import io.prestosql.sql.tree.DereferenceExpression;
+import io.prestosql.sql.tree.Identifier;
 import io.prestosql.sql.tree.SymbolReference;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.limit;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
@@ -132,5 +138,45 @@ public class TestPushLimitThroughProject
                                     Assignments.of(a, a.toSymbolReference()),
                                     p.values(a)));
                 }).doesNotFire();
+    }
+
+    @Test
+    public void testDoesntPushDownLimitThroughExclusiveDereferences()
+    {
+        RowType rowType = RowType.from(ImmutableList.of(new RowType.Field(Optional.of("x"), BIGINT), new RowType.Field(Optional.of("y"), BIGINT)));
+
+        tester().assertThat(new PushLimitThroughProject())
+                .on(p -> {
+                    Symbol a = p.symbol("a", rowType);
+                    return p.limit(1,
+                            p.project(
+                                    Assignments.of(
+                                            p.symbol("b"), new DereferenceExpression(a.toSymbolReference(), new Identifier("x")),
+                                            p.symbol("c"), new DereferenceExpression(a.toSymbolReference(), new Identifier("y"))),
+                                    p.values(a)));
+                })
+                .doesNotFire();
+    }
+
+    @Test
+    public void testPushDownLimitThroughOverlappingDereferences()
+    {
+        RowType rowType = RowType.from(ImmutableList.of(new RowType.Field(Optional.of("x"), BIGINT), new RowType.Field(Optional.of("y"), BIGINT)));
+
+        tester().assertThat(new PushLimitThroughProject())
+                .on(p -> {
+                    Symbol a = p.symbol("a", rowType);
+                    return p.limit(1,
+                            p.project(
+                                    Assignments.of(
+                                            p.symbol("b"), new DereferenceExpression(a.toSymbolReference(), new Identifier("x")),
+                                            p.symbol("c", rowType), a.toSymbolReference()),
+                                    p.values(a)));
+                })
+                .matches(
+                        project(
+                                ImmutableMap.of("b", expression("a.x"), "c", expression("a")),
+                                limit(1,
+                                        values("a"))));
     }
 }
