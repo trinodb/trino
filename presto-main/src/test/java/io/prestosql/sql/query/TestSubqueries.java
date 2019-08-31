@@ -118,6 +118,9 @@ public class TestSubqueries
                         "FROM (VALUES 1) t(cid)",
                 "VALUES true",
                 false);
+        assertions.assertFails(
+                "SELECT (SELECT t.a FROM (VALUES 1, 2, 3) t(a) WHERE t.a=t2.b ORDER BY a FETCH FIRST ROW WITH TIES) FROM (VALUES 1) t2(b)",
+                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
     }
 
     @Test
