@@ -429,7 +429,7 @@ public class ReorderJoins
         private final Expression filter;
         private final List<Symbol> outputSymbols;
 
-        public MultiJoinNode(LinkedHashSet<PlanNode> sources, Expression filter, List<Symbol> outputSymbols)
+        MultiJoinNode(LinkedHashSet<PlanNode> sources, Expression filter, List<Symbol> outputSymbols)
         {
             requireNonNull(sources, "sources is null");
             checkArgument(sources.size() > 1, "sources size is <= 1");
@@ -570,8 +570,8 @@ public class ReorderJoins
     @VisibleForTesting
     static class JoinEnumerationResult
     {
-        public static final JoinEnumerationResult UNKNOWN_COST_RESULT = new JoinEnumerationResult(Optional.empty(), PlanCostEstimate.unknown());
-        public static final JoinEnumerationResult INFINITE_COST_RESULT = new JoinEnumerationResult(Optional.empty(), PlanCostEstimate.infinite());
+        static final JoinEnumerationResult UNKNOWN_COST_RESULT = new JoinEnumerationResult(Optional.empty(), PlanCostEstimate.unknown());
+        static final JoinEnumerationResult INFINITE_COST_RESULT = new JoinEnumerationResult(Optional.empty(), PlanCostEstimate.infinite());
 
         private final Optional<PlanNode> planNode;
         private final PlanCostEstimate cost;
