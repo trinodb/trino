@@ -145,7 +145,7 @@ public class PlanNodeDecorrelator
         @Override
         public Optional<DecorrelationResult> visitLimit(LimitNode node, Void context)
         {
-            if (node.getCount() == 0) {
+            if (node.getCount() == 0 || node.isWithTies()) {
                 return Optional.empty();
             }
 
