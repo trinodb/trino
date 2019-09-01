@@ -13,8 +13,7 @@
 #
 FROM centos:centos7 AS dist
 ARG PRESTO_VERSION
-ARG CLIENT_VERSION=${PRESTO_VERSION}
-COPY presto-cli-${CLIENT_VERSION}-executable.jar /usr/bin/presto
+COPY presto-cli-${PRESTO_VERSION}-executable.jar /usr/bin/presto
 COPY presto-server-${PRESTO_VERSION} /usr/lib/presto
 RUN hardlink -cf /usr/lib/presto
 
