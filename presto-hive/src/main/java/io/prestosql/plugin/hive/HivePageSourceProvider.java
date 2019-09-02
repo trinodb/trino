@@ -105,6 +105,7 @@ public class HivePageSourceProvider
                 hiveSplit.getStart(),
                 hiveSplit.getLength(),
                 hiveSplit.getFileSize(),
+                hiveSplit.getFileModifiedTime(),
                 hiveSplit.getSchema(),
                 hiveTable.getCompactEffectivePredicate(),
                 hiveColumns,
@@ -130,6 +131,7 @@ public class HivePageSourceProvider
             long start,
             long length,
             long fileSize,
+            long fileModifiedTime,
             Properties schema,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             List<HiveColumnHandle> hiveColumns,
@@ -147,7 +149,8 @@ public class HivePageSourceProvider
                 columnCoercions,
                 path,
                 bucketNumber,
-                fileSize);
+                fileSize,
+                fileModifiedTime);
         List<ColumnMapping> regularAndInterimColumnMappings = ColumnMapping.extractRegularAndInterimColumnMappings(columnMappings);
 
         Optional<BucketAdaptation> bucketAdaptation = bucketConversion.map(conversion -> {
@@ -315,7 +318,8 @@ public class HivePageSourceProvider
                 Map<Integer, HiveType> columnCoercions,
                 Path path,
                 OptionalInt bucketNumber,
-                long fileSize)
+                long fileSize,
+                long fileModifiedTime)
         {
             Map<String, HivePartitionKey> partitionKeysByName = uniqueIndex(partitionKeys, HivePartitionKey::getName);
             int regularIndex = 0;
@@ -331,7 +335,7 @@ public class HivePageSourceProvider
                 else {
                     columnMappings.add(prefilled(
                             column,
-                            getPrefilledColumnValue(column, partitionKeysByName.get(column.getName()), path, bucketNumber, fileSize),
+                            getPrefilledColumnValue(column, partitionKeysByName.get(column.getName()), path, bucketNumber, fileSize, fileModifiedTime),
                             coercionFrom));
                 }
             }

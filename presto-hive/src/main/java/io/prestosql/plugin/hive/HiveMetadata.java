@@ -127,6 +127,7 @@ import static io.prestosql.plugin.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
+import static io.prestosql.plugin.hive.HiveColumnHandle.FILE_MODIFIED_TIME_COLUMN_NAME;
 import static io.prestosql.plugin.hive.HiveColumnHandle.FILE_SIZE_COLUMN_NAME;
 import static io.prestosql.plugin.hive.HiveColumnHandle.PATH_COLUMN_NAME;
 import static io.prestosql.plugin.hive.HiveColumnHandle.updateRowIdHandle;
@@ -2203,6 +2204,7 @@ public class HiveMetadata
             builder.put(BUCKET_COLUMN_NAME, Optional.empty());
         }
         builder.put(FILE_SIZE_COLUMN_NAME, Optional.empty());
+        builder.put(FILE_MODIFIED_TIME_COLUMN_NAME, Optional.empty());
 
         Map<String, Optional<String>> columnComment = builder.build();
 
