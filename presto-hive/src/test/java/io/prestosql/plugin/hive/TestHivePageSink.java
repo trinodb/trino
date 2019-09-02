@@ -224,6 +224,7 @@ public class TestHivePageSink
                 0,
                 outputFile.length(),
                 outputFile.length(),
+                outputFile.lastModified(),
                 splitProperties,
                 ImmutableList.of(),
                 ImmutableList.of(),
