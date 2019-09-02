@@ -48,6 +48,7 @@ public class InternalHiveSplit
     private final String path;
     private final long end;
     private final long fileSize;
+    private final long fileModifiedTime;
     private final Properties schema;
     private final List<HivePartitionKey> partitionKeys;
     private final List<InternalHiveBlock> blocks;
@@ -68,6 +69,7 @@ public class InternalHiveSplit
             long start,
             long end,
             long fileSize,
+            long fileModifiedTime,
             Properties schema,
             List<HivePartitionKey> partitionKeys,
             List<InternalHiveBlock> blocks,
@@ -95,6 +97,7 @@ public class InternalHiveSplit
         this.start = start;
         this.end = end;
         this.fileSize = fileSize;
+        this.fileModifiedTime = fileModifiedTime;
         this.schema = schema;
         this.partitionKeys = ImmutableList.copyOf(partitionKeys);
         this.blocks = ImmutableList.copyOf(blocks);
@@ -124,6 +127,11 @@ public class InternalHiveSplit
     public long getFileSize()
     {
         return fileSize;
+    }
+
+    public long getFileModifiedTime()
+    {
+        return fileModifiedTime;
     }
 
     public boolean isS3SelectPushdownEnabled()
