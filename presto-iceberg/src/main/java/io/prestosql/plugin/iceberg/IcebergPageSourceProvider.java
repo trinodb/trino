@@ -43,6 +43,7 @@ import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.BlockMissingException;
@@ -159,7 +160,8 @@ public class IcebergPageSourceProvider
         ParquetDataSource dataSource = null;
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(user, path, configuration);
-            long fileSize = fileSystem.getFileStatus(path).getLen();
+            FileStatus fileStatus = fileSystem.getFileStatus(path);
+            long fileSize = fileStatus.getLen();
             FSDataInputStream inputStream = hdfsEnvironment.doAs(user, () -> fileSystem.open(path));
             dataSource = buildHdfsParquetDataSource(inputStream, path, fileSize, fileFormatDataSourceStats);
             ParquetMetadata parquetMetadata = MetadataReader.readFooter(fileSystem, path, fileSize);
@@ -210,7 +212,8 @@ public class IcebergPageSourceProvider
                     ImmutableMap.of(),
                     path,
                     OptionalInt.empty(),
-                    fileSize);
+                    fileSize,
+                    fileStatus.getModificationTime());
 
             // This transformation is solely done so columns that are renames can be read.
             // ParquetPageSource tries to get column type from column name and because the
