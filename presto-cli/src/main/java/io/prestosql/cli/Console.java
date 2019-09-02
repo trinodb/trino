@@ -86,7 +86,7 @@ public class Console
     public boolean run()
     {
         ClientSession session = clientOptions.toClientSession();
-        boolean hasQuery = !isNullOrEmpty(clientOptions.execute);
+        boolean hasQuery = clientOptions.execute != null;
         boolean isFromFile = !isNullOrEmpty(clientOptions.file);
 
         if (!hasQuery && !isFromFile) {
