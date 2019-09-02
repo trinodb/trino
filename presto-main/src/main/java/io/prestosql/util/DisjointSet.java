@@ -34,11 +34,6 @@ public class DisjointSet<T>
             this(null, 0);
         }
 
-        public Entry(Entry<T> entry)
-        {
-            this(entry.parent, entry.rank);
-        }
-
         private Entry(T parent, int rank)
         {
             this.parent = parent;
