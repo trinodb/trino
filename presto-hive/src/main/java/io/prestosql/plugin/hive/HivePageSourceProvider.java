@@ -146,7 +146,8 @@ public class HivePageSourceProvider
                 bucketConversion.map(BucketConversion::getBucketColumnHandles).orElse(ImmutableList.of()),
                 columnCoercions,
                 path,
-                bucketNumber);
+                bucketNumber,
+                fileSize);
         List<ColumnMapping> regularAndInterimColumnMappings = ColumnMapping.extractRegularAndInterimColumnMappings(columnMappings);
 
         Optional<BucketAdaptation> bucketAdaptation = bucketConversion.map(conversion -> {
@@ -313,7 +314,8 @@ public class HivePageSourceProvider
                 List<HiveColumnHandle> requiredInterimColumns,
                 Map<Integer, HiveType> columnCoercions,
                 Path path,
-                OptionalInt bucketNumber)
+                OptionalInt bucketNumber,
+                long fileSize)
         {
             Map<String, HivePartitionKey> partitionKeysByName = uniqueIndex(partitionKeys, HivePartitionKey::getName);
             int regularIndex = 0;
@@ -329,7 +331,7 @@ public class HivePageSourceProvider
                 else {
                     columnMappings.add(prefilled(
                             column,
-                            getPrefilledColumnValue(column, partitionKeysByName.get(column.getName()), path, bucketNumber),
+                            getPrefilledColumnValue(column, partitionKeysByName.get(column.getName()), path, bucketNumber, fileSize),
                             coercionFrom));
                 }
             }

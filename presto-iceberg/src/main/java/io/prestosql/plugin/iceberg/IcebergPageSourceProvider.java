@@ -209,7 +209,8 @@ public class IcebergPageSourceProvider
                     ImmutableList.of(),
                     ImmutableMap.of(),
                     path,
-                    OptionalInt.empty());
+                    OptionalInt.empty(),
+                    fileSize);
 
             // This transformation is solely done so columns that are renames can be read.
             // ParquetPageSource tries to get column type from column name and because the
