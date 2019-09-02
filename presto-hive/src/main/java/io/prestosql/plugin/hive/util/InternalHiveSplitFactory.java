@@ -110,6 +110,7 @@ public class InternalHiveSplitFactory
                 0,
                 status.getLen(),
                 status.getLen(),
+                status.getModificationTime(),
                 bucketNumber,
                 splittable);
     }
@@ -124,6 +125,7 @@ public class InternalHiveSplitFactory
                 split.getStart(),
                 split.getLength(),
                 file.getLen(),
+                file.getModificationTime(),
                 OptionalInt.empty(),
                 false);
     }
@@ -134,6 +136,7 @@ public class InternalHiveSplitFactory
             long start,
             long length,
             long fileSize,
+            long fileModificationTime,
             OptionalInt bucketNumber,
             boolean splittable)
     {
@@ -182,6 +185,7 @@ public class InternalHiveSplitFactory
                 start,
                 start + length,
                 fileSize,
+                fileModificationTime,
                 schema,
                 partitionKeys,
                 blocks,

@@ -20,6 +20,7 @@ import io.prestosql.plugin.hive.HiveColumnHandle.ColumnType;
 import io.prestosql.spi.HostAddress;
 import org.testng.annotations.Test;
 
+import java.time.Instant;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
@@ -50,6 +51,7 @@ public class TestHiveSplit
                 42,
                 87,
                 88,
+                Instant.now().toEpochMilli(),
                 schema,
                 partitionKeys,
                 addresses,
