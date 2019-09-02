@@ -105,7 +105,9 @@ import static com.google.common.collect.Lists.transform;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.prestosql.plugin.hive.HiveColumnHandle.bucketColumnHandle;
+import static io.prestosql.plugin.hive.HiveColumnHandle.fileSizeColumnHandle;
 import static io.prestosql.plugin.hive.HiveColumnHandle.isBucketColumnHandle;
+import static io.prestosql.plugin.hive.HiveColumnHandle.isFileSizeColumnHandle;
 import static io.prestosql.plugin.hive.HiveColumnHandle.isPathColumnHandle;
 import static io.prestosql.plugin.hive.HiveColumnHandle.pathColumnHandle;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
@@ -839,6 +841,7 @@ public final class HiveUtil
         if (table.getStorage().getBucketProperty().isPresent() && isHiveBucketingV1(table)) {
             columns.add(bucketColumnHandle());
         }
+        columns.add(fileSizeColumnHandle());
 
         return columns.build();
     }
@@ -912,7 +915,7 @@ public final class HiveUtil
         return resultBuilder.build();
     }
 
-    public static String getPrefilledColumnValue(HiveColumnHandle columnHandle, HivePartitionKey partitionKey, Path path, OptionalInt bucketNumber)
+    public static String getPrefilledColumnValue(HiveColumnHandle columnHandle, HivePartitionKey partitionKey, Path path, OptionalInt bucketNumber, long fileSize)
     {
         if (partitionKey != null) {
             return partitionKey.getValue();
@@ -922,6 +925,9 @@ public final class HiveUtil
         }
         if (isBucketColumnHandle(columnHandle)) {
             return String.valueOf(bucketNumber.getAsInt());
+        }
+        if (isFileSizeColumnHandle(columnHandle)) {
+            return String.valueOf(fileSize);
         }
         throw new PrestoException(NOT_SUPPORTED, "unsupported hidden column: " + columnHandle);
     }
