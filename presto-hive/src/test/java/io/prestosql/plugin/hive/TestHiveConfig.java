@@ -22,7 +22,6 @@ import io.airlift.units.Duration;
 import io.prestosql.orc.OrcWriteValidation.OrcWriteValidationMode;
 import io.prestosql.plugin.hive.HiveConfig.HdfsAuthenticationType;
 import io.prestosql.plugin.hive.HiveConfig.HiveMetastoreAuthenticationType;
-import io.prestosql.plugin.hive.s3.S3FileSystemType;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -67,7 +66,6 @@ public class TestHiveConfig
                 .setDfsConnectMaxRetries(5)
                 .setVerifyChecksum(true)
                 .setDomainSocketPath(null)
-                .setS3FileSystemType(S3FileSystemType.PRESTO)
                 .setResourceConfigFiles("")
                 .setHiveStorageFormat(HiveStorageFormat.ORC)
                 .setHiveCompressionCodec(HiveCompressionCodec.GZIP)
@@ -143,7 +141,6 @@ public class TestHiveConfig
                 .put("hive.dfs.connect.max-retries", "10")
                 .put("hive.dfs.verify-checksum", "false")
                 .put("hive.dfs.domain-socket-path", "/foo")
-                .put("hive.s3-file-system-type", "EMRFS")
                 .put("hive.config.resources", "/foo.xml,/bar.xml")
                 .put("hive.max-initial-splits", "10")
                 .put("hive.max-initial-split-size", "16MB")
@@ -243,7 +240,6 @@ public class TestHiveConfig
                 .setMaxOpenSortFiles(333)
                 .setWriteValidationThreads(11)
                 .setDomainSocketPath("/foo")
-                .setS3FileSystemType(S3FileSystemType.EMRFS)
                 .setTextMaxLineLength(new DataSize(13, Unit.MEGABYTE))
                 .setUseParquetColumnNames(true)
                 .setUseOrcColumnNames(true)

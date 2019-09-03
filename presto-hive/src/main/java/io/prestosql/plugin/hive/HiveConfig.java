@@ -25,7 +25,6 @@ import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
 import io.airlift.units.MinDuration;
 import io.prestosql.orc.OrcWriteValidation.OrcWriteValidationMode;
-import io.prestosql.plugin.hive.s3.S3FileSystemType;
 import org.joda.time.DateTimeZone;
 
 import javax.annotation.Nullable;
@@ -88,8 +87,6 @@ public class HiveConfig
     private int dfsConnectMaxRetries = 5;
     private boolean verifyChecksum = true;
     private String domainSocketPath;
-
-    private S3FileSystemType s3FileSystemType = S3FileSystemType.PRESTO;
 
     private HiveStorageFormat hiveStorageFormat = HiveStorageFormat.ORC;
     private HiveCompressionCodec hiveCompressionCodec = HiveCompressionCodec.GZIP;
@@ -632,19 +629,6 @@ public class HiveConfig
     public HiveConfig setDomainSocketPath(String domainSocketPath)
     {
         this.domainSocketPath = domainSocketPath;
-        return this;
-    }
-
-    @NotNull
-    public S3FileSystemType getS3FileSystemType()
-    {
-        return s3FileSystemType;
-    }
-
-    @Config("hive.s3-file-system-type")
-    public HiveConfig setS3FileSystemType(S3FileSystemType s3FileSystemType)
-    {
-        this.s3FileSystemType = s3FileSystemType;
         return this;
     }
 
