@@ -28,7 +28,6 @@ import io.prestosql.GroupByHashPageIndexerFactory;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.HivePageSinkMetadata;
-import io.prestosql.plugin.hive.parquet.ParquetWriterConfig;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.block.BlockBuilder;
@@ -40,7 +39,6 @@ import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.gen.JoinCompiler;
 import io.prestosql.testing.MaterializedResult;
-import io.prestosql.testing.TestingConnectorSession;
 import io.prestosql.testing.TestingNodeManager;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
@@ -68,6 +66,8 @@ import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHiveDataStreamFac
 import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHiveFileWriterFactories;
 import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHiveRecordCursorProvider;
 import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultOrcFileWriterFactory;
+import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSession;
+import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSessionProperties;
 import static io.prestosql.plugin.hive.HiveType.HIVE_DATE;
 import static io.prestosql.plugin.hive.HiveType.HIVE_DOUBLE;
 import static io.prestosql.plugin.hive.HiveType.HIVE_INT;
@@ -194,8 +194,8 @@ public class TestHivePageSink
                 pages.add(nextPage.getLoadedPage());
             }
         }
-        MaterializedResult expectedResults = toMaterializedResult(getSession(config), columnTypes, ImmutableList.of(page));
-        MaterializedResult results = toMaterializedResult(getSession(config), columnTypes, pages);
+        MaterializedResult expectedResults = toMaterializedResult(getHiveSession(config), columnTypes, ImmutableList.of(page));
+        MaterializedResult results = toMaterializedResult(getHiveSession(config), columnTypes, pages);
         assertEquals(results, expectedResults);
         assertEquals(stats.getInputPageSizeInBytes().getAllTime().getMax(), page.getRetainedSizeInBytes());
         return length;
@@ -237,12 +237,12 @@ public class TestHivePageSink
                 false);
         ConnectorTableHandle table = new HiveTableHandle(SCHEMA_NAME, TABLE_NAME, ImmutableMap.of(), ImmutableList.of(), Optional.empty());
         HivePageSourceProvider provider = new HivePageSourceProvider(config, createTestHdfsEnvironment(config), getDefaultHiveRecordCursorProvider(config), getDefaultHiveDataStreamFactories(config), TYPE_MANAGER);
-        return provider.createPageSource(transaction, getSession(config), split, table, ImmutableList.copyOf(getColumnHandles()));
+        return provider.createPageSource(transaction, getHiveSession(config), split, table, ImmutableList.copyOf(getColumnHandles()));
     }
 
     private static ConnectorPageSink createPageSink(HiveTransactionHandle transaction, HiveConfig config, HiveMetastore metastore, Path outputPath, HiveWriterStats stats)
     {
-        ConnectorSession session = getSession(config);
+        ConnectorSession session = getHiveSession(config);
         HiveIdentity identity = new HiveIdentity(session);
         LocationHandle locationHandle = new LocationHandle(outputPath, outputPath, false, DIRECT_TO_TARGET_NEW_DIRECTORY);
         HiveOutputTableHandle handle = new HiveOutputTableHandle(
@@ -271,15 +271,10 @@ public class TestHivePageSink
                 partitionUpdateCodec,
                 new TestingNodeManager("fake-environment"),
                 new HiveEventClient(),
-                new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetWriterConfig()),
+                getHiveSessionProperties(config),
                 stats,
                 getDefaultOrcFileWriterFactory(config));
-        return provider.createPageSink(transaction, getSession(config), handle);
-    }
-
-    private static TestingConnectorSession getSession(HiveConfig config)
-    {
-        return new TestingConnectorSession(new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetWriterConfig()).getSessionProperties());
+        return provider.createPageSink(transaction, getHiveSession(config), handle);
     }
 
     private static List<HiveColumnHandle> getColumnHandles()

@@ -25,13 +25,11 @@ import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
 import io.prestosql.plugin.hive.metastore.Column;
 import io.prestosql.plugin.hive.metastore.StorageFormat;
 import io.prestosql.plugin.hive.metastore.Table;
-import io.prestosql.plugin.hive.parquet.ParquetWriterConfig;
 import io.prestosql.plugin.hive.util.HiveBucketing.HiveBucketFilter;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.testing.TestingConnectorSession;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -68,6 +66,7 @@ import static io.prestosql.plugin.hive.BackgroundHiveSplitLoader.BucketSplitInfo
 import static io.prestosql.plugin.hive.BackgroundHiveSplitLoader.getBucketNumber;
 import static io.prestosql.plugin.hive.HiveColumnHandle.pathColumnHandle;
 import static io.prestosql.plugin.hive.HiveTestUtils.SESSION;
+import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.prestosql.plugin.hive.HiveType.HIVE_INT;
 import static io.prestosql.plugin.hive.HiveType.HIVE_STRING;
 import static io.prestosql.plugin.hive.util.HiveUtil.getRegularColumnHandles;
@@ -314,8 +313,8 @@ public class TestBackgroundHiveSplitLoader
                                 Optional.empty(),
                                 ImmutableMap.of()));
 
-        ConnectorSession connectorSession = new TestingConnectorSession(
-                new HiveSessionProperties(new HiveConfig().setMaxSplitSize(new DataSize(1.0, GIGABYTE)), new OrcFileWriterConfig(), new ParquetWriterConfig()).getSessionProperties());
+        ConnectorSession connectorSession = getHiveSession(new HiveConfig()
+                .setMaxSplitSize(new DataSize(1.0, GIGABYTE)));
 
         return new BackgroundHiveSplitLoader(
                 table,
@@ -339,8 +338,8 @@ public class TestBackgroundHiveSplitLoader
                         Optional.empty(),
                         ImmutableMap.of()));
 
-        ConnectorSession connectorSession = new TestingConnectorSession(
-                new HiveSessionProperties(new HiveConfig().setMaxSplitSize(new DataSize(1.0, GIGABYTE)), new OrcFileWriterConfig(), new ParquetWriterConfig()).getSessionProperties());
+        ConnectorSession connectorSession = getHiveSession(new HiveConfig()
+                .setMaxSplitSize(new DataSize(1.0, GIGABYTE)));
 
         return new BackgroundHiveSplitLoader(
                 SIMPLE_TABLE,
@@ -358,8 +357,8 @@ public class TestBackgroundHiveSplitLoader
 
     private static BackgroundHiveSplitLoader backgroundHiveSplitLoaderOfflinePartitions()
     {
-        ConnectorSession connectorSession = new TestingConnectorSession(
-                new HiveSessionProperties(new HiveConfig().setMaxSplitSize(new DataSize(1.0, GIGABYTE)), new OrcFileWriterConfig(), new ParquetWriterConfig()).getSessionProperties());
+        ConnectorSession connectorSession = getHiveSession(new HiveConfig()
+                .setMaxSplitSize(new DataSize(1.0, GIGABYTE)));
 
         return new BackgroundHiveSplitLoader(
                 SIMPLE_TABLE,
