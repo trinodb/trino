@@ -120,9 +120,6 @@ public class HiveConfig
 
     private boolean rcfileWriterValidate;
 
-    private HiveMetastoreAuthenticationType hiveMetastoreAuthenticationType = HiveMetastoreAuthenticationType.NONE;
-    private HdfsAuthenticationType hdfsAuthenticationType = HdfsAuthenticationType.NONE;
-    private boolean hdfsImpersonationEnabled;
     private boolean hdfsWireEncryptionEnabled;
 
     private boolean skipDeletionForAlter;
@@ -904,59 +901,6 @@ public class HiveConfig
     public HiveConfig setFileStatusCacheExpireAfterWrite(Duration fileStatusCacheExpireAfterWrite)
     {
         this.fileStatusCacheExpireAfterWrite = fileStatusCacheExpireAfterWrite;
-        return this;
-    }
-
-    public enum HiveMetastoreAuthenticationType
-    {
-        NONE,
-        KERBEROS
-    }
-
-    @NotNull
-    public HiveMetastoreAuthenticationType getHiveMetastoreAuthenticationType()
-    {
-        return hiveMetastoreAuthenticationType;
-    }
-
-    @Config("hive.metastore.authentication.type")
-    @ConfigDescription("Hive Metastore authentication type")
-    public HiveConfig setHiveMetastoreAuthenticationType(HiveMetastoreAuthenticationType hiveMetastoreAuthenticationType)
-    {
-        this.hiveMetastoreAuthenticationType = hiveMetastoreAuthenticationType;
-        return this;
-    }
-
-    public enum HdfsAuthenticationType
-    {
-        NONE,
-        KERBEROS,
-    }
-
-    @NotNull
-    public HdfsAuthenticationType getHdfsAuthenticationType()
-    {
-        return hdfsAuthenticationType;
-    }
-
-    @Config("hive.hdfs.authentication.type")
-    @ConfigDescription("HDFS authentication type")
-    public HiveConfig setHdfsAuthenticationType(HdfsAuthenticationType hdfsAuthenticationType)
-    {
-        this.hdfsAuthenticationType = hdfsAuthenticationType;
-        return this;
-    }
-
-    public boolean isHdfsImpersonationEnabled()
-    {
-        return hdfsImpersonationEnabled;
-    }
-
-    @Config("hive.hdfs.impersonation.enabled")
-    @ConfigDescription("Should Presto user be impersonated when communicating with HDFS")
-    public HiveConfig setHdfsImpersonationEnabled(boolean hdfsImpersonationEnabled)
-    {
-        this.hdfsImpersonationEnabled = hdfsImpersonationEnabled;
         return this;
     }
 

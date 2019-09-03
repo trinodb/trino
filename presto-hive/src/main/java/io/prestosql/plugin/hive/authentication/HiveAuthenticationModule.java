@@ -16,9 +16,8 @@ package io.prestosql.plugin.hive.authentication;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.prestosql.plugin.hive.HiveConfig;
-import io.prestosql.plugin.hive.HiveConfig.HdfsAuthenticationType;
-import io.prestosql.plugin.hive.HiveConfig.HiveMetastoreAuthenticationType;
+import io.prestosql.plugin.hive.authentication.HiveAuthenticationConfig.HdfsAuthenticationType;
+import io.prestosql.plugin.hive.authentication.HiveAuthenticationConfig.HiveMetastoreAuthenticationType;
 
 import java.util.function.Predicate;
 
@@ -61,17 +60,17 @@ public class HiveAuthenticationModule
                 kerberosImpersonatingHdfsAuthenticationModule());
     }
 
-    private void bindAuthenticationModule(Predicate<HiveConfig> predicate, Module module)
+    private void bindAuthenticationModule(Predicate<HiveAuthenticationConfig> predicate, Module module)
     {
-        install(installModuleIf(HiveConfig.class, predicate, module));
+        install(installModuleIf(HiveAuthenticationConfig.class, predicate, module));
     }
 
-    private static boolean noHdfsAuth(HiveConfig config)
+    private static boolean noHdfsAuth(HiveAuthenticationConfig config)
     {
         return config.getHdfsAuthenticationType() == HdfsAuthenticationType.NONE;
     }
 
-    private static boolean kerberosHdfsAuth(HiveConfig config)
+    private static boolean kerberosHdfsAuth(HiveAuthenticationConfig config)
     {
         return config.getHdfsAuthenticationType() == HdfsAuthenticationType.KERBEROS;
     }
