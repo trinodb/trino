@@ -46,7 +46,7 @@ import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.HADOOP_SOCKS_SE
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.IPC_CLIENT_CONNECT_MAX_RETRIES_KEY;
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.IPC_CLIENT_CONNECT_TIMEOUT_KEY;
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.NET_TOPOLOGY_NODE_SWITCH_MAPPING_IMPL_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_CLIENT_KEY_PROVIDER_CACHE_EXPIRY_MS;
+import static org.apache.hadoop.hdfs.client.HdfsClientConfigKeys.DFS_CLIENT_KEY_PROVIDER_CACHE_EXPIRY_MS;
 import static org.apache.hadoop.hdfs.client.HdfsClientConfigKeys.DFS_CLIENT_SOCKET_TIMEOUT_KEY;
 import static org.apache.hadoop.hdfs.client.HdfsClientConfigKeys.DFS_DOMAIN_SOCKET_PATH_KEY;
 import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.COMPRESSRESULT;
@@ -65,23 +65,22 @@ public class HdfsConfigurationInitializer
     private final HiveCompressionCodec compressionCodec;
     private final int fileSystemMaxCacheSize;
     private final Set<ConfigurationInitializer> configurationInitializers;
-    private final boolean isHdfsWireEncryptionEnabled;
-    private int textMaxLineLength;
+    private final boolean wireEncryptionEnabled;
+    private final int textMaxLineLength;
 
     @VisibleForTesting
-    public HdfsConfigurationInitializer(HiveConfig config)
+    public HdfsConfigurationInitializer(HiveConfig hiveConfig, HdfsConfig hdfsConfig)
     {
-        this(config, ImmutableSet.of());
+        this(hiveConfig, hdfsConfig, ImmutableSet.of());
     }
 
     @Inject
-    public HdfsConfigurationInitializer(HiveConfig config, Set<ConfigurationInitializer> configurationInitializers)
+    public HdfsConfigurationInitializer(HiveConfig hiveConfig, HdfsConfig config, Set<ConfigurationInitializer> configurationInitializers)
     {
-        requireNonNull(config, "config is null");
         checkArgument(config.getDfsTimeout().toMillis() >= 1, "dfsTimeout must be at least 1 ms");
-        checkArgument(toIntExact(config.getTextMaxLineLength().toBytes()) >= 1, "textMaxLineLength must be at least 1 byte");
+        checkArgument(toIntExact(hiveConfig.getTextMaxLineLength().toBytes()) >= 1, "textMaxLineLength must be at least 1 byte");
 
-        this.socksProxy = config.getHdfsSocksProxy();
+        this.socksProxy = config.getSocksProxy();
         this.ipcPingInterval = config.getIpcPingInterval();
         this.dfsTimeout = config.getDfsTimeout();
         this.dfsConnectTimeout = config.getDfsConnectTimeout();
@@ -89,10 +88,10 @@ public class HdfsConfigurationInitializer
         this.dfsKeyProviderCacheTtlMillis = toIntExact(config.getDfsKeyProviderCacheTtl().toMillis());
         this.domainSocketPath = config.getDomainSocketPath();
         this.resourcesConfiguration = readConfiguration(config.getResourceConfigFiles());
-        this.compressionCodec = config.getHiveCompressionCodec();
+        this.compressionCodec = hiveConfig.getHiveCompressionCodec();
         this.fileSystemMaxCacheSize = config.getFileSystemMaxCacheSize();
-        this.isHdfsWireEncryptionEnabled = config.isHdfsWireEncryptionEnabled();
-        this.textMaxLineLength = toIntExact(config.getTextMaxLineLength().toBytes());
+        this.wireEncryptionEnabled = config.isWireEncryptionEnabled();
+        this.textMaxLineLength = toIntExact(hiveConfig.getTextMaxLineLength().toBytes());
 
         this.configurationInitializers = ImmutableSet.copyOf(requireNonNull(configurationInitializers, "configurationInitializers is null"));
     }
@@ -135,15 +134,15 @@ public class HdfsConfigurationInitializer
         config.setInt(IPC_PING_INTERVAL_KEY, toIntExact(ipcPingInterval.toMillis()));
         config.setInt(IPC_CLIENT_CONNECT_TIMEOUT_KEY, toIntExact(dfsConnectTimeout.toMillis()));
         config.setInt(IPC_CLIENT_CONNECT_MAX_RETRIES_KEY, dfsConnectMaxRetries);
+        config.setInt(DFS_CLIENT_KEY_PROVIDER_CACHE_EXPIRY_MS, dfsKeyProviderCacheTtlMillis);
 
-        if (isHdfsWireEncryptionEnabled) {
+        if (wireEncryptionEnabled) {
             config.set(HADOOP_RPC_PROTECTION, "privacy");
             config.setBoolean("dfs.encrypt.data.transfer", true);
         }
 
         config.setInt("fs.cache.max-size", fileSystemMaxCacheSize);
 
-        config.setInt(DFS_CLIENT_KEY_PROVIDER_CACHE_EXPIRY_MS, dfsKeyProviderCacheTtlMillis);
         config.setInt(LineRecordReader.MAX_LINE_LENGTH, textMaxLineLength);
 
         configureCompression(config, compressionCodec);

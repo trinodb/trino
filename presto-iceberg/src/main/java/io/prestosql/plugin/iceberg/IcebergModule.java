@@ -19,6 +19,7 @@ import com.google.inject.Scopes;
 import io.prestosql.plugin.hive.CoercionPolicy;
 import io.prestosql.plugin.hive.DynamicConfigurationProvider;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
+import io.prestosql.plugin.hive.HdfsConfig;
 import io.prestosql.plugin.hive.HdfsConfiguration;
 import io.prestosql.plugin.hive.HdfsConfigurationInitializer;
 import io.prestosql.plugin.hive.HdfsEnvironment;
@@ -60,6 +61,7 @@ public class IcebergModule
 
         configBinder(binder).bindConfig(HiveConfig.class);
         configBinder(binder).bindConfig(HiveS3Config.class);
+        configBinder(binder).bindConfig(HdfsConfig.class);
 
         binder.bind(IcebergSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(IcebergTableProperties.class).in(Scopes.SINGLETON);

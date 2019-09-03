@@ -136,11 +136,12 @@ public final class HiveTestUtils
         HdfsConfiguration hdfsConfig = new HiveHdfsConfiguration(
                 new HdfsConfigurationInitializer(
                         config,
+                        new HdfsConfig(),
                         ImmutableSet.of(
                                 new PrestoS3ConfigurationInitializer(new HiveS3Config()),
                                 new GoogleGcsConfigurationInitializer(new HiveGcsConfig()))),
                 ImmutableSet.of());
-        return new HdfsEnvironment(hdfsConfig, config, new NoHdfsAuthentication());
+        return new HdfsEnvironment(hdfsConfig, new HdfsConfig(), new NoHdfsAuthentication());
     }
 
     public static MapType mapType(Type keyType, Type valueType)
