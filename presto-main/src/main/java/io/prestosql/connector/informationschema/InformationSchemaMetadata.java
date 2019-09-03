@@ -291,6 +291,11 @@ public class InformationSchemaMetadata
             return ImmutableSet.of();
         }
 
+        Optional<Set<String>> catalogs = filterString(constraint.getSummary(), CATALOG_COLUMN_HANDLE);
+        if (catalogs.isPresent() && !catalogs.get().contains(table.getCatalogName())) {
+            return ImmutableSet.of();
+        }
+
         SchemaTableName schemaTableName = handle.getSchemaTableName();
         Set<QualifiedTablePrefix> prefixes = calculatePrefixesWithSchemaName(schemaTableName, session, constraint.getSummary(), constraint.predicate());
         if (isTablesEnumeratingTable(handle.getSchemaTableName())) {
