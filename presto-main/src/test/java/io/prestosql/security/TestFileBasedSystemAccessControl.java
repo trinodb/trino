@@ -22,7 +22,6 @@ import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.PrestoPrincipal;
-import io.prestosql.spi.security.SystemAccessControl;
 import io.prestosql.transaction.TransactionManager;
 import org.testng.annotations.Test;
 
@@ -37,7 +36,6 @@ import static io.prestosql.plugin.base.security.FileBasedAccessControlConfig.SEC
 import static io.prestosql.plugin.base.security.FileBasedAccessControlConfig.SECURITY_REFRESH_PERIOD;
 import static io.prestosql.spi.security.PrincipalType.USER;
 import static io.prestosql.spi.security.Privilege.SELECT;
-import static io.prestosql.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static io.prestosql.transaction.TransactionBuilder.transaction;
 import static java.lang.Thread.sleep;
@@ -193,12 +191,6 @@ public class TestFileBasedSystemAccessControl
         assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
             accessControlManager.checkCanCreateView(new SecurityContext(transactionId, bob), aliceView);
         }));
-    }
-
-    @Test
-    public void testEverythingImplemented()
-    {
-        assertAllMethodsOverridden(SystemAccessControl.class, FileBasedSystemAccessControl.class);
     }
 
     @Test
