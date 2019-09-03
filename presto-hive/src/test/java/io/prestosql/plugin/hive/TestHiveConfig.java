@@ -20,8 +20,6 @@ import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 import io.prestosql.orc.OrcWriteValidation.OrcWriteValidationMode;
-import io.prestosql.plugin.hive.HiveConfig.HdfsAuthenticationType;
-import io.prestosql.plugin.hive.HiveConfig.HiveMetastoreAuthenticationType;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -92,9 +90,6 @@ public class TestHiveConfig
                 .setOrcWriteLegacyVersion(false)
                 .setOrcWriterValidationPercentage(0.0)
                 .setOrcWriterValidationMode(OrcWriteValidationMode.BOTH)
-                .setHiveMetastoreAuthenticationType(HiveMetastoreAuthenticationType.NONE)
-                .setHdfsAuthenticationType(HdfsAuthenticationType.NONE)
-                .setHdfsImpersonationEnabled(false)
                 .setSkipDeletionForAlter(false)
                 .setSkipTargetCleanupOnRollback(false)
                 .setBucketExecutionEnabled(true)
@@ -175,9 +170,6 @@ public class TestHiveConfig
                 .put("hive.orc.writer.use-legacy-version-number", "true")
                 .put("hive.orc.writer.validation-percentage", "0.16")
                 .put("hive.orc.writer.validation-mode", "DETAILED")
-                .put("hive.metastore.authentication.type", "KERBEROS")
-                .put("hive.hdfs.authentication.type", "KERBEROS")
-                .put("hive.hdfs.impersonation.enabled", "true")
                 .put("hive.skip-deletion-for-alter", "true")
                 .put("hive.skip-target-cleanup-on-rollback", "true")
                 .put("hive.bucket-execution", "false")
@@ -256,9 +248,6 @@ public class TestHiveConfig
                 .setOrcWriteLegacyVersion(true)
                 .setOrcWriterValidationPercentage(0.16)
                 .setOrcWriterValidationMode(OrcWriteValidationMode.DETAILED)
-                .setHiveMetastoreAuthenticationType(HiveMetastoreAuthenticationType.KERBEROS)
-                .setHdfsAuthenticationType(HdfsAuthenticationType.KERBEROS)
-                .setHdfsImpersonationEnabled(true)
                 .setSkipDeletionForAlter(true)
                 .setSkipTargetCleanupOnRollback(true)
                 .setBucketExecutionEnabled(false)
