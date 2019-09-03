@@ -15,7 +15,6 @@ package io.prestosql.plugin.hive.metastore.thrift;
 
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
-import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.authentication.HiveMetastoreAuthentication;
 import org.apache.thrift.transport.TTransportException;
 
@@ -47,9 +46,9 @@ public class ThriftMetastoreClientFactory
     }
 
     @Inject
-    public ThriftMetastoreClientFactory(HiveConfig config, ThriftHiveMetastoreConfig thriftConfig, HiveMetastoreAuthentication metastoreAuthentication)
+    public ThriftMetastoreClientFactory(ThriftHiveMetastoreConfig config, HiveMetastoreAuthentication metastoreAuthentication)
     {
-        this(Optional.empty(), Optional.ofNullable(config.getMetastoreSocksProxy()), thriftConfig.getMetastoreTimeout(), metastoreAuthentication);
+        this(Optional.empty(), Optional.ofNullable(config.getSocksProxy()), config.getMetastoreTimeout(), metastoreAuthentication);
     }
 
     public ThriftMetastoreClient create(HostAndPort address)

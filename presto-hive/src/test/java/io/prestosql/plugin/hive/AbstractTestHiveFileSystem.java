@@ -153,12 +153,11 @@ public abstract class AbstractTestHiveFileSystem
 
         config = new HiveConfig().setS3SelectPushdownEnabled(s3SelectPushdownEnabled);
 
-        String proxy = System.getProperty("hive.metastore.thrift.client.socks-proxy");
-        if (proxy != null) {
-            config.setMetastoreSocksProxy(HostAndPort.fromString(proxy));
-        }
+        Optional<HostAndPort> proxy = Optional.ofNullable(System.getProperty("hive.metastore.thrift.client.socks-proxy"))
+                .map(HostAndPort::fromString);
 
-        MetastoreLocator metastoreLocator = new TestingMetastoreLocator(config, host, port);
+        MetastoreLocator metastoreLocator = new TestingMetastoreLocator(proxy, HostAndPort.fromParts(host, port));
+
         ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("hive-%s"));
         HivePartitionManager hivePartitionManager = new HivePartitionManager(TYPE_MANAGER, config);
 

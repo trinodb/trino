@@ -14,6 +14,7 @@
 package io.prestosql.plugin.hive.metastore.thrift;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
@@ -32,6 +33,7 @@ public class TestThriftHiveMetastoreConfig
     {
         assertRecordedDefaults(recordDefaults(ThriftHiveMetastoreConfig.class)
                 .setMetastoreTimeout(new Duration(10, TimeUnit.SECONDS))
+                .setSocksProxy(null)
                 .setMaxRetries(9)
                 .setBackoffScaleFactor(2.0)
                 .setMinBackoffDelay(new Duration(1, SECONDS))
@@ -45,6 +47,7 @@ public class TestThriftHiveMetastoreConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("hive.metastore-timeout", "20s")
+                .put("hive.metastore.thrift.client.socks-proxy", "localhost:1234")
                 .put("hive.metastore.thrift.client.max-retries", "15")
                 .put("hive.metastore.thrift.client.backoff-scale-factor", "3.0")
                 .put("hive.metastore.thrift.client.min-backoff-delay", "2s")
@@ -55,6 +58,7 @@ public class TestThriftHiveMetastoreConfig
 
         ThriftHiveMetastoreConfig expected = new ThriftHiveMetastoreConfig()
                 .setMetastoreTimeout(new Duration(20, TimeUnit.SECONDS))
+                .setSocksProxy(HostAndPort.fromParts("localhost", 1234))
                 .setMaxRetries(15)
                 .setBackoffScaleFactor(3.0)
                 .setMinBackoffDelay(new Duration(2, SECONDS))

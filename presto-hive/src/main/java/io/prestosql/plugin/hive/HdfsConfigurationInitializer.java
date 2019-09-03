@@ -81,7 +81,7 @@ public class HdfsConfigurationInitializer
         checkArgument(config.getDfsTimeout().toMillis() >= 1, "dfsTimeout must be at least 1 ms");
         checkArgument(toIntExact(config.getTextMaxLineLength().toBytes()) >= 1, "textMaxLineLength must be at least 1 byte");
 
-        this.socksProxy = config.getMetastoreSocksProxy();
+        this.socksProxy = config.getHdfsSocksProxy();
         this.ipcPingInterval = config.getIpcPingInterval();
         this.dfsTimeout = config.getDfsTimeout();
         this.dfsConnectTimeout = config.getDfsConnectTimeout();
