@@ -26,6 +26,7 @@ set +e
   -Dhive.hadoop2.metastoreHost=hadoop-master \
   -Dhive.hadoop2.timeZone=Asia/Kathmandu \
   -Dhive.metastore.thrift.client.socks-proxy=${PROXY}:1180 \
+  -Dhive.hdfs.socks-proxy=${PROXY}:1180 \
   -Dhadoop-master-ip=${HADOOP_MASTER_IP}
 EXIT_CODE=$?
 set -e

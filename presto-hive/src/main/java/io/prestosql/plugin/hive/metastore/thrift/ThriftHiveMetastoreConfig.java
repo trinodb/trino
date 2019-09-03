@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.hive.metastore.thrift;
 
+import com.google.common.net.HostAndPort;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.Duration;
@@ -26,6 +27,7 @@ import java.util.concurrent.TimeUnit;
 public class ThriftHiveMetastoreConfig
 {
     private Duration metastoreTimeout = new Duration(10, TimeUnit.SECONDS);
+    private HostAndPort socksProxy;
     private int maxRetries = RetryDriver.DEFAULT_MAX_ATTEMPTS - 1;
     private double backoffScaleFactor = RetryDriver.DEFAULT_SCALE_FACTOR;
     private Duration minBackoffDelay = RetryDriver.DEFAULT_SLEEP_TIME;
@@ -43,6 +45,18 @@ public class ThriftHiveMetastoreConfig
     public ThriftHiveMetastoreConfig setMetastoreTimeout(Duration metastoreTimeout)
     {
         this.metastoreTimeout = metastoreTimeout;
+        return this;
+    }
+
+    public HostAndPort getSocksProxy()
+    {
+        return socksProxy;
+    }
+
+    @Config("hive.metastore.thrift.client.socks-proxy")
+    public ThriftHiveMetastoreConfig setSocksProxy(HostAndPort socksProxy)
+    {
+        this.socksProxy = socksProxy;
         return this;
     }
 

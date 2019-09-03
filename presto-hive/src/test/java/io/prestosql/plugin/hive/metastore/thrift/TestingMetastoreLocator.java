@@ -14,28 +14,35 @@
 package io.prestosql.plugin.hive.metastore.thrift;
 
 import com.google.common.net.HostAndPort;
-import io.prestosql.plugin.hive.HiveConfig;
+import io.airlift.units.Duration;
+import io.prestosql.plugin.hive.authentication.HiveMetastoreAuthentication;
 import io.prestosql.plugin.hive.authentication.NoHiveMetastoreAuthentication;
 import org.apache.thrift.TException;
 
+import java.util.Optional;
+
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestingMetastoreLocator
         implements MetastoreLocator
 {
-    private final HiveConfig config;
+    private static final HiveMetastoreAuthentication AUTHENTICATION = new NoHiveMetastoreAuthentication();
+    private static final Duration TIMEOUT = new Duration(10, SECONDS);
+
+    private final ThriftMetastoreClientFactory factory;
     private final HostAndPort address;
 
-    public TestingMetastoreLocator(HiveConfig config, String host, int port)
+    public TestingMetastoreLocator(Optional<HostAndPort> socksProxy, HostAndPort address)
     {
-        this.config = requireNonNull(config, "config is null");
-        this.address = HostAndPort.fromParts(requireNonNull(host, "host is null"), port);
+        this.factory = new ThriftMetastoreClientFactory(Optional.empty(), socksProxy, TIMEOUT, AUTHENTICATION);
+        this.address = requireNonNull(address, "address is null");
     }
 
     @Override
     public ThriftMetastoreClient createMetastoreClient()
             throws TException
     {
-        return new ThriftMetastoreClientFactory(config, new ThriftHiveMetastoreConfig(), new NoHiveMetastoreAuthentication()).create(address);
+        return factory.create(address);
     }
 }

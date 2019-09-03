@@ -56,6 +56,7 @@ If your Hive metastore or HDFS cluster is not directly accessible to your local 
 Then add the following to the list of VM options:
 
     -Dhive.metastore.thrift.client.socks-proxy=localhost:1080
+    -Dhive.hdfs.socks-proxy=localhost:1080
 
 ### Running the CLI
 

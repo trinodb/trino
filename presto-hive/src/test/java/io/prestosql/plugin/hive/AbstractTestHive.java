@@ -695,12 +695,12 @@ public abstract class AbstractTestHive
     {
         HiveConfig hiveConfig = getHiveConfig();
         hiveConfig.setTimeZone(timeZone);
-        String proxy = System.getProperty("hive.metastore.thrift.client.socks-proxy");
-        if (proxy != null) {
-            hiveConfig.setMetastoreSocksProxy(HostAndPort.fromString(proxy));
-        }
 
-        MetastoreLocator metastoreLocator = new TestingMetastoreLocator(hiveConfig, host, port);
+        Optional<HostAndPort> proxy = Optional.ofNullable(System.getProperty("hive.metastore.thrift.client.socks-proxy"))
+                .map(HostAndPort::fromString);
+
+        MetastoreLocator metastoreLocator = new TestingMetastoreLocator(proxy, HostAndPort.fromParts(host, port));
+
         HiveMetastore metastore = new CachingHiveMetastore(
                 new BridgingHiveMetastore(new ThriftHiveMetastore(metastoreLocator, new ThriftHiveMetastoreConfig())),
                 executor,

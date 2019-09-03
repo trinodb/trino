@@ -78,7 +78,6 @@ public class HiveConfig
     private boolean allowCorruptWritesForTesting;
 
     private long perTransactionMetastoreCacheMaximumSize = 1000;
-    private HostAndPort metastoreSocksProxy;
 
     private Duration ipcPingInterval = new Duration(10, TimeUnit.SECONDS);
     private Duration dfsTimeout = new Duration(60, TimeUnit.SECONDS);
@@ -120,6 +119,7 @@ public class HiveConfig
 
     private boolean rcfileWriterValidate;
 
+    private HostAndPort hdfsSocksProxy;
     private boolean hdfsWireEncryptionEnabled;
 
     private boolean skipDeletionForAlter;
@@ -383,18 +383,6 @@ public class HiveConfig
     public HiveConfig setPerTransactionMetastoreCacheMaximumSize(long perTransactionMetastoreCacheMaximumSize)
     {
         this.perTransactionMetastoreCacheMaximumSize = perTransactionMetastoreCacheMaximumSize;
-        return this;
-    }
-
-    public HostAndPort getMetastoreSocksProxy()
-    {
-        return metastoreSocksProxy;
-    }
-
-    @Config("hive.metastore.thrift.client.socks-proxy")
-    public HiveConfig setMetastoreSocksProxy(HostAndPort metastoreSocksProxy)
-    {
-        this.metastoreSocksProxy = metastoreSocksProxy;
         return this;
     }
 
@@ -901,6 +889,18 @@ public class HiveConfig
     public HiveConfig setFileStatusCacheExpireAfterWrite(Duration fileStatusCacheExpireAfterWrite)
     {
         this.fileStatusCacheExpireAfterWrite = fileStatusCacheExpireAfterWrite;
+        return this;
+    }
+
+    public HostAndPort getHdfsSocksProxy()
+    {
+        return hdfsSocksProxy;
+    }
+
+    @Config("hive.hdfs.socks-proxy")
+    public HiveConfig setHdfsSocksProxy(HostAndPort hdfsSocksProxy)
+    {
+        this.hdfsSocksProxy = hdfsSocksProxy;
         return this;
     }
 
