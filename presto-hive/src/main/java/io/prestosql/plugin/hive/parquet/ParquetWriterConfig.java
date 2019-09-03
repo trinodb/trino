@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive;
+package io.prestosql.plugin.hive.parquet;
 
 import io.airlift.configuration.Config;
 import io.airlift.units.DataSize;
@@ -19,7 +19,7 @@ import org.apache.parquet.hadoop.ParquetWriter;
 
 import static io.airlift.units.DataSize.Unit.BYTE;
 
-public class ParquetFileWriterConfig
+public class ParquetWriterConfig
 {
     private DataSize blockSize = new DataSize(ParquetWriter.DEFAULT_BLOCK_SIZE, BYTE);
     private DataSize pageSize = new DataSize(ParquetWriter.DEFAULT_PAGE_SIZE, BYTE);
@@ -30,7 +30,7 @@ public class ParquetFileWriterConfig
     }
 
     @Config("hive.parquet.writer.block-size")
-    public ParquetFileWriterConfig setBlockSize(DataSize blockSize)
+    public ParquetWriterConfig setBlockSize(DataSize blockSize)
     {
         this.blockSize = blockSize;
         return this;
@@ -42,7 +42,7 @@ public class ParquetFileWriterConfig
     }
 
     @Config("hive.parquet.writer.page-size")
-    public ParquetFileWriterConfig setPageSize(DataSize pageSize)
+    public ParquetWriterConfig setPageSize(DataSize pageSize)
     {
         this.pageSize = pageSize;
         return this;

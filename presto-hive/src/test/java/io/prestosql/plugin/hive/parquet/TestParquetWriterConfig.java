@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive;
+package io.prestosql.plugin.hive.parquet;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
@@ -26,12 +26,12 @@ import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
-public class TestParquetFileWriterConfig
+public class TestParquetWriterConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(ParquetFileWriterConfig.class)
+        assertRecordedDefaults(recordDefaults(ParquetWriterConfig.class)
                 .setBlockSize(new DataSize(ParquetWriter.DEFAULT_BLOCK_SIZE, BYTE))
                 .setPageSize(new DataSize(ParquetWriter.DEFAULT_PAGE_SIZE, BYTE)));
     }
@@ -44,7 +44,7 @@ public class TestParquetFileWriterConfig
                 .put("hive.parquet.writer.page-size", "11MB")
                 .build();
 
-        ParquetFileWriterConfig expected = new ParquetFileWriterConfig()
+        ParquetWriterConfig expected = new ParquetWriterConfig()
                 .setBlockSize(new DataSize(234, MEGABYTE))
                 .setPageSize(new DataSize(11, MEGABYTE));
 

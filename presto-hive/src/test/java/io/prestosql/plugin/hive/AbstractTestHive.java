@@ -50,6 +50,7 @@ import io.prestosql.plugin.hive.metastore.thrift.ThriftHiveMetastore;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftHiveMetastoreConfig;
 import io.prestosql.plugin.hive.orc.OrcPageSource;
 import io.prestosql.plugin.hive.parquet.ParquetPageSource;
+import io.prestosql.plugin.hive.parquet.ParquetWriterConfig;
 import io.prestosql.plugin.hive.rcfile.RcFilePageSource;
 import io.prestosql.plugin.hive.security.SqlStandardAccessControlMetadata;
 import io.prestosql.spi.Page;
@@ -768,7 +769,7 @@ public abstract class AbstractTestHive
                 partitionUpdateCodec,
                 new TestingNodeManager("fake-environment"),
                 new HiveEventClient(),
-                new HiveSessionProperties(hiveConfig, new OrcFileWriterConfig(), new ParquetFileWriterConfig()),
+                new HiveSessionProperties(hiveConfig, new OrcFileWriterConfig(), new ParquetWriterConfig()),
                 new HiveWriterStats(),
                 getDefaultOrcFileWriterFactory(hiveConfig));
         pageSourceProvider = new HivePageSourceProvider(hiveConfig, hdfsEnvironment, getDefaultHiveRecordCursorProvider(hiveConfig), getDefaultHiveDataStreamFactories(hiveConfig), TYPE_MANAGER);
@@ -791,7 +792,7 @@ public abstract class AbstractTestHive
 
     protected ConnectorSession newSession(Map<String, Object> propertyValues)
     {
-        HiveSessionProperties properties = new HiveSessionProperties(getHiveConfig(), new OrcFileWriterConfig(), new ParquetFileWriterConfig());
+        HiveSessionProperties properties = new HiveSessionProperties(getHiveConfig(), new OrcFileWriterConfig(), new ParquetWriterConfig());
         return new TestingConnectorSession(properties.getSessionProperties(), propertyValues);
     }
 
@@ -2903,7 +2904,7 @@ public abstract class AbstractTestHive
     {
         HiveSessionProperties properties = new HiveSessionProperties(
                 getHiveConfig().setPartitionStatisticsSampleSize(sampleSize),
-                new OrcFileWriterConfig(), new ParquetFileWriterConfig());
+                new OrcFileWriterConfig(), new ParquetWriterConfig());
         return new TestingConnectorSession(properties.getSessionProperties());
     }
 

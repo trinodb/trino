@@ -26,7 +26,7 @@ import io.prestosql.plugin.hive.HiveCompressionCodec;
 import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HiveSessionProperties;
 import io.prestosql.plugin.hive.OrcFileWriterConfig;
-import io.prestosql.plugin.hive.ParquetFileWriterConfig;
+import io.prestosql.plugin.hive.parquet.ParquetWriterConfig;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.block.BlockBuilder;
@@ -95,7 +95,7 @@ public class BenchmarkHiveFileFormat
 
     private static final HiveConfig CONFIG = new HiveConfig();
 
-    private static final ConnectorSession SESSION = new TestingConnectorSession(new HiveSessionProperties(CONFIG, new OrcFileWriterConfig(), new ParquetFileWriterConfig())
+    private static final ConnectorSession SESSION = new TestingConnectorSession(new HiveSessionProperties(CONFIG, new OrcFileWriterConfig(), new ParquetWriterConfig())
             .getSessionProperties());
 
     private static final HdfsEnvironment HDFS_ENVIRONMENT = createTestHdfsEnvironment(CONFIG);

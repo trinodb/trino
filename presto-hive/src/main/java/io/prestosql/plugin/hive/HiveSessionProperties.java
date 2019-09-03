@@ -16,6 +16,7 @@ package io.prestosql.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.prestosql.orc.OrcWriteValidation.OrcWriteValidationMode;
+import io.prestosql.plugin.hive.parquet.ParquetWriterConfig;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.session.PropertyMetadata;
@@ -100,7 +101,7 @@ public final class HiveSessionProperties
     }
 
     @Inject
-    public HiveSessionProperties(HiveConfig hiveConfig, OrcFileWriterConfig orcFileWriterConfig, ParquetFileWriterConfig parquetFileWriterConfig)
+    public HiveSessionProperties(HiveConfig hiveConfig, OrcFileWriterConfig orcFileWriterConfig, ParquetWriterConfig parquetWriterConfig)
     {
         sessionProperties = ImmutableList.of(
                 booleanProperty(
@@ -242,12 +243,12 @@ public final class HiveSessionProperties
                 dataSizeProperty(
                         PARQUET_WRITER_BLOCK_SIZE,
                         "Parquet: Writer block size",
-                        parquetFileWriterConfig.getBlockSize(),
+                        parquetWriterConfig.getBlockSize(),
                         false),
                 dataSizeProperty(
                         PARQUET_WRITER_PAGE_SIZE,
                         "Parquet: Writer page size",
-                        parquetFileWriterConfig.getPageSize(),
+                        parquetWriterConfig.getPageSize(),
                         false),
                 dataSizeProperty(
                         MAX_SPLIT_SIZE,
