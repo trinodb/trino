@@ -60,6 +60,7 @@ public class HiveModule
         binder.bind(HdfsEnvironment.class).in(Scopes.SINGLETON);
         binder.bind(DirectoryLister.class).to(CachingDirectoryLister.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(HiveConfig.class);
+        configBinder(binder).bindConfig(HdfsConfig.class);
 
         binder.bind(HiveSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(HiveTableProperties.class).in(Scopes.SINGLETON);

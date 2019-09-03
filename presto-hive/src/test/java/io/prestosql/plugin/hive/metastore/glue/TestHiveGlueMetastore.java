@@ -13,18 +13,14 @@
  */
 package io.prestosql.plugin.hive.metastore.glue;
 
-import com.google.common.collect.ImmutableSet;
 import io.prestosql.plugin.hive.AbstractTestHiveLocal;
-import io.prestosql.plugin.hive.HdfsConfiguration;
-import io.prestosql.plugin.hive.HdfsConfigurationInitializer;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveConfig;
-import io.prestosql.plugin.hive.HiveHdfsConfiguration;
-import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 
 import java.io.File;
 
+import static io.prestosql.plugin.hive.HiveTestUtils.createTestHdfsEnvironment;
 import static java.util.Locale.ENGLISH;
 import static java.util.UUID.randomUUID;
 
@@ -44,9 +40,7 @@ public class TestHiveGlueMetastore
     @Override
     protected HiveMetastore createMetastore(File tempDir)
     {
-        HiveConfig hiveConfig = new HiveConfig();
-        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveConfig), ImmutableSet.of());
-        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveConfig, new NoHdfsAuthentication());
+        HdfsEnvironment hdfsEnvironment = createTestHdfsEnvironment(new HiveConfig());
         GlueHiveMetastoreConfig glueConfig = new GlueHiveMetastoreConfig();
         glueConfig.setDefaultWarehouseDir(tempDir.toURI().toString());
 

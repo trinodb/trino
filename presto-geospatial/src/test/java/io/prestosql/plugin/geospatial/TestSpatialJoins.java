@@ -13,18 +13,11 @@
  */
 package io.prestosql.plugin.geospatial;
 
-import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
-import io.prestosql.plugin.hive.HdfsConfiguration;
-import io.prestosql.plugin.hive.HdfsConfigurationInitializer;
-import io.prestosql.plugin.hive.HdfsEnvironment;
-import io.prestosql.plugin.hive.HiveConfig;
-import io.prestosql.plugin.hive.HiveHdfsConfiguration;
 import io.prestosql.plugin.hive.HivePlugin;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
-import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
 import io.prestosql.plugin.hive.metastore.Database;
-import io.prestosql.plugin.hive.metastore.file.FileHiveMetastore;
+import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.spi.security.PrincipalType;
 import io.prestosql.tests.AbstractTestQueryFramework;
 import io.prestosql.tests.DistributedQueryRunner;
@@ -34,6 +27,7 @@ import java.io.File;
 import java.util.Optional;
 
 import static io.prestosql.SystemSessionProperties.SPATIAL_PARTITIONING_TABLE_NAME;
+import static io.prestosql.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
@@ -79,11 +73,8 @@ public class TestSpatialJoins
 
         File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
 
-        HiveConfig hiveConfig = new HiveConfig();
-        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveConfig), ImmutableSet.of());
-        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveConfig, new NoHdfsAuthentication());
+        HiveMetastore metastore = createTestingFileHiveMetastore(baseDir);
 
-        FileHiveMetastore metastore = new FileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test");
         metastore.createDatabase(
                 new HiveIdentity(SESSION),
                 Database.builder()

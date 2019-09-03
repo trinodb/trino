@@ -485,8 +485,10 @@ public class TestBackgroundHiveSplitLoader
         public TestingHdfsEnvironment(List<LocatedFileStatus> files)
         {
             super(
-                    new HiveHdfsConfiguration(new HdfsConfigurationInitializer(new HiveConfig()), ImmutableSet.of()),
-                    new HiveConfig(),
+                    new HiveHdfsConfiguration(
+                            new HdfsConfigurationInitializer(new HiveConfig(), new HdfsConfig()),
+                            ImmutableSet.of()),
+                    new HdfsConfig(),
                     new NoHdfsAuthentication());
             this.files = ImmutableList.copyOf(files);
         }

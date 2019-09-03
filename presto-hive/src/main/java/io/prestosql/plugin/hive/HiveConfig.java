@@ -15,7 +15,6 @@ package io.prestosql.plugin.hive;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import com.google.common.net.HostAndPort;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
@@ -23,7 +22,6 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
-import io.airlift.units.MinDuration;
 import io.prestosql.orc.OrcWriteValidation.OrcWriteValidationMode;
 import org.joda.time.DateTimeZone;
 
@@ -79,14 +77,6 @@ public class HiveConfig
 
     private long perTransactionMetastoreCacheMaximumSize = 1000;
 
-    private Duration ipcPingInterval = new Duration(10, TimeUnit.SECONDS);
-    private Duration dfsTimeout = new Duration(60, TimeUnit.SECONDS);
-    private Duration dfsConnectTimeout = new Duration(500, TimeUnit.MILLISECONDS);
-    private Duration dfsKeyProviderCacheTtl = new Duration(30, TimeUnit.MINUTES);
-    private int dfsConnectMaxRetries = 5;
-    private boolean verifyChecksum = true;
-    private String domainSocketPath;
-
     private HiveStorageFormat hiveStorageFormat = HiveStorageFormat.ORC;
     private HiveCompressionCodec hiveCompressionCodec = HiveCompressionCodec.GZIP;
     private boolean respectTableFormat = true;
@@ -95,8 +85,6 @@ public class HiveConfig
     private int maxPartitionsPerWriter = 100;
     private int maxOpenSortFiles = 50;
     private int writeValidationThreads = 16;
-
-    private List<String> resourceConfigFiles = ImmutableList.of();
 
     private DataSize textMaxLineLength = new DataSize(100, MEGABYTE);
 
@@ -119,16 +107,11 @@ public class HiveConfig
 
     private boolean rcfileWriterValidate;
 
-    private HostAndPort hdfsSocksProxy;
-    private boolean hdfsWireEncryptionEnabled;
-
     private boolean skipDeletionForAlter;
     private boolean skipTargetCleanupOnRollback;
 
     private boolean bucketExecutionEnabled = true;
     private boolean sortedWritingEnabled = true;
-
-    private int fileSystemMaxCacheSize = 1000;
 
     private boolean optimizeMismatchedBucketCount;
     private boolean writesToNonManagedTablesEnabled;
@@ -412,94 +395,6 @@ public class HiveConfig
         return this;
     }
 
-    @NotNull
-    public List<String> getResourceConfigFiles()
-    {
-        return resourceConfigFiles;
-    }
-
-    @Config("hive.config.resources")
-    public HiveConfig setResourceConfigFiles(String files)
-    {
-        this.resourceConfigFiles = Splitter.on(',').trimResults().omitEmptyStrings().splitToList(files);
-        return this;
-    }
-
-    public HiveConfig setResourceConfigFiles(List<String> files)
-    {
-        this.resourceConfigFiles = ImmutableList.copyOf(files);
-        return this;
-    }
-
-    @NotNull
-    @MinDuration("1ms")
-    public Duration getIpcPingInterval()
-    {
-        return ipcPingInterval;
-    }
-
-    @Config("hive.dfs.ipc-ping-interval")
-    public HiveConfig setIpcPingInterval(Duration pingInterval)
-    {
-        this.ipcPingInterval = pingInterval;
-        return this;
-    }
-
-    @NotNull
-    @MinDuration("1ms")
-    public Duration getDfsTimeout()
-    {
-        return dfsTimeout;
-    }
-
-    @Config("hive.dfs-timeout")
-    public HiveConfig setDfsTimeout(Duration dfsTimeout)
-    {
-        this.dfsTimeout = dfsTimeout;
-        return this;
-    }
-
-    @NotNull
-    @MinDuration("0ms")
-    public Duration getDfsKeyProviderCacheTtl()
-    {
-        return dfsKeyProviderCacheTtl;
-    }
-
-    @Config("hive.dfs.key-provider.cache-ttl")
-    public HiveConfig setDfsKeyProviderCacheTtl(Duration dfsClientKeyProviderCacheTtl)
-    {
-        this.dfsKeyProviderCacheTtl = dfsClientKeyProviderCacheTtl;
-        return this;
-    }
-
-    @MinDuration("1ms")
-    @NotNull
-    public Duration getDfsConnectTimeout()
-    {
-        return dfsConnectTimeout;
-    }
-
-    @Config("hive.dfs.connect.timeout")
-    public HiveConfig setDfsConnectTimeout(Duration dfsConnectTimeout)
-    {
-        this.dfsConnectTimeout = dfsConnectTimeout;
-        return this;
-    }
-
-    @Min(0)
-    public int getDfsConnectMaxRetries()
-    {
-        return dfsConnectMaxRetries;
-    }
-
-    @Config("hive.dfs.connect.max-retries")
-    public HiveConfig setDfsConnectMaxRetries(int dfsConnectMaxRetries)
-    {
-        this.dfsConnectMaxRetries = dfsConnectMaxRetries;
-        return this;
-    }
-
     public HiveStorageFormat getHiveStorageFormat()
     {
         return hiveStorageFormat;
@@ -602,30 +497,6 @@ public class HiveConfig
     public HiveConfig setWriteValidationThreads(int writeValidationThreads)
     {
         this.writeValidationThreads = writeValidationThreads;
-        return this;
-    }
-
-    public String getDomainSocketPath()
-    {
-        return domainSocketPath;
-    }
-
-    @Config("hive.dfs.domain-socket-path")
-    public HiveConfig setDomainSocketPath(String domainSocketPath)
-    {
-        this.domainSocketPath = domainSocketPath;
-        return this;
-    }
-
-    public boolean isVerifyChecksum()
-    {
-        return verifyChecksum;
-    }
-
-    @Config("hive.dfs.verify-checksum")
-    public HiveConfig setVerifyChecksum(boolean verifyChecksum)
-    {
-        this.verifyChecksum = verifyChecksum;
         return this;
     }
 
@@ -892,31 +763,6 @@ public class HiveConfig
         return this;
     }
 
-    public HostAndPort getHdfsSocksProxy()
-    {
-        return hdfsSocksProxy;
-    }
-
-    @Config("hive.hdfs.socks-proxy")
-    public HiveConfig setHdfsSocksProxy(HostAndPort hdfsSocksProxy)
-    {
-        this.hdfsSocksProxy = hdfsSocksProxy;
-        return this;
-    }
-
-    public boolean isHdfsWireEncryptionEnabled()
-    {
-        return hdfsWireEncryptionEnabled;
-    }
-
-    @Config("hive.hdfs.wire-encryption.enabled")
-    @ConfigDescription("Should be turned on when HDFS wire encryption is enabled")
-    public HiveConfig setHdfsWireEncryptionEnabled(boolean hdfsWireEncryptionEnabled)
-    {
-        this.hdfsWireEncryptionEnabled = hdfsWireEncryptionEnabled;
-        return this;
-    }
-
     public boolean isSkipDeletionForAlter()
     {
         return skipDeletionForAlter;
@@ -966,19 +812,6 @@ public class HiveConfig
     public HiveConfig setSortedWritingEnabled(boolean sortedWritingEnabled)
     {
         this.sortedWritingEnabled = sortedWritingEnabled;
-        return this;
-    }
-
-    public int getFileSystemMaxCacheSize()
-    {
-        return fileSystemMaxCacheSize;
-    }
-
-    @Config("hive.fs.cache.max-size")
-    @ConfigDescription("Hadoop FileSystem cache size")
-    public HiveConfig setFileSystemMaxCacheSize(int fileSystemMaxCacheSize)
-    {
-        this.fileSystemMaxCacheSize = fileSystemMaxCacheSize;
         return this;
     }
 

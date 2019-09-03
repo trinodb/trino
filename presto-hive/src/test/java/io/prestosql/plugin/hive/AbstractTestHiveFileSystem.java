@@ -163,7 +163,7 @@ public abstract class AbstractTestHiveFileSystem
 
         HdfsConfiguration hdfsConfiguration = hdfsConfigurationProvider.apply(config);
 
-        hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, config, new NoHdfsAuthentication());
+        hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, new HdfsConfig(), new NoHdfsAuthentication());
         metastoreClient = new TestingHiveMetastore(
                 new BridgingHiveMetastore(new ThriftHiveMetastore(metastoreLocator, new ThriftHiveMetastoreConfig())),
                 executor,
