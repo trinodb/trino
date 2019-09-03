@@ -28,6 +28,7 @@ import io.prestosql.GroupByHashPageIndexerFactory;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.HivePageSinkMetadata;
+import io.prestosql.plugin.hive.parquet.ParquetWriterConfig;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.block.BlockBuilder;
@@ -270,7 +271,7 @@ public class TestHivePageSink
                 partitionUpdateCodec,
                 new TestingNodeManager("fake-environment"),
                 new HiveEventClient(),
-                new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig()),
+                new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetWriterConfig()),
                 stats,
                 getDefaultOrcFileWriterFactory(config));
         return provider.createPageSink(transaction, getSession(config), handle);
@@ -278,7 +279,7 @@ public class TestHivePageSink
 
     private static TestingConnectorSession getSession(HiveConfig config)
     {
-        return new TestingConnectorSession(new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
+        return new TestingConnectorSession(new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetWriterConfig()).getSessionProperties());
     }
 
     private static List<HiveColumnHandle> getColumnHandles()

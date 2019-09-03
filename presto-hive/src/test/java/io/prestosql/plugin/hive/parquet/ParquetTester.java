@@ -25,7 +25,6 @@ import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HiveSessionProperties;
 import io.prestosql.plugin.hive.HiveStorageFormat;
 import io.prestosql.plugin.hive.OrcFileWriterConfig;
-import io.prestosql.plugin.hive.ParquetFileWriterConfig;
 import io.prestosql.plugin.hive.benchmark.FileFormat;
 import io.prestosql.plugin.hive.parquet.write.MapKeyValuesSchemaConverter;
 import io.prestosql.plugin.hive.parquet.write.SingleLevelArrayMapKeyValuesSchemaConverter;
@@ -117,8 +116,8 @@ public class ParquetTester
     private static final boolean OPTIMIZED = true;
     private static final HiveConfig HIVE_CLIENT_CONFIG = createHiveConfig(false);
     private static final HdfsEnvironment HDFS_ENVIRONMENT = createTestHdfsEnvironment(HIVE_CLIENT_CONFIG);
-    private static final TestingConnectorSession SESSION = new TestingConnectorSession(new HiveSessionProperties(HIVE_CLIENT_CONFIG, new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
-    private static final TestingConnectorSession SESSION_USE_NAME = new TestingConnectorSession(new HiveSessionProperties(createHiveConfig(true), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
+    private static final TestingConnectorSession SESSION = new TestingConnectorSession(new HiveSessionProperties(HIVE_CLIENT_CONFIG, new OrcFileWriterConfig(), new ParquetWriterConfig()).getSessionProperties());
+    private static final TestingConnectorSession SESSION_USE_NAME = new TestingConnectorSession(new HiveSessionProperties(createHiveConfig(true), new OrcFileWriterConfig(), new ParquetWriterConfig()).getSessionProperties());
     private static final List<String> TEST_COLUMN = singletonList("test");
 
     private Set<CompressionCodecName> compressions = ImmutableSet.of();
@@ -342,7 +341,7 @@ public class ParquetTester
                 .setHiveStorageFormat(HiveStorageFormat.PARQUET)
                 .setUseParquetColumnNames(false)
                 .setParquetMaxReadBlockSize(maxReadBlockSize);
-        ConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
+        ConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetWriterConfig()).getSessionProperties());
 
         try (TempFile tempFile = new TempFile("test", "parquet")) {
             JobConf jobConf = new JobConf();
