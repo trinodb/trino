@@ -16,6 +16,7 @@ package io.prestosql.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.prestosql.orc.OrcWriteValidation.OrcWriteValidationMode;
+import io.prestosql.plugin.hive.parquet.ParquetReaderConfig;
 import io.prestosql.plugin.hive.parquet.ParquetWriterConfig;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -101,7 +102,11 @@ public final class HiveSessionProperties
     }
 
     @Inject
-    public HiveSessionProperties(HiveConfig hiveConfig, OrcFileWriterConfig orcFileWriterConfig, ParquetWriterConfig parquetWriterConfig)
+    public HiveSessionProperties(
+            HiveConfig hiveConfig,
+            OrcFileWriterConfig orcFileWriterConfig,
+            ParquetReaderConfig parquetReaderConfig,
+            ParquetWriterConfig parquetWriterConfig)
     {
         sessionProperties = ImmutableList.of(
                 booleanProperty(
@@ -233,12 +238,12 @@ public final class HiveSessionProperties
                 booleanProperty(
                         PARQUET_FAIL_WITH_CORRUPTED_STATISTICS,
                         "Parquet: Fail when scanning Parquet files with corrupted statistics",
-                        hiveConfig.isFailOnCorruptedParquetStatistics(),
+                        parquetReaderConfig.isFailOnCorruptedStatistics(),
                         false),
                 dataSizeProperty(
                         PARQUET_MAX_READ_BLOCK_SIZE,
                         "Parquet: Maximum size of a block to read",
-                        hiveConfig.getParquetMaxReadBlockSize(),
+                        parquetReaderConfig.getMaxReadBlockSize(),
                         false),
                 dataSizeProperty(
                         PARQUET_WRITER_BLOCK_SIZE,

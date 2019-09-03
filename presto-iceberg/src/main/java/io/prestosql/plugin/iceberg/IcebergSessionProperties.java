@@ -15,7 +15,7 @@ package io.prestosql.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
-import io.prestosql.plugin.hive.HiveConfig;
+import io.prestosql.plugin.hive.parquet.ParquetReaderConfig;
 import io.prestosql.plugin.hive.parquet.ParquetWriterConfig;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.session.PropertyMetadata;
@@ -37,18 +37,20 @@ public final class IcebergSessionProperties
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
-    public IcebergSessionProperties(HiveConfig hiveConfig, ParquetWriterConfig parquetWriterConfig)
+    public IcebergSessionProperties(
+            ParquetReaderConfig parquetReaderConfig,
+            ParquetWriterConfig parquetWriterConfig)
     {
         sessionProperties = ImmutableList.<PropertyMetadata<?>>builder()
                 .add(booleanProperty(
                         PARQUET_FAIL_WITH_CORRUPTED_STATISTICS,
                         "Parquet: Fail when scanning Parquet files with corrupted statistics",
-                        hiveConfig.isFailOnCorruptedParquetStatistics(),
+                        parquetReaderConfig.isFailOnCorruptedStatistics(),
                         false))
                 .add(dataSizeProperty(
                         PARQUET_MAX_READ_BLOCK_SIZE,
                         "Parquet: Maximum size of a block to read",
-                        hiveConfig.getParquetMaxReadBlockSize(),
+                        parquetReaderConfig.getMaxReadBlockSize(),
                         false))
                 .add(dataSizeProperty(
                         PARQUET_WRITER_BLOCK_SIZE,

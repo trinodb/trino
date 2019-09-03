@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
-import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HiveSessionProperties;
 import io.prestosql.plugin.hive.HiveStorageFormat;
@@ -84,7 +83,8 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.transform;
 import static io.prestosql.plugin.hive.AbstractTestHiveFileFormats.getFieldFromCursor;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getParquetMaxReadBlockSize;
-import static io.prestosql.plugin.hive.HiveTestUtils.createTestHdfsEnvironment;
+import static io.prestosql.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.prestosql.plugin.hive.util.HiveUtil.isArrayType;
 import static io.prestosql.plugin.hive.util.HiveUtil.isMapType;
 import static io.prestosql.plugin.hive.util.HiveUtil.isRowType;
@@ -114,17 +114,15 @@ public class ParquetTester
 {
     public static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
     private static final boolean OPTIMIZED = true;
-    private static final HiveConfig HIVE_CLIENT_CONFIG = createHiveConfig(false);
-    private static final HdfsEnvironment HDFS_ENVIRONMENT = createTestHdfsEnvironment(HIVE_CLIENT_CONFIG);
-    private static final TestingConnectorSession SESSION = new TestingConnectorSession(new HiveSessionProperties(HIVE_CLIENT_CONFIG, new OrcFileWriterConfig(), new ParquetWriterConfig()).getSessionProperties());
-    private static final TestingConnectorSession SESSION_USE_NAME = new TestingConnectorSession(new HiveSessionProperties(createHiveConfig(true), new OrcFileWriterConfig(), new ParquetWriterConfig()).getSessionProperties());
+    private static final ConnectorSession SESSION = getHiveSession(createHiveConfig(false));
+    private static final ConnectorSession SESSION_USE_NAME = getHiveSession(createHiveConfig(true));
     private static final List<String> TEST_COLUMN = singletonList("test");
 
     private Set<CompressionCodecName> compressions = ImmutableSet.of();
 
     private Set<WriterVersion> versions = ImmutableSet.of();
 
-    private Set<TestingConnectorSession> sessions = ImmutableSet.of();
+    private Set<ConnectorSession> sessions = ImmutableSet.of();
 
     public static ParquetTester quickParquetTester()
     {
@@ -337,11 +335,15 @@ public class ParquetTester
             throws Exception
     {
         CompressionCodecName compressionCodecName = UNCOMPRESSED;
-        HiveConfig config = new HiveConfig()
-                .setHiveStorageFormat(HiveStorageFormat.PARQUET)
-                .setUseParquetColumnNames(false)
-                .setParquetMaxReadBlockSize(maxReadBlockSize);
-        ConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetWriterConfig()).getSessionProperties());
+        ConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(
+                new HiveConfig()
+                        .setHiveStorageFormat(HiveStorageFormat.PARQUET)
+                        .setUseParquetColumnNames(false),
+                new OrcFileWriterConfig(),
+                new ParquetReaderConfig()
+                        .setMaxReadBlockSize(maxReadBlockSize),
+                new ParquetWriterConfig())
+                .getSessionProperties());
 
         try (TempFile tempFile = new TempFile("test", "parquet")) {
             JobConf jobConf = new JobConf();

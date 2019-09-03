@@ -31,7 +31,6 @@ import io.prestosql.operator.TableScanOperator.TableScanOperatorFactory;
 import io.prestosql.operator.project.CursorProcessor;
 import io.prestosql.operator.project.PageProcessor;
 import io.prestosql.plugin.hive.orc.OrcPageSourceFactory;
-import io.prestosql.plugin.hive.parquet.ParquetWriterConfig;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.classloader.ThreadContextClassLoader;
@@ -44,7 +43,6 @@ import io.prestosql.sql.gen.ExpressionCompiler;
 import io.prestosql.sql.gen.PageFunctionCompiler;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.sql.relational.RowExpression;
-import io.prestosql.testing.TestingConnectorSession;
 import io.prestosql.testing.TestingSplit;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -102,6 +100,7 @@ import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.prestosql.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.prestosql.plugin.hive.HiveTestUtils.SESSION;
 import static io.prestosql.plugin.hive.HiveTestUtils.TYPE_MANAGER;
+import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.sql.relational.Expressions.field;
 import static io.prestosql.testing.TestingHandles.TEST_TABLE_HANDLE;
@@ -252,9 +251,8 @@ public class TestOrcPageSourceMemoryTracking
             throws Exception
     {
         int maxReadBytes = 1_000;
-        HiveConfig config = new HiveConfig();
-        config.setOrcMaxReadBlockSize(new DataSize(maxReadBytes, BYTE));
-        ConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetWriterConfig()).getSessionProperties());
+        ConnectorSession session = getHiveSession(new HiveConfig()
+                .setOrcMaxReadBlockSize(new DataSize(maxReadBytes, BYTE)));
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
 
         // Build a table where every row gets larger, so we can test that the "batchSize" reduces

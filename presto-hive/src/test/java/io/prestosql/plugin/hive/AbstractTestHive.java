@@ -50,7 +50,6 @@ import io.prestosql.plugin.hive.metastore.thrift.ThriftHiveMetastore;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftHiveMetastoreConfig;
 import io.prestosql.plugin.hive.orc.OrcPageSource;
 import io.prestosql.plugin.hive.parquet.ParquetPageSource;
-import io.prestosql.plugin.hive.parquet.ParquetWriterConfig;
 import io.prestosql.plugin.hive.rcfile.RcFilePageSource;
 import io.prestosql.plugin.hive.security.SqlStandardAccessControlMetadata;
 import io.prestosql.spi.Page;
@@ -203,6 +202,8 @@ import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHiveDataStreamFac
 import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHiveFileWriterFactories;
 import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHiveRecordCursorProvider;
 import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultOrcFileWriterFactory;
+import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSession;
+import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSessionProperties;
 import static io.prestosql.plugin.hive.HiveTestUtils.getTypes;
 import static io.prestosql.plugin.hive.HiveTestUtils.mapType;
 import static io.prestosql.plugin.hive.HiveTestUtils.rowType;
@@ -769,7 +770,7 @@ public abstract class AbstractTestHive
                 partitionUpdateCodec,
                 new TestingNodeManager("fake-environment"),
                 new HiveEventClient(),
-                new HiveSessionProperties(hiveConfig, new OrcFileWriterConfig(), new ParquetWriterConfig()),
+                getHiveSessionProperties(hiveConfig),
                 new HiveWriterStats(),
                 getDefaultOrcFileWriterFactory(hiveConfig));
         pageSourceProvider = new HivePageSourceProvider(hiveConfig, hdfsEnvironment, getDefaultHiveRecordCursorProvider(hiveConfig), getDefaultHiveDataStreamFactories(hiveConfig), TYPE_MANAGER);
@@ -792,7 +793,7 @@ public abstract class AbstractTestHive
 
     protected ConnectorSession newSession(Map<String, Object> propertyValues)
     {
-        HiveSessionProperties properties = new HiveSessionProperties(getHiveConfig(), new OrcFileWriterConfig(), new ParquetWriterConfig());
+        HiveSessionProperties properties = getHiveSessionProperties(getHiveConfig());
         return new TestingConnectorSession(properties.getSessionProperties(), propertyValues);
     }
 
@@ -2902,10 +2903,8 @@ public abstract class AbstractTestHive
 
     private ConnectorSession sampleSize(int sampleSize)
     {
-        HiveSessionProperties properties = new HiveSessionProperties(
-                getHiveConfig().setPartitionStatisticsSampleSize(sampleSize),
-                new OrcFileWriterConfig(), new ParquetWriterConfig());
-        return new TestingConnectorSession(properties.getSessionProperties());
+        return getHiveSession(getHiveConfig()
+                .setPartitionStatisticsSampleSize(sampleSize));
     }
 
     private void verifyViewCreation(SchemaTableName temporaryCreateView)

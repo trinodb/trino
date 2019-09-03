@@ -21,20 +21,13 @@ import io.airlift.tpch.TpchEntity;
 import io.airlift.tpch.TpchTable;
 import io.airlift.units.DataSize;
 import io.prestosql.hadoop.HadoopNative;
-import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveCompressionCodec;
-import io.prestosql.plugin.hive.HiveConfig;
-import io.prestosql.plugin.hive.HiveSessionProperties;
-import io.prestosql.plugin.hive.OrcFileWriterConfig;
-import io.prestosql.plugin.hive.parquet.ParquetWriterConfig;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorPageSource;
-import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.Type;
-import io.prestosql.testing.TestingConnectorSession;
 import it.unimi.dsi.fastutil.ints.IntArrays;
 import org.openjdk.jmh.annotations.AuxCounters;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -68,7 +61,8 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.tpch.TpchTable.LINE_ITEM;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.prestosql.plugin.hive.HiveTestUtils.createTestHdfsEnvironment;
+import static io.prestosql.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.prestosql.plugin.hive.HiveTestUtils.SESSION;
 import static io.prestosql.plugin.hive.HiveTestUtils.mapType;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DateType.DATE;
@@ -92,13 +86,6 @@ public class BenchmarkHiveFileFormat
     static {
         HadoopNative.requireHadoopNative();
     }
-
-    private static final HiveConfig CONFIG = new HiveConfig();
-
-    private static final ConnectorSession SESSION = new TestingConnectorSession(new HiveSessionProperties(CONFIG, new OrcFileWriterConfig(), new ParquetWriterConfig())
-            .getSessionProperties());
-
-    private static final HdfsEnvironment HDFS_ENVIRONMENT = createTestHdfsEnvironment(CONFIG);
 
     @Param({
             "LINEITEM",

@@ -105,8 +105,6 @@ public class HiveConfig
     private DataSize textMaxLineLength = new DataSize(100, MEGABYTE);
 
     private boolean useParquetColumnNames;
-    private boolean failOnCorruptedParquetStatistics = true;
-    private DataSize parquetMaxReadBlockSize = new DataSize(16, MEGABYTE);
 
     private boolean assumeCanonicalPartitionKeys;
 
@@ -874,32 +872,6 @@ public class HiveConfig
     public HiveConfig setUseParquetColumnNames(boolean useParquetColumnNames)
     {
         this.useParquetColumnNames = useParquetColumnNames;
-        return this;
-    }
-
-    public boolean isFailOnCorruptedParquetStatistics()
-    {
-        return failOnCorruptedParquetStatistics;
-    }
-
-    @Config("hive.parquet.fail-on-corrupted-statistics")
-    @ConfigDescription("Fail when scanning Parquet files with corrupted statistics")
-    public HiveConfig setFailOnCorruptedParquetStatistics(boolean failOnCorruptedParquetStatistics)
-    {
-        this.failOnCorruptedParquetStatistics = failOnCorruptedParquetStatistics;
-        return this;
-    }
-
-    @NotNull
-    public DataSize getParquetMaxReadBlockSize()
-    {
-        return parquetMaxReadBlockSize;
-    }
-
-    @Config("hive.parquet.max-read-block-size")
-    public HiveConfig setParquetMaxReadBlockSize(DataSize parquetMaxReadBlockSize)
-    {
-        this.parquetMaxReadBlockSize = parquetMaxReadBlockSize;
         return this;
     }
 

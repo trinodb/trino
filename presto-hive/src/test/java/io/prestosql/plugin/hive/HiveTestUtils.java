@@ -25,6 +25,7 @@ import io.prestosql.plugin.hive.gcs.GoogleGcsConfigurationInitializer;
 import io.prestosql.plugin.hive.gcs.HiveGcsConfig;
 import io.prestosql.plugin.hive.orc.OrcPageSourceFactory;
 import io.prestosql.plugin.hive.parquet.ParquetPageSourceFactory;
+import io.prestosql.plugin.hive.parquet.ParquetReaderConfig;
 import io.prestosql.plugin.hive.parquet.ParquetWriterConfig;
 import io.prestosql.plugin.hive.rcfile.RcFilePageSourceFactory;
 import io.prestosql.plugin.hive.s3.HiveS3Config;
@@ -58,8 +59,7 @@ public final class HiveTestUtils
 {
     private HiveTestUtils() {}
 
-    public static final ConnectorSession SESSION = new TestingConnectorSession(
-            new HiveSessionProperties(new HiveConfig(), new OrcFileWriterConfig(), new ParquetWriterConfig()).getSessionProperties());
+    public static final ConnectorSession SESSION = getHiveSession(new HiveConfig());
 
     private static final Metadata METADATA = createTestMetadataManager();
     public static final TypeManager TYPE_MANAGER = new InternalTypeManager(METADATA);
@@ -67,6 +67,20 @@ public final class HiveTestUtils
     public static final HdfsEnvironment HDFS_ENVIRONMENT = createTestHdfsEnvironment(new HiveConfig());
 
     public static final PageSorter PAGE_SORTER = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
+
+    public static ConnectorSession getHiveSession(HiveConfig hiveConfig)
+    {
+        return new TestingConnectorSession(getHiveSessionProperties(hiveConfig).getSessionProperties());
+    }
+
+    public static HiveSessionProperties getHiveSessionProperties(HiveConfig hiveConfig)
+    {
+        return new HiveSessionProperties(
+                hiveConfig,
+                new OrcFileWriterConfig(),
+                new ParquetReaderConfig(),
+                new ParquetWriterConfig());
+    }
 
     public static Set<HivePageSourceFactory> getDefaultHiveDataStreamFactories(HiveConfig hiveConfig)
     {
