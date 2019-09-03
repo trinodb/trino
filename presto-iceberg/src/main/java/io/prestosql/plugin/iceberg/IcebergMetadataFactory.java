@@ -15,7 +15,6 @@ package io.prestosql.plugin.iceberg;
 
 import io.airlift.json.JsonCodec;
 import io.prestosql.plugin.hive.HdfsEnvironment;
-import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.spi.type.TypeManager;
 
@@ -30,11 +29,11 @@ public class IcebergMetadataFactory
     private final HdfsEnvironment hdfsEnvironment;
     private final TypeManager typeManager;
     private final JsonCodec<CommitTaskData> commitTaskCodec;
-    private final long perTransactionCacheMaximumSize;
+    private final long metastoreTransactionCacheSize;
 
     @Inject
     public IcebergMetadataFactory(
-            HiveConfig config,
+            IcebergConfig config,
             HiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
@@ -44,7 +43,7 @@ public class IcebergMetadataFactory
                 hdfsEnvironment,
                 typeManager,
                 commitTaskDataJsonCodec,
-                config.getPerTransactionMetastoreCacheMaximumSize());
+                config.getMetastoreTransactionCacheSize());
     }
 
     public IcebergMetadataFactory(
@@ -52,19 +51,19 @@ public class IcebergMetadataFactory
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
             JsonCodec<CommitTaskData> commitTaskCodec,
-            long perTransactionCacheMaximumSize)
+            long metastoreTransactionCacheSize)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
-        this.perTransactionCacheMaximumSize = perTransactionCacheMaximumSize;
+        this.metastoreTransactionCacheSize = metastoreTransactionCacheSize;
     }
 
     public IcebergMetadata create()
     {
         return new IcebergMetadata(
-                memoizeMetastore(metastore, perTransactionCacheMaximumSize),
+                memoizeMetastore(metastore, metastoreTransactionCacheSize),
                 hdfsEnvironment,
                 typeManager,
                 commitTaskCodec);
