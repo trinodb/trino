@@ -15,6 +15,8 @@ package io.prestosql.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.plugin.hive.HdfsEnvironment;
+import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HiveColumnHandle.ColumnType;
 import io.prestosql.plugin.hive.HiveType;
@@ -22,9 +24,9 @@ import io.prestosql.plugin.hive.HiveTypeTranslator;
 import io.prestosql.plugin.hive.TypeTranslator;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.TypeManager;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.PartitionField;
@@ -66,10 +68,11 @@ final class IcebergUtil
         return ICEBERG_TABLE_TYPE_VALUE.equalsIgnoreCase(table.getParameters().get(TABLE_TYPE_PROP));
     }
 
-    public static Table getIcebergTable(String database, String tableName, Configuration configuration, HiveMetastore metastore)
+    public static Table getIcebergTable(HiveMetastore metastore, HdfsEnvironment hdfsEnvironment, ConnectorSession session, SchemaTableName table)
     {
-        TableOperations operations = new HiveTableOperations(configuration, metastore, database, tableName);
-        return new BaseTable(operations, database + "." + tableName);
+        HdfsContext context = new HdfsContext(session, table.getSchemaName(), table.getTableName());
+        TableOperations operations = new HiveTableOperations(metastore, hdfsEnvironment, context, table.getSchemaName(), table.getTableName());
+        return new BaseTable(operations, table.getSchemaName() + "." + table.getTableName());
     }
 
     public static List<HiveColumnHandle> getColumns(Schema schema, PartitionSpec spec, TypeManager typeManager)

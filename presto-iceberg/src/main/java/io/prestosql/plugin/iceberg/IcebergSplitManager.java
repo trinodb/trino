@@ -14,7 +14,6 @@
 package io.prestosql.plugin.iceberg;
 
 import io.prestosql.plugin.hive.HdfsEnvironment;
-import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplitManager;
@@ -22,8 +21,6 @@ import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.classloader.ClassLoaderSafeConnectorSplitSource;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
 
@@ -52,9 +49,7 @@ public class IcebergSplitManager
         IcebergTableHandle table = (IcebergTableHandle) handle;
 
         HiveMetastore metastore = transactionManager.get(transaction).getMetastore();
-        HdfsContext context = new HdfsContext(session, table.getSchemaName(), table.getTableName());
-        Configuration configuration = hdfsEnvironment.getConfiguration(context, new Path("file:///tmp"));
-        Table icebergTable = getIcebergTable(table.getSchemaName(), table.getTableName(), configuration, metastore);
+        Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, table.getSchemaTableName());
 
         TableScan tableScan = getTableScan(session, table.getPredicate(), table.getSnapshotId(), icebergTable);
 

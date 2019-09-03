@@ -75,7 +75,6 @@ as a time travel feature which lets you query your table's snapshot at a given t
   before announcing the connector as ready for use.
 * Predicate pushdown is currently broken, which means delete is also broken. The code from the
   original `getTableLayouts()` implementation needs to be updated for `applyFilter()`.
-* All of the `HdfsContext` calls that use `/tmp` need to be fixed.
 * `HiveConfig` needs to be removed. We might need to split out separate config classes in the
   Hive connector for the components that are reused in Iceberg.
 * We should try to remove `HiveColumnHandle`. This will require replacing or abstracting
