@@ -160,6 +160,17 @@ public class TestInformationSchemaConnector
                 new MetadataCallsCount()
                         .withListTablesCount(1)
                         .withGetColumnsCount(1));
+        assertNoMetadataCalls("SELECT count(*) from test_catalog.information_schema.columns WHERE table_catalog = 'wrong'", "VALUES 0");
+        assertMetadataCalls(
+                "SELECT count(*) from test_catalog.information_schema.columns WHERE table_catalog = 'test_catalog' AND table_schema = 'table_schema1' AND table_name = 'test_table1'",
+                "VALUES 0",
+                new MetadataCallsCount()
+                        .withListTablesCount(1));
+        assertMetadataCalls(
+                "SELECT count(*) from test_catalog.information_schema.columns WHERE table_catalog IN ('wrong', 'test_catalog') AND table_schema = 'table_schema1' AND table_name = 'test_table1'",
+                "VALUES 0",
+                new MetadataCallsCount()
+                        .withListTablesCount(1));
     }
 
     private static DistributedQueryRunner createQueryRunner()
