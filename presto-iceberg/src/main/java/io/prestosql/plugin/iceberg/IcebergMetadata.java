@@ -150,7 +150,7 @@ public class IcebergMetadata
     {
         IcebergTableHandle table = IcebergTableHandle.from(tableName);
         if (table.getTableType() == TableType.PARTITIONS) {
-            Configuration configuration = getConfiguration(session, tableName.getSchemaName());
+            Configuration configuration = getConfiguration(session, tableName);
             org.apache.iceberg.Table icebergTable = getIcebergTable(table.getSchemaName(), table.getTableName(), configuration, metastore);
             return Optional.of(new PartitionTable(table, session, typeManager, icebergTable));
         }
@@ -187,7 +187,7 @@ public class IcebergMetadata
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
-        Configuration configuration = getConfiguration(session, table.getSchemaName());
+        Configuration configuration = getConfiguration(session, table.getSchemaTableName());
         org.apache.iceberg.Table icebergTable = getIcebergTable(table.getSchemaName(), table.getTableName(), configuration, metastore);
         List<HiveColumnHandle> columns = getColumns(icebergTable.schema(), icebergTable.spec(), typeManager);
         return columns.stream().collect(toMap(HiveColumnHandle::getName, identity()));
@@ -316,7 +316,7 @@ public class IcebergMetadata
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
-        Configuration configuration = getConfiguration(session, table.getSchemaName());
+        Configuration configuration = getConfiguration(session, table.getSchemaTableName());
         org.apache.iceberg.Table icebergTable = getIcebergTable(table.getSchemaName(), table.getTableName(), configuration, metastore);
 
         for (NestedField column : icebergTable.schema().columns()) {
@@ -358,8 +358,11 @@ public class IcebergMetadata
 
         AppendFiles appendFiles = transaction.newFastAppend();
         for (CommitTaskData task : commitTasks) {
+            HdfsContext context = new HdfsContext(session, table.getSchemaName(), table.getTableName());
+            Configuration configuration = hdfsEnvironment.getConfiguration(context, new Path(task.getPath()));
+
             DataFiles.Builder builder = DataFiles.builder(icebergTable.spec())
-                    .withInputFile(HadoopInputFile.fromLocation(task.getPath(), getConfiguration(session, table.getSchemaName())))
+                    .withInputFile(HadoopInputFile.fromLocation(task.getPath(), configuration))
                     .withFormat(table.getFileFormat())
                     .withMetrics(task.getMetrics().metrics());
 
@@ -405,7 +408,7 @@ public class IcebergMetadata
     public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
-        Configuration configuration = getConfiguration(session, handle.getSchemaName());
+        Configuration configuration = getConfiguration(session, handle.getSchemaTableName());
         org.apache.iceberg.Table icebergTable = getIcebergTable(handle.getSchemaName(), handle.getTableName(), configuration, metastore);
         icebergTable.updateSchema().addColumn(column.getName(), toIcebergType(column.getType())).commit();
     }
@@ -415,7 +418,7 @@ public class IcebergMetadata
     {
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
         HiveColumnHandle handle = (HiveColumnHandle) column;
-        Configuration configuration = getConfiguration(session, icebergTableHandle.getSchemaName());
+        Configuration configuration = getConfiguration(session, icebergTableHandle.getSchemaTableName());
         org.apache.iceberg.Table icebergTable = getIcebergTable(icebergTableHandle.getSchemaName(), icebergTableHandle.getTableName(), configuration, metastore);
         icebergTable.updateSchema().deleteColumn(handle.getName()).commit();
     }
@@ -425,7 +428,7 @@ public class IcebergMetadata
     {
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
         HiveColumnHandle columnHandle = (HiveColumnHandle) source;
-        Configuration configuration = getConfiguration(session, icebergTableHandle.getSchemaName());
+        Configuration configuration = getConfiguration(session, icebergTableHandle.getSchemaTableName());
         org.apache.iceberg.Table icebergTable = getIcebergTable(icebergTableHandle.getSchemaName(), icebergTableHandle.getTableName(), configuration, metastore);
         icebergTable.updateSchema().renameColumn(columnHandle.getName(), target).commit();
     }
@@ -439,7 +442,7 @@ public class IcebergMetadata
             throw new TableNotFoundException(schemaTableName);
         }
 
-        Configuration configuration = hdfsEnvironment.getConfiguration(new HdfsContext(session, schema), new Path("file:///tmp"));
+        Configuration configuration = getConfiguration(session, schemaTableName);
 
         org.apache.iceberg.Table icebergTable = getIcebergTable(schema, tableName, configuration, metastore);
 
@@ -479,9 +482,10 @@ public class IcebergMetadata
         return TypeUtil.assignFreshIds(schema, nextFieldId::getAndIncrement);
     }
 
-    private Configuration getConfiguration(ConnectorSession session, String schemaName)
+    private Configuration getConfiguration(ConnectorSession session, SchemaTableName table)
     {
-        return hdfsEnvironment.getConfiguration(new HdfsContext(session, schemaName), new Path("file:///tmp"));
+        HdfsContext context = new HdfsContext(session, table.getSchemaName(), table.getTableName());
+        return hdfsEnvironment.getConfiguration(context, new Path("file:///tmp"));
     }
 
     @Override
@@ -507,7 +511,7 @@ public class IcebergMetadata
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
 
-        Configuration configuration = getConfiguration(session, handle.getSchemaName());
+        Configuration configuration = getConfiguration(session, handle.getSchemaTableName());
         org.apache.iceberg.Table icebergTable = getIcebergTable(handle.getSchemaName(), handle.getTableName(), configuration, metastore);
         icebergTable.newDelete()
                 .deleteFromRowFilter(toIcebergExpression(handle.getPredicate(), session))

@@ -52,7 +52,8 @@ public class IcebergSplitManager
         IcebergTableHandle table = (IcebergTableHandle) handle;
 
         HiveMetastore metastore = transactionManager.get(transaction).getMetastore();
-        Configuration configuration = hdfsEnvironment.getConfiguration(new HdfsContext(session, table.getSchemaName()), new Path("file:///tmp"));
+        HdfsContext context = new HdfsContext(session, table.getSchemaName(), table.getTableName());
+        Configuration configuration = hdfsEnvironment.getConfiguration(context, new Path("file:///tmp"));
         Table icebergTable = getIcebergTable(table.getSchemaName(), table.getTableName(), configuration, metastore);
 
         TableScan tableScan = getTableScan(session, table.getPredicate(), table.getSnapshotId(), icebergTable);
