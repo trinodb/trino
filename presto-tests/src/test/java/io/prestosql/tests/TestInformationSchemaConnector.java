@@ -24,9 +24,11 @@ import io.prestosql.spi.connector.SchemaTableName;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.IntStream;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.connector.MockConnectorFactory.Builder.defaultGetColumns;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
@@ -36,7 +38,9 @@ import static org.testng.Assert.assertEquals;
 public class TestInformationSchemaConnector
         extends AbstractTestQueryFramework
 {
-    private static final AtomicLong METADATA_CALLS_COUNTER = new AtomicLong();
+    private static final AtomicLong LIST_SCHEMAS_CALLS_COUNTER = new AtomicLong();
+    private static final AtomicLong LIST_TABLES_CALLS_COUNTER = new AtomicLong();
+    private static final AtomicLong GET_COLUMNS_CALLS_COUNTER = new AtomicLong();
 
     public TestInformationSchemaConnector()
     {
@@ -101,20 +105,61 @@ public class TestInformationSchemaConnector
     }
 
     @Test(timeOut = 60_000)
-    public void testLargeData()
+    public void testMetadataCalls()
     {
-        long metadataCallsCountBeforeTests = METADATA_CALLS_COUNTER.get();
-        assertQuery("SELECT count(*) from test_catalog.information_schema.schemata WHERE schema_name LIKE 'test_sch_ma1'", "VALUES 1");
-        assertQuery("SELECT count(*) from test_catalog.information_schema.schemata WHERE schema_name LIKE 'test_sch_ma1' AND schema_name IN ('test_schema1', 'test_schema2')", "VALUES 1");
-        assertQuery("SELECT count(*) from test_catalog.information_schema.tables", "VALUES 300008");
-        assertQuery("SELECT count(*) from test_catalog.information_schema.tables WHERE table_schema = 'test_schema1'", "VALUES 100000");
-        assertQuery("SELECT count(*) from test_catalog.information_schema.tables WHERE table_schema LIKE 'test_sch_ma1'", "VALUES 100000");
-        assertQuery("SELECT count(*) from test_catalog.information_schema.tables WHERE table_schema LIKE 'test_sch_ma1' AND table_schema IN ('test_schema1', 'test_schema2')", "VALUES 100000");
-        assertQuery("SELECT count(*) from test_catalog.information_schema.tables WHERE table_name = 'test_table1'", "VALUES 2");
-        assertQuery("SELECT count(*) from test_catalog.information_schema.tables WHERE table_name LIKE 'test_t_ble1'", "VALUES 2");
-        assertQuery("SELECT count(*) from test_catalog.information_schema.tables WHERE table_name LIKE 'test_t_ble1' AND table_name IN ('test_table1', 'test_table2')", "VALUES 2");
-        assertQuery("SELECT count(*) from test_catalog.information_schema.columns WHERE table_schema = 'test_schema1' AND table_name = 'test_table1'", "VALUES 100");
-        assertEquals(METADATA_CALLS_COUNTER.get() - metadataCallsCountBeforeTests, 18);
+        assertMetadataCalls(
+                "SELECT count(*) from test_catalog.information_schema.schemata WHERE schema_name LIKE 'test_sch_ma1'",
+                "VALUES 1",
+                new MetadataCallsCount()
+                        .withListSchemasCount(1));
+        assertMetadataCalls(
+                "SELECT count(*) from test_catalog.information_schema.schemata WHERE schema_name LIKE 'test_sch_ma1' AND schema_name IN ('test_schema1', 'test_schema2')",
+                "VALUES 1",
+                new MetadataCallsCount()
+                        .withListSchemasCount(1));
+        assertMetadataCalls(
+                "SELECT count(*) from test_catalog.information_schema.tables",
+                "VALUES 300008",
+                new MetadataCallsCount()
+                        .withListTablesCount(1));
+        assertMetadataCalls(
+                "SELECT count(*) from test_catalog.information_schema.tables WHERE table_schema = 'test_schema1'",
+                "VALUES 100000",
+                new MetadataCallsCount()
+                        .withListTablesCount(1));
+        assertMetadataCalls(
+                "SELECT count(*) from test_catalog.information_schema.tables WHERE table_schema LIKE 'test_sch_ma1'",
+                "VALUES 100000",
+                new MetadataCallsCount()
+                        .withListSchemasCount(1)
+                        .withListTablesCount(1));
+        assertMetadataCalls(
+                "SELECT count(*) from test_catalog.information_schema.tables WHERE table_schema LIKE 'test_sch_ma1' AND table_schema IN ('test_schema1', 'test_schema2')",
+                "VALUES 100000",
+                new MetadataCallsCount()
+                        .withListTablesCount(2));
+        assertMetadataCalls(
+                "SELECT count(*) from test_catalog.information_schema.tables WHERE table_name = 'test_table1'",
+                "VALUES 2",
+                new MetadataCallsCount()
+                        .withListSchemasCount(3));
+        assertMetadataCalls(
+                "SELECT count(*) from test_catalog.information_schema.tables WHERE table_name LIKE 'test_t_ble1'",
+                "VALUES 2",
+                new MetadataCallsCount()
+                        .withListSchemasCount(1)
+                        .withListTablesCount(3));
+        assertMetadataCalls(
+                "SELECT count(*) from test_catalog.information_schema.tables WHERE table_name LIKE 'test_t_ble1' AND table_name IN ('test_table1', 'test_table2')",
+                "VALUES 2",
+                new MetadataCallsCount()
+                        .withListSchemasCount(1));
+        assertMetadataCalls(
+                "SELECT count(*) from test_catalog.information_schema.columns WHERE table_schema = 'test_schema1' AND table_name = 'test_table1'",
+                "VALUES 100",
+                new MetadataCallsCount()
+                        .withListTablesCount(1)
+                        .withGetColumnsCount(1));
     }
 
     private static DistributedQueryRunner createQueryRunner()
@@ -145,11 +190,11 @@ public class TestInformationSchemaConnector
                             .build();
                     MockConnectorFactory mockConnectorFactory = MockConnectorFactory.builder()
                             .withListSchemaNames(connectorSession -> {
-                                METADATA_CALLS_COUNTER.incrementAndGet();
+                                LIST_SCHEMAS_CALLS_COUNTER.incrementAndGet();
                                 return ImmutableList.of("test_schema1", "test_schema2");
                             })
                             .withListTables((connectorSession, schemaNameOrNull) -> {
-                                METADATA_CALLS_COUNTER.incrementAndGet();
+                                LIST_TABLES_CALLS_COUNTER.incrementAndGet();
                                 if (schemaNameOrNull == null) {
                                     return allTables;
                                 }
@@ -160,7 +205,7 @@ public class TestInformationSchemaConnector
                                 }
                             })
                             .withGetColumns(schemaTableName -> {
-                                METADATA_CALLS_COUNTER.incrementAndGet();
+                                GET_COLUMNS_CALLS_COUNTER.incrementAndGet();
                                 return defaultGetColumns().apply(schemaTableName);
                             })
                             .build();
@@ -173,6 +218,90 @@ public class TestInformationSchemaConnector
         catch (Exception e) {
             queryRunner.close();
             throw e;
+        }
+    }
+
+    private void assertNoMetadataCalls(String actualSql, String expectedSql)
+    {
+        assertMetadataCalls(actualSql, expectedSql, new MetadataCallsCount());
+    }
+
+    private void assertMetadataCalls(String actualSql, String expectedSql, MetadataCallsCount expectedMetadataCallsCount)
+    {
+        long listSchemasCallsCountBefore = LIST_SCHEMAS_CALLS_COUNTER.get();
+        long listTablesCallsCountBefore = LIST_TABLES_CALLS_COUNTER.get();
+        long getColumnsCallsCountBefore = GET_COLUMNS_CALLS_COUNTER.get();
+        assertQuery(actualSql, expectedSql);
+        MetadataCallsCount actualMetadataCallsCount = new MetadataCallsCount()
+                .withListSchemasCount(LIST_SCHEMAS_CALLS_COUNTER.get() - listSchemasCallsCountBefore)
+                .withListTablesCount(LIST_TABLES_CALLS_COUNTER.get() - listTablesCallsCountBefore)
+                .withGetColumnsCount(GET_COLUMNS_CALLS_COUNTER.get() - getColumnsCallsCountBefore);
+
+        assertEquals(actualMetadataCallsCount, expectedMetadataCallsCount);
+    }
+
+    private static class MetadataCallsCount
+    {
+        private final long listSchemasCount;
+        private final long listTablesCount;
+        private final long getColumnsCount;
+
+        private MetadataCallsCount()
+        {
+            this(0, 0, 0);
+        }
+
+        private MetadataCallsCount(long listSchemasCount, long listTablesCount, long getColumnsCount)
+        {
+            this.listSchemasCount = listSchemasCount;
+            this.listTablesCount = listTablesCount;
+            this.getColumnsCount = getColumnsCount;
+        }
+
+        public MetadataCallsCount withListSchemasCount(long listSchemasCount)
+        {
+            return new MetadataCallsCount(listSchemasCount, listTablesCount, getColumnsCount);
+        }
+
+        public MetadataCallsCount withListTablesCount(long listTablesCount)
+        {
+            return new MetadataCallsCount(listSchemasCount, listTablesCount, getColumnsCount);
+        }
+
+        public MetadataCallsCount withGetColumnsCount(long getColumnsCount)
+        {
+            return new MetadataCallsCount(listSchemasCount, listTablesCount, getColumnsCount);
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            MetadataCallsCount that = (MetadataCallsCount) o;
+            return listSchemasCount == that.listSchemasCount &&
+                    listTablesCount == that.listTablesCount &&
+                    getColumnsCount == that.getColumnsCount;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(listSchemasCount, listTablesCount, getColumnsCount);
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("listSchemasCount", listSchemasCount)
+                    .add("listTablesCount", listTablesCount)
+                    .add("getColumnsCount", getColumnsCount)
+                    .toString();
         }
     }
 }
