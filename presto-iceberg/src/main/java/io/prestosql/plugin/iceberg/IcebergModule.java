@@ -24,7 +24,6 @@ import io.prestosql.plugin.hive.HdfsConfiguration;
 import io.prestosql.plugin.hive.HdfsConfigurationInitializer;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveCoercionPolicy;
-import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HiveHdfsConfiguration;
 import io.prestosql.plugin.hive.HiveLocationService;
 import io.prestosql.plugin.hive.HiveNodePartitioningProvider;
@@ -36,7 +35,6 @@ import io.prestosql.plugin.hive.TypeTranslator;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftHiveMetastoreConfig;
 import io.prestosql.plugin.hive.parquet.ParquetReaderConfig;
 import io.prestosql.plugin.hive.parquet.ParquetWriterConfig;
-import io.prestosql.plugin.hive.s3.HiveS3Config;
 import io.prestosql.spi.connector.ConnectorNodePartitioningProvider;
 import io.prestosql.spi.connector.ConnectorPageSinkProvider;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
@@ -59,8 +57,7 @@ public class IcebergModule
         binder.bind(HdfsEnvironment.class).in(Scopes.SINGLETON);
         binder.bind(IcebergTransactionManager.class).in(Scopes.SINGLETON);
 
-        configBinder(binder).bindConfig(HiveConfig.class);
-        configBinder(binder).bindConfig(HiveS3Config.class);
+        configBinder(binder).bindConfig(IcebergConfig.class);
         configBinder(binder).bindConfig(HdfsConfig.class);
 
         binder.bind(IcebergSessionProperties.class).in(Scopes.SINGLETON);
