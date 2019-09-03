@@ -31,7 +31,6 @@ import io.prestosql.plugin.hive.HiveTransactionManager;
 import io.prestosql.plugin.hive.HiveTypeTranslator;
 import io.prestosql.plugin.hive.LocationService;
 import io.prestosql.plugin.hive.NamenodeStats;
-import io.prestosql.plugin.hive.OrcFileWriterConfig;
 import io.prestosql.plugin.hive.ParquetFileWriterConfig;
 import io.prestosql.plugin.hive.TypeTranslator;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftHiveMetastoreConfig;
@@ -86,7 +85,5 @@ public class IcebergModule
 
         binder.bind(FileFormatDataSourceStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(FileFormatDataSourceStats.class).withGeneratedName();
-
-        configBinder(binder).bindConfig(OrcFileWriterConfig.class);
     }
 }

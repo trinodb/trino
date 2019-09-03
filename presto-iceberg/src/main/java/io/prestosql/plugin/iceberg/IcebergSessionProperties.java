@@ -16,7 +16,6 @@ package io.prestosql.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.prestosql.plugin.hive.HiveConfig;
-import io.prestosql.plugin.hive.OrcFileWriterConfig;
 import io.prestosql.plugin.hive.ParquetFileWriterConfig;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.session.PropertyMetadata;
@@ -38,7 +37,7 @@ public final class IcebergSessionProperties
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
-    public IcebergSessionProperties(HiveConfig hiveConfig, OrcFileWriterConfig orcFileWriterConfig, ParquetFileWriterConfig parquetFileWriterConfig)
+    public IcebergSessionProperties(HiveConfig hiveConfig, ParquetFileWriterConfig parquetFileWriterConfig)
     {
         sessionProperties = ImmutableList.<PropertyMetadata<?>>builder()
                 .add(booleanProperty(
