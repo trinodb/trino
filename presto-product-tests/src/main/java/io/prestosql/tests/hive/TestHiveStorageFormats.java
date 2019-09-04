@@ -26,9 +26,12 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Maps.immutableEntry;
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tempto.query.QueryExecutor.defaultQueryExecutor;
@@ -54,6 +57,7 @@ public class TestHiveStorageFormats
                 {storageFormat("RCTEXT", ImmutableMap.of("hive.rcfile_optimized_writer_validate", "true"))},
                 {storageFormat("SEQUENCEFILE")},
                 {storageFormat("TEXTFILE")},
+                {storageFormat("TEXTFILE", ImmutableMap.of("textfile_field_separator", "F", "textfile_field_separator_escape", "E"), ImmutableMap.of())},
                 {storageFormat("AVRO")}
         };
     }
@@ -84,9 +88,9 @@ public class TestHiveStorageFormats
                         "   shipmode      VARCHAR," +
                         "   comment       VARCHAR," +
                         "   returnflag    VARCHAR" +
-                        ") WITH (format='%s')",
+                        ") WITH (%s)",
                 tableName,
-                storageFormat.getName());
+                storageFormat.getStoragePropertiesAsSql());
         query(createTable);
 
         String insertInto = format("INSERT INTO %s " +
@@ -113,12 +117,12 @@ public class TestHiveStorageFormats
         query(format("DROP TABLE IF EXISTS %s", tableName));
 
         String createTableAsSelect = format(
-                "CREATE TABLE %s WITH (format='%s') AS " +
+                "CREATE TABLE %s WITH (%s) AS " +
                         "SELECT " +
                         "partkey, suppkey, extendedprice " +
                         "FROM tpch.%s.lineitem",
                 tableName,
-                storageFormat.getName(),
+                storageFormat.getStoragePropertiesAsSql(),
                 TPCH_SCHEMA);
         query(createTableAsSelect);
 
@@ -182,12 +186,12 @@ public class TestHiveStorageFormats
         query(format("DROP TABLE IF EXISTS %s", tableName));
 
         String createTableAsSelect = format(
-                "CREATE TABLE %s WITH (format='%s', partitioned_by = ARRAY['returnflag']) AS " +
+                "CREATE TABLE %s WITH (%s, partitioned_by = ARRAY['returnflag']) AS " +
                         "SELECT " +
                         "tax, discount, returnflag " +
                         "FROM tpch.%s.lineitem",
                 tableName,
-                storageFormat.getName(),
+                storageFormat.getStoragePropertiesAsSql(),
                 TPCH_SCHEMA);
         query(createTableAsSelect);
 
@@ -269,23 +273,39 @@ public class TestHiveStorageFormats
 
     private static StorageFormat storageFormat(String name, Map<String, String> sessionProperties)
     {
-        return new StorageFormat(name, sessionProperties);
+        return new StorageFormat(name, ImmutableMap.of(), sessionProperties);
+    }
+
+    private static StorageFormat storageFormat(String name, Map<String, String> properties, Map<String, String> sessionProperties)
+    {
+        return new StorageFormat(name, properties, sessionProperties);
     }
 
     private static class StorageFormat
     {
         private final String name;
+        private final Map<String, String> properties;
         private final Map<String, String> sessionProperties;
 
-        private StorageFormat(String name, Map<String, String> sessionProperties)
+        private StorageFormat(String name, Map<String, String> properties, Map<String, String> sessionProperties)
         {
             this.name = requireNonNull(name, "name is null");
+            this.properties = requireNonNull(properties, "properties is null");
             this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null");
         }
 
         public String getName()
         {
             return name;
+        }
+
+        public String getStoragePropertiesAsSql()
+        {
+            return Stream.concat(
+                    Stream.of(immutableEntry("format", name)),
+                    properties.entrySet().stream())
+                    .map(entry -> format("%s = '%s'", entry.getKey(), entry.getValue()))
+                    .collect(Collectors.joining(", "));
         }
 
         public Map<String, String> getSessionProperties()
@@ -298,6 +318,7 @@ public class TestHiveStorageFormats
         {
             return toStringHelper(this)
                     .add("name", name)
+                    .add("properties", properties)
                     .add("sessionProperties", sessionProperties)
                     .toString();
         }
