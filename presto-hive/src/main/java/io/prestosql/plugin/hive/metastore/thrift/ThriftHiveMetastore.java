@@ -119,6 +119,7 @@ public class ThriftHiveMetastore
     private final Duration maxRetryTime;
     private final int maxRetries;
 
+    private final AtomicInteger chosenGetTableAlternative = new AtomicInteger(Integer.MAX_VALUE);
     private final AtomicInteger chosenTableParamAlternative = new AtomicInteger(Integer.MAX_VALUE);
 
     @Inject
@@ -215,13 +216,11 @@ public class ThriftHiveMetastore
                     .stopOn(NoSuchObjectException.class, HiveViewNotSupportedException.class)
                     .stopOnIllegalExceptions()
                     .run("getTable", stats.getGetTable().wrap(() -> {
-                        try (ThriftMetastoreClient client = createMetastoreClient()) {
-                            Table table = client.getTable(databaseName, tableName);
-                            if (table.getTableType().equals(TableType.VIRTUAL_VIEW.name()) && !isPrestoView(table)) {
-                                throw new HiveViewNotSupportedException(new SchemaTableName(databaseName, tableName));
-                            }
-                            return Optional.of(table);
+                        Table table = getTableFromMetastore(databaseName, tableName);
+                        if (table.getTableType().equals(TableType.VIRTUAL_VIEW.name()) && !isPrestoView(table)) {
+                            throw new HiveViewNotSupportedException(new SchemaTableName(databaseName, tableName));
                         }
+                        return Optional.of(table);
                     }));
         }
         catch (NoSuchObjectException e) {
@@ -233,6 +232,15 @@ public class ThriftHiveMetastore
         catch (Exception e) {
             throw propagate(e);
         }
+    }
+
+    private Table getTableFromMetastore(String databaseName, String tableName)
+            throws TException
+    {
+        return alternativeCall(
+                chosenGetTableAlternative,
+                client -> client.getTable(databaseName, tableName),
+                client -> client.getTableWithCapabilities(databaseName, tableName));
     }
 
     @Override
@@ -1250,8 +1258,8 @@ public class ThriftHiveMetastore
             return retry()
                     .stopOnIllegalExceptions()
                     .run("listTablePrivileges", stats.getListTablePrivileges().wrap(() -> {
+                        Table table = getTableFromMetastore(databaseName, tableName);
                         try (ThriftMetastoreClient client = createMetastoreClient()) {
-                            Table table = client.getTable(databaseName, tableName);
                             ImmutableSet.Builder<HivePrivilegeInfo> privileges = ImmutableSet.builder();
                             List<HiveObjectPrivilege> hiveObjectPrivilegeList;
                             // principal can be null when we want to list all privileges for admins
