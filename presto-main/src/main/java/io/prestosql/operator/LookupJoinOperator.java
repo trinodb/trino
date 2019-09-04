@@ -41,6 +41,7 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Verify.verifyNotNull;
 import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.concurrent.MoreFutures.checkSuccess;
 import static io.airlift.concurrent.MoreFutures.getDone;
@@ -391,7 +392,7 @@ public class LookupJoinOperator
 
     private void processProbe()
     {
-        verify(probe != null);
+        verifyNotNull(probe);
 
         Optional<SpillInfoSnapshot> spillInfoSnapshotIfSpillChanged = lookupSourceProvider.withLease(lookupSourceLease -> {
             if (lookupSourceLease.spillEpoch() == inputPageSpillEpoch) {
@@ -459,7 +460,7 @@ public class LookupJoinOperator
 
     private void processProbe(LookupSource lookupSource)
     {
-        verify(probe != null);
+        verifyNotNull(probe);
 
         DriverYieldSignal yieldSignal = operatorContext.getDriverContext().getYieldSignal();
         while (!yieldSignal.isSet()) {
@@ -671,7 +672,7 @@ public class LookupJoinOperator
     private void buildPage()
     {
         verify(outputPage == null);
-        verify(probe != null);
+        verifyNotNull(probe);
 
         if (pageBuilder.isEmpty()) {
             return;

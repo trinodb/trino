@@ -61,6 +61,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.immutableEntry;
@@ -160,7 +161,7 @@ public class MetastoreHiveStatisticsProvider
         result.setRowCount(Estimate.of(0));
         columns.forEach((columnName, columnHandle) -> {
             Type columnType = columnTypes.get(columnName);
-            verify(columnType != null, "columnType is missing for column: %s", columnName);
+            verifyNotNull(columnType, "columnType is missing for column: %s", columnName);
             ColumnStatistics.Builder columnStatistics = ColumnStatistics.builder();
             columnStatistics.setNullsFraction(Estimate.of(0));
             columnStatistics.setDistinctValuesCount(Estimate.of(0));
@@ -682,7 +683,7 @@ public class MetastoreHiveStatisticsProvider
             long rowCount = statistics.getBasicStatistics().getRowCount().orElseThrow(() -> new VerifyException("rowCount is not present"));
             verify(rowCount >= 0, "rowCount must be greater than or equal to zero");
             HiveColumnStatistics columnStatistics = statistics.getColumnStatistics().get(column);
-            verify(columnStatistics != null, "columnStatistics is null");
+            verifyNotNull(columnStatistics, "columnStatistics is null");
             long nullsCount = columnStatistics.getNullsCount().orElseThrow(() -> new VerifyException("nullsCount is not present"));
             verify(nullsCount >= 0, "nullsCount must be greater than or equal to zero");
             verify(nullsCount <= rowCount, "nullsCount must be less than or equal to rowCount. nullsCount: %s. rowCount: %s.", nullsCount, rowCount);
@@ -728,7 +729,7 @@ public class MetastoreHiveStatisticsProvider
             long rowCount = statistics.getBasicStatistics().getRowCount().orElseThrow(() -> new VerifyException("rowCount is not present"));
             verify(rowCount >= 0, "rowCount must be greater than or equal to zero");
             HiveColumnStatistics columnStatistics = statistics.getColumnStatistics().get(column);
-            verify(columnStatistics != null, "columnStatistics is null");
+            verifyNotNull(columnStatistics, "columnStatistics is null");
             long dataSize = columnStatistics.getTotalSizeInBytes().orElseThrow(() -> new VerifyException("totalSizeInBytes is not present"));
             verify(dataSize >= 0, "dataSize must be greater than or equal to zero");
             knownRowCount += rowCount;

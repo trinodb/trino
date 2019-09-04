@@ -69,7 +69,7 @@ import static com.floragunn.searchguard.ssl.util.SSLConfigConstants.SEARCHGUARD_
 import static com.floragunn.searchguard.ssl.util.SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_TRUSTSTORE_FILEPATH;
 import static com.floragunn.searchguard.ssl.util.SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_TRUSTSTORE_PASSWORD;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.cache.CacheLoader.asyncReloading;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -198,7 +198,7 @@ public class ElasticsearchClient
             return ImmutableList.of(tableDescription.getIndex());
         }
         TransportClient client = clients.get(tableDescription.getClusterName());
-        verify(client != null, "client is null");
+        verifyNotNull(client, "client is null");
         String[] indices = getIndices(client, new GetIndexRequest());
         return Arrays.stream(indices)
                 .filter(index -> index.startsWith(tableDescription.getIndex()))
@@ -208,7 +208,7 @@ public class ElasticsearchClient
     public ClusterSearchShardsResponse getSearchShards(String index, ElasticsearchTableDescription tableDescription)
     {
         TransportClient client = clients.get(tableDescription.getClusterName());
-        verify(client != null, "client is null");
+        verifyNotNull(client, "client is null");
         return getSearchShardsResponse(client, new ClusterSearchShardsRequest(index));
     }
 
@@ -264,7 +264,7 @@ public class ElasticsearchClient
     {
         List<ElasticsearchColumn> columns = new ArrayList<>();
         TransportClient client = clients.get(tableDescription.getClusterName());
-        verify(client != null, "client is null");
+        verifyNotNull(client, "client is null");
         for (String index : getIndices(tableDescription)) {
             GetMappingsRequest mappingsRequest = new GetMappingsRequest().types(tableDescription.getType());
 

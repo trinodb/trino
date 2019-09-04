@@ -40,6 +40,7 @@ import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.operator.PageUtils.recordMaterializedBytes;
 import static io.prestosql.operator.WorkProcessor.ProcessState.finished;
@@ -413,9 +414,8 @@ public class PageProcessor
 
         public Page getPage()
         {
-            verify(page != null);
             verify(state == ProcessBatchState.SUCCESS);
-            return page;
+            return verifyNotNull(page);
         }
 
         private enum ProcessBatchState

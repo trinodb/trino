@@ -31,7 +31,7 @@ import java.util.Collection;
 import java.util.Set;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
-import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Verify.verifyNotNull;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.HASH_CODE;
@@ -117,7 +117,7 @@ public final class FastutilSetHelper
             try {
                 Boolean result = (Boolean) equalsHandle.invokeExact(a, b);
                 // FastutilHashSet is not intended be used for indeterminate values lookup
-                verify(result != null, "result is null");
+                verifyNotNull(result, "result is null");
                 return TRUE.equals(result);
             }
             catch (Throwable t) {
@@ -159,7 +159,7 @@ public final class FastutilSetHelper
             try {
                 Boolean result = (Boolean) equalsHandle.invokeExact(a, b);
                 // FastutilHashSet is not intended be used for indeterminate values lookup
-                verify(result != null, "result is null");
+                verifyNotNull(result, "result is null");
                 return TRUE.equals(result);
             }
             catch (Throwable t) {
@@ -205,7 +205,7 @@ public final class FastutilSetHelper
             try {
                 Boolean result = (Boolean) equalsHandle.invokeExact(a, b);
                 // FastutilHashSet is not intended be used for indeterminate values lookup
-                verify(result != null, "result is null");
+                verifyNotNull(result, "result is null");
                 return TRUE.equals(result);
             }
             catch (Throwable t) {

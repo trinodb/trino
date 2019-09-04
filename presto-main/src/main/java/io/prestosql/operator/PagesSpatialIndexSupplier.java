@@ -39,7 +39,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Verify.verifyNotNull;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.prestosql.geospatial.serde.GeometrySerde.deserialize;
 import static io.prestosql.operator.PagesSpatialIndex.EMPTY_INDEX;
@@ -115,7 +115,7 @@ public class PagesSpatialIndexSupplier
 
             Slice slice = block.getSlice(blockPosition, 0, block.getSliceLength(blockPosition));
             OGCGeometry ogcGeometry = deserialize(slice);
-            verify(ogcGeometry != null);
+            verifyNotNull(ogcGeometry);
             if (ogcGeometry.isEmpty()) {
                 continue;
             }

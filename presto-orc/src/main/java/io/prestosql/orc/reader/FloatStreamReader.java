@@ -36,7 +36,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Verify.verifyNotNull;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.prestosql.orc.metadata.Stream.StreamKind.DATA;
 import static io.prestosql.orc.metadata.Stream.StreamKind.PRESENT;
@@ -144,7 +144,7 @@ public class FloatStreamReader
     private Block readNonNullBlock()
             throws IOException
     {
-        verify(dataStream != null);
+        verifyNotNull(dataStream);
         int[] values = new int[nextBatchSize];
         dataStream.next(values, nextBatchSize);
         return new IntArrayBlock(nextBatchSize, Optional.empty(), values);
@@ -153,7 +153,7 @@ public class FloatStreamReader
     private Block readNullBlock(boolean[] isNull, int nonNullCount)
             throws IOException
     {
-        verify(dataStream != null);
+        verifyNotNull(dataStream);
         int minNonNullValueSize = minNonNullValueSize(nonNullCount);
         if (nonNullValueTemp.length < minNonNullValueSize) {
             nonNullValueTemp = new int[minNonNullValueSize];
