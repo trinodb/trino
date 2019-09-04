@@ -523,14 +523,10 @@ public class HiveMetadata
         }
 
         // Textfile specific property
-        String textSkipHeaderCount = table.get().getParameters().get(TEXT_SKIP_HEADER_COUNT_KEY);
-        if (textSkipHeaderCount != null) {
-            properties.put(TEXTFILE_SKIP_HEADER_LINE_COUNT, Integer.valueOf(textSkipHeaderCount));
-        }
-        String textSkipFooterCount = table.get().getParameters().get(TEXT_SKIP_FOOTER_COUNT_KEY);
-        if (textSkipFooterCount != null) {
-            properties.put(TEXTFILE_SKIP_FOOTER_LINE_COUNT, Integer.valueOf(textSkipFooterCount));
-        }
+        getSerdeProperty(table.get(), TEXT_SKIP_HEADER_COUNT_KEY)
+                .ifPresent(textSkipHeaderCount -> properties.put(TEXTFILE_SKIP_HEADER_LINE_COUNT, Integer.valueOf(textSkipHeaderCount)));
+        getSerdeProperty(table.get(), TEXT_SKIP_FOOTER_COUNT_KEY)
+                .ifPresent(textSkipFooterCount -> properties.put(TEXTFILE_SKIP_FOOTER_LINE_COUNT, Integer.valueOf(textSkipFooterCount)));
 
         // CSV specific property
         getCsvSerdeProperty(table.get(), CSV_SEPARATOR_KEY)
