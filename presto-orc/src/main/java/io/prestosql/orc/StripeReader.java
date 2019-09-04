@@ -74,7 +74,7 @@ import static java.util.Objects.requireNonNull;
 public class StripeReader
 {
     private final OrcDataSource orcDataSource;
-    private final ZoneId defaultTimeZone;
+    private final ZoneId storageTimeZone;
     private final Optional<OrcDecompressor> decompressor;
     private final List<OrcType> types;
     private final HiveWriterVersion hiveWriterVersion;
@@ -84,8 +84,9 @@ public class StripeReader
     private final MetadataReader metadataReader;
     private final Optional<OrcWriteValidation> writeValidation;
 
-    public StripeReader(OrcDataSource orcDataSource,
-            ZoneId defaultTimeZone,
+    public StripeReader(
+            OrcDataSource orcDataSource,
+            ZoneId storageTimeZone,
             Optional<OrcDecompressor> decompressor,
             List<OrcType> types,
             Set<Integer> includedColumns,
@@ -96,7 +97,7 @@ public class StripeReader
             Optional<OrcWriteValidation> writeValidation)
     {
         this.orcDataSource = requireNonNull(orcDataSource, "orcDataSource is null");
-        this.defaultTimeZone = requireNonNull(defaultTimeZone, "defaultTimeZone is null");
+        this.storageTimeZone = requireNonNull(storageTimeZone, "storageTimeZone is null");
         this.decompressor = requireNonNull(decompressor, "decompressor is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.includedOrcColumns = getIncludedOrcColumns(types, requireNonNull(includedColumns, "includedColumns is null"));
@@ -116,7 +117,7 @@ public class StripeReader
         if (writeValidation.isPresent()) {
             writeValidation.get().validateTimeZone(orcDataSource.getId(), stripeFooter.getTimeZone().orElse(null));
         }
-        ZoneId timeZone = stripeFooter.getTimeZone().orElse(defaultTimeZone);
+        ZoneId fileTimeZone = stripeFooter.getTimeZone().orElse(storageTimeZone);
 
         // get streams for selected columns
         Map<StreamId, Stream> streams = new HashMap<>();
@@ -171,7 +172,7 @@ public class StripeReader
                         selectedRowGroups,
                         columnEncodings);
 
-                return new Stripe(stripe.getNumberOfRows(), timeZone, columnEncodings, rowGroups, dictionaryStreamSources);
+                return new Stripe(stripe.getNumberOfRows(), fileTimeZone, storageTimeZone, columnEncodings, rowGroups, dictionaryStreamSources);
             }
             catch (InvalidCheckpointException e) {
                 // The ORC file contains a corrupt checkpoint stream treat the stripe as a single row group.
@@ -225,7 +226,7 @@ public class StripeReader
         }
         RowGroup rowGroup = new RowGroup(0, 0, stripe.getNumberOfRows(), minAverageRowBytes, new InputStreamSources(builder.build()));
 
-        return new Stripe(stripe.getNumberOfRows(), timeZone, columnEncodings, ImmutableList.of(rowGroup), dictionaryStreamSources);
+        return new Stripe(stripe.getNumberOfRows(), fileTimeZone, storageTimeZone, columnEncodings, ImmutableList.of(rowGroup), dictionaryStreamSources);
     }
 
     private static boolean isSupportedStreamType(Stream stream, OrcTypeKind orcTypeKind)

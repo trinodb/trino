@@ -500,10 +500,11 @@ public class OrcRecordReader
             // Give readers access to dictionary streams
             InputStreamSources dictionaryStreamSources = stripe.getDictionaryStreamSources();
             List<ColumnEncoding> columnEncodings = stripe.getColumnEncodings();
-            ZoneId timeZone = stripe.getTimeZone();
+            ZoneId fileTimeZone = stripe.getFileTimeZone();
+            ZoneId storageTimeZone = stripe.getStorageTimeZone();
             for (StreamReader column : streamReaders) {
                 if (column != null) {
-                    column.startStripe(timeZone, dictionaryStreamSources, columnEncodings);
+                    column.startStripe(fileTimeZone, storageTimeZone, dictionaryStreamSources, columnEncodings);
                 }
             }
 

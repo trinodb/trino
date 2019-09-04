@@ -162,7 +162,7 @@ public class ListStreamReader
     }
 
     @Override
-    public void startStripe(ZoneId timeZone, InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
+    public void startStripe(ZoneId fileTimeZone, ZoneId storageTimeZone, InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
             throws IOException
     {
         presentStreamSource = missingStreamSource(BooleanInputStream.class);
@@ -176,7 +176,7 @@ public class ListStreamReader
 
         rowGroupOpen = false;
 
-        elementStreamReader.startStripe(timeZone, dictionaryStreamSources, encoding);
+        elementStreamReader.startStripe(fileTimeZone, storageTimeZone, dictionaryStreamSources, encoding);
     }
 
     @Override

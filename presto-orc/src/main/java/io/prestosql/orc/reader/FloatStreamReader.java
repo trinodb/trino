@@ -177,7 +177,7 @@ public class FloatStreamReader
     }
 
     @Override
-    public void startStripe(ZoneId timeZone, InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
+    public void startStripe(ZoneId fileTimeZone, ZoneId storageTimeZone, InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
     {
         presentStreamSource = missingStreamSource(BooleanInputStream.class);
         dataStreamSource = missingStreamSource(FloatInputStream.class);
