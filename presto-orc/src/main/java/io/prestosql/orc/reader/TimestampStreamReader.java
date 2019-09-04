@@ -24,17 +24,21 @@ import io.prestosql.orc.stream.LongInputStream;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.LongArrayBlock;
 import io.prestosql.spi.block.RunLengthEncodedBlock;
+import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
+import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.LongUnaryOperator;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -43,6 +47,7 @@ import static io.prestosql.orc.metadata.Stream.StreamKind.PRESENT;
 import static io.prestosql.orc.metadata.Stream.StreamKind.SECONDARY;
 import static io.prestosql.orc.reader.ReaderUtils.verifyStreamType;
 import static io.prestosql.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static java.util.Objects.requireNonNull;
 
@@ -56,6 +61,7 @@ public class TimestampStreamReader
     private final StreamDescriptor streamDescriptor;
 
     private long baseTimestampInSeconds;
+    private Optional<LongUnaryOperator> timestampConversion;
 
     private int readOffset;
     private int nextBatchSize;
@@ -168,6 +174,11 @@ public class TimestampStreamReader
         for (int i = 0; i < nextBatchSize; i++) {
             values[i] = decodeTimestamp(secondsStream.next(), nanosStream.next(), baseTimestampInSeconds);
         }
+        if (timestampConversion.isPresent()) {
+            for (int i = 0; i < nextBatchSize; i++) {
+                values[i] = timestampConversion.get().applyAsLong(values[i]);
+            }
+        }
         return new LongArrayBlock(nextBatchSize, Optional.empty(), values);
     }
 
@@ -187,6 +198,13 @@ public class TimestampStreamReader
                 values[i] = decodeTimestamp(secondsStream.next(), nanosStream.next(), baseTimestampInSeconds);
             }
         }
+        if (timestampConversion.isPresent()) {
+            for (int i = 0; i < isNull.length; i++) {
+                if (!isNull[i]) {
+                    values[i] = timestampConversion.get().applyAsLong(values[i]);
+                }
+            }
+        }
         return new LongArrayBlock(isNull.length, Optional.of(isNull), values);
     }
 
@@ -204,6 +222,25 @@ public class TimestampStreamReader
     public void startStripe(ZoneId fileTimeZone, ZoneId storageTimeZone, InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
     {
         baseTimestampInSeconds = ZonedDateTime.of(2015, 1, 1, 0, 0, 0, 0, fileTimeZone).toEpochSecond();
+
+        /*
+         * In legacy semantics, timestamp represents a point in time. ORC effectively stores millis and zone (like ZonedDateTime).
+         * Hive interprets the ORC value as local date/time in file time zone.
+         * We need to calculate point in time corresponding to (local date/time read from ORC) at Hive warehouse time zone.
+         *
+         * TODO support new timestamp semantics
+         */
+        DateTimeZone storageDateTimeZone = DateTimeZone.forID(storageTimeZone.getId());
+        if (fileTimeZone.equals(storageTimeZone)) {
+            timestampConversion = Optional.empty();
+        }
+        else if (TimeZoneKey.getTimeZoneKey(fileTimeZone.getId()).equals(UTC_KEY)) { // getTimeZoneKey identified UTC-equivalent zones
+            timestampConversion = Optional.of(value -> storageDateTimeZone.convertLocalToUTC(value, false));
+        }
+        else {
+            DateTimeZone fileDateTimeZone = DateTimeZone.forID(fileTimeZone.getId());
+            timestampConversion = Optional.of(value -> fileDateTimeZone.getMillisKeepLocal(storageDateTimeZone, value));
+        }
 
         presentStreamSource = missingStreamSource(BooleanInputStream.class);
         secondsStreamSource = missingStreamSource(LongInputStream.class);
