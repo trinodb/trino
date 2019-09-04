@@ -31,6 +31,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getDone;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -240,7 +241,7 @@ public class SpatialJoinOperator
 
     private void processProbe()
     {
-        verify(probe != null);
+        verifyNotNull(probe);
 
         PagesSpatialIndex pagesSpatialIndex = getDone(pagesSpatialIndexFuture);
         DriverYieldSignal yieldSignal = operatorContext.getDriverContext().getYieldSignal();

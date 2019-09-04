@@ -37,7 +37,7 @@ import java.util.Queue;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Verify.verifyNotNull;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.prestosql.spi.StandardErrorCode.INVALID_RESOURCE_GROUP;
 import static java.lang.String.format;
@@ -187,7 +187,7 @@ public abstract class AbstractResourceConfigurationManager
             candidates = match.getSubGroups();
         }
 
-        verify(match != null, "match is null");
+        verifyNotNull(match, "match is null");
         return match;
     }
 

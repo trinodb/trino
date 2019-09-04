@@ -31,7 +31,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Verify.verifyNotNull;
 import static io.prestosql.sql.planner.plan.Patterns.tableScan;
 import static java.lang.Double.NaN;
 import static java.util.Objects.requireNonNull;
@@ -62,7 +62,7 @@ public class TableScanStatsRule
         Constraint constraint = new Constraint(metadata.getTableProperties(session, node.getTable()).getPredicate());
 
         TableStatistics tableStatistics = metadata.getTableStatistics(session, node.getTable(), constraint);
-        verify(tableStatistics != null, "tableStatistics is null for %s", node);
+        verifyNotNull(tableStatistics, "tableStatistics is null for %s", node);
         Map<Symbol, SymbolStatsEstimate> outputSymbolStats = new HashMap<>();
 
         for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {

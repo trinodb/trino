@@ -42,6 +42,7 @@ import java.util.function.BiPredicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -289,8 +290,7 @@ public class QueryContext
     public TaskContext getTaskContextByTaskId(TaskId taskId)
     {
         TaskContext taskContext = taskContexts.get(taskId);
-        verify(taskContext != null, "task does not exist");
-        return taskContext;
+        return verifyNotNull(taskContext, "task does not exist");
     }
 
     private static class QueryMemoryReservationHandler

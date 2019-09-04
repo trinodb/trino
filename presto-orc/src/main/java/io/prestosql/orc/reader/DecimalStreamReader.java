@@ -42,7 +42,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Verify.verifyNotNull;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.prestosql.orc.metadata.Stream.StreamKind.DATA;
 import static io.prestosql.orc.metadata.Stream.StreamKind.PRESENT;
@@ -175,8 +175,8 @@ public class DecimalStreamReader
     private Block readShortNotNullBlock()
             throws IOException
     {
-        verify(scaleStream != null);
-        verify(decimalStream != null);
+        verifyNotNull(scaleStream);
+        verifyNotNull(decimalStream);
 
         long[] data = new long[nextBatchSize];
         decimalStream.nextShortDecimal(data, nextBatchSize);
@@ -193,8 +193,8 @@ public class DecimalStreamReader
     private Block readLongNotNullBlock()
             throws IOException
     {
-        verify(decimalStream != null);
-        verify(scaleStream != null);
+        verifyNotNull(decimalStream);
+        verifyNotNull(scaleStream);
 
         long[] data = new long[nextBatchSize * 2];
         decimalStream.nextLongDecimal(data, nextBatchSize);
@@ -225,8 +225,8 @@ public class DecimalStreamReader
     private Block readShortNullBlock(boolean[] isNull, int nonNullCount)
             throws IOException
     {
-        verify(decimalStream != null);
-        verify(scaleStream != null);
+        verifyNotNull(decimalStream);
+        verifyNotNull(scaleStream);
 
         int minNonNullValueSize = minNonNullValueSize(nonNullCount);
         if (nonNullValueTemp.length < minNonNullValueSize) {
@@ -251,8 +251,8 @@ public class DecimalStreamReader
     private Block readLongNullBlock(boolean[] isNull, int nonNullCount)
             throws IOException
     {
-        verify(decimalStream != null);
-        verify(scaleStream != null);
+        verifyNotNull(decimalStream);
+        verifyNotNull(scaleStream);
 
         int minTempSize = minNonNullValueSize(nonNullCount) * 2;
         if (nonNullValueTemp.length < minTempSize) {
@@ -296,8 +296,8 @@ public class DecimalStreamReader
             }
             if (readOffset > 0) {
                 checkDataStreamsArePresent();
-                verify(decimalStream != null);
-                verify(scaleStream != null);
+                verifyNotNull(decimalStream);
+                verifyNotNull(scaleStream);
 
                 decimalStream.skip(readOffset);
                 scaleStream.skip(readOffset);
