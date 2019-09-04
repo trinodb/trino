@@ -71,11 +71,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Throwables.propagateIfPossible;
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -116,8 +119,7 @@ public class ThriftHiveMetastore
     private final Duration maxRetryTime;
     private final int maxRetries;
 
-    private volatile boolean metastoreKnownToSupportTableParamEqualsPredicate;
-    private volatile boolean metastoreKnownToSupportTableParamLikePredicate;
+    private final AtomicInteger chosenTableParamAlternative = new AtomicInteger(Integer.MAX_VALUE);
 
     @Inject
     public ThriftHiveMetastore(MetastoreLocator metastoreLocator, ThriftHiveMetastoreConfig thriftConfig)
@@ -732,35 +734,10 @@ public class ThriftHiveMetastore
         String filterWithEquals = HIVE_FILTER_FIELD_PARAMS + PRESTO_VIEW_FLAG + " = \"true\"";
         String filterWithLike = HIVE_FILTER_FIELD_PARAMS + PRESTO_VIEW_FLAG + " LIKE \"true\"";
 
-        if (metastoreKnownToSupportTableParamEqualsPredicate) {
-            try (ThriftMetastoreClient client = createMetastoreClient()) {
-                return client.getTableNamesByFilter(databaseName, filterWithEquals);
-            }
-        }
-        if (metastoreKnownToSupportTableParamLikePredicate) {
-            try (ThriftMetastoreClient client = createMetastoreClient()) {
-                return client.getTableNamesByFilter(databaseName, filterWithLike);
-            }
-        }
-
-        try (ThriftMetastoreClient client = createMetastoreClient()) {
-            List<String> views = client.getTableNamesByFilter(databaseName, filterWithEquals);
-            metastoreKnownToSupportTableParamEqualsPredicate = true;
-            return views;
-        }
-        catch (TException | RuntimeException firstException) {
-            try (ThriftMetastoreClient client = createMetastoreClient()) {
-                List<String> views = client.getTableNamesByFilter(databaseName, filterWithLike);
-                metastoreKnownToSupportTableParamLikePredicate = true;
-                return views;
-            }
-            catch (TException | RuntimeException secondException) {
-                if (firstException != secondException) {
-                    firstException.addSuppressed(secondException);
-                }
-            }
-            throw firstException;
-        }
+        return alternativeCall(
+                chosenTableParamAlternative,
+                client -> client.getTableNamesByFilter(databaseName, filterWithEquals),
+                client -> client.getTableNamesByFilter(databaseName, filterWithLike));
     }
 
     @Override
@@ -1333,6 +1310,45 @@ public class ThriftHiveMetastore
                 .anyMatch(privilege -> privilege.getPrivilege().equalsIgnoreCase("all"));
     }
 
+    @SafeVarargs
+    private final <T> T alternativeCall(
+            AtomicInteger chosenAlternative,
+            Call<T>... alternatives)
+            throws TException
+    {
+        checkArgument(alternatives.length > 0, "No alternatives");
+        int chosen = chosenAlternative.get();
+        checkArgument(chosen == Integer.MAX_VALUE || (0 <= chosen && chosen < alternatives.length), "Bad chosen alternative value: %s", chosen);
+
+        if (chosen != Integer.MAX_VALUE) {
+            try (ThriftMetastoreClient client = createMetastoreClient()) {
+                return alternatives[chosen].callOn(client);
+            }
+        }
+
+        Exception firstException = null;
+        for (int i = 0; i < alternatives.length; i++) {
+            int position = i;
+            try (ThriftMetastoreClient client = createMetastoreClient()) {
+                T result = alternatives[i].callOn(client);
+                chosenAlternative.updateAndGet(currentChosen -> Math.min(currentChosen, position));
+                return result;
+            }
+            catch (TException | RuntimeException exception) {
+                if (firstException == null) {
+                    firstException = exception;
+                }
+                else if (firstException != exception) {
+                    firstException.addSuppressed(exception);
+                }
+            }
+        }
+
+        verifyNotNull(firstException);
+        propagateIfPossible(firstException, TException.class);
+        throw propagate(firstException);
+    }
+
     private ThriftMetastoreClient createMetastoreClient()
             throws TException
     {
@@ -1354,5 +1370,12 @@ public class ThriftHiveMetastore
         }
         throwIfUnchecked(throwable);
         throw new RuntimeException(throwable);
+    }
+
+    @FunctionalInterface
+    private interface Call<T>
+    {
+        T callOn(ThriftMetastoreClient client)
+                throws TException;
     }
 }
