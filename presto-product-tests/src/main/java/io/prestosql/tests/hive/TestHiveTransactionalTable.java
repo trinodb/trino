@@ -14,43 +14,79 @@
 package io.prestosql.tests.hive;
 
 import io.prestosql.tempto.ProductTest;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
+import static java.util.Locale.ENGLISH;
 
 public class TestHiveTransactionalTable
         extends ProductTest
 {
-    @Test
-    public void testSelectFromTransactionalTable()
+    @Test(dataProvider = "transactionalTableType")
+    public void testSelectFromTransactionalTable(TransactionalTableType type)
     {
+        String tableName = "test_select_from_transactional_table_" + type.name().toLowerCase(ENGLISH);
         onHive().executeQuery("" +
-                "CREATE TABLE test_select_from_transactional_table(a bigint)" +
-                "CLUSTERED BY(a) INTO 4 BUCKETS STORED AS ORC TBLPROPERTIES ('transactional'='true', 'bucketing_version'='1')");
+                "CREATE TABLE " + tableName + "(a bigint)" +
+                "CLUSTERED BY(a) INTO 4 BUCKETS STORED AS ORC TBLPROPERTIES (" + type.getTableProperties() + ")");
         try {
-            assertThat(() -> query("SELECT * FROM test_select_from_transactional_table"))
-                    .failsWithMessage("Hive transactional tables are not supported: default.test_select_from_transactional_table");
+            assertThat(() -> query("SELECT * FROM " + tableName))
+                    .failsWithMessage("Hive transactional tables are not supported: default." + tableName);
         }
         finally {
-            onHive().executeQuery("DROP TABLE test_select_from_transactional_table");
+            onHive().executeQuery("DROP TABLE " + tableName);
         }
     }
 
-    @Test
-    public void testInsertIntoTransactionalTable()
+    @Test(dataProvider = "transactionalTableType")
+    public void testInsertIntoTransactionalTable(TransactionalTableType type)
     {
+        String tableName = "test_insert_into_transactional_table_" + type.name().toLowerCase(ENGLISH);
         onHive().executeQuery("" +
-                "CREATE TABLE test_insert_into_transactional_table(a bigint)" +
-                "CLUSTERED BY(a) INTO 4 BUCKETS STORED AS ORC TBLPROPERTIES ('transactional'='true', 'bucketing_version'='1')");
+                "CREATE TABLE " + tableName + "(a bigint)" +
+                "CLUSTERED BY(a) INTO 4 BUCKETS STORED AS ORC TBLPROPERTIES (" + type.getTableProperties() + ")");
 
         try {
-            assertThat(() -> query("INSERT INTO test_insert_into_transactional_table (a) VALUES (42)"))
-                    .failsWithMessage("Hive transactional tables are not supported: default.test_insert_into_transactional_table");
+            assertThat(() -> query("INSERT INTO " + tableName + " (a) VALUES (42)"))
+                    .failsWithMessage("Hive transactional tables are not supported: default." + tableName);
         }
         finally {
-            onHive().executeQuery("DROP TABLE test_insert_into_transactional_table");
+            onHive().executeQuery("DROP TABLE " + tableName);
         }
+    }
+
+    @DataProvider
+    public Object[][] transactionalTableType()
+    {
+        return new Object[][] {
+                {TransactionalTableType.ACID},
+                {TransactionalTableType.INSERT_ONLY},
+        };
+    }
+
+    private enum TransactionalTableType
+    {
+        ACID {
+            @Override
+            String getTableProperties()
+            {
+                // TODO (https://github.com/prestosql/presto/issues/538) remove bucketing_version
+                return "'transactional'='true', 'bucketing_version'='1'";
+            }
+        },
+        INSERT_ONLY {
+            @Override
+            String getTableProperties()
+            {
+                // TODO (https://github.com/prestosql/presto/issues/538) remove bucketing_version
+                return "'transactional'='true', 'transactional_properties'='insert_only', 'bucketing_version'='1'";
+            }
+        },
+        /**/;
+
+        abstract String getTableProperties();
     }
 }
