@@ -57,6 +57,12 @@ public class TestWorkProcessorPipelineQueries
         assertLazyQuery("SELECT * FROM orders WHERE orderkey NOT IN (SELECT orderkey FROM orders WHERE orderdate >= DATE '1994-01-01')");
     }
 
+    @Test
+    public void testJoin()
+    {
+        assertLazyQuery("SELECT * FROM lineitem INNER JOIN part ON lineitem.partkey = part.partkey AND mfgr = 'Manufacturer#5'");
+    }
+
     private void assertLazyQuery(@Language("SQL") String sql)
     {
         DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
