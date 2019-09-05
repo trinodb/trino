@@ -110,7 +110,7 @@ public class TestPushPredicateIntoTableScan
     }
 
     @Test
-    public void doesNotFireIfNewDomainIsSame()
+    public void consumesDeterministicPredicateIfNewDomainIsSame()
     {
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
         tester().assertThat(pushPredicateIntoTableScan)
@@ -121,11 +121,14 @@ public class TestPushPredicateIntoTableScan
                                 ImmutableMap.of(p.symbol("nationkey", BIGINT), columnHandle),
                                 TupleDomain.fromFixedValues(ImmutableMap.of(
                                         columnHandle, NullableValue.of(BIGINT, (long) 44))))))
-                .doesNotFire();
+                .matches(constrainedTableScanWithTableLayout(
+                        "nation",
+                        ImmutableMap.of("nationkey", singleValue(BIGINT, (long) 44)),
+                        ImmutableMap.of("nationkey", "nationkey")));
     }
 
     @Test
-    public void doesNotFireIfNewDomainIsWider()
+    public void consumesDeterministicPredicateIfNewDomainIsWider()
     {
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
         tester().assertThat(pushPredicateIntoTableScan)
@@ -136,6 +139,44 @@ public class TestPushPredicateIntoTableScan
                                 ImmutableMap.of(p.symbol("nationkey", BIGINT), columnHandle),
                                 TupleDomain.fromFixedValues(ImmutableMap.of(
                                         columnHandle, NullableValue.of(BIGINT, (long) 44))))))
+                .matches(constrainedTableScanWithTableLayout(
+                        "nation",
+                        ImmutableMap.of("nationkey", singleValue(BIGINT, (long) 44)),
+                        ImmutableMap.of("nationkey", "nationkey")));
+    }
+
+    @Test
+    public void doesNotConsumeRemainingPredicateIfNewDomainIsWider()
+    {
+        ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
+        tester().assertThat(pushPredicateIntoTableScan)
+                .on(p -> p.filter(expression("rand() = 42 AND nationkey % 17 =  BIGINT '44' AND (nationkey = BIGINT '44' OR nationkey = BIGINT '45')"),
+                        p.tableScan(
+                                nationTableHandle,
+                                ImmutableList.of(p.symbol("nationkey", BIGINT)),
+                                ImmutableMap.of(p.symbol("nationkey", BIGINT), columnHandle),
+                                TupleDomain.fromFixedValues(ImmutableMap.of(
+                                        columnHandle, NullableValue.of(BIGINT, (long) 44))))))
+                .matches(
+                        filter(
+                                expression("rand() = 42 AND nationkey % 17 =  BIGINT '44'"),
+                                constrainedTableScanWithTableLayout(
+                                        "nation",
+                                        ImmutableMap.of("nationkey", singleValue(BIGINT, (long) 44)),
+                                        ImmutableMap.of("nationkey", "nationkey"))));
+    }
+
+    @Test
+    public void doesNotFireOnNonDeterministicPredicate()
+    {
+        ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
+        tester().assertThat(pushPredicateIntoTableScan)
+                .on(p -> p.filter(expression("rand() = 42"),
+                        p.tableScan(
+                                nationTableHandle,
+                                ImmutableList.of(p.symbol("nationkey", BIGINT)),
+                                ImmutableMap.of(p.symbol("nationkey", BIGINT), columnHandle),
+                                TupleDomain.all())))
                 .doesNotFire();
     }
 
