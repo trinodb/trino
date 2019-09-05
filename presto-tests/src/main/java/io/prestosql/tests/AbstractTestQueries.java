@@ -49,7 +49,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
-import static io.prestosql.connector.informationschema.InformationSchemaMetadata.INFORMATION_SCHEMA;
+import static io.prestosql.connector.informationschema.InformationSchemaTable.INFORMATION_SCHEMA;
 import static io.prestosql.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static io.prestosql.operator.scalar.InvokeFunction.INVOKE_FUNCTION;
 import static io.prestosql.spi.type.BigintType.BIGINT;
