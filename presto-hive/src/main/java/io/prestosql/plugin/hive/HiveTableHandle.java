@@ -237,13 +237,31 @@ public class HiveTableHandle
         }
         HiveTableHandle that = (HiveTableHandle) o;
         return Objects.equals(schemaName, that.schemaName) &&
-                Objects.equals(tableName, that.tableName);
+                Objects.equals(tableName, that.tableName) &&
+                Objects.equals(tableParameters, that.tableParameters) &&
+                Objects.equals(partitionColumns, that.partitionColumns) &&
+                Objects.equals(partitions, that.partitions) &&
+                Objects.equals(compactEffectivePredicate, that.compactEffectivePredicate) &&
+                Objects.equals(enforcedConstraint, that.enforcedConstraint) &&
+                Objects.equals(bucketHandle, that.bucketHandle) &&
+                Objects.equals(bucketFilter, that.bucketFilter) &&
+                Objects.equals(analyzePartitionValues, that.analyzePartitionValues);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaName, tableName);
+        return Objects.hash(
+                schemaName,
+                tableName,
+                tableParameters,
+                partitionColumns,
+                partitions,
+                compactEffectivePredicate,
+                enforcedConstraint,
+                bucketHandle,
+                bucketFilter,
+                analyzePartitionValues);
     }
 
     @Override
