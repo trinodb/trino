@@ -1591,8 +1591,9 @@ public class HiveMetadata
     @Override
     public void dropView(ConnectorSession session, SchemaTableName viewName)
     {
-        ConnectorViewDefinition view = getView(session, viewName)
-                .orElseThrow(() -> new ViewNotFoundException(viewName));
+        if (!getView(session, viewName).isPresent()) {
+            throw new ViewNotFoundException(viewName);
+        }
 
         try {
             metastore.dropTable(session, viewName.getSchemaName(), viewName.getTableName());
@@ -2278,6 +2279,7 @@ public class HiveMetadata
         }
     }
 
+    @SafeVarargs
     private static <T> Optional<T> firstNonNullable(T... values)
     {
         for (T value : values) {
