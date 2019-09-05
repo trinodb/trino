@@ -148,6 +148,7 @@ public class PushPredicateIntoTableScan
     {
         // don't include non-deterministic predicates
         Expression deterministicPredicate = filterDeterministicConjuncts(predicate);
+        Expression nonDeterministicPredicate = filterNonDeterministicConjuncts(predicate);
 
         DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.fromPredicate(
                 metadata,
@@ -186,10 +187,17 @@ public class PushPredicateIntoTableScan
         TableHandle newTable;
         TupleDomain<ColumnHandle> remainingFilter;
         if (!metadata.usesLegacyTableLayouts(session, node.getTable())) {
+            // check if new domain is wider than domain already provided by table scan
             if (!constraint.predicate().isPresent() && newDomain.contains(node.getEnforcedConstraint())) {
-                // new domain is wider than domain already provided by table scan
-                // TODO: remove deterministic filter predicate
-                return Optional.empty();
+                Expression resultingPredicate = combineConjuncts(
+                        nonDeterministicPredicate,
+                        decomposedPredicate.getRemainingExpression());
+
+                if (!TRUE_LITERAL.equals(resultingPredicate)) {
+                    return Optional.of(new FilterNode(idAllocator.getNextId(), node, resultingPredicate));
+                }
+
+                return Optional.of(node);
             }
 
             if (newDomain.isNone()) {
@@ -247,7 +255,7 @@ public class PushPredicateIntoTableScan
         //   to failures of previously successful queries.
         Expression resultingPredicate = combineConjuncts(
                 domainTranslator.toPredicate(remainingFilter.transform(assignments::get)),
-                filterNonDeterministicConjuncts(predicate),
+                nonDeterministicPredicate,
                 decomposedPredicate.getRemainingExpression());
 
         if (!TRUE_LITERAL.equals(resultingPredicate)) {
