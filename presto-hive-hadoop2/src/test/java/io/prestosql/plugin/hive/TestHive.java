@@ -25,6 +25,7 @@ import java.util.regex.Pattern;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Integer.parseInt;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestHive
         extends AbstractTestHive
@@ -71,5 +72,33 @@ public class TestHive
         }
 
         super.testGetPartitionSplitsTableOfflinePartition();
+    }
+
+    @Override
+    public void testTypesRcBinary()
+            throws Exception
+    {
+        if (getHiveVersionMajor() >= 3) {
+            // TODO (https://github.com/prestosql/presto/issues/1218) requires https://issues.apache.org/jira/browse/HIVE-22167
+            assertThatThrownBy(super::testTypesRcBinary)
+                    .isInstanceOf(AssertionError.class)
+                    .hasMessage("expected [2011-05-06 01:23:09.123] but found [2011-05-06 07:08:09.123]");
+            return;
+        }
+        super.testTypesRcBinary();
+    }
+
+    @Override
+    public void testTypesParquet()
+            throws Exception
+    {
+        if (getHiveVersionMajor() >= 3) {
+            // TODO (https://github.com/prestosql/presto/issues/1218) requires https://issues.apache.org/jira/browse/HIVE-21002
+            assertThatThrownBy(super::testTypesParquet)
+                    .isInstanceOf(AssertionError.class)
+                    .hasMessage("expected [2011-05-06 01:23:09.123] but found [2011-05-06 07:08:09.123]");
+            return;
+        }
+        super.testTypesParquet();
     }
 }
