@@ -463,7 +463,7 @@ class SubqueryPlanner
     }
 
     /**
-     * Checks if give reference expression can resolved within given plan.
+     * Checks if given reference expression can be resolved within given plan.
      */
     private static Optional<Expression> tryResolveMissingExpression(PlanBuilder subPlan, Expression expression)
     {
