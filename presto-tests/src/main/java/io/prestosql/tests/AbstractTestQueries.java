@@ -3221,6 +3221,43 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testMultipleOccurrencesOfCorrelatedSymbol()
+    {
+        @Language("SQL") String expected =
+                "VALUES " +
+                        "('AFRICA',      'MOZAMBIQUE'), " +
+                        "('AMERICA',     'UNITED STATES'), " +
+                        "('ASIA',        'VIETNAM'), " +
+                        "('EUROPE',      'UNITED KINGDOM'), " +
+                        "('MIDDLE EAST', 'SAUDI ARABIA')";
+
+        // correlated symbol used twice, no coercion
+        assertQuery(
+                "SELECT region.name, (SELECT max(name) FROM nation WHERE regionkey * 2 = region.regionkey * 2 AND regionkey = region.regionkey) FROM region",
+                expected);
+
+        // correlated symbol used twice, first occurrence coerced to double
+        assertQuery(
+                "SELECT region.name, (SELECT max(name) FROM nation WHERE CAST(regionkey AS double) = region.regionkey AND regionkey = region.regionkey) FROM region",
+                expected);
+
+        // correlated symbol used twice, second occurrence coerced to double
+        assertQuery(
+                "SELECT region.name, (SELECT max(name) FROM nation WHERE regionkey = region.regionkey AND CAST(regionkey AS double) = region.regionkey) FROM region",
+                expected);
+
+        // different coercions
+        assertQuery(
+                "SELECT region.name, " +
+                        "(SELECT max(name) FROM nation " +
+                        "WHERE CAST(regionkey AS double) = region.regionkey " + // region.regionkey coerced to double
+                        "AND regionkey = region.regionkey " +                   // no coercion
+                        "AND regionkey * 1.0 = region.regionkey) " +            // region.regionkey coerced to decimal
+                        "FROM region",
+                expected);
+    }
+
+    @Test
     public void testExistsSubquery()
     {
         // nested
