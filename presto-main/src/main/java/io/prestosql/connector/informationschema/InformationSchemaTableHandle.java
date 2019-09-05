@@ -18,7 +18,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.metadata.QualifiedTablePrefix;
 import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.SchemaTableName;
 
 import java.util.Objects;
 import java.util.OptionalLong;
@@ -30,22 +29,19 @@ public class InformationSchemaTableHandle
         implements ConnectorTableHandle
 {
     private final String catalogName;
-    private final String schemaName;
-    private final String tableName;
+    private final InformationSchemaTable table;
     private final Set<QualifiedTablePrefix> prefixes;
     private final OptionalLong limit;
 
     @JsonCreator
     public InformationSchemaTableHandle(
             @JsonProperty("catalogName") String catalogName,
-            @JsonProperty("schemaName") String schemaName,
-            @JsonProperty("tableName") String tableName,
+            @JsonProperty("table") InformationSchemaTable table,
             @JsonProperty("prefixes") Set<QualifiedTablePrefix> prefixes,
             @JsonProperty("limit") OptionalLong limit)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
-        this.schemaName = requireNonNull(schemaName, "schemaName is null");
-        this.tableName = requireNonNull(tableName, "tableName is null");
+        this.table = requireNonNull(table, "table is null");
         this.prefixes = ImmutableSet.copyOf(requireNonNull(prefixes, "prefixes is null"));
         this.limit = requireNonNull(limit, "limit is null");
     }
@@ -57,20 +53,9 @@ public class InformationSchemaTableHandle
     }
 
     @JsonProperty
-    public String getSchemaName()
+    public InformationSchemaTable getTable()
     {
-        return schemaName;
-    }
-
-    @JsonProperty
-    public String getTableName()
-    {
-        return tableName;
-    }
-
-    public SchemaTableName getSchemaTableName()
-    {
-        return new SchemaTableName(schemaName, tableName);
+        return table;
     }
 
     @JsonProperty
@@ -88,13 +73,13 @@ public class InformationSchemaTableHandle
     @Override
     public String toString()
     {
-        return schemaName + ":" + tableName;
+        return catalogName + '.' + table.getSchemaTableName().toString();
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(catalogName, schemaName, tableName);
+        return Objects.hash(catalogName, table);
     }
 
     @Override
@@ -108,7 +93,6 @@ public class InformationSchemaTableHandle
         }
         InformationSchemaTableHandle other = (InformationSchemaTableHandle) obj;
         return Objects.equals(this.catalogName, other.catalogName) &&
-                Objects.equals(this.schemaName, other.schemaName) &&
-                Objects.equals(this.tableName, other.tableName);
+                Objects.equals(this.table, other.table);
     }
 }

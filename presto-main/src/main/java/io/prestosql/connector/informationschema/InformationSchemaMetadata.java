@@ -43,10 +43,10 @@ import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.SortedRangeSet;
 import io.prestosql.spi.predicate.TupleDomain;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -55,15 +55,17 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Predicates.compose;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.metadata.MetadataUtil.SchemaMetadataBuilder.schemaMetadataBuilder;
-import static io.prestosql.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
+import static io.prestosql.connector.informationschema.InformationSchemaTable.COLUMNS;
+import static io.prestosql.connector.informationschema.InformationSchemaTable.INFORMATION_SCHEMA;
+import static io.prestosql.connector.informationschema.InformationSchemaTable.TABLES;
+import static io.prestosql.connector.informationschema.InformationSchemaTable.TABLE_PRIVILEGES;
+import static io.prestosql.connector.informationschema.InformationSchemaTable.VIEWS;
 import static io.prestosql.metadata.MetadataUtil.findColumnMetadata;
-import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -73,74 +75,6 @@ import static java.util.stream.Collectors.toMap;
 public class InformationSchemaMetadata
         implements ConnectorMetadata
 {
-    public static final String INFORMATION_SCHEMA = "information_schema";
-
-    public static final SchemaTableName TABLE_COLUMNS = new SchemaTableName(INFORMATION_SCHEMA, "columns");
-    public static final SchemaTableName TABLE_TABLES = new SchemaTableName(INFORMATION_SCHEMA, "tables");
-    public static final SchemaTableName TABLE_VIEWS = new SchemaTableName(INFORMATION_SCHEMA, "views");
-    public static final SchemaTableName TABLE_SCHEMATA = new SchemaTableName(INFORMATION_SCHEMA, "schemata");
-    public static final SchemaTableName TABLE_TABLE_PRIVILEGES = new SchemaTableName(INFORMATION_SCHEMA, "table_privileges");
-    public static final SchemaTableName TABLE_ROLES = new SchemaTableName(INFORMATION_SCHEMA, "roles");
-    public static final SchemaTableName TABLE_APPLICABLE_ROLES = new SchemaTableName(INFORMATION_SCHEMA, "applicable_roles");
-    public static final SchemaTableName TABLE_ENABLED_ROLES = new SchemaTableName(INFORMATION_SCHEMA, "enabled_roles");
-
-    public static final Map<SchemaTableName, ConnectorTableMetadata> TABLES = schemaMetadataBuilder()
-            .table(tableMetadataBuilder(TABLE_COLUMNS)
-                    .column("table_catalog", createUnboundedVarcharType())
-                    .column("table_schema", createUnboundedVarcharType())
-                    .column("table_name", createUnboundedVarcharType())
-                    .column("column_name", createUnboundedVarcharType())
-                    .column("ordinal_position", BIGINT)
-                    .column("column_default", createUnboundedVarcharType())
-                    .column("is_nullable", createUnboundedVarcharType())
-                    .column("data_type", createUnboundedVarcharType())
-                    .column("comment", createUnboundedVarcharType())
-                    .column("extra_info", createUnboundedVarcharType())
-                    .hiddenColumn("column_comment", createUnboundedVarcharType()) // MySQL compatible
-                    .build())
-            .table(tableMetadataBuilder(TABLE_TABLES)
-                    .column("table_catalog", createUnboundedVarcharType())
-                    .column("table_schema", createUnboundedVarcharType())
-                    .column("table_name", createUnboundedVarcharType())
-                    .column("table_type", createUnboundedVarcharType())
-                    .hiddenColumn("table_comment", createUnboundedVarcharType()) // MySQL compatible
-                    .build())
-            .table(tableMetadataBuilder(TABLE_VIEWS)
-                    .column("table_catalog", createUnboundedVarcharType())
-                    .column("table_schema", createUnboundedVarcharType())
-                    .column("table_name", createUnboundedVarcharType())
-                    .column("view_definition", createUnboundedVarcharType())
-                    .build())
-            .table(tableMetadataBuilder(TABLE_SCHEMATA)
-                    .column("catalog_name", createUnboundedVarcharType())
-                    .column("schema_name", createUnboundedVarcharType())
-                    .build())
-            .table(tableMetadataBuilder(TABLE_TABLE_PRIVILEGES)
-                    .column("grantor", createUnboundedVarcharType())
-                    .column("grantor_type", createUnboundedVarcharType())
-                    .column("grantee", createUnboundedVarcharType())
-                    .column("grantee_type", createUnboundedVarcharType())
-                    .column("table_catalog", createUnboundedVarcharType())
-                    .column("table_schema", createUnboundedVarcharType())
-                    .column("table_name", createUnboundedVarcharType())
-                    .column("privilege_type", createUnboundedVarcharType())
-                    .column("is_grantable", createUnboundedVarcharType())
-                    .column("with_hierarchy", createUnboundedVarcharType())
-                    .build())
-            .table(tableMetadataBuilder(TABLE_ROLES)
-                    .column("role_name", createUnboundedVarcharType())
-                    .build())
-            .table(tableMetadataBuilder(TABLE_APPLICABLE_ROLES)
-                    .column("grantee", createUnboundedVarcharType())
-                    .column("grantee_type", createUnboundedVarcharType())
-                    .column("role_name", createUnboundedVarcharType())
-                    .column("is_grantable", createUnboundedVarcharType())
-                    .build())
-            .table(tableMetadataBuilder(TABLE_ENABLED_ROLES)
-                    .column("role_name", createUnboundedVarcharType())
-                    .build())
-            .build();
-
     private static final InformationSchemaColumnHandle CATALOG_COLUMN_HANDLE = new InformationSchemaColumnHandle("table_catalog");
     private static final InformationSchemaColumnHandle SCHEMA_COLUMN_HANDLE = new InformationSchemaColumnHandle("table_schema");
     private static final InformationSchemaColumnHandle TABLE_NAME_COLUMN_HANDLE = new InformationSchemaColumnHandle("table_name");
@@ -155,14 +89,6 @@ public class InformationSchemaMetadata
         this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
-    private InformationSchemaTableHandle checkTableHandle(ConnectorTableHandle tableHandle)
-    {
-        InformationSchemaTableHandle handle = (InformationSchemaTableHandle) tableHandle;
-        checkArgument(handle.getCatalogName().equals(catalogName), "invalid table handle: expected catalog %s but got %s", catalogName, handle.getCatalogName());
-        checkArgument(TABLES.containsKey(handle.getSchemaTableName()), "table %s does not exist", handle.getSchemaTableName());
-        return handle;
-    }
-
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
@@ -172,37 +98,36 @@ public class InformationSchemaMetadata
     @Override
     public ConnectorTableHandle getTableHandle(ConnectorSession connectorSession, SchemaTableName tableName)
     {
-        if (!TABLES.containsKey(tableName)) {
-            return null;
+        Optional<InformationSchemaTable> informationSchemaTable = InformationSchemaTable.of(tableName);
+        if (informationSchemaTable.isPresent()) {
+            return new InformationSchemaTableHandle(catalogName, informationSchemaTable.get(), defaultPrefixes(), OptionalLong.empty());
         }
-
-        return new InformationSchemaTableHandle(catalogName, tableName.getSchemaName(), tableName.getTableName(), defaultPrefixes(), OptionalLong.empty());
+        return null;
     }
 
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        InformationSchemaTableHandle informationSchemaTableHandle = checkTableHandle(tableHandle);
-        return TABLES.get(informationSchemaTableHandle.getSchemaTableName());
+        InformationSchemaTableHandle informationSchemaTableHandle = (InformationSchemaTableHandle) tableHandle;
+        return informationSchemaTableHandle.getTable().getTableMetadata();
     }
 
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
-        if (!schemaName.isPresent()) {
-            return ImmutableList.copyOf(TABLES.keySet());
+        if (schemaName.isPresent() && !schemaName.get().equals(INFORMATION_SCHEMA)) {
+            return ImmutableList.of();
         }
-
-        return TABLES.keySet().stream()
-                .filter(compose(schemaName.get()::equals, SchemaTableName::getSchemaName))
+        return Arrays.stream(InformationSchemaTable.values())
+                .map(InformationSchemaTable::getSchemaTableName)
                 .collect(toImmutableList());
     }
 
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
-        InformationSchemaTableHandle informationSchemaTableHandle = checkTableHandle(tableHandle);
-        ConnectorTableMetadata tableMetadata = TABLES.get(informationSchemaTableHandle.getSchemaTableName());
+        InformationSchemaTableHandle informationSchemaTableHandle = (InformationSchemaTableHandle) tableHandle;
+        ConnectorTableMetadata tableMetadata = informationSchemaTableHandle.getTable().getTableMetadata();
 
         String columnName = ((InformationSchemaColumnHandle) columnHandle).getColumnName();
 
@@ -214,9 +139,9 @@ public class InformationSchemaMetadata
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        InformationSchemaTableHandle informationSchemaTableHandle = checkTableHandle(tableHandle);
+        InformationSchemaTableHandle informationSchemaTableHandle = (InformationSchemaTableHandle) tableHandle;
 
-        ConnectorTableMetadata tableMetadata = TABLES.get(informationSchemaTableHandle.getSchemaTableName());
+        ConnectorTableMetadata tableMetadata = informationSchemaTableHandle.getTable().getTableMetadata();
 
         return tableMetadata.getColumns().stream()
                 .map(ColumnMetadata::getName)
@@ -228,12 +153,9 @@ public class InformationSchemaMetadata
     {
         requireNonNull(prefix, "prefix is null");
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> builder = ImmutableMap.builder();
-        for (Entry<SchemaTableName, ConnectorTableMetadata> entry : TABLES.entrySet()) {
-            if (prefix.matches(entry.getKey())) {
-                builder.put(entry.getKey(), entry.getValue().getColumns());
-            }
-        }
-        return builder.build();
+        return Arrays.stream(InformationSchemaTable.values())
+                .filter(table -> prefix.matches(table.getSchemaTableName()))
+                .collect(toImmutableMap(InformationSchemaTable::getSchemaTableName, table -> table.getTableMetadata().getColumns()));
     }
 
     @Override
@@ -258,7 +180,7 @@ public class InformationSchemaMetadata
         }
 
         return Optional.of(new LimitApplicationResult<>(
-                new InformationSchemaTableHandle(table.getCatalogName(), table.getSchemaName(), table.getTableName(), table.getPrefixes(), OptionalLong.of(limit)),
+                new InformationSchemaTableHandle(table.getCatalogName(), table.getTable(), table.getPrefixes(), OptionalLong.of(limit)),
                 true));
     }
 
@@ -273,7 +195,7 @@ public class InformationSchemaMetadata
 
         Set<QualifiedTablePrefix> prefixes = getPrefixes(session, table, constraint);
 
-        table = new InformationSchemaTableHandle(table.getCatalogName(), table.getSchemaName(), table.getTableName(), prefixes, table.getLimit());
+        table = new InformationSchemaTableHandle(table.getCatalogName(), table.getTable(), prefixes, table.getLimit());
 
         return Optional.of(new ConstraintApplicationResult<>(table, constraint.getSummary()));
     }
@@ -285,8 +207,6 @@ public class InformationSchemaMetadata
 
     private Set<QualifiedTablePrefix> getPrefixes(ConnectorSession session, InformationSchemaTableHandle table, Constraint constraint)
     {
-        InformationSchemaTableHandle handle = checkTableHandle(table);
-
         if (constraint.getSummary().isNone()) {
             return ImmutableSet.of();
         }
@@ -296,10 +216,10 @@ public class InformationSchemaMetadata
             return ImmutableSet.of();
         }
 
-        SchemaTableName schemaTableName = handle.getSchemaTableName();
-        Set<QualifiedTablePrefix> prefixes = calculatePrefixesWithSchemaName(schemaTableName, session, constraint.getSummary(), constraint.predicate());
-        if (isTablesEnumeratingTable(handle.getSchemaTableName())) {
-            Set<QualifiedTablePrefix> tablePrefixes = calculatePrefixesWithTableName(schemaTableName, session, prefixes, constraint.getSummary(), constraint.predicate());
+        InformationSchemaTable informationSchemaTable = table.getTable();
+        Set<QualifiedTablePrefix> prefixes = calculatePrefixesWithSchemaName(informationSchemaTable, session, constraint.getSummary(), constraint.predicate());
+        if (isTablesEnumeratingTable(informationSchemaTable)) {
+            Set<QualifiedTablePrefix> tablePrefixes = calculatePrefixesWithTableName(informationSchemaTable, session, prefixes, constraint.getSummary(), constraint.predicate());
             // in case of high number of prefixes it is better to populate all data and then filter
             if (tablePrefixes.size() <= MAX_PREFIXES_COUNT) {
                 prefixes = tablePrefixes;
@@ -313,13 +233,13 @@ public class InformationSchemaMetadata
         return prefixes;
     }
 
-    private boolean isTablesEnumeratingTable(SchemaTableName schemaTableName)
+    private boolean isTablesEnumeratingTable(InformationSchemaTable table)
     {
-        return ImmutableSet.of(TABLE_COLUMNS, TABLE_VIEWS, TABLE_TABLES, TABLE_TABLE_PRIVILEGES).contains(schemaTableName);
+        return ImmutableSet.of(COLUMNS, VIEWS, TABLES, TABLE_PRIVILEGES).contains(table);
     }
 
     private Set<QualifiedTablePrefix> calculatePrefixesWithSchemaName(
-            SchemaTableName schemaTableName,
+            InformationSchemaTable informationSchemaTable,
             ConnectorSession connectorSession,
             TupleDomain<ColumnHandle> constraint,
             Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate)
@@ -333,7 +253,7 @@ public class InformationSchemaMetadata
                     .collect(toImmutableSet());
         }
 
-        if (!predicate.isPresent() || !isTablesEnumeratingTable(schemaTableName)) {
+        if (!predicate.isPresent() || !isTablesEnumeratingTable(informationSchemaTable)) {
             return ImmutableSet.of(new QualifiedTablePrefix(catalogName));
         }
 
@@ -344,7 +264,7 @@ public class InformationSchemaMetadata
     }
 
     private Set<QualifiedTablePrefix> calculatePrefixesWithTableName(
-            SchemaTableName schemaTableName,
+            InformationSchemaTable informationSchemaTable,
             ConnectorSession connectorSession,
             Set<QualifiedTablePrefix> prefixes,
             TupleDomain<ColumnHandle> constraint,
@@ -362,13 +282,13 @@ public class InformationSchemaMetadata
                     .flatMap(prefix -> tables.get().stream()
                             .filter(this::isLowerCase)
                             .map(table -> new QualifiedObjectName(catalogName, prefix.getSchemaName().get(), table)))
-                    .filter(objectName -> !isColumnsEnumeratingTable(schemaTableName) || metadata.getTableHandle(session, objectName).isPresent() || metadata.getView(session, objectName).isPresent())
+                    .filter(objectName -> !isColumnsEnumeratingTable(informationSchemaTable) || metadata.getTableHandle(session, objectName).isPresent() || metadata.getView(session, objectName).isPresent())
                     .filter(objectName -> !predicate.isPresent() || predicate.get().test(asFixedValues(objectName)))
                     .map(QualifiedObjectName::asQualifiedTablePrefix)
                     .collect(toImmutableSet());
         }
 
-        if (!predicate.isPresent() || !isColumnsEnumeratingTable(schemaTableName)) {
+        if (!predicate.isPresent() || !isColumnsEnumeratingTable(informationSchemaTable)) {
             return prefixes;
         }
 
@@ -381,9 +301,9 @@ public class InformationSchemaMetadata
                 .collect(toImmutableSet());
     }
 
-    private boolean isColumnsEnumeratingTable(SchemaTableName schemaTableName)
+    private boolean isColumnsEnumeratingTable(InformationSchemaTable table)
     {
-        return TABLE_COLUMNS.equals(schemaTableName);
+        return COLUMNS.equals(table);
     }
 
     private Stream<QualifiedTablePrefix> listSchemaNames(Session session)

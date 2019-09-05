@@ -84,12 +84,12 @@ import java.util.SortedMap;
 
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.connector.informationschema.InformationSchemaMetadata.TABLE_COLUMNS;
-import static io.prestosql.connector.informationschema.InformationSchemaMetadata.TABLE_ENABLED_ROLES;
-import static io.prestosql.connector.informationschema.InformationSchemaMetadata.TABLE_ROLES;
-import static io.prestosql.connector.informationschema.InformationSchemaMetadata.TABLE_SCHEMATA;
-import static io.prestosql.connector.informationschema.InformationSchemaMetadata.TABLE_TABLES;
-import static io.prestosql.connector.informationschema.InformationSchemaMetadata.TABLE_TABLE_PRIVILEGES;
+import static io.prestosql.connector.informationschema.InformationSchemaTable.COLUMNS;
+import static io.prestosql.connector.informationschema.InformationSchemaTable.ENABLED_ROLES;
+import static io.prestosql.connector.informationschema.InformationSchemaTable.ROLES;
+import static io.prestosql.connector.informationschema.InformationSchemaTable.SCHEMATA;
+import static io.prestosql.connector.informationschema.InformationSchemaTable.TABLES;
+import static io.prestosql.connector.informationschema.InformationSchemaTable.TABLE_PRIVILEGES;
 import static io.prestosql.metadata.MetadataListing.listCatalogs;
 import static io.prestosql.metadata.MetadataListing.listSchemas;
 import static io.prestosql.metadata.MetadataUtil.createCatalogSchemaName;
@@ -205,7 +205,7 @@ final class ShowQueriesRewrite
 
             return simpleQuery(
                     selectList(aliasedName("table_name", "Table")),
-                    from(schema.getCatalogName(), TABLE_TABLES),
+                    from(schema.getCatalogName(), TABLES.getSchemaTableName()),
                     predicate,
                     ordering(ascending("table_name")));
         }
@@ -258,7 +258,7 @@ final class ShowQueriesRewrite
                             aliasedName("privilege_type", "Privilege"),
                             aliasedName("is_grantable", "Grantable"),
                             aliasedName("with_hierarchy", "With Hierarchy")),
-                    from(catalogName, TABLE_TABLE_PRIVILEGES),
+                    from(catalogName, TABLE_PRIVILEGES.getSchemaTableName()),
                     predicate,
                     Optional.empty());
         }
@@ -276,13 +276,13 @@ final class ShowQueriesRewrite
                 accessControl.checkCanShowCurrentRoles(session.toSecurityContext(), catalog);
                 return simpleQuery(
                         selectList(aliasedName("role_name", "Role")),
-                        from(catalog, TABLE_ENABLED_ROLES));
+                        from(catalog, ENABLED_ROLES.getSchemaTableName()));
             }
             else {
                 accessControl.checkCanShowRoles(session.toSecurityContext(), catalog);
                 return simpleQuery(
                         selectList(aliasedName("role_name", "Role")),
-                        from(catalog, TABLE_ROLES));
+                        from(catalog, ROLES.getSchemaTableName()));
             }
         }
 
@@ -328,7 +328,7 @@ final class ShowQueriesRewrite
 
             return simpleQuery(
                     selectList(aliasedName("schema_name", "Schema")),
-                    from(catalog, TABLE_SCHEMATA),
+                    from(catalog, SCHEMATA.getSchemaTableName()),
                     predicate,
                     Optional.of(ordering(ascending("schema_name"))));
         }
@@ -371,7 +371,7 @@ final class ShowQueriesRewrite
                             aliasedName("data_type", "Type"),
                             aliasedNullToEmpty("extra_info", "Extra"),
                             aliasedNullToEmpty("comment", "Comment")),
-                    from(tableName.getCatalogName(), TABLE_COLUMNS),
+                    from(tableName.getCatalogName(), COLUMNS.getSchemaTableName()),
                     logicalAnd(
                             equal(identifier("table_schema"), new StringLiteral(tableName.getSchemaName())),
                             equal(identifier("table_name"), new StringLiteral(tableName.getObjectName()))),
