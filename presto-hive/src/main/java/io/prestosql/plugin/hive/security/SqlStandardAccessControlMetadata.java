@@ -15,6 +15,7 @@ package io.prestosql.plugin.hive.security;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.HivePrincipal;
 import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo;
 import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
@@ -124,7 +125,7 @@ public class SqlStandardAccessControlMetadata
                 .map(privilege -> new HivePrivilegeInfo(toHivePrivilege(privilege), grantOption, new HivePrincipal(USER, session.getUser()), new HivePrincipal(USER, session.getUser())))
                 .collect(toSet());
 
-        metastore.grantTablePrivileges(schemaName, tableName, grantee, hivePrivilegeInfos);
+        metastore.grantTablePrivileges(new HiveIdentity(session), schemaName, tableName, grantee, hivePrivilegeInfos);
     }
 
     @Override
@@ -137,7 +138,7 @@ public class SqlStandardAccessControlMetadata
                 .map(privilege -> new HivePrivilegeInfo(toHivePrivilege(privilege), grantOption, new HivePrincipal(USER, session.getUser()), new HivePrincipal(USER, session.getUser())))
                 .collect(toSet());
 
-        metastore.revokeTablePrivileges(schemaName, tableName, grantee, hivePrivilegeInfos);
+        metastore.revokeTablePrivileges(new HiveIdentity(session), schemaName, tableName, grantee, hivePrivilegeInfos);
     }
 
     @Override
@@ -149,7 +150,7 @@ public class SqlStandardAccessControlMetadata
         ImmutableList.Builder<GrantInfo> result = ImmutableList.builder();
         for (SchemaTableName tableName : tableNames) {
             try {
-                result.addAll(buildGrants(principals, isAdminRoleSet, tableName));
+                result.addAll(buildGrants(session, principals, isAdminRoleSet, tableName));
             }
             catch (TableNotFoundException e) {
                 // table disappeared during listing operation
@@ -158,22 +159,22 @@ public class SqlStandardAccessControlMetadata
         return result.build();
     }
 
-    private List<GrantInfo> buildGrants(Set<HivePrincipal> principals, boolean isAdminRoleSet, SchemaTableName tableName)
+    private List<GrantInfo> buildGrants(ConnectorSession session, Set<HivePrincipal> principals, boolean isAdminRoleSet, SchemaTableName tableName)
     {
         if (isAdminRoleSet) {
-            return buildGrants(tableName, null);
+            return buildGrants(session, tableName, null);
         }
         ImmutableList.Builder<GrantInfo> result = ImmutableList.builder();
         for (HivePrincipal grantee : principals) {
-            result.addAll(buildGrants(tableName, grantee));
+            result.addAll(buildGrants(session, tableName, grantee));
         }
         return result.build();
     }
 
-    private List<GrantInfo> buildGrants(SchemaTableName tableName, HivePrincipal principal)
+    private List<GrantInfo> buildGrants(ConnectorSession session, SchemaTableName tableName, HivePrincipal principal)
     {
         ImmutableList.Builder<GrantInfo> result = ImmutableList.builder();
-        Set<HivePrivilegeInfo> hivePrivileges = metastore.listTablePrivileges(tableName.getSchemaName(), tableName.getTableName(), principal);
+        Set<HivePrivilegeInfo> hivePrivileges = metastore.listTablePrivileges(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName(), principal);
         for (HivePrivilegeInfo hivePrivilege : hivePrivileges) {
             Set<PrivilegeInfo> prestoPrivileges = hivePrivilege.toPrivilegeInfo();
             for (PrivilegeInfo prestoPrivilege : prestoPrivileges) {

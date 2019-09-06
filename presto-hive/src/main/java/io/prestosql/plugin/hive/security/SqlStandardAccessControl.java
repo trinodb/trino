@@ -448,7 +448,7 @@ public class SqlStandardAccessControl
                 metastore,
                 tableName.getSchemaName(),
                 tableName.getTableName(),
-                context.getIdentity().getUser())
+                context.getIdentity())
                 .anyMatch(privilegeInfo -> privilegeInfo.getHivePrivilege().equals(toHivePrivilege(privilege)) && privilegeInfo.isGrantOption());
     }
 
