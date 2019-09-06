@@ -13,8 +13,11 @@
  */
 package io.prestosql.connector;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.discovery.client.Announcer;
+import io.airlift.discovery.client.ServiceAnnouncement;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.prestosql.connector.informationschema.InformationSchemaConnector;
@@ -23,6 +26,7 @@ import io.prestosql.connector.system.MetadataBasedSystemTablesProvider;
 import io.prestosql.connector.system.StaticSystemTablesProvider;
 import io.prestosql.connector.system.SystemConnector;
 import io.prestosql.connector.system.SystemTablesProvider;
+import io.prestosql.execution.scheduler.NodeSchedulerConfig;
 import io.prestosql.index.IndexManager;
 import io.prestosql.metadata.Catalog;
 import io.prestosql.metadata.CatalogManager;
@@ -30,6 +34,7 @@ import io.prestosql.metadata.HandleResolver;
 import io.prestosql.metadata.InternalNodeManager;
 import io.prestosql.metadata.MetadataManager;
 import io.prestosql.security.AccessControlManager;
+import io.prestosql.server.ServerConfig;
 import io.prestosql.spi.PageIndexerFactory;
 import io.prestosql.spi.PageSorter;
 import io.prestosql.spi.VersionEmbedder;
@@ -61,6 +66,7 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -72,6 +78,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
 import static io.prestosql.connector.CatalogName.createInformationSchemaCatalogName;
 import static io.prestosql.connector.CatalogName.createSystemTablesCatalogName;
 import static java.lang.String.format;
@@ -99,6 +106,10 @@ public class ConnectorManager
     private final VersionEmbedder versionEmbedder;
     private final TransactionManager transactionManager;
 
+    private final Announcer announcer;
+    private final ServerConfig serverConfig;
+    private final NodeSchedulerConfig nodeSchedulerConfig;
+
     @GuardedBy("this")
     private final ConcurrentMap<String, ConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
 
@@ -123,7 +134,10 @@ public class ConnectorManager
             EmbedVersion embedVersion,
             PageSorter pageSorter,
             PageIndexerFactory pageIndexerFactory,
-            TransactionManager transactionManager)
+            TransactionManager transactionManager,
+            Announcer announcer,
+            ServerConfig serverConfig,
+            NodeSchedulerConfig nodeSchedulerConfig)
     {
         this.metadataManager = metadataManager;
         this.catalogManager = catalogManager;
@@ -140,6 +154,9 @@ public class ConnectorManager
         this.nodeInfo = nodeInfo;
         this.versionEmbedder = embedVersion;
         this.transactionManager = transactionManager;
+        this.announcer = announcer;
+        this.serverConfig = serverConfig;
+        this.nodeSchedulerConfig = nodeSchedulerConfig;
     }
 
     @PreDestroy
@@ -174,6 +191,40 @@ public class ConnectorManager
         ConnectorFactory connectorFactory = connectorFactories.get(connectorName);
         checkArgument(connectorFactory != null, "No factory for connector '%s'.  Available factories: %s", connectorName, connectorFactories.keySet());
         return createConnection(catalogName, connectorFactory, properties);
+    }
+
+    public synchronized void updateConnectorIds()
+    {
+        // get existing announcement
+        ServiceAnnouncement announcement = getPrestoAnnouncement(announcer.getServiceAnnouncements());
+
+        Set<String> connectorIds = new LinkedHashSet<>();
+
+        // automatically build connectorIds if not configured
+        List<Catalog> catalogs = catalogManager.getCatalogs();
+        // if this is a dedicated coordinator, only add jmx
+        if (serverConfig.isCoordinator() && !nodeSchedulerConfig.isIncludeCoordinator()) {
+            catalogs.stream()
+                    .map(Catalog::getConnectorCatalogName)
+                    .filter(connectorId -> connectorId.getCatalogName().equals("jmx"))
+                    .map(Object::toString)
+                    .forEach(connectorIds::add);
+        }
+        else {
+            catalogs.stream()
+                    .map(Catalog::getConnectorCatalogName)
+                    .map(Object::toString)
+                    .forEach(connectorIds::add);
+        }
+
+        // build announcement with updated sources
+        ServiceAnnouncement.ServiceAnnouncementBuilder builder = serviceAnnouncement(announcement.getType());
+        builder.addProperties(announcement.getProperties());
+        builder.addProperty("connectorIds", Joiner.on(',').join(connectorIds));
+
+        // update announcement
+        announcer.removeServiceAnnouncement(announcement.getId());
+        announcer.addServiceAnnouncement(builder.build());
     }
 
     private synchronized CatalogName createConnection(String catalogName, ConnectorFactory connectorFactory, Map<String, String> properties)
@@ -327,6 +378,16 @@ public class ConnectorManager
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
             return factory.create(catalogName.getCatalogName(), properties, context);
         }
+    }
+
+    private static ServiceAnnouncement getPrestoAnnouncement(Set<ServiceAnnouncement> announcements)
+    {
+        for (ServiceAnnouncement announcement : announcements) {
+            if (announcement.getType().equals("presto")) {
+                return announcement;
+            }
+        }
+        throw new IllegalArgumentException("Presto announcement not found: " + announcements);
     }
 
     private static class MaterializedConnector

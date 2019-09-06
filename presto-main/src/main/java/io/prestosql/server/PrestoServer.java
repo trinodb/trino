@@ -13,14 +13,12 @@
  */
 package io.prestosql.server;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.discovery.client.Announcer;
 import io.airlift.discovery.client.DiscoveryModule;
-import io.airlift.discovery.client.ServiceAnnouncement;
 import io.airlift.event.client.HttpEventModule;
 import io.airlift.event.client.JsonEventModule;
 import io.airlift.http.server.HttpServerModule;
@@ -32,13 +30,11 @@ import io.airlift.log.LogJmxModule;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeModule;
 import io.airlift.tracetoken.TraceTokenModule;
+import io.prestosql.connector.ConnectorManager;
 import io.prestosql.eventlistener.EventListenerManager;
 import io.prestosql.eventlistener.EventListenerModule;
 import io.prestosql.execution.resourcegroups.ResourceGroupManager;
-import io.prestosql.execution.scheduler.NodeSchedulerConfig;
 import io.prestosql.execution.warnings.WarningCollectorModule;
-import io.prestosql.metadata.Catalog;
-import io.prestosql.metadata.CatalogManager;
 import io.prestosql.metadata.StaticCatalogStore;
 import io.prestosql.security.AccessControlManager;
 import io.prestosql.security.AccessControlModule;
@@ -51,12 +47,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Set;
 
-import static io.airlift.discovery.client.ServiceAnnouncement.ServiceAnnouncementBuilder;
-import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
 import static io.prestosql.server.PrestoSystemRequirements.verifyJvmRequirements;
 import static io.prestosql.server.PrestoSystemRequirements.verifySystemTimeIsReasonable;
 import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
@@ -126,12 +117,7 @@ public class PrestoServer
 
             injector.getInstance(StaticCatalogStore.class).loadCatalogs();
 
-            // TODO: remove this huge hack
-            updateConnectorIds(
-                    injector.getInstance(Announcer.class),
-                    injector.getInstance(CatalogManager.class),
-                    injector.getInstance(ServerConfig.class),
-                    injector.getInstance(NodeSchedulerConfig.class));
+            injector.getInstance(ConnectorManager.class).updateConnectorIds();
 
             injector.getInstance(SessionPropertyDefaults.class).loadConfigurationManager();
             injector.getInstance(ResourceGroupManager.class).loadConfigurationManager();
@@ -154,50 +140,6 @@ public class PrestoServer
     protected Iterable<? extends Module> getAdditionalModules()
     {
         return ImmutableList.of();
-    }
-
-    private static void updateConnectorIds(Announcer announcer, CatalogManager metadata, ServerConfig serverConfig, NodeSchedulerConfig schedulerConfig)
-    {
-        // get existing announcement
-        ServiceAnnouncement announcement = getPrestoAnnouncement(announcer.getServiceAnnouncements());
-
-        Set<String> connectorIds = new LinkedHashSet<>();
-
-        // automatically build connectorIds if not configured
-        List<Catalog> catalogs = metadata.getCatalogs();
-        // if this is a dedicated coordinator, only add jmx
-        if (serverConfig.isCoordinator() && !schedulerConfig.isIncludeCoordinator()) {
-            catalogs.stream()
-                    .map(Catalog::getConnectorCatalogName)
-                    .filter(connectorId -> connectorId.getCatalogName().equals("jmx"))
-                    .map(Object::toString)
-                    .forEach(connectorIds::add);
-        }
-        else {
-            catalogs.stream()
-                    .map(Catalog::getConnectorCatalogName)
-                    .map(Object::toString)
-                    .forEach(connectorIds::add);
-        }
-
-        // build announcement with updated sources
-        ServiceAnnouncementBuilder builder = serviceAnnouncement(announcement.getType());
-        builder.addProperties(announcement.getProperties());
-        builder.addProperty("connectorIds", Joiner.on(',').join(connectorIds));
-
-        // update announcement
-        announcer.removeServiceAnnouncement(announcement.getId());
-        announcer.addServiceAnnouncement(builder.build());
-    }
-
-    private static ServiceAnnouncement getPrestoAnnouncement(Set<ServiceAnnouncement> announcements)
-    {
-        for (ServiceAnnouncement announcement : announcements) {
-            if (announcement.getType().equals("presto")) {
-                return announcement;
-            }
-        }
-        throw new IllegalArgumentException("Presto announcement not found: " + announcements);
     }
 
     private static void logLocation(Logger log, String name, Path path)

@@ -340,7 +340,10 @@ public class LocalQueryRunner
                 new EmbedVersion(new ServerConfig()),
                 pageSorter,
                 pageIndexerFactory,
-                transactionManager);
+                transactionManager,
+                null,
+                null,
+                null);
 
         GlobalSystemConnectorFactory globalSystemConnectorFactory = new GlobalSystemConnectorFactory(ImmutableSet.of(
                 new NodeSystemTable(nodeManager),
