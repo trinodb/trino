@@ -48,6 +48,7 @@ public class DockerizedMySqlServer
                         "MYSQL_USER", MYSQL_USER,
                         "MYSQL_PASSWORD", MYSQL_PASSWORD,
                         "MYSQL_DATABASE", "tpch"),
+                ImmutableList.of(),
                 DockerizedMySqlServer::healthCheck);
     }
 
