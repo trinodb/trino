@@ -120,10 +120,7 @@ public class TypeSignature
 
         for (int i = 0; i < signature.length(); i++) {
             char c = signature.charAt(i);
-            // TODO: remove angle brackets support once ROW<TYPE>(name) will be dropped
-            // Angle brackets here are checked not for the support of ARRAY<> and MAP<>
-            // but to correctly parse ARRAY(row<BIGINT, BIGINT>('a','b'))
-            if (c == '(' || c == '<') {
+            if (c == '(') {
                 if (bracketCount == 0) {
                     verify(baseName == null, "Expected baseName to be null");
                     verify(parameterStart == -1, "Expected parameter start to be -1");
@@ -133,7 +130,7 @@ public class TypeSignature
                 }
                 bracketCount++;
             }
-            else if (c == ')' || c == '>') {
+            else if (c == ')') {
                 bracketCount--;
                 checkArgument(bracketCount >= 0, "Bad type signature: '%s'", signature);
                 if (bracketCount == 0) {
