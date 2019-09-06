@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
 import io.prestosql.Session;
 import io.prestosql.benchmark.BenchmarkSuite;
+import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.Database;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.tpch.TpchConnectorFactory;
@@ -31,6 +32,7 @@ import java.util.Optional;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.prestosql.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
+import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
 
@@ -66,11 +68,14 @@ public final class HiveBenchmarkQueryRunner
         // add hive
         File hiveDir = new File(tempDir, "hive_data");
         HiveMetastore metastore = createTestingFileHiveMetastore(hiveDir);
-        metastore.createDatabase(Database.builder()
-                .setDatabaseName("tpch")
-                .setOwnerName("public")
-                .setOwnerType(PrincipalType.ROLE)
-                .build());
+
+        HiveIdentity identity = new HiveIdentity(SESSION);
+        metastore.createDatabase(identity,
+                Database.builder()
+                        .setDatabaseName("tpch")
+                        .setOwnerName("public")
+                        .setOwnerType(PrincipalType.ROLE)
+                        .build());
 
         HiveConnectorFactory hiveConnectorFactory = new HiveConnectorFactory(
                 "hive",

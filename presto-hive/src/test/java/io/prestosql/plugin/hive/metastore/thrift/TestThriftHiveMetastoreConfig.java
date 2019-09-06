@@ -36,7 +36,8 @@ public class TestThriftHiveMetastoreConfig
                 .setBackoffScaleFactor(2.0)
                 .setMinBackoffDelay(new Duration(1, SECONDS))
                 .setMaxBackoffDelay(new Duration(1, SECONDS))
-                .setMaxRetryTime(new Duration(30, SECONDS)));
+                .setMaxRetryTime(new Duration(30, SECONDS))
+                .setImpersonationEnabled(false));
     }
 
     @Test
@@ -49,6 +50,7 @@ public class TestThriftHiveMetastoreConfig
                 .put("hive.metastore.thrift.client.min-backoff-delay", "2s")
                 .put("hive.metastore.thrift.client.max-backoff-delay", "4s")
                 .put("hive.metastore.thrift.client.max-retry-time", "60s")
+                .put("hive.metastore.thrift.impersonation.enabled", "true")
                 .build();
 
         ThriftHiveMetastoreConfig expected = new ThriftHiveMetastoreConfig()
@@ -57,7 +59,8 @@ public class TestThriftHiveMetastoreConfig
                 .setBackoffScaleFactor(3.0)
                 .setMinBackoffDelay(new Duration(2, SECONDS))
                 .setMaxBackoffDelay(new Duration(4, SECONDS))
-                .setMaxRetryTime(new Duration(60, SECONDS));
+                .setMaxRetryTime(new Duration(60, SECONDS))
+                .setImpersonationEnabled(true);
 
         assertFullMapping(properties, expected);
     }

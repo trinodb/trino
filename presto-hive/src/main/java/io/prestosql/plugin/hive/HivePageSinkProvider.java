@@ -20,6 +20,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.event.client.EventClient;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
+import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.HivePageSinkMetadataProvider;
 import io.prestosql.plugin.hive.metastore.SortingColumn;
@@ -146,7 +147,7 @@ public class HivePageSinkProvider
                 handle.getLocationHandle(),
                 locationService,
                 session.getQueryId(),
-                new HivePageSinkMetadataProvider(handle.getPageSinkMetadata(), memoizeMetastore(metastore, perTransactionMetastoreCacheMaximumSize)),
+                new HivePageSinkMetadataProvider(handle.getPageSinkMetadata(), memoizeMetastore(metastore, perTransactionMetastoreCacheMaximumSize), new HiveIdentity(session)),
                 typeManager,
                 hdfsEnvironment,
                 pageSorter,

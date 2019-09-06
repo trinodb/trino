@@ -31,6 +31,7 @@ public class ThriftHiveMetastoreConfig
     private Duration minBackoffDelay = RetryDriver.DEFAULT_SLEEP_TIME;
     private Duration maxBackoffDelay = RetryDriver.DEFAULT_SLEEP_TIME;
     private Duration maxRetryTime = RetryDriver.DEFAULT_MAX_RETRY_TIME;
+    private boolean impersonationEnabled;
 
     @NotNull
     public Duration getMetastoreTimeout()
@@ -109,6 +110,19 @@ public class ThriftHiveMetastoreConfig
     public ThriftHiveMetastoreConfig setMaxBackoffDelay(Duration maxBackoffDelay)
     {
         this.maxBackoffDelay = maxBackoffDelay;
+        return this;
+    }
+
+    public boolean isImpersonationEnabled()
+    {
+        return impersonationEnabled;
+    }
+
+    @Config("hive.metastore.thrift.impersonation.enabled")
+    @ConfigDescription("Should end user be impersonated when communicating with metastore")
+    public ThriftHiveMetastoreConfig setImpersonationEnabled(boolean impersonationEnabled)
+    {
+        this.impersonationEnabled = impersonationEnabled;
         return this;
     }
 }

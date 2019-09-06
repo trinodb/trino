@@ -31,7 +31,6 @@ import java.io.InputStream;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
-import static io.prestosql.tests.TestGroups.AVRO_SCHEMA_URL;
 import static io.prestosql.tests.TestGroups.STORAGE_FORMATS;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static io.prestosql.tests.utils.QueryExecutors.onPresto;
@@ -81,7 +80,7 @@ public class TestAvroSchemaUrl
         };
     }
 
-    @Test(dataProvider = "avroSchemaLocations", groups = {AVRO_SCHEMA_URL, STORAGE_FORMATS})
+    @Test(dataProvider = "avroSchemaLocations", groups = {STORAGE_FORMATS})
     public void testHiveCreatedTable(String schemaLocation)
     {
         onHive().executeQuery("DROP TABLE IF EXISTS test_avro_schema_url_hive");
@@ -101,7 +100,7 @@ public class TestAvroSchemaUrl
         onHive().executeQuery("DROP TABLE test_avro_schema_url_hive");
     }
 
-    @Test(groups = {AVRO_SCHEMA_URL})
+    @Test
     public void testAvroSchemaUrlInSerdeProperties()
             throws IOException
     {
@@ -143,7 +142,7 @@ public class TestAvroSchemaUrl
         onHive().executeQuery("DROP TABLE test_avro_schema_url_in_serde_properties");
     }
 
-    @Test(dataProvider = "avroSchemaLocations", groups = {AVRO_SCHEMA_URL, STORAGE_FORMATS})
+    @Test(dataProvider = "avroSchemaLocations", groups = {STORAGE_FORMATS})
     public void testPrestoCreatedTable(String schemaLocation)
     {
         onPresto().executeQuery("DROP TABLE IF EXISTS test_avro_schema_url_presto");
@@ -156,7 +155,7 @@ public class TestAvroSchemaUrl
         onPresto().executeQuery("DROP TABLE test_avro_schema_url_presto");
     }
 
-    @Test(groups = {AVRO_SCHEMA_URL, STORAGE_FORMATS})
+    @Test(groups = {STORAGE_FORMATS})
     public void testTableWithLongColumnType()
     {
         onPresto().executeQuery("DROP TABLE IF EXISTS test_avro_schema_url_long_column");
@@ -185,7 +184,7 @@ public class TestAvroSchemaUrl
         onPresto().executeQuery("DROP TABLE test_avro_schema_url_long_column");
     }
 
-    @Test(groups = {AVRO_SCHEMA_URL, STORAGE_FORMATS})
+    @Test(groups = {STORAGE_FORMATS})
     public void testPartitionedTableWithLongColumnType()
     {
         if (isOnHdp()) {

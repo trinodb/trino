@@ -211,6 +211,8 @@ Property Name                                      Description
                                                    Possible values are ``NONE`` or ``KERBEROS``
                                                    (defaults to ``NONE``).
 
+``hive.metastore.thrift.impersonation.enabled``    Enable Hive metastore end user impersonation.
+
 ``hive.metastore.service.principal``               The Kerberos principal of the Hive metastore service.
 
 ``hive.metastore.client.principal``                The Kerberos principal that Presto will use when connecting

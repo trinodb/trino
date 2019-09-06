@@ -22,6 +22,7 @@ import io.prestosql.plugin.hive.HiveColumnHandle.ColumnType;
 import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.plugin.hive.HiveTypeTranslator;
 import io.prestosql.plugin.hive.TypeTranslator;
+import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
@@ -70,8 +71,9 @@ final class IcebergUtil
 
     public static Table getIcebergTable(HiveMetastore metastore, HdfsEnvironment hdfsEnvironment, ConnectorSession session, SchemaTableName table)
     {
-        HdfsContext context = new HdfsContext(session, table.getSchemaName(), table.getTableName());
-        TableOperations operations = new HiveTableOperations(metastore, hdfsEnvironment, context, table.getSchemaName(), table.getTableName());
+        HdfsContext hdfsContext = new HdfsContext(session, table.getSchemaName(), table.getTableName());
+        HiveIdentity identity = new HiveIdentity(session);
+        TableOperations operations = new HiveTableOperations(metastore, hdfsEnvironment, hdfsContext, identity, table.getSchemaName(), table.getTableName());
         return new BaseTable(operations, table.getSchemaName() + "." + table.getTableName());
     }
 

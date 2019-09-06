@@ -29,11 +29,9 @@ presto-product-tests/bin/run_on_docker.sh \
     -g storage_formats \
     || exit_code=1
 
-# TODO enable avro_schema_url when adding Metastore impersonation
 presto-product-tests/bin/run_on_docker.sh \
     singlenode-kerberos-kms-hdfs-impersonation \
     -g storage_formats \
-    -x avro_schema_url \
     || exit_code=1
 
 exit "${exit_code}"
