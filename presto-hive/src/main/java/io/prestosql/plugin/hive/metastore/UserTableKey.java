@@ -103,7 +103,7 @@ public class UserTableKey
                 .add("principal", principal)
                 .add("table", table)
                 .add("database", database)
-                .add("tableOwner", owner)
+                .add("owner", owner)
                 .toString();
     }
 }

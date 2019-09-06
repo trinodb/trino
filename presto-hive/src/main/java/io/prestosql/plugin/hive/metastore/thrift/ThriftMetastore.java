@@ -102,13 +102,6 @@ public interface ThriftMetastore
 
     Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal principal);
 
-    default boolean isTableOwner(String user, String databaseName, String tableName)
-    {
-        // a table can only be owned by a user
-        Optional<Table> table = getTable(databaseName, tableName);
-        return table.isPresent() && user.equals(table.get().getOwner());
-    }
-
     default Optional<List<FieldSchema>> getFields(String databaseName, String tableName)
     {
         Optional<Table> table = getTable(databaseName, tableName);
