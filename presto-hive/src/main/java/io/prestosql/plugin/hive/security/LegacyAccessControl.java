@@ -14,6 +14,7 @@
 package io.prestosql.plugin.hive.security;
 
 import io.prestosql.plugin.hive.HiveTransactionHandle;
+import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -104,7 +105,7 @@ public class LegacyAccessControl
             denyDropTable(tableName.toString());
         }
 
-        Optional<Table> target = metastoreProvider.apply(((HiveTransactionHandle) context.getTransactionHandle())).getTable(tableName.getSchemaName(), tableName.getTableName());
+        Optional<Table> target = metastoreProvider.apply(((HiveTransactionHandle) context.getTransactionHandle())).getTable(new HiveIdentity(context.getIdentity()), tableName.getSchemaName(), tableName.getTableName());
 
         if (!target.isPresent()) {
             denyDropTable(tableName.toString(), "Table not found");

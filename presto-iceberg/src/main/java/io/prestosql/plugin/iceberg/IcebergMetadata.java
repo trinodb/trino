@@ -23,6 +23,7 @@ import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HiveWrittenPartitions;
 import io.prestosql.plugin.hive.TableAlreadyExistsException;
+import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.Database;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.Table;
@@ -138,7 +139,7 @@ public class IcebergMetadata
     public IcebergTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
         IcebergTableHandle handle = IcebergTableHandle.from(tableName);
-        Optional<Table> table = metastore.getTable(handle.getSchemaName(), handle.getTableName());
+        Optional<Table> table = metastore.getTable(new HiveIdentity(session), handle.getSchemaName(), handle.getTableName());
         if (!table.isPresent()) {
             return null;
         }
@@ -243,7 +244,7 @@ public class IcebergMetadata
                 .setOwnerName(session.getUser())
                 .build();
 
-        metastore.createDatabase(database);
+        metastore.createDatabase(new HiveIdentity(session), database);
     }
 
     @Override
@@ -254,13 +255,13 @@ public class IcebergMetadata
                 !listViews(session, Optional.of(schemaName)).isEmpty()) {
             throw new PrestoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + schemaName);
         }
-        metastore.dropDatabase(schemaName);
+        metastore.dropDatabase(new HiveIdentity(session), schemaName);
     }
 
     @Override
     public void renameSchema(ConnectorSession session, String source, String target)
     {
-        metastore.renameDatabase(source, target);
+        metastore.renameDatabase(new HiveIdentity(session), source, target);
     }
 
     @Override
@@ -285,9 +286,10 @@ public class IcebergMetadata
                 .orElseThrow(() -> new SchemaNotFoundException(schemaName));
 
         HdfsContext hdfsContext = new HdfsContext(session, schemaName, tableName);
+        HiveIdentity identity = new HiveIdentity(session);
         String targetPath = getTableDefaultLocation(database, hdfsContext, hdfsEnvironment, schemaName, tableName).toString();
 
-        TableOperations operations = new HiveTableOperations(metastore, hdfsEnvironment, hdfsContext, schemaName, tableName, session.getUser(), targetPath);
+        TableOperations operations = new HiveTableOperations(metastore, hdfsEnvironment, hdfsContext, identity, schemaName, tableName, session.getUser(), targetPath);
         if (operations.current() != null) {
             throw new TableAlreadyExistsException(schemaTableName);
         }
@@ -393,14 +395,14 @@ public class IcebergMetadata
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
-        metastore.dropTable(handle.getSchemaName(), handle.getTableName(), true);
+        metastore.dropTable(new HiveIdentity(session), handle.getSchemaName(), handle.getTableName(), true);
     }
 
     @Override
     public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTable)
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
-        metastore.renameTable(handle.getSchemaName(), handle.getTableName(), newTable.getSchemaName(), newTable.getTableName());
+        metastore.renameTable(new HiveIdentity(session), handle.getSchemaName(), handle.getTableName(), newTable.getSchemaName(), newTable.getTableName());
     }
 
     @Override
@@ -431,7 +433,7 @@ public class IcebergMetadata
 
     private ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName table)
     {
-        if (!metastore.getTable(table.getSchemaName(), table.getTableName()).isPresent()) {
+        if (!metastore.getTable(new HiveIdentity(session), table.getSchemaName(), table.getTableName()).isPresent()) {
             throw new TableNotFoundException(table);
         }
 
