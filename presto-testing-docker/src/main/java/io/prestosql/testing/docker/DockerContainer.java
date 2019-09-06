@@ -58,15 +58,17 @@ public final class DockerContainer
     private static final String HOST_IP = "127.0.0.1";
     private final String image;
     private final Map<String, String> environment;
+    private final List<String> capabilities;
     private DockerClient dockerClient;
     private String containerId;
 
     private Map<Integer, Integer> hostPorts;
 
-    public DockerContainer(String image, List<Integer> ports, Map<String, String> environment, CheckedConsumer<HostPortProvider> healthCheck)
+    public DockerContainer(String image, List<Integer> ports, Map<String, String> environment, List<String> capabilities, CheckedConsumer<HostPortProvider> healthCheck)
     {
         this.image = requireNonNull(image, "image is null");
         this.environment = ImmutableMap.copyOf(requireNonNull(environment, "environment is null"));
+        this.capabilities = ImmutableList.copyOf(requireNonNull(capabilities, "capabilities is null"));
         try {
             startContainer(ports, healthCheck);
         }
@@ -136,6 +138,7 @@ public final class DockerContainer
         containerId = dockerClient.createContainer(ContainerConfig.builder()
                 .hostConfig(HostConfig.builder()
                         .portBindings(portBindings)
+                        .capAdd(capabilities)
                         .build())
                 .exposedPorts(exposedPorts)
                 .env(environment.entrySet().stream()

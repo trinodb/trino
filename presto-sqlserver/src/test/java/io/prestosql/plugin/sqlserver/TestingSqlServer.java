@@ -43,6 +43,7 @@ public final class TestingSqlServer
                 ImmutableMap.of(
                         "ACCEPT_EULA", "Y",
                         "SA_PASSWORD", "SQLServerPass1"),
+                ImmutableList.of(),
                 portProvider -> TestingSqlServer.execute(portProvider, "SELECT 1"));
     }
 
