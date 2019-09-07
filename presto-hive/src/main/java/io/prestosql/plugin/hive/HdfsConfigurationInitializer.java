@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 import io.prestosql.hadoop.SocksSocketFactory;
-import io.prestosql.plugin.hive.s3.ConfigurationInitializer;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.client.HdfsClientConfigKeys;

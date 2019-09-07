@@ -16,8 +16,8 @@ package io.prestosql.plugin.hive.gcs;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.prestosql.plugin.hive.ConfigurationInitializer;
 import io.prestosql.plugin.hive.DynamicConfigurationProvider;
-import io.prestosql.plugin.hive.s3.ConfigurationInitializer;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
