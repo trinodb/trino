@@ -14,7 +14,6 @@
 package io.prestosql.plugin.hive;
 
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.plugin.hive.s3.ConfigurationInitializer;
 import io.prestosql.plugin.hive.s3.HiveS3Config;
 import io.prestosql.plugin.hive.s3.PrestoS3ConfigurationInitializer;
 import org.apache.hadoop.fs.Path;

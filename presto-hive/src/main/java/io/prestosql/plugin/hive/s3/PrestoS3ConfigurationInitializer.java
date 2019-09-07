@@ -15,6 +15,7 @@ package io.prestosql.plugin.hive.s3;
 
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.plugin.hive.ConfigurationInitializer;
 import org.apache.hadoop.conf.Configuration;
 
 import javax.inject.Inject;
