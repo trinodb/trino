@@ -59,11 +59,11 @@ import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.prestosql.plugin.hive.HiveCompressionCodec.NONE;
+import static io.prestosql.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.prestosql.plugin.hive.HiveTestUtils.PAGE_SORTER;
 import static io.prestosql.plugin.hive.HiveTestUtils.TYPE_MANAGER;
-import static io.prestosql.plugin.hive.HiveTestUtils.createTestHdfsEnvironment;
-import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHiveDataStreamFactories;
 import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHiveFileWriterFactories;
+import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHivePageSourceFactories;
 import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHiveRecordCursorProvider;
 import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultOrcFileWriterFactory;
 import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSession;
@@ -236,7 +236,12 @@ public class TestHivePageSink
                 Optional.empty(),
                 false);
         ConnectorTableHandle table = new HiveTableHandle(SCHEMA_NAME, TABLE_NAME, ImmutableMap.of(), ImmutableList.of(), Optional.empty());
-        HivePageSourceProvider provider = new HivePageSourceProvider(config, createTestHdfsEnvironment(config), getDefaultHiveRecordCursorProvider(config), getDefaultHiveDataStreamFactories(config), TYPE_MANAGER);
+        HivePageSourceProvider provider = new HivePageSourceProvider(
+                config,
+                HDFS_ENVIRONMENT,
+                getDefaultHiveRecordCursorProvider(config, HDFS_ENVIRONMENT),
+                getDefaultHivePageSourceFactories(config, HDFS_ENVIRONMENT),
+                TYPE_MANAGER);
         return provider.createPageSource(transaction, getHiveSession(config), split, table, ImmutableList.copyOf(getColumnHandles()));
     }
 
@@ -258,22 +263,21 @@ public class TestHivePageSink
                 "test",
                 ImmutableMap.of());
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
-        HdfsEnvironment hdfsEnvironment = createTestHdfsEnvironment(config);
         HivePageSinkProvider provider = new HivePageSinkProvider(
-                getDefaultHiveFileWriterFactories(config),
-                hdfsEnvironment,
+                getDefaultHiveFileWriterFactories(config, HDFS_ENVIRONMENT),
+                HDFS_ENVIRONMENT,
                 PAGE_SORTER,
                 metastore,
                 new GroupByHashPageIndexerFactory(new JoinCompiler(createTestMetadataManager())),
                 TYPE_MANAGER,
                 config,
-                new HiveLocationService(hdfsEnvironment),
+                new HiveLocationService(HDFS_ENVIRONMENT),
                 partitionUpdateCodec,
                 new TestingNodeManager("fake-environment"),
                 new HiveEventClient(),
                 getHiveSessionProperties(config),
                 stats,
-                getDefaultOrcFileWriterFactory(config));
+                getDefaultOrcFileWriterFactory(config, HDFS_ENVIRONMENT));
         return provider.createPageSink(transaction, getHiveSession(config), handle);
     }
 

@@ -40,15 +40,15 @@ public abstract class AbstractTestHiveFileSystemS3
         this.awsSecretKey = awsSecretKey;
         this.writableBucket = writableBucket;
 
-        super.setup(host, port, databaseName, this::createHdfsConfiguration, s3SelectPushdownEnabled);
+        setup(host, port, databaseName, s3SelectPushdownEnabled, createHdfsConfiguration());
     }
 
-    HdfsConfiguration createHdfsConfiguration(HiveConfig config)
+    private HdfsConfiguration createHdfsConfiguration()
     {
         ConfigurationInitializer s3Config = new PrestoS3ConfigurationInitializer(new HiveS3Config()
                 .setS3AwsAccessKey(awsAccessKey)
                 .setS3AwsSecretKey(awsSecretKey));
-        HdfsConfigurationInitializer initializer = new HdfsConfigurationInitializer(config, new HdfsConfig(), ImmutableSet.of(s3Config));
+        HdfsConfigurationInitializer initializer = new HdfsConfigurationInitializer(new HdfsConfig(), ImmutableSet.of(s3Config));
         return new HiveHdfsConfiguration(initializer, ImmutableSet.of());
     }
 

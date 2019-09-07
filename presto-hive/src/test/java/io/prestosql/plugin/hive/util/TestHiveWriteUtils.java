@@ -13,13 +13,11 @@
  */
 package io.prestosql.plugin.hive.util;
 
-import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
-import io.prestosql.plugin.hive.HiveConfig;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
-import static io.prestosql.plugin.hive.HiveTestUtils.createTestHdfsEnvironment;
+import static io.prestosql.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.prestosql.plugin.hive.util.HiveWriteUtils.isS3FileSystem;
 import static io.prestosql.plugin.hive.util.HiveWriteUtils.isViewFileSystem;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
@@ -33,22 +31,20 @@ public class TestHiveWriteUtils
     @Test
     public void testIsS3FileSystem()
     {
-        HdfsEnvironment hdfsEnvironment = createTestHdfsEnvironment(new HiveConfig());
-        assertTrue(isS3FileSystem(CONTEXT, hdfsEnvironment, new Path("s3://test-bucket/test-folder")));
-        assertFalse(isS3FileSystem(CONTEXT, hdfsEnvironment, new Path("/test-dir/test-folder")));
+        assertTrue(isS3FileSystem(CONTEXT, HDFS_ENVIRONMENT, new Path("s3://test-bucket/test-folder")));
+        assertFalse(isS3FileSystem(CONTEXT, HDFS_ENVIRONMENT, new Path("/test-dir/test-folder")));
     }
 
     @Test
     public void testIsViewFileSystem()
     {
-        HdfsEnvironment hdfsEnvironment = createTestHdfsEnvironment(new HiveConfig());
         Path viewfsPath = new Path("viewfs://ns-default/test-folder");
         Path nonViewfsPath = new Path("hdfs://localhost/test-dir/test-folder");
 
         // ViewFS check requires the mount point config
-        hdfsEnvironment.getConfiguration(CONTEXT, viewfsPath).set("fs.viewfs.mounttable.ns-default.link./test-folder", "hdfs://localhost/app");
+        HDFS_ENVIRONMENT.getConfiguration(CONTEXT, viewfsPath).set("fs.viewfs.mounttable.ns-default.link./test-folder", "hdfs://localhost/app");
 
-        assertTrue(isViewFileSystem(CONTEXT, hdfsEnvironment, viewfsPath));
-        assertFalse(isViewFileSystem(CONTEXT, hdfsEnvironment, nonViewfsPath));
+        assertTrue(isViewFileSystem(CONTEXT, HDFS_ENVIRONMENT, viewfsPath));
+        assertFalse(isViewFileSystem(CONTEXT, HDFS_ENVIRONMENT, nonViewfsPath));
     }
 }

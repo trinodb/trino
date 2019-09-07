@@ -75,7 +75,6 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
-import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -90,8 +89,8 @@ import static io.prestosql.plugin.hive.AbstractTestHive.filterNonHiddenColumnMet
 import static io.prestosql.plugin.hive.AbstractTestHive.getAllSplits;
 import static io.prestosql.plugin.hive.HiveTestUtils.PAGE_SORTER;
 import static io.prestosql.plugin.hive.HiveTestUtils.TYPE_MANAGER;
-import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHiveDataStreamFactories;
 import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHiveFileWriterFactories;
+import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHivePageSourceFactories;
 import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHiveRecordCursorProvider;
 import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultOrcFileWriterFactory;
 import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSession;
@@ -143,7 +142,7 @@ public abstract class AbstractTestHiveFileSystem
 
     protected abstract Path getBasePath();
 
-    protected void setup(String host, int port, String databaseName, Function<HiveConfig, HdfsConfiguration> hdfsConfigurationProvider, boolean s3SelectPushdownEnabled)
+    protected void setup(String host, int port, String databaseName, boolean s3SelectPushdownEnabled, HdfsConfiguration hdfsConfiguration)
     {
         database = databaseName;
         table = new SchemaTableName(database, "presto_test_external_fs");
@@ -160,8 +159,6 @@ public abstract class AbstractTestHiveFileSystem
 
         ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("hive-%s"));
         HivePartitionManager hivePartitionManager = new HivePartitionManager(TYPE_MANAGER, config);
-
-        HdfsConfiguration hdfsConfiguration = hdfsConfigurationProvider.apply(config);
 
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, new HdfsConfig(), new NoHdfsAuthentication());
         metastoreClient = new TestingHiveMetastore(
@@ -202,7 +199,7 @@ public abstract class AbstractTestHiveFileSystem
                 config.getMaxSplitsPerSecond(),
                 config.getRecursiveDirWalkerEnabled());
         pageSinkProvider = new HivePageSinkProvider(
-                getDefaultHiveFileWriterFactories(config),
+                getDefaultHiveFileWriterFactories(config, hdfsEnvironment),
                 hdfsEnvironment,
                 PAGE_SORTER,
                 metastoreClient,
@@ -215,8 +212,13 @@ public abstract class AbstractTestHiveFileSystem
                 new HiveEventClient(),
                 getHiveSessionProperties(config),
                 new HiveWriterStats(),
-                getDefaultOrcFileWriterFactory(config));
-        pageSourceProvider = new HivePageSourceProvider(config, hdfsEnvironment, getDefaultHiveRecordCursorProvider(config), getDefaultHiveDataStreamFactories(config), TYPE_MANAGER);
+                getDefaultOrcFileWriterFactory(config, hdfsEnvironment));
+        pageSourceProvider = new HivePageSourceProvider(
+                config,
+                hdfsEnvironment,
+                getDefaultHiveRecordCursorProvider(config, hdfsEnvironment),
+                getDefaultHivePageSourceFactories(config, hdfsEnvironment),
+                TYPE_MANAGER);
     }
 
     protected ConnectorSession newSession()

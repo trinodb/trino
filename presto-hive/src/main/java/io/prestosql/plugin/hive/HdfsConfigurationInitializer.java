@@ -60,13 +60,13 @@ public class HdfsConfigurationInitializer
     private final boolean wireEncryptionEnabled;
 
     @VisibleForTesting
-    public HdfsConfigurationInitializer(HiveConfig hiveConfig, HdfsConfig hdfsConfig)
+    public HdfsConfigurationInitializer(HdfsConfig hdfsConfig)
     {
-        this(hiveConfig, hdfsConfig, ImmutableSet.of());
+        this(hdfsConfig, ImmutableSet.of());
     }
 
     @Inject
-    public HdfsConfigurationInitializer(HiveConfig hiveConfig, HdfsConfig config, Set<ConfigurationInitializer> configurationInitializers)
+    public HdfsConfigurationInitializer(HdfsConfig config, Set<ConfigurationInitializer> configurationInitializers)
     {
         checkArgument(config.getDfsTimeout().toMillis() >= 1, "dfsTimeout must be at least 1 ms");
 

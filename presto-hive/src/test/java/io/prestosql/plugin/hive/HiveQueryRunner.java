@@ -40,7 +40,7 @@ import java.util.Optional;
 
 import static io.airlift.log.Level.WARN;
 import static io.airlift.units.Duration.nanosSince;
-import static io.prestosql.plugin.hive.HiveTestUtils.createTestHdfsEnvironment;
+import static io.prestosql.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.prestosql.spi.security.SelectedRole.Type.ROLE;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
@@ -103,9 +103,7 @@ public final class HiveQueryRunner
 
             File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
 
-            HdfsEnvironment hdfsEnvironment = createTestHdfsEnvironment(new HiveConfig());
-
-            FileHiveMetastore metastore = new FileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test");
+            FileHiveMetastore metastore = new FileHiveMetastore(HDFS_ENVIRONMENT, baseDir.toURI().toString(), "test");
             queryRunner.installPlugin(new HivePlugin(HIVE_CATALOG, Optional.of(metastore)));
 
             Map<String, String> hiveProperties = ImmutableMap.<String, String>builder()

@@ -19,7 +19,7 @@ import org.testng.SkipException;
 
 import java.io.File;
 
-import static io.prestosql.plugin.hive.HiveTestUtils.createTestHdfsEnvironment;
+import static io.prestosql.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 
 public class TestHiveFileMetastore
         extends AbstractTestHiveLocal
@@ -28,8 +28,7 @@ public class TestHiveFileMetastore
     protected HiveMetastore createMetastore(File tempDir)
     {
         File baseDir = new File(tempDir, "metastore");
-        HdfsEnvironment hdfsEnvironment = createTestHdfsEnvironment(new HiveConfig());
-        return new FileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test");
+        return new FileHiveMetastore(HDFS_ENVIRONMENT, baseDir.toURI().toString(), "test");
     }
 
     @Override

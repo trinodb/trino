@@ -25,7 +25,6 @@ import io.prestosql.plugin.hive.HdfsConfigurationInitializer;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.HiveBasicStatistics;
-import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HiveHdfsConfiguration;
 import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.plugin.hive.PartitionNotFoundException;
@@ -141,7 +140,7 @@ public class FileHiveMetastore
     public static FileHiveMetastore createTestingFileHiveMetastore(File catalogDirectory)
     {
         HdfsConfig hdfsConfig = new HdfsConfig();
-        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(new HiveConfig(), hdfsConfig), ImmutableSet.of());
+        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
         return new FileHiveMetastore(hdfsEnvironment, catalogDirectory.toURI().toString(), "test");
     }
