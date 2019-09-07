@@ -301,9 +301,17 @@ public class LocalQueryRunner
                 notificationExecutor);
         this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler);
 
+        SessionPropertyManager sessionPropertyManager = new SessionPropertyManager(
+                new SystemSessionProperties(
+                        new QueryManagerConfig(),
+                        taskManagerConfig,
+                        new MemoryManagerConfig(),
+                        featuresConfig,
+                        new NodeMemoryConfig()));
+
         this.metadata = new MetadataManager(
                 featuresConfig,
-                new SessionPropertyManager(new SystemSessionProperties(new QueryManagerConfig(), taskManagerConfig, new MemoryManagerConfig(), featuresConfig, new NodeMemoryConfig())),
+                sessionPropertyManager,
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
                 new ColumnPropertyManager(),
@@ -362,7 +370,7 @@ public class LocalQueryRunner
                 accessControl,
                 new PasswordAuthenticatorManager(),
                 new EventListenerManager(),
-                new SessionPropertyDefaults(nodeInfo));
+                new SessionPropertyDefaults(nodeInfo, sessionPropertyManager));
 
         connectorManager.addConnectorFactory(globalSystemConnectorFactory);
         connectorManager.createConnection(GlobalSystemConnector.NAME, GlobalSystemConnector.NAME, ImmutableMap.of());

@@ -15,6 +15,7 @@ package io.prestosql.server;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.node.NodeInfo;
+import io.airlift.units.DataSize;
 import io.prestosql.Session;
 import io.prestosql.metadata.SessionPropertyManager;
 import io.prestosql.spi.QueryId;
@@ -26,10 +27,14 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.prestosql.SystemSessionProperties.EXECUTION_POLICY;
 import static io.prestosql.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestSessionPropertyDefaults
 {
@@ -39,11 +44,11 @@ public class TestSessionPropertyDefaults
     @Test
     public void testApplyDefaultProperties()
     {
-        SessionPropertyDefaults sessionPropertyDefaults = new SessionPropertyDefaults(TEST_NODE_INFO);
+        SessionPropertyDefaults sessionPropertyDefaults = new SessionPropertyDefaults(TEST_NODE_INFO, new SessionPropertyManager());
         SessionPropertyConfigurationManagerFactory factory = new TestingSessionPropertyConfigurationManagerFactory(
                 ImmutableMap.<String, String>builder()
-                        .put(QUERY_MAX_MEMORY, "override")
-                        .put("system_default", "system_default")
+                        .put(QUERY_MAX_MEMORY, "5GB")
+                        .put(EXECUTION_POLICY, "non_default_value")
                         .build(),
                 ImmutableMap.of(
                         "testCatalog",
@@ -82,7 +87,7 @@ public class TestSessionPropertyDefaults
                 .put(QUERY_MAX_MEMORY, "1GB")
                 .put(JOIN_DISTRIBUTION_TYPE, "partitioned")
                 .put(HASH_PARTITION_COUNT, "43")
-                .put("system_default", "system_default")
+                .put(EXECUTION_POLICY, "non_default_value")
                 .build());
         assertEquals(
                 session.getUnprocessedCatalogProperties(),
@@ -92,5 +97,45 @@ public class TestSessionPropertyDefaults
                                 .put("explicit_set", "explicit_set")
                                 .put("catalog_default", "catalog_default")
                                 .build()));
+    }
+
+    @Test
+    public void testBadSystemPropertyOverrides()
+    {
+        SessionPropertyDefaults sessionPropertyDefaults = new SessionPropertyDefaults(TEST_NODE_INFO, new SessionPropertyManager());
+        SessionPropertyConfigurationManagerFactory factory = new TestingSessionPropertyConfigurationManagerFactory(
+                ImmutableMap.<String, String>builder()
+                        .put("not_a_system_property", "foo")
+                        .put(HASH_PARTITION_COUNT, "not_an_integer")
+                        .put(QUERY_MAX_MEMORY, "5000GB")
+                        .build(),
+                ImmutableMap.of());
+        sessionPropertyDefaults.addConfigurationManagerFactory(factory);
+        sessionPropertyDefaults.setConfigurationManager(factory.getName(), ImmutableMap.of());
+
+        Session session = Session.builder(new SessionPropertyManager())
+                .setQueryId(new QueryId("test_query_id"))
+                .setIdentity(new Identity("testUser", Optional.empty()))
+                .build();
+
+        long failuresBefore = sessionPropertyDefaults.getSystemPropertyOverrideFailures().getTotalCount();
+        session = sessionPropertyDefaults.newSessionWithDefaultProperties(session, Optional.empty(), TEST_RESOURCE_GROUP_ID);
+        long failuresAfter = sessionPropertyDefaults.getSystemPropertyOverrideFailures().getTotalCount();
+
+        // Failures loading session properties not_a_system_property and HASH_PARTITION_COUNT
+        assertEquals(failuresAfter - failuresBefore, 2);
+
+        // Invalid session property value is ignored, takes the default value
+        int hashPartitionsDefaultValue = (Integer) new SessionPropertyManager()
+                .getSystemSessionPropertyMetadata(HASH_PARTITION_COUNT)
+                .get()
+                .getDefaultValue();
+        assertEquals((int) session.getSystemProperty(HASH_PARTITION_COUNT, Integer.class), hashPartitionsDefaultValue);
+
+        // Invalid session property name is dropped
+        assertFalse(session.getSystemProperties().containsKey("not_a_system_property"));
+
+        assertTrue(session.getSystemProperties().containsKey(QUERY_MAX_MEMORY));
+        assertEquals(session.getSystemProperty(QUERY_MAX_MEMORY, DataSize.class), new DataSize(5000, GIGABYTE));
     }
 }

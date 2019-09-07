@@ -210,6 +210,7 @@ public class ServerMainModule
         binder.bind(SessionPropertyManager.class).in(Scopes.SINGLETON);
         binder.bind(SystemSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(SessionPropertyDefaults.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(SessionPropertyDefaults.class).withGeneratedName();
 
         // schema properties
         binder.bind(SchemaPropertyManager.class).in(Scopes.SINGLETON);

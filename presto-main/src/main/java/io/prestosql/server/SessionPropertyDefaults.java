@@ -14,14 +14,19 @@
 package io.prestosql.server;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
+import io.airlift.stats.CounterStat;
 import io.prestosql.Session;
+import io.prestosql.metadata.SessionPropertyManager;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
 import io.prestosql.spi.resourcegroups.SessionPropertyConfigurationManagerContext;
 import io.prestosql.spi.session.SessionConfigurationContext;
 import io.prestosql.spi.session.SessionPropertyConfigurationManager;
 import io.prestosql.spi.session.SessionPropertyConfigurationManagerFactory;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import javax.inject.Inject;
 
@@ -49,10 +54,15 @@ public class SessionPropertyDefaults
     private final Map<String, SessionPropertyConfigurationManagerFactory> factories = new ConcurrentHashMap<>();
     private final AtomicReference<SessionPropertyConfigurationManager> delegate = new AtomicReference<>();
 
+    private final SessionPropertyManager sessionPropertyManager;
+
+    private final CounterStat systemPropertyOverrideFailures = new CounterStat();
+
     @Inject
-    public SessionPropertyDefaults(NodeInfo nodeInfo)
+    public SessionPropertyDefaults(NodeInfo nodeInfo, SessionPropertyManager sessionPropertyManager)
     {
         this.configurationManagerContext = new SessionPropertyConfigurationManagerContextInstance(nodeInfo.getEnvironment());
+        this.sessionPropertyManager = sessionPropertyManager;
     }
 
     public void addConfigurationManagerFactory(SessionPropertyConfigurationManagerFactory sessionConfigFactory)
@@ -106,8 +116,34 @@ public class SessionPropertyDefaults
                 queryType,
                 resourceGroupId);
 
-        Map<String, String> systemPropertyOverrides = configurationManager.getSystemSessionProperties(context);
+        Map<String, String> systemPropertyOverrides = filterInvalidSystemPropertyOverrides(configurationManager.getSystemSessionProperties(context));
         Map<String, Map<String, String>> catalogPropertyOverrides = configurationManager.getCatalogSessionProperties(context);
         return session.withDefaultProperties(systemPropertyOverrides, catalogPropertyOverrides);
+    }
+
+    private Map<String, String> filterInvalidSystemPropertyOverrides(Map<String, String> systemProperties)
+    {
+        ImmutableMap.Builder<String, String> validProperties = ImmutableMap.builder();
+
+        for (Map.Entry<String, String> property : systemProperties.entrySet()) {
+            try {
+                sessionPropertyManager.validateSystemSessionProperty(property.getKey(), property.getValue());
+            }
+            catch (RuntimeException e) {
+                log.error(e, format("Failed to set value %s for property %s",
+                        property.getValue(), property.getKey()));
+                systemPropertyOverrideFailures.update(1);
+                continue;
+            }
+            validProperties.put(property.getKey(), property.getValue());
+        }
+        return validProperties.build();
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getSystemPropertyOverrideFailures()
+    {
+        return systemPropertyOverrideFailures;
     }
 }
