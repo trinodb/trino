@@ -33,7 +33,7 @@ public class TestFileSystemCache
             throws IOException
     {
         HdfsEnvironment environment = new HdfsEnvironment(
-                new HiveHdfsConfiguration(new HdfsConfigurationInitializer(new HiveConfig(), new HdfsConfig()), ImmutableSet.of()),
+                new HiveHdfsConfiguration(new HdfsConfigurationInitializer(new HdfsConfig()), ImmutableSet.of()),
                 new HdfsConfig(),
                 new ImpersonatingHdfsAuthentication(new SimpleHadoopAuthentication()));
         FileSystem fs1 = getFileSystem(environment, "user");

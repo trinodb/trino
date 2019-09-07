@@ -20,7 +20,6 @@ import io.prestosql.plugin.hive.HdfsConfig;
 import io.prestosql.plugin.hive.HdfsConfiguration;
 import io.prestosql.plugin.hive.HdfsConfigurationInitializer;
 import io.prestosql.plugin.hive.HdfsEnvironment;
-import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HiveHdfsConfiguration;
 import io.prestosql.plugin.hive.HivePlugin;
 import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
@@ -65,7 +64,7 @@ public class TestIcebergMetadataListing
         File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data").toFile();
 
         HdfsConfig hdfsConfig = new HdfsConfig();
-        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(new HiveConfig(), hdfsConfig), ImmutableSet.of());
+        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
 
         metastore = new FileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test");

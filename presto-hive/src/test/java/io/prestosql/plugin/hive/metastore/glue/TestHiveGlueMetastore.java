@@ -14,13 +14,11 @@
 package io.prestosql.plugin.hive.metastore.glue;
 
 import io.prestosql.plugin.hive.AbstractTestHiveLocal;
-import io.prestosql.plugin.hive.HdfsEnvironment;
-import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 
 import java.io.File;
 
-import static io.prestosql.plugin.hive.HiveTestUtils.createTestHdfsEnvironment;
+import static io.prestosql.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static java.util.Locale.ENGLISH;
 import static java.util.UUID.randomUUID;
 
@@ -40,11 +38,10 @@ public class TestHiveGlueMetastore
     @Override
     protected HiveMetastore createMetastore(File tempDir)
     {
-        HdfsEnvironment hdfsEnvironment = createTestHdfsEnvironment(new HiveConfig());
         GlueHiveMetastoreConfig glueConfig = new GlueHiveMetastoreConfig();
         glueConfig.setDefaultWarehouseDir(tempDir.toURI().toString());
 
-        return new GlueHiveMetastore(hdfsEnvironment, glueConfig);
+        return new GlueHiveMetastore(HDFS_ENVIRONMENT, glueConfig);
     }
 
     @Override

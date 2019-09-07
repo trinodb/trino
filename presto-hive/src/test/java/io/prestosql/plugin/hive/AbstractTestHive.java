@@ -193,13 +193,13 @@ import static io.prestosql.plugin.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY
 import static io.prestosql.plugin.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static io.prestosql.plugin.hive.HiveTableProperties.SORTED_BY_PROPERTY;
 import static io.prestosql.plugin.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
+import static io.prestosql.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.prestosql.plugin.hive.HiveTestUtils.PAGE_SORTER;
 import static io.prestosql.plugin.hive.HiveTestUtils.SESSION;
 import static io.prestosql.plugin.hive.HiveTestUtils.TYPE_MANAGER;
 import static io.prestosql.plugin.hive.HiveTestUtils.arrayType;
-import static io.prestosql.plugin.hive.HiveTestUtils.createTestHdfsEnvironment;
-import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHiveDataStreamFactories;
 import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHiveFileWriterFactories;
+import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHivePageSourceFactories;
 import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHiveRecordCursorProvider;
 import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultOrcFileWriterFactory;
 import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSession;
@@ -717,7 +717,7 @@ public abstract class AbstractTestHive
 
         metastoreClient = hiveMetastore;
         HivePartitionManager partitionManager = new HivePartitionManager(TYPE_MANAGER, hiveConfig);
-        hdfsEnvironment = createTestHdfsEnvironment(hiveConfig);
+        hdfsEnvironment = HDFS_ENVIRONMENT;
         locationService = new HiveLocationService(hdfsEnvironment);
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
         metadataFactory = new HiveMetadataFactory(
@@ -758,7 +758,7 @@ public abstract class AbstractTestHive
                 hiveConfig.getMaxSplitsPerSecond(),
                 false);
         pageSinkProvider = new HivePageSinkProvider(
-                getDefaultHiveFileWriterFactories(hiveConfig),
+                getDefaultHiveFileWriterFactories(hiveConfig, hdfsEnvironment),
                 hdfsEnvironment,
                 PAGE_SORTER,
                 metastoreClient,
@@ -771,8 +771,13 @@ public abstract class AbstractTestHive
                 new HiveEventClient(),
                 getHiveSessionProperties(hiveConfig),
                 new HiveWriterStats(),
-                getDefaultOrcFileWriterFactory(hiveConfig));
-        pageSourceProvider = new HivePageSourceProvider(hiveConfig, hdfsEnvironment, getDefaultHiveRecordCursorProvider(hiveConfig), getDefaultHiveDataStreamFactories(hiveConfig), TYPE_MANAGER);
+                getDefaultOrcFileWriterFactory(hiveConfig, hdfsEnvironment));
+        pageSourceProvider = new HivePageSourceProvider(
+                hiveConfig,
+                hdfsEnvironment,
+                getDefaultHiveRecordCursorProvider(hiveConfig, hdfsEnvironment),
+                getDefaultHivePageSourceFactories(hiveConfig, hdfsEnvironment),
+                TYPE_MANAGER);
     }
 
     /**

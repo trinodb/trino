@@ -66,7 +66,7 @@ public final class HiveTestUtils
     private static final Metadata METADATA = createTestMetadataManager();
     public static final TypeManager TYPE_MANAGER = new InternalTypeManager(METADATA);
 
-    public static final HdfsEnvironment HDFS_ENVIRONMENT = createTestHdfsEnvironment(new HiveConfig());
+    public static final HdfsEnvironment HDFS_ENVIRONMENT = createTestHdfsEnvironment();
 
     public static final PageSorter PAGE_SORTER = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
 
@@ -84,39 +84,35 @@ public final class HiveTestUtils
                 new ParquetWriterConfig());
     }
 
-    public static Set<HivePageSourceFactory> getDefaultHiveDataStreamFactories(HiveConfig hiveConfig)
+    public static Set<HivePageSourceFactory> getDefaultHivePageSourceFactories(HiveConfig hiveConfig, HdfsEnvironment hdfsEnvironment)
     {
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
-        HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveConfig);
         return ImmutableSet.<HivePageSourceFactory>builder()
-                .add(new RcFilePageSourceFactory(TYPE_MANAGER, testHdfsEnvironment, stats))
-                .add(new OrcPageSourceFactory(TYPE_MANAGER, hiveConfig, testHdfsEnvironment, stats))
-                .add(new ParquetPageSourceFactory(TYPE_MANAGER, testHdfsEnvironment, stats))
+                .add(new RcFilePageSourceFactory(TYPE_MANAGER, hdfsEnvironment, stats))
+                .add(new OrcPageSourceFactory(TYPE_MANAGER, hiveConfig, hdfsEnvironment, stats))
+                .add(new ParquetPageSourceFactory(TYPE_MANAGER, hdfsEnvironment, stats))
                 .build();
     }
 
-    public static Set<HiveRecordCursorProvider> getDefaultHiveRecordCursorProvider(HiveConfig hiveConfig)
+    public static Set<HiveRecordCursorProvider> getDefaultHiveRecordCursorProvider(HiveConfig hiveConfig, HdfsEnvironment hdfsEnvironment)
     {
-        HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveConfig);
         return ImmutableSet.<HiveRecordCursorProvider>builder()
-                .add(new GenericHiveRecordCursorProvider(testHdfsEnvironment, hiveConfig))
+                .add(new GenericHiveRecordCursorProvider(hdfsEnvironment, hiveConfig))
                 .build();
     }
 
-    public static Set<HiveFileWriterFactory> getDefaultHiveFileWriterFactories(HiveConfig hiveConfig)
+    public static Set<HiveFileWriterFactory> getDefaultHiveFileWriterFactories(HiveConfig hiveConfig, HdfsEnvironment hdfsEnvironment)
     {
-        HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveConfig);
         return ImmutableSet.<HiveFileWriterFactory>builder()
-                .add(new RcFileFileWriterFactory(testHdfsEnvironment, TYPE_MANAGER, new NodeVersion("test_version"), hiveConfig, new FileFormatDataSourceStats()))
-                .add(getDefaultOrcFileWriterFactory(hiveConfig))
+                .add(new RcFileFileWriterFactory(hdfsEnvironment, TYPE_MANAGER, new NodeVersion("test_version"), hiveConfig, new FileFormatDataSourceStats()))
+                .add(getDefaultOrcFileWriterFactory(hiveConfig, hdfsEnvironment))
                 .build();
     }
 
-    public static OrcFileWriterFactory getDefaultOrcFileWriterFactory(HiveConfig hiveConfig)
+    public static OrcFileWriterFactory getDefaultOrcFileWriterFactory(HiveConfig hiveConfig, HdfsEnvironment hdfsEnvironment)
     {
-        HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveConfig);
         return new OrcFileWriterFactory(
-                testHdfsEnvironment,
+                hdfsEnvironment,
                 TYPE_MANAGER,
                 new NodeVersion("test_version"),
                 hiveConfig,
@@ -138,11 +134,10 @@ public final class HiveTestUtils
         return new GenericHiveRecordCursorProvider(hdfsEnvironment, new DataSize(100, MEGABYTE));
     }
 
-    public static HdfsEnvironment createTestHdfsEnvironment(HiveConfig config)
+    public static HdfsEnvironment createTestHdfsEnvironment()
     {
         HdfsConfiguration hdfsConfig = new HiveHdfsConfiguration(
                 new HdfsConfigurationInitializer(
-                        config,
                         new HdfsConfig(),
                         ImmutableSet.of(
                                 new PrestoS3ConfigurationInitializer(new HiveS3Config()),
