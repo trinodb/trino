@@ -15,9 +15,12 @@ package io.prestosql.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.sql.planner.iterative.GroupReference;
 import io.prestosql.sql.planner.iterative.Lookup;
 import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
 import io.prestosql.sql.planner.plan.PlanNode;
+import io.prestosql.sql.planner.plan.TopNNode;
+import io.prestosql.sql.planner.plan.TopNRowNumberNode;
 import io.prestosql.sql.planner.plan.WindowNode;
 import io.prestosql.sql.tree.DefaultExpressionTraversalVisitor;
 import io.prestosql.sql.tree.DefaultTraversalVisitor;
@@ -46,6 +49,7 @@ public final class SymbolsExtractor
     {
         ImmutableSet.Builder<Symbol> uniqueSymbols = ImmutableSet.builder();
         extractExpressions(node).forEach(expression -> uniqueSymbols.addAll(extractUnique(expression)));
+        uniqueSymbols.addAll(extractOrderBySymbols(node, true, noLookup()));
 
         return uniqueSymbols.build();
     }
@@ -54,6 +58,7 @@ public final class SymbolsExtractor
     {
         ImmutableSet.Builder<Symbol> uniqueSymbols = ImmutableSet.builder();
         extractExpressionsNonRecursive(node).forEach(expression -> uniqueSymbols.addAll(extractUnique(expression)));
+        uniqueSymbols.addAll(extractOrderBySymbols(node, false, noLookup()));
 
         return uniqueSymbols.build();
     }
@@ -62,6 +67,7 @@ public final class SymbolsExtractor
     {
         ImmutableSet.Builder<Symbol> uniqueSymbols = ImmutableSet.builder();
         extractExpressions(node, lookup).forEach(expression -> uniqueSymbols.addAll(extractUnique(expression)));
+        uniqueSymbols.addAll(extractOrderBySymbols(node, true, lookup));
 
         return uniqueSymbols.build();
     }
@@ -179,6 +185,62 @@ public final class SymbolsExtractor
         {
             builder.add(QualifiedName.of(node.getValue()));
             return null;
+        }
+    }
+
+    private static Set<Symbol> extractOrderBySymbols(PlanNode planNode, boolean recursive, Lookup lookup)
+    {
+        OrderBySymbolBuilderVisitor visitor = new OrderBySymbolBuilderVisitor(recursive, lookup);
+        planNode.accept(visitor, null);
+        return visitor.getSymbols();
+    }
+
+    private static class OrderBySymbolBuilderVisitor
+            extends SimplePlanVisitor<Void>
+    {
+        private final boolean recursive;
+        private final Lookup lookup;
+        private final ImmutableSet.Builder<Symbol> builder;
+
+        OrderBySymbolBuilderVisitor(boolean recursive, Lookup lookup)
+        {
+            this.recursive = recursive;
+            this.lookup = requireNonNull(lookup, "lookup is null");
+            this.builder = ImmutableSet.builder();
+        }
+
+        public Set<Symbol> getSymbols()
+        {
+            return builder.build();
+        }
+
+        @Override
+        protected Void visitPlan(PlanNode node, Void context)
+        {
+            if (recursive) {
+                return super.visitPlan(node, context);
+            }
+            return null;
+        }
+
+        @Override
+        public Void visitGroupReference(GroupReference node, Void context)
+        {
+            return lookup.resolve(node).accept(this, context);
+        }
+
+        @Override
+        public Void visitTopN(TopNNode node, Void context)
+        {
+            builder.addAll(node.getOrderingScheme().getOrderBy());
+            return super.visitTopN(node, context);
+        }
+
+        @Override
+        public Void visitTopNRowNumber(TopNRowNumberNode node, Void context)
+        {
+            builder.addAll(node.getOrderingScheme().getOrderBy());
+            return super.visitTopNRowNumber(node, context);
         }
     }
 }
