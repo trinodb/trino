@@ -35,6 +35,7 @@ import io.prestosql.plugin.hive.s3.PrestoS3FileSystemStats;
 import org.apache.hadoop.conf.Configuration;
 
 import javax.annotation.concurrent.GuardedBy;
+import javax.inject.Inject;
 
 import java.net.URI;
 import java.util.Optional;
@@ -67,28 +68,37 @@ import static java.lang.String.format;
 public class PrestoS3ClientFactory
 {
     private static final String S3_SELECT_PUSHDOWN_MAX_CONNECTIONS = "hive.s3select-pushdown.max-connections";
-    private static String s3UserAgentSuffix = "presto";
+
+    private final boolean enabled;
+    private final int defaultMaxConnections;
 
     @GuardedBy("this")
     private AmazonS3 s3Client;
 
-    synchronized AmazonS3 getS3Client(Configuration config, HiveConfig hiveConfig)
+    @Inject
+    public PrestoS3ClientFactory(HiveConfig config)
     {
-        if (s3Client != null) {
-            return s3Client;
-        }
+        this.enabled = config.isS3SelectPushdownEnabled();
+        this.defaultMaxConnections = config.getS3SelectPushdownMaxConnections();
+    }
 
+    synchronized AmazonS3 getS3Client(Configuration config)
+    {
+        if (s3Client == null) {
+            s3Client = createS3Client(config);
+        }
+        return s3Client;
+    }
+
+    private AmazonS3 createS3Client(Configuration config)
+    {
         HiveS3Config defaults = new HiveS3Config();
         String userAgentPrefix = config.get(S3_USER_AGENT_PREFIX, defaults.getS3UserAgentPrefix());
         int maxErrorRetries = config.getInt(S3_MAX_ERROR_RETRIES, defaults.getS3MaxErrorRetries());
         boolean sslEnabled = config.getBoolean(S3_SSL_ENABLED, defaults.isS3SslEnabled());
         Duration connectTimeout = Duration.valueOf(config.get(S3_CONNECT_TIMEOUT, defaults.getS3ConnectTimeout().toString()));
         Duration socketTimeout = Duration.valueOf(config.get(S3_SOCKET_TIMEOUT, defaults.getS3SocketTimeout().toString()));
-        int maxConnections = config.getInt(S3_SELECT_PUSHDOWN_MAX_CONNECTIONS, hiveConfig.getS3SelectPushdownMaxConnections());
-
-        if (hiveConfig.isS3SelectPushdownEnabled()) {
-            s3UserAgentSuffix = "presto-select";
-        }
+        int maxConnections = config.getInt(S3_SELECT_PUSHDOWN_MAX_CONNECTIONS, defaultMaxConnections);
 
         ClientConfiguration clientConfiguration = new ClientConfiguration()
                 .withMaxErrorRetry(maxErrorRetries)
@@ -97,7 +107,7 @@ public class PrestoS3ClientFactory
                 .withSocketTimeout(toIntExact(socketTimeout.toMillis()))
                 .withMaxConnections(maxConnections)
                 .withUserAgentPrefix(userAgentPrefix)
-                .withUserAgentSuffix(s3UserAgentSuffix);
+                .withUserAgentSuffix(enabled ? "presto-select" : "presto");
 
         PrestoS3FileSystemStats stats = new PrestoS3FileSystemStats();
         RequestMetricCollector metricCollector = new PrestoS3FileSystemMetricCollector(stats);
@@ -134,11 +144,10 @@ public class PrestoS3ClientFactory
             clientBuilder.setForceGlobalBucketAccessEnabled(true);
         }
 
-        s3Client = clientBuilder.build();
-        return s3Client;
+        return clientBuilder.build();
     }
 
-    private AWSCredentialsProvider getAwsCredentialsProvider(Configuration conf, HiveS3Config defaults)
+    private static AWSCredentialsProvider getAwsCredentialsProvider(Configuration conf, HiveS3Config defaults)
     {
         Optional<AWSCredentials> credentials = getAwsCredentials(conf);
         if (credentials.isPresent()) {
