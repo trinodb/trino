@@ -20,7 +20,6 @@ import com.amazonaws.services.s3.model.ExpressionType;
 import com.amazonaws.services.s3.model.InputSerialization;
 import com.amazonaws.services.s3.model.OutputSerialization;
 import com.amazonaws.services.s3.model.SelectObjectContentRequest;
-import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.s3.PrestoS3FileSystem;
 import io.prestosql.spi.PrestoException;
 import org.apache.hadoop.conf.Configuration;
@@ -51,7 +50,6 @@ class S3SelectCsvRecordReader
 
     public S3SelectCsvRecordReader(
             Configuration configuration,
-            HiveConfig hiveConfig,
             Path path,
             long start,
             long length,
@@ -59,7 +57,7 @@ class S3SelectCsvRecordReader
             String ionSqlQuery,
             PrestoS3ClientFactory s3ClientFactory)
     {
-        super(configuration, hiveConfig, path, start, length, schema, ionSqlQuery, s3ClientFactory);
+        super(configuration, path, start, length, schema, ionSqlQuery, s3ClientFactory);
     }
 
     @Override
