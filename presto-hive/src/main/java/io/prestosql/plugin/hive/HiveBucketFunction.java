@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.hive;
 
+import io.prestosql.plugin.hive.util.HiveBucketing;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.connector.BucketFunction;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;

@@ -14,6 +14,7 @@
 package io.prestosql.plugin.hive;
 
 import io.airlift.slice.Slice;
+import io.prestosql.plugin.hive.util.HiveBucketing;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.RecordCursor;

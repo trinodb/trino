@@ -32,7 +32,7 @@ import static io.prestosql.plugin.hive.HiveType.HIVE_FLOAT;
 import static io.prestosql.plugin.hive.HiveType.HIVE_INT;
 import static io.prestosql.plugin.hive.HiveType.HIVE_LONG;
 import static io.prestosql.plugin.hive.HiveType.HIVE_SHORT;
-import static io.prestosql.plugin.hive.HiveUtil.extractStructFieldTypes;
+import static io.prestosql.plugin.hive.util.HiveUtil.extractStructFieldTypes;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
