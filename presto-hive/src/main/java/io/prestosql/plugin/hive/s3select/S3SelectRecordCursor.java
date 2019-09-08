@@ -11,8 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive;
+package io.prestosql.plugin.hive.s3select;
 
+import com.google.common.annotations.VisibleForTesting;
+import io.prestosql.plugin.hive.GenericHiveRecordCursor;
+import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -59,6 +62,7 @@ class S3SelectRecordCursor<K, V extends Writable>
     // since s3select only returns the required column, not the whole columns
     // we need to update the split schema to include only the required columns
     // otherwise, Serde could not deserialize output from s3select to row data correctly
+    @VisibleForTesting
     static Properties updateSplitSchema(Properties splitSchema, List<HiveColumnHandle> columns)
     {
         requireNonNull(splitSchema, "splitSchema is null");

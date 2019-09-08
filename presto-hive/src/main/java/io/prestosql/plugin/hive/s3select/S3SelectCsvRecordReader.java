@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive;
+package io.prestosql.plugin.hive.s3select;
 
 import com.amazonaws.services.s3.model.CSVInput;
 import com.amazonaws.services.s3.model.CSVOutput;
@@ -20,7 +20,7 @@ import com.amazonaws.services.s3.model.ExpressionType;
 import com.amazonaws.services.s3.model.InputSerialization;
 import com.amazonaws.services.s3.model.OutputSerialization;
 import com.amazonaws.services.s3.model.SelectObjectContentRequest;
-import io.prestosql.plugin.hive.s3.PrestoS3ClientFactory;
+import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.s3.PrestoS3FileSystem;
 import io.prestosql.spi.PrestoException;
 import org.apache.hadoop.conf.Configuration;
@@ -36,7 +36,7 @@ import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static org.apache.hadoop.hive.serde.serdeConstants.ESCAPE_CHAR;
 import static org.apache.hadoop.hive.serde.serdeConstants.QUOTE_CHAR;
 
-public class S3SelectCsvRecordReader
+class S3SelectCsvRecordReader
         extends S3SelectLineRecordReader
 {
     /*
@@ -49,7 +49,7 @@ public class S3SelectCsvRecordReader
 
     private static final String COMMENTS_CHAR_STR = "\uFDD0";
 
-    S3SelectCsvRecordReader(
+    public S3SelectCsvRecordReader(
             Configuration configuration,
             HiveConfig hiveConfig,
             Path path,

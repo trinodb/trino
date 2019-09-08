@@ -82,7 +82,7 @@ import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-class GenericHiveRecordCursor<K, V extends Writable>
+public class GenericHiveRecordCursor<K, V extends Writable>
         implements RecordCursor
 {
     private final Path path;

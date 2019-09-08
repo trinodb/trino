@@ -11,10 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive;
+package io.prestosql.plugin.hive.s3select;
 
 import com.google.common.collect.ImmutableSet;
-import io.airlift.log.Logger;
 import io.prestosql.plugin.hive.metastore.Column;
 import io.prestosql.plugin.hive.metastore.Partition;
 import io.prestosql.plugin.hive.metastore.Table;
@@ -53,7 +52,6 @@ import static org.apache.hadoop.hive.serde.serdeConstants.TINYINT_TYPE_NAME;
  */
 public final class S3SelectPushdown
 {
-    private static final Logger LOG = Logger.get(S3SelectPushdown.class);
     private static final Set<String> SUPPORTED_S3_PREFIXES = ImmutableSet.of("s3://", "s3a://", "s3n://");
     private static final Set<String> SUPPORTED_SERDES = ImmutableSet.of(LazySimpleSerDe.class.getName());
     private static final Set<String> SUPPORTED_INPUT_FORMATS = ImmutableSet.of(TextInputFormat.class.getName());
@@ -128,7 +126,7 @@ public final class S3SelectPushdown
         return SUPPORTED_S3_PREFIXES.stream().anyMatch(path::startsWith);
     }
 
-    static boolean shouldEnablePushdownForTable(ConnectorSession session, Table table, String path, Optional<Partition> optionalPartition)
+    public static boolean shouldEnablePushdownForTable(ConnectorSession session, Table table, String path, Optional<Partition> optionalPartition)
     {
         if (!isS3SelectPushdownEnabled(session)) {
             return false;

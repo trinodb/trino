@@ -11,13 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive;
+package io.prestosql.plugin.hive.s3select;
 
 import org.testng.annotations.Test;
 
 import java.io.IOException;
 
-import static io.prestosql.plugin.hive.S3SelectLineRecordReader.UnrecoverableS3OperationException;
+import static io.prestosql.plugin.hive.s3select.S3SelectLineRecordReader.UnrecoverableS3OperationException;
 
 public class TestS3SelectLineRecordReader
 {

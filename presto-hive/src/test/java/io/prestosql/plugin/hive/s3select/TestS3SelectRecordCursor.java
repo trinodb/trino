@@ -11,9 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive;
+package io.prestosql.plugin.hive.s3select;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.plugin.hive.HiveColumnHandle;
+import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.spi.type.StandardTypes;
 import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
@@ -27,7 +29,7 @@ import java.util.stream.Stream;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.prestosql.plugin.hive.HiveType.HIVE_INT;
 import static io.prestosql.plugin.hive.HiveType.HIVE_STRING;
-import static io.prestosql.plugin.hive.S3SelectRecordCursor.updateSplitSchema;
+import static io.prestosql.plugin.hive.s3select.S3SelectRecordCursor.updateSplitSchema;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.joining;

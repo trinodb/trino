@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive.s3;
+package io.prestosql.plugin.hive.s3select;
 
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.Protocol;
@@ -29,6 +29,9 @@ import com.amazonaws.services.s3.AmazonS3Builder;
 import com.amazonaws.services.s3.AmazonS3Client;
 import io.airlift.units.Duration;
 import io.prestosql.plugin.hive.HiveConfig;
+import io.prestosql.plugin.hive.s3.HiveS3Config;
+import io.prestosql.plugin.hive.s3.PrestoS3FileSystemMetricCollector;
+import io.prestosql.plugin.hive.s3.PrestoS3FileSystemStats;
 import org.apache.hadoop.conf.Configuration;
 
 import javax.annotation.concurrent.GuardedBy;

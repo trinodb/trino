@@ -11,10 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive;
+package io.prestosql.plugin.hive.s3select;
 
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.plugin.hive.s3.PrestoS3ClientFactory;
+import io.prestosql.plugin.hive.HdfsEnvironment;
+import io.prestosql.plugin.hive.HiveColumnHandle;
+import io.prestosql.plugin.hive.HiveConfig;
+import io.prestosql.plugin.hive.HiveRecordCursorProvider;
+import io.prestosql.plugin.hive.IonSqlQueryBuilder;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.RecordCursor;
