@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive.s3;
+package io.prestosql.plugin.hive.s3select;
 
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.SelectObjectContentEventVisitor;
@@ -27,7 +27,7 @@ import java.io.InputStream;
 import static com.amazonaws.services.s3.model.SelectObjectContentEvent.EndEvent;
 import static java.util.Objects.requireNonNull;
 
-public class PrestoS3SelectClient
+class PrestoS3SelectClient
         implements Closeable
 {
     private final AmazonS3 s3Client;

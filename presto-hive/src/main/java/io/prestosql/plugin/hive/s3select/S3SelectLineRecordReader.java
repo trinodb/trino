@@ -11,16 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive;
+package io.prestosql.plugin.hive.s3select;
 
 import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.SelectObjectContentRequest;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.io.Closer;
 import io.airlift.units.Duration;
+import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.s3.HiveS3Config;
-import io.prestosql.plugin.hive.s3.PrestoS3ClientFactory;
-import io.prestosql.plugin.hive.s3.PrestoS3SelectClient;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;

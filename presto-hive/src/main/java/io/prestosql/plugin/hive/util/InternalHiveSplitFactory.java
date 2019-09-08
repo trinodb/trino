@@ -20,7 +20,7 @@ import io.prestosql.plugin.hive.HiveSplit.BucketConversion;
 import io.prestosql.plugin.hive.HiveTypeName;
 import io.prestosql.plugin.hive.InternalHiveSplit;
 import io.prestosql.plugin.hive.InternalHiveSplit.InternalHiveBlock;
-import io.prestosql.plugin.hive.S3SelectPushdown;
+import io.prestosql.plugin.hive.s3select.S3SelectPushdown;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
