@@ -73,6 +73,7 @@ import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_STAGING_DIRECTOR
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_USER_AGENT_PREFIX;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_USER_AGENT_SUFFIX;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_USE_INSTANCE_CREDENTIALS;
+import static io.prestosql.plugin.hive.s3.PrestoS3ProfileCredentialsProvider.S3_PROFILE_CREDENTIALS_PROVIDER_PROFILE;
 import static java.net.HttpURLConnection.HTTP_FORBIDDEN;
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
@@ -84,6 +85,21 @@ import static org.testng.Assert.assertTrue;
 public class TestPrestoS3FileSystem
 {
     private static final int HTTP_RANGE_NOT_SATISFIABLE = 416;
+
+    @Test
+    public void testPrestoS3ProfileCredentialsProvider()
+            throws Exception
+    {
+        Configuration config = new Configuration();
+        config.set(S3_PROFILE_CREDENTIALS_PROVIDER_PROFILE, "default");
+        config.set(S3_CREDENTIALS_PROVIDER, PrestoS3ProfileCredentialsProvider.class.getName());
+        config.setBoolean(S3_USE_INSTANCE_CREDENTIALS, false);
+
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            fs.initialize(new URI("s3n://test-bucket/"), config);
+            assertInstanceOf(getAwsCredentialsProvider(fs), PrestoS3ProfileCredentialsProvider.class);
+        }
+    }
 
     @Test
     public void testStaticCredentials()
