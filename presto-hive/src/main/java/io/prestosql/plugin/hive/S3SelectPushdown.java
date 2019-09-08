@@ -33,10 +33,10 @@ import java.util.Properties;
 import java.util.Set;
 
 import static io.prestosql.plugin.hive.HiveSessionProperties.isS3SelectPushdownEnabled;
-import static io.prestosql.plugin.hive.HiveUtil.getCompressionCodec;
-import static io.prestosql.plugin.hive.HiveUtil.getDeserializerClassName;
-import static io.prestosql.plugin.hive.HiveUtil.getInputFormatName;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
+import static io.prestosql.plugin.hive.util.HiveUtil.getCompressionCodec;
+import static io.prestosql.plugin.hive.util.HiveUtil.getDeserializerClassName;
+import static io.prestosql.plugin.hive.util.HiveUtil.getInputFormatName;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.serde.serdeConstants.BIGINT_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.serdeConstants.BOOLEAN_TYPE_NAME;

@@ -57,8 +57,8 @@ import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcOptimizedWrit
 import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcOptimizedWriterValidateMode;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcStreamBufferSize;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcStringStatisticsLimit;
-import static io.prestosql.plugin.hive.HiveUtil.getColumnNames;
-import static io.prestosql.plugin.hive.HiveUtil.getColumnTypes;
+import static io.prestosql.plugin.hive.util.HiveUtil.getColumnNames;
+import static io.prestosql.plugin.hive.util.HiveUtil.getColumnTypes;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
