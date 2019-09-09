@@ -20,7 +20,6 @@ import io.prestosql.orc.OrcWriterOptions;
 import io.prestosql.orc.OrcWriterStats;
 import io.prestosql.orc.OutputStreamOrcDataSink;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
-import io.prestosql.plugin.hive.GenericHiveRecordCursorProvider;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HiveCompressionCodec;
@@ -66,6 +65,7 @@ import static io.prestosql.orc.OrcWriteValidation.OrcWriteValidationMode.BOTH;
 import static io.prestosql.plugin.hive.HdfsConfigurationInitializer.configureCompression;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.prestosql.plugin.hive.HiveTestUtils.TYPE_MANAGER;
+import static io.prestosql.plugin.hive.HiveTestUtils.createGenericHiveRecordCursorProvider;
 import static io.prestosql.plugin.hive.HiveType.toHiveType;
 import static io.prestosql.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static java.util.stream.Collectors.joining;
@@ -176,7 +176,7 @@ public enum FileFormat
         @Override
         public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes)
         {
-            HiveRecordCursorProvider cursorProvider = new GenericHiveRecordCursorProvider(hdfsEnvironment);
+            HiveRecordCursorProvider cursorProvider = createGenericHiveRecordCursorProvider(hdfsEnvironment);
             return createPageSource(cursorProvider, session, targetFile, columnNames, columnTypes, HiveStorageFormat.RCBINARY);
         }
 
@@ -196,7 +196,7 @@ public enum FileFormat
         @Override
         public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes)
         {
-            HiveRecordCursorProvider cursorProvider = new GenericHiveRecordCursorProvider(hdfsEnvironment);
+            HiveRecordCursorProvider cursorProvider = createGenericHiveRecordCursorProvider(hdfsEnvironment);
             return createPageSource(cursorProvider, session, targetFile, columnNames, columnTypes, HiveStorageFormat.RCTEXT);
         }
 
@@ -216,7 +216,7 @@ public enum FileFormat
         @Override
         public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes)
         {
-            HiveRecordCursorProvider cursorProvider = new GenericHiveRecordCursorProvider(hdfsEnvironment);
+            HiveRecordCursorProvider cursorProvider = createGenericHiveRecordCursorProvider(hdfsEnvironment);
             return createPageSource(cursorProvider, session, targetFile, columnNames, columnTypes, HiveStorageFormat.ORC);
         }
 
