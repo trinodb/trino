@@ -62,6 +62,7 @@ public final class HiveSessionProperties
     private static final String ORC_OPTIMIZED_WRITER_MAX_STRIPE_ROWS = "orc_optimized_writer_max_stripe_rows";
     private static final String ORC_OPTIMIZED_WRITER_MAX_DICTIONARY_MEMORY = "orc_optimized_writer_max_dictionary_memory";
     private static final String HIVE_STORAGE_FORMAT = "hive_storage_format";
+    private static final String COMPRESSION_CODEC = "compression_codec";
     private static final String RESPECT_TABLE_FORMAT = "respect_table_format";
     private static final String CREATE_EMPTY_BUCKET_FILES = "create_empty_bucket_files";
     private static final String PARQUET_USE_COLUMN_NAME = "parquet_use_column_names";
@@ -222,6 +223,12 @@ public final class HiveSessionProperties
                         "Default storage format for new tables or partitions",
                         HiveStorageFormat.class,
                         hiveConfig.getHiveStorageFormat(),
+                        false),
+                enumProperty(
+                        COMPRESSION_CODEC,
+                        "Compression codec to use when writing files",
+                        HiveCompressionCodec.class,
+                        hiveConfig.getHiveCompressionCodec(),
                         false),
                 booleanProperty(
                         RESPECT_TABLE_FORMAT,
@@ -425,6 +432,11 @@ public final class HiveSessionProperties
     public static HiveStorageFormat getHiveStorageFormat(ConnectorSession session)
     {
         return session.getProperty(HIVE_STORAGE_FORMAT, HiveStorageFormat.class);
+    }
+
+    public static HiveCompressionCodec getCompressionCodec(ConnectorSession session)
+    {
+        return session.getProperty(COMPRESSION_CODEC, HiveCompressionCodec.class);
     }
 
     public static boolean isRespectTableFormat(ConnectorSession session)
