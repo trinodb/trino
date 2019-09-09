@@ -122,11 +122,11 @@ public class TestRowOperators
                 format("[\"%s\",null]", sqlTimestampOf(1970, 1, 1, 0, 0, 1, 0, TEST_SESSION)));
 
         assertFunction(
-                "cast(ROW(ARRAY[1, 2], ARRAY[3, null], ARRAY[], ARRAY[null, null], CAST(null AS ARRAY<BIGINT>)) AS JSON)",
+                "cast(ROW(ARRAY[1, 2], ARRAY[3, null], ARRAY[], ARRAY[null, null], CAST(null AS ARRAY(BIGINT))) AS JSON)",
                 JSON,
                 "[[1,2],[3,null],[],[null,null],null]");
         assertFunction(
-                "cast(ROW(MAP(ARRAY['b', 'a'], ARRAY[2, 1]), MAP(ARRAY['three', 'none'], ARRAY[3, null]), MAP(), MAP(ARRAY['h2', 'h1'], ARRAY[null, null]), CAST(NULL as MAP<VARCHAR, BIGINT>)) AS JSON)",
+                "cast(ROW(MAP(ARRAY['b', 'a'], ARRAY[2, 1]), MAP(ARRAY['three', 'none'], ARRAY[3, null]), MAP(), MAP(ARRAY['h2', 'h1'], ARRAY[null, null]), CAST(NULL as MAP(VARCHAR, BIGINT))) AS JSON)",
                 JSON,
                 "[{\"a\":1,\"b\":2},{\"none\":null,\"three\":3},{},{\"h1\":null,\"h2\":null},null]");
         assertFunction(
@@ -168,7 +168,7 @@ public class TestRowOperators
                         RowType.field("used", BIGINT))),
                 ImmutableList.of(3L));
         assertFunction(
-                "CAST(JSON '[{\"k1\": [1, 2], \"used\": 3, \"k2\": [4, 5]}]' AS ARRAY<ROW(used BIGINT)>)",
+                "CAST(JSON '[{\"k1\": [1, 2], \"used\": 3, \"k2\": [4, 5]}]' AS ARRAY(ROW(used BIGINT)))",
                 new ArrayType(RowType.from(ImmutableList.of(
                         RowType.field("used", BIGINT)))),
                 ImmutableList.of(ImmutableList.of(3L)));
@@ -183,7 +183,7 @@ public class TestRowOperators
                         RowType.field("d", BIGINT))),
                 asList(1L, null, 3L, null));
         assertFunction(
-                "CAST(JSON '[{\"a\":1,\"c\":3}]' AS ARRAY<ROW(a BIGINT, b BIGINT, c BIGINT, d BIGINT)>)",
+                "CAST(JSON '[{\"a\":1,\"c\":3}]' AS ARRAY(ROW(a BIGINT, b BIGINT, c BIGINT, d BIGINT)))",
                 new ArrayType(
                         RowType.from(ImmutableList.of(
                                 RowType.field("a", BIGINT),
@@ -202,7 +202,7 @@ public class TestRowOperators
                         RowType.field("k4", BIGINT))),
                 ImmutableList.of(1L, 2L, 3L, 4L));
         assertFunction(
-                "CAST(unchecked_to_json('[{\"k4\": 4, \"k2\": 2, \"k3\": 3, \"k1\": 1}]') AS ARRAY<ROW(k1 BIGINT, k2 BIGINT, k3 BIGINT, k4 BIGINT)>)",
+                "CAST(unchecked_to_json('[{\"k4\": 4, \"k2\": 2, \"k3\": 3, \"k1\": 1}]') AS ARRAY(ROW(k1 BIGINT, k2 BIGINT, k3 BIGINT, k4 BIGINT)))",
                 new ArrayType(
                         RowType.from(ImmutableList.of(
                                 RowType.field("k1", BIGINT),
@@ -298,8 +298,8 @@ public class TestRowOperators
                         "{\"a\": 1, \"b\": 2, \"none\": null, \"three\": 3}, {}, null, " +
                         "[1, 2, null, 3], null, " +
                         "{\"a\": 1, \"b\": 2, \"none\": null, \"three\": 3}, null]' " +
-                        "AS ROW(ARRAY<BIGINT>, ARRAY<BIGINT>, ARRAY<BIGINT>, " +
-                        "MAP<VARCHAR, BIGINT>, MAP<VARCHAR, BIGINT>, MAP<VARCHAR, BIGINT>, " +
+                        "AS ROW(ARRAY(BIGINT), ARRAY(BIGINT), ARRAY(BIGINT), " +
+                        "MAP(VARCHAR, BIGINT), MAP(VARCHAR, BIGINT), MAP(VARCHAR, BIGINT), " +
                         "ROW(BIGINT, BIGINT, BIGINT, BIGINT), ROW(BIGINT)," +
                         "ROW(a BIGINT, b BIGINT, three BIGINT, none BIGINT), ROW(nothing BIGINT)))",
                 RowType.anonymous(
@@ -330,8 +330,8 @@ public class TestRowOperators
                         "\"rowAsJsonArray2\": null, " +
                         "\"rowAsJsonObject2\": {\"a\": 1, \"b\": 2, \"none\": null, \"three\": 3}, " +
                         "\"rowAsJsonObject1\": null}' " +
-                        "AS ROW(array1 ARRAY<BIGINT>, array2 ARRAY<BIGINT>, array3 ARRAY<BIGINT>, " +
-                        "map1 MAP<VARCHAR, BIGINT>, map2 MAP<VARCHAR, BIGINT>, map3 MAP<VARCHAR, BIGINT>, " +
+                        "AS ROW(array1 ARRAY(BIGINT), array2 ARRAY(BIGINT), array3 ARRAY(BIGINT), " +
+                        "map1 MAP(VARCHAR, BIGINT), map2 MAP(VARCHAR, BIGINT), map3 MAP(VARCHAR, BIGINT), " +
                         "rowAsJsonArray1 ROW(BIGINT, BIGINT, BIGINT, BIGINT), rowAsJsonArray2 ROW(BIGINT)," +
                         "rowAsJsonObject1 ROW(nothing BIGINT), rowAsJsonObject2 ROW(a BIGINT, b BIGINT, three BIGINT, none BIGINT)))",
                 RowType.from(ImmutableList.of(
@@ -357,7 +357,7 @@ public class TestRowOperators
 
         // invalid cast
         assertInvalidCast("CAST(unchecked_to_json('{\"a\":1,\"b\":2,\"a\":3}') AS ROW(a BIGINT, b BIGINT))", "Cannot cast to row(a bigint,b bigint). Duplicate field: a\n{\"a\":1,\"b\":2,\"a\":3}");
-        assertInvalidCast("CAST(unchecked_to_json('[{\"a\":1,\"b\":2,\"a\":3}]') AS ARRAY<ROW(a BIGINT, b BIGINT)>)", "Cannot cast to array(row(a bigint,b bigint)). Duplicate field: a\n[{\"a\":1,\"b\":2,\"a\":3}]");
+        assertInvalidCast("CAST(unchecked_to_json('[{\"a\":1,\"b\":2,\"a\":3}]') AS ARRAY(ROW(a BIGINT, b BIGINT)))", "Cannot cast to array(row(a bigint,b bigint)). Duplicate field: a\n[{\"a\":1,\"b\":2,\"a\":3}]");
     }
 
     @Test
@@ -365,7 +365,7 @@ public class TestRowOperators
     {
         assertFunction("CAST(row(1, CAST(NULL AS DOUBLE)) AS ROW(col0 integer, col1 double)).col1", DOUBLE, null);
         assertFunction("CAST(row(TRUE, CAST(NULL AS BOOLEAN)) AS ROW(col0 boolean, col1 boolean)).col1", BOOLEAN, null);
-        assertFunction("CAST(row(TRUE, CAST(NULL AS ARRAY<INTEGER>)) AS ROW(col0 boolean, col1 array(integer))).col1", new ArrayType(INTEGER), null);
+        assertFunction("CAST(row(TRUE, CAST(NULL AS ARRAY(INTEGER))) AS ROW(col0 boolean, col1 array(integer))).col1", new ArrayType(INTEGER), null);
         assertFunction("CAST(row(1.0E0, CAST(NULL AS VARCHAR)) AS ROW(col0 double, col1 varchar)).col1", createUnboundedVarcharType(), null);
         assertFunction("CAST(row(1, 2) AS ROW(col0 integer, col1 integer)).col0", INTEGER, 1);
         assertFunction("CAST(row(1, 'kittens') AS ROW(col0 integer, col1 varchar)).col1", createUnboundedVarcharType(), "kittens");
