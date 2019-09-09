@@ -205,10 +205,6 @@
                                     <shadedPattern>${shadeBase}.inject</shadedPattern>
                                 </relocation>
                                 <relocation>
-                                    <pattern>org.openjdk.jol</pattern>
-                                    <shadedPattern>${shadeBase}.jol</shadedPattern>
-                                </relocation>
-                                <relocation>
                                     <pattern>org.joda.time</pattern>
                                     <shadedPattern>${shadeBase}.joda.time</shadedPattern>
                                 </relocation>
