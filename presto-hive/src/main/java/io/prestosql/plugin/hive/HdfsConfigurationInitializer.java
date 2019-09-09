@@ -31,7 +31,6 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.plugin.hive.util.CompressionConfigUtil.configureCompression;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.copy;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -56,7 +55,6 @@ public class HdfsConfigurationInitializer
     private final int dfsKeyProviderCacheTtlMillis;
     private final String domainSocketPath;
     private final Configuration resourcesConfiguration;
-    private final HiveCompressionCodec compressionCodec;
     private final int fileSystemMaxCacheSize;
     private final Set<ConfigurationInitializer> configurationInitializers;
     private final boolean wireEncryptionEnabled;
@@ -80,7 +78,6 @@ public class HdfsConfigurationInitializer
         this.dfsKeyProviderCacheTtlMillis = toIntExact(config.getDfsKeyProviderCacheTtl().toMillis());
         this.domainSocketPath = config.getDomainSocketPath();
         this.resourcesConfiguration = readConfiguration(config.getResourceConfigFiles());
-        this.compressionCodec = hiveConfig.getHiveCompressionCodec();
         this.fileSystemMaxCacheSize = config.getFileSystemMaxCacheSize();
         this.wireEncryptionEnabled = config.isWireEncryptionEnabled();
 
@@ -133,8 +130,6 @@ public class HdfsConfigurationInitializer
         }
 
         config.setInt("fs.cache.max-size", fileSystemMaxCacheSize);
-
-        configureCompression(config, compressionCodec);
 
         configurationInitializers.forEach(configurationInitializer -> configurationInitializer.initializeConfiguration(config));
     }

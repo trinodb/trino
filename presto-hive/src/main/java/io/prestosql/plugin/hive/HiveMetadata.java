@@ -141,6 +141,7 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static io.prestosql.plugin.hive.HivePartitionManager.extractPartitionValues;
+import static io.prestosql.plugin.hive.HiveSessionProperties.getCompressionCodec;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getHiveStorageFormat;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isBucketExecutionEnabled;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isCollectColumnStatisticsOnWrite;
@@ -188,6 +189,7 @@ import static io.prestosql.plugin.hive.metastore.MetastoreUtil.verifyOnline;
 import static io.prestosql.plugin.hive.metastore.PrincipalPrivileges.fromHivePrivilegeInfos;
 import static io.prestosql.plugin.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static io.prestosql.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
+import static io.prestosql.plugin.hive.util.CompressionConfigUtil.configureCompression;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.toJobConf;
 import static io.prestosql.plugin.hive.util.HiveBucketing.getHiveBucketHandle;
 import static io.prestosql.plugin.hive.util.HiveBucketing.isHiveBucketingV1;
@@ -1301,6 +1303,7 @@ public class HiveMetadata
         }
         HdfsContext hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
         JobConf conf = toJobConf(hdfsEnvironment.getConfiguration(hdfsContext, targetPath));
+        configureCompression(conf, getCompressionCodec(session));
         String fileExtension = HiveWriterFactory.getFileExtension(conf, fromHiveStorageFormat(storageFormat));
         Set<String> fileNames = ImmutableSet.copyOf(partitionUpdate.getFileNames());
         ImmutableList.Builder<String> missingFileNamesBuilder = ImmutableList.builder();
@@ -1318,6 +1321,7 @@ public class HiveMetadata
     private void createEmptyFiles(ConnectorSession session, Path path, Table table, Optional<Partition> partition, List<String> fileNames)
     {
         JobConf conf = toJobConf(hdfsEnvironment.getConfiguration(new HdfsContext(session, table.getDatabaseName(), table.getTableName()), path));
+        configureCompression(conf, getCompressionCodec(session));
 
         Properties schema;
         StorageFormat format;

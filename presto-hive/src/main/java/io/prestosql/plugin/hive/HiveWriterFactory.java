@@ -77,9 +77,11 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_TABLE_READ_ONLY;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
+import static io.prestosql.plugin.hive.HiveSessionProperties.getCompressionCodec;
 import static io.prestosql.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
 import static io.prestosql.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
+import static io.prestosql.plugin.hive.util.CompressionConfigUtil.configureCompression;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.toJobConf;
 import static io.prestosql.plugin.hive.util.HiveUtil.getColumnNames;
 import static io.prestosql.plugin.hive.util.HiveUtil.getColumnTypes;
@@ -245,6 +247,7 @@ public class HiveWriterFactory
                         entry -> session.getProperty(entry.getName(), entry.getJavaType()).toString()));
 
         Configuration conf = hdfsEnvironment.getConfiguration(new HdfsContext(session, schemaName, tableName), writePath);
+        configureCompression(conf, getCompressionCodec(session));
         this.conf = toJobConf(conf);
 
         // make sure the FileSystem is created with the correct Configuration object
