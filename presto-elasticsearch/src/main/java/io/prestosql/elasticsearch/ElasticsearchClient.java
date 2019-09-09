@@ -252,7 +252,6 @@ public class ElasticsearchClient
             Map<String, Object> properties = new HashMap<>();
             properties.put("originalColumnName", column.getName());
             properties.put("jsonPath", column.getJsonPath());
-            properties.put("jsonType", column.getJsonType());
             properties.put("isList", column.isList());
             properties.put("ordinalPosition", column.getOrdinalPosition());
             result.add(new ColumnMetadata(column.getName(), column.getType(), "", "", false, properties));
@@ -381,7 +380,7 @@ public class ElasticsearchClient
                 boolean newColumnFound = columns.stream()
                         .noneMatch(column -> column.getName().equalsIgnoreCase(nestedName));
                 if (newColumnFound) {
-                    columns.add(new ElasticsearchColumn(nestedName, getPrestoType(typeName), nestedName, typeName, arrays.contains(nestedName), -1));
+                    columns.add(new ElasticsearchColumn(nestedName, getPrestoType(typeName), nestedName, arrays.contains(nestedName), -1));
                 }
             }
         }
@@ -417,7 +416,7 @@ public class ElasticsearchClient
             boolean newColumnFound = columns.stream()
                     .noneMatch(column -> column.getName().equalsIgnoreCase(field));
             if (newColumnFound) {
-                columns.add(new ElasticsearchColumn(field, type, field, type.getDisplayName(), arrays.contains(field), -1));
+                columns.add(new ElasticsearchColumn(field, type, field, arrays.contains(field), -1));
             }
             fieldsMap.remove(field);
         }

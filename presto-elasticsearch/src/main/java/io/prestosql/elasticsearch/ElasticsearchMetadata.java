@@ -101,7 +101,6 @@ public class ElasticsearchMetadata
                         String.valueOf(properties.get("originalColumnName")),
                         column.getType(),
                         String.valueOf(properties.get("jsonPath")),
-                        String.valueOf(properties.get("jsonType")),
                         position,
                         (Boolean) properties.get("isList")));
             index++;
