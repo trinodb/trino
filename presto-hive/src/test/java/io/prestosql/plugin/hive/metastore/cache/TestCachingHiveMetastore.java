@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClient.BAD_DATABASE;
@@ -41,6 +42,7 @@ import static io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClien
 import static io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_ROLES;
 import static io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_TABLE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -57,9 +59,8 @@ public class TestCachingHiveMetastore
     public void setUp()
     {
         mockClient = new MockThriftMetastoreClient();
-        MetastoreLocator metastoreLocator = new MockMetastoreLocator(mockClient);
+        ThriftHiveMetastore thriftHiveMetastore = createThriftHiveMetastore();
         ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("test-%s")));
-        ThriftHiveMetastore thriftHiveMetastore = new ThriftHiveMetastore(metastoreLocator, new ThriftHiveMetastoreConfig());
         metastore = new CachingHiveMetastore(
                 new BridgingHiveMetastore(thriftHiveMetastore),
                 executor,
@@ -67,6 +68,12 @@ public class TestCachingHiveMetastore
                 new Duration(1, TimeUnit.MINUTES),
                 1000);
         stats = thriftHiveMetastore.getStats();
+    }
+
+    private ThriftHiveMetastore createThriftHiveMetastore()
+    {
+        MetastoreLocator metastoreLocator = new MockMetastoreLocator(mockClient);
+        return new ThriftHiveMetastore(metastoreLocator, new ThriftHiveMetastoreConfig());
     }
 
     @Test
@@ -261,6 +268,25 @@ public class TestCachingHiveMetastore
         catch (RuntimeException ignored) {
         }
         assertEquals(mockClient.getAccessCount(), 2);
+    }
+
+    @Test
+    public void testCachingHiveMetastoreCreationWithTtlOnly()
+    {
+        CachingHiveMetastoreConfig config = new CachingHiveMetastoreConfig();
+        config.setMetastoreCacheTtl(new Duration(10, TimeUnit.MILLISECONDS));
+
+        CachingHiveMetastore metastore = createMetastoreWithDirectExecutor(config);
+
+        assertThat(metastore).isNotNull();
+    }
+
+    private CachingHiveMetastore createMetastoreWithDirectExecutor(CachingHiveMetastoreConfig config)
+    {
+        return new CachingHiveMetastore(
+                new BridgingHiveMetastore(createThriftHiveMetastore()),
+                directExecutor(),
+                config);
     }
 
     private static class MockMetastoreLocator
