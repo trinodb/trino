@@ -22,10 +22,7 @@ import io.prestosql.hadoop.SocksSocketFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.client.HdfsClientConfigKeys;
-import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.net.DNSToSwitchMapping;
-import org.apache.orc.OrcConf;
-import org.apache.parquet.hadoop.ParquetOutputFormat;
 
 import javax.inject.Inject;
 import javax.net.SocketFactory;
@@ -34,6 +31,7 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.plugin.hive.util.CompressionConfigUtil.configureCompression;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.copy;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -47,8 +45,6 @@ import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.NET_TOPOLOGY_NO
 import static org.apache.hadoop.hdfs.client.HdfsClientConfigKeys.DFS_CLIENT_KEY_PROVIDER_CACHE_EXPIRY_MS;
 import static org.apache.hadoop.hdfs.client.HdfsClientConfigKeys.DFS_CLIENT_SOCKET_TIMEOUT_KEY;
 import static org.apache.hadoop.hdfs.client.HdfsClientConfigKeys.DFS_DOMAIN_SOCKET_PATH_KEY;
-import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.COMPRESSRESULT;
-import static org.apache.hadoop.io.SequenceFile.CompressionType.BLOCK;
 
 public class HdfsConfigurationInitializer
 {
@@ -141,29 +137,6 @@ public class HdfsConfigurationInitializer
         configureCompression(config, compressionCodec);
 
         configurationInitializers.forEach(configurationInitializer -> configurationInitializer.initializeConfiguration(config));
-    }
-
-    public static void configureCompression(Configuration config, HiveCompressionCodec compressionCodec)
-    {
-        boolean compression = compressionCodec != HiveCompressionCodec.NONE;
-        config.setBoolean(COMPRESSRESULT.varname, compression);
-        config.setBoolean("mapred.output.compress", compression);
-        config.setBoolean(FileOutputFormat.COMPRESS, compression);
-        // For ORC
-        OrcConf.COMPRESS.setString(config, compressionCodec.getOrcCompressionKind().name());
-        // For RCFile and Text
-        if (compressionCodec.getCodec().isPresent()) {
-            config.set("mapred.output.compression.codec", compressionCodec.getCodec().get().getName());
-            config.set(FileOutputFormat.COMPRESS_CODEC, compressionCodec.getCodec().get().getName());
-        }
-        else {
-            config.unset("mapred.output.compression.codec");
-            config.unset(FileOutputFormat.COMPRESS_CODEC);
-        }
-        // For Parquet
-        config.set(ParquetOutputFormat.COMPRESSION, compressionCodec.getParquetCompressionCodec().name());
-        // For SequenceFile
-        config.set(FileOutputFormat.COMPRESS_TYPE, BLOCK.toString());
     }
 
     public static class NoOpDNSToSwitchMapping
