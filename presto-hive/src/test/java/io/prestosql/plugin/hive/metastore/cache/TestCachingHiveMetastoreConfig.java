@@ -31,7 +31,7 @@ public class TestCachingHiveMetastoreConfig
     {
         assertRecordedDefaults(recordDefaults(CachingHiveMetastoreConfig.class)
                 .setMetastoreCacheTtl(new Duration(0, TimeUnit.SECONDS))
-                .setMetastoreRefreshInterval(new Duration(0, TimeUnit.SECONDS))
+                .setMetastoreRefreshInterval(new Duration(Integer.MAX_VALUE, TimeUnit.DAYS))
                 .setMetastoreCacheMaximumSize(10000)
                 .setMaxMetastoreRefreshThreads(100));
     }
