@@ -233,7 +233,6 @@ A table definition file describes a table in JSON format.
                 "name": ...,
                 "type": ...,
                 "jsonPath": ...,
-                "jsonType": ...,
                 "ordinalPosition": ...
             }
         ]
@@ -266,7 +265,6 @@ Field                 Required  Type           Description
 ``name``              optional  string         Column name of Elasticsearch field.
 ``type``              optional  string         Column type of Elasticsearch `field`_.
 ``jsonPath``          optional  string         Json path of Elasticsearch field.
-``jsonType``          optional  string         Json type of Elasticsearch field.
 ``ordinalPosition``   optional  integer        Ordinal position of the column.
 ===================== ========= ============== =============================
 

@@ -32,7 +32,6 @@ public final class ElasticsearchColumnHandle
     private final String columnName;
     private final Type columnType;
     private final String columnJsonPath;
-    private final String columnJsonType;
     private final int ordinalPosition;
     private final boolean isList;
 
@@ -41,14 +40,12 @@ public final class ElasticsearchColumnHandle
             @JsonProperty("columnName") String columnName,
             @JsonProperty("columnType") Type columnType,
             @JsonProperty("columnJsonPath") String columnJsonPath,
-            @JsonProperty("columnJsonType") String columnJsonType,
             @JsonProperty("ordinalPosition") int ordinalPosition,
             @JsonProperty("isList") boolean isList)
     {
         this.columnName = requireNonNull(columnName, "columnName is null");
         this.columnType = requireNonNull(columnType, "columnType is null");
         this.columnJsonPath = requireNonNull(columnJsonPath, "columnJsonPath is null");
-        this.columnJsonType = requireNonNull(columnJsonType, "columnJsonType is null");
         this.ordinalPosition = ordinalPosition;
         this.isList = isList;
     }
@@ -72,12 +69,6 @@ public final class ElasticsearchColumnHandle
     }
 
     @JsonProperty
-    public String getColumnJsonType()
-    {
-        return columnJsonType;
-    }
-
-    @JsonProperty
     public int getOrdinalPosition()
     {
         return ordinalPosition;
@@ -93,7 +84,6 @@ public final class ElasticsearchColumnHandle
     {
         Map<String, Object> properties = new HashMap<>();
         properties.put("jsonPath", columnJsonPath);
-        properties.put("jsonType", columnJsonType);
         properties.put("isList", isList);
         properties.put("ordinalPosition", ordinalPosition);
         return new ColumnMetadata(columnName, columnType, "", "", false, properties);
@@ -106,7 +96,6 @@ public final class ElasticsearchColumnHandle
                 columnName,
                 columnType,
                 columnJsonPath,
-                columnJsonType,
                 ordinalPosition,
                 isList);
     }
@@ -125,7 +114,6 @@ public final class ElasticsearchColumnHandle
         return Objects.equals(this.getColumnName(), other.getColumnName()) &&
                 Objects.equals(this.getColumnType(), other.getColumnType()) &&
                 Objects.equals(this.getColumnJsonPath(), other.getColumnJsonPath()) &&
-                Objects.equals(this.getColumnJsonType(), other.getColumnJsonType()) &&
                 this.getOrdinalPosition() == other.getOrdinalPosition() &&
                 this.getIsList() == other.getIsList();
     }
@@ -137,7 +125,6 @@ public final class ElasticsearchColumnHandle
                 .add("columnName", getColumnName())
                 .add("columnType", getColumnType())
                 .add("columnJsonPath", getColumnJsonPath())
-                .add("columnJsonType", getColumnJsonType())
                 .add("ordinalPosition", getOrdinalPosition())
                 .add("isList", getIsList())
                 .toString();
