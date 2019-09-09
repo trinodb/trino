@@ -16,6 +16,7 @@ package io.prestosql.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
+import io.airlift.units.DataSize;
 import io.prestosql.PagesIndexPageSorter;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
@@ -50,6 +51,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Set;
 
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.prestosql.spi.type.Decimals.encodeScaledValue;
@@ -97,7 +99,7 @@ public final class HiveTestUtils
     {
         HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveConfig);
         return ImmutableSet.<HiveRecordCursorProvider>builder()
-                .add(new GenericHiveRecordCursorProvider(testHdfsEnvironment))
+                .add(new GenericHiveRecordCursorProvider(testHdfsEnvironment, hiveConfig))
                 .build();
     }
 
@@ -129,6 +131,11 @@ public final class HiveTestUtils
             types.add(METADATA.getType(((HiveColumnHandle) columnHandle).getTypeSignature()));
         }
         return types.build();
+    }
+
+    public static HiveRecordCursorProvider createGenericHiveRecordCursorProvider(HdfsEnvironment hdfsEnvironment)
+    {
+        return new GenericHiveRecordCursorProvider(hdfsEnvironment, new DataSize(100, MEGABYTE));
     }
 
     public static HdfsEnvironment createTestHdfsEnvironment(HiveConfig config)

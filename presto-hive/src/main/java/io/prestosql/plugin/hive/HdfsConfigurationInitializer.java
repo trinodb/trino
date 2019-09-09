@@ -22,7 +22,6 @@ import io.prestosql.hadoop.SocksSocketFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.client.HdfsClientConfigKeys;
-import org.apache.hadoop.mapreduce.lib.input.LineRecordReader;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.net.DNSToSwitchMapping;
 import org.apache.orc.OrcConf;
@@ -65,7 +64,6 @@ public class HdfsConfigurationInitializer
     private final int fileSystemMaxCacheSize;
     private final Set<ConfigurationInitializer> configurationInitializers;
     private final boolean wireEncryptionEnabled;
-    private final int textMaxLineLength;
 
     @VisibleForTesting
     public HdfsConfigurationInitializer(HiveConfig hiveConfig, HdfsConfig hdfsConfig)
@@ -77,7 +75,6 @@ public class HdfsConfigurationInitializer
     public HdfsConfigurationInitializer(HiveConfig hiveConfig, HdfsConfig config, Set<ConfigurationInitializer> configurationInitializers)
     {
         checkArgument(config.getDfsTimeout().toMillis() >= 1, "dfsTimeout must be at least 1 ms");
-        checkArgument(toIntExact(hiveConfig.getTextMaxLineLength().toBytes()) >= 1, "textMaxLineLength must be at least 1 byte");
 
         this.socksProxy = config.getSocksProxy();
         this.ipcPingInterval = config.getIpcPingInterval();
@@ -90,7 +87,6 @@ public class HdfsConfigurationInitializer
         this.compressionCodec = hiveConfig.getHiveCompressionCodec();
         this.fileSystemMaxCacheSize = config.getFileSystemMaxCacheSize();
         this.wireEncryptionEnabled = config.isWireEncryptionEnabled();
-        this.textMaxLineLength = toIntExact(hiveConfig.getTextMaxLineLength().toBytes());
 
         this.configurationInitializers = ImmutableSet.copyOf(requireNonNull(configurationInitializers, "configurationInitializers is null"));
     }
@@ -141,8 +137,6 @@ public class HdfsConfigurationInitializer
         }
 
         config.setInt("fs.cache.max-size", fileSystemMaxCacheSize);
-
-        config.setInt(LineRecordReader.MAX_LINE_LENGTH, textMaxLineLength);
 
         configureCompression(config, compressionCodec);
 
