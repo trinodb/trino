@@ -33,6 +33,7 @@ import static io.prestosql.plugin.hive.HiveSessionProperties.InsertExistingParti
 import static io.prestosql.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
 import static io.prestosql.spi.session.PropertyMetadata.dataSizeProperty;
+import static io.prestosql.spi.session.PropertyMetadata.enumProperty;
 import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
 import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
@@ -190,10 +191,11 @@ public final class HiveSessionProperties
                             return doubleValue;
                         },
                         value -> value),
-                stringProperty(
+                enumProperty(
                         ORC_OPTIMIZED_WRITER_VALIDATE_MODE,
                         "Experimental: ORC: Level of detail in ORC validation",
-                        hiveConfig.getOrcWriterValidationMode().toString(),
+                        OrcWriteValidationMode.class,
+                        hiveConfig.getOrcWriterValidationMode(),
                         false),
                 dataSizeProperty(
                         ORC_OPTIMIZED_WRITER_MIN_STRIPE_SIZE,
@@ -215,10 +217,11 @@ public final class HiveSessionProperties
                         "Experimental: ORC: Max dictionary memory",
                         orcFileWriterConfig.getDictionaryMaxMemory(),
                         false),
-                stringProperty(
+                enumProperty(
                         HIVE_STORAGE_FORMAT,
                         "Default storage format for new tables or partitions",
-                        hiveConfig.getHiveStorageFormat().toString(),
+                        HiveStorageFormat.class,
+                        hiveConfig.getHiveStorageFormat(),
                         false),
                 booleanProperty(
                         RESPECT_TABLE_FORMAT,
@@ -396,7 +399,7 @@ public final class HiveSessionProperties
 
     public static OrcWriteValidationMode getOrcOptimizedWriterValidateMode(ConnectorSession session)
     {
-        return OrcWriteValidationMode.valueOf(session.getProperty(ORC_OPTIMIZED_WRITER_VALIDATE_MODE, String.class).toUpperCase(ENGLISH));
+        return session.getProperty(ORC_OPTIMIZED_WRITER_VALIDATE_MODE, OrcWriteValidationMode.class);
     }
 
     public static DataSize getOrcOptimizedWriterMinStripeSize(ConnectorSession session)
@@ -421,7 +424,7 @@ public final class HiveSessionProperties
 
     public static HiveStorageFormat getHiveStorageFormat(ConnectorSession session)
     {
-        return HiveStorageFormat.valueOf(session.getProperty(HIVE_STORAGE_FORMAT, String.class).toUpperCase(ENGLISH));
+        return session.getProperty(HIVE_STORAGE_FORMAT, HiveStorageFormat.class);
     }
 
     public static boolean isRespectTableFormat(ConnectorSession session)
