@@ -31,6 +31,7 @@ import static com.google.common.reflect.Reflection.newProxy;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -64,11 +65,11 @@ public class JdbcModule
     @Provides
     @Singleton
     @InternalBaseJdbc
-    public static JdbcClient createJdbcClientWithStats(JdbcClient client)
+    public JdbcClient createJdbcClientWithStats(JdbcClient client)
     {
         StatisticsAwareJdbcClient statisticsAwareJdbcClient = new StatisticsAwareJdbcClient(client);
 
-        Logger logger = Logger.get(JdbcClient.class);
+        Logger logger = Logger.get(format("io.prestosql.plugin.jdbc.%s.jdbcclient", catalogName));
 
         ParameterNamesProvider parameterNamesProvider = new LoggingInvocationHandler.AirliftParameterNamesProvider(JdbcClient.class, StatisticsAwareJdbcClient.class);
         LoggingInvocationHandler loggingInvocationHandler = new LoggingInvocationHandler(statisticsAwareJdbcClient, parameterNamesProvider, logger::debug);
