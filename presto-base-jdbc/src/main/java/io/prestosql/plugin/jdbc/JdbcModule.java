@@ -21,7 +21,7 @@ import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import io.airlift.log.Logger;
 import io.prestosql.plugin.base.util.LoggingInvocationHandler;
-import io.prestosql.plugin.base.util.LoggingInvocationHandler.ParameterNamesProvider;
+import io.prestosql.plugin.base.util.LoggingInvocationHandler.ReflectiveParameterNamesProvider;
 import io.prestosql.plugin.jdbc.jmx.StatisticsAwareConnectionFactory;
 import io.prestosql.plugin.jdbc.jmx.StatisticsAwareJdbcClient;
 import io.prestosql.spi.connector.ConnectorAccessControl;
@@ -71,9 +71,10 @@ public class JdbcModule
 
         Logger logger = Logger.get(format("io.prestosql.plugin.jdbc.%s.jdbcclient", catalogName));
 
-        ParameterNamesProvider parameterNamesProvider = new LoggingInvocationHandler.AirliftParameterNamesProvider(JdbcClient.class, StatisticsAwareJdbcClient.class);
-        LoggingInvocationHandler loggingInvocationHandler = new LoggingInvocationHandler(statisticsAwareJdbcClient, parameterNamesProvider, logger::debug);
-        JdbcClient loggingInvocationsJdbcClient = newProxy(JdbcClient.class, loggingInvocationHandler);
+        JdbcClient loggingInvocationsJdbcClient = newProxy(JdbcClient.class, new LoggingInvocationHandler(
+                statisticsAwareJdbcClient,
+                new ReflectiveParameterNamesProvider(),
+                logger::debug));
 
         return new ForwardingJdbcClient() {
             @Override
