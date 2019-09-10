@@ -26,7 +26,6 @@ import com.google.common.collect.Ordering;
 import com.google.common.collect.SetMultimap;
 import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.ExpressionTreeRewriter;
 import io.prestosql.sql.tree.InListExpression;
 import io.prestosql.sql.tree.InPredicate;
 import io.prestosql.util.DisjointSet;
@@ -44,6 +43,7 @@ import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
 import static io.prestosql.sql.ExpressionUtils.extractConjuncts;
 import static io.prestosql.sql.planner.DeterminismEvaluator.isDeterministic;
+import static io.prestosql.sql.planner.ExpressionNodeInliner.replaceExpression;
 import static io.prestosql.sql.planner.NullabilityAnalyzer.mayReturnNullOnNonNullInput;
 import static java.util.Objects.requireNonNull;
 
@@ -130,7 +130,7 @@ public class EqualityInference
         // Perform a naive single-pass traversal to try to rewrite non-compliant portions of the tree. Prefers to replace
         // larger subtrees over smaller subtrees
         // TODO: this rewrite can probably be made more sophisticated
-        Expression rewritten = ExpressionTreeRewriter.rewriteWith(new ExpressionNodeInliner(expressionRemap.build()), expression);
+        Expression rewritten = replaceExpression(expression, expressionRemap.build());
         if (!isScoped(rewritten, symbolScope)) {
             // If the rewritten is still not compliant with the symbol scope, just give up
             return null;
@@ -395,7 +395,7 @@ public class EqualityInference
                         Set<Expression> equivalentSubExpressions = map.get(subExpression);
                         if (equivalentSubExpressions != null) {
                             for (Expression equivalentSubExpression : filter(equivalentSubExpressions, not(equalTo(subExpression)))) {
-                                Expression rewritten = ExpressionTreeRewriter.rewriteWith(new ExpressionNodeInliner(ImmutableMap.of(subExpression, equivalentSubExpression)), expression);
+                                Expression rewritten = replaceExpression(expression, ImmutableMap.of(subExpression, equivalentSubExpression));
                                 equalities.findAndUnion(expression, rewritten);
                                 derivedExpressions.add(rewritten);
                             }
