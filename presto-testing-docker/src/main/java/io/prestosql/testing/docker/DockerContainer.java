@@ -59,6 +59,7 @@ public final class DockerContainer
     private final String image;
     private final Map<String, String> environment;
     private final List<String> capabilities;
+    private final CheckedConsumer<HostPortProvider> healthCheck;
     private DockerClient dockerClient;
     private String containerId;
 
@@ -69,8 +70,9 @@ public final class DockerContainer
         this.image = requireNonNull(image, "image is null");
         this.environment = ImmutableMap.copyOf(requireNonNull(environment, "environment is null"));
         this.capabilities = ImmutableList.copyOf(requireNonNull(capabilities, "capabilities is null"));
+        this.healthCheck = requireNonNull(healthCheck, "healthCheck is null");
         try {
-            startContainer(ports, healthCheck);
+            startContainer(ports);
         }
         catch (Exception e) {
             closeAllSuppress(e, this);
@@ -78,7 +80,7 @@ public final class DockerContainer
         }
     }
 
-    private void startContainer(List<Integer> ports, CheckedConsumer<HostPortProvider> healthCheck)
+    private void startContainer(List<Integer> ports)
             throws Exception
     {
         dockerClient = DefaultDockerClient.fromEnv().build();
@@ -108,7 +110,7 @@ public final class DockerContainer
 
         LOG.info("Auto-assigned host ports are %s", hostPorts);
 
-        waitForContainer(healthCheck);
+        waitForContainer();
     }
 
     private boolean isContainerUp()
@@ -157,7 +159,7 @@ public final class DockerContainer
         waitForContainerPorts(ports);
     }
 
-    private void waitForContainer(CheckedConsumer<HostPortProvider> healthCheck)
+    private void waitForContainer()
     {
         RetryPolicy<Object> retryPolicy = new RetryPolicy<>()
                 .withMaxDuration(Duration.of(10, MINUTES))
