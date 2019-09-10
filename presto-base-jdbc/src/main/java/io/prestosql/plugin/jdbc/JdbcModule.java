@@ -69,13 +69,21 @@ public class JdbcModule
         StatisticsAwareJdbcClient statisticsAwareJdbcClient = new StatisticsAwareJdbcClient(client);
 
         Logger logger = Logger.get(JdbcClient.class);
-        if (!logger.isDebugEnabled()) {
-            return statisticsAwareJdbcClient;
-        }
 
         ParameterNamesProvider parameterNamesProvider = new LoggingInvocationHandler.AirliftParameterNamesProvider(JdbcClient.class, StatisticsAwareJdbcClient.class);
         LoggingInvocationHandler loggingInvocationHandler = new LoggingInvocationHandler(statisticsAwareJdbcClient, parameterNamesProvider, logger::debug);
-        return newProxy(JdbcClient.class, loggingInvocationHandler);
+        JdbcClient loggingInvocationsJdbcClient = newProxy(JdbcClient.class, loggingInvocationHandler);
+
+        return new ForwardingJdbcClient() {
+            @Override
+            protected JdbcClient getDelegate()
+            {
+                if (logger.isDebugEnabled()) {
+                    return loggingInvocationsJdbcClient;
+                }
+                return statisticsAwareJdbcClient;
+            }
+        };
     }
 
     @Provides
