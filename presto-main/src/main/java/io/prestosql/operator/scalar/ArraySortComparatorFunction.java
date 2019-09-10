@@ -54,7 +54,7 @@ public final class ArraySortComparatorFunction
     public Block sortLong(
             @TypeParameter("T") Type type,
             @SqlType("array(T)") Block block,
-            @SqlType("function(T, T, int)") ComparatorLongLambda function)
+            @SqlType("function(T, T, integer)") ComparatorLongLambda function)
     {
         int arrayLength = block.getPositionCount();
         initPositionsList(arrayLength);
@@ -74,7 +74,7 @@ public final class ArraySortComparatorFunction
     public Block sortDouble(
             @TypeParameter("T") Type type,
             @SqlType("array(T)") Block block,
-            @SqlType("function(T, T, int)") ComparatorDoubleLambda function)
+            @SqlType("function(T, T, integer)") ComparatorDoubleLambda function)
     {
         int arrayLength = block.getPositionCount();
         initPositionsList(arrayLength);
@@ -94,7 +94,7 @@ public final class ArraySortComparatorFunction
     public Block sortBoolean(
             @TypeParameter("T") Type type,
             @SqlType("array(T)") Block block,
-            @SqlType("function(T, T, int)") ComparatorBooleanLambda function)
+            @SqlType("function(T, T, integer)") ComparatorBooleanLambda function)
     {
         int arrayLength = block.getPositionCount();
         initPositionsList(arrayLength);
@@ -114,7 +114,7 @@ public final class ArraySortComparatorFunction
     public Block sortSlice(
             @TypeParameter("T") Type type,
             @SqlType("array(T)") Block block,
-            @SqlType("function(T, T, int)") ComparatorSliceLambda function)
+            @SqlType("function(T, T, integer)") ComparatorSliceLambda function)
     {
         int arrayLength = block.getPositionCount();
         initPositionsList(arrayLength);
@@ -134,7 +134,7 @@ public final class ArraySortComparatorFunction
     public Block sortObject(
             @TypeParameter("T") Type type,
             @SqlType("array(T)") Block block,
-            @SqlType("function(T, T, int)") ComparatorBlockLambda function)
+            @SqlType("function(T, T, integer)") ComparatorBlockLambda function)
     {
         int arrayLength = block.getPositionCount();
         initPositionsList(arrayLength);
