@@ -77,6 +77,7 @@ import io.prestosql.sql.tree.Intersect;
 import io.prestosql.sql.tree.IntervalLiteral;
 import io.prestosql.sql.tree.IntervalLiteral.IntervalField;
 import io.prestosql.sql.tree.IntervalLiteral.Sign;
+import io.prestosql.sql.tree.IsNullPredicate;
 import io.prestosql.sql.tree.Isolation;
 import io.prestosql.sql.tree.Join;
 import io.prestosql.sql.tree.JoinOn;
@@ -127,6 +128,7 @@ import io.prestosql.sql.tree.ShowSchemas;
 import io.prestosql.sql.tree.ShowSession;
 import io.prestosql.sql.tree.ShowStats;
 import io.prestosql.sql.tree.ShowTables;
+import io.prestosql.sql.tree.SimpleCaseExpression;
 import io.prestosql.sql.tree.SimpleGroupBy;
 import io.prestosql.sql.tree.SingleColumn;
 import io.prestosql.sql.tree.SortItem;
@@ -143,6 +145,7 @@ import io.prestosql.sql.tree.TransactionAccessMode;
 import io.prestosql.sql.tree.Union;
 import io.prestosql.sql.tree.Unnest;
 import io.prestosql.sql.tree.Values;
+import io.prestosql.sql.tree.WhenClause;
 import io.prestosql.sql.tree.With;
 import io.prestosql.sql.tree.WithQuery;
 import org.testng.annotations.Test;
@@ -793,6 +796,20 @@ public class TestSqlParser
 
         assertInvalidExpression("format()", "The 'format' function must have at least two arguments");
         assertInvalidExpression("format('%s')", "The 'format' function must have at least two arguments");
+    }
+
+    @Test
+    public void testCase()
+    {
+        assertExpression(
+                "CASE 1 IS NULL WHEN true THEN 2 ELSE 3 END",
+                new SimpleCaseExpression(
+                        new IsNullPredicate(new LongLiteral("1")),
+                        ImmutableList.<WhenClause>of(
+                                new WhenClause(
+                                        new BooleanLiteral("true"),
+                                        new LongLiteral("2"))),
+                        Optional.of(new LongLiteral("3"))));
     }
 
     @Test

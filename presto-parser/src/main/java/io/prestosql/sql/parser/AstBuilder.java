@@ -1445,7 +1445,7 @@ class AstBuilder
     {
         return new SimpleCaseExpression(
                 getLocation(context),
-                (Expression) visit(context.valueExpression()),
+                (Expression) visit(context.operand),
                 visit(context.whenClause(), WhenClause.class),
                 visitIfPresent(context.elseExpression, Expression.class));
     }

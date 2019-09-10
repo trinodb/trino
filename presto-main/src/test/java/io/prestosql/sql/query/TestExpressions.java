@@ -13,6 +13,39 @@
  */
 package io.prestosql.sql.query;
 
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.Test;
+
 public class TestExpressions
 {
+    private QueryAssertions assertions;
+
+    @BeforeClass
+    public void init()
+    {
+        assertions = new QueryAssertions();
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void teardown()
+    {
+        assertions.close();
+        assertions = null;
+    }
+
+    @Test
+    public void testBooleanExpressionInCase()
+    {
+        assertions.assertQuery("VALUES CASE 1 IS NULL WHEN true THEN 10 ELSE 20 END", "VALUES 20");
+        assertions.assertQuery("VALUES CASE 1 IS NOT NULL WHEN true THEN 10 ELSE 20 END", "VALUES 10");
+        assertions.assertQuery("VALUES CASE 1 BETWEEN 0 AND 2 WHEN true THEN 10 ELSE 20 END", "VALUES 10");
+        assertions.assertQuery("VALUES CASE 1 NOT BETWEEN 0 AND 2 WHEN true THEN 10 ELSE 20 END", "VALUES 20");
+        assertions.assertQuery("VALUES CASE 1 IN (1, 2) WHEN true THEN 10 ELSE 20 END", "VALUES 10");
+        assertions.assertQuery("VALUES CASE 1 NOT IN (1, 2) WHEN true THEN 10 ELSE 20 END", "VALUES 20");
+        assertions.assertQuery("VALUES CASE 1 = 1 WHEN true THEN 10 ELSE 20 END", "VALUES 10");
+        assertions.assertQuery("VALUES CASE 1 = 2 WHEN true THEN 10 ELSE 20 END", "VALUES 20");
+        assertions.assertQuery("VALUES CASE 1 < 2 WHEN true THEN 10 ELSE 20 END", "VALUES 10");
+        assertions.assertQuery("VALUES CASE 1 > 2 WHEN true THEN 10 ELSE 20 END", "VALUES 20");
+    }
 }
