@@ -20,11 +20,9 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
 
@@ -40,14 +38,10 @@ public class TypeSignature
     private final boolean calculated;
 
     private static final Pattern IDENTIFIER_PATTERN = Pattern.compile("[a-zA-Z_]([a-zA-Z0-9_:@])*");
-    private static final Map<String, String> BASE_NAME_ALIAS_TO_CANONICAL =
-            new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
     private static final Set<String> SIMPLE_TYPE_WITH_SPACES =
             new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
 
     static {
-        BASE_NAME_ALIAS_TO_CANONICAL.put("int", StandardTypes.INTEGER);
-
         SIMPLE_TYPE_WITH_SPACES.add(StandardTypes.TIME_WITH_TIME_ZONE);
         SIMPLE_TYPE_WITH_SPACES.add(StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
         SIMPLE_TYPE_WITH_SPACES.add(StandardTypes.INTERVAL_DAY_TO_SECOND);
@@ -113,7 +107,7 @@ public class TypeSignature
                 return VarcharType.createUnboundedVarcharType().getTypeSignature();
             }
             checkArgument(!literalCalculationParameters.contains(signature), "Bad type signature: '%s'", signature);
-            return new TypeSignature(canonicalizeBaseName(signature), new ArrayList<>());
+            return new TypeSignature(signature, new ArrayList<>());
         }
         if (signature.toLowerCase(Locale.ENGLISH).startsWith(StandardTypes.ROW + "(")) {
             return parseRowTypeSignature(signature, literalCalculationParameters);
@@ -133,7 +127,7 @@ public class TypeSignature
                 if (bracketCount == 0) {
                     verify(baseName == null, "Expected baseName to be null");
                     verify(parameterStart == -1, "Expected parameter start to be -1");
-                    baseName = canonicalizeBaseName(signature.substring(0, i));
+                    baseName = signature.substring(0, i);
                     checkArgument(!literalCalculationParameters.contains(baseName), "Bad type signature: '%s'", signature);
                     parameterStart = i + 1;
                 }
@@ -371,15 +365,6 @@ public class TypeSignature
     private static boolean validateName(String name)
     {
         return name.chars().noneMatch(c -> c == '<' || c == '>' || c == ',');
-    }
-
-    private static String canonicalizeBaseName(String baseName)
-    {
-        String canonicalBaseName = BASE_NAME_ALIAS_TO_CANONICAL.get(baseName);
-        if (canonicalBaseName == null) {
-            return baseName;
-        }
-        return canonicalBaseName;
     }
 
     @Override
