@@ -164,8 +164,8 @@ public class TestTypeSignature
                 rowSignature(namedParameter("a", false, signature("bigint")), namedParameter("b", false, varchar())));
 
         // field type canonicalization
-        assertEquals(parseTypeSignature("row(col iNt)"), parseTypeSignature("row(col integer)"));
-        assertEquals(parseTypeSignature("row(a Int(p1))"), parseTypeSignature("row(a integer(p1))"));
+        assertEquals(parseTypeSignature("row(col Integer)"), parseTypeSignature("row(col integer)"));
+        assertEquals(parseTypeSignature("row(a Integer(p1))"), parseTypeSignature("row(a integer(p1))"));
 
         // signature with invalid type
         assertRowSignature(
@@ -224,13 +224,10 @@ public class TestTypeSignature
     {
         assertSignature("boolean", "boolean", ImmutableList.of());
         assertSignature("varchar", "varchar", ImmutableList.of(Integer.toString(VarcharType.UNBOUNDED_LENGTH)));
-        assertEquals(parseTypeSignature("int"), parseTypeSignature("integer"));
 
         assertSignature("array(bigint)", "array", ImmutableList.of("bigint"));
-        assertEquals(parseTypeSignature("array(int)"), parseTypeSignature("array(integer)"));
 
         assertSignature("array(array(bigint))", "array", ImmutableList.of("array(bigint)"));
-        assertEquals(parseTypeSignature("array(array(int))"), parseTypeSignature("array(array(integer))"));
         assertSignature(
                 "array(timestamp with time zone)",
                 "array",

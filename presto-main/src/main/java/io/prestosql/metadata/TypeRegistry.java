@@ -98,6 +98,7 @@ final class TypeRegistry
         addType(BOOLEAN);
         addType(BIGINT);
         addType(INTEGER);
+        addType("int", INTEGER);
         addType(SMALLINT);
         addType(TINYINT);
         addType(DOUBLE);
@@ -196,6 +197,15 @@ final class TypeRegistry
         requireNonNull(type, "type is null");
         Type existingType = types.putIfAbsent(type.getTypeSignature(), type);
         checkState(existingType == null || existingType.equals(type), "Type %s is already registered", type);
+    }
+
+    public void addType(String alias, Type type)
+    {
+        requireNonNull(alias, "alias is null");
+        requireNonNull(type, "type is null");
+
+        Type existingType = types.putIfAbsent(TypeSignature.parseTypeSignature(alias), type);
+        checkState(existingType == null || existingType.equals(type), "Alias %s is already mapped to %s", alias, type);
     }
 
     public void addParametricType(ParametricType parametricType)
