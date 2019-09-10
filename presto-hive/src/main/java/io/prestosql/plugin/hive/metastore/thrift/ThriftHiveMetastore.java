@@ -264,8 +264,8 @@ public class ThriftHiveMetastore
     {
         return alternativeCall(
                 chosenGetTableAlternative,
-                client -> client.getTable(databaseName, tableName),
-                client -> client.getTableWithCapabilities(databaseName, tableName));
+                client -> client.getTableWithCapabilities(databaseName, tableName),
+                client -> client.getTable(databaseName, tableName));
     }
 
     @Override
