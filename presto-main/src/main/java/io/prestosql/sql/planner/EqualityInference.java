@@ -26,8 +26,6 @@ import com.google.common.collect.Ordering;
 import com.google.common.collect.SetMultimap;
 import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.InListExpression;
-import io.prestosql.sql.tree.InPredicate;
 import io.prestosql.util.DisjointSet;
 
 import java.util.ArrayList;
@@ -257,7 +255,6 @@ public class EqualityInference
      */
     public static boolean isInferenceCandidate(Expression expression)
     {
-        expression = normalizeInPredicateToEquality(expression);
         if (expression instanceof ComparisonExpression &&
                 isDeterministic(expression) &&
                 !mayReturnNullOnNonNullInput(expression)) {
@@ -268,23 +265,6 @@ public class EqualityInference
             }
         }
         return false;
-    }
-
-    /**
-     * Rewrite single value InPredicates as equality if possible
-     */
-    private static Expression normalizeInPredicateToEquality(Expression expression)
-    {
-        if (expression instanceof InPredicate) {
-            InPredicate inPredicate = (InPredicate) expression;
-            if (inPredicate.getValueList() instanceof InListExpression) {
-                InListExpression valueList = (InListExpression) inPredicate.getValueList();
-                if (valueList.getValues().size() == 1) {
-                    return new ComparisonExpression(ComparisonExpression.Operator.EQUAL, inPredicate.getValue(), Iterables.getOnlyElement(valueList.getValues()));
-                }
-            }
-        }
-        return expression;
     }
 
     /**
@@ -355,7 +335,6 @@ public class EqualityInference
         @VisibleForTesting
         Builder addEquality(Expression expression)
         {
-            expression = normalizeInPredicateToEquality(expression);
             checkArgument(isInferenceCandidate(expression), "Expression must be a simple equality: " + expression);
             ComparisonExpression comparison = (ComparisonExpression) expression;
             addEquality(comparison.getLeft(), comparison.getRight());
