@@ -55,11 +55,6 @@ public final class Cast
         this(Optional.of(location), expression, type, safe, false);
     }
 
-    public Cast(NodeLocation location, Expression expression, String type, boolean safe, boolean typeOnly)
-    {
-        this(Optional.of(location), expression, type, safe, typeOnly);
-    }
-
     private Cast(Optional<NodeLocation> location, Expression expression, String type, boolean safe, boolean typeOnly)
     {
         super(location);
