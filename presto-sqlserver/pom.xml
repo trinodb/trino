@@ -119,7 +119,6 @@
             <scope>test</scope>
         </dependency>
 
-
         <dependency>
             <groupId>net.jodah</groupId>
             <artifactId>failsafe</artifactId>
