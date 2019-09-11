@@ -24,7 +24,6 @@ import com.google.common.collect.Sets;
 import io.prestosql.spi.block.SortOrder;
 import io.prestosql.sql.ExpressionUtils;
 import io.prestosql.sql.planner.OrderingScheme;
-import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.SymbolAllocator;
 import io.prestosql.sql.planner.SymbolsExtractor;
@@ -63,13 +62,11 @@ import static java.util.Objects.requireNonNull;
 
 public class PlanNodeDecorrelator
 {
-    private final PlanNodeIdAllocator idAllocator;
     private final SymbolAllocator symbolAllocator;
     private final Lookup lookup;
 
-    public PlanNodeDecorrelator(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Lookup lookup)
+    public PlanNodeDecorrelator(SymbolAllocator symbolAllocator, Lookup lookup)
     {
-        this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
         this.lookup = requireNonNull(lookup, "lookup is null");
     }
