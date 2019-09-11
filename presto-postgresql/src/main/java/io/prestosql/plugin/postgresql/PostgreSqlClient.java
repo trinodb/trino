@@ -471,6 +471,9 @@ public class PostgreSqlClient
                     else if (elementType.getJavaType() == Block.class) {
                         elementType.writeObject(builder, ((BlockReadFunction) elementReadFunction).readBlock(arrayAsResultSet, ARRAY_RESULT_SET_VALUE_COLUMN));
                     }
+                    else {
+                        throw new IllegalStateException("Unsupported Java type: " + elementType.getJavaType());
+                    }
                 }
             }
 
