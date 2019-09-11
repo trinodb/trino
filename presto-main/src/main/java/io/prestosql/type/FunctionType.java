@@ -86,7 +86,7 @@ public class FunctionType
         ImmutableList<String> names = getTypeParameters().stream()
                 .map(Type::getDisplayName)
                 .collect(toImmutableList());
-        return "function<" + Joiner.on(",").join(names) + ">";
+        return "function(" + Joiner.on(",").join(names) + ")";
     }
 
     @Override

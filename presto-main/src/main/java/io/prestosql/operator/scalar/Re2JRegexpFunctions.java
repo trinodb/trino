@@ -66,7 +66,7 @@ public final class Re2JRegexpFunctions
     @Description("string(s) extracted using the given pattern")
     @ScalarFunction
     @LiteralParameters("x")
-    @SqlType("array<varchar(x)>")
+    @SqlType("array(varchar(x))")
     public static Block regexpExtractAll(@SqlType("varchar(x)") Slice source, @SqlType(Re2JRegexpType.NAME) Re2JRegexp pattern)
     {
         return regexpExtractAll(source, pattern, 0);
@@ -75,7 +75,7 @@ public final class Re2JRegexpFunctions
     @Description("group(s) extracted using the given pattern")
     @ScalarFunction
     @LiteralParameters("x")
-    @SqlType("array<varchar(x)>")
+    @SqlType("array(varchar(x))")
     public static Block regexpExtractAll(@SqlType("varchar(x)") Slice source, @SqlType(Re2JRegexpType.NAME) Re2JRegexp pattern, @SqlType(StandardTypes.BIGINT) long groupIndex)
     {
         return pattern.extractAll(source, groupIndex);
@@ -104,7 +104,7 @@ public final class Re2JRegexpFunctions
     @ScalarFunction
     @Description("returns array of strings split by pattern")
     @LiteralParameters("x")
-    @SqlType("array<varchar(x)>")
+    @SqlType("array(varchar(x))")
     public static Block regexpSplit(@SqlType("varchar(x)") Slice source, @SqlType(Re2JRegexpType.NAME) Re2JRegexp pattern)
     {
         return pattern.split(source);
