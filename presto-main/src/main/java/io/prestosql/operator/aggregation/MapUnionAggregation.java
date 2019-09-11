@@ -53,7 +53,7 @@ public class MapUnionAggregation
 
     public MapUnionAggregation()
     {
-        super(NAME, ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")), ImmutableList.of(), parseTypeSignature("map<K,V>"), ImmutableList.of(parseTypeSignature("map<K,V>")));
+        super(NAME, ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")), ImmutableList.of(), parseTypeSignature("map(K,V)"), ImmutableList.of(parseTypeSignature("map(K,V)")));
     }
 
     @Override

@@ -85,7 +85,7 @@ public final class SetDigestFunctions
 
     @ScalarFunction
     @SqlType("map(bigint,smallint)")
-    public static Block hashCounts(@TypeParameter("map<bigint,smallint>") Type mapType, @SqlType(SetDigestType.NAME) Slice slice)
+    public static Block hashCounts(@TypeParameter("map(bigint,smallint)") Type mapType, @SqlType(SetDigestType.NAME) Slice slice)
     {
         SetDigest digest = SetDigest.newInstance(slice);
 
