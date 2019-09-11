@@ -15,7 +15,6 @@ package io.prestosql.plugin.postgresql;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.testing.postgresql.TestingPostgreSqlServer;
 import io.prestosql.Session;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.TimeZoneKey;
@@ -33,7 +32,6 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -107,9 +105,8 @@ public class TestPostgreSqlTypeMapping
     private LocalDateTime timeGapInKathmandu;
 
     public TestPostgreSqlTypeMapping()
-            throws Exception
     {
-        this(new TestingPostgreSqlServer("testuser", "tpch"));
+        this(new TestingPostgreSqlServer());
     }
 
     private TestPostgreSqlTypeMapping(TestingPostgreSqlServer postgreSqlServer)
@@ -124,7 +121,6 @@ public class TestPostgreSqlTypeMapping
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
-            throws IOException
     {
         postgreSqlServer.close();
     }

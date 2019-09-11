@@ -15,12 +15,10 @@ package io.prestosql.plugin.postgresql;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.testing.postgresql.TestingPostgreSqlServer;
 import io.prestosql.tests.AbstractTestQueryFramework;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.Statement;
@@ -39,9 +37,8 @@ public class TestPostgreSqlCaseInsensitiveMapping
     private final TestingPostgreSqlServer postgreSqlServer;
 
     public TestPostgreSqlCaseInsensitiveMapping()
-            throws Exception
     {
-        this(new TestingPostgreSqlServer("testuser", "tpch"));
+        this(new TestingPostgreSqlServer());
     }
 
     public TestPostgreSqlCaseInsensitiveMapping(TestingPostgreSqlServer postgreSqlServer)
@@ -55,7 +52,6 @@ public class TestPostgreSqlCaseInsensitiveMapping
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
-            throws IOException
     {
         postgreSqlServer.close();
     }
