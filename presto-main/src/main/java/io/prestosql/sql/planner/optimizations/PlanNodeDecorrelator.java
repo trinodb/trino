@@ -367,6 +367,10 @@ public class PlanNodeDecorrelator
                 return Optional.empty();
             }
 
+            if (node.getGroupingSetCount() != 1) {
+                return Optional.empty();
+            }
+
             Optional<DecorrelationResult> childDecorrelationResultOptional = lookup.resolve(node.getSource()).accept(this, null);
             if (!childDecorrelationResultOptional.isPresent()) {
                 return Optional.empty();
