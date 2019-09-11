@@ -49,7 +49,6 @@ public class TestPrestoDatabaseMetaData
 
     @BeforeClass
     public void setupServer()
-            throws Exception
     {
         Logging.initialize();
         server = new TestingPrestoServer();

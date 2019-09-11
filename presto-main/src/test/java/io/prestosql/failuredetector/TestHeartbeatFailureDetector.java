@@ -52,7 +52,6 @@ public class TestHeartbeatFailureDetector
 {
     @Test
     public void testExcludesCurrentNode()
-            throws Exception
     {
         Bootstrap app = new Bootstrap(
                 new TestingNodeModule(),

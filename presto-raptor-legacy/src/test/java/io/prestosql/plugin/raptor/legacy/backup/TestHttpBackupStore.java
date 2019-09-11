@@ -33,6 +33,7 @@ import org.testng.annotations.Test;
 
 import javax.inject.Singleton;
 
+import java.io.IOException;
 import java.net.URI;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -51,7 +52,6 @@ public class TestHttpBackupStore
 
     @BeforeMethod
     public void setup()
-            throws Exception
     {
         temporary = createTempDir();
 
@@ -82,7 +82,7 @@ public class TestHttpBackupStore
 
     @AfterMethod(alwaysRun = true)
     public void teardown()
-            throws Exception
+            throws IOException
     {
         deleteRecursively(temporary.toPath(), ALLOW_INSECURE);
         if (lifeCycleManager != null) {

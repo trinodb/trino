@@ -33,6 +33,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -107,7 +108,7 @@ public class TestProxyServer
 
     @AfterClass(alwaysRun = true)
     public void tearDownServer()
-            throws Exception
+            throws IOException
     {
         server.close();
         lifeCycleManager.stop();

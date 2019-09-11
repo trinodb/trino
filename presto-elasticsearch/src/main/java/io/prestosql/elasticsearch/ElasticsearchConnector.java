@@ -14,7 +14,6 @@
 package io.prestosql.elasticsearch;
 
 import io.airlift.bootstrap.LifeCycleManager;
-import io.airlift.log.Logger;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorRecordSetProvider;
@@ -31,8 +30,6 @@ import static java.util.Objects.requireNonNull;
 public class ElasticsearchConnector
         implements Connector
 {
-    private static final Logger LOG = Logger.get(ElasticsearchConnector.class);
-
     private final LifeCycleManager lifeCycleManager;
     private final ElasticsearchMetadata metadata;
     private final ElasticsearchSplitManager splitManager;
@@ -79,11 +76,6 @@ public class ElasticsearchConnector
     @Override
     public final void shutdown()
     {
-        try {
-            lifeCycleManager.stop();
-        }
-        catch (Exception e) {
-            LOG.error(e, "Error shutting down connector");
-        }
+        lifeCycleManager.stop();
     }
 }

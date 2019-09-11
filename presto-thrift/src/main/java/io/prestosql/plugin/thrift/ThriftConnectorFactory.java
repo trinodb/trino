@@ -27,7 +27,6 @@ import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
 
-import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 
 public class ThriftConnectorFactory
@@ -57,29 +56,23 @@ public class ThriftConnectorFactory
     @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        try {
-            Bootstrap app = new Bootstrap(
-                    new MBeanModule(),
-                    new MBeanServerModule(),
-                    new ConnectorObjectNameGeneratorModule(catalogName),
-                    new DriftNettyClientModule(),
-                    binder -> {
-                        binder.bind(TypeManager.class).toInstance(context.getTypeManager());
-                    },
-                    locationModule,
-                    new ThriftModule());
+        Bootstrap app = new Bootstrap(
+                new MBeanModule(),
+                new MBeanServerModule(),
+                new ConnectorObjectNameGeneratorModule(catalogName),
+                new DriftNettyClientModule(),
+                binder -> {
+                    binder.bind(TypeManager.class).toInstance(context.getTypeManager());
+                },
+                locationModule,
+                new ThriftModule());
 
-            Injector injector = app
-                    .strictConfig()
-                    .doNotInitializeLogging()
-                    .setRequiredConfigurationProperties(config)
-                    .initialize();
+        Injector injector = app
+                .strictConfig()
+                .doNotInitializeLogging()
+                .setRequiredConfigurationProperties(config)
+                .initialize();
 
-            return injector.getInstance(ThriftConnector.class);
-        }
-        catch (Exception e) {
-            throwIfUnchecked(e);
-            throw new RuntimeException(e);
-        }
+        return injector.getInstance(ThriftConnector.class);
     }
 }

@@ -56,18 +56,10 @@ public final class StandaloneQueryRunner
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
     public StandaloneQueryRunner(Session defaultSession)
-            throws Exception
     {
         requireNonNull(defaultSession, "defaultSession is null");
 
-        try {
-            server = createTestingPrestoServer();
-        }
-        catch (Exception e) {
-            close();
-            throw e;
-        }
-
+        this.server = createTestingPrestoServer();
         this.prestoClient = new TestingPrestoClient(server, defaultSession);
 
         refreshNodes();
@@ -251,7 +243,6 @@ public final class StandaloneQueryRunner
     }
 
     private static TestingPrestoServer createTestingPrestoServer()
-            throws Exception
     {
         return new TestingPrestoServer(ImmutableMap.<String, String>builder()
                 .put("query.client.timeout", "10m")
