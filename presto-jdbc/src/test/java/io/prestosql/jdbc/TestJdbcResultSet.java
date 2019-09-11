@@ -56,7 +56,6 @@ public class TestJdbcResultSet
 
     @BeforeClass
     public void setupServer()
-            throws Exception
     {
         Logging.initialize();
         server = new TestingPrestoServer();

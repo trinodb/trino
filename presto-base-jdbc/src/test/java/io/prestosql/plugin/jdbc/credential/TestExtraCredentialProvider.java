@@ -28,7 +28,6 @@ public class TestExtraCredentialProvider
 {
     @Test
     public void testUserNameOverwritten()
-            throws Exception
     {
         Map<String, String> properties = ImmutableMap.of(
                 "connection-url", "jdbc:h2:mem:config",
@@ -44,7 +43,6 @@ public class TestExtraCredentialProvider
 
     @Test
     public void testPasswordOverwritten()
-            throws Exception
     {
         Map<String, String> properties = ImmutableMap.of(
                 "connection-url", "jdbc:h2:mem:config",
@@ -60,7 +58,6 @@ public class TestExtraCredentialProvider
 
     @Test
     public void testCredentialsOverwritten()
-            throws Exception
     {
         Map<String, String> properties = ImmutableMap.of(
                 "connection-url", "jdbc:h2:mem:config",
@@ -77,7 +74,6 @@ public class TestExtraCredentialProvider
 
     @Test
     public void testCredentialsNotOverwritten()
-            throws Exception
     {
         Map<String, String> properties = ImmutableMap.of(
                 "connection-url", "jdbc:h2:mem:config",
@@ -96,8 +92,7 @@ public class TestExtraCredentialProvider
         assertEquals(credentialProvider.getConnectionPassword(jdbcIdentity).get(), "default_password");
     }
 
-    private CredentialProvider getCredentialProvider(Map<String, String> properties)
-            throws Exception
+    private static CredentialProvider getCredentialProvider(Map<String, String> properties)
     {
         return new Bootstrap(ImmutableList.of(new CredentialProviderModule()))
                 .setRequiredConfigurationProperties(properties)

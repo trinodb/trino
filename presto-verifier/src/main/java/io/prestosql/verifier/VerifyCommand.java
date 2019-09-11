@@ -166,13 +166,7 @@ public class VerifyCommand
             throw new RuntimeException(e);
         }
         finally {
-            try {
-                injector.getInstance(LifeCycleManager.class).stop();
-            }
-            catch (Exception e) {
-                throwIfUnchecked(e);
-                throw new RuntimeException(e);
-            }
+            injector.getInstance(LifeCycleManager.class).stop();
         }
     }
 

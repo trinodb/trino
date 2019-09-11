@@ -25,7 +25,6 @@ import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
 
-import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 
 public class CassandraConnectorFactory
@@ -48,22 +47,16 @@ public class CassandraConnectorFactory
     {
         requireNonNull(config, "config is null");
 
-        try {
-            Bootstrap app = new Bootstrap(
-                    new MBeanModule(),
-                    new JsonModule(),
-                    new CassandraClientModule(),
-                    new MBeanServerModule());
+        Bootstrap app = new Bootstrap(
+                new MBeanModule(),
+                new JsonModule(),
+                new CassandraClientModule(),
+                new MBeanServerModule());
 
-            Injector injector = app.strictConfig().doNotInitializeLogging()
-                    .setRequiredConfigurationProperties(config)
-                    .initialize();
+        Injector injector = app.strictConfig().doNotInitializeLogging()
+                .setRequiredConfigurationProperties(config)
+                .initialize();
 
-            return injector.getInstance(CassandraConnector.class);
-        }
-        catch (Exception e) {
-            throwIfUnchecked(e);
-            throw new RuntimeException(e);
-        }
+        return injector.getInstance(CassandraConnector.class);
     }
 }

@@ -71,7 +71,6 @@ public class TestServer
 
     @BeforeClass
     public void setup()
-            throws Exception
     {
         server = new TestingPrestoServer();
         client = new JettyHttpClient();

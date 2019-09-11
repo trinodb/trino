@@ -55,7 +55,6 @@ public class TestQueryResource
 
     @BeforeMethod
     public void setup()
-            throws Exception
     {
         client = new JettyHttpClient();
         server = new TestingPrestoServer();

@@ -35,7 +35,6 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 
 public class RaptorConnectorFactory
@@ -68,35 +67,28 @@ public class RaptorConnectorFactory
     @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        NodeManager nodeManager = context.getNodeManager();
-        try {
-            Bootstrap app = new Bootstrap(
-                    new JsonModule(),
-                    new MBeanModule(),
-                    new ConnectorObjectNameGeneratorModule(catalogName),
-                    new MBeanServerModule(),
-                    binder -> {
-                        binder.bind(NodeManager.class).toInstance(nodeManager);
-                        binder.bind(PageSorter.class).toInstance(context.getPageSorter());
-                        binder.bind(TypeManager.class).toInstance(context.getTypeManager());
-                    },
-                    metadataModule,
-                    new BackupModule(backupProviders),
-                    new StorageModule(),
-                    new RaptorModule(catalogName),
-                    new RaptorSecurityModule());
+        Bootstrap app = new Bootstrap(
+                new JsonModule(),
+                new MBeanModule(),
+                new ConnectorObjectNameGeneratorModule(catalogName),
+                new MBeanServerModule(),
+                binder -> {
+                    binder.bind(NodeManager.class).toInstance(context.getNodeManager());
+                    binder.bind(PageSorter.class).toInstance(context.getPageSorter());
+                    binder.bind(TypeManager.class).toInstance(context.getTypeManager());
+                },
+                metadataModule,
+                new BackupModule(backupProviders),
+                new StorageModule(),
+                new RaptorModule(catalogName),
+                new RaptorSecurityModule());
 
-            Injector injector = app
-                    .strictConfig()
-                    .doNotInitializeLogging()
-                    .setRequiredConfigurationProperties(config)
-                    .initialize();
+        Injector injector = app
+                .strictConfig()
+                .doNotInitializeLogging()
+                .setRequiredConfigurationProperties(config)
+                .initialize();
 
-            return injector.getInstance(RaptorConnector.class);
-        }
-        catch (Exception e) {
-            throwIfUnchecked(e);
-            throw new RuntimeException(e);
-        }
+        return injector.getInstance(RaptorConnector.class);
     }
 }
