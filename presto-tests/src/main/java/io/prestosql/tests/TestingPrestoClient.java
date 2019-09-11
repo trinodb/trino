@@ -24,6 +24,7 @@ import io.prestosql.server.testing.TestingPrestoServer;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.SqlTimestamp;
 import io.prestosql.spi.type.SqlTimestampWithTimeZone;
 import io.prestosql.spi.type.Type;
@@ -244,6 +245,11 @@ public class TestingPrestoClient
                             convertToRowValue(((MapType) type).getKeyType(), k),
                             convertToRowValue(((MapType) type).getValueType(), v)));
             return result;
+        }
+        else if (type instanceof RowType) {
+            List<Type> fieldTypes = type.getTypeParameters();
+            List<Object> fieldValues = ImmutableList.copyOf(((Map<Object, Object>) value).values());
+            return dataToRow(fieldTypes).apply(fieldValues);
         }
         else if (type instanceof DecimalType) {
             return new BigDecimal((String) value);
