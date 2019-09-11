@@ -206,19 +206,18 @@ public class TestAnalyzer
     @Test
     public void testRowDereferenceInCorrelatedSubquery()
     {
-        assertFails(
-                MUST_BE_AGGREGATE_OR_GROUP_BY,
-                "line 1:171: 'b.a' must be an aggregate expression or appear in GROUP BY clause",
-                "WITH " +
-                        "    t(b) AS (VALUES row(cast(row(1) AS row(a bigint))))," +
-                        "    u(b) AS (VALUES row(cast(row(1, 1) AS row(a bigint, b bigint))))" +
-                        "SELECT b " +
-                        "FROM t " +
-                        "WHERE EXISTS (" +
-                        "    SELECT b.a" + // this should be considered group-variant since it references u.b.a
-                        "    FROM u" +
-                        "    GROUP BY b.b" +
-                        ")");
+        assertFails("WITH " +
+                "    t(b) AS (VALUES row(cast(row(1) AS row(a bigint))))," +
+                "    u(b) AS (VALUES row(cast(row(1, 1) AS row(a bigint, b bigint))))" +
+                "SELECT b " +
+                "FROM t " +
+                "WHERE EXISTS (" +
+                "    SELECT b.a" + // this should be considered group-variant since it references u.b.a
+                "    FROM u" +
+                "    GROUP BY b.b" +
+                ")")
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessageMatching("line 1:171: 'b.a' must be an aggregate expression or appear in GROUP BY clause");
     }
 
     @Test
