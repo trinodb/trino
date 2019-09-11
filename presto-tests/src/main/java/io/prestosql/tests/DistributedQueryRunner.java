@@ -180,7 +180,6 @@ public class DistributedQueryRunner
     }
 
     private static TestingPrestoServer createTestingPrestoServer(URI discoveryUri, boolean coordinator, Map<String, String> extraProperties, SqlParserOptions parserOptions, String environment, Optional<Path> baseDataDir)
-            throws Exception
     {
         long start = System.nanoTime();
         ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.<String, String>builder()

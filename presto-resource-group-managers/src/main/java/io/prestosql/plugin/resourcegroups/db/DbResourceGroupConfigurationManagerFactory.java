@@ -25,8 +25,6 @@ import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
 
-import static com.google.common.base.Throwables.throwIfUnchecked;
-
 public class DbResourceGroupConfigurationManagerFactory
         implements ResourceGroupConfigurationManagerFactory
 {
@@ -39,26 +37,21 @@ public class DbResourceGroupConfigurationManagerFactory
     @Override
     public ResourceGroupConfigurationManager<?> create(Map<String, String> config, ResourceGroupConfigurationManagerContext context)
     {
-        try {
-            Bootstrap app = new Bootstrap(
-                    new MBeanModule(),
-                    new MBeanServerModule(),
-                    new JsonModule(),
-                    new DbResourceGroupsModule(),
-                    new PrefixObjectNameGeneratorModule(),
-                    binder -> binder.bind(String.class).annotatedWith(ForEnvironment.class).toInstance(context.getEnvironment()),
-                    binder -> binder.bind(ClusterMemoryPoolManager.class).toInstance(context.getMemoryPoolManager()));
+        Bootstrap app = new Bootstrap(
+                new MBeanModule(),
+                new MBeanServerModule(),
+                new JsonModule(),
+                new DbResourceGroupsModule(),
+                new PrefixObjectNameGeneratorModule(),
+                binder -> binder.bind(String.class).annotatedWith(ForEnvironment.class).toInstance(context.getEnvironment()),
+                binder -> binder.bind(ClusterMemoryPoolManager.class).toInstance(context.getMemoryPoolManager()));
 
-            Injector injector = app
-                    .strictConfig()
-                    .doNotInitializeLogging()
-                    .setRequiredConfigurationProperties(config)
-                    .initialize();
-            return injector.getInstance(DbResourceGroupConfigurationManager.class);
-        }
-        catch (Exception e) {
-            throwIfUnchecked(e);
-            throw new RuntimeException(e);
-        }
+        Injector injector = app
+                .strictConfig()
+                .doNotInitializeLogging()
+                .setRequiredConfigurationProperties(config)
+                .initialize();
+
+        return injector.getInstance(DbResourceGroupConfigurationManager.class);
     }
 }

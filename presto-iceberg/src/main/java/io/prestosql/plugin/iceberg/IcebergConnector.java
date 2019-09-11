@@ -16,7 +16,6 @@ package io.prestosql.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.bootstrap.LifeCycleManager;
-import io.airlift.log.Logger;
 import io.prestosql.plugin.hive.HiveTransactionHandle;
 import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import io.prestosql.spi.connector.Connector;
@@ -45,8 +44,6 @@ import static java.util.Objects.requireNonNull;
 public class IcebergConnector
         implements Connector
 {
-    private static final Logger log = Logger.get(IcebergConnector.class);
-
     private final LifeCycleManager lifeCycleManager;
     private final IcebergTransactionManager transactionManager;
     private final IcebergMetadataFactory metadataFactory;
@@ -190,11 +187,6 @@ public class IcebergConnector
     @Override
     public final void shutdown()
     {
-        try {
-            lifeCycleManager.stop();
-        }
-        catch (Exception e) {
-            log.error(e, "Error shutting down connector");
-        }
+        lifeCycleManager.stop();
     }
 }

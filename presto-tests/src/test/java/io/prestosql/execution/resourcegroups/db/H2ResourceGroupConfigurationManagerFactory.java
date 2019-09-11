@@ -26,7 +26,6 @@ import io.prestosql.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
 
 import java.util.Map;
 
-import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 
 public class H2ResourceGroupConfigurationManagerFactory
@@ -62,11 +61,8 @@ public class H2ResourceGroupConfigurationManagerFactory
                     .setRequiredConfigurationProperties(config)
                     .quiet()
                     .initialize();
+
             return injector.getInstance(DbResourceGroupConfigurationManager.class);
-        }
-        catch (Exception e) {
-            throwIfUnchecked(e);
-            throw new RuntimeException(e);
         }
     }
 }

@@ -27,7 +27,6 @@ public class TestCredentialProvider
 {
     @Test
     public void testInlineCredentialProvider()
-            throws Exception
     {
         Map<String, String> properties = ImmutableMap.of(
                 "connection-url", "jdbc:h2:mem:config",
@@ -41,7 +40,6 @@ public class TestCredentialProvider
 
     @Test
     public void testFileCredentialProvider()
-            throws Exception
     {
         Map<String, String> properties = ImmutableMap.of(
                 "connection-url", "jdbc:h2:mem:config",
@@ -53,8 +51,7 @@ public class TestCredentialProvider
         assertEquals(credentialProvider.getConnectionPassword(Optional.empty()).get(), "password_for_user_from_file");
     }
 
-    private CredentialProvider getCredentialProvider(Map<String, String> properties)
-            throws Exception
+    private static CredentialProvider getCredentialProvider(Map<String, String> properties)
     {
         return new Bootstrap(ImmutableList.of(new CredentialProviderModule()))
                 .setOptionalConfigurationProperties(properties)

@@ -94,7 +94,6 @@ import java.util.concurrent.CountDownLatch;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
-import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
@@ -164,19 +163,16 @@ public class TestingPrestoServer
     }
 
     public TestingPrestoServer()
-            throws Exception
     {
         this(ImmutableList.of());
     }
 
     public TestingPrestoServer(List<Module> additionalModules)
-            throws Exception
     {
         this(true, ImmutableMap.of(), null, null, new SqlParserOptions(), additionalModules, Optional.empty());
     }
 
     public TestingPrestoServer(Map<String, String> properties)
-            throws Exception
     {
         this(true, properties, null, null, new SqlParserOptions(), ImmutableList.of(), Optional.empty());
     }
@@ -189,7 +185,6 @@ public class TestingPrestoServer
             SqlParserOptions parserOptions,
             List<Module> additionalModules,
             Optional<Path> baseDataDir)
-            throws Exception
     {
         this.coordinator = coordinator;
 
@@ -317,10 +312,6 @@ public class TestingPrestoServer
             if (lifeCycleManager != null) {
                 lifeCycleManager.stop();
             }
-        }
-        catch (Exception e) {
-            throwIfUnchecked(e);
-            throw new RuntimeException(e);
         }
         finally {
             if (isDirectory(baseDataDir) && !preserveData) {

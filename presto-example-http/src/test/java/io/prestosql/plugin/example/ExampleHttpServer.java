@@ -42,7 +42,6 @@ public class ExampleHttpServer
     private final URI baseUri;
 
     public ExampleHttpServer()
-            throws Exception
     {
         Bootstrap app = new Bootstrap(
                 new TestingNodeModule(),
@@ -59,7 +58,6 @@ public class ExampleHttpServer
     }
 
     public void stop()
-            throws Exception
     {
         lifeCycleManager.stop();
     }

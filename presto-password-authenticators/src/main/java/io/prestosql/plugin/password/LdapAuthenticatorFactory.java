@@ -21,7 +21,6 @@ import io.prestosql.spi.security.PasswordAuthenticatorFactory;
 
 import java.util.Map;
 
-import static com.google.common.base.Throwables.throwIfUnchecked;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class LdapAuthenticatorFactory
@@ -36,24 +35,18 @@ public class LdapAuthenticatorFactory
     @Override
     public PasswordAuthenticator create(Map<String, String> config)
     {
-        try {
-            Bootstrap app = new Bootstrap(
-                    binder -> {
-                        configBinder(binder).bindConfig(LdapConfig.class);
-                        binder.bind(LdapAuthenticator.class).in(Scopes.SINGLETON);
-                    });
+        Bootstrap app = new Bootstrap(
+                binder -> {
+                    configBinder(binder).bindConfig(LdapConfig.class);
+                    binder.bind(LdapAuthenticator.class).in(Scopes.SINGLETON);
+                });
 
-            Injector injector = app
-                    .strictConfig()
-                    .doNotInitializeLogging()
-                    .setRequiredConfigurationProperties(config)
-                    .initialize();
+        Injector injector = app
+                .strictConfig()
+                .doNotInitializeLogging()
+                .setRequiredConfigurationProperties(config)
+                .initialize();
 
-            return injector.getInstance(LdapAuthenticator.class);
-        }
-        catch (Exception e) {
-            throwIfUnchecked(e);
-            throw new RuntimeException(e);
-        }
+        return injector.getInstance(LdapAuthenticator.class);
     }
 }

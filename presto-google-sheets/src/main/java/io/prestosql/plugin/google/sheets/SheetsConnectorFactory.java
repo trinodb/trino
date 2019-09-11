@@ -23,7 +23,6 @@ import io.prestosql.spi.connector.ConnectorHandleResolver;
 
 import java.util.Map;
 
-import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 
 public class SheetsConnectorFactory
@@ -45,22 +44,17 @@ public class SheetsConnectorFactory
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
         requireNonNull(config, "config is null");
-        try {
-            Bootstrap app = new Bootstrap(
-                    new JsonModule(),
-                    new SheetsModule(context.getTypeManager()));
 
-            Injector injector = app
-                    .strictConfig()
-                    .doNotInitializeLogging()
-                    .setRequiredConfigurationProperties(config)
-                    .initialize();
+        Bootstrap app = new Bootstrap(
+                new JsonModule(),
+                new SheetsModule(context.getTypeManager()));
 
-            return injector.getInstance(SheetsConnector.class);
-        }
-        catch (Exception e) {
-            throwIfUnchecked(e);
-            throw new RuntimeException(e);
-        }
+        Injector injector = app
+                .strictConfig()
+                .doNotInitializeLogging()
+                .setRequiredConfigurationProperties(config)
+                .initialize();
+
+        return injector.getInstance(SheetsConnector.class);
     }
 }

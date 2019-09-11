@@ -30,7 +30,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -64,32 +63,27 @@ public class KafkaConnectorFactory
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(config, "config is null");
 
-        try {
-            Bootstrap app = new Bootstrap(
-                    new JsonModule(),
-                    new KafkaConnectorModule(),
-                    binder -> {
-                        binder.bind(TypeManager.class).toInstance(context.getTypeManager());
-                        binder.bind(NodeManager.class).toInstance(context.getNodeManager());
+        Bootstrap app = new Bootstrap(
+                new JsonModule(),
+                new KafkaConnectorModule(),
+                binder -> {
+                    binder.bind(TypeManager.class).toInstance(context.getTypeManager());
+                    binder.bind(NodeManager.class).toInstance(context.getNodeManager());
 
-                        if (tableDescriptionSupplier.isPresent()) {
-                            binder.bind(new TypeLiteral<Supplier<Map<SchemaTableName, KafkaTopicDescription>>>() {}).toInstance(tableDescriptionSupplier.get());
-                        }
-                        else {
-                            binder.bind(new TypeLiteral<Supplier<Map<SchemaTableName, KafkaTopicDescription>>>() {}).to(KafkaTableDescriptionSupplier.class).in(Scopes.SINGLETON);
-                        }
-                    });
+                    if (tableDescriptionSupplier.isPresent()) {
+                        binder.bind(new TypeLiteral<Supplier<Map<SchemaTableName, KafkaTopicDescription>>>() {}).toInstance(tableDescriptionSupplier.get());
+                    }
+                    else {
+                        binder.bind(new TypeLiteral<Supplier<Map<SchemaTableName, KafkaTopicDescription>>>() {}).to(KafkaTableDescriptionSupplier.class).in(Scopes.SINGLETON);
+                    }
+                });
 
-            Injector injector = app.strictConfig()
-                    .doNotInitializeLogging()
-                    .setRequiredConfigurationProperties(config)
-                    .initialize();
+        Injector injector = app
+                .strictConfig()
+                .doNotInitializeLogging()
+                .setRequiredConfigurationProperties(config)
+                .initialize();
 
-            return injector.getInstance(KafkaConnector.class);
-        }
-        catch (Exception e) {
-            throwIfUnchecked(e);
-            throw new RuntimeException(e);
-        }
+        return injector.getInstance(KafkaConnector.class);
     }
 }

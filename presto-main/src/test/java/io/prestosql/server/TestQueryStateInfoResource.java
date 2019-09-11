@@ -53,7 +53,6 @@ public class TestQueryStateInfoResource
     private QueryResults queryResults;
 
     TestQueryStateInfoResource()
-            throws Exception
     {
         server = new TestingPrestoServer();
         server.installPlugin(new TpchPlugin());

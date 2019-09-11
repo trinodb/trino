@@ -27,7 +27,6 @@ import io.prestosql.spi.connector.ConnectorHandleResolver;
 
 import java.util.Map;
 
-import static com.google.common.base.Throwables.throwIfUnchecked;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static java.util.Objects.requireNonNull;
 
@@ -87,10 +86,6 @@ public class AtopConnectorFactory
                     .initialize();
 
             return injector.getInstance(AtopConnector.class);
-        }
-        catch (Exception e) {
-            throwIfUnchecked(e);
-            throw new RuntimeException(e);
         }
     }
 }

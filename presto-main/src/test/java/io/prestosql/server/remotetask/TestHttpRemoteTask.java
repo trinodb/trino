@@ -213,7 +213,6 @@ public class TestHttpRemoteTask
     }
 
     private static HttpRemoteTaskFactory createHttpRemoteTaskFactory(TestingTaskResource testingTaskResource)
-            throws Exception
     {
         Bootstrap app = new Bootstrap(
                 new JsonModule(),

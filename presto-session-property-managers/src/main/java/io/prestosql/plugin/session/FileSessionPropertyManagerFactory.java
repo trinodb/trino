@@ -22,8 +22,6 @@ import io.prestosql.spi.session.SessionPropertyConfigurationManagerFactory;
 
 import java.util.Map;
 
-import static com.google.common.base.Throwables.throwIfUnchecked;
-
 public class FileSessionPropertyManagerFactory
         implements SessionPropertyConfigurationManagerFactory
 {
@@ -36,21 +34,16 @@ public class FileSessionPropertyManagerFactory
     @Override
     public SessionPropertyConfigurationManager create(Map<String, String> config, SessionPropertyConfigurationManagerContext context)
     {
-        try {
-            Bootstrap app = new Bootstrap(
-                    new JsonModule(),
-                    new FileSessionPropertyManagerModule());
+        Bootstrap app = new Bootstrap(
+                new JsonModule(),
+                new FileSessionPropertyManagerModule());
 
-            Injector injector = app
-                    .strictConfig()
-                    .doNotInitializeLogging()
-                    .setRequiredConfigurationProperties(config)
-                    .initialize();
-            return injector.getInstance(FileSessionPropertyManager.class);
-        }
-        catch (Exception e) {
-            throwIfUnchecked(e);
-            throw new RuntimeException(e);
-        }
+        Injector injector = app
+                .strictConfig()
+                .doNotInitializeLogging()
+                .setRequiredConfigurationProperties(config)
+                .initialize();
+
+        return injector.getInstance(FileSessionPropertyManager.class);
     }
 }

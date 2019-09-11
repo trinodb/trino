@@ -57,7 +57,6 @@ public class TestGenerateTokenFilter
 
     @BeforeClass
     public void setup()
-            throws Exception
     {
         server = new TestingPrestoServer(ImmutableList.of(new TestGenerateTokenFilterModule()));
         httpClient = (JettyHttpClient) server.getInstance(Key.get(HttpClient.class, GenerateTokenFilterTest.class));
