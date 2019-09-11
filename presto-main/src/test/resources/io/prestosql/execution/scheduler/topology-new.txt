@@ -1,0 +1,4 @@
+192.168.0.1 /region1/rack1/machine5
+192.168.0.3 /region1/rack1/machine6
+2001:db8:3c4d:15::1a2f:1a2b /region1/rack2/machine7
+new /new/rack/machine

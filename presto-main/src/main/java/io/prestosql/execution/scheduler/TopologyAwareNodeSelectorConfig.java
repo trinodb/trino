@@ -25,7 +25,26 @@ import static java.util.Objects.requireNonNull;
 
 public class TopologyAwareNodeSelectorConfig
 {
+    public enum TopologyType
+    {
+        FLAT, FILE
+    }
+
+    private TopologyType type = TopologyType.FLAT;
     private List<String> locationSegmentNames = ImmutableList.of("machine");
+
+    @NotNull
+    public TopologyType getType()
+    {
+        return type;
+    }
+
+    @Config("node-scheduler.network-topology.type")
+    public TopologyAwareNodeSelectorConfig setType(TopologyType type)
+    {
+        this.type = type;
+        return this;
+    }
 
     @NotNull
     public List<String> getLocationSegmentNames()
@@ -39,7 +58,7 @@ public class TopologyAwareNodeSelectorConfig
         return this;
     }
 
-    @Config("node-scheduler.network-topology-segments")
+    @Config("node-scheduler.network-topology.segments")
     public TopologyAwareNodeSelectorConfig setLocationSegmentNames(String locationSegmentNames)
     {
         this.locationSegmentNames = Splitter.on(",")
