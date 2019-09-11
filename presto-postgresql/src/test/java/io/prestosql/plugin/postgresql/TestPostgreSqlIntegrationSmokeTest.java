@@ -13,13 +13,11 @@
  */
 package io.prestosql.plugin.postgresql;
 
-import io.airlift.testing.postgresql.TestingPostgreSqlServer;
 import io.prestosql.tests.AbstractTestIntegrationSmokeTest;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -42,7 +40,7 @@ public class TestPostgreSqlIntegrationSmokeTest
     public TestPostgreSqlIntegrationSmokeTest()
             throws Exception
     {
-        this(new TestingPostgreSqlServer("testuser", "tpch"));
+        this(new TestingPostgreSqlServer());
     }
 
     public TestPostgreSqlIntegrationSmokeTest(TestingPostgreSqlServer postgreSqlServer)
@@ -55,7 +53,6 @@ public class TestPostgreSqlIntegrationSmokeTest
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
-            throws IOException
     {
         postgreSqlServer.close();
     }

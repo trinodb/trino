@@ -14,13 +14,10 @@
 package io.prestosql.plugin.postgresql;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.testing.postgresql.TestingPostgreSqlServer;
 import io.airlift.tpch.TpchTable;
 import io.prestosql.tests.AbstractTestDistributedQueries;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
-
-import java.io.IOException;
 
 import static io.prestosql.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
 
@@ -31,9 +28,8 @@ public class TestPostgreSqlDistributedQueries
     private final TestingPostgreSqlServer postgreSqlServer;
 
     public TestPostgreSqlDistributedQueries()
-            throws Exception
     {
-        this(new TestingPostgreSqlServer("testuser", "tpch"));
+        this(new TestingPostgreSqlServer());
     }
 
     public TestPostgreSqlDistributedQueries(TestingPostgreSqlServer postgreSqlServer)
@@ -44,7 +40,6 @@ public class TestPostgreSqlDistributedQueries
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
-            throws IOException
     {
         postgreSqlServer.close();
     }
