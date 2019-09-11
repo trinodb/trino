@@ -32,7 +32,7 @@ public class SheetsRecordSetProvider
     @Override
     public RecordSet getRecordSet(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<? extends ColumnHandle> columns)
     {
-        requireNonNull(split, "partitionChunk is null");
+        requireNonNull(split, "split is null");
         SheetsSplit sheetsSplit = (SheetsSplit) split;
 
         List<SheetsColumnHandle> handles = columns.stream().map(c -> (SheetsColumnHandle) c).collect(Collectors.toList());
