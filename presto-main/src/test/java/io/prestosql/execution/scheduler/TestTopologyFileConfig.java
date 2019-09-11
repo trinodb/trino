@@ -13,35 +13,37 @@
  */
 package io.prestosql.execution.scheduler;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.testing.ConfigAssertions;
-import io.prestosql.execution.scheduler.TopologyAwareNodeSelectorConfig.TopologyType;
+import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
+import java.io.File;
 import java.util.Map;
 
-public class TestTopologyAwareNodeSelectorConfig
+import static java.util.concurrent.TimeUnit.MINUTES;
+
+public class TestTopologyFileConfig
 {
     @Test
     public void testDefaults()
     {
-        ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(TopologyAwareNodeSelectorConfig.class)
-                .setType(TopologyType.FLAT)
-                .setLocationSegmentNames("machine"));
+        ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(TopologyFileConfig.class)
+                .setNetworkTopologyFile(null)
+                .setRefreshPeriod(new Duration(5, MINUTES)));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("node-scheduler.network-topology.type", "FILE")
-                .put("node-scheduler.network-topology.segments", "rack,machine")
+                .put("node-scheduler.network-topology.file", "/etc/topology.txt")
+                .put("node-scheduler.network-topology.refresh-period", "27m")
                 .build();
 
-        TopologyAwareNodeSelectorConfig expected = new TopologyAwareNodeSelectorConfig()
-                .setType(TopologyType.FILE)
-                .setLocationSegmentNames(ImmutableList.of("rack", "machine"));
+        TopologyFileConfig expected = new TopologyFileConfig()
+                .setNetworkTopologyFile(new File("/etc/topology.txt"))
+                .setRefreshPeriod(new Duration(27, MINUTES));
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

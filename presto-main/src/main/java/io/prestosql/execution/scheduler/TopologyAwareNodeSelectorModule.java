@@ -14,21 +14,42 @@
 package io.prestosql.execution.scheduler;
 
 import com.google.inject.Binder;
-import com.google.inject.Module;
 import com.google.inject.Scopes;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
 
+import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.prestosql.execution.scheduler.TopologyAwareNodeSelectorConfig.TopologyType.FILE;
+import static io.prestosql.execution.scheduler.TopologyAwareNodeSelectorConfig.TopologyType.FLAT;
+import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class TopologyAwareNodeSelectorModule
-        implements Module
+        extends AbstractConfigurationAwareModule
 {
     @Override
-    public void configure(Binder binder)
+    protected void setup(Binder binder)
     {
         configBinder(binder).bindConfig(TopologyAwareNodeSelectorConfig.class);
-        binder.bind(NetworkTopology.class).to(FlatNetworkTopology.class).in(Scopes.SINGLETON);
+        bindNetworkTopology();
         binder.bind(TopologyAwareNodeSelectorFactory.class).in(Scopes.SINGLETON);
         binder.bind(NodeSelectorFactory.class).to(TopologyAwareNodeSelectorFactory.class).in(Scopes.SINGLETON);
         binder.bind(NodeSchedulerExporter.class).in(Scopes.SINGLETON);
+    }
+
+    private void bindNetworkTopology()
+    {
+        install(installModuleIf(
+                TopologyAwareNodeSelectorConfig.class,
+                config -> config.getType() == FLAT,
+                binder -> binder.bind(NetworkTopology.class).to(FlatNetworkTopology.class).in(Scopes.SINGLETON)));
+
+        install(installModuleIf(
+                TopologyAwareNodeSelectorConfig.class,
+                config -> config.getType() == FILE,
+                binder -> {
+                    configBinder(binder).bindConfig(TopologyFileConfig.class);
+                    binder.bind(NetworkTopology.class).to(FileBasedNetworkTopology.class).in(Scopes.SINGLETON);
+                    newExporter(binder).export(FileBasedNetworkTopology.class).withGeneratedName();
+                }));
     }
 }
