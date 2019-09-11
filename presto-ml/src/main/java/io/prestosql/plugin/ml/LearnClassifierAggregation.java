@@ -55,7 +55,7 @@ public final class LearnClassifierAggregation
         throw new UnsupportedOperationException("LEARN must run on a single machine");
     }
 
-    @OutputFunction("Classifier<bigint>")
+    @OutputFunction("Classifier(bigint)")
     public static void output(@AggregationState LearnState state, BlockBuilder out)
     {
         LearnLibSvmClassifierAggregation.output(state, out);

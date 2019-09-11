@@ -51,7 +51,7 @@ public final class LearnLibSvmVarcharClassifierAggregation
         throw new UnsupportedOperationException("LEARN must run on a single machine");
     }
 
-    @OutputFunction("Classifier<varchar>")
+    @OutputFunction("Classifier(varchar)")
     public static void output(@AggregationState LearnState state, BlockBuilder out)
     {
         Dataset dataset = new Dataset(state.getLabels(), state.getFeatureVectors(), state.getLabelEnumeration().inverse());
