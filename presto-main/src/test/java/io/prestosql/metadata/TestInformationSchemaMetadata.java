@@ -28,6 +28,7 @@ import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.spi.connector.ConnectorViewDefinition.ViewColumn;
 import io.prestosql.spi.connector.Constraint;
@@ -55,6 +56,7 @@ import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.Arrays.stream;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 
 public class TestInformationSchemaMetadata
 {
@@ -200,22 +202,19 @@ public class TestInformationSchemaMetadata
     }
 
     @Test
-    public void testInformationSchemaPredicatePushdownWithConstraintPredicateOnSchemasTable()
+    public void testInformationSchemaPredicatePushdownOnCatalogWiseTables()
     {
         TransactionId transactionId = transactionManager.beginTransaction(false);
 
-        // predicate on non tables enumerating table should not cause schemas to be enumerated
-        Constraint constraint = new Constraint(TupleDomain.all(), TestInformationSchemaMetadata::testConstraint);
+        // Predicate pushdown shouldn't work for catalog-wise tables because the table prefixes for them are always
+        // ImmutableSet.of(new QualifiedTablePrefix(catalogName));
+        Constraint constraint = new Constraint(TupleDomain.all());
         ConnectorSession session = createNewSession(transactionId);
         ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata);
         InformationSchemaTableHandle tableHandle = (InformationSchemaTableHandle)
                 metadata.getTableHandle(session, new SchemaTableName("information_schema", "schemata"));
-        tableHandle = metadata.applyFilter(session, tableHandle, constraint)
-                .map(ConstraintApplicationResult::getHandle)
-                .map(InformationSchemaTableHandle.class::cast)
-                .orElseThrow(AssertionError::new);
-
-        assertEquals(tableHandle.getPrefixes(), ImmutableSet.of(new QualifiedTablePrefix("test_catalog")));
+        Optional<ConstraintApplicationResult<ConnectorTableHandle>> result = metadata.applyFilter(session, tableHandle, constraint);
+        assertFalse(result.isPresent());
     }
 
     private static boolean testConstraint(Map<ColumnHandle, NullableValue> bindings)
