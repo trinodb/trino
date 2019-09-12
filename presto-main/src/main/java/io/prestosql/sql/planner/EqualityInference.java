@@ -38,7 +38,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
@@ -81,20 +80,8 @@ public class EqualityInference
     /**
      * Attempts to rewrite an Expression in terms of the symbols allowed by the symbol scope
      * given the known equalities. Returns null if unsuccessful.
-     * This method checks if rewritten expression is non-deterministic.
      */
     public Expression rewriteExpression(Expression expression, Predicate<Symbol> symbolScope)
-    {
-        checkArgument(isDeterministic(expression), "Only deterministic expressions may be considered for rewrite");
-        return rewriteExpression(expression, symbolScope, true);
-    }
-
-    /**
-     * Attempts to rewrite an Expression in terms of the symbols allowed by the symbol scope
-     * given the known equalities. Returns null if unsuccessful.
-     * This method allows rewriting non-deterministic expressions.
-     */
-    public Expression rewriteExpressionAllowNonDeterministic(Expression expression, Predicate<Symbol> symbolScope)
     {
         return rewriteExpression(expression, symbolScope, true);
     }
