@@ -45,6 +45,7 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static io.prestosql.plugin.hive.parquet.ParquetColumnIOConverter.constructField;
 import static io.prestosql.plugin.hive.parquet.ParquetPageSourceFactory.getParquetType;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ParquetPageSource
@@ -165,7 +166,7 @@ public class ParquetPageSource
                         fieldIndex = hiveColumnIndexes[fieldId];
                     }
                     if (fieldIndex != -1 && field.isPresent()) {
-                        blocks[fieldId] = new LazyBlock(batchSize, new ParquetBlockLoader(field.get()));
+                        blocks[fieldId] = new LazyBlock(batchSize, new ParquetBlockLoader(field.get(), columnNames.get(fieldId), fieldIndex));
                     }
                     else {
                         blocks[fieldId] = RunLengthEncodedBlock.create(type, null, batchSize);
@@ -219,11 +220,15 @@ public class ParquetPageSource
     {
         private final int expectedBatchId = batchId;
         private final Field field;
+        private final String name;
+        private final int index;
         private boolean loaded;
 
-        public ParquetBlockLoader(Field field)
+        public ParquetBlockLoader(Field field, String name, int index)
         {
             this.field = requireNonNull(field, "field is null");
+            this.name = requireNonNull(name, "name is null");
+            this.index = index;
         }
 
         @Override
@@ -240,10 +245,10 @@ public class ParquetPageSource
                 lazyBlock.setBlock(block);
             }
             catch (ParquetCorruptionException | UnsupportedTypeOperationException e) {
-                throw new PrestoException(HIVE_BAD_DATA, e);
+                throw new PrestoException(HIVE_BAD_DATA, format("Unable to read data for field %s with index %s and type %s", name, index, field.getType()), e);
             }
             catch (IOException e) {
-                throw new PrestoException(HIVE_CURSOR_ERROR, e);
+                throw new PrestoException(HIVE_CURSOR_ERROR, format("Unable to read data for field %s with index %s and type %s", name, index, field.getType()), e);
             }
             loaded = true;
         }
