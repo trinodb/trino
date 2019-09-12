@@ -204,7 +204,7 @@ public class PushPredicateIntoTableScan
                 // TODO: DomainTranslator.fromPredicate can infer that the expression is "false" in some cases (TupleDomain.none()).
                 // This should move to another rule that simplifies the filter using that logic and then rely on RemoveTrivialFilters
                 // to turn the subtree into a Values node
-                return Optional.of(new ValuesNode(idAllocator.getNextId(), node.getOutputSymbols(), ImmutableList.of()));
+                return Optional.of(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
             }
 
             Optional<ConstraintApplicationResult<TableHandle>> result = metadata.applyFilter(session, node.getTable(), constraint);
@@ -216,7 +216,7 @@ public class PushPredicateIntoTableScan
             newTable = result.get().getHandle();
 
             if (metadata.getTableProperties(session, newTable).getPredicate().isNone()) {
-                return Optional.of(new ValuesNode(idAllocator.getNextId(), node.getOutputSymbols(), ImmutableList.of()));
+                return Optional.of(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
             }
 
             remainingFilter = result.get().getRemainingFilter();
@@ -231,7 +231,7 @@ public class PushPredicateIntoTableScan
                             .collect(toImmutableSet())));
 
             if (!layout.isPresent() || layout.get().getTableProperties().getPredicate().isNone()) {
-                return Optional.of(new ValuesNode(idAllocator.getNextId(), node.getOutputSymbols(), ImmutableList.of()));
+                return Optional.of(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
             }
 
             newTable = layout.get().getNewTableHandle();
