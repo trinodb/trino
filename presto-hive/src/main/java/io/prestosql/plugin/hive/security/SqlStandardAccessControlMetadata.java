@@ -147,14 +147,19 @@ public class SqlStandardAccessControlMetadata
         boolean isAdminRoleSet = hasAdminRole(principals);
         ImmutableList.Builder<GrantInfo> result = ImmutableList.builder();
         for (SchemaTableName tableName : tableNames) {
-            if (isAdminRoleSet) {
-                result.addAll(buildGrants(tableName, null));
-            }
-            else {
-                for (HivePrincipal grantee : principals) {
-                    result.addAll(buildGrants(tableName, grantee));
-                }
-            }
+            result.addAll(buildGrants(principals, isAdminRoleSet, tableName));
+        }
+        return result.build();
+    }
+
+    private List<GrantInfo> buildGrants(Set<HivePrincipal> principals, boolean isAdminRoleSet, SchemaTableName tableName)
+    {
+        if (isAdminRoleSet) {
+            return buildGrants(tableName, null);
+        }
+        ImmutableList.Builder<GrantInfo> result = ImmutableList.builder();
+        for (HivePrincipal grantee : principals) {
+            result.addAll(buildGrants(tableName, grantee));
         }
         return result.build();
     }
