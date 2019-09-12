@@ -27,6 +27,7 @@ import io.prestosql.spi.block.RunLengthEncodedBlock;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.UnsupportedTypeOperationException;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.MessageType;
 
@@ -238,7 +239,7 @@ public class ParquetPageSource
                 Block block = parquetReader.readBlock(field);
                 lazyBlock.setBlock(block);
             }
-            catch (ParquetCorruptionException e) {
+            catch (ParquetCorruptionException | UnsupportedTypeOperationException e) {
                 throw new PrestoException(HIVE_BAD_DATA, e);
             }
             catch (IOException e) {
