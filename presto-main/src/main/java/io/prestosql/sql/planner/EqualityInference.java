@@ -81,9 +81,9 @@ public class EqualityInference
      * Attempts to rewrite an Expression in terms of the symbols allowed by the symbol scope
      * given the known equalities. Returns null if unsuccessful.
      */
-    public Expression rewrite(Expression expression, Predicate<Symbol> symbolScope)
+    public Expression rewrite(Expression expression, Set<Symbol> scope)
     {
-        return rewrite(expression, symbolScope, true);
+        return rewrite(expression, scope::contains, true);
     }
 
     private Expression rewrite(Expression expression, Predicate<Symbol> symbolScope, boolean allowFullReplacement)
@@ -140,7 +140,7 @@ public class EqualityInference
      *       d = f
      * </pre>
      */
-    public EqualityPartition generateEqualitiesPartitionedBy(Predicate<Symbol> symbolScope)
+    public EqualityPartition generateEqualitiesPartitionedBy(Set<Symbol> scope)
     {
         ImmutableSet.Builder<Expression> scopeEqualities = ImmutableSet.builder();
         ImmutableSet.Builder<Expression> scopeComplementEqualities = ImmutableSet.builder();
@@ -153,11 +153,11 @@ public class EqualityInference
 
             // Try to push each non-derived expression into one side of the scope
             for (Expression expression : filter(equalitySet, not(derivedExpressions::contains))) {
-                Expression scopeRewritten = rewrite(expression, symbolScope, false);
+                Expression scopeRewritten = rewrite(expression, scope::contains, false);
                 if (scopeRewritten != null) {
                     scopeExpressions.add(scopeRewritten);
                 }
-                Expression scopeComplementRewritten = rewrite(expression, not(symbolScope), false);
+                Expression scopeComplementRewritten = rewrite(expression, not(scope::contains), false);
                 if (scopeComplementRewritten != null) {
                     scopeComplementExpressions.add(scopeComplementRewritten);
                 }
