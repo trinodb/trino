@@ -154,7 +154,7 @@ public class PartitionTable
                 RowType.from(ImmutableList.of(
                         new RowType.Field(Optional.of("min"), toPrestoType(column.type(), typeManager)),
                         new RowType.Field(Optional.of("max"), toPrestoType(column.type(), typeManager)),
-                        new RowType.Field(Optional.of("nullCount"), BIGINT)))))
+                        new RowType.Field(Optional.of("null_count"), BIGINT)))))
                 .collect(toImmutableList());
     }
 
