@@ -86,32 +86,6 @@ public class EqualityInference
         return rewrite(expression, scope::contains, true);
     }
 
-    private Expression rewrite(Expression expression, Predicate<Symbol> symbolScope, boolean allowFullReplacement)
-    {
-        Iterable<Expression> subExpressions = SubExpressionExtractor.extract(expression);
-        if (!allowFullReplacement) {
-            subExpressions = filter(subExpressions, not(equalTo(expression)));
-        }
-
-        ImmutableMap.Builder<Expression, Expression> expressionRemap = ImmutableMap.builder();
-        for (Expression subExpression : subExpressions) {
-            Expression canonical = getScopedCanonical(subExpression, symbolScope);
-            if (canonical != null) {
-                expressionRemap.put(subExpression, canonical);
-            }
-        }
-
-        // Perform a naive single-pass traversal to try to rewrite non-compliant portions of the tree. Prefers to replace
-        // larger subtrees over smaller subtrees
-        // TODO: this rewrite can probably be made more sophisticated
-        Expression rewritten = replaceExpression(expression, expressionRemap.build());
-        if (!isScoped(rewritten, symbolScope)) {
-            // If the rewritten is still not compliant with the symbol scope, just give up
-            return null;
-        }
-        return rewritten;
-    }
-
     /**
      * Dumps the inference equalities as equality expressions that are partitioned by the symbolScope.
      * All stored equalities are returned in a compact set and will be classified into three groups as determined by the symbol scope:
@@ -197,36 +171,6 @@ public class EqualityInference
     }
 
     /**
-     * Returns the most preferrable expression to be used as the canonical expression
-     */
-    private static Expression getCanonical(Iterable<Expression> expressions)
-    {
-        if (Iterables.isEmpty(expressions)) {
-            return null;
-        }
-        return CANONICAL_ORDERING.min(expressions);
-    }
-
-    /**
-     * Returns a canonical expression that is fully contained by the symbolScope and that is equivalent
-     * to the specified expression. Returns null if unable to to find a canonical.
-     */
-    @VisibleForTesting
-    Expression getScopedCanonical(Expression expression, Predicate<Symbol> symbolScope)
-    {
-        Expression canonicalIndex = canonicalMap.get(expression);
-        if (canonicalIndex == null) {
-            return null;
-        }
-        return getCanonical(filter(equalitySets.get(canonicalIndex), equivalentExpression -> isScoped(equivalentExpression, symbolScope)));
-    }
-
-    private static boolean isScoped(Expression expression, Predicate<Symbol> symbolScope)
-    {
-        return Iterables.all(SymbolsExtractor.extractUnique(expression), symbolScope);
-    }
-
-    /**
      * Determines whether an Expression may be successfully applied to the equality inference
      */
     public static boolean isInferenceCandidate(Expression expression)
@@ -309,6 +253,70 @@ public class EqualityInference
         return new EqualityInference(equalitySets, canonicalMappings.build(), derivedExpressions);
     }
 
+    /**
+     * Provides a convenience Iterable of Expression conjuncts which have not been added to the inference
+     */
+    public static Iterable<Expression> nonInferrableConjuncts(Expression expression)
+    {
+        return filter(extractConjuncts(expression), not(EqualityInference::isInferenceCandidate));
+    }
+
+    private Expression rewrite(Expression expression, Predicate<Symbol> symbolScope, boolean allowFullReplacement)
+    {
+        Iterable<Expression> subExpressions = SubExpressionExtractor.extract(expression);
+        if (!allowFullReplacement) {
+            subExpressions = filter(subExpressions, not(equalTo(expression)));
+        }
+
+        ImmutableMap.Builder<Expression, Expression> expressionRemap = ImmutableMap.builder();
+        for (Expression subExpression : subExpressions) {
+            Expression canonical = getScopedCanonical(subExpression, symbolScope);
+            if (canonical != null) {
+                expressionRemap.put(subExpression, canonical);
+            }
+        }
+
+        // Perform a naive single-pass traversal to try to rewrite non-compliant portions of the tree. Prefers to replace
+        // larger subtrees over smaller subtrees
+        // TODO: this rewrite can probably be made more sophisticated
+        Expression rewritten = replaceExpression(expression, expressionRemap.build());
+        if (!isScoped(rewritten, symbolScope)) {
+            // If the rewritten is still not compliant with the symbol scope, just give up
+            return null;
+        }
+        return rewritten;
+    }
+
+    /**
+     * Returns the most preferrable expression to be used as the canonical expression
+     */
+    private static Expression getCanonical(Iterable<Expression> expressions)
+    {
+        if (Iterables.isEmpty(expressions)) {
+            return null;
+        }
+        return CANONICAL_ORDERING.min(expressions);
+    }
+
+    /**
+     * Returns a canonical expression that is fully contained by the symbolScope and that is equivalent
+     * to the specified expression. Returns null if unable to to find a canonical.
+     */
+    @VisibleForTesting
+    Expression getScopedCanonical(Expression expression, Predicate<Symbol> symbolScope)
+    {
+        Expression canonicalIndex = canonicalMap.get(expression);
+        if (canonicalIndex == null) {
+            return null;
+        }
+        return getCanonical(filter(equalitySets.get(canonicalIndex), equivalentExpression -> isScoped(equivalentExpression, symbolScope)));
+    }
+
+    private static boolean isScoped(Expression expression, Predicate<Symbol> symbolScope)
+    {
+        return Iterables.all(SymbolsExtractor.extractUnique(expression), symbolScope);
+    }
+
     private static Multimap<Expression, Expression> makeEqualitySets(DisjointSet<Expression> equalities)
     {
         ImmutableSetMultimap.Builder<Expression, Expression> builder = ImmutableSetMultimap.builder();
@@ -318,14 +326,6 @@ public class EqualityInference
             }
         }
         return builder.build();
-    }
-
-    /**
-     * Provides a convenience Iterable of Expression conjuncts which have not been added to the inference
-     */
-    public static Iterable<Expression> nonInferrableConjuncts(Expression expression)
-    {
-        return filter(extractConjuncts(expression), not(EqualityInference::isInferenceCandidate));
     }
 
     public static class EqualityPartition
