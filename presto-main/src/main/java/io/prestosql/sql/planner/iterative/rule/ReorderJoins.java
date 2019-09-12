@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
+import com.google.common.collect.Sets;
 import io.airlift.log.Logger;
 import io.prestosql.Session;
 import io.prestosql.cost.CostComparator;
@@ -57,7 +58,6 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -333,18 +333,18 @@ public class ReorderJoins
             // could not be used for equality inference.
             // If they use both the left and right symbols, we add them to the list of joinPredicates
             stream(nonInferrableConjuncts(allFilter))
-                    .map(conjunct -> allFilterInference.rewrite(conjunct, symbol -> leftSymbols.contains(symbol) || rightSymbols.contains(symbol)))
+                    .map(conjunct -> allFilterInference.rewrite(conjunct, Sets.union(leftSymbols, rightSymbols)))
                     .filter(Objects::nonNull)
                     // filter expressions that contain only left or right symbols
-                    .filter(conjunct -> allFilterInference.rewrite(conjunct, leftSymbols::contains) == null)
-                    .filter(conjunct -> allFilterInference.rewrite(conjunct, rightSymbols::contains) == null)
+                    .filter(conjunct -> allFilterInference.rewrite(conjunct, leftSymbols) == null)
+                    .filter(conjunct -> allFilterInference.rewrite(conjunct, rightSymbols) == null)
                     .forEach(joinPredicatesBuilder::add);
 
             // create equality inference on available symbols
             // TODO: make generateEqualitiesPartitionedBy take left and right scope
-            List<Expression> joinEqualities = allFilterInference.generateEqualitiesPartitionedBy(symbol -> leftSymbols.contains(symbol) || rightSymbols.contains(symbol)).getScopeEqualities();
+            List<Expression> joinEqualities = allFilterInference.generateEqualitiesPartitionedBy(Sets.union(leftSymbols, rightSymbols)).getScopeEqualities();
             EqualityInference joinInference = EqualityInference.newInstance(joinEqualities.toArray(new Expression[0]));
-            joinPredicatesBuilder.addAll(joinInference.generateEqualitiesPartitionedBy(in(leftSymbols)).getScopeStraddlingEqualities());
+            joinPredicatesBuilder.addAll(joinInference.generateEqualitiesPartitionedBy(leftSymbols).getScopeStraddlingEqualities());
 
             return joinPredicatesBuilder.build();
         }
@@ -353,10 +353,11 @@ public class ReorderJoins
         {
             if (nodes.size() == 1) {
                 PlanNode planNode = getOnlyElement(nodes);
+                Set<Symbol> scope = ImmutableSet.copyOf(outputSymbols);
                 ImmutableList.Builder<Expression> predicates = ImmutableList.builder();
-                predicates.addAll(allFilterInference.generateEqualitiesPartitionedBy(outputSymbols::contains).getScopeEqualities());
+                predicates.addAll(allFilterInference.generateEqualitiesPartitionedBy(scope).getScopeEqualities());
                 stream(nonInferrableConjuncts(allFilter))
-                        .map(conjunct -> allFilterInference.rewrite(conjunct, outputSymbols::contains))
+                        .map(conjunct -> allFilterInference.rewrite(conjunct, scope))
                         .filter(Objects::nonNull)
                         .forEach(predicates::add);
                 Expression filter = combineConjuncts(predicates.build());
