@@ -115,6 +115,7 @@ import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom
 import static io.prestosql.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
+import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.SHOW_COLUMNS;
 import static io.prestosql.testing.TestingAccessControlManager.privilege;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
@@ -3732,7 +3733,7 @@ public class TestHiveIntegrationSmokeTest
         assertAccessDenied(testSession,
                 "SHOW COLUMNS FROM " + tableName,
                 "Cannot show columns of table .*." + tableName + ".*",
-                privilege(tableName, SELECT_COLUMN));
+                privilege(tableName, SHOW_COLUMNS));
 
         @Language("SQL") String getColumnsSql = "" +
                 "SELECT lower(column_name) " +
