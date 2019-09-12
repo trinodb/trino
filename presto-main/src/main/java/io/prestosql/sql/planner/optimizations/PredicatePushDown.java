@@ -730,12 +730,12 @@ public class PredicatePushDown
 
             // See if we can push inherited predicates down
             for (Expression conjunct : EqualityInference.nonInferrableConjuncts(inheritedPredicate)) {
-                Expression outerRewritten = outerInference.rewriteExpression(conjunct, in(outerSymbols));
+                Expression outerRewritten = outerInference.rewrite(conjunct, in(outerSymbols));
                 if (outerRewritten != null) {
                     outerPushdownConjuncts.add(outerRewritten);
 
                     // A conjunct can only be pushed down into an inner side if it can be rewritten in terms of the outer side
-                    Expression innerRewritten = potentialNullSymbolInference.rewriteExpression(outerRewritten, not(in(outerSymbols)));
+                    Expression innerRewritten = potentialNullSymbolInference.rewrite(outerRewritten, not(in(outerSymbols)));
                     if (innerRewritten != null) {
                         innerPushdownConjuncts.add(innerRewritten);
                     }
@@ -751,7 +751,7 @@ public class PredicatePushDown
 
             // See if we can push down any outer effective predicates to the inner side
             for (Expression conjunct : EqualityInference.nonInferrableConjuncts(outerEffectivePredicate)) {
-                Expression rewritten = potentialNullSymbolInference.rewriteExpression(conjunct, not(in(outerSymbols)));
+                Expression rewritten = potentialNullSymbolInference.rewrite(conjunct, not(in(outerSymbols)));
                 if (rewritten != null) {
                     innerPushdownConjuncts.add(rewritten);
                 }
@@ -759,7 +759,7 @@ public class PredicatePushDown
 
             // See if we can push down join predicates to the inner side
             for (Expression conjunct : EqualityInference.nonInferrableConjuncts(joinPredicate)) {
-                Expression innerRewritten = potentialNullSymbolInference.rewriteExpression(conjunct, not(in(outerSymbols)));
+                Expression innerRewritten = potentialNullSymbolInference.rewrite(conjunct, not(in(outerSymbols)));
                 if (innerRewritten != null) {
                     innerPushdownConjuncts.add(innerRewritten);
                 }
@@ -848,12 +848,12 @@ public class PredicatePushDown
 
             // Sort through conjuncts in inheritedPredicate that were not used for inference
             for (Expression conjunct : EqualityInference.nonInferrableConjuncts(inheritedPredicate)) {
-                Expression leftRewrittenConjunct = allInference.rewriteExpression(conjunct, in(leftSymbols));
+                Expression leftRewrittenConjunct = allInference.rewrite(conjunct, in(leftSymbols));
                 if (leftRewrittenConjunct != null) {
                     leftPushDownConjuncts.add(leftRewrittenConjunct);
                 }
 
-                Expression rightRewrittenConjunct = allInference.rewriteExpression(conjunct, not(in(leftSymbols)));
+                Expression rightRewrittenConjunct = allInference.rewrite(conjunct, not(in(leftSymbols)));
                 if (rightRewrittenConjunct != null) {
                     rightPushDownConjuncts.add(rightRewrittenConjunct);
                 }
@@ -866,7 +866,7 @@ public class PredicatePushDown
 
             // See if we can push the right effective predicate to the left side
             for (Expression conjunct : EqualityInference.nonInferrableConjuncts(rightEffectivePredicate)) {
-                Expression rewritten = allInference.rewriteExpression(conjunct, in(leftSymbols));
+                Expression rewritten = allInference.rewrite(conjunct, in(leftSymbols));
                 if (rewritten != null) {
                     leftPushDownConjuncts.add(rewritten);
                 }
@@ -874,7 +874,7 @@ public class PredicatePushDown
 
             // See if we can push the left effective predicate to the right side
             for (Expression conjunct : EqualityInference.nonInferrableConjuncts(leftEffectivePredicate)) {
-                Expression rewritten = allInference.rewriteExpression(conjunct, not(in(leftSymbols)));
+                Expression rewritten = allInference.rewrite(conjunct, not(in(leftSymbols)));
                 if (rewritten != null) {
                     rightPushDownConjuncts.add(rewritten);
                 }
@@ -882,12 +882,12 @@ public class PredicatePushDown
 
             // See if we can push any parts of the join predicates to either side
             for (Expression conjunct : EqualityInference.nonInferrableConjuncts(joinPredicate)) {
-                Expression leftRewritten = allInference.rewriteExpression(conjunct, in(leftSymbols));
+                Expression leftRewritten = allInference.rewrite(conjunct, in(leftSymbols));
                 if (leftRewritten != null) {
                     leftPushDownConjuncts.add(leftRewritten);
                 }
 
-                Expression rightRewritten = allInference.rewriteExpression(conjunct, not(in(leftSymbols)));
+                Expression rightRewritten = allInference.rewrite(conjunct, not(in(leftSymbols)));
                 if (rightRewritten != null) {
                     rightPushDownConjuncts.add(rightRewritten);
                 }
@@ -1063,7 +1063,7 @@ public class PredicatePushDown
             // Push inheritedPredicates down to the source if they don't involve the semi join output
             EqualityInference inheritedInference = EqualityInference.newInstance(inheritedPredicate);
             for (Expression conjunct : EqualityInference.nonInferrableConjuncts(inheritedPredicate)) {
-                Expression rewrittenConjunct = inheritedInference.rewriteExpression(conjunct, in(node.getSource().getOutputSymbols()));
+                Expression rewrittenConjunct = inheritedInference.rewrite(conjunct, in(node.getSource().getOutputSymbols()));
                 // Since each source row is reflected exactly once in the output, ok to push non-deterministic predicates down
                 if (rewrittenConjunct != null) {
                     sourceConjuncts.add(rewrittenConjunct);
@@ -1117,7 +1117,7 @@ public class PredicatePushDown
 
             // Push inheritedPredicates down to the source if they don't involve the semi join output
             for (Expression conjunct : EqualityInference.nonInferrableConjuncts(inheritedPredicate)) {
-                Expression rewrittenConjunct = allInference.rewriteExpression(conjunct, in(sourceSymbols));
+                Expression rewrittenConjunct = allInference.rewrite(conjunct, in(sourceSymbols));
                 // Since each source row is reflected exactly once in the output, ok to push non-deterministic predicates down
                 if (rewrittenConjunct != null) {
                     sourceConjuncts.add(rewrittenConjunct);
@@ -1129,7 +1129,7 @@ public class PredicatePushDown
 
             // Push inheritedPredicates down to the filtering source if possible
             for (Expression conjunct : EqualityInference.nonInferrableConjuncts(deterministicInheritedPredicate)) {
-                Expression rewrittenConjunct = allInference.rewriteExpression(conjunct, in(filteringSourceSymbols));
+                Expression rewrittenConjunct = allInference.rewrite(conjunct, in(filteringSourceSymbols));
                 // We cannot push non-deterministic predicates to filtering side. Each filtering side row have to be
                 // logically reevaluated for each source row.
                 if (rewrittenConjunct != null) {
@@ -1140,7 +1140,7 @@ public class PredicatePushDown
             // move effective predicate conjuncts source <-> filter
             // See if we can push the filtering source effective predicate to the source side
             for (Expression conjunct : EqualityInference.nonInferrableConjuncts(filteringSourceEffectivePredicate)) {
-                Expression rewritten = allInference.rewriteExpression(conjunct, in(sourceSymbols));
+                Expression rewritten = allInference.rewrite(conjunct, in(sourceSymbols));
                 if (rewritten != null) {
                     sourceConjuncts.add(rewritten);
                 }
@@ -1148,7 +1148,7 @@ public class PredicatePushDown
 
             // See if we can push the source effective predicate to the filtering soruce side
             for (Expression conjunct : EqualityInference.nonInferrableConjuncts(sourceEffectivePredicate)) {
-                Expression rewritten = allInference.rewriteExpression(conjunct, in(filteringSourceSymbols));
+                Expression rewritten = allInference.rewrite(conjunct, in(filteringSourceSymbols));
                 if (rewritten != null) {
                     filteringSourceConjuncts.add(rewritten);
                 }
@@ -1211,7 +1211,7 @@ public class PredicatePushDown
                     continue;
                 }
 
-                Expression rewrittenConjunct = equalityInference.rewriteExpression(conjunct, in(node.getGroupingKeys()));
+                Expression rewrittenConjunct = equalityInference.rewrite(conjunct, in(node.getGroupingKeys()));
                 if (rewrittenConjunct != null) {
                     pushdownConjuncts.add(rewrittenConjunct);
                 }
@@ -1261,7 +1261,7 @@ public class PredicatePushDown
 
             // Sort non-equality predicates by those that can be pushed down and those that cannot
             for (Expression conjunct : EqualityInference.nonInferrableConjuncts(inheritedPredicate)) {
-                Expression rewrittenConjunct = equalityInference.rewriteExpression(conjunct, in(node.getReplicateSymbols()));
+                Expression rewrittenConjunct = equalityInference.rewrite(conjunct, in(node.getReplicateSymbols()));
                 if (rewrittenConjunct != null) {
                     pushdownConjuncts.add(rewrittenConjunct);
                 }
