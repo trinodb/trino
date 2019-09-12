@@ -189,7 +189,7 @@ public class InformationSchemaMetadata
     {
         InformationSchemaTableHandle table = (InformationSchemaTableHandle) handle;
 
-        if (!table.getPrefixes().equals(defaultPrefixes())) {
+        if (!isTablesEnumeratingTable(table.getTable()) || !table.getPrefixes().equals(defaultPrefixes())) {
             return Optional.empty();
         }
 
@@ -217,13 +217,11 @@ public class InformationSchemaMetadata
         }
 
         InformationSchemaTable informationSchemaTable = table.getTable();
-        Set<QualifiedTablePrefix> prefixes = calculatePrefixesWithSchemaName(informationSchemaTable, session, constraint.getSummary(), constraint.predicate());
-        if (isTablesEnumeratingTable(informationSchemaTable)) {
-            Set<QualifiedTablePrefix> tablePrefixes = calculatePrefixesWithTableName(informationSchemaTable, session, prefixes, constraint.getSummary(), constraint.predicate());
-            // in case of high number of prefixes it is better to populate all data and then filter
-            if (tablePrefixes.size() <= MAX_PREFIXES_COUNT) {
-                prefixes = tablePrefixes;
-            }
+        Set<QualifiedTablePrefix> prefixes = calculatePrefixesWithSchemaName(session, constraint.getSummary(), constraint.predicate());
+        Set<QualifiedTablePrefix> tablePrefixes = calculatePrefixesWithTableName(informationSchemaTable, session, prefixes, constraint.getSummary(), constraint.predicate());
+        // in case of high number of prefixes it is better to populate all data and then filter
+        if (tablePrefixes.size() <= MAX_PREFIXES_COUNT) {
+            prefixes = tablePrefixes;
         }
         if (prefixes.size() > MAX_PREFIXES_COUNT) {
             // in case of high number of prefixes it is better to populate all data and then filter
@@ -239,7 +237,6 @@ public class InformationSchemaMetadata
     }
 
     private Set<QualifiedTablePrefix> calculatePrefixesWithSchemaName(
-            InformationSchemaTable informationSchemaTable,
             ConnectorSession connectorSession,
             TupleDomain<ColumnHandle> constraint,
             Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate)
@@ -253,7 +250,7 @@ public class InformationSchemaMetadata
                     .collect(toImmutableSet());
         }
 
-        if (!predicate.isPresent() || !isTablesEnumeratingTable(informationSchemaTable)) {
+        if (!predicate.isPresent()) {
             return ImmutableSet.of(new QualifiedTablePrefix(catalogName));
         }
 
