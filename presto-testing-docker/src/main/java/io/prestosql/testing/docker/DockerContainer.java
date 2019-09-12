@@ -57,6 +57,9 @@ public final class DockerContainer
     private static final boolean DEBUG = false;
 
     private static final String HOST_IP = "127.0.0.1";
+
+    private final Thread shutdownHook = new Thread(this::close);
+
     private final String image;
     private final Map<String, String> environment;
     private final List<String> capabilities;
@@ -105,6 +108,10 @@ public final class DockerContainer
         }
         else {
             createContainer(ports);
+
+            // Add a shutdown hook just in case when close method was not called by test execution.
+            // Anyway, in case that shutdown hook is not called, developer can easily clean docker container on their own.
+            Runtime.getRuntime().addShutdownHook(shutdownHook);
         }
 
         checkState(isContainerUp(), "Container was not started properly");
@@ -240,6 +247,11 @@ public final class DockerContainer
     @Override
     public void close()
     {
+        try {
+            Runtime.getRuntime().removeShutdownHook(shutdownHook);
+        }
+        catch (IllegalStateException ignored) {
+        }
         if (dockerClient == null) {
             return;
         }
