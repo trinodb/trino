@@ -96,7 +96,7 @@ public class ArrayType
     public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
         if (!elementType.isOrderable()) {
-            throw new UnsupportedOperationException(getTypeSignature() + " type is not orderable");
+            throw new UnsupportedTypeOperationException(getTypeSignature() + " type is not orderable");
         }
 
         Block leftArray = leftBlock.getObject(leftPosition, Block.class);

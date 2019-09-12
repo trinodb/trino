@@ -66,7 +66,7 @@ public class TypeParameter
             case VARIABLE:
                 return of(parameter.getVariable());
             default:
-                throw new UnsupportedOperationException(format("Unsupported parameter [%s]", parameter));
+                throw new UnsupportedTypeOperationException(format("Unsupported parameter [%s]", parameter));
         }
     }
 

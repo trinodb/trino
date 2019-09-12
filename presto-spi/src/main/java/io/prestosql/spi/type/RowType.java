@@ -240,7 +240,7 @@ public class RowType
             checkElementNotNull(rightRow.isNull(i));
             Type fieldType = fields.get(i).getType();
             if (!fieldType.isOrderable()) {
-                throw new UnsupportedOperationException(fieldType.getTypeSignature() + " type is not orderable");
+                throw new UnsupportedTypeOperationException(fieldType.getTypeSignature() + " type is not orderable");
             }
             int compareResult = fieldType.compareTo(leftRow, i, rightRow, i);
             if (compareResult != 0) {

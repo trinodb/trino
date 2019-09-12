@@ -194,7 +194,7 @@ public class MapType
 
         Block singleMapBlock = block.getObject(position, Block.class);
         if (!(singleMapBlock instanceof SingleMapBlock)) {
-            throw new UnsupportedOperationException("Map is encoded with legacy block representation");
+            throw new UnsupportedTypeOperationException("Map is encoded with legacy block representation");
         }
         Map<Object, Object> map = new HashMap<>();
         for (int i = 0; i < singleMapBlock.getPositionCount(); i += 2) {
