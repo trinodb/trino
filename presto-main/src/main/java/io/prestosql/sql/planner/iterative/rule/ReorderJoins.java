@@ -312,11 +312,11 @@ public class ReorderJoins
             // could not be used for equality inference.
             // If they use both the left and right symbols, we add them to the list of joinPredicates
             stream(nonInferrableConjuncts(allFilter))
-                    .map(conjunct -> allFilterInference.rewriteExpression(conjunct, symbol -> leftSymbols.contains(symbol) || rightSymbols.contains(symbol)))
+                    .map(conjunct -> allFilterInference.rewrite(conjunct, symbol -> leftSymbols.contains(symbol) || rightSymbols.contains(symbol)))
                     .filter(Objects::nonNull)
                     // filter expressions that contain only left or right symbols
-                    .filter(conjunct -> allFilterInference.rewriteExpression(conjunct, leftSymbols::contains) == null)
-                    .filter(conjunct -> allFilterInference.rewriteExpression(conjunct, rightSymbols::contains) == null)
+                    .filter(conjunct -> allFilterInference.rewrite(conjunct, leftSymbols::contains) == null)
+                    .filter(conjunct -> allFilterInference.rewrite(conjunct, rightSymbols::contains) == null)
                     .forEach(joinPredicatesBuilder::add);
 
             // create equality inference on available symbols
@@ -335,7 +335,7 @@ public class ReorderJoins
                 ImmutableList.Builder<Expression> predicates = ImmutableList.builder();
                 predicates.addAll(allFilterInference.generateEqualitiesPartitionedBy(outputSymbols::contains).getScopeEqualities());
                 stream(nonInferrableConjuncts(allFilter))
-                        .map(conjunct -> allFilterInference.rewriteExpression(conjunct, outputSymbols::contains))
+                        .map(conjunct -> allFilterInference.rewrite(conjunct, outputSymbols::contains))
                         .filter(Objects::nonNull)
                         .forEach(predicates::add);
                 Expression filter = combineConjuncts(predicates.build());

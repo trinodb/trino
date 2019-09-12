@@ -983,7 +983,7 @@ public class TestEffectivePredicateExtractor
 
         Set<Expression> rewrittenSet = new HashSet<>();
         for (Expression expression : EqualityInference.nonInferrableConjuncts(predicate)) {
-            Expression rewritten = inference.rewriteExpression(expression, Predicates.alwaysTrue());
+            Expression rewritten = inference.rewrite(expression, Predicates.alwaysTrue());
             Preconditions.checkState(rewritten != null, "Rewrite with full symbol scope should always be possible");
             rewrittenSet.add(rewritten);
         }

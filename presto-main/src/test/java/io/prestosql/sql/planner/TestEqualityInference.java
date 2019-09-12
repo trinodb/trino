@@ -81,15 +81,15 @@ public class TestEqualityInference
                 equals("c2", "d2"));
 
         assertEquals(
-                inference.rewriteExpression(someExpression("a1", "a2"), matchesSymbols("d1", "d2")),
+                inference.rewrite(someExpression("a1", "a2"), matchesSymbols("d1", "d2")),
                 someExpression("d1", "d2"));
 
         assertEquals(
-                inference.rewriteExpression(someExpression("a1", "c1"), matchesSymbols("b1")),
+                inference.rewrite(someExpression("a1", "c1"), matchesSymbols("b1")),
                 someExpression("b1", "b1"));
 
         assertEquals(
-                inference.rewriteExpression(someExpression("a1", "a2"), matchesSymbols("b1", "d2", "c3")),
+                inference.rewrite(someExpression("a1", "a2"), matchesSymbols("b1", "d2", "c3")),
                 someExpression("b1", "d2"));
 
         // Both starting expressions should canonicalize to the same expression
@@ -100,7 +100,7 @@ public class TestEqualityInference
 
         // Given multiple translatable candidates, should choose the canonical
         assertEquals(
-                inference.rewriteExpression(someExpression("a2", "b2"), matchesSymbols("c2", "d2")),
+                inference.rewrite(someExpression("a2", "b2"), matchesSymbols("c2", "d2")),
                 someExpression(canonical, canonical));
     }
 
@@ -108,7 +108,7 @@ public class TestEqualityInference
     public void testTriviallyRewritable()
     {
         Expression expression = EqualityInference.newInstance()
-                .rewriteExpression(someExpression("a1", "a2"), matchesSymbols("a1", "a2"));
+                .rewrite(someExpression("a1", "a2"), matchesSymbols("a1", "a2"));
 
         assertEquals(expression, someExpression("a1", "a2"));
     }
@@ -120,8 +120,8 @@ public class TestEqualityInference
                 equals("a1", "b1"),
                 equals("a2", "b2"));
 
-        assertNull(inference.rewriteExpression(someExpression("a1", "a2"), matchesSymbols("b1", "c1")));
-        assertNull(inference.rewriteExpression(someExpression("c1", "c2"), matchesSymbols("a1", "a2")));
+        assertNull(inference.rewrite(someExpression("a1", "a2"), matchesSymbols("b1", "c1")));
+        assertNull(inference.rewrite(someExpression("c1", "c2"), matchesSymbols("a1", "a2")));
     }
 
     @Test
@@ -132,7 +132,7 @@ public class TestEqualityInference
                 equals("a1", "c1"),
                 equals("c1", "a1"));
 
-        Expression expression = inference.rewriteExpression(someExpression("a1", "b1"), matchesSymbols("c1"));
+        Expression expression = inference.rewrite(someExpression("a1", "b1"), matchesSymbols("c1"));
         assertEquals(expression, someExpression("c1", "c1"));
     }
 
@@ -143,10 +143,10 @@ public class TestEqualityInference
                 ExpressionUtils.and(equals("a1", "b1"), equals("b1", "c1"), someExpression("c1", "d1")));
 
         // Able to rewrite to c1 due to equalities
-        assertEquals(nameReference("c1"), inference.rewriteExpression(nameReference("a1"), matchesSymbols("c1")));
+        assertEquals(nameReference("c1"), inference.rewrite(nameReference("a1"), matchesSymbols("c1")));
 
         // But not be able to rewrite to d1 which is not connected via equality
-        assertNull(inference.rewriteExpression(nameReference("a1"), matchesSymbols("d1")));
+        assertNull(inference.rewrite(nameReference("a1"), matchesSymbols("d1")));
     }
 
     @Test
@@ -254,13 +254,13 @@ public class TestEqualityInference
                 equals(nameReference("a3"), multiply(nameReference("a1"), add("b", "c")))); // a3 = a1 * (b + c)
 
         // Expression (b + c) should get entirely rewritten as a1
-        assertEquals(inference.rewriteExpression(add("b", "c"), symbolBeginsWith("a")), nameReference("a1"));
+        assertEquals(inference.rewrite(add("b", "c"), symbolBeginsWith("a")), nameReference("a1"));
 
         // Only the sub-expression (b + c) should get rewritten in terms of a*
-        assertEquals(inference.rewriteExpression(multiply(nameReference("ax"), add("b", "c")), symbolBeginsWith("a")), multiply(nameReference("ax"), nameReference("a1")));
+        assertEquals(inference.rewrite(multiply(nameReference("ax"), add("b", "c")), symbolBeginsWith("a")), multiply(nameReference("ax"), nameReference("a1")));
 
         // To be compliant, could rewrite either the whole expression, or just the sub-expression. Rewriting larger expressions are preferred
-        assertEquals(inference.rewriteExpression(multiply(nameReference("a1"), add("b", "c")), symbolBeginsWith("a")), nameReference("a3"));
+        assertEquals(inference.rewrite(multiply(nameReference("a1"), add("b", "c")), symbolBeginsWith("a")), nameReference("a3"));
     }
 
     @Test
@@ -272,7 +272,7 @@ public class TestEqualityInference
                 equals(nameReference("c1"), number(1)));
 
         // Should always prefer a constant if available (constant is part of all scopes)
-        assertEquals(inference.rewriteExpression(nameReference("a1"), matchesSymbols("a1", "b1")), number(1));
+        assertEquals(inference.rewrite(nameReference("a1"), matchesSymbols("a1", "b1")), number(1));
 
         // All scope equalities should utilize the constant if possible
         EqualityInference.EqualityPartition equalityPartition = inference.generateEqualitiesPartitionedBy(matchesSymbols("a1", "b1"));
