@@ -16,15 +16,21 @@ package io.prestosql.plugin.iceberg;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.testing.MaterializedResult;
+import io.prestosql.testing.MaterializedRow;
 import io.prestosql.tests.AbstractTestIntegrationSmokeTest;
 import org.apache.iceberg.FileFormat;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
+import java.time.LocalDate;
+import java.util.Map;
 import java.util.function.BiConsumer;
+import java.util.function.Function;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
+import static io.prestosql.testing.MaterializedResult.DEFAULT_PRECISION;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -196,6 +202,45 @@ public class TestIcebergSmoke
         assertQuery(session, "SELECT * from test_create_partitioned_table_as", "SELECT orderkey, shippriority, orderstatus FROM orders");
 
         dropTable(session, "test_create_partitioned_table_as");
+    }
+
+    @Test
+    public void testPartitionTableBasic()
+    {
+        testWithAllFileFormats(this::testPartitionTableBasic);
+    }
+
+    private void testPartitionTableBasic(Session session, FileFormat fileFormat)
+    {
+        assertUpdate(session, "CREATE TABLE test_partition_table_basic (_bigint BIGINT, _date DATE) WITH (partitioning = ARRAY['_date'], format = '" + fileFormat + "')");
+
+        assertUpdate(session, "INSERT INTO test_partition_table_basic VALUES (0, CAST('2019-09-08' AS DATE)), (1, CAST('2019-09-09' AS DATE)), (2, CAST('2019-09-09' AS DATE))", 3);
+        assertUpdate(session, "INSERT INTO test_partition_table_basic VALUES (3, CAST('2019-09-09' AS DATE)), (4, CAST('2019-09-10' AS DATE)), (5, CAST('2019-09-10' AS DATE))", 3);
+
+        assertQuery(session, "SHOW COLUMNS FROM \"test_partition_table_basic$partitions\"",
+                "VALUES ('_date', 'date', '', '')," +
+                        "('record_count', 'bigint', '', '')," +
+                        "('file_count', 'bigint', '', '')," +
+                        "('total_size', 'bigint', '', '')," +
+                        "('_bigint', 'row(min bigint, max bigint, null_count bigint)', '', '')");
+
+        MaterializedResult result = computeActual("SELECT * from \"test_partition_table_basic$partitions\"");
+        assertEquals(result.getRowCount(), 3);
+
+        Map<LocalDate, MaterializedRow> rowsByPartition = result.getMaterializedRows().stream()
+                .collect(toImmutableMap(row -> (LocalDate) row.getField(0), Function.identity()));
+
+        // Test if record counts are computed correctly
+        assertEquals(rowsByPartition.get(LocalDate.parse("2019-09-08")).getField(1), Long.valueOf(1));
+        assertEquals(rowsByPartition.get(LocalDate.parse("2019-09-09")).getField(1), Long.valueOf(3));
+        assertEquals(rowsByPartition.get(LocalDate.parse("2019-09-10")).getField(1), Long.valueOf(2));
+
+        // Test if min/max values and null value count are computed correctly.
+        assertEquals(rowsByPartition.get(LocalDate.parse("2019-09-08")).getField(4), new MaterializedRow(DEFAULT_PRECISION, Long.valueOf(0), Long.valueOf(0), Long.valueOf(0)));
+        assertEquals(rowsByPartition.get(LocalDate.parse("2019-09-09")).getField(4), new MaterializedRow(DEFAULT_PRECISION, Long.valueOf(1), Long.valueOf(3), Long.valueOf(0)));
+        assertEquals(rowsByPartition.get(LocalDate.parse("2019-09-10")).getField(4), new MaterializedRow(DEFAULT_PRECISION, Long.valueOf(4), Long.valueOf(5), Long.valueOf(0)));
+
+        dropTable(session, "test_partition_table_basic");
     }
 
     private void testWithAllFileFormats(BiConsumer<Session, FileFormat> test)
