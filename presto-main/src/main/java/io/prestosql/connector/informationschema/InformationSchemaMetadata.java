@@ -195,6 +195,10 @@ public class InformationSchemaMetadata
 
         Set<QualifiedTablePrefix> prefixes = getPrefixes(session, table, constraint);
 
+        if (prefixes.equals(table.getPrefixes())) {
+            return Optional.empty();
+        }
+
         table = new InformationSchemaTableHandle(table.getCatalogName(), table.getTable(), prefixes, table.getLimit());
 
         return Optional.of(new ConstraintApplicationResult<>(table, constraint.getSummary()));
