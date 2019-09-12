@@ -27,7 +27,6 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 
 import static io.prestosql.elasticsearch.ElasticsearchQueryRunner.createElasticsearchQueryRunner;
-import static io.prestosql.elasticsearch.EmbeddedElasticsearchNode.createEmbeddedElasticsearchNode;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
@@ -40,11 +39,6 @@ public class TestElasticsearchIntegrationSmokeTest
     private final EmbeddedElasticsearchNode embeddedElasticsearchNode;
 
     private QueryRunner queryRunner;
-
-    public TestElasticsearchIntegrationSmokeTest()
-    {
-        this(createEmbeddedElasticsearchNode());
-    }
 
     public TestElasticsearchIntegrationSmokeTest(EmbeddedElasticsearchNode embeddedElasticsearchNode)
     {
