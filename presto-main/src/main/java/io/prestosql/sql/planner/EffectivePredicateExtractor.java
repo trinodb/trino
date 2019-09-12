@@ -423,13 +423,6 @@ public class EffectivePredicateExtractor
             return combineConjuncts(potentialOutputConjuncts);
         }
 
-        private static List<Expression> pullExpressionsThroughSymbols(List<Expression> expressions, Collection<Symbol> symbols)
-        {
-            return expressions.stream()
-                    .map(expression -> pullExpressionThroughSymbols(expression, symbols))
-                    .collect(toImmutableList());
-        }
-
         private static Expression pullExpressionThroughSymbols(Expression expression, Collection<Symbol> symbols)
         {
             EqualityInference equalityInference = EqualityInference.newInstance(expression);
