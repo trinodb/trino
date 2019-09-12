@@ -22,6 +22,7 @@ import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.connector.TableNotFoundException;
 import io.prestosql.spi.security.GrantInfo;
 import io.prestosql.spi.security.Privilege;
 import io.prestosql.spi.security.PrivilegeInfo;
@@ -147,7 +148,12 @@ public class SqlStandardAccessControlMetadata
         boolean isAdminRoleSet = hasAdminRole(principals);
         ImmutableList.Builder<GrantInfo> result = ImmutableList.builder();
         for (SchemaTableName tableName : tableNames) {
-            result.addAll(buildGrants(principals, isAdminRoleSet, tableName));
+            try {
+                result.addAll(buildGrants(principals, isAdminRoleSet, tableName));
+            }
+            catch (TableNotFoundException e) {
+                // table disappeared during listing operation
+            }
         }
         return result.build();
     }
