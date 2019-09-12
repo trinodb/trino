@@ -401,7 +401,8 @@ public class PredicatePushDown
                             leftEffectivePredicate,
                             rightEffectivePredicate,
                             joinPredicate,
-                            node.getLeft().getOutputSymbols());
+                            node.getLeft().getOutputSymbols(),
+                            node.getRight().getOutputSymbols());
                     leftPredicate = innerJoinPushDownResult.getLeftPredicate();
                     rightPredicate = innerJoinPushDownResult.getRightPredicate();
                     postJoinPredicate = innerJoinPushDownResult.getPostJoinPredicate();
@@ -413,7 +414,8 @@ public class PredicatePushDown
                             leftEffectivePredicate,
                             rightEffectivePredicate,
                             joinPredicate,
-                            node.getLeft().getOutputSymbols());
+                            node.getLeft().getOutputSymbols(),
+                            node.getRight().getOutputSymbols());
                     leftPredicate = leftOuterJoinPushDownResult.getOuterJoinPredicate();
                     rightPredicate = leftOuterJoinPushDownResult.getInnerJoinPredicate();
                     postJoinPredicate = leftOuterJoinPushDownResult.getPostJoinPredicate();
@@ -425,7 +427,8 @@ public class PredicatePushDown
                             rightEffectivePredicate,
                             leftEffectivePredicate,
                             joinPredicate,
-                            node.getRight().getOutputSymbols());
+                            node.getRight().getOutputSymbols(),
+                            node.getLeft().getOutputSymbols());
                     leftPredicate = rightOuterJoinPushDownResult.getInnerJoinPredicate();
                     rightPredicate = rightOuterJoinPushDownResult.getOuterJoinPredicate();
                     postJoinPredicate = rightOuterJoinPushDownResult.getPostJoinPredicate();
@@ -630,7 +633,8 @@ public class PredicatePushDown
                             leftEffectivePredicate,
                             rightEffectivePredicate,
                             joinPredicate,
-                            node.getLeft().getOutputSymbols());
+                            node.getLeft().getOutputSymbols(),
+                            node.getRight().getOutputSymbols());
                     leftPredicate = innerJoinPushDownResult.getLeftPredicate();
                     rightPredicate = innerJoinPushDownResult.getRightPredicate();
                     postJoinPredicate = innerJoinPushDownResult.getPostJoinPredicate();
@@ -642,7 +646,8 @@ public class PredicatePushDown
                             leftEffectivePredicate,
                             rightEffectivePredicate,
                             joinPredicate,
-                            node.getLeft().getOutputSymbols());
+                            node.getLeft().getOutputSymbols(),
+                            node.getRight().getOutputSymbols());
                     leftPredicate = leftOuterJoinPushDownResult.getOuterJoinPredicate();
                     rightPredicate = leftOuterJoinPushDownResult.getInnerJoinPredicate();
                     postJoinPredicate = leftOuterJoinPushDownResult.getPostJoinPredicate();
@@ -704,10 +709,16 @@ public class PredicatePushDown
             return symbolAllocator.newSymbol(expression, typeAnalyzer.getType(session, symbolAllocator.getTypes(), expression));
         }
 
-        private static OuterJoinPushDownResult processLimitedOuterJoin(Expression inheritedPredicate, Expression outerEffectivePredicate, Expression innerEffectivePredicate, Expression joinPredicate, Collection<Symbol> outerSymbols)
+        private static OuterJoinPushDownResult processLimitedOuterJoin(
+                Expression inheritedPredicate,
+                Expression outerEffectivePredicate,
+                Expression innerEffectivePredicate,
+                Expression joinPredicate,
+                Collection<Symbol> outerSymbols,
+                Collection<Symbol> innerSymbols)
         {
             checkArgument(Iterables.all(SymbolsExtractor.extractUnique(outerEffectivePredicate), in(outerSymbols)), "outerEffectivePredicate must only contain symbols from outerSymbols");
-            checkArgument(Iterables.all(SymbolsExtractor.extractUnique(innerEffectivePredicate), not(in(outerSymbols))), "innerEffectivePredicate must not contain symbols from outerSymbols");
+            checkArgument(Iterables.all(SymbolsExtractor.extractUnique(innerEffectivePredicate), in(innerSymbols)), "innerEffectivePredicate must only contain symbols from innerSymbols");
 
             ImmutableList.Builder<Expression> outerPushdownConjuncts = ImmutableList.builder();
             ImmutableList.Builder<Expression> innerPushdownConjuncts = ImmutableList.builder();
@@ -738,7 +749,7 @@ public class PredicatePushDown
                     outerPushdownConjuncts.add(outerRewritten);
 
                     // A conjunct can only be pushed down into an inner side if it can be rewritten in terms of the outer side
-                    Expression innerRewritten = potentialNullSymbolInference.rewrite(outerRewritten, not(in(outerSymbols)));
+                    Expression innerRewritten = potentialNullSymbolInference.rewrite(outerRewritten, in(innerSymbols));
                     if (innerRewritten != null) {
                         innerPushdownConjuncts.add(innerRewritten);
                     }
@@ -754,7 +765,7 @@ public class PredicatePushDown
 
             // See if we can push down any outer effective predicates to the inner side
             for (Expression conjunct : EqualityInference.nonInferrableConjuncts(outerEffectivePredicate)) {
-                Expression rewritten = potentialNullSymbolInference.rewrite(conjunct, not(in(outerSymbols)));
+                Expression rewritten = potentialNullSymbolInference.rewrite(conjunct, in(innerSymbols));
                 if (rewritten != null) {
                     innerPushdownConjuncts.add(rewritten);
                 }
@@ -762,7 +773,7 @@ public class PredicatePushDown
 
             // See if we can push down join predicates to the inner side
             for (Expression conjunct : EqualityInference.nonInferrableConjuncts(joinPredicate)) {
-                Expression innerRewritten = potentialNullSymbolInference.rewrite(conjunct, not(in(outerSymbols)));
+                Expression innerRewritten = potentialNullSymbolInference.rewrite(conjunct, in(innerSymbols));
                 if (innerRewritten != null) {
                     innerPushdownConjuncts.add(innerRewritten);
                 }
@@ -775,10 +786,10 @@ public class PredicatePushDown
             // SELECT * FROM nation LEFT OUTER JOIN region ON nation.regionkey = region.regionkey and nation.name = region.name WHERE nation.name = 'blah'
 
             EqualityInference potentialNullSymbolInferenceWithoutInnerInferred = EqualityInference.newInstance(outerOnlyInheritedEqualities, outerEffectivePredicate, joinPredicate);
-            innerPushdownConjuncts.addAll(potentialNullSymbolInferenceWithoutInnerInferred.generateEqualitiesPartitionedBy(not(in(outerSymbols))).getScopeEqualities());
+            innerPushdownConjuncts.addAll(potentialNullSymbolInferenceWithoutInnerInferred.generateEqualitiesPartitionedBy(in(innerSymbols)).getScopeEqualities());
 
             // TODO: we can further improve simplifying the equalities by considering other relationships from the outer side
-            EqualityInference.EqualityPartition joinEqualityPartition = EqualityInference.newInstance(joinPredicate).generateEqualitiesPartitionedBy(not(in(outerSymbols)));
+            EqualityInference.EqualityPartition joinEqualityPartition = EqualityInference.newInstance(joinPredicate).generateEqualitiesPartitionedBy(in(innerSymbols));
             innerPushdownConjuncts.addAll(joinEqualityPartition.getScopeEqualities());
             joinConjuncts.addAll(joinEqualityPartition.getScopeComplementEqualities())
                     .addAll(joinEqualityPartition.getScopeStraddlingEqualities());
@@ -825,10 +836,16 @@ public class PredicatePushDown
             }
         }
 
-        private static InnerJoinPushDownResult processInnerJoin(Expression inheritedPredicate, Expression leftEffectivePredicate, Expression rightEffectivePredicate, Expression joinPredicate, Collection<Symbol> leftSymbols)
+        private static InnerJoinPushDownResult processInnerJoin(
+                Expression inheritedPredicate,
+                Expression leftEffectivePredicate,
+                Expression rightEffectivePredicate,
+                Expression joinPredicate,
+                Collection<Symbol> leftSymbols,
+                Collection<Symbol> rightSymbols)
         {
             checkArgument(Iterables.all(SymbolsExtractor.extractUnique(leftEffectivePredicate), in(leftSymbols)), "leftEffectivePredicate must only contain symbols from leftSymbols");
-            checkArgument(Iterables.all(SymbolsExtractor.extractUnique(rightEffectivePredicate), not(in(leftSymbols))), "rightEffectivePredicate must not contain symbols from leftSymbols");
+            checkArgument(Iterables.all(SymbolsExtractor.extractUnique(rightEffectivePredicate), in(rightSymbols)), "rightEffectivePredicate must only contain symbols from rightSymbols");
 
             ImmutableList.Builder<Expression> leftPushDownConjuncts = ImmutableList.builder();
             ImmutableList.Builder<Expression> rightPushDownConjuncts = ImmutableList.builder();
@@ -856,7 +873,7 @@ public class PredicatePushDown
                     leftPushDownConjuncts.add(leftRewrittenConjunct);
                 }
 
-                Expression rightRewrittenConjunct = allInference.rewrite(conjunct, not(in(leftSymbols)));
+                Expression rightRewrittenConjunct = allInference.rewrite(conjunct, in(rightSymbols));
                 if (rightRewrittenConjunct != null) {
                     rightPushDownConjuncts.add(rightRewrittenConjunct);
                 }
@@ -877,7 +894,7 @@ public class PredicatePushDown
 
             // See if we can push the left effective predicate to the right side
             for (Expression conjunct : EqualityInference.nonInferrableConjuncts(leftEffectivePredicate)) {
-                Expression rewritten = allInference.rewrite(conjunct, not(in(leftSymbols)));
+                Expression rewritten = allInference.rewrite(conjunct, in(rightSymbols));
                 if (rewritten != null) {
                     rightPushDownConjuncts.add(rewritten);
                 }
@@ -890,7 +907,7 @@ public class PredicatePushDown
                     leftPushDownConjuncts.add(leftRewritten);
                 }
 
-                Expression rightRewritten = allInference.rewrite(conjunct, not(in(leftSymbols)));
+                Expression rightRewritten = allInference.rewrite(conjunct, in(rightSymbols));
                 if (rightRewritten != null) {
                     rightPushDownConjuncts.add(rightRewritten);
                 }
@@ -902,7 +919,7 @@ public class PredicatePushDown
 
             // Add equalities from the inference back in
             leftPushDownConjuncts.addAll(allInferenceWithoutLeftInferred.generateEqualitiesPartitionedBy(in(leftSymbols)).getScopeEqualities());
-            rightPushDownConjuncts.addAll(allInferenceWithoutRightInferred.generateEqualitiesPartitionedBy(not(in(leftSymbols))).getScopeEqualities());
+            rightPushDownConjuncts.addAll(allInferenceWithoutRightInferred.generateEqualitiesPartitionedBy(in(rightSymbols)).getScopeEqualities());
             joinConjuncts.addAll(allInference.generateEqualitiesPartitionedBy(in(leftSymbols)::apply).getScopeStraddlingEqualities()); // scope straddling equalities get dropped in as part of the join predicate
 
             return new InnerJoinPushDownResult(combineConjuncts(leftPushDownConjuncts.build()), combineConjuncts(rightPushDownConjuncts.build()), combineConjuncts(joinConjuncts.build()), TRUE_LITERAL);
