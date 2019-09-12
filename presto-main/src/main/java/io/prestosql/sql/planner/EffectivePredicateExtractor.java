@@ -58,7 +58,6 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
 import static io.prestosql.sql.ExpressionUtils.expressionOrNullSymbols;
@@ -428,16 +427,17 @@ public class EffectivePredicateExtractor
             EqualityInference equalityInference = EqualityInference.newInstance(expression);
 
             ImmutableList.Builder<Expression> effectiveConjuncts = ImmutableList.builder();
+            Set<Symbol> scope = ImmutableSet.copyOf(symbols);
             for (Expression conjunct : EqualityInference.nonInferrableConjuncts(expression)) {
                 if (DeterminismEvaluator.isDeterministic(conjunct)) {
-                    Expression rewritten = equalityInference.rewrite(conjunct, in(symbols));
+                    Expression rewritten = equalityInference.rewrite(conjunct, scope);
                     if (rewritten != null) {
                         effectiveConjuncts.add(rewritten);
                     }
                 }
             }
 
-            effectiveConjuncts.addAll(equalityInference.generateEqualitiesPartitionedBy(in(symbols)).getScopeEqualities());
+            effectiveConjuncts.addAll(equalityInference.generateEqualitiesPartitionedBy(scope).getScopeEqualities());
 
             return combineConjuncts(effectiveConjuncts.build());
         }
