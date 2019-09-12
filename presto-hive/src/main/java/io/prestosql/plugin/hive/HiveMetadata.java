@@ -658,7 +658,16 @@ public class HiveMetadata
         if (!prefix.getTable().isPresent()) {
             return listTables(session, prefix.getSchema());
         }
-        return ImmutableList.of(prefix.toSchemaTableName());
+        SchemaTableName tableName = prefix.toSchemaTableName();
+        try {
+            if (!metastore.getTable(tableName.getSchemaName(), tableName.getTableName()).isPresent()) {
+                return ImmutableList.of();
+            }
+        }
+        catch (HiveViewNotSupportedException e) {
+            // exists, would be returned by listTables from schema
+        }
+        return ImmutableList.of(tableName);
     }
 
     /**
