@@ -3599,6 +3599,63 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testShowTablePrivileges()
+    {
+        try {
+            assertUpdate("CREATE SCHEMA bar");
+            assertUpdate("CREATE TABLE bar.one(t integer)");
+            assertUpdate("CREATE TABLE bar.two(t integer)");
+            assertUpdate("CREATE VIEW bar.three AS SELECT t FROM bar.one");
+            assertUpdate("CREATE SCHEMA foo"); // `foo.two` does not exist. Make sure this doesn't incorrectly show up in listing.
+
+            computeActual("SELECT * FROM information_schema.table_privileges"); // must not fail
+            assertQuery(
+                    "SELECT * FROM information_schema.table_privileges WHERE table_schema = 'bar'",
+                    "VALUES " +
+                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'one', 'SELECT', 'YES', null)," +
+                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'one', 'DELETE', 'YES', null)," +
+                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'one', 'INSERT', 'YES', null)," +
+                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'one', 'UPDATE', 'YES', null)," +
+                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'two', 'SELECT', 'YES', null)," +
+                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'two', 'DELETE', 'YES', null)," +
+                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'two', 'INSERT', 'YES', null)," +
+                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'two', 'UPDATE', 'YES', null)," +
+                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'three', 'SELECT', 'YES', null)," +
+                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'three', 'DELETE', 'YES', null)," +
+                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'three', 'INSERT', 'YES', null)," +
+                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'three', 'UPDATE', 'YES', null)");
+            assertQuery(
+                    "SELECT * FROM information_schema.table_privileges WHERE table_schema = 'bar' AND table_name = 'two'",
+                    "VALUES " +
+                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'two', 'SELECT', 'YES', null)," +
+                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'two', 'DELETE', 'YES', null)," +
+                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'two', 'INSERT', 'YES', null)," +
+                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'two', 'UPDATE', 'YES', null)");
+            assertQuery(
+                    "SELECT * FROM information_schema.table_privileges WHERE table_name = 'two'",
+                    "VALUES " +
+                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'two', 'SELECT', 'YES', null)," +
+                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'two', 'DELETE', 'YES', null)," +
+                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'two', 'INSERT', 'YES', null)," +
+                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'two', 'UPDATE', 'YES', null)");
+            assertQuery(
+                    "SELECT * FROM information_schema.table_privileges WHERE table_name = 'three'",
+                    "VALUES " +
+                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'three', 'SELECT', 'YES', null)," +
+                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'three', 'DELETE', 'YES', null)," +
+                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'three', 'INSERT', 'YES', null)," +
+                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'three', 'UPDATE', 'YES', null)");
+        }
+        finally {
+            computeActual("DROP SCHEMA IF EXISTS foo");
+            computeActual("DROP VIEW IF EXISTS bar.three");
+            computeActual("DROP TABLE IF EXISTS bar.two");
+            computeActual("DROP TABLE IF EXISTS bar.one");
+            computeActual("DROP SCHEMA IF EXISTS bar");
+        }
+    }
+
+    @Test
     public void testCurrentUserInView()
     {
         checkState(getSession().getCatalog().isPresent(), "catalog is not set");
