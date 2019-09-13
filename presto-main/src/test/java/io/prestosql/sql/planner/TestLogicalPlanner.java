@@ -1212,4 +1212,23 @@ public class TestLogicalPlanner
                                                                 node(MarkDistinctNode.class,
                                                                         tableScan("lineitem", ImmutableMap.of("suppkey", "suppkey", "partkey", "partkey"))))))))));
     }
+
+    @Test
+    public void testRedundantHashRemovalForUnionAllAndMarkDistinct()
+    {
+        assertDistributedPlan(
+                "SELECT count(distinct(custkey)), count(distinct(nationkey)) FROM ((SELECT custkey, nationkey FROM customer) UNION ALL ( SELECT custkey, custkey FROM customer))",
+                output(
+                        anyTree(
+                                node(MarkDistinctNode.class,
+                                anyTree(
+                                        node(MarkDistinctNode.class,
+                                                exchange(LOCAL, REPARTITION,
+                                                        exchange(REMOTE, REPARTITION,
+                                                                project(ImmutableMap.of("hash_custkey", expression("combine_hash(bigint '0', COALESCE(\"$operator$hash_code\"(custkey), 0))"), "hash_nationkey", expression("combine_hash(bigint '0', COALESCE(\"$operator$hash_code\"(nationkey), 0))")),
+                                                                        tableScan("customer", ImmutableMap.of("custkey", "custkey", "nationkey", "nationkey")))),
+                                                        exchange(REMOTE, REPARTITION,
+                                                                node(ProjectNode.class,
+                                                                        node(TableScanNode.class))))))))));
+    }
 }
