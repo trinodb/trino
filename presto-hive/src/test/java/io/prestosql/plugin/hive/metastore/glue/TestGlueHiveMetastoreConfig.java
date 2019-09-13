@@ -35,7 +35,9 @@ public class TestGlueHiveMetastoreConfig
                 .setIamRole(null)
                 .setAwsAccessKey(null)
                 .setAwsSecretKey(null)
-                .setCatalogId(null));
+                .setAwsCredentialsProvider(null)
+                .setCatalogId(null)
+                .setUseInstanceCredentials(false));
     }
 
     @Test
@@ -49,7 +51,9 @@ public class TestGlueHiveMetastoreConfig
                 .put("hive.metastore.glue.iam-role", "role")
                 .put("hive.metastore.glue.aws-access-key", "ABC")
                 .put("hive.metastore.glue.aws-secret-key", "DEF")
+                .put("hive.metastore.glue.aws-credentials-provider", "custom")
                 .put("hive.metastore.glue.catalogid", "0123456789")
+                .put("hive.metastore.glue.use-instance-credentials", "true")
                 .build();
 
         GlueHiveMetastoreConfig expected = new GlueHiveMetastoreConfig()
@@ -60,7 +64,9 @@ public class TestGlueHiveMetastoreConfig
                 .setIamRole("role")
                 .setAwsAccessKey("ABC")
                 .setAwsSecretKey("DEF")
-                .setCatalogId("0123456789");
+                .setAwsCredentialsProvider("custom")
+                .setCatalogId("0123456789")
+                .setUseInstanceCredentials(true);
 
         assertFullMapping(properties, expected);
     }

@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive;
+package io.prestosql.plugin.hive.util;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
@@ -26,11 +26,12 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
 import io.prestosql.hadoop.TextLineLengthLimitExceededException;
+import io.prestosql.plugin.hive.HiveColumnHandle;
+import io.prestosql.plugin.hive.HivePartitionKey;
+import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.plugin.hive.avro.PrestoAvroSerDe;
 import io.prestosql.plugin.hive.metastore.Column;
 import io.prestosql.plugin.hive.metastore.Table;
-import io.prestosql.plugin.hive.util.ConfigurationUtils;
-import io.prestosql.plugin.hive.util.FooterAwareRecordReader;
 import io.prestosql.spi.ErrorCodeSupplier;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorViewDefinition;
@@ -101,7 +102,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Lists.newArrayList;
 import static com.google.common.collect.Lists.transform;
-import static io.prestosql.plugin.hive.HiveBucketing.isHiveBucketingV1;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.prestosql.plugin.hive.HiveColumnHandle.bucketColumnHandle;
@@ -115,10 +115,13 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALU
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_VIEW_DATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_SERDE_NOT_FOUND;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
+import static io.prestosql.plugin.hive.HiveMetadata.TEXT_SKIP_FOOTER_COUNT_KEY;
+import static io.prestosql.plugin.hive.HiveMetadata.TEXT_SKIP_HEADER_COUNT_KEY;
 import static io.prestosql.plugin.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static io.prestosql.plugin.hive.HiveType.toHiveTypes;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.copy;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.toJobConf;
+import static io.prestosql.plugin.hive.util.HiveBucketing.isHiveBucketingV1;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -283,7 +286,7 @@ public final class HiveUtil
         return Optional.ofNullable(compressionCodecFactory.getCodec(file));
     }
 
-    static InputFormat<?, ?> getInputFormat(Configuration configuration, Properties schema, boolean symlinkTarget)
+    public static InputFormat<?, ?> getInputFormat(Configuration configuration, Properties schema, boolean symlinkTarget)
     {
         String inputFormatName = getInputFormatName(schema);
         try {
@@ -316,7 +319,7 @@ public final class HiveUtil
         return (Class<? extends InputFormat<?, ?>>) clazz.asSubclass(InputFormat.class);
     }
 
-    static String getInputFormatName(Properties schema)
+    public static String getInputFormatName(Properties schema)
     {
         String name = schema.getProperty(FILE_INPUT_FORMAT);
         checkCondition(name != null, HIVE_INVALID_METADATA, "Table or partition is missing Hive input format property: %s", FILE_INPUT_FORMAT);
@@ -949,12 +952,12 @@ public final class HiveUtil
 
     public static int getHeaderCount(Properties schema)
     {
-        return getPositiveIntegerValue(schema, "skip.header.line.count", "0");
+        return getPositiveIntegerValue(schema, TEXT_SKIP_HEADER_COUNT_KEY, "0");
     }
 
     public static int getFooterCount(Properties schema)
     {
-        return getPositiveIntegerValue(schema, "skip.footer.line.count", "0");
+        return getPositiveIntegerValue(schema, TEXT_SKIP_FOOTER_COUNT_KEY, "0");
     }
 
     private static int getPositiveIntegerValue(Properties schema, String key, String defaultValue)

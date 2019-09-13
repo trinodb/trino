@@ -54,11 +54,12 @@ import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.prestosql.plugin.hive.HiveBasicStatistics.createEmptyStatistics;
-import static io.prestosql.plugin.hive.HiveUtil.toPartitionValues;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiPartition;
+import static io.prestosql.plugin.hive.util.HiveUtil.toPartitionValues;
 import static io.prestosql.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static java.util.Locale.US;
 import static java.util.Objects.requireNonNull;
@@ -281,6 +282,19 @@ public class InMemoryThriftMetastore
             }
         }
         return tables.build();
+    }
+
+    @Override
+    public synchronized List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
+    {
+        requireNonNull(parameterKey, "parameterKey is null");
+        requireNonNull(parameterValue, "parameterValue is null");
+
+        return relations.entrySet().stream()
+                .filter(entry -> entry.getKey().getSchemaName().equals(databaseName)
+                        && parameterValue.equals(entry.getValue().getParameters().get(parameterKey)))
+                .map(entry -> entry.getKey().getTableName())
+                .collect(toImmutableList());
     }
 
     @Override

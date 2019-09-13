@@ -53,7 +53,6 @@ import static io.prestosql.plugin.hive.HivePartition.UNPARTITIONED_ID;
 import static io.prestosql.plugin.hive.HivePartitionManager.parsePartition;
 import static io.prestosql.plugin.hive.HiveType.HIVE_LONG;
 import static io.prestosql.plugin.hive.HiveType.HIVE_STRING;
-import static io.prestosql.plugin.hive.HiveUtil.parsePartitionValue;
 import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createBooleanColumnStatistics;
 import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createDateColumnStatistics;
 import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createDecimalColumnStatistics;
@@ -72,6 +71,7 @@ import static io.prestosql.plugin.hive.statistics.MetastoreHiveStatisticsProvide
 import static io.prestosql.plugin.hive.statistics.MetastoreHiveStatisticsProvider.createDataColumnStatistics;
 import static io.prestosql.plugin.hive.statistics.MetastoreHiveStatisticsProvider.getPartitionsSample;
 import static io.prestosql.plugin.hive.statistics.MetastoreHiveStatisticsProvider.validatePartitionStatistics;
+import static io.prestosql.plugin.hive.util.HiveUtil.parsePartitionValue;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;

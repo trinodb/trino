@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive;
+package io.prestosql.plugin.hive.util;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.metastore.Warehouse;
@@ -30,9 +30,9 @@ import java.util.List;
 import java.util.Properties;
 
 import static io.airlift.testing.Assertions.assertInstanceOf;
-import static io.prestosql.plugin.hive.HiveUtil.getDeserializer;
-import static io.prestosql.plugin.hive.HiveUtil.parseHiveTimestamp;
-import static io.prestosql.plugin.hive.HiveUtil.toPartitionValues;
+import static io.prestosql.plugin.hive.util.HiveUtil.getDeserializer;
+import static io.prestosql.plugin.hive.util.HiveUtil.parseHiveTimestamp;
+import static io.prestosql.plugin.hive.util.HiveUtil.toPartitionValues;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_CLASS;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_FORMAT;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
@@ -97,7 +97,7 @@ public class TestHiveUtil
         return (time.getMillis() / factor) * factor;
     }
 
-    static DateTimeZone nonDefaultTimeZone()
+    public static DateTimeZone nonDefaultTimeZone()
     {
         String defaultId = DateTimeZone.getDefault().getID();
         for (String id : DateTimeZone.getAvailableIDs()) {

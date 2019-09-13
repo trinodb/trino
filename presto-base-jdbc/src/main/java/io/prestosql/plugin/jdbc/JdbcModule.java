@@ -21,7 +21,7 @@ import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import io.airlift.log.Logger;
 import io.prestosql.plugin.base.util.LoggingInvocationHandler;
-import io.prestosql.plugin.base.util.LoggingInvocationHandler.ParameterNamesProvider;
+import io.prestosql.plugin.base.util.LoggingInvocationHandler.ReflectiveParameterNamesProvider;
 import io.prestosql.plugin.jdbc.jmx.StatisticsAwareConnectionFactory;
 import io.prestosql.plugin.jdbc.jmx.StatisticsAwareJdbcClient;
 import io.prestosql.spi.connector.ConnectorAccessControl;
@@ -31,6 +31,7 @@ import static com.google.common.reflect.Reflection.newProxy;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -64,18 +65,27 @@ public class JdbcModule
     @Provides
     @Singleton
     @InternalBaseJdbc
-    public static JdbcClient createJdbcClientWithStats(JdbcClient client)
+    public JdbcClient createJdbcClientWithStats(JdbcClient client)
     {
         StatisticsAwareJdbcClient statisticsAwareJdbcClient = new StatisticsAwareJdbcClient(client);
 
-        Logger logger = Logger.get(JdbcClient.class);
-        if (!logger.isDebugEnabled()) {
-            return statisticsAwareJdbcClient;
-        }
+        Logger logger = Logger.get(format("io.prestosql.plugin.jdbc.%s.jdbcclient", catalogName));
 
-        ParameterNamesProvider parameterNamesProvider = new LoggingInvocationHandler.AirliftParameterNamesProvider(JdbcClient.class, StatisticsAwareJdbcClient.class);
-        LoggingInvocationHandler loggingInvocationHandler = new LoggingInvocationHandler(statisticsAwareJdbcClient, parameterNamesProvider, logger::debug);
-        return newProxy(JdbcClient.class, loggingInvocationHandler);
+        JdbcClient loggingInvocationsJdbcClient = newProxy(JdbcClient.class, new LoggingInvocationHandler(
+                statisticsAwareJdbcClient,
+                new ReflectiveParameterNamesProvider(),
+                logger::debug));
+
+        return new ForwardingJdbcClient() {
+            @Override
+            protected JdbcClient getDelegate()
+            {
+                if (logger.isDebugEnabled()) {
+                    return loggingInvocationsJdbcClient;
+                }
+                return statisticsAwareJdbcClient;
+            }
+        };
     }
 
     @Provides

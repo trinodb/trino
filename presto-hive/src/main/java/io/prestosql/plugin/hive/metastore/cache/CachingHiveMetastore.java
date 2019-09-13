@@ -35,6 +35,7 @@ import io.prestosql.plugin.hive.metastore.PartitionFilter;
 import io.prestosql.plugin.hive.metastore.PartitionWithStatistics;
 import io.prestosql.plugin.hive.metastore.PrincipalPrivileges;
 import io.prestosql.plugin.hive.metastore.Table;
+import io.prestosql.plugin.hive.metastore.TablesWithParameterCacheKey;
 import io.prestosql.plugin.hive.metastore.UserTableKey;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.security.RoleGrant;
@@ -86,6 +87,7 @@ public class CachingHiveMetastore
     private final LoadingCache<String, List<String>> databaseNamesCache;
     private final LoadingCache<HiveTableName, Optional<Table>> tableCache;
     private final LoadingCache<String, List<String>> tableNamesCache;
+    private final LoadingCache<TablesWithParameterCacheKey, List<String>> tablesWithParameterCache;
     private final LoadingCache<HiveTableName, PartitionStatistics> tableStatisticsCache;
     private final LoadingCache<HivePartitionName, PartitionStatistics> partitionStatisticsCache;
     private final LoadingCache<String, List<String>> viewNamesCache;
@@ -140,6 +142,9 @@ public class CachingHiveMetastore
 
         tableNamesCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
                 .build(asyncReloading(CacheLoader.from(this::loadAllTables), executor));
+
+        tablesWithParameterCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
+                .build(asyncReloading(CacheLoader.from(this::loadTablesMatchingParameter), executor));
 
         tableStatisticsCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
                 .build(asyncReloading(new CacheLoader<HiveTableName, PartitionStatistics>()
@@ -371,6 +376,18 @@ public class CachingHiveMetastore
     private List<String> loadAllTables(String databaseName)
     {
         return delegate.getAllTables(databaseName);
+    }
+
+    @Override
+    public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
+    {
+        TablesWithParameterCacheKey key = new TablesWithParameterCacheKey(databaseName, parameterKey, parameterValue);
+        return get(tablesWithParameterCache, key);
+    }
+
+    private List<String> loadTablesMatchingParameter(TablesWithParameterCacheKey key)
+    {
+        return delegate.getTablesWithParameter(key.getDatabaseName(), key.getParameterKey(), key.getParameterValue());
     }
 
     @Override

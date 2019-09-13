@@ -83,6 +83,12 @@ class UnimplementedHiveMetastore
     }
 
     @Override
+    public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public List<String> getAllViews(String databaseName)
     {
         throw new UnsupportedOperationException();

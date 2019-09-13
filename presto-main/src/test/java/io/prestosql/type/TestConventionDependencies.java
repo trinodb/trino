@@ -90,7 +90,7 @@ public class TestConventionDependencies
                         returnType = StandardTypes.INTEGER,
                         argumentTypes = {StandardTypes.INTEGER, StandardTypes.INTEGER},
                         convention = @Convention(arguments = {NEVER_NULL, BLOCK_POSITION}, result = FAIL_ON_NULL)) MethodHandle function,
-                @SqlType("array(int)") Block array)
+                @SqlType("array(integer)") Block array)
         {
             long sum = 0;
             for (int i = 0; i < array.getPositionCount(); i++) {

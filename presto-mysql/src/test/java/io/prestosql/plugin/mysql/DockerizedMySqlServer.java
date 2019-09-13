@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.mysql;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.testing.docker.DockerContainer;
 import io.prestosql.testing.docker.DockerContainer.HostPortProvider;
@@ -40,15 +39,15 @@ public class DockerizedMySqlServer
 
     public DockerizedMySqlServer()
     {
-        this.dockerContainer = new DockerContainer(
-                "mysql:8.0.15",
-                ImmutableList.of(MYSQL_PORT),
-                ImmutableMap.of(
+        this.dockerContainer = DockerContainer.forImage("mysql:8.0.15")
+                .setPorts(MYSQL_PORT)
+                .setEnvironment(ImmutableMap.of(
                         "MYSQL_ROOT_PASSWORD", MYSQL_ROOT_PASSWORD,
                         "MYSQL_USER", MYSQL_USER,
                         "MYSQL_PASSWORD", MYSQL_PASSWORD,
-                        "MYSQL_DATABASE", "tpch"),
-                DockerizedMySqlServer::healthCheck);
+                        "MYSQL_DATABASE", "tpch"))
+                .setHealthCheck(DockerizedMySqlServer::healthCheck)
+                .start();
     }
 
     private static void healthCheck(HostPortProvider hostPortProvider)

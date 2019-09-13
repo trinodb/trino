@@ -25,7 +25,7 @@ import java.util.concurrent.TimeUnit;
 public class CachingHiveMetastoreConfig
 {
     private Duration metastoreCacheTtl = new Duration(0, TimeUnit.SECONDS);
-    private Duration metastoreRefreshInterval = new Duration(0, TimeUnit.SECONDS);
+    private Duration metastoreRefreshInterval = new Duration(Integer.MAX_VALUE, TimeUnit.DAYS);
     private long metastoreCacheMaximumSize = 10000;
     private int maxMetastoreRefreshThreads = 100;
 

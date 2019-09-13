@@ -15,7 +15,6 @@ package io.prestosql.plugin.hive.metastore.thrift;
 
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.plugin.hive.HiveType;
-import io.prestosql.plugin.hive.HiveUtil;
 import io.prestosql.plugin.hive.PartitionStatistics;
 import io.prestosql.plugin.hive.metastore.Database;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
@@ -25,6 +24,7 @@ import io.prestosql.plugin.hive.metastore.Partition;
 import io.prestosql.plugin.hive.metastore.PartitionWithStatistics;
 import io.prestosql.plugin.hive.metastore.PrincipalPrivileges;
 import io.prestosql.plugin.hive.metastore.Table;
+import io.prestosql.plugin.hive.util.HiveUtil;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.SchemaNotFoundException;
 import io.prestosql.spi.connector.SchemaTableName;
@@ -123,6 +123,12 @@ public class BridgingHiveMetastore
     public List<String> getAllTables(String databaseName)
     {
         return delegate.getAllTables(databaseName);
+    }
+
+    @Override
+    public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
+    {
+        return delegate.getTablesWithParameter(databaseName, parameterKey, parameterValue);
     }
 
     @Override

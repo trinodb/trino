@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.sqlserver;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.testing.docker.DockerContainer;
 import io.prestosql.testing.docker.DockerContainer.HostPortProvider;
@@ -37,13 +36,13 @@ public final class TestingSqlServer
 
     public TestingSqlServer()
     {
-        this.dockerContainer = new DockerContainer(
-                "microsoft/mssql-server-linux:2017-CU13",
-                ImmutableList.of(SQL_SERVER_PORT),
-                ImmutableMap.of(
+        this.dockerContainer = DockerContainer.forImage("microsoft/mssql-server-linux:2017-CU13")
+                .setPorts(SQL_SERVER_PORT)
+                .setEnvironment(ImmutableMap.of(
                         "ACCEPT_EULA", "Y",
-                        "SA_PASSWORD", "SQLServerPass1"),
-                portProvider -> TestingSqlServer.execute(portProvider, "SELECT 1"));
+                        "SA_PASSWORD", "SQLServerPass1"))
+                .setHealthCheck(portProvider -> TestingSqlServer.execute(portProvider, "SELECT 1"))
+                .start();
     }
 
     public void execute(String sql)

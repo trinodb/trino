@@ -93,6 +93,7 @@ import static io.prestosql.sql.planner.assertions.PlanMatchPattern.strictProject
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.strictTableScan;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.topN;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.topNRowNumber;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.window;
 import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
@@ -468,6 +469,72 @@ public class TestLogicalPlanner
                         filter(
                                 "X = BIGINT '3'",
                                 tableScan("orders", ImmutableMap.of("X", "orderkey")))));
+    }
+
+    @Test
+    public void testCorrelatedJoinWithLimit()
+    {
+        // rewrite Limit to RowNumberNode
+        assertPlan(
+                "SELECT regionkey, n.name FROM region LEFT JOIN LATERAL (SELECT name FROM nation WHERE region.regionkey = regionkey LIMIT 2) n ON TRUE",
+                any(
+                        join(
+                                LEFT,
+                                ImmutableList.of(equiJoinClause("region_regionkey", "nation_regionkey")),
+                                any(tableScan("region", ImmutableMap.of("region_regionkey", "regionkey"))),
+                                any(rowNumber(
+                                        pattern -> pattern
+                                                .partitionBy(ImmutableList.of("nation_regionkey"))
+                                                .maxRowCountPerPartition(Optional.of(2)),
+                                        anyTree(tableScan("nation", ImmutableMap.of("nation_name", "name", "nation_regionkey", "regionkey"))))))));
+
+        // rewrite Limit to decorrelated Limit
+        assertPlan("SELECT regionkey, n.nationkey FROM region LEFT JOIN LATERAL (SELECT nationkey FROM nation WHERE region.regionkey = 3 LIMIT 2) n ON TRUE",
+                any(
+                        join(
+                                LEFT,
+                                ImmutableList.of(),
+                                Optional.of("region_regionkey = BIGINT '3'"),
+                                tableScan("region", ImmutableMap.of("region_regionkey", "regionkey")),
+                                limit(
+                                        2,
+                                        any(tableScan("nation", ImmutableMap.of("nation_nationkey", "nationkey")))))));
+    }
+
+    @Test
+    public void testCorrelatedJoinWithTopN()
+    {
+        // rewrite TopN to TopNRowNumberNode
+        assertPlan(
+                "SELECT regionkey, n.name FROM region LEFT JOIN LATERAL (SELECT name FROM nation WHERE region.regionkey = regionkey ORDER BY name LIMIT 2) n ON TRUE",
+                any(
+                        join(
+                                LEFT,
+                                ImmutableList.of(equiJoinClause("region_regionkey", "nation_regionkey")),
+                                any(tableScan("region", ImmutableMap.of("region_regionkey", "regionkey"))),
+                                any(topNRowNumber(
+                                        pattern -> pattern
+                                                .specification(
+                                                        ImmutableList.of("nation_regionkey"),
+                                                        ImmutableList.of("nation_name"),
+                                                        ImmutableMap.of("nation_name", SortOrder.ASC_NULLS_LAST))
+                                                .maxRowCountPerPartition(2)
+                                                .partial(false),
+                                        anyTree(tableScan("nation", ImmutableMap.of("nation_name", "name", "nation_regionkey", "regionkey"))))))));
+
+        // rewrite TopN to RowNumberNode
+        assertPlan(
+                "SELECT regionkey, n.name FROM region LEFT JOIN LATERAL (SELECT name FROM nation WHERE region.regionkey = regionkey ORDER BY regionkey LIMIT 2) n ON TRUE",
+                any(
+                        join(
+                                LEFT,
+                                ImmutableList.of(equiJoinClause("region_regionkey", "nation_regionkey")),
+                                any(tableScan("region", ImmutableMap.of("region_regionkey", "regionkey"))),
+                                any(rowNumber(
+                                        pattern -> pattern
+                                                .partitionBy(ImmutableList.of("nation_regionkey"))
+                                                .maxRowCountPerPartition(Optional.of(2)),
+                                        anyTree(tableScan("nation", ImmutableMap.of("nation_name", "name", "nation_regionkey", "regionkey"))))))));
     }
 
     @Test

@@ -42,4 +42,4 @@ Example configuration file:
     custom-property2=custom-value2
 
 Additionally, the coordinator must be configured to use password authentication
-and have HTTPS enabled.
+and have HTTPS enabled (or HTTPS forwarding enabled).

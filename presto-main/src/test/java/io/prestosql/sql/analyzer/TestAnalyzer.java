@@ -204,6 +204,23 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testRowDereferenceInCorrelatedSubquery()
+    {
+        assertFails("WITH " +
+                "    t(b) AS (VALUES row(cast(row(1) AS row(a bigint))))," +
+                "    u(b) AS (VALUES row(cast(row(1, 1) AS row(a bigint, b bigint))))" +
+                "SELECT b " +
+                "FROM t " +
+                "WHERE EXISTS (" +
+                "    SELECT b.a" + // this should be considered group-variant since it references u.b.a
+                "    FROM u" +
+                "    GROUP BY b.b" +
+                ")")
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessageMatching("line 1:171: 'b.a' must be an aggregate expression or appear in GROUP BY clause");
+    }
+
+    @Test
     public void testReferenceToOutputColumnFromOrderByAggregation()
     {
         assertFails("SELECT max(a) AS a FROM (values (1,2)) t(a,b) GROUP BY b ORDER BY max(a+b)")
@@ -741,6 +758,15 @@ public class TestAnalyzer
                 .hasErrorCode(NESTED_WINDOW);
         assertFails("SELECT avg(a) OVER (ORDER BY sum(b) OVER ()) FROM t1")
                 .hasErrorCode(NESTED_WINDOW);
+    }
+
+    @Test
+    public void testWindowAttributesForLagLeadFunctions()
+    {
+        assertFails("SELECT lag(x, 2) OVER() FROM (VALUES 1, 2, 3, 4, 5) t(x) ")
+                .hasErrorCode(MISSING_ORDER_BY);
+        assertFails("SELECT lag(x, 2) OVER(ORDER BY x ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) FROM (VALUES 1, 2, 3, 4, 5) t(x) ")
+                .hasErrorCode(INVALID_WINDOW_FRAME);
     }
 
     @Test

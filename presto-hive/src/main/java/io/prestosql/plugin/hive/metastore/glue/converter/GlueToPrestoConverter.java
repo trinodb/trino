@@ -41,6 +41,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
+import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
 
 public final class GlueToPrestoConverter
 {
@@ -69,7 +70,8 @@ public final class GlueToPrestoConverter
                 .setDatabaseName(dbName)
                 .setTableName(glueTable.getName())
                 .setOwner(nullToEmpty(glueTable.getOwner()))
-                .setTableType(glueTable.getTableType())
+                // Athena treats missing table type as EXTERNAL_TABLE.
+                .setTableType(firstNonNull(glueTable.getTableType(), EXTERNAL_TABLE.name()))
                 .setDataColumns(sd.getColumns().stream()
                         .map(GlueToPrestoConverter::convertColumn)
                         .collect(toList()))

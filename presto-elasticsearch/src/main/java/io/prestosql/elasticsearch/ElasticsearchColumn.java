@@ -29,7 +29,6 @@ public final class ElasticsearchColumn
     private final String name;
     private final Type type;
     private final String jsonPath;
-    private final String jsonType;
     private final boolean isList;
     private final int ordinalPosition;
 
@@ -38,7 +37,6 @@ public final class ElasticsearchColumn
             @JsonProperty("name") String name,
             @JsonProperty("type") Type type,
             @JsonProperty("jsonPath") String jsonPath,
-            @JsonProperty("jsonType") String jsonType,
             @JsonProperty("isList") boolean isList,
             @JsonProperty("ordinalPosition") int ordinalPosition)
     {
@@ -46,7 +44,6 @@ public final class ElasticsearchColumn
         this.name = name;
         this.type = requireNonNull(type, "type is null");
         this.jsonPath = requireNonNull(jsonPath, "jsonPath is null");
-        this.jsonType = requireNonNull(jsonType, "jsonType is null");
         this.isList = isList;
         this.ordinalPosition = ordinalPosition;
     }
@@ -70,12 +67,6 @@ public final class ElasticsearchColumn
     }
 
     @JsonProperty
-    public String getJsonType()
-    {
-        return jsonType;
-    }
-
-    @JsonProperty
     public boolean isList()
     {
         return isList;
@@ -90,7 +81,7 @@ public final class ElasticsearchColumn
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, type, jsonPath, jsonType, isList, ordinalPosition);
+        return Objects.hash(name, type, jsonPath, isList, ordinalPosition);
     }
 
     @Override
@@ -107,7 +98,6 @@ public final class ElasticsearchColumn
         return Objects.equals(this.name, other.name) &&
                 Objects.equals(this.type, other.type) &&
                 Objects.equals(this.jsonPath, other.jsonPath) &&
-                Objects.equals(this.jsonType, other.jsonType) &&
                 Objects.equals(this.isList, other.isList) &&
                 Objects.equals(this.ordinalPosition, other.ordinalPosition);
     }
@@ -119,7 +109,6 @@ public final class ElasticsearchColumn
                 .add("name", name)
                 .add("type", type)
                 .add("jsonPath", jsonPath)
-                .add("jsonType", jsonType)
                 .add("isList", isList)
                 .add("ordinalPosition", ordinalPosition)
                 .toString();

@@ -16,6 +16,7 @@ package io.prestosql.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.io.Files;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.cost.StatsAndCosts;
@@ -101,7 +102,7 @@ import static io.prestosql.plugin.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY
 import static io.prestosql.plugin.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static io.prestosql.plugin.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static io.prestosql.plugin.hive.HiveTestUtils.TYPE_MANAGER;
-import static io.prestosql.plugin.hive.HiveUtil.columnExtraInfo;
+import static io.prestosql.plugin.hive.util.HiveUtil.columnExtraInfo;
 import static io.prestosql.spi.predicate.Marker.Bound.EXACTLY;
 import static io.prestosql.spi.security.SelectedRole.Type.ROLE;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -2169,15 +2170,17 @@ public class TestHiveIntegrationSmokeTest
     {
         File tempDir = createTempDir();
         File dataFile = new File(tempDir, "test.txt");
-        asCharSink(dataFile, UTF_8).write("hello\nworld\n");
+        Files.write("hello\u0001world\nbye\u0001world", dataFile, UTF_8);
 
         @Language("SQL") String createTableSql = format("" +
                         "CREATE TABLE %s.%s.test_create_external (\n" +
+                        "   action varchar,\n" +
                         "   name varchar\n" +
                         ")\n" +
                         "WITH (\n" +
                         "   external_location = '%s',\n" +
-                        "   format = 'TEXTFILE'\n" +
+                        "   format = 'TEXTFILE',\n" +
+                        "   textfile_field_separator = U&'\\0001'\n" +
                         ")",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
@@ -2187,10 +2190,47 @@ public class TestHiveIntegrationSmokeTest
         MaterializedResult actual = computeActual("SHOW CREATE TABLE test_create_external");
         assertEquals(actual.getOnlyValue(), createTableSql);
 
-        actual = computeActual("SELECT name FROM test_create_external");
-        assertEquals(actual.getOnlyColumnAsSet(), ImmutableSet.of("hello", "world"));
-
+        assertQuery("SELECT action, name FROM test_create_external", "VALUES ('hello', 'world'), ('bye', 'world')");
         assertUpdate("DROP TABLE test_create_external");
+
+        // file should still exist after drop
+        assertFile(dataFile);
+
+        deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
+    }
+
+    @Test
+    public void testCreateExternalTableTextFileFieldSeparatorEscape()
+            throws Exception
+    {
+        String tableName = "test_create_external_text_file_with_field_separator_and_escape";
+
+        File tempDir = createTempDir();
+        File dataFile = new File(tempDir, "test.txt");
+        Files.write("HelloEFFWorld\nByeEFFWorld", dataFile, UTF_8);
+
+        @Language("SQL") String createTableSql = format("" +
+                        "CREATE TABLE %s.%s.%s (\n" +
+                        "   action varchar,\n" +
+                        "   name varchar\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   external_location = '%s',\n" +
+                        "   format = 'TEXTFILE',\n" +
+                        "   textfile_field_separator = 'F',\n" +
+                        "   textfile_field_separator_escape = 'E'\n" +
+                        ")",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                tableName,
+                new Path(tempDir.toURI().toASCIIString()).toString());
+
+        assertUpdate(createTableSql);
+        MaterializedResult actual = computeActual("SHOW CREATE TABLE test_create_external_text_file_with_field_separator_and_escape");
+        assertEquals(actual.getOnlyValue(), createTableSql);
+
+        assertQuery("SELECT action, name FROM test_create_external_text_file_with_field_separator_and_escape", "VALUES ('HelloF', 'World'), ('ByeF', 'World')");
+        assertUpdate("DROP TABLE test_create_external_text_file_with_field_separator_and_escape");
 
         // file should still exist after drop
         assertFile(dataFile);

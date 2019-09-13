@@ -188,7 +188,7 @@ public class TestMergeWindows
     {
         @Language("SQL") String sql = "SELECT " +
                 "SUM(quantity) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_A, " +
-                "LAG(quantity, 1, 0.0E0) OVER (PARTITION BY orderkey ORDER BY shipdate ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_B, " +
+                "NTH_VALUE(quantity, 1) OVER (PARTITION BY orderkey ORDER BY shipdate ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) first_quantity_B, " +
                 "SUM(discount) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_discount_A " +
                 "FROM lineitem";
 
@@ -200,8 +200,8 @@ public class TestMergeWindows
                                         .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                 .specification(specificationB)
-                                                .addFunction(functionCall("lag", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS, "ONE", "ZERO"))),
-                                        project(ImmutableMap.of("ONE", expression("CAST(1 AS bigint)"), "ZERO", expression("0.0E0")),
+                                                .addFunction(functionCall("nth_value", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS, "ONE"))),
+                                        project(ImmutableMap.of("ONE", expression("CAST(1 AS bigint)")),
                                                 LINEITEM_TABLESCAN_DOQSS)))));
     }
 
@@ -243,7 +243,7 @@ public class TestMergeWindows
     {
         @Language("SQL") String sql = "SELECT " +
                 "SUM(quantity) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_A, " +
-                "LAG(quantity, 1, 0.0E0) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_B, " +
+                "NTH_VALUE(quantity, 1) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) first_quantity_A, " +
                 "SUM(discount) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_discount_A " +
                 "FROM lineitem";
 
@@ -252,9 +252,9 @@ public class TestMergeWindows
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(specificationA)
                                         .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(DISCOUNT_ALIAS)))
-                                        .addFunction(functionCall("lag", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS, "ONE", "ZERO")))
+                                        .addFunction(functionCall("nth_value", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS, "ONE")))
                                         .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
-                                project(ImmutableMap.of("ONE", expression("CAST(1 AS bigint)"), "ZERO", expression("0.0E0")),
+                                project(ImmutableMap.of("ONE", expression("CAST(1 AS bigint)")),
                                         LINEITEM_TABLESCAN_DOQS))));
     }
 

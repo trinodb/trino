@@ -42,6 +42,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.MoreCollectors.toOptional;
+import static com.google.common.primitives.Ints.asList;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static java.lang.String.format;
 import static java.time.temporal.ChronoUnit.MINUTES;
@@ -58,17 +59,21 @@ public final class DockerContainer
     private static final String HOST_IP = "127.0.0.1";
     private final String image;
     private final Map<String, String> environment;
+    private final List<String> capabilities;
+    private final CheckedConsumer<HostPortProvider> healthCheck;
     private DockerClient dockerClient;
     private String containerId;
 
     private Map<Integer, Integer> hostPorts;
 
-    public DockerContainer(String image, List<Integer> ports, Map<String, String> environment, CheckedConsumer<HostPortProvider> healthCheck)
+    private DockerContainer(String image, List<Integer> ports, Map<String, String> environment, List<String> capabilities, CheckedConsumer<HostPortProvider> healthCheck)
     {
         this.image = requireNonNull(image, "image is null");
         this.environment = ImmutableMap.copyOf(requireNonNull(environment, "environment is null"));
+        this.capabilities = ImmutableList.copyOf(requireNonNull(capabilities, "capabilities is null"));
+        this.healthCheck = requireNonNull(healthCheck, "healthCheck is null");
         try {
-            startContainer(ports, healthCheck);
+            startContainer(ports);
         }
         catch (Exception e) {
             closeAllSuppress(e, this);
@@ -76,7 +81,7 @@ public final class DockerContainer
         }
     }
 
-    private void startContainer(List<Integer> ports, CheckedConsumer<HostPortProvider> healthCheck)
+    private void startContainer(List<Integer> ports)
             throws Exception
     {
         dockerClient = DefaultDockerClient.fromEnv().build();
@@ -106,7 +111,7 @@ public final class DockerContainer
 
         LOG.info("Auto-assigned host ports are %s", hostPorts);
 
-        waitForContainer(healthCheck);
+        waitForContainer();
     }
 
     private boolean isContainerUp()
@@ -136,6 +141,7 @@ public final class DockerContainer
         containerId = dockerClient.createContainer(ContainerConfig.builder()
                 .hostConfig(HostConfig.builder()
                         .portBindings(portBindings)
+                        .capAdd(capabilities)
                         .build())
                 .exposedPorts(exposedPorts)
                 .env(environment.entrySet().stream()
@@ -154,7 +160,7 @@ public final class DockerContainer
         waitForContainerPorts(ports);
     }
 
-    private void waitForContainer(CheckedConsumer<HostPortProvider> healthCheck)
+    private void waitForContainer()
     {
         RetryPolicy<Object> retryPolicy = new RetryPolicy<>()
                 .withMaxDuration(Duration.of(10, MINUTES))
@@ -247,5 +253,53 @@ public final class DockerContainer
     public interface HostPortProvider
     {
         int getHostPort(int containerPort);
+    }
+
+    public static Builder forImage(String image)
+    {
+        return new Builder(image);
+    }
+
+    public static class Builder
+    {
+        private final String image;
+        private List<Integer> ports = ImmutableList.of();
+        private Map<String, String> environment = ImmutableMap.of();
+        private List<String> capabilities = ImmutableList.of();
+        private CheckedConsumer<HostPortProvider> healthCheck = hostPortProvider -> {};
+
+        private Builder(String image)
+        {
+            this.image = requireNonNull(image, "image is null");
+        }
+
+        public Builder setPorts(int... ports)
+        {
+            this.ports = ImmutableList.copyOf(asList(requireNonNull(ports, "ports is null")));
+            return this;
+        }
+
+        public Builder setEnvironment(Map<String, String> environment)
+        {
+            this.environment = ImmutableMap.copyOf(requireNonNull(environment, "environment is null"));
+            return this;
+        }
+
+        public Builder setCapabilities(String... capabilities)
+        {
+            this.capabilities = ImmutableList.copyOf(requireNonNull(capabilities, "capabilities is null"));
+            return this;
+        }
+
+        public Builder setHealthCheck(CheckedConsumer<HostPortProvider> healthCheck)
+        {
+            this.healthCheck = requireNonNull(healthCheck, "healthCheck is null");
+            return this;
+        }
+
+        public DockerContainer start()
+        {
+            return new DockerContainer(image, ports, environment, capabilities, healthCheck);
+        }
     }
 }

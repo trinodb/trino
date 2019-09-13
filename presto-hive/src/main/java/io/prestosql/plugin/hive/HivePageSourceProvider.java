@@ -51,7 +51,7 @@ import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
 import static io.prestosql.plugin.hive.HivePageSourceProvider.ColumnMapping.toColumnHandles;
-import static io.prestosql.plugin.hive.HiveUtil.getPrefilledColumnValue;
+import static io.prestosql.plugin.hive.util.HiveUtil.getPrefilledColumnValue;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 

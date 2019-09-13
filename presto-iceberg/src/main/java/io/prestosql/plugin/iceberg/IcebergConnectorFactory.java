@@ -24,6 +24,7 @@ import io.prestosql.plugin.base.security.AllowAllAccessControl;
 import io.prestosql.plugin.hive.HiveCatalogName;
 import io.prestosql.plugin.hive.NodeVersion;
 import io.prestosql.plugin.hive.authentication.HiveAuthenticationModule;
+import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.HiveMetastoreModule;
 import io.prestosql.plugin.hive.s3.HiveS3Module;
 import io.prestosql.spi.NodeManager;
@@ -48,10 +49,18 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static java.util.Objects.requireNonNull;
 
 public class IcebergConnectorFactory
         implements ConnectorFactory
 {
+    private final Optional<HiveMetastore> metastore;
+
+    public IcebergConnectorFactory(Optional<HiveMetastore> metastore)
+    {
+        this.metastore = requireNonNull(metastore, "metastore is null");
+    }
+
     @Override
     public String getName()
     {
@@ -76,7 +85,7 @@ public class IcebergConnectorFactory
                     new IcebergModule(),
                     new HiveS3Module(),
                     new HiveAuthenticationModule(),
-                    new HiveMetastoreModule(Optional.empty()),
+                    new HiveMetastoreModule(metastore),
                     new MBeanServerModule(),
                     binder -> {
                         binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getNodeManager().getCurrentNode().getVersion()));

@@ -54,7 +54,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Sets.intersection;
 import static io.prestosql.plugin.hive.HiveBasicStatistics.createZeroStatistics;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_UNKNOWN_COLUMN_STATISTIC_TYPE;
-import static io.prestosql.plugin.hive.HiveWriteUtils.createPartitionValues;
+import static io.prestosql.plugin.hive.util.HiveWriteUtils.createPartitionValues;
 import static io.prestosql.plugin.hive.util.Statistics.ReduceOperator.ADD;
 import static io.prestosql.plugin.hive.util.Statistics.ReduceOperator.MAX;
 import static io.prestosql.plugin.hive.util.Statistics.ReduceOperator.MIN;

@@ -58,13 +58,11 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
 import static io.prestosql.sql.ExpressionUtils.expressionOrNullSymbols;
 import static io.prestosql.sql.ExpressionUtils.extractConjuncts;
 import static io.prestosql.sql.ExpressionUtils.filterDeterministicConjuncts;
-import static io.prestosql.sql.planner.EqualityInference.createEqualityInference;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static java.util.Objects.requireNonNull;
@@ -424,28 +422,22 @@ public class EffectivePredicateExtractor
             return combineConjuncts(potentialOutputConjuncts);
         }
 
-        private static List<Expression> pullExpressionsThroughSymbols(List<Expression> expressions, Collection<Symbol> symbols)
-        {
-            return expressions.stream()
-                    .map(expression -> pullExpressionThroughSymbols(expression, symbols))
-                    .collect(toImmutableList());
-        }
-
         private static Expression pullExpressionThroughSymbols(Expression expression, Collection<Symbol> symbols)
         {
-            EqualityInference equalityInference = createEqualityInference(expression);
+            EqualityInference equalityInference = EqualityInference.newInstance(expression);
 
             ImmutableList.Builder<Expression> effectiveConjuncts = ImmutableList.builder();
+            Set<Symbol> scope = ImmutableSet.copyOf(symbols);
             for (Expression conjunct : EqualityInference.nonInferrableConjuncts(expression)) {
                 if (DeterminismEvaluator.isDeterministic(conjunct)) {
-                    Expression rewritten = equalityInference.rewriteExpression(conjunct, in(symbols));
+                    Expression rewritten = equalityInference.rewrite(conjunct, scope);
                     if (rewritten != null) {
                         effectiveConjuncts.add(rewritten);
                     }
                 }
             }
 
-            effectiveConjuncts.addAll(equalityInference.generateEqualitiesPartitionedBy(in(symbols)).getScopeEqualities());
+            effectiveConjuncts.addAll(equalityInference.generateEqualitiesPartitionedBy(scope).getScopeEqualities());
 
             return combineConjuncts(effectiveConjuncts.build());
         }

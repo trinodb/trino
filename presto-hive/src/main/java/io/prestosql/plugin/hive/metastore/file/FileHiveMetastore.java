@@ -90,12 +90,13 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
 import static io.prestosql.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.prestosql.plugin.hive.HivePartitionManager.extractPartitionValues;
-import static io.prestosql.plugin.hive.HiveUtil.toPartitionValues;
 import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.makePartName;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.verifyCanDropColumn;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
+import static io.prestosql.plugin.hive.util.HiveUtil.PRESTO_VIEW_FLAG;
+import static io.prestosql.plugin.hive.util.HiveUtil.toPartitionValues;
 import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.security.PrincipalType.ROLE;
@@ -398,19 +399,26 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized List<String> getAllViews(String databaseName)
+    public synchronized List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
     {
+        requireNonNull(parameterKey, "parameterKey is null");
+        requireNonNull(parameterValue, "parameterValue is null");
+
         List<String> tables = getAllTables(databaseName);
 
-        List<String> views = tables.stream()
+        return tables.stream()
                 .map(tableName -> getTable(databaseName, tableName))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
-                .filter(table -> table.getTableType().equals(VIRTUAL_VIEW.name()))
+                .filter(table -> parameterValue.equals(table.getParameters().get(parameterKey)))
                 .map(Table::getTableName)
                 .collect(toImmutableList());
+    }
 
-        return views;
+    @Override
+    public synchronized List<String> getAllViews(String databaseName)
+    {
+        return getTablesWithParameter(databaseName, PRESTO_VIEW_FLAG, "true");
     }
 
     @Override

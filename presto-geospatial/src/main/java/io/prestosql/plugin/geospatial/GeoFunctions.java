@@ -1199,7 +1199,7 @@ public final class GeoFunctions
     @ScalarFunction
     @SqlNullable
     @Description("Returns an array of spatial partition IDs for a given geometry")
-    @SqlType("array(int)")
+    @SqlType("array(integer)")
     public static Block spatialPartitions(@SqlType(KdbTreeType.NAME) Object kdbTree, @SqlType(GEOMETRY_TYPE_NAME) Slice geometry)
     {
         Envelope envelope = deserializeEnvelope(geometry);
@@ -1214,7 +1214,7 @@ public final class GeoFunctions
     @ScalarFunction
     @SqlNullable
     @Description("Returns an array of spatial partition IDs for a geometry representing a set of points within specified distance from the input geometry")
-    @SqlType("array(int)")
+    @SqlType("array(integer)")
     public static Block spatialPartitions(@SqlType(KdbTreeType.NAME) Object kdbTree, @SqlType(GEOMETRY_TYPE_NAME) Slice geometry, @SqlType(DOUBLE) double distance)
     {
         if (isNaN(distance)) {
