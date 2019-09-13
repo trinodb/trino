@@ -106,6 +106,7 @@ import io.prestosql.sql.planner.iterative.rule.RemoveRedundantDistinctLimit;
 import io.prestosql.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import io.prestosql.sql.planner.iterative.rule.RemoveRedundantLimit;
 import io.prestosql.sql.planner.iterative.rule.RemoveRedundantSort;
+import io.prestosql.sql.planner.iterative.rule.RemoveRedundantTableScanPredicate;
 import io.prestosql.sql.planner.iterative.rule.RemoveRedundantTopN;
 import io.prestosql.sql.planner.iterative.rule.RemoveTrivialFilters;
 import io.prestosql.sql.planner.iterative.rule.RemoveUnreferencedScalarApplyNodes;
@@ -542,6 +543,11 @@ public class PlanOptimizers
         builder.add(predicatePushDown); // Run predicate push down one more time in case we can leverage new information from layouts' effective predicate
         builder.add(new RemoveUnsupportedDynamicFilters());
         builder.add(simplifyOptimizer); // Should be always run after PredicatePushDown
+        builder.add(new IterativeOptimizer(
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                ImmutableSet.of(new RemoveRedundantTableScanPredicate(metadata))));
         builder.add(projectionPushDown);
         builder.add(inlineProjections);
         builder.add(new UnaliasSymbolReferences()); // Run unalias after merging projections to simplify projections more efficiently

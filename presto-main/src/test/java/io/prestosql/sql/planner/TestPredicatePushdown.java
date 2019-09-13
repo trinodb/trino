@@ -15,10 +15,13 @@ package io.prestosql.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.Session;
 import io.prestosql.sql.planner.assertions.BasePlanTest;
 import io.prestosql.sql.planner.assertions.PlanMatchPattern;
 import io.prestosql.sql.planner.optimizations.PlanOptimizer;
 import io.prestosql.sql.planner.plan.ExchangeNode;
+import io.prestosql.sql.planner.plan.JoinNode;
+import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.planner.plan.WindowNode;
 import org.testng.annotations.Test;
 
@@ -475,5 +478,29 @@ public class TestPredicatePushdown
                                                         tableScan(
                                                                 "orders",
                                                                 ImmutableMap.of("CUST_KEY", "custkey"))))))));
+    }
+
+    @Test
+    public void testRemovesRedundantTableScanPredicate()
+    {
+        assertPlan(
+                "SELECT t1.orderstatus " +
+                        "FROM (SELECT orderstatus FROM orders WHERE rand() = orderkey AND orderkey = 123) t1, (VALUES 'F', 'K') t2(col) " +
+                        "WHERE t1.orderstatus = t2.col AND (t2.col = 'F' OR t2.col = 'K') AND t1.orderstatus LIKE '%'",
+                Session.builder(getQueryRunner().getDefaultSession())
+                        .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "false")
+                        .build(),
+                anyTree(
+                        node(
+                                JoinNode.class,
+                                node(ProjectNode.class,
+                                        filter("(ORDERKEY = BIGINT '123') AND rand() = CAST(ORDERKEY AS double) AND ORDERSTATUS LIKE '%'",
+                                                tableScan(
+                                                        "orders",
+                                                        ImmutableMap.of(
+                                                                "ORDERSTATUS", "orderstatus",
+                                                                "ORDERKEY", "orderkey")))),
+                                anyTree(
+                                        values("COL")))));
     }
 }
