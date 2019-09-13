@@ -31,6 +31,7 @@ import io.prestosql.sql.tree.InListExpression;
 import io.prestosql.sql.tree.InPredicate;
 import io.prestosql.sql.tree.IsNotNullPredicate;
 import io.prestosql.sql.tree.IsNullPredicate;
+import io.prestosql.sql.tree.LikePredicate;
 import io.prestosql.sql.tree.LogicalBinaryExpression;
 import io.prestosql.sql.tree.LongLiteral;
 import io.prestosql.sql.tree.Node;
@@ -468,6 +469,19 @@ final class ExpressionVerifier
         TryExpression expected = (TryExpression) expectedExpression;
 
         return process(actual.getInnerExpression(), expected.getInnerExpression());
+    }
+
+    protected Boolean visitLikePredicate(LikePredicate actual, Node expectedExpression)
+    {
+        if (!(expectedExpression instanceof LikePredicate)) {
+            return false;
+        }
+
+        LikePredicate expected = (LikePredicate) expectedExpression;
+
+        return process(actual.getValue(), expected.getValue())
+                && process(actual.getPattern(), expected.getPattern())
+                && process(actual.getEscape(), expected.getEscape());
     }
 
     private <T extends Node> boolean process(List<T> actuals, List<T> expecteds)
