@@ -58,4 +58,23 @@ public class TestPrecomputedHashes
                         "GROUP BY a",
                 "VALUES (1)");
     }
+
+    @Test
+    public void testUnionAllAndDistinctLimit()
+    {
+        assertions.assertQuery(
+                "WITH t(a, b) AS (VALUES (1, 10))" +
+                "SELECT" +
+                "  count(DISTINCT if(type='A', a))," +
+                "  count(DISTINCT if(type='A', b))" +
+                "FROM (" +
+                "    SELECT a, b, 'A' AS type" +
+                "    FROM t" +
+                "    GROUP BY a, b" +
+                "    UNION ALL" +
+                "    SELECT a, b, 'B' AS type" +
+                "    FROM t" +
+                "    GROUP BY a, b)",
+                "VALUES (BIGINT '1', BIGINT '1')");
+    }
 }
