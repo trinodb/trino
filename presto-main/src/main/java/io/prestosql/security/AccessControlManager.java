@@ -118,9 +118,12 @@ public class AccessControlManager
     public void loadSystemAccessControl()
             throws Exception
     {
+        log.info("-- Loading system access control --");
+
         File configFile = CONFIG_FILE.getAbsoluteFile();
         if (!configFile.exists()) {
             setSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
+            log.info("-- Loaded system access control %s --", AllowAllSystemAccessControl.NAME);
             return;
         }
 
@@ -130,6 +133,7 @@ public class AccessControlManager
         checkState(!isNullOrEmpty(name), "Access control configuration %s does not contain '%s'", configFile, NAME_PROPERTY);
 
         setSystemAccessControl(name, properties);
+        log.info("-- Loaded system access control %s --", name);
     }
 
     @VisibleForTesting
@@ -140,15 +144,11 @@ public class AccessControlManager
 
         checkState(systemAccessControlLoading.compareAndSet(false, true), "System access control already initialized");
 
-        log.info("-- Loading system access control --");
-
         SystemAccessControlFactory systemAccessControlFactory = systemAccessControlFactories.get(name);
         checkState(systemAccessControlFactory != null, "Access control '%s' is not registered", name);
 
         SystemAccessControl systemAccessControl = systemAccessControlFactory.create(ImmutableMap.copyOf(properties));
         this.systemAccessControl.set(systemAccessControl);
-
-        log.info("-- Loaded system access control %s --", name);
     }
 
     @Override
