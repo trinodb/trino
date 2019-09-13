@@ -44,6 +44,7 @@ import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getLast;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.plugin.hive.HiveColumnHandle.isPathColumnHandle;
 import static io.prestosql.plugin.hive.util.HiveUtil.isSplittable;
@@ -172,7 +173,7 @@ public class InternalHiveSplitFactory
             blockBuilder.add(new InternalHiveBlock(blockStart, blockEnd, getHostAddresses(blockLocation)));
         }
         List<InternalHiveBlock> blocks = blockBuilder.build();
-        checkBlocks(blocks, start, length);
+        checkBlocks(path, blocks, start, length);
 
         if (!splittable) {
             // not splittable, use the hosts from the first block if it exists
@@ -197,14 +198,27 @@ public class InternalHiveSplitFactory
                 s3SelectPushdownEnabled && S3SelectPushdown.isCompressionCodecSupported(inputFormat, path)));
     }
 
-    private static void checkBlocks(List<InternalHiveBlock> blocks, long start, long length)
+    private static void checkBlocks(Path path, List<InternalHiveBlock> blocks, long start, long length)
     {
-        checkArgument(length >= 0);
-        checkArgument(!blocks.isEmpty());
-        checkArgument(start == blocks.get(0).getStart());
-        checkArgument(start + length == blocks.get(blocks.size() - 1).getEnd());
+        checkArgument(length >= 0, "Split size is negative for %s, split start=%s, length=%s", path, start, length);
+        checkArgument(!blocks.isEmpty(), "No blocks for %s for split start=%s, length=%s", path, start, length);
+        long blocksStartPosition = blocks.get(0).getStart();
+        checkArgument(start == blocksStartPosition, "Unexpected blocks start position for %s. Expected %s, but got %s", path, start, blocksStartPosition);
+        long blocksEndPosition = getLast(blocks).getEnd();
+        long end = start + length;
+        checkArgument(end == blocksEndPosition, "Unexpected blocks end position for %s. Expected %s, but got %s", path, end, blocksEndPosition);
         for (int i = 1; i < blocks.size(); i++) {
-            checkArgument(blocks.get(i - 1).getEnd() == blocks.get(i).getStart());
+            long currentBlockStart = blocks.get(i).getStart();
+            long previousBlockEnd = blocks.get(i - 1).getEnd();
+            checkArgument(
+                    previousBlockEnd == currentBlockStart,
+                    "Blocks are not contiguous for %s for split start=%s, length=%s. Block %s (out of %s) starts at %s, while previous block ends at %s",
+                    path,
+                    start,
+                    length,
+                    i,
+                    currentBlockStart,
+                    previousBlockEnd);
         }
     }
 
