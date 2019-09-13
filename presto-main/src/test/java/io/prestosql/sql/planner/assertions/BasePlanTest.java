@@ -108,6 +108,11 @@ public class BasePlanTest
         assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, pattern);
     }
 
+    protected void assertPlan(String sql, Session session, PlanMatchPattern pattern)
+    {
+        assertPlanWithSession(sql, session, true, pattern);
+    }
+
     protected void assertPlan(String sql, LogicalPlanner.Stage stage, PlanMatchPattern pattern)
     {
         List<PlanOptimizer> optimizers = queryRunner.getPlanOptimizers(true);
