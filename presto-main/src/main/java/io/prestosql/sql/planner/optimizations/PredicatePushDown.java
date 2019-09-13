@@ -277,7 +277,7 @@ public class PredicatePushDown
             verify(AstUtils.preOrder(expression).noneMatch(TryExpression.class::isInstance));
 
             // candidate symbols for inlining are
-            //   1. references to simple constants
+            //   1. references to simple constants or symbol references
             //   2. references to complex expressions that appear only once
             // which come from the node, as opposed to an enclosing scope.
             Set<Symbol> childOutputSet = ImmutableSet.copyOf(node.getOutputSymbols());
@@ -286,7 +286,9 @@ public class PredicatePushDown
                     .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
 
             return dependencies.entrySet().stream()
-                    .allMatch(entry -> entry.getValue() == 1 || node.getAssignments().get(entry.getKey()) instanceof Literal);
+                    .allMatch(entry -> entry.getValue() == 1
+                            || node.getAssignments().get(entry.getKey()) instanceof Literal
+                            || node.getAssignments().get(entry.getKey()) instanceof SymbolReference);
         }
 
         @Override
