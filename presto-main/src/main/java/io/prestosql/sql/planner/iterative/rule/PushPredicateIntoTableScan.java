@@ -189,7 +189,8 @@ public class PushPredicateIntoTableScan
         if (!metadata.usesLegacyTableLayouts(session, node.getTable())) {
             // check if new domain is wider than domain already provided by table scan
             if (!constraint.predicate().isPresent() && newDomain.contains(node.getEnforcedConstraint())) {
-                Expression resultingPredicate = combineConjuncts(
+                Expression resultingPredicate = createResultingPredicate(
+                        TRUE_LITERAL,
                         nonDeterministicPredicate,
                         decomposedPredicate.getRemainingExpression());
 
@@ -245,15 +246,7 @@ public class PushPredicateIntoTableScan
                 node.getAssignments(),
                 computeEnforced(newDomain, remainingFilter));
 
-        // The order of the arguments to combineConjuncts matters:
-        // * Unenforced constraints go first because they can only be simple column references,
-        //   which are not prone to logic errors such as out-of-bound access, div-by-zero, etc.
-        // * Conjuncts in non-deterministic expressions and non-TupleDomain-expressible expressions should
-        //   retain their original (maybe intermixed) order from the input predicate. However, this is not implemented yet.
-        // * Short of implementing the previous bullet point, the current order of non-deterministic expressions
-        //   and non-TupleDomain-expressible expressions should be retained. Changing the order can lead
-        //   to failures of previously successful queries.
-        Expression resultingPredicate = combineConjuncts(
+        Expression resultingPredicate = createResultingPredicate(
                 domainTranslator.toPredicate(remainingFilter.transform(assignments::get)),
                 nonDeterministicPredicate,
                 decomposedPredicate.getRemainingExpression());
@@ -263,6 +256,22 @@ public class PushPredicateIntoTableScan
         }
 
         return Optional.of(tableScan);
+    }
+
+    static Expression createResultingPredicate(
+            Expression unenforcedConstraints,
+            Expression nonDeterministicPredicate,
+            Expression remainingDecomposedPredicate)
+    {
+        // The order of the arguments to combineConjuncts matters:
+        // * Unenforced constraints go first because they can only be simple column references,
+        //   which are not prone to logic errors such as out-of-bound access, div-by-zero, etc.
+        // * Conjuncts in non-deterministic expressions and non-TupleDomain-expressible expressions should
+        //   retain their original (maybe intermixed) order from the input predicate. However, this is not implemented yet.
+        // * Short of implementing the previous bullet point, the current order of non-deterministic expressions
+        //   and non-TupleDomain-expressible expressions should be retained. Changing the order can lead
+        //   to failures of previously successful queries.
+        return combineConjuncts(unenforcedConstraints, nonDeterministicPredicate, remainingDecomposedPredicate);
     }
 
     private static class LayoutConstraintEvaluator
