@@ -385,6 +385,19 @@ public class TestPredicatePushdown
     }
 
     @Test
+    public void testPredicatePushDownOverSymbolReferences()
+    {
+        // Identities should be pushed down
+        assertPlan(
+                "WITH t AS (SELECT orderkey x, (orderkey + 1) x2 FROM orders) " +
+                        "SELECT * FROM t WHERE x > 1 OR x < 0",
+                anyTree(
+                        filter("orderkey < BIGINT '0' OR orderkey > BIGINT '1'",
+                                tableScan("orders", ImmutableMap.of(
+                                        "orderkey", "orderkey")))));
+    }
+
+    @Test
     public void testConjunctsOrder()
     {
         assertPlan(
