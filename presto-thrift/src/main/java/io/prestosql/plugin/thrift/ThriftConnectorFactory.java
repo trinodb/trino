@@ -77,10 +77,6 @@ public class ThriftConnectorFactory
 
             return injector.getInstance(ThriftConnector.class);
         }
-        catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException("Interrupted while creating connector", ie);
-        }
         catch (Exception e) {
             throwIfUnchecked(e);
             throw new RuntimeException(e);
