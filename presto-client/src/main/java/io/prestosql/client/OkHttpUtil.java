@@ -38,12 +38,9 @@ import java.net.CookieManager;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.security.GeneralSecurityException;
-import java.security.KeyManagementException;
 import java.security.KeyStore;
-import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.security.cert.Certificate;
-import java.security.cert.CertificateException;
 import java.security.cert.CertificateExpiredException;
 import java.security.cert.CertificateNotYetValidException;
 import java.security.cert.X509Certificate;
@@ -137,13 +134,15 @@ public final class OkHttpUtil
             TrustManager trustAllCerts = new X509TrustManager()
             {
                 @Override
-                public void checkClientTrusted(X509Certificate[] x509Certificates, String s) throws CertificateException
+                public void checkClientTrusted(X509Certificate[] x509Certificates, String s)
                 {
+                    throw new UnsupportedOperationException("checkClientTrusted should not be");
                 }
 
                 @Override
-                public void checkServerTrusted(X509Certificate[] x509Certificates, String s) throws CertificateException
+                public void checkServerTrusted(X509Certificate[] x509Certificates, String s)
                 {
+                    // skip validation of server certificate
                 }
 
                 @Override
@@ -155,13 +154,13 @@ public final class OkHttpUtil
 
             TrustManager[] trustManagers = new TrustManager[] {trustAllCerts};
 
-            final SSLContext sslContext = SSLContext.getInstance("SSL");
+            SSLContext sslContext = SSLContext.getInstance("SSL");
             sslContext.init(null, trustManagers, new SecureRandom());
 
             clientBuilder.sslSocketFactory(sslContext.getSocketFactory(), (X509TrustManager) trustManagers[0]);
             clientBuilder.hostnameVerifier((String s, SSLSession session) -> true);
         }
-        catch (NoSuchAlgorithmException | KeyManagementException e) {
+        catch (GeneralSecurityException e) {
             throw new ClientException("Error setting up SSL: " + e.getMessage(), e);
         }
     }

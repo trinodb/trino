@@ -76,10 +76,10 @@ public class TestQueryRunner
                 .addHeader(SET_COOKIE, "a=apple"));
         server.enqueue(new MockResponse()
                 .addHeader(CONTENT_TYPE, "application/json")
-                .setBody(createResults()));
+                .setBody(createResults(server)));
         server.enqueue(new MockResponse()
                 .addHeader(CONTENT_TYPE, "application/json")
-                .setBody(createResults()));
+                .setBody(createResults(server)));
 
         QueryRunner queryRunner = createQueryRunner(
                 new ClientSession(
@@ -118,7 +118,7 @@ public class TestQueryRunner
         }
     }
 
-    private String createResults()
+    static String createResults(MockWebServer server)
     {
         QueryResults queryResults = new QueryResults(
                 "20160128_214710_00012_rk68b",
@@ -160,7 +160,7 @@ public class TestQueryRunner
                 false);
     }
 
-    private static PrintStream nullPrintStream()
+    static PrintStream nullPrintStream()
     {
         return new PrintStream(nullOutputStream());
     }

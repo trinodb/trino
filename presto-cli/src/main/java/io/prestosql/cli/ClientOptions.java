@@ -149,8 +149,8 @@ public class ClientOptions
     @Option(name = "--ignore-errors", title = "ignore errors", description = "Continue processing in batch mode when an error occurs (default is to exit immediately)")
     public boolean ignoreErrors;
 
-    @Option(name = "--insecure", title = "trust all certificates", description = "Assumed to be used for debugging purpose. Skip certificate validation process so that we can connect to untrusted site.")
-    public boolean isInsecure;
+    @Option(name = "--insecure", title = "trust all certificates", description = "Skip validation of HTTP server certificates (should only be used for debugging)")
+    public boolean insecure;
 
     public enum OutputFormat
     {

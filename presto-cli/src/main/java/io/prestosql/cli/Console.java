@@ -142,7 +142,7 @@ public class Console
                 Optional.ofNullable(clientOptions.krb5KeytabPath),
                 Optional.ofNullable(clientOptions.krb5CredentialCachePath),
                 !clientOptions.krb5DisableRemoteServiceHostnameCanonicalization,
-                clientOptions.isInsecure)) {
+                clientOptions.insecure)) {
             if (hasQuery) {
                 return executeCommand(
                         queryRunner,

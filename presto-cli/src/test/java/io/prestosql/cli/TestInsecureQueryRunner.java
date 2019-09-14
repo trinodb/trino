@@ -13,16 +13,10 @@
  */
 package io.prestosql.cli;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 import io.prestosql.client.ClientSession;
-import io.prestosql.client.ClientTypeSignature;
-import io.prestosql.client.Column;
-import io.prestosql.client.QueryResults;
-import io.prestosql.client.StatementStats;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import org.testng.annotations.AfterMethod;
@@ -33,79 +27,49 @@ import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManagerFactory;
 
-import java.io.FileInputStream;
-import java.io.PrintStream;
+import java.io.InputStream;
 import java.security.KeyStore;
 import java.security.SecureRandom;
 import java.time.ZoneId;
 import java.util.Locale;
 import java.util.Optional;
 
-import static com.google.common.io.ByteStreams.nullOutputStream;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
-import static com.google.common.net.HttpHeaders.LOCATION;
-import static com.google.common.net.HttpHeaders.SET_COOKIE;
-import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.prestosql.cli.ClientOptions.OutputFormat.CSV;
-import static io.prestosql.client.ClientStandardTypes.BIGINT;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
 public class TestInsecureQueryRunner
 {
-    private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
-
     private MockWebServer server;
 
     @BeforeMethod
-    public void setup() throws Exception
+    public void setup()
+            throws Exception
     {
         server = new MockWebServer();
-        SSLContext sslContext = buildTestSslContext();
+        SSLContext sslContext = TestInsecureQueryRunner.buildTestSslContext();
         server.useHttps(sslContext.getSocketFactory(), false);
         server.start();
     }
 
-    private SSLContext buildTestSslContext() throws Exception
-    {
-        // Load self-signed certificate
-        String path = getClass().getClassLoader().getResource("insecure-ssl-test.jks").getPath();
-        FileInputStream stream = new FileInputStream(path);
-        char[] serverKeyStorePassword = "insecure-ssl-test".toCharArray();
-        KeyStore serverKeyStore = KeyStore.getInstance(KeyStore.getDefaultType());
-        serverKeyStore.load(stream, serverKeyStorePassword);
-
-        String kmfAlgorithm = KeyManagerFactory.getDefaultAlgorithm();
-        KeyManagerFactory kmf = KeyManagerFactory.getInstance(kmfAlgorithm);
-        kmf.init(serverKeyStore, serverKeyStorePassword);
-
-        TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(kmfAlgorithm);
-        trustManagerFactory.init(serverKeyStore);
-        SSLContext sslContext = SSLContext.getInstance("SSL");
-        sslContext.init(kmf.getKeyManagers(), trustManagerFactory.getTrustManagers(), new SecureRandom());
-        return sslContext;
-    }
-
     @AfterMethod(alwaysRun = true)
-    public void teardown() throws Exception
+    public void teardown()
+            throws Exception
     {
         server.close();
     }
 
     @Test
-    public void testInsecureConnection() throws Exception
+    public void testInsecureConnection()
     {
         server.enqueue(new MockResponse()
-                .setResponseCode(307)
-                .addHeader(LOCATION, server.url("/v1/statement"))
-                .addHeader(SET_COOKIE, "a=apple"));
+                .addHeader(CONTENT_TYPE, "application/json")
+                .setBody(TestQueryRunner.createResults(server)));
         server.enqueue(new MockResponse()
                 .addHeader(CONTENT_TYPE, "application/json")
-                .setBody(createResults()));
-        server.enqueue(new MockResponse()
-                .addHeader(CONTENT_TYPE, "application/json")
-                .setBody(createResults()));
+                .setBody(TestQueryRunner.createResults(server)));
 
         ClientSession clientSession = new ClientSession(
                 server.url("/").uri(),
@@ -149,15 +113,14 @@ public class TestInsecureQueryRunner
                 true);
 
         try (Query query = queryRunner.startQuery("first query will introduce a cookie")) {
-            query.renderOutput(nullPrintStream(), nullPrintStream(), CSV, false, false);
+            query.renderOutput(TestQueryRunner.nullPrintStream(), TestQueryRunner.nullPrintStream(), CSV, false, false);
         }
         try (Query query = queryRunner.startQuery("second query should carry the cookie")) {
-            query.renderOutput(nullPrintStream(), nullPrintStream(), CSV, false, false);
+            query.renderOutput(TestQueryRunner.nullPrintStream(), TestQueryRunner.nullPrintStream(), CSV, false, false);
         }
         try {
-            assertEquals(server.takeRequest().getHeader("Cookie"), null);
-            assertEquals(server.takeRequest().getHeader("Cookie"), "a=apple");
-            assertEquals(server.takeRequest().getHeader("Cookie"), "a=apple");
+            assertEquals(server.takeRequest().getPath(), "/v1/statement");
+            assertEquals(server.takeRequest().getPath(), "/v1/statement");
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -165,26 +128,23 @@ public class TestInsecureQueryRunner
         }
     }
 
-    private String createResults()
+    private static SSLContext buildTestSslContext() throws Exception
     {
-        QueryResults queryResults = new QueryResults(
-                "20160128_214710_00012_rk68b",
-                server.url("/query.html?20160128_214710_00012_rk68b").uri(),
-                null,
-                null,
-                ImmutableList.of(new Column("_col0", BIGINT, new ClientTypeSignature(BIGINT))),
-                ImmutableList.of(ImmutableList.of(123)),
-                StatementStats.builder().setState("FINISHED").build(),
-                //new StatementStats("FINISHED", false, true, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null),
-                null,
-                ImmutableList.of(),
-                null,
-                null);
-        return QUERY_RESULTS_CODEC.toJson(queryResults);
-    }
+        // Load self-signed certificate
+        char[] serverKeyStorePassword = "insecure-ssl-test".toCharArray();
+        KeyStore serverKeyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+        try (InputStream in = TestInsecureQueryRunner.class.getClassLoader().getResourceAsStream("insecure-ssl-test.jks")) {
+            serverKeyStore.load(in, serverKeyStorePassword);
+        }
 
-    private static PrintStream nullPrintStream()
-    {
-        return new PrintStream(nullOutputStream());
+        String kmfAlgorithm = KeyManagerFactory.getDefaultAlgorithm();
+        KeyManagerFactory kmf = KeyManagerFactory.getInstance(kmfAlgorithm);
+        kmf.init(serverKeyStore, serverKeyStorePassword);
+
+        TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(kmfAlgorithm);
+        trustManagerFactory.init(serverKeyStore);
+        SSLContext sslContext = SSLContext.getInstance("SSL");
+        sslContext.init(kmf.getKeyManagers(), trustManagerFactory.getTrustManagers(), new SecureRandom());
+        return sslContext;
     }
 }

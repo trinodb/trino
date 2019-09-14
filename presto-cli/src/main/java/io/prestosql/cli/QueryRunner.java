@@ -73,7 +73,6 @@ public class QueryRunner
         this.debug = debug;
 
         if (insecureMode) {
-            // Assumed to be used for debugging purpose.
             this.sslSetup = builder -> setupInsecureSsl(builder);
         }
         else {
