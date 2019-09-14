@@ -33,6 +33,7 @@ import static io.prestosql.metadata.SessionPropertyManager.evaluatePropertyValue
 import static io.prestosql.metadata.SessionPropertyManager.serializeSessionProperty;
 import static io.prestosql.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
+import static io.prestosql.sql.ParameterUtils.parameterExtractor;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static java.lang.String.format;
 
@@ -74,7 +75,7 @@ public class SetSessionTask
         Object objectValue;
 
         try {
-            objectValue = evaluatePropertyValue(statement.getValue(), type, session, metadata, parameters);
+            objectValue = evaluatePropertyValue(statement.getValue(), type, session, metadata, parameterExtractor(statement, parameters));
         }
         catch (PrestoException e) {
             throw new PrestoException(

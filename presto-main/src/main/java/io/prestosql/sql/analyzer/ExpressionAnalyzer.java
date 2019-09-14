@@ -192,7 +192,7 @@ public class ExpressionAnalyzer
     private final Multimap<QualifiedObjectName, String> tableColumnReferences = HashMultimap.create();
 
     private final Session session;
-    private final List<Expression> parameters;
+    private final Map<NodeRef<Parameter>, Expression> parameters;
     private final WarningCollector warningCollector;
     private final TypeCoercion typeCoercion;
 
@@ -201,7 +201,7 @@ public class ExpressionAnalyzer
             Function<Node, StatementAnalyzer> statementAnalyzerFactory,
             Session session,
             TypeProvider symbolTypes,
-            List<Expression> parameters,
+            Map<NodeRef<Parameter>, Expression> parameters,
             WarningCollector warningCollector,
             boolean isDescribe)
     {
@@ -209,7 +209,7 @@ public class ExpressionAnalyzer
         this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
         this.session = requireNonNull(session, "session is null");
         this.symbolTypes = requireNonNull(symbolTypes, "symbolTypes is null");
-        this.parameters = requireNonNull(parameters, "parameters is null");
+        this.parameters = requireNonNull(parameters, "parameterMap is null");
         this.isDescribe = isDescribe;
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.typeCoercion = new TypeCoercion(metadata::getType);
@@ -1020,7 +1020,7 @@ public class ExpressionAnalyzer
                 throw semanticException(INVALID_PARAMETER_USAGE, node, "Invalid parameter index %s, max value is %s", node.getPosition(), parameters.size() - 1);
             }
 
-            Type resultType = process(parameters.get(node.getPosition()), context);
+            Type resultType = process(parameters.get(NodeRef.of(node)), context);
             return setExpressionType(node, resultType);
         }
 
@@ -1496,7 +1496,7 @@ public class ExpressionAnalyzer
             SqlParser sqlParser,
             TypeProvider types,
             Iterable<Expression> expressions,
-            List<Expression> parameters,
+            Map<NodeRef<Parameter>, Expression> parameters,
             WarningCollector warningCollector,
             boolean isDescribe)
     {
@@ -1565,7 +1565,7 @@ public class ExpressionAnalyzer
             SqlParser sqlParser,
             TypeProvider types,
             List<Expression> callArguments,
-            List<Expression> parameters,
+            Map<NodeRef<Parameter>, Expression> parameters,
             WarningCollector warningCollector,
             boolean isDescribe)
     {
@@ -1595,7 +1595,7 @@ public class ExpressionAnalyzer
                 analysis.isDescribe());
     }
 
-    public static ExpressionAnalyzer createConstantAnalyzer(Metadata metadata, Session session, List<Expression> parameters, WarningCollector warningCollector)
+    public static ExpressionAnalyzer createConstantAnalyzer(Metadata metadata, Session session, Map<NodeRef<Parameter>, Expression> parameters, WarningCollector warningCollector)
     {
         return createWithoutSubqueries(
                 metadata,
@@ -1607,7 +1607,7 @@ public class ExpressionAnalyzer
                 false);
     }
 
-    public static ExpressionAnalyzer createConstantAnalyzer(Metadata metadata, Session session, List<Expression> parameters, WarningCollector warningCollector, boolean isDescribe)
+    public static ExpressionAnalyzer createConstantAnalyzer(Metadata metadata, Session session, Map<NodeRef<Parameter>, Expression> parameters, WarningCollector warningCollector, boolean isDescribe)
     {
         return createWithoutSubqueries(
                 metadata,
@@ -1622,7 +1622,7 @@ public class ExpressionAnalyzer
     public static ExpressionAnalyzer createWithoutSubqueries(
             Metadata metadata,
             Session session,
-            List<Expression> parameters,
+            Map<NodeRef<Parameter>, Expression> parameters,
             ErrorCodeSupplier errorCode,
             String message,
             WarningCollector warningCollector,
@@ -1642,7 +1642,7 @@ public class ExpressionAnalyzer
             Metadata metadata,
             Session session,
             TypeProvider symbolTypes,
-            List<Expression> parameters,
+            Map<NodeRef<Parameter>, Expression> parameters,
             Function<? super Node, ? extends RuntimeException> statementAnalyzerRejection,
             WarningCollector warningCollector,
             boolean isDescribe)

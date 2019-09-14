@@ -33,6 +33,7 @@ import static io.prestosql.metadata.MetadataUtil.createCatalogSchemaName;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.SCHEMA_ALREADY_EXISTS;
 import static io.prestosql.sql.NodeUtils.mapFromProperties;
+import static io.prestosql.sql.ParameterUtils.parameterExtractor;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 
 public class CreateSchemaTask
@@ -76,7 +77,7 @@ public class CreateSchemaTask
                 mapFromProperties(statement.getProperties()),
                 session,
                 metadata,
-                parameters);
+                parameterExtractor(statement, parameters));
 
         metadata.createSchema(session, schema, properties);
 

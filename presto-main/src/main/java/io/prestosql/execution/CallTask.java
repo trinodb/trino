@@ -31,6 +31,8 @@ import io.prestosql.sql.tree.Call;
 import io.prestosql.sql.tree.CallArgument;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.ExpressionTreeRewriter;
+import io.prestosql.sql.tree.NodeRef;
+import io.prestosql.sql.tree.Parameter;
 import io.prestosql.transaction.TransactionManager;
 
 import java.lang.invoke.MethodType;
@@ -53,6 +55,7 @@ import static io.prestosql.spi.StandardErrorCode.INVALID_PROCEDURE_DEFINITION;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.PROCEDURE_CALL_FAILED;
 import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
+import static io.prestosql.sql.ParameterUtils.parameterExtractor;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static io.prestosql.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static java.util.Arrays.asList;
@@ -121,12 +124,13 @@ public class CallTask
 
         // get argument values
         Object[] values = new Object[procedure.getArguments().size()];
+        Map<NodeRef<Parameter>, Expression> parameterLookup = parameterExtractor(call, parameters);
         for (Entry<String, CallArgument> entry : names.entrySet()) {
             CallArgument callArgument = entry.getValue();
             int index = positions.get(entry.getKey());
             Argument argument = procedure.getArguments().get(index);
 
-            Expression expression = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameters), callArgument.getValue());
+            Expression expression = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameterLookup), callArgument.getValue());
 
             Type type;
             try {
@@ -135,8 +139,7 @@ public class CallTask
             catch (TypeNotFoundException e) {
                 throw new PrestoException(INVALID_PROCEDURE_DEFINITION, "Unknown procedure argument type: " + argument.getType());
             }
-
-            Object value = evaluateConstantExpression(expression, type, metadata, session, parameters);
+            Object value = evaluateConstantExpression(expression, type, metadata, session, parameterLookup);
 
             values[index] = toTypeObjectValue(session, type, value);
         }

@@ -13,7 +13,7 @@
  */
 package io.prestosql.cost;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.cost.ComposableStatsCalculator.Rule;
 import io.prestosql.matching.Pattern;
@@ -81,7 +81,7 @@ public class ValuesStatsRule
         }
         return valuesNode.getRows().stream()
                 .map(row -> row.get(symbolId))
-                .map(expression -> evaluateConstantExpression(expression, symbolType, metadata, session, ImmutableList.of()))
+                .map(expression -> evaluateConstantExpression(expression, symbolType, metadata, session, ImmutableMap.of()))
                 .collect(toList());
     }
 

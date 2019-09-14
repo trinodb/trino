@@ -33,6 +33,8 @@ import io.prestosql.sql.tree.ColumnDefinition;
 import io.prestosql.sql.tree.CreateTable;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.LikeClause;
+import io.prestosql.sql.tree.NodeRef;
+import io.prestosql.sql.tree.Parameter;
 import io.prestosql.sql.tree.TableElement;
 import io.prestosql.transaction.TransactionManager;
 
@@ -60,6 +62,7 @@ import static io.prestosql.spi.StandardErrorCode.TYPE_NOT_FOUND;
 import static io.prestosql.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.sql.NodeUtils.mapFromProperties;
+import static io.prestosql.sql.ParameterUtils.parameterExtractor;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 
@@ -89,6 +92,7 @@ public class CreateTableTask
     {
         checkArgument(!statement.getElements().isEmpty(), "no columns for table");
 
+        Map<NodeRef<Parameter>, Expression> parameterLookup = parameterExtractor(statement, parameters);
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
         if (tableHandle.isPresent()) {
@@ -132,7 +136,7 @@ public class CreateTableTask
                         sqlProperties,
                         session,
                         metadata,
-                        parameters);
+                        parameterLookup);
 
                 columns.put(name, new ColumnMetadata(
                         name,
@@ -188,7 +192,7 @@ public class CreateTableTask
                 sqlProperties,
                 session,
                 metadata,
-                parameters);
+                parameterLookup);
 
         Map<String, Object> finalProperties = combineProperties(sqlProperties.keySet(), properties, inheritedProperties);
 
