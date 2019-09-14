@@ -27,9 +27,9 @@ import io.prestosql.spi.function.SqlNullable;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.AbstractLongType;
 import io.prestosql.spi.type.StandardTypes;
-import org.joda.time.chrono.ISOChronology;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.prestosql.operator.scalar.DateTimeFunctions.offsetMinutes;
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.prestosql.spi.function.OperatorType.BETWEEN;
 import static io.prestosql.spi.function.OperatorType.CAST;
@@ -48,7 +48,8 @@ import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.util.DateTimeUtils.parseTimeWithoutTimeZone;
 import static io.prestosql.util.DateTimeUtils.printTimeWithoutTimeZone;
-import static io.prestosql.util.DateTimeZoneIndex.getChronology;
+import static io.prestosql.util.DateTimeZoneIndex.getDateTimeZone;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 public final class TimeOperators
 {
@@ -116,19 +117,11 @@ public final class TimeOperators
     @SqlType(StandardTypes.TIME_WITH_TIME_ZONE)
     public static long castToTimeWithTimeZone(ConnectorSession session, @SqlType(StandardTypes.TIME) long value)
     {
+        long offsetMinutes = offsetMinutes(getDateTimeZone(session.getTimeZoneKey()), session.getStartTime());
         if (session.isLegacyTimestamp()) {
-            return packDateTimeWithZone(value, session.getTimeZoneKey());
+            return packDateTimeWithZone(value, offsetMinutes);
         }
-        else {
-            ISOChronology localChronology = getChronology(session.getTimeZoneKey());
-
-            // This cast does treat TIME as wall time in session TZ. This means that in order to get
-            // its UTC representation we need to shift the value by the offset of TZ.
-            // We use value offset in this place to be sure that we will have same hour represented
-            // in TIME WITH TIME ZONE. Calculating real TZ offset will happen when really required.
-            // This is done due to inadequate TIME WITH TIME ZONE representation.
-            return packDateTimeWithZone(localChronology.getZone().convertLocalToUTC(value, false), session.getTimeZoneKey());
-        }
+        return packDateTimeWithZone(value - MINUTES.toMillis(offsetMinutes), offsetMinutes);
     }
 
     @ScalarOperator(CAST)
