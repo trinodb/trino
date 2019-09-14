@@ -45,6 +45,7 @@ import static io.prestosql.spi.StandardErrorCode.TYPE_NOT_FOUND;
 import static io.prestosql.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.sql.NodeUtils.mapFromProperties;
+import static io.prestosql.sql.ParameterUtils.parameterExtractor;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static java.util.Locale.ENGLISH;
@@ -100,7 +101,7 @@ public class AddColumnTask
                 sqlProperties,
                 session,
                 metadata,
-                parameters);
+                parameterExtractor(statement, parameters));
 
         ColumnMetadata column = new ColumnMetadata(
                 element.getName().getValue(),

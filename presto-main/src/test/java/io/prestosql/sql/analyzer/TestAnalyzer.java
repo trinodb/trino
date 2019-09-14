@@ -113,6 +113,7 @@ import static io.prestosql.transaction.InMemoryTransactionManager.createTestTran
 import static io.prestosql.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
 import static java.util.Collections.nCopies;
 
 @Test(singleThreaded = true)
@@ -1999,6 +2000,7 @@ public class TestAnalyzer
                 new AllowAllAccessControl(),
                 Optional.empty(),
                 emptyList(),
+                emptyMap(),
                 WarningCollector.NOOP);
     }
 

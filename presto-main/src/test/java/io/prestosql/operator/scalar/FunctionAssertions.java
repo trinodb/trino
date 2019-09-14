@@ -653,7 +653,7 @@ public final class FunctionAssertions
                 SQL_PARSER,
                 symbolTypes,
                 ImmutableList.of(parsedExpression),
-                ImmutableList.of(),
+                ImmutableMap.of(),
                 WarningCollector.NOOP,
                 false);
 

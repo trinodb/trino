@@ -15,6 +15,7 @@ package io.prestosql.sql.analyzer;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 import io.prestosql.metadata.NewTableLayout;
@@ -39,6 +40,7 @@ import io.prestosql.sql.tree.Node;
 import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.Offset;
 import io.prestosql.sql.tree.OrderBy;
+import io.prestosql.sql.tree.Parameter;
 import io.prestosql.sql.tree.QuantifiedComparisonExpression;
 import io.prestosql.sql.tree.Query;
 import io.prestosql.sql.tree.QuerySpecification;
@@ -80,7 +82,7 @@ public class Analysis
 {
     @Nullable
     private final Statement root;
-    private final List<Expression> parameters;
+    private final Map<NodeRef<Parameter>, Expression> parameters;
     private String updateType;
 
     private final Map<NodeRef<Table>, Query> namedQueries = new LinkedHashMap<>();
@@ -139,12 +141,10 @@ public class Analysis
     // for recursive view detection
     private final Deque<Table> tablesForView = new ArrayDeque<>();
 
-    public Analysis(@Nullable Statement root, List<Expression> parameters, boolean isDescribe)
+    public Analysis(@Nullable Statement root, Map<NodeRef<Parameter>, Expression> parameters, boolean isDescribe)
     {
-        requireNonNull(parameters);
-
         this.root = root;
-        this.parameters = ImmutableList.copyOf(requireNonNull(parameters, "parameters is null"));
+        this.parameters = ImmutableMap.copyOf(requireNonNull(parameters, "parameterMap is null"));
         this.isDescribe = isDescribe;
     }
 
@@ -602,7 +602,7 @@ public class Analysis
                 .orElse(emptyList());
     }
 
-    public List<Expression> getParameters()
+    public Map<NodeRef<Parameter>, Expression> getParameters()
     {
         return parameters;
     }
