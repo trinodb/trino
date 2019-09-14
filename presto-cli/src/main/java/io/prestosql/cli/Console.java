@@ -467,9 +467,6 @@ public class Console
             Logging logging = Logging.initialize();
             logging.configure(config);
         }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
         finally {
             System.setOut(out);
             System.setErr(err);
