@@ -15,6 +15,7 @@ package io.prestosql.plugin.atop;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
+import io.prestosql.plugin.atop.AtopConnectorConfig.AtopSecurity;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -23,8 +24,6 @@ import java.util.TimeZone;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static io.prestosql.plugin.atop.AtopConnectorConfig.SECURITY_FILE;
-import static io.prestosql.plugin.atop.AtopConnectorConfig.SECURITY_NONE;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class TestAtopConnectorConfig
@@ -35,7 +34,7 @@ public class TestAtopConnectorConfig
         assertRecordedDefaults(recordDefaults(AtopConnectorConfig.class)
                 .setExecutablePath("atop")
                 .setConcurrentReadersPerNode(1)
-                .setSecurity(SECURITY_NONE)
+                .setSecurity(AtopSecurity.NONE)
                 .setReadTimeout(new Duration(5, MINUTES))
                 .setMaxHistoryDays(30)
                 .setTimeZone(TimeZone.getDefault().getID()));
@@ -56,7 +55,7 @@ public class TestAtopConnectorConfig
         AtopConnectorConfig expected = new AtopConnectorConfig()
                 .setExecutablePath("/test/atop")
                 .setConcurrentReadersPerNode(10)
-                .setSecurity(SECURITY_FILE)
+                .setSecurity(AtopSecurity.FILE)
                 .setReadTimeout(new Duration(1, MINUTES))
                 .setMaxHistoryDays(10)
                 .setTimeZone("PST");
