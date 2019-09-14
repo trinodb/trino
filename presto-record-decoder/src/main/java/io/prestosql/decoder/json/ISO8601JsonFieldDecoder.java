@@ -32,6 +32,7 @@ import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.TimeZoneKey.getOffsetTimeZoneKey;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
@@ -120,7 +121,7 @@ public class ISO8601JsonFieldDecoder
                 }
                 if (columnType == TIME_WITH_TIME_ZONE) {
                     TemporalAccessor parseResult = ISO_OFFSET_TIME.parse(textValue);
-                    return packDateTimeWithZone(parseResult.get(MILLI_OF_DAY), getTimeZoneKey(ZoneId.from(parseResult).getId()));
+                    return packDateTimeWithZone(parseResult.get(MILLI_OF_DAY), getOffsetTimeZoneKey(ZoneId.from(parseResult).getId()));
                 }
                 if (columnType == DATE) {
                     return ISO_DATE.parse(textValue).getLong(EPOCH_DAY);
