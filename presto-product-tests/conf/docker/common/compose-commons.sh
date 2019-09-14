@@ -25,6 +25,9 @@ function export_canonical_path() {
 source "${BASH_SOURCE%/*}/../../../bin/locations.sh"
 source "${BASH_SOURCE%/*}/../../../conf/product-tests-defaults.sh"
 
+# create CLI history file (otherwise Docker creates it as a directory)
+touch /tmp/presto_history_docker
+
 # The following variables are defined to enable running product tests with arbitrary/downloaded jars
 # and without building the project. The `presto.env` file should only be sourced if any of the variables
 # is undefined, otherwise running product tests without a build won't work.
