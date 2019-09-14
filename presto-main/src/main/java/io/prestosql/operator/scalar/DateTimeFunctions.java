@@ -39,6 +39,7 @@ import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.operator.scalar.QuarterOfYearDateTimeField.QUARTER_OF_YEAR;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -46,7 +47,7 @@ import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.prestosql.spi.type.DateTimeEncoding.updateMillisUtc;
-import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.prestosql.spi.type.TimeZoneKey.getOffsetTimeZoneKey;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static io.prestosql.type.DateTimeOperators.modulo24Hour;
 import static io.prestosql.util.DateTimeZoneIndex.extractZoneOffsetMinutes;
@@ -265,18 +266,18 @@ public final class DateTimeFunctions
     @ScalarFunction(value = "at_timezone", hidden = true)
     @LiteralParameters("x")
     @SqlType(StandardTypes.TIME_WITH_TIME_ZONE)
-    public static long timeAtTimeZone(ConnectorSession session, @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long timeWithTimeZone, @SqlType("varchar(x)") Slice zoneId)
+    public static long timeAtTimeZone(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long timeWithTimeZone, @SqlType("varchar(x)") Slice zoneId)
     {
-        return timeAtTimeZone(session, timeWithTimeZone, getTimeZoneKey(zoneId.toStringUtf8()));
+        return timeAtTimeZone(timeWithTimeZone, getOffsetTimeZoneKey(zoneId.toStringUtf8()));
     }
 
     @ScalarFunction(value = "at_timezone", hidden = true)
     @SqlType(StandardTypes.TIME_WITH_TIME_ZONE)
-    public static long timeAtTimeZone(ConnectorSession session, @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long timeWithTimeZone, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long zoneOffset)
+    public static long timeAtTimeZone(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long timeWithTimeZone, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long zoneOffset)
     {
         checkCondition((zoneOffset % 60_000L) == 0L, INVALID_FUNCTION_ARGUMENT, "Invalid time zone offset interval: interval contains seconds");
         long zoneOffsetMinutes = zoneOffset / 60_000L;
-        return timeAtTimeZone(session, timeWithTimeZone, getTimeZoneKeyForOffset(zoneOffsetMinutes));
+        return timeAtTimeZone(timeWithTimeZone, getTimeZoneKeyForOffset(zoneOffsetMinutes));
     }
 
     @ScalarFunction(value = "at_timezone", hidden = true)
@@ -1336,19 +1337,15 @@ public final class DateTimeFunctions
         }
     }
 
-    private static long timeAtTimeZone(ConnectorSession session, long timeWithTimeZone, TimeZoneKey timeZoneKey)
+    private static long timeAtTimeZone(long timeWithTimeZone, TimeZoneKey timeZoneKey)
     {
         DateTimeZone sourceTimeZone = getDateTimeZone(unpackZoneKey(timeWithTimeZone));
         DateTimeZone targetTimeZone = getDateTimeZone(timeZoneKey);
+        verify(sourceTimeZone.isFixed());
+        verify(targetTimeZone.isFixed());
         long millis = unpackMillisUtc(timeWithTimeZone);
 
-        // STEP 1. Calculate source UTC millis in session start
-        millis += valueToSessionTimeZoneOffsetDiff(session.getStartTime(), sourceTimeZone);
-
-        // STEP 2. Calculate target UTC millis in 1970
-        millis -= valueToSessionTimeZoneOffsetDiff(session.getStartTime(), targetTimeZone);
-
-        // STEP 3. Make sure that value + offset is in 0 - 23:59:59.999
+        // Make sure that value + offset is in 0 - 23:59:59.999
         long localMillis = millis + targetTimeZone.getOffset(0);
         // Loops up to 2 times in total
         while (localMillis > TimeUnit.DAYS.toMillis(1)) {
@@ -1361,23 +1358,6 @@ public final class DateTimeFunctions
         }
 
         return packDateTimeWithZone(millis, timeZoneKey);
-    }
-
-    // HACK WARNING!
-    // This method does calculate difference between timezone offset on current date (session start)
-    // and 1970-01-01 (same timezone). This is used to be able to avoid using fixed offset TZ for
-    // places where TZ offset is explicitly accessed (namely AT TIME ZONE).
-    // DateTimeFormatter does format specified instance in specified time zone calculating offset for
-    // that time zone based on provided instance. As Presto TIME type is represented as millis since
-    // 00:00.000 of some day UTC, we always use timezone offset that was valid on 1970-01-01.
-    // Best effort without changing representation of TIME WITH TIME ZONE is to use offset of the timezone
-    // based on session start time.
-    // By adding this difference to instance that we would like to convert to other TZ, we can
-    // get exact value of utcMillis for current session start time.
-    // Silent assumption is made, that no changes in TZ offsets were done on 1970-01-01.
-    private static long valueToSessionTimeZoneOffsetDiff(long millisUtcSessionStart, DateTimeZone timeZone)
-    {
-        return timeZone.getOffset(0) - timeZone.getOffset(millisUtcSessionStart);
     }
 
     public static long offsetMinutes(DateTimeZone timeZone, long instant)

@@ -28,6 +28,7 @@ import java.util.Objects;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.regex.Pattern;
 
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static java.lang.Character.isDigit;
@@ -41,6 +42,8 @@ public final class TimeZoneKey
 {
     public static final TimeZoneKey UTC_KEY = new TimeZoneKey("UTC", (short) 0);
     public static final short MAX_TIME_ZONE_KEY;
+    private static final short MAX_OFFSET_ZONE_KEY = 1680; // as defined in zone-index.properties
+    private static final Pattern OFFSET_ZONE_ID_PATTERN = Pattern.compile("[-+]\\d\\d:\\d\\d");
     private static final Map<String, TimeZoneKey> ZONE_ID_TO_KEY;
     private static final Set<TimeZoneKey> ZONE_KEYS;
 
@@ -79,6 +82,13 @@ public final class TimeZoneKey
             for (Entry<Object, Object> entry : data.entrySet()) {
                 short zoneKey = Short.valueOf(((String) entry.getKey()).trim());
                 String zoneId = ((String) entry.getValue()).trim();
+                boolean isOffsetZoneId = OFFSET_ZONE_ID_PATTERN.matcher(zoneId).matches();
+                checkState(
+                        isOffsetZoneId == (zoneKey <= MAX_OFFSET_ZONE_KEY),
+                        "Zone key %s mapped to %s conflicts with MAX_OFFSET_ZONE_KEY %s",
+                        zoneKey,
+                        zoneId,
+                        MAX_OFFSET_ZONE_KEY);
 
                 maxZoneKey = (short) max(maxZoneKey, zoneKey);
                 zoneIdToKey.put(zoneId.toLowerCase(ENGLISH), new TimeZoneKey(zoneId, zoneKey));
@@ -130,6 +140,15 @@ public final class TimeZoneKey
         }
         if (zoneKey == null) {
             throw new TimeZoneNotSupportedException(zoneId);
+        }
+        return zoneKey;
+    }
+
+    public static TimeZoneKey getOffsetTimeZoneKey(String zoneId)
+    {
+        TimeZoneKey zoneKey = getTimeZoneKey(zoneId);
+        if (!zoneKey.isOffsetTimeZone()) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Invalid offset zone %s", zoneId));
         }
         return zoneKey;
     }
@@ -302,6 +321,11 @@ public final class TimeZoneKey
                 zoneId.equals("zulu");
     }
 
+    private boolean isOffsetTimeZone()
+    {
+        return getKey() <= MAX_OFFSET_ZONE_KEY;
+    }
+
     private static String zoneIdForOffset(long offset)
     {
         return format("%s%02d:%02d", offset < 0 ? "-" : "+", abs(offset / 60), abs(offset % 60));
@@ -311,6 +335,13 @@ public final class TimeZoneKey
     {
         if (!check) {
             throw new IllegalArgumentException(format(message, args));
+        }
+    }
+
+    private static void checkState(boolean check, String message, Object... args)
+    {
+        if (!check) {
+            throw new IllegalStateException(format(message, args));
         }
     }
 }
