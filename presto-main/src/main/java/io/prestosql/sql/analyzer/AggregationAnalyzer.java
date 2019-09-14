@@ -612,9 +612,9 @@ class AggregationAnalyzer
             if (analysis.isDescribe()) {
                 return true;
             }
-            List<Expression> parameters = analysis.getParameters();
+            Map<NodeRef<Parameter>, Expression> parameters = analysis.getParameters();
             checkArgument(node.getPosition() < parameters.size(), "Invalid parameter number %s, max values is %s", node.getPosition(), parameters.size() - 1);
-            return process(parameters.get(node.getPosition()), context);
+            return process(parameters.get(NodeRef.of(node)), context);
         }
 
         @Override

@@ -43,7 +43,7 @@ import static io.prestosql.spi.type.Decimals.encodeScaledValue;
 import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.prestosql.sql.relational.Expressions.constant;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
-import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
 
 public class TestSqlToRowExpressionTranslator
 {
@@ -111,7 +111,7 @@ public class TestSqlToRowExpressionTranslator
                 metadata,
                 TEST_SESSION,
                 TypeProvider.empty(),
-                emptyList(),
+                emptyMap(),
                 node -> new IllegalStateException("Unexpected node: %s" + node),
                 WarningCollector.NOOP,
                 false);

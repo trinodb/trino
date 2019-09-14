@@ -34,6 +34,8 @@ import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.planner.ParameterRewriter;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.ExpressionTreeRewriter;
+import io.prestosql.sql.tree.NodeRef;
+import io.prestosql.sql.tree.Parameter;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -223,7 +225,7 @@ public final class SessionPropertyManager
         }
     }
 
-    public static Object evaluatePropertyValue(Expression expression, Type expectedType, Session session, Metadata metadata, List<Expression> parameters)
+    public static Object evaluatePropertyValue(Expression expression, Type expectedType, Session session, Metadata metadata, Map<NodeRef<Parameter>, Expression> parameters)
     {
         Expression rewritten = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameters), expression);
         Object value = evaluateConstantExpression(rewritten, expectedType, metadata, session, parameters);

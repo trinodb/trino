@@ -25,6 +25,8 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.ParameterRewriter;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.ExpressionTreeRewriter;
+import io.prestosql.sql.tree.NodeRef;
+import io.prestosql.sql.tree.Parameter;
 
 import java.util.List;
 import java.util.Map;
@@ -73,7 +75,7 @@ abstract class AbstractPropertyManager
             Map<String, Expression> sqlPropertyValues,
             Session session,
             Metadata metadata,
-            List<Expression> parameters)
+            Map<NodeRef<Parameter>, Expression> parameters)
     {
         Map<String, PropertyMetadata<?>> supportedProperties = connectorProperties.get(catalogName);
         if (supportedProperties == null) {
@@ -147,7 +149,7 @@ abstract class AbstractPropertyManager
         return ImmutableMap.copyOf(connectorProperties);
     }
 
-    private Object evaluatePropertyValue(Expression expression, Type expectedType, Session session, Metadata metadata, List<Expression> parameters)
+    private Object evaluatePropertyValue(Expression expression, Type expectedType, Session session, Metadata metadata, Map<NodeRef<Parameter>, Expression> parameters)
     {
         Expression rewritten = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameters), expression);
         Object value = evaluateConstantExpression(rewritten, expectedType, metadata, session, parameters);

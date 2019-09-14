@@ -173,7 +173,7 @@ public class ExpressionInterpreter
         return new ExpressionInterpreter(expression, metadata, session, expressionTypes, true);
     }
 
-    public static Object evaluateConstantExpression(Expression expression, Type expectedType, Metadata metadata, Session session, List<Expression> parameters)
+    public static Object evaluateConstantExpression(Expression expression, Type expectedType, Metadata metadata, Session session, Map<NodeRef<Parameter>, Expression> parameters)
     {
         ExpressionAnalyzer analyzer = createConstantAnalyzer(metadata, session, parameters, WarningCollector.NOOP);
         analyzer.analyze(expression, Scope.create());
@@ -199,7 +199,7 @@ public class ExpressionInterpreter
             Metadata metadata,
             Session session,
             Set<NodeRef<Expression>> columnReferences,
-            List<Expression> parameters)
+            Map<NodeRef<Parameter>, Expression> parameters)
     {
         requireNonNull(columnReferences, "columnReferences is null");
 
