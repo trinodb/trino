@@ -49,6 +49,7 @@ import java.util.stream.Stream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.prestosql.spi.type.TimeZoneKey.getOffsetTimeZoneKey;
 import static io.prestosql.util.DateTimeZoneIndex.getChronology;
 import static io.prestosql.util.DateTimeZoneIndex.getDateTimeZone;
 import static io.prestosql.util.DateTimeZoneIndex.packDateTimeWithZone;
@@ -344,6 +345,7 @@ public final class DateTimeUtils
     public static long parseTimeWithTimeZone(String timeWithTimeZone)
     {
         DateTime dateTime = TIME_WITH_TIME_ZONE_FORMATTER.parseDateTime(timeWithTimeZone);
+        getOffsetTimeZoneKey(dateTime.getZone().getID());
         return packDateTimeWithZone(dateTime);
     }
 

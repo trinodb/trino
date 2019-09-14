@@ -1513,7 +1513,39 @@ public class TestAnalyzer
     @Test
     public void testLiteral()
     {
+        // time without zone
+        analyze("SELECT TIME '00:00:00'");
+
+        // time with offset zone
+        analyze("SELECT TIME '00:00:00 +01:00'");
+
+        // time with political zone
+        assertFails("SELECT TIME '00:00:00 Europe/Warsaw'")
+                .hasErrorCode(INVALID_LITERAL);
+
+        // time with zone abbreviation
+        assertFails("SELECT TIME '2012-10-31 01:00:00 PT'")
+                .hasErrorCode(INVALID_LITERAL);
+
+        // time with timestamp-ish literal
+        assertFails("SELECT TIME '1970-01-01 00:00:00'")
+                .hasErrorCode(INVALID_LITERAL);
+
+        // timestamp without zone
+        analyze("SELECT TIMESTAMP '1970-01-01 00:00:00'");
+
+        // timestamp with offset zone
+        analyze("SELECT TIMESTAMP '1970-01-01 00:00:00 +01:00'");
+
+        // timestamp with political zone
+        analyze("SELECT TIMESTAMP '1970-01-01 00:00:00 Europe/Warsaw'");
+
+        // timestamp with zone abbreviation
         assertFails("SELECT TIMESTAMP '2012-10-31 01:00:00 PT'")
+                .hasErrorCode(INVALID_LITERAL);
+
+        // timestamp with time-ish literal
+        assertFails("SELECT TIMESTAMP '01:00:00'")
                 .hasErrorCode(INVALID_LITERAL);
     }
 

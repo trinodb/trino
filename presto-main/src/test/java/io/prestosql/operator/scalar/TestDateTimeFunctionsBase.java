@@ -947,10 +947,10 @@ public abstract class TestDateTimeFunctionsBase
 
         // SqlTimeWithTimeZone
         assertFunctionString("time '00:00:00 UTC'", TIME_WITH_TIME_ZONE, "00:00:00.000 UTC");
-        assertFunctionString("time '01:02:03 Asia/Shanghai'", TIME_WITH_TIME_ZONE, "01:02:03.000 Asia/Shanghai");
-        assertFunctionString("time '23:23:23.233 America/Los_Angeles'", TIME_WITH_TIME_ZONE, "23:23:23.233 America/Los_Angeles");
+        assertFunctionString("time '01:02:03 +08:31'", TIME_WITH_TIME_ZONE, "01:02:03.000 +08:31");
+        assertFunctionString("time '23:23:23.233 -07:00'", TIME_WITH_TIME_ZONE, "23:23:23.233 -07:00");
         assertFunctionString(WEIRD_TIME_LITERAL, TIME_WITH_TIME_ZONE, "03:04:05.321 +07:09");
-        assertFunctionString("time '23:59:59.999 Asia/Kathmandu'", TIME_WITH_TIME_ZONE, "23:59:59.999 Asia/Kathmandu");
+        assertFunctionString("time '23:59:59.999 +05:45'", TIME_WITH_TIME_ZONE, "23:59:59.999 +05:45");
 
         // SqlTimestamp
         assertFunctionString("timestamp '0000-01-02 01:02:03'", TimestampType.TIMESTAMP, "0000-01-02 01:02:03.000");
@@ -984,29 +984,25 @@ public abstract class TestDateTimeFunctionsBase
                         .setTimeZoneKey(europeWarsawTimeZoneKey)
                         .setStartTime(new DateTime(2017, 1, 1, 10, 0, 0, europeWarsawTimeZone).getMillis())
                         .build();
+        TimeZoneKey europeWarsawOffsetKey = TimeZoneKey.getTimeZoneKeyForOffset(MILLISECONDS.toMinutes(europeWarsawTimeZone.getOffset(europeWarsawSessionWinter.getStartTime())));
         try (FunctionAssertions europeWarsawAssertionsWinter = new FunctionAssertions(europeWarsawSessionWinter);
                 FunctionAssertions oldKathmanduTimeZoneOffsetAssertions = new FunctionAssertions(oldKathmanduTimeZoneOffsetSession)) {
             long millisTenOClockWarsawWinter = new DateTime(1970, 1, 1, 9, 0, 0, 0, UTC_TIME_ZONE).getMillis();
 
             // Simple shift to UTC
-            europeWarsawAssertionsWinter.assertFunction("at_timezone(TIME '10:00 Europe/Warsaw', 'UTC')",
+            europeWarsawAssertionsWinter.assertFunction("at_timezone(TIME '10:00 +01:00', 'UTC')",
                     TIME_WITH_TIME_ZONE,
                     new SqlTimeWithTimeZone(millisTenOClockWarsawWinter, UTC_KEY));
 
             // Simple shift to fixed TZ
-            europeWarsawAssertionsWinter.assertFunction("at_timezone(TIME '10:00 Europe/Warsaw', '+00:45')",
+            europeWarsawAssertionsWinter.assertFunction("at_timezone(TIME '10:00 +01:00', '+00:45')",
                     TIME_WITH_TIME_ZONE,
                     new SqlTimeWithTimeZone(millisTenOClockWarsawWinter, getTimeZoneKey("+00:45")));
 
             // Simple shift to geographical TZ
-            europeWarsawAssertionsWinter.assertFunction("at_timezone(TIME '10:00 Europe/Warsaw', 'America/New_York')",
-                    TIME_WITH_TIME_ZONE,
-                    new SqlTimeWithTimeZone(millisTenOClockWarsawWinter, getTimeZoneKey("America/New_York")));
-
-            // No shift but different time zone
-            europeWarsawAssertionsWinter.assertFunction("at_timezone(TIME '10:00 Europe/Warsaw', 'Europe/Berlin')",
-                    TIME_WITH_TIME_ZONE,
-                    new SqlTimeWithTimeZone(millisTenOClockWarsawWinter, getTimeZoneKey("Europe/Berlin")));
+            europeWarsawAssertionsWinter.assertInvalidFunction(
+                    "at_timezone(TIME '10:00 +01:00', 'America/New_York')",
+                    "Invalid offset zone America/New_York");
 
             // Noop on UTC
             assertFunction("at_timezone(TIME '10:00 UTC', 'UTC')",
@@ -1014,24 +1010,24 @@ public abstract class TestDateTimeFunctionsBase
                     new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 10, 0, 0, 0, UTC_TIME_ZONE).getMillis(), TimeZoneKey.UTC_KEY));
 
             // Noop on other TZ
-            europeWarsawAssertionsWinter.assertFunction("at_timezone(TIME '10:00 Europe/Warsaw', 'Europe/Warsaw')",
+            europeWarsawAssertionsWinter.assertFunction("at_timezone(TIME '10:00 +01:00', '+01:00')",
                     TIME_WITH_TIME_ZONE,
-                    new SqlTimeWithTimeZone(millisTenOClockWarsawWinter, europeWarsawTimeZoneKey));
+                    new SqlTimeWithTimeZone(millisTenOClockWarsawWinter, europeWarsawOffsetKey));
 
             // Noop on other TZ on different session TZ
-            assertFunction("at_timezone(TIME '10:00 Europe/Warsaw', 'Europe/Warsaw')",
+            assertFunction("at_timezone(TIME '10:00 +01:00', '+01:00')",
                     TIME_WITH_TIME_ZONE,
-                    new SqlTimeWithTimeZone(millisTenOClockWarsawWinter, europeWarsawTimeZoneKey));
+                    new SqlTimeWithTimeZone(millisTenOClockWarsawWinter, europeWarsawOffsetKey));
 
             // Shift through days back
-            europeWarsawAssertionsWinter.assertFunction("at_timezone(TIME '2:00 Europe/Warsaw', 'America/New_York')",
+            europeWarsawAssertionsWinter.assertFunction("at_timezone(TIME '2:00 +01:00', '-05:00')",
                     TIME_WITH_TIME_ZONE,
-                    new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 20, 0, 0, 0, getDateTimeZone(getTimeZoneKey("America/New_York"))).getMillis(), getTimeZoneKey("America/New_York")));
+                    new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 20, 0, 0, 0, getDateTimeZone(getTimeZoneKey("America/New_York"))).getMillis(), getTimeZoneKey("-05:00")));
 
             // Shift through days forward
-            europeWarsawAssertionsWinter.assertFunction("at_timezone(TIME '22:00 America/New_York', 'Europe/Warsaw')",
+            europeWarsawAssertionsWinter.assertFunction("at_timezone(TIME '22:00 -05:00', '+01:00')",
                     TIME_WITH_TIME_ZONE,
-                    new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 4, 0, 0, 0, europeWarsawTimeZone).getMillis(), europeWarsawTimeZoneKey));
+                    new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 4, 0, 0, 0, europeWarsawTimeZone).getMillis(), europeWarsawOffsetKey));
 
             // Shift backward on min value
             europeWarsawAssertionsWinter.assertFunction("at_timezone(TIME '00:00 +14:00', '+13:00')",
@@ -1052,24 +1048,6 @@ public abstract class TestDateTimeFunctionsBase
             europeWarsawAssertionsWinter.assertFunction("at_timezone(TIME '23:59:59.999 +14:00', '-14:00')",
                     TIME_WITH_TIME_ZONE,
                     new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 19, 59, 59, 999, getDateTimeZone(getTimeZoneKey("-14:00"))).getMillis(), getTimeZoneKey("-14:00")));
-
-            // Asia/Kathmandu used +5:30 TZ until 1986 and than switched to +5:45
-            // This test checks if we do use offset of time zone valid currently and not the historical one
-            assertFunction("at_timezone(TIME '10:00 Asia/Kathmandu', 'UTC')",
-                    TIME_WITH_TIME_ZONE,
-                    new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 4, 15, 0, 0, UTC_TIME_ZONE).getMillis(), TimeZoneKey.UTC_KEY));
-
-            // Noop when time zone doesn't change
-            TimeZoneKey kabul = TimeZoneKey.getTimeZoneKey("Asia/Kabul");
-            assertFunction("at_timezone(TIME '10:00 Asia/Kabul', 'Asia/Kabul')",
-                    TIME_WITH_TIME_ZONE,
-                    new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 10, 0, 0, 0, getDateTimeZone(kabul)).getMillis(), kabul));
-
-            // This test checks if the TZ offset isn't calculated on other fixed point in time by checking if
-            // session started in 1980 would get historical Asia/Kathmandu offset.
-            oldKathmanduTimeZoneOffsetAssertions.assertFunction("at_timezone(TIME '10:00 Asia/Kathmandu', 'UTC')",
-                    TIME_WITH_TIME_ZONE,
-                    new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 4, 30, 0, 0, UTC_TIME_ZONE).getMillis(), TimeZoneKey.UTC_KEY));
 
             // Check simple interval shift
             europeWarsawAssertionsWinter.assertFunction("at_timezone(TIME '10:00 +01:00', INTERVAL '2' HOUR)",
