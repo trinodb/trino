@@ -604,7 +604,8 @@ public class ExtractSpatialJoins
                 new ProjectNode(context.getIdAllocator().getNextId(), node, projections.build()),
                 node.getOutputSymbols(),
                 ImmutableMap.of(partitionsSymbol, ImmutableList.of(partitionSymbol)),
-                Optional.empty());
+                Optional.empty(),
+                false);
     }
 
     private static boolean containsNone(Collection<Symbol> values, Collection<Symbol> testValues)

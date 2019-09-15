@@ -151,7 +151,8 @@ public class BenchmarkUnnestOperator
                         types.subList(0, 1),
                         channels.subList(1, channels.size()),
                         types.subList(1, types.size()),
-                        true);
+                        true,
+                        false);
         }
 
         public Optional<Type> getType(Metadata metadata, String typeString)
