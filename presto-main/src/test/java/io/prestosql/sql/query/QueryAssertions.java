@@ -118,6 +118,19 @@ class QueryAssertions
         }
     }
 
+    public void assertQueryReturnsEmptyResult(@Language("SQL") String actual)
+    {
+        MaterializedResult actualResults = null;
+        try {
+            actualResults = execute(actual);
+        }
+        catch (RuntimeException ex) {
+            fail("Execution of 'actual' query failed: " + actual, ex);
+        }
+        List<MaterializedRow> actualRows = actualResults.getMaterializedRows();
+        assertEquals(actualRows.size(), 0);
+    }
+
     public static void assertContains(MaterializedResult all, MaterializedResult expectedSubset)
     {
         for (MaterializedRow row : expectedSubset.getMaterializedRows()) {
