@@ -64,6 +64,7 @@ public final class DateTimeOperators
     @SqlType(StandardTypes.TIME)
     public static long timePlusIntervalDayToSecond(ConnectorSession session, @SqlType(StandardTypes.TIME) long left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
     {
+        // TODO in new semantics session zone should not be used
         return modulo24Hour(getChronology(session.getTimeZoneKey()), left + right);
     }
 
@@ -71,6 +72,7 @@ public final class DateTimeOperators
     @SqlType(StandardTypes.TIME)
     public static long intervalDayToSecondPlusTime(ConnectorSession session, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long left, @SqlType(StandardTypes.TIME) long right)
     {
+        // TODO in new semantics session zone should not be used
         return modulo24Hour(getChronology(session.getTimeZoneKey()), left + right);
     }
 
