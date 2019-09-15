@@ -46,6 +46,7 @@ import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static io.prestosql.type.JsonType.JSON;
+import static io.prestosql.util.DateTimeUtils.getSessionOffsetZone;
 import static io.prestosql.util.DateTimeUtils.parseDayTimeInterval;
 import static io.prestosql.util.DateTimeUtils.parseTimeLiteral;
 import static io.prestosql.util.DateTimeUtils.parseTimestampLiteral;
@@ -152,7 +153,7 @@ public final class LiteralInterpreter
         protected Long visitTimeLiteral(TimeLiteral node, ConnectorSession session)
         {
             if (session.isLegacyTimestamp()) {
-                return parseTimeLiteral(session.getTimeZoneKey(), node.getValue());
+                return parseTimeLiteral(getSessionOffsetZone(session.getTimeZoneKey(), session.getStartTime()), node.getValue());
             }
             else {
                 return parseTimeLiteral(node.getValue());

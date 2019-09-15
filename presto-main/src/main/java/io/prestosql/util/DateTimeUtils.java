@@ -47,9 +47,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.operator.scalar.DateTimeFunctions.offsetMinutes;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.TimeZoneKey.getOffsetTimeZoneKey;
+import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static io.prestosql.util.DateTimeZoneIndex.getChronology;
 import static io.prestosql.util.DateTimeZoneIndex.getDateTimeZone;
 import static io.prestosql.util.DateTimeZoneIndex.packDateTimeWithZone;
@@ -410,6 +412,12 @@ public final class DateTimeUtils
         catch (RuntimeException e) {
             throw new IllegalArgumentException(format("Invalid time '%s'", value));
         }
+    }
+
+    public static TimeZoneKey getSessionOffsetZone(TimeZoneKey sessionTimeZone, long sessionStartTime)
+    {
+        long offsetMinutes = offsetMinutes(getDateTimeZone(sessionTimeZone), sessionStartTime);
+        return getTimeZoneKeyForOffset(offsetMinutes);
     }
 
     private static final int YEAR_FIELD = 0;
