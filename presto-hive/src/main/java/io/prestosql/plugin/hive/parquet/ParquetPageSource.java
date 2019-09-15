@@ -70,11 +70,9 @@ public class ParquetPageSource
             MessageType fileSchema,
             MessageColumnIO messageColumnIO,
             TypeManager typeManager,
-            Properties splitSchema,
             List<HiveColumnHandle> columns,
             boolean useParquetColumnNames)
     {
-        requireNonNull(splitSchema, "splitSchema is null");
         requireNonNull(columns, "columns is null");
         this.parquetReader = requireNonNull(parquetReader, "parquetReader is null");
         this.fileSchema = requireNonNull(fileSchema, "fileSchema is null");

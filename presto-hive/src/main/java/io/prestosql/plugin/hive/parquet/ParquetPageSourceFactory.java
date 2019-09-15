@@ -202,7 +202,6 @@ public class ParquetPageSourceFactory
                     fileSchema,
                     messageColumnIO,
                     typeManager,
-                    schema,
                     columns,
                     useParquetColumnNames);
         }

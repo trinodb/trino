@@ -65,7 +65,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Properties;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -230,7 +229,6 @@ public class IcebergPageSourceProvider
                     fileSchema,
                     messageColumnIO,
                     typeManager,
-                    new Properties(),
                     columnNameReplaced,
                     useParquetColumnNames);
 
