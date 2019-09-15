@@ -50,7 +50,8 @@ public class LogTestDurationListener
 
     private static final Duration SINGLE_TEST_LOGGING_THRESHOLD = Duration.valueOf("30s");
     private static final Duration CLASS_LOGGING_THRESHOLD = Duration.valueOf("1m");
-    private static final Duration GLOBAL_IDLE_LOGGING_THRESHOLD = Duration.valueOf("5m");
+    // Must be below Travis "no output" timeout (10m). E.g. TestElasticsearchIntegrationSmokeTest is known to take ~5-6m.
+    private static final Duration GLOBAL_IDLE_LOGGING_THRESHOLD = Duration.valueOf("8m");
 
     private final ScheduledExecutorService scheduledExecutorService;
 
