@@ -30,6 +30,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.Session.SessionBuilder;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
 import static java.util.Map.Entry;
@@ -44,6 +45,8 @@ public class QuerySessionSupplier
     private final SessionPropertyManager sessionPropertyManager;
     private final Optional<String> path;
     private final Optional<TimeZoneKey> forcedSessionTimeZone;
+    private final Optional<String> defaultCatalog;
+    private final Optional<String> defaultSchema;
 
     @Inject
     public QuerySessionSupplier(
@@ -58,6 +61,10 @@ public class QuerySessionSupplier
         requireNonNull(config, "config is null");
         this.path = requireNonNull(config.getPath(), "path is null");
         this.forcedSessionTimeZone = requireNonNull(config.getForcedSessionTimeZone(), "forcedSessionTimeZone is null");
+        this.defaultCatalog = requireNonNull(config.getDefaultCatalog(), "defaultCatalog is null");
+        this.defaultSchema = requireNonNull(config.getDefaultSchema(), "defaultSchema is null");
+
+        checkArgument(defaultCatalog.isPresent() || !defaultSchema.isPresent(), "Default schema cannot be set if catalog is not set");
     }
 
     @Override
@@ -70,8 +77,6 @@ public class QuerySessionSupplier
                 .setQueryId(queryId)
                 .setIdentity(identity)
                 .setSource(context.getSource())
-                .setCatalog(context.getCatalog())
-                .setSchema(context.getSchema())
                 .setPath(new SqlPath(path))
                 .setRemoteUserAddress(context.getRemoteUserAddress())
                 .setUserAgent(context.getUserAgent())
@@ -80,6 +85,17 @@ public class QuerySessionSupplier
                 .setClientCapabilities(context.getClientCapabilities())
                 .setTraceToken(context.getTraceToken())
                 .setResourceEstimates(context.getResourceEstimates());
+
+        defaultCatalog.ifPresent(sessionBuilder::setCatalog);
+        defaultSchema.ifPresent(sessionBuilder::setSchema);
+
+        if (context.getCatalog() != null) {
+            sessionBuilder.setCatalog(context.getCatalog());
+        }
+
+        if (context.getSchema() != null) {
+            sessionBuilder.setSchema(context.getSchema());
+        }
 
         if (context.getPath() != null) {
             sessionBuilder.setPath(new SqlPath(Optional.of(context.getPath())));
