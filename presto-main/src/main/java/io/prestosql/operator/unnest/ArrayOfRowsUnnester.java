@@ -98,7 +98,13 @@ class ArrayOfRowsUnnester
         }
 
         // Append nulls if more output entries are needed
-        for (int i = 0; i < requireCount - getCurrentUnnestedLength(); i++) {
+        appendNulls(requireCount - getCurrentUnnestedLength());
+    }
+
+    @Override
+    public void appendNulls(int count)
+    {
+        for (int i = 0; i < count; i++) {
             for (int field = 0; field < fieldCount; field++) {
                 getBlockBuilder(field).appendNull();
             }

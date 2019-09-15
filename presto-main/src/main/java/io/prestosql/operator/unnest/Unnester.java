@@ -111,6 +111,8 @@ abstract class Unnester
      */
     protected abstract void processCurrentPosition(int requiredOutputCount);
 
+    protected abstract void appendNulls(int count);
+
     protected abstract void resetColumnarStructure(Block block);
 
     /**
