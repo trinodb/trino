@@ -60,6 +60,7 @@ import io.prestosql.sql.tree.InPredicate;
 import io.prestosql.sql.tree.Intersect;
 import io.prestosql.sql.tree.Join;
 import io.prestosql.sql.tree.JoinCriteria;
+import io.prestosql.sql.tree.JoinOn;
 import io.prestosql.sql.tree.JoinUsing;
 import io.prestosql.sql.tree.LambdaArgumentDeclaration;
 import io.prestosql.sql.tree.Lateral;
@@ -99,6 +100,7 @@ import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.prestosql.sql.tree.Join.Type.CROSS;
 import static io.prestosql.sql.tree.Join.Type.IMPLICIT;
 import static io.prestosql.sql.tree.Join.Type.INNER;
+import static io.prestosql.sql.tree.Join.Type.RIGHT;
 import static java.util.Objects.requireNonNull;
 
 class RelationPlanner
@@ -220,10 +222,18 @@ class RelationPlanner
 
         Optional<Unnest> unnest = getUnnest(node.getRight());
         if (unnest.isPresent()) {
-            if (node.getType() != CROSS && node.getType() != IMPLICIT) {
-                throw notSupportedException(unnest.get(), "UNNEST on other than the right side of CROSS JOIN");
+            if (node.getType() == CROSS || node.getType() == IMPLICIT) {
+                return planJoinUnnest(leftPlan, node, unnest.get(), false);
             }
-            return planCrossJoinUnnest(leftPlan, node, unnest.get());
+            checkState(node.getCriteria().isPresent(), "missing Join criteria");
+            if (node.getCriteria().get() instanceof JoinOn && ((JoinOn) node.getCriteria().get()).getExpression().equals(TRUE_LITERAL)) {
+                if (node.getType() == RIGHT || node.getType() == INNER) {
+                    return planJoinUnnest(leftPlan, node, unnest.get(), false);
+                }
+                // LEFT or FULL join
+                return planJoinUnnest(leftPlan, node, unnest.get(), true);
+            }
+            throw notSupportedException(unnest.get(), "UNNEST in conditional JOIN");
         }
 
         Optional<Lateral> lateral = getLateral(node.getRight());
@@ -600,7 +610,7 @@ class RelationPlanner
         return conjunct instanceof ComparisonExpression && ((ComparisonExpression) conjunct).getOperator() == ComparisonExpression.Operator.EQUAL;
     }
 
-    private RelationPlan planCrossJoinUnnest(RelationPlan leftPlan, Join joinNode, Unnest node)
+    private RelationPlan planJoinUnnest(RelationPlan leftPlan, Join joinNode, Unnest node, boolean outer)
     {
         RelationType unnestOutputDescriptor = analysis.getOutputDescriptor(node);
         // Create symbols for the result of unnesting
@@ -645,7 +655,7 @@ class RelationPlanner
         Optional<Symbol> ordinalitySymbol = node.isWithOrdinality() ? Optional.of(unnestedSymbolsIterator.next()) : Optional.empty();
         checkState(!unnestedSymbolsIterator.hasNext(), "Not all output symbols were matched with input symbols");
 
-        UnnestNode unnestNode = new UnnestNode(idAllocator.getNextId(), projectNode, leftPlan.getFieldMappings(), unnestSymbols.build(), ordinalitySymbol);
+        UnnestNode unnestNode = new UnnestNode(idAllocator.getNextId(), projectNode, leftPlan.getFieldMappings(), unnestSymbols.build(), ordinalitySymbol, outer);
         return new RelationPlan(unnestNode, analysis.getScope(joinNode), unnestNode.getOutputSymbols());
     }
 
@@ -747,7 +757,7 @@ class RelationPlanner
         checkState(!unnestedSymbolsIterator.hasNext(), "Not all output symbols were matched with input symbols");
         ValuesNode valuesNode = new ValuesNode(idAllocator.getNextId(), argumentSymbols.build(), ImmutableList.of(values.build()));
 
-        UnnestNode unnestNode = new UnnestNode(idAllocator.getNextId(), valuesNode, ImmutableList.of(), unnestSymbols.build(), ordinalitySymbol);
+        UnnestNode unnestNode = new UnnestNode(idAllocator.getNextId(), valuesNode, ImmutableList.of(), unnestSymbols.build(), ordinalitySymbol, false);
         return new RelationPlan(unnestNode, scope, unnestedSymbols);
     }
 

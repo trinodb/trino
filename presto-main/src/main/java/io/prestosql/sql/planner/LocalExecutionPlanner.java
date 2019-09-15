@@ -1367,7 +1367,8 @@ public class LocalExecutionPlanner
                     replicateTypes.build(),
                     unnestChannels,
                     unnestTypes.build(),
-                    ordinalityType.isPresent());
+                    ordinalityType.isPresent(),
+                    node.isOuter());
             return new PhysicalOperation(operatorFactory, outputMappings.build(), context, source);
         }
 
