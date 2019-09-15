@@ -96,6 +96,8 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.sql.analyzer.SemanticExceptions.notSupportedException;
 import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.prestosql.sql.tree.Join.Type.CROSS;
+import static io.prestosql.sql.tree.Join.Type.IMPLICIT;
 import static io.prestosql.sql.tree.Join.Type.INNER;
 import static java.util.Objects.requireNonNull;
 
@@ -218,7 +220,7 @@ class RelationPlanner
 
         Optional<Unnest> unnest = getUnnest(node.getRight());
         if (unnest.isPresent()) {
-            if (node.getType() != Join.Type.CROSS && node.getType() != Join.Type.IMPLICIT) {
+            if (node.getType() != CROSS && node.getType() != IMPLICIT) {
                 throw notSupportedException(unnest.get(), "UNNEST on other than the right side of CROSS JOIN");
             }
             return planCrossJoinUnnest(leftPlan, node, unnest.get());
@@ -248,7 +250,7 @@ class RelationPlanner
         List<Expression> complexJoinExpressions = new ArrayList<>();
         List<Expression> postInnerJoinConditions = new ArrayList<>();
 
-        if (node.getType() != Join.Type.CROSS && node.getType() != Join.Type.IMPLICIT) {
+        if (node.getType() != CROSS && node.getType() != IMPLICIT) {
             Expression criteria = analysis.getJoinCriteria(node);
 
             RelationType left = analysis.getOutputDescriptor(node.getLeft());
