@@ -14,18 +14,18 @@ matrix:
   include:
     - env: MAVEN_CHECKS=true BUILD_PRESTO_DOCKER=true
     - env: WEBUI_CHECKS=true
+    - env: TEST_SPECIFIC_MODULES=presto-main
     - env: TEST_SPECIFIC_MODULES=presto-tests
     - env: TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P ci-only"
     - env: TEST_SPECIFIC_MODULES=presto-raptor-legacy
     - env: TEST_SPECIFIC_MODULES=presto-accumulo
     - env: TEST_SPECIFIC_MODULES=presto-cassandra
     - env: TEST_SPECIFIC_MODULES=presto-hive,presto-orc,presto-parquet
-    - env: TEST_SPECIFIC_MODULES=presto-main
     - env: TEST_SPECIFIC_MODULES=presto-mongodb,presto-kafka,presto-elasticsearch
     - env: TEST_SPECIFIC_MODULES=presto-redis
     - env: TEST_SPECIFIC_MODULES=presto-sqlserver,presto-postgresql,presto-mysql
     - env: TEST_SPECIFIC_MODULES=presto-phoenix,presto-iceberg
-    - env: TEST_OTHER_MODULES=!presto-tests,!presto-raptor-legacy,!presto-accumulo,!presto-cassandra,!presto-hive,!presto-kudu,!presto-docs,!presto-server,!presto-server-rpm,!presto-main,!presto-orc,!presto-parquet,!presto-mongodb,!presto-kafka,!presto-elasticsearch,!presto-redis,!presto-sqlserver,!presto-postgresql,!presto-mysql,!presto-phoenix,!presto-iceberg
+    - env: TEST_OTHER_MODULES=!presto-main,!presto-tests,!presto-raptor-legacy,!presto-accumulo,!presto-cassandra,!presto-hive,!presto-orc,!presto-parquet,!presto-mongodb,!presto-kafka,!presto-elasticsearch,!presto-redis,!presto-sqlserver,!presto-postgresql,!presto-mysql,!presto-phoenix,!presto-iceberg,!presto-kudu,!presto-docs,!presto-server,!presto-server-rpm
     - env: PRODUCT_TESTS_SUITE=suite-1
     - env: PRODUCT_TESTS_SUITE=suite-2
     - env: PRODUCT_TESTS_SUITE=suite-3
