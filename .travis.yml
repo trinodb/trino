@@ -22,11 +22,11 @@ matrix:
     - env: TEST_SPECIFIC_MODULES=presto-hive
     - env: TEST_SPECIFIC_MODULES=presto-main
     - env: TEST_SPECIFIC_MODULES=presto-orc,presto-parquet
-    - env: TEST_SPECIFIC_MODULES=presto-mongodb
+    - env: TEST_SPECIFIC_MODULES=presto-mongodb,presto-kafka,presto-elasticsearch
     - env: TEST_SPECIFIC_MODULES=presto-redis
     - env: TEST_SPECIFIC_MODULES=presto-sqlserver,presto-postgresql,presto-mysql
-    - env: TEST_SPECIFIC_MODULES=presto-phoenix
-    - env: TEST_OTHER_MODULES=!presto-tests,!presto-raptor-legacy,!presto-accumulo,!presto-cassandra,!presto-hive,!presto-kudu,!presto-docs,!presto-server,!presto-server-rpm,!presto-main,!presto-orc,!presto-parquet,!presto-mongodb,!presto-redis,!presto-sqlserver,!presto-postgresql,!presto-mysql,!presto-phoenix
+    - env: TEST_SPECIFIC_MODULES=presto-phoenix,presto-iceberg
+    - env: TEST_OTHER_MODULES=!presto-tests,!presto-raptor-legacy,!presto-accumulo,!presto-cassandra,!presto-hive,!presto-kudu,!presto-docs,!presto-server,!presto-server-rpm,!presto-main,!presto-orc,!presto-parquet,!presto-mongodb,!presto-kafka,!presto-elasticsearch,!presto-redis,!presto-sqlserver,!presto-postgresql,!presto-mysql,!presto-phoenix,!presto-iceberg
     - env: PRODUCT_TESTS_SUITE=suite-1
     - env: PRODUCT_TESTS_SUITE=suite-2
     - env: PRODUCT_TESTS_SUITE=suite-3
