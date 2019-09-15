@@ -140,7 +140,7 @@ public abstract class TestTimeBase
     {
         assertFunction("cast(TIME '03:04:05.321' as time with time zone)",
                 TIME_WITH_TIME_ZONE,
-                sqlTimeWithTimeZoneOf(3, 4, 5, 321, getTimeZoneKey("+02:00")));
+                sqlTimeWithTimeZoneOf(3, 4, 5, 321, getTimeZoneKey("+13:00")));
     }
 
     @Test
