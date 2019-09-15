@@ -19,9 +19,8 @@ matrix:
     - env: TEST_SPECIFIC_MODULES=presto-raptor-legacy
     - env: TEST_SPECIFIC_MODULES=presto-accumulo
     - env: TEST_SPECIFIC_MODULES=presto-cassandra
-    - env: TEST_SPECIFIC_MODULES=presto-hive
+    - env: TEST_SPECIFIC_MODULES=presto-hive,presto-orc,presto-parquet
     - env: TEST_SPECIFIC_MODULES=presto-main
-    - env: TEST_SPECIFIC_MODULES=presto-orc,presto-parquet
     - env: TEST_SPECIFIC_MODULES=presto-mongodb,presto-kafka,presto-elasticsearch
     - env: TEST_SPECIFIC_MODULES=presto-redis
     - env: TEST_SPECIFIC_MODULES=presto-sqlserver,presto-postgresql,presto-mysql
