@@ -745,6 +745,23 @@ public class PredicatePushDown
             Expression outerOnlyInheritedEqualities = combineConjuncts(equalityPartition.getScopeEqualities());
             EqualityInference potentialNullSymbolInference = EqualityInference.newInstance(outerOnlyInheritedEqualities, outerEffectivePredicate, innerEffectivePredicate, joinPredicate);
 
+            // Push outer and join equalities into the inner side. For example:
+            // SELECT * FROM nation LEFT OUTER JOIN region ON nation.regionkey = region.regionkey and nation.name = region.name WHERE nation.name = 'blah'
+
+            EqualityInference potentialNullSymbolInferenceWithoutInnerInferred = EqualityInference.newInstance(outerOnlyInheritedEqualities, outerEffectivePredicate, joinPredicate);
+            innerPushdownConjuncts.addAll(potentialNullSymbolInferenceWithoutInnerInferred.generateEqualitiesPartitionedBy(innerScope).getScopeEqualities());
+
+            // TODO: we can further improve simplifying the equalities by considering other relationships from the outer side
+            EqualityInference.EqualityPartition joinEqualityPartition = EqualityInference.newInstance(joinPredicate).generateEqualitiesPartitionedBy(innerScope);
+            innerPushdownConjuncts.addAll(joinEqualityPartition.getScopeEqualities());
+            joinConjuncts.addAll(joinEqualityPartition.getScopeComplementEqualities())
+                    .addAll(joinEqualityPartition.getScopeStraddlingEqualities());
+
+            // Add the equalities from the inferences back in
+            outerPushdownConjuncts.addAll(equalityPartition.getScopeEqualities());
+            postJoinConjuncts.addAll(equalityPartition.getScopeComplementEqualities());
+            postJoinConjuncts.addAll(equalityPartition.getScopeStraddlingEqualities());
+
             // See if we can push inherited predicates down
             for (Expression conjunct : EqualityInference.nonInferrableConjuncts(inheritedPredicate)) {
                 Expression outerRewritten = outerInference.rewrite(conjunct, outerScope);
@@ -761,10 +778,6 @@ public class PredicatePushDown
                     postJoinConjuncts.add(conjunct);
                 }
             }
-            // Add the equalities from the inferences back in
-            outerPushdownConjuncts.addAll(equalityPartition.getScopeEqualities());
-            postJoinConjuncts.addAll(equalityPartition.getScopeComplementEqualities());
-            postJoinConjuncts.addAll(equalityPartition.getScopeStraddlingEqualities());
 
             // See if we can push down any outer effective predicates to the inner side
             for (Expression conjunct : EqualityInference.nonInferrableConjuncts(outerEffectivePredicate)) {
@@ -784,18 +797,6 @@ public class PredicatePushDown
                     joinConjuncts.add(conjunct);
                 }
             }
-
-            // Push outer and join equalities into the inner side. For example:
-            // SELECT * FROM nation LEFT OUTER JOIN region ON nation.regionkey = region.regionkey and nation.name = region.name WHERE nation.name = 'blah'
-
-            EqualityInference potentialNullSymbolInferenceWithoutInnerInferred = EqualityInference.newInstance(outerOnlyInheritedEqualities, outerEffectivePredicate, joinPredicate);
-            innerPushdownConjuncts.addAll(potentialNullSymbolInferenceWithoutInnerInferred.generateEqualitiesPartitionedBy(innerScope).getScopeEqualities());
-
-            // TODO: we can further improve simplifying the equalities by considering other relationships from the outer side
-            EqualityInference.EqualityPartition joinEqualityPartition = EqualityInference.newInstance(joinPredicate).generateEqualitiesPartitionedBy(innerScope);
-            innerPushdownConjuncts.addAll(joinEqualityPartition.getScopeEqualities());
-            joinConjuncts.addAll(joinEqualityPartition.getScopeComplementEqualities())
-                    .addAll(joinEqualityPartition.getScopeStraddlingEqualities());
 
             return new OuterJoinPushDownResult(combineConjuncts(outerPushdownConjuncts.build()),
                     combineConjuncts(innerPushdownConjuncts.build()),
@@ -869,9 +870,15 @@ public class PredicatePushDown
             EqualityInference allInferenceWithoutLeftInferred = EqualityInference.newInstance(inheritedPredicate, rightEffectivePredicate, joinPredicate);
             EqualityInference allInferenceWithoutRightInferred = EqualityInference.newInstance(inheritedPredicate, leftEffectivePredicate, joinPredicate);
 
-            // Sort through conjuncts in inheritedPredicate that were not used for inference
             ImmutableSet<Symbol> leftScope = ImmutableSet.copyOf(leftSymbols);
             ImmutableSet<Symbol> rightScope = ImmutableSet.copyOf(rightSymbols);
+
+            // Add equalities from the inference back in
+            leftPushDownConjuncts.addAll(allInferenceWithoutLeftInferred.generateEqualitiesPartitionedBy(leftScope).getScopeEqualities());
+            rightPushDownConjuncts.addAll(allInferenceWithoutRightInferred.generateEqualitiesPartitionedBy(rightScope).getScopeEqualities());
+            joinConjuncts.addAll(allInference.generateEqualitiesPartitionedBy(leftScope).getScopeStraddlingEqualities()); // scope straddling equalities get dropped in as part of the join predicate
+
+            // Sort through conjuncts in inheritedPredicate that were not used for inference
             for (Expression conjunct : EqualityInference.nonInferrableConjuncts(inheritedPredicate)) {
                 Expression leftRewrittenConjunct = allInference.rewrite(conjunct, leftScope);
                 if (leftRewrittenConjunct != null) {
@@ -921,11 +928,6 @@ public class PredicatePushDown
                     joinConjuncts.add(conjunct);
                 }
             }
-
-            // Add equalities from the inference back in
-            leftPushDownConjuncts.addAll(allInferenceWithoutLeftInferred.generateEqualitiesPartitionedBy(leftScope).getScopeEqualities());
-            rightPushDownConjuncts.addAll(allInferenceWithoutRightInferred.generateEqualitiesPartitionedBy(rightScope).getScopeEqualities());
-            joinConjuncts.addAll(allInference.generateEqualitiesPartitionedBy(leftScope).getScopeStraddlingEqualities()); // scope straddling equalities get dropped in as part of the join predicate
 
             return new InnerJoinPushDownResult(combineConjuncts(leftPushDownConjuncts.build()), combineConjuncts(rightPushDownConjuncts.build()), combineConjuncts(joinConjuncts.build()), TRUE_LITERAL);
         }
