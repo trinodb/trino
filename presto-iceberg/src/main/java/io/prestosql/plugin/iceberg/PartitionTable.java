@@ -124,7 +124,7 @@ public class PartitionTable
                 .filter(column -> !identityPartitionIds.contains(column.fieldId()) && column.type().isPrimitiveType())
                 .collect(toImmutableList());
 
-        ImmutableList.of("record_count", "file_count", "total_size")
+        ImmutableList.of("row_count", "file_count", "total_size")
                 .forEach(metric -> columnMetadataBuilder.add(new ColumnMetadata(metric, BIGINT)));
 
         List<ColumnMetadata> columnMetricsMetadata = getColumnMetadata(nonPartitionPrimitiveColumns);
