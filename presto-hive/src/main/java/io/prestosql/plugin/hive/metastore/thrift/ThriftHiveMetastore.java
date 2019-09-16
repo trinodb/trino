@@ -1376,6 +1376,11 @@ public class ThriftHiveMetastore
                 chosenAlternative.updateAndGet(currentChosen -> Math.min(currentChosen, position));
                 return result;
             }
+            catch (NoSuchObjectException e) {
+                // This is likely a valid response. We are not settling on an alternative yet.
+                // We will do it later when we get a more obviously valid response.
+                throw e;
+            }
             catch (TException | RuntimeException exception) {
                 if (firstException == null) {
                     firstException = exception;
