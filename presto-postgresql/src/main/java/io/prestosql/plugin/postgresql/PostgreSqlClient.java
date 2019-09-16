@@ -110,6 +110,7 @@ import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.sql.DatabaseMetaData.columnNoNulls;
+import static java.util.Collections.addAll;
 
 public class PostgreSqlClient
         extends BaseJdbcClient
@@ -126,6 +127,7 @@ public class PostgreSqlClient
     private final Type uuidType;
     private final MapType varcharMapType;
     private final boolean supportArrays;
+    private final String[] tableTypes;
 
     @Inject
     public PostgreSqlClient(
@@ -138,6 +140,12 @@ public class PostgreSqlClient
         this.jsonType = typeManager.getType(new TypeSignature(StandardTypes.JSON));
         this.uuidType = typeManager.getType(new TypeSignature(StandardTypes.UUID));
         this.varcharMapType = (MapType) typeManager.getType(TypeSignature.parseTypeSignature("map(varchar, varchar)"));
+        List<String> tableTypes = new ArrayList<>();
+        addAll(tableTypes, "TABLE", "VIEW", "MATERIALIZED VIEW", "FOREIGN TABLE");
+        if (postgreSqlConfig.isIncludeSystemTables()) {
+            addAll(tableTypes, "SYSTEM TABLE", "SYSTEM VIEW");
+        }
+        this.tableTypes = tableTypes.toArray(new String[0]);
 
         switch (postgreSqlConfig.getArrayMapping()) {
             case DISABLED:
@@ -202,7 +210,7 @@ public class PostgreSqlClient
                 connection.getCatalog(),
                 escapeNamePattern(schemaName, metadata.getSearchStringEscape()).orElse(null),
                 escapeNamePattern(tableName, metadata.getSearchStringEscape()).orElse(null),
-                new String[] {"TABLE", "VIEW", "MATERIALIZED VIEW", "FOREIGN TABLE"});
+                tableTypes.clone());
     }
 
     @Override
