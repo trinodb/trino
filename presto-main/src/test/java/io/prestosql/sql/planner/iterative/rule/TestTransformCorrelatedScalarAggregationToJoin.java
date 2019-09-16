@@ -131,7 +131,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
                         p.values(p.symbol("corr")),
                         p.aggregation(ab -> ab
                                 .source(p.values(p.symbol("a"), p.symbol("b")))
-                                .addAggregation(p.symbol("count_rows"), PlanBuilder.expression("count(*)"), ImmutableList.of(BIGINT))
+                                .addAggregation(p.symbol("count_rows"), PlanBuilder.expression("count(*)"), ImmutableList.of())
                                 .addAggregation(p.symbol("count_non_null_values"), PlanBuilder.expression("count(a)"), ImmutableList.of(BIGINT))
                                 .globalGrouping())))
                 .matches(

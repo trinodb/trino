@@ -35,18 +35,18 @@ public final class SpatialPartitioningAggregateFunction
     @InputFunction
     public static void input(SpatialPartitioningState state, @SqlType(GEOMETRY_TYPE_NAME) Slice slice)
     {
-        throw new UnsupportedOperationException("spatial_partitioning(geometry, samplingPercentage) aggregate function should be re-written into spatial_partitioning(geometry, samplingPercentage, partitionCount)");
+        throw new UnsupportedOperationException("spatial_partitioning(geometry) aggregate function should be re-written into spatial_partitioning(geometry, partitionCount)");
     }
 
     @CombineFunction
     public static void combine(SpatialPartitioningState state, SpatialPartitioningState otherState)
     {
-        throw new UnsupportedOperationException("spatial_partitioning(geometry, samplingPercentage) aggregate function should be re-written into spatial_partitioning(geometry, samplingPercentage, partitionCount)");
+        throw new UnsupportedOperationException("spatial_partitioning(geometry) aggregate function should be re-written into spatial_partitioning(geometry, partitionCount)");
     }
 
     @OutputFunction(StandardTypes.VARCHAR)
     public static void output(SpatialPartitioningState state, BlockBuilder out)
     {
-        throw new UnsupportedOperationException("spatial_partitioning(geometry, samplingPercentage) aggregate function should be re-written into spatial_partitioning(geometry, samplingPercentage, partitionCount)");
+        throw new UnsupportedOperationException("spatial_partitioning(geometry) aggregate function should be re-written into spatial_partitioning(geometry, partitionCount)");
     }
 }
