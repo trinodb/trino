@@ -231,14 +231,14 @@ public class TestIcebergSmoke
                 .collect(toImmutableMap(row -> (LocalDate) row.getField(0), Function.identity()));
 
         // Test if record counts are computed correctly
-        assertEquals(rowsByPartition.get(LocalDate.parse("2019-09-08")).getField(1), Long.valueOf(1));
-        assertEquals(rowsByPartition.get(LocalDate.parse("2019-09-09")).getField(1), Long.valueOf(3));
-        assertEquals(rowsByPartition.get(LocalDate.parse("2019-09-10")).getField(1), Long.valueOf(2));
+        assertEquals(rowsByPartition.get(LocalDate.parse("2019-09-08")).getField(1), 1L);
+        assertEquals(rowsByPartition.get(LocalDate.parse("2019-09-09")).getField(1), 3L);
+        assertEquals(rowsByPartition.get(LocalDate.parse("2019-09-10")).getField(1), 2L);
 
         // Test if min/max values and null value count are computed correctly.
-        assertEquals(rowsByPartition.get(LocalDate.parse("2019-09-08")).getField(4), new MaterializedRow(DEFAULT_PRECISION, Long.valueOf(0), Long.valueOf(0), Long.valueOf(0)));
-        assertEquals(rowsByPartition.get(LocalDate.parse("2019-09-09")).getField(4), new MaterializedRow(DEFAULT_PRECISION, Long.valueOf(1), Long.valueOf(3), Long.valueOf(0)));
-        assertEquals(rowsByPartition.get(LocalDate.parse("2019-09-10")).getField(4), new MaterializedRow(DEFAULT_PRECISION, Long.valueOf(4), Long.valueOf(5), Long.valueOf(0)));
+        assertEquals(rowsByPartition.get(LocalDate.parse("2019-09-08")).getField(4), new MaterializedRow(DEFAULT_PRECISION, 0L, 0L, 0L));
+        assertEquals(rowsByPartition.get(LocalDate.parse("2019-09-09")).getField(4), new MaterializedRow(DEFAULT_PRECISION, 1L, 3L, 0L));
+        assertEquals(rowsByPartition.get(LocalDate.parse("2019-09-10")).getField(4), new MaterializedRow(DEFAULT_PRECISION, 4L, 5L, 0L));
 
         dropTable(session, "test_partition_table_basic");
     }
