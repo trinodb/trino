@@ -512,7 +512,7 @@ public class TaskExecutor
                         if (!split.isDestroyed()) {
                             if (t instanceof PrestoException) {
                                 PrestoException e = (PrestoException) t;
-                                log.error("Error processing %s: %s: %s", split.getInfo(), e.getErrorCode().getName(), e.getMessage());
+                                log.error(t, "Error processing %s: %s: %s", split.getInfo(), e.getErrorCode().getName(), e.getMessage());
                             }
                             else {
                                 log.error(t, "Error processing %s", split.getInfo());
