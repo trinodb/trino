@@ -22,11 +22,13 @@ import com.google.common.collect.Iterables;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
+import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.planner.OrderingScheme;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.LambdaExpression;
 import io.prestosql.sql.tree.SymbolReference;
+import io.prestosql.type.FunctionType;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -69,6 +71,7 @@ public class AggregationNode
 
         this.source = source;
         this.aggregations = ImmutableMap.copyOf(requireNonNull(aggregations, "aggregations is null"));
+        aggregations.values().forEach(aggregation -> aggregation.verifyArguments(step));
 
         requireNonNull(groupingSets, "groupingSets is null");
         groupIdSymbol.ifPresent(symbol -> checkArgument(groupingSets.getGroupingKeys().contains(symbol), "Grouping columns does not contain groupId column"));
@@ -453,6 +456,29 @@ public class AggregationNode
         public int hashCode()
         {
             return Objects.hash(signature, arguments, distinct, filter, orderingScheme, mask);
+        }
+
+        private void verifyArguments(Step step)
+        {
+            int expectedArgumentCount;
+            if (step == SINGLE || step == Step.PARTIAL) {
+                expectedArgumentCount = signature.getArgumentTypes().size();
+            }
+            else {
+                // Intermediate and final steps get the intermediate value and the lambda functions
+                expectedArgumentCount = 1 + (int) signature.getArgumentTypes().stream()
+                        .map(TypeSignature::getBase)
+                        .filter(FunctionType.NAME::equals)
+                        .count();
+            }
+
+            checkArgument(
+                    expectedArgumentCount == arguments.size(),
+                    "%s aggregation function %s has %s arguments, but %s arguments were provided to function call",
+                    step,
+                    signature,
+                    expectedArgumentCount,
+                    arguments.size());
         }
     }
 }

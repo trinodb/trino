@@ -824,7 +824,7 @@ public class TestCostCalculator
                 ImmutableMap.of(new Symbol("count"), aggregation),
                 singleGroupingSet(source.getOutputSymbols()),
                 ImmutableList.of(),
-                AggregationNode.Step.FINAL,
+                AggregationNode.Step.SINGLE,
                 Optional.empty(),
                 Optional.empty());
     }
