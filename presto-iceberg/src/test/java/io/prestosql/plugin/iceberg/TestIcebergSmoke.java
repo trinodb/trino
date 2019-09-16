@@ -219,7 +219,7 @@ public class TestIcebergSmoke
 
         assertQuery(session, "SHOW COLUMNS FROM \"test_partition_table_basic$partitions\"",
                 "VALUES ('_date', 'date', '', '')," +
-                        "('record_count', 'bigint', '', '')," +
+                        "('row_count', 'bigint', '', '')," +
                         "('file_count', 'bigint', '', '')," +
                         "('total_size', 'bigint', '', '')," +
                         "('_bigint', 'row(min bigint, max bigint, null_count bigint)', '', '')");
@@ -230,7 +230,7 @@ public class TestIcebergSmoke
         Map<LocalDate, MaterializedRow> rowsByPartition = result.getMaterializedRows().stream()
                 .collect(toImmutableMap(row -> (LocalDate) row.getField(0), Function.identity()));
 
-        // Test if record counts are computed correctly
+        // Test if row counts are computed correctly
         assertEquals(rowsByPartition.get(LocalDate.parse("2019-09-08")).getField(1), 1L);
         assertEquals(rowsByPartition.get(LocalDate.parse("2019-09-09")).getField(1), 3L);
         assertEquals(rowsByPartition.get(LocalDate.parse("2019-09-10")).getField(1), 2L);
