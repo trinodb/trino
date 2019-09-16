@@ -465,7 +465,7 @@ public class PredicatePushDown
             List<JoinNode.EquiJoinClause> equiJoinClauses = new ArrayList<>();
             ImmutableList.Builder<Expression> joinFilterBuilder = ImmutableList.builder();
             for (Expression conjunct : extractConjuncts(newJoinPredicate)) {
-                if (joinEqualityExpression(conjunct, node.getLeft().getOutputSymbols())) {
+                if (joinEqualityExpression(conjunct, node.getLeft().getOutputSymbols(), node.getRight().getOutputSymbols())) {
                     ComparisonExpression equality = (ComparisonExpression) conjunct;
 
                     boolean alignedComparison = Iterables.all(SymbolsExtractor.extractUnique(equality.getLeft()), in(node.getLeft().getOutputSymbols()));
@@ -1049,7 +1049,7 @@ public class PredicatePushDown
                     .optimize(symbol -> nullSymbols.contains(symbol) ? null : symbol.toSymbolReference());
         }
 
-        private static boolean joinEqualityExpression(Expression expression, Collection<Symbol> leftSymbols)
+        private static boolean joinEqualityExpression(Expression expression, Collection<Symbol> leftSymbols, Collection<Symbol> rightSymbols)
         {
             // At this point in time, our join predicates need to be deterministic
             if (isDeterministic(expression) && expression instanceof ComparisonExpression) {
@@ -1060,8 +1060,8 @@ public class PredicatePushDown
                     if (symbols1.isEmpty() || symbols2.isEmpty()) {
                         return false;
                     }
-                    return (Iterables.all(symbols1, in(leftSymbols)) && Iterables.all(symbols2, not(in(leftSymbols)))) ||
-                            (Iterables.all(symbols2, in(leftSymbols)) && Iterables.all(symbols1, not(in(leftSymbols))));
+                    return (Iterables.all(symbols1, in(leftSymbols)) && Iterables.all(symbols2, in(rightSymbols))) ||
+                            (Iterables.all(symbols1, in(rightSymbols)) && Iterables.all(symbols2, in(leftSymbols)));
                 }
             }
             return false;
