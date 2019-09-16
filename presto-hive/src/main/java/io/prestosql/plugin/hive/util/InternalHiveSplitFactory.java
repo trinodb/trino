@@ -46,7 +46,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.plugin.hive.HiveColumnHandle.isPathColumnHandle;
-import static io.prestosql.plugin.hive.HiveUtil.isSplittable;
+import static io.prestosql.plugin.hive.util.HiveUtil.isSplittable;
 import static java.util.Objects.requireNonNull;
 
 public class InternalHiveSplitFactory
@@ -110,6 +110,7 @@ public class InternalHiveSplitFactory
                 0,
                 status.getLen(),
                 status.getLen(),
+                status.getModificationTime(),
                 bucketNumber,
                 splittable);
     }
@@ -124,6 +125,7 @@ public class InternalHiveSplitFactory
                 split.getStart(),
                 split.getLength(),
                 file.getLen(),
+                file.getModificationTime(),
                 OptionalInt.empty(),
                 false);
     }
@@ -134,6 +136,7 @@ public class InternalHiveSplitFactory
             long start,
             long length,
             long fileSize,
+            long fileModificationTime,
             OptionalInt bucketNumber,
             boolean splittable)
     {
@@ -182,6 +185,7 @@ public class InternalHiveSplitFactory
                 start,
                 start + length,
                 fileSize,
+                fileModificationTime,
                 schema,
                 partitionKeys,
                 blocks,

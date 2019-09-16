@@ -24,14 +24,16 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import io.prestosql.client.NodeVersion;
 import io.prestosql.connector.CatalogName;
-import io.prestosql.execution.scheduler.LegacyNetworkTopology;
 import io.prestosql.execution.scheduler.NetworkLocation;
-import io.prestosql.execution.scheduler.NetworkLocationCache;
 import io.prestosql.execution.scheduler.NetworkTopology;
 import io.prestosql.execution.scheduler.NodeScheduler;
 import io.prestosql.execution.scheduler.NodeSchedulerConfig;
 import io.prestosql.execution.scheduler.NodeSelector;
-import io.prestosql.execution.scheduler.SimpleNodeSelector;
+import io.prestosql.execution.scheduler.NodeSelectorFactory;
+import io.prestosql.execution.scheduler.TopologyAwareNodeSelectorConfig;
+import io.prestosql.execution.scheduler.TopologyAwareNodeSelectorFactory;
+import io.prestosql.execution.scheduler.UniformNodeSelector;
+import io.prestosql.execution.scheduler.UniformNodeSelectorFactory;
 import io.prestosql.metadata.InMemoryNodeManager;
 import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.Split;
@@ -53,13 +55,13 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.prestosql.execution.scheduler.NetworkLocation.ROOT_LOCATION;
 import static io.prestosql.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 import static java.lang.String.format;
@@ -96,10 +98,10 @@ public class TestNodeScheduler
                 .setIncludeCoordinator(false)
                 .setMaxPendingSplitsPerTask(10);
 
-        NodeScheduler nodeScheduler = new NodeScheduler(new LegacyNetworkTopology(), nodeManager, nodeSchedulerConfig, nodeTaskMap);
+        NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, nodeSchedulerConfig, nodeTaskMap));
         // contents of taskMap indicate the node-task map for the current stage
         taskMap = new HashMap<>();
-        nodeSelector = nodeScheduler.createNodeSelector(CONNECTOR_ID);
+        nodeSelector = nodeScheduler.createNodeSelector(Optional.of(CONNECTOR_ID));
         remoteTaskExecutor = newCachedThreadPool(daemonThreadsNamed("remoteTaskExecutor-%s"));
         remoteTaskScheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("remoteTaskScheduledExecutor-%s"));
 
@@ -167,26 +169,12 @@ public class TestNodeScheduler
         NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig()
                 .setMaxSplitsPerNode(25)
                 .setIncludeCoordinator(false)
-                .setNetworkTopology("test")
                 .setMaxPendingSplitsPerTask(20);
 
         TestNetworkTopology topology = new TestNetworkTopology();
-        NetworkLocationCache locationCache = new NetworkLocationCache(topology)
-        {
-            @Override
-            public NetworkLocation get(HostAddress host)
-            {
-                // Bypass the cache for workers, since we only look them up once and they would all be unresolved otherwise
-                if (host.getHostText().startsWith("host")) {
-                    return topology.locate(host);
-                }
-                else {
-                    return super.get(host);
-                }
-            }
-        };
-        NodeScheduler nodeScheduler = new NodeScheduler(locationCache, topology, nodeManager, nodeSchedulerConfig, nodeTaskMap);
-        NodeSelector nodeSelector = nodeScheduler.createNodeSelector(CONNECTOR_ID);
+        NodeSelectorFactory nodeSelectorFactory = new TopologyAwareNodeSelectorFactory(topology, nodeManager, nodeSchedulerConfig, nodeTaskMap, getNetworkTopologyConfig());
+        NodeScheduler nodeScheduler = new NodeScheduler(nodeSelectorFactory);
+        NodeSelector nodeSelector = nodeScheduler.createNodeSelector(Optional.of(CONNECTOR_ID));
 
         // Fill up the nodes with non-local data
         ImmutableSet.Builder<Split> nonRackLocalBuilder = ImmutableSet.builder();
@@ -238,17 +226,6 @@ public class TestNodeScheduler
         Set<Split> unassigned = Sets.difference(rackLocalSplits.build(), new HashSet<>(assignments.values()));
         // Compute the assignments a second time to account for the fact that some splits may not have been assigned due to asynchronous
         // loading of the NetworkLocationCache
-        boolean cacheRefreshed = false;
-        while (!cacheRefreshed) {
-            cacheRefreshed = true;
-            if (locationCache.get(dataHost1).equals(ROOT_LOCATION)) {
-                cacheRefreshed = false;
-            }
-            if (locationCache.get(dataHost2).equals(ROOT_LOCATION)) {
-                cacheRefreshed = false;
-            }
-            MILLISECONDS.sleep(10);
-        }
         assignments = nodeSelector.computeAssignments(unassigned, ImmutableList.copyOf(taskMap.values())).getAssignments();
         for (InternalNode node : assignments.keySet()) {
             RemoteTask remoteTask = taskMap.get(node);
@@ -673,7 +650,7 @@ public class TestNodeScheduler
         }
 
         // Redistribute 1 split from Node 1 to Node 2
-        SimpleNodeSelector.redistributeSplit(assignment, node1, node2, nodesByHost.build());
+        UniformNodeSelector.redistributeSplit(assignment, node1, node2, nodesByHost.build());
 
         assertEquals(assignment.get(node1).size(), 11);
         assertEquals(assignment.get(node2).size(), 11);
@@ -823,11 +800,11 @@ public class TestNodeScheduler
             Collections.reverse(parts);
             return NetworkLocation.create(parts);
         }
+    }
 
-        @Override
-        public List<String> getLocationSegmentNames()
-        {
-            return ImmutableList.of("rack", "machine");
-        }
+    private static TopologyAwareNodeSelectorConfig getNetworkTopologyConfig()
+    {
+        return new TopologyAwareNodeSelectorConfig()
+                .setLocationSegmentNames(ImmutableList.of("rack", "machine"));
     }
 }

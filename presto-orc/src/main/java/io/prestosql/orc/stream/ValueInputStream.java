@@ -19,8 +19,6 @@ import java.io.IOException;
 
 public interface ValueInputStream<C extends StreamCheckpoint>
 {
-    Class<? extends C> getCheckpointType();
-
     void seekToCheckpoint(C checkpoint)
             throws IOException;
 

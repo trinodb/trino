@@ -45,7 +45,7 @@ import static java.util.Objects.requireNonNull;
  *     (CAST (ROW (1, 'a', 2) AS ROW (field_0 bigint, field_1 varchar(1), field_2 bigint))).field_1
  * </pre>
  */
-public class DesugarRowSubscriptRewriter
+public final class DesugarRowSubscriptRewriter
 {
     private DesugarRowSubscriptRewriter() {}
 

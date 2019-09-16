@@ -37,7 +37,9 @@ import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_MULTIPART_MIN_FI
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_MULTIPART_MIN_PART_SIZE;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_PATH_STYLE_ACCESS;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_PIN_CLIENT_TO_CURRENT_REGION;
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_REQUESTER_PAYS_ENABLED;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_SECRET_KEY;
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_SIGNER_CLASS;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_SIGNER_TYPE;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_SKIP_GLACIER_OBJECTS;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_SOCKET_TIMEOUT;
@@ -78,6 +80,8 @@ public class PrestoS3ConfigurationInitializer
     private final boolean pinClientToCurrentRegion;
     private final String userAgentPrefix;
     private final PrestoS3AclType aclType;
+    private final String signerClass;
+    private final boolean requesterPaysEnabled;
     private boolean skipGlacierObjects;
 
     @Inject
@@ -87,6 +91,7 @@ public class PrestoS3ConfigurationInitializer
         this.awsSecretKey = config.getS3AwsSecretKey();
         this.endpoint = config.getS3Endpoint();
         this.signerType = config.getS3SignerType();
+        this.signerClass = config.getS3SignerClass();
         this.pathStyleAccess = config.isS3PathStyleAccess();
         this.useInstanceCredentials = config.isS3UseInstanceCredentials();
         this.iamRole = config.getS3IamRole();
@@ -110,6 +115,7 @@ public class PrestoS3ConfigurationInitializer
         this.userAgentPrefix = config.getS3UserAgentPrefix();
         this.aclType = config.getS3AclType();
         this.skipGlacierObjects = config.isSkipGlacierObjects();
+        this.requesterPaysEnabled = config.isRequesterPaysEnabled();
     }
 
     @Override
@@ -131,6 +137,9 @@ public class PrestoS3ConfigurationInitializer
         }
         if (signerType != null) {
             config.set(S3_SIGNER_TYPE, signerType.name());
+        }
+        if (signerClass != null) {
+            config.set(S3_SIGNER_CLASS, signerClass);
         }
         config.setBoolean(S3_PATH_STYLE_ACCESS, pathStyleAccess);
         config.setBoolean(S3_USE_INSTANCE_CREDENTIALS, useInstanceCredentials);
@@ -163,5 +172,6 @@ public class PrestoS3ConfigurationInitializer
         config.set(S3_USER_AGENT_PREFIX, userAgentPrefix);
         config.set(S3_ACL_TYPE, aclType.name());
         config.setBoolean(S3_SKIP_GLACIER_OBJECTS, skipGlacierObjects);
+        config.setBoolean(S3_REQUESTER_PAYS_ENABLED, requesterPaysEnabled);
     }
 }

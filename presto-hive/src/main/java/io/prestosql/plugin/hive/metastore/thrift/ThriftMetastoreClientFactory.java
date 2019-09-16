@@ -47,9 +47,9 @@ public class ThriftMetastoreClientFactory
     }
 
     @Inject
-    public ThriftMetastoreClientFactory(HiveConfig config, HiveMetastoreAuthentication metastoreAuthentication)
+    public ThriftMetastoreClientFactory(HiveConfig config, ThriftHiveMetastoreConfig thriftConfig, HiveMetastoreAuthentication metastoreAuthentication)
     {
-        this(Optional.empty(), Optional.ofNullable(config.getMetastoreSocksProxy()), config.getMetastoreTimeout(), metastoreAuthentication);
+        this(Optional.empty(), Optional.ofNullable(config.getMetastoreSocksProxy()), thriftConfig.getMetastoreTimeout(), metastoreAuthentication);
     }
 
     public ThriftMetastoreClient create(HostAndPort address)

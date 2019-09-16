@@ -32,6 +32,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static io.prestosql.geospatial.GeometryUtils.translateToAVNaN;
@@ -39,7 +40,7 @@ import static java.lang.Double.NaN;
 import static java.lang.Double.isNaN;
 import static java.util.Objects.requireNonNull;
 
-public class JtsGeometrySerde
+public final class JtsGeometrySerde
 {
     // TODO: Are we sure this is thread safe?
     private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory();
@@ -184,7 +185,7 @@ public class JtsGeometrySerde
                 shell = GEOMETRY_FACTORY.createLinearRing(coordinates);
             }
             else {
-                verify(shell != null, "shell is null but hole found");
+                verifyNotNull(shell, "shell is null but hole found");
                 holes.add(GEOMETRY_FACTORY.createLinearRing(coordinates));
             }
         }

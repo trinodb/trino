@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
-public class Plans
+public final class Plans
 {
     public static PlanNode resolveGroupReferences(PlanNode node, Lookup lookup)
     {

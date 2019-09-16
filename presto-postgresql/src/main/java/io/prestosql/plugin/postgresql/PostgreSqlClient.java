@@ -26,13 +26,18 @@ import io.prestosql.plugin.jdbc.BaseJdbcClient;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.BlockReadFunction;
 import io.prestosql.plugin.jdbc.BlockWriteFunction;
+import io.prestosql.plugin.jdbc.BooleanReadFunction;
 import io.prestosql.plugin.jdbc.ColumnMapping;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
+import io.prestosql.plugin.jdbc.DoubleReadFunction;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
+import io.prestosql.plugin.jdbc.LongReadFunction;
 import io.prestosql.plugin.jdbc.LongWriteFunction;
+import io.prestosql.plugin.jdbc.ReadFunction;
+import io.prestosql.plugin.jdbc.SliceReadFunction;
 import io.prestosql.plugin.jdbc.SliceWriteFunction;
 import io.prestosql.plugin.jdbc.StatsCollecting;
 import io.prestosql.plugin.jdbc.WriteMapping;
@@ -67,6 +72,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -82,14 +89,14 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedLongArray;
 import static io.prestosql.plugin.jdbc.ColumnMapping.DISABLE_PUSHDOWN;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
-import static io.prestosql.plugin.jdbc.StandardColumnMappings.timestampColumnMapping;
-import static io.prestosql.plugin.jdbc.StandardColumnMappings.timestampWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.fromPrestoLegacyTimestamp;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.fromPrestoTimestamp;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.timestampReadFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
 import static io.prestosql.plugin.postgresql.TypeUtils.getArrayElementPgTypeName;
 import static io.prestosql.plugin.postgresql.TypeUtils.getJdbcObjectArray;
-import static io.prestosql.plugin.postgresql.TypeUtils.jdbcObjectArrayToBlock;
-import static io.prestosql.plugin.postgresql.TypeUtils.toBoxedArray;
+import static io.prestosql.plugin.postgresql.TypeUtils.toPgTimestamp;
 import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -106,6 +113,10 @@ import static java.sql.DatabaseMetaData.columnNoNulls;
 public class PostgreSqlClient
         extends BaseJdbcClient
 {
+    /**
+     * @see Array#getResultSet()
+     */
+    private static final int ARRAY_RESULT_SET_VALUE_COLUMN = 2;
     private static final String DUPLICATE_TABLE_SQLSTATE = "42P07";
 
     private final Type jsonType;
@@ -261,6 +272,10 @@ public class PostgreSqlClient
         String jdbcTypeName = typeHandle.getJdbcTypeName()
                 .orElseThrow(() -> new PrestoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
 
+        Optional<ColumnMapping> mapping = getForcedMappingToVarchar(typeHandle);
+        if (mapping.isPresent()) {
+            return mapping;
+        }
         switch (jdbcTypeName) {
             case "uuid":
                 return Optional.of(uuidColumnMapping());
@@ -278,7 +293,10 @@ public class PostgreSqlClient
             return Optional.of(typedVarcharColumnMapping(jdbcTypeName));
         }
         if (typeHandle.getJdbcType() == Types.TIMESTAMP) {
-            return Optional.of(timestampColumnMapping(session));
+            return Optional.of(ColumnMapping.longMapping(
+                    TIMESTAMP,
+                    timestampReadFunction(session),
+                    timestampWriteFunction(session)));
         }
         if (typeHandle.getJdbcType() == Types.ARRAY && supportArrays) {
             if (!typeHandle.getArrayDimensions().isPresent()) {
@@ -295,11 +313,14 @@ public class PostgreSqlClient
             return toPrestoType(session, connection, elementTypeHandle)
                     .map(elementMapping -> {
                         ArrayType prestoArrayType = new ArrayType(elementMapping.getType());
+                        ColumnMapping arrayColumnMapping = arrayColumnMapping(session, prestoArrayType, elementMapping, elementTypeName);
+
                         int arrayDimensions = typeHandle.getArrayDimensions().get();
                         for (int i = 1; i < arrayDimensions; i++) {
                             prestoArrayType = new ArrayType(prestoArrayType);
+                            arrayColumnMapping = arrayColumnMapping(session, prestoArrayType, arrayColumnMapping, elementTypeName);
                         }
-                        return arrayColumnMapping(session, prestoArrayType, elementTypeName);
+                        return arrayColumnMapping;
                     });
         }
         // TODO support PostgreSQL's TIME WITH TIME ZONE explicitly, otherwise predicate pushdown for these types may be incorrect
@@ -316,7 +337,7 @@ public class PostgreSqlClient
             return WriteMapping.longMapping("timestamp", timestampWriteFunction(session));
         }
         if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
-            return WriteMapping.longMapping("timestamp with time zone", timestampWithTimeZoneWriteFunction());
+            return WriteMapping.longMapping("timestamptz", timestampWithTimeZoneWriteFunction());
         }
         if (TinyintType.TINYINT.equals(type)) {
             return WriteMapping.longMapping("smallint", tinyintWriteFunction());
@@ -345,6 +366,21 @@ public class PostgreSqlClient
     public boolean isLimitGuaranteed()
     {
         return true;
+    }
+
+    // When writing with setObject() using LocalDateTime, driver converts the value to string representing date-time in JVM zone,
+    // therefore cannot represent local date-time which is a "gap" in this zone.
+    // TODO replace this method with StandardColumnMappings#timestampWriteFunction when https://github.com/pgjdbc/pgjdbc/issues/1390 is done
+    private static LongWriteFunction timestampWriteFunction(ConnectorSession session)
+    {
+        ZoneId sessionZone = ZoneId.of(session.getTimeZoneKey().getId());
+        boolean legacyTimestamp = session.isLegacyTimestamp();
+        return (statement, index, value) -> {
+            LocalDateTime localDateTime = legacyTimestamp
+                    ? fromPrestoLegacyTimestamp(value, sessionZone)
+                    : fromPrestoTimestamp(value);
+            statement.setObject(index, toPgTimestamp(localDateTime));
+        };
     }
 
     private static ColumnMapping timestampWithTimeZoneColumnMapping()
@@ -401,19 +437,47 @@ public class PostgreSqlClient
         };
     }
 
-    private static ColumnMapping arrayColumnMapping(ConnectorSession session, ArrayType arrayType, String elementJdbcTypeName)
+    private static ColumnMapping arrayColumnMapping(ConnectorSession session, ArrayType arrayType, ColumnMapping arrayElementMapping, String baseElementJdbcTypeName)
     {
         return ColumnMapping.blockMapping(
                 arrayType,
-                arrayReadFunction(session, arrayType.getElementType()),
-                arrayWriteFunction(session, arrayType.getElementType(), elementJdbcTypeName));
+                arrayReadFunction(arrayType.getElementType(), arrayElementMapping.getReadFunction()),
+                arrayWriteFunction(session, arrayType.getElementType(), baseElementJdbcTypeName));
     }
 
-    private static BlockReadFunction arrayReadFunction(ConnectorSession session, Type elementType)
+    private static BlockReadFunction arrayReadFunction(Type elementType, ReadFunction elementReadFunction)
     {
         return (resultSet, columnIndex) -> {
-            Object[] objectArray = toBoxedArray(resultSet.getArray(columnIndex).getArray());
-            return jdbcObjectArrayToBlock(session, elementType, objectArray);
+            Array array = resultSet.getArray(columnIndex);
+            BlockBuilder builder = elementType.createBlockBuilder(null, 10);
+            try (ResultSet arrayAsResultSet = array.getResultSet()) {
+                while (arrayAsResultSet.next()) {
+                    arrayAsResultSet.getObject(ARRAY_RESULT_SET_VALUE_COLUMN);
+                    if (arrayAsResultSet.wasNull()) {
+                        builder.appendNull();
+                    }
+                    else if (elementType.getJavaType() == boolean.class) {
+                        elementType.writeBoolean(builder, ((BooleanReadFunction) elementReadFunction).readBoolean(arrayAsResultSet, ARRAY_RESULT_SET_VALUE_COLUMN));
+                    }
+                    else if (elementType.getJavaType() == long.class) {
+                        elementType.writeLong(builder, ((LongReadFunction) elementReadFunction).readLong(arrayAsResultSet, ARRAY_RESULT_SET_VALUE_COLUMN));
+                    }
+                    else if (elementType.getJavaType() == double.class) {
+                        elementType.writeDouble(builder, ((DoubleReadFunction) elementReadFunction).readDouble(arrayAsResultSet, ARRAY_RESULT_SET_VALUE_COLUMN));
+                    }
+                    else if (elementType.getJavaType() == Slice.class) {
+                        elementType.writeSlice(builder, ((SliceReadFunction) elementReadFunction).readSlice(arrayAsResultSet, ARRAY_RESULT_SET_VALUE_COLUMN));
+                    }
+                    else if (elementType.getJavaType() == Block.class) {
+                        elementType.writeObject(builder, ((BlockReadFunction) elementReadFunction).readBlock(arrayAsResultSet, ARRAY_RESULT_SET_VALUE_COLUMN));
+                    }
+                    else {
+                        throw new IllegalStateException("Unsupported Java type: " + elementType.getJavaType());
+                    }
+                }
+            }
+
+            return builder.build();
         };
     }
 

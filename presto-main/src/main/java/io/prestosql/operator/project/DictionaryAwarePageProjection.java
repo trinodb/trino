@@ -100,7 +100,7 @@ public class DictionaryAwarePageProjection
             this.session = session;
             this.block = requireNonNull(page, "page is null").getBlock(0);
             this.selectedPositions = requireNonNull(selectedPositions, "selectedPositions is null");
-            this.produceLazyBlock = DictionaryAwarePageProjection.this.produceLazyBlock && !isLoadedBlock(block);
+            this.produceLazyBlock = DictionaryAwarePageProjection.this.produceLazyBlock && !block.isLoaded();
 
             if (produceLazyBlock) {
                 this.yieldSignal = NON_YIELDING_SIGNAL;
@@ -271,10 +271,5 @@ public class DictionaryAwarePageProjection
             }
         }
         return outputIds;
-    }
-
-    private static boolean isLoadedBlock(Block block)
-    {
-        return !(block instanceof LazyBlock) || ((LazyBlock) block).isLoaded();
     }
 }

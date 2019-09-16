@@ -22,9 +22,7 @@ import static java.util.Objects.requireNonNull;
 
 public final class TypeSerde
 {
-    private TypeSerde()
-    {
-    }
+    private TypeSerde() {}
 
     public static void writeType(SliceOutput sliceOutput, Type type)
     {

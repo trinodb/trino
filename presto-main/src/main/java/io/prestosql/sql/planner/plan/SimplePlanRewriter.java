@@ -15,7 +15,7 @@ package io.prestosql.sql.planner.plan;
 
 import java.util.List;
 
-import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.sql.planner.plan.ChildReplacer.replaceChildren;
 
@@ -82,9 +82,7 @@ public abstract class SimplePlanRewriter<C>
         public PlanNode rewrite(PlanNode node, C userContext)
         {
             PlanNode result = node.accept(nodeRewriter, new RewriteContext<>(nodeRewriter, userContext));
-            verify(result != null, "nodeRewriter returned null for %s", node.getClass().getName());
-
-            return result;
+            return verifyNotNull(result, "nodeRewriter returned null for %s", node.getClass().getName());
         }
 
         /**

@@ -19,7 +19,6 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.Multibinder;
-import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.event.client.EventClient;
 import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.prestosql.plugin.hive.orc.OrcPageSourceFactory;
@@ -33,7 +32,6 @@ import io.prestosql.spi.connector.ConnectorSplitManager;
 
 import javax.inject.Singleton;
 
-import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -118,16 +116,6 @@ public class HiveModule
     public ExecutorService createHiveClientExecutor(HiveCatalogName catalogName)
     {
         return newCachedThreadPool(daemonThreadsNamed("hive-" + catalogName + "-%s"));
-    }
-
-    @ForCachingHiveMetastore
-    @Singleton
-    @Provides
-    public Executor createCachingHiveMetastoreExecutor(HiveCatalogName catalogName, HiveConfig hiveConfig)
-    {
-        return new BoundedExecutor(
-                newCachedThreadPool(daemonThreadsNamed("hive-metastore-" + catalogName + "-%s")),
-                hiveConfig.getMaxMetastoreRefreshThreads());
     }
 
     @Singleton

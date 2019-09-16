@@ -30,9 +30,7 @@ import static java.lang.String.format;
 
 public final class GenerateTimeZoneIndex
 {
-    private GenerateTimeZoneIndex()
-    {
-    }
+    private GenerateTimeZoneIndex() {}
 
     public static void main(String[] args)
             throws InterruptedException

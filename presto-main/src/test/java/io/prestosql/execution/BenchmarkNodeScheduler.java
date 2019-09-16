@@ -21,12 +21,15 @@ import com.google.common.collect.Multimap;
 import io.prestosql.client.NodeVersion;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.scheduler.FlatNetworkTopology;
-import io.prestosql.execution.scheduler.LegacyNetworkTopology;
 import io.prestosql.execution.scheduler.NetworkLocation;
 import io.prestosql.execution.scheduler.NetworkTopology;
 import io.prestosql.execution.scheduler.NodeScheduler;
 import io.prestosql.execution.scheduler.NodeSchedulerConfig;
 import io.prestosql.execution.scheduler.NodeSelector;
+import io.prestosql.execution.scheduler.NodeSelectorFactory;
+import io.prestosql.execution.scheduler.TopologyAwareNodeSelectorConfig;
+import io.prestosql.execution.scheduler.TopologyAwareNodeSelectorFactory;
+import io.prestosql.execution.scheduler.UniformNodeSelectorFactory;
 import io.prestosql.metadata.InMemoryNodeManager;
 import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.Split;
@@ -61,14 +64,12 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.prestosql.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.BENCHMARK;
-import static io.prestosql.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.FLAT;
-import static io.prestosql.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.LEGACY;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 
@@ -126,10 +127,10 @@ public class BenchmarkNodeScheduler
     @State(Scope.Thread)
     public static class BenchmarkData
     {
-        @Param({LEGACY,
-                BENCHMARK,
-                FLAT})
-        private String topologyName = LEGACY;
+        @Param({"uniform",
+                "benchmark",
+                "topology"})
+        private String policy = "uniform";
 
         private FinalizerService finalizerService = new FinalizerService();
         private NodeSelector nodeSelector;
@@ -170,8 +171,8 @@ public class BenchmarkNodeScheduler
 
             InMemoryNodeManager nodeManager = new InMemoryNodeManager();
             nodeManager.addNode(CONNECTOR_ID, nodes);
-            NodeScheduler nodeScheduler = new NodeScheduler(getNetworkTopology(), nodeManager, getNodeSchedulerConfig(), nodeTaskMap);
-            nodeSelector = nodeScheduler.createNodeSelector(CONNECTOR_ID);
+            NodeScheduler nodeScheduler = new NodeScheduler(getNodeSelectorFactory(nodeManager, nodeTaskMap));
+            nodeSelector = nodeScheduler.createNodeSelector(Optional.of(CONNECTOR_ID));
         }
 
         @TearDown
@@ -185,27 +186,23 @@ public class BenchmarkNodeScheduler
             return new NodeSchedulerConfig()
                     .setMaxSplitsPerNode(MAX_SPLITS_PER_NODE)
                     .setIncludeCoordinator(false)
-                    .setNetworkTopology(topologyName)
+                    .setNodeSchedulerPolicy(policy)
                     .setMaxPendingSplitsPerTask(MAX_PENDING_SPLITS_PER_TASK_PER_NODE);
         }
 
-        private NetworkTopology getNetworkTopology()
+        private NodeSelectorFactory getNodeSelectorFactory(InMemoryNodeManager nodeManager, NodeTaskMap nodeTaskMap)
         {
-            NetworkTopology topology;
-            switch (topologyName) {
-                case LEGACY:
-                    topology = new LegacyNetworkTopology();
-                    break;
-                case FLAT:
-                    topology = new FlatNetworkTopology();
-                    break;
-                case BENCHMARK:
-                    topology = new BenchmarkNetworkTopology();
-                    break;
+            NodeSchedulerConfig nodeSchedulerConfig = getNodeSchedulerConfig();
+            switch (policy) {
+                case "uniform":
+                    return new UniformNodeSelectorFactory(nodeManager, nodeSchedulerConfig, nodeTaskMap);
+                case "topology":
+                    return new TopologyAwareNodeSelectorFactory(new FlatNetworkTopology(), nodeManager, nodeSchedulerConfig, nodeTaskMap, new TopologyAwareNodeSelectorConfig());
+                case "benchmark":
+                    return new TopologyAwareNodeSelectorFactory(new BenchmarkNetworkTopology(), nodeManager, nodeSchedulerConfig, nodeTaskMap, getBenchmarkNetworkTopologyConfig());
                 default:
                     throw new IllegalStateException();
             }
-            return topology;
         }
 
         public Map<InternalNode, MockRemoteTaskFactory.MockRemoteTask> getTaskMap()
@@ -244,12 +241,12 @@ public class BenchmarkNodeScheduler
             Collections.reverse(parts);
             return NetworkLocation.create(parts);
         }
+    }
 
-        @Override
-        public List<String> getLocationSegmentNames()
-        {
-            return ImmutableList.of("rack", "machine");
-        }
+    private static TopologyAwareNodeSelectorConfig getBenchmarkNetworkTopologyConfig()
+    {
+        return new TopologyAwareNodeSelectorConfig()
+                .setLocationSegmentNames(ImmutableList.of("rack", "machine"));
     }
 
     private static class TestSplitRemote

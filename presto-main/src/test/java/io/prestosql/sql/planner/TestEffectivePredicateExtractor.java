@@ -979,15 +979,16 @@ public class TestEffectivePredicateExtractor
         predicate = expressionNormalizer.normalize(predicate);
 
         // Equality inference rewrites and equality generation will always be stable across multiple runs in the same JVM
-        EqualityInference inference = EqualityInference.createEqualityInference(predicate);
+        EqualityInference inference = EqualityInference.newInstance(predicate);
 
+        Set<Symbol> scope = SymbolsExtractor.extractUnique(predicate);
         Set<Expression> rewrittenSet = new HashSet<>();
         for (Expression expression : EqualityInference.nonInferrableConjuncts(predicate)) {
-            Expression rewritten = inference.rewriteExpression(expression, Predicates.alwaysTrue());
+            Expression rewritten = inference.rewrite(expression, scope);
             Preconditions.checkState(rewritten != null, "Rewrite with full symbol scope should always be possible");
             rewrittenSet.add(rewritten);
         }
-        rewrittenSet.addAll(inference.generateEqualitiesPartitionedBy(Predicates.alwaysTrue()).getScopeEqualities());
+        rewrittenSet.addAll(inference.generateEqualitiesPartitionedBy(scope).getScopeEqualities());
 
         return rewrittenSet;
     }

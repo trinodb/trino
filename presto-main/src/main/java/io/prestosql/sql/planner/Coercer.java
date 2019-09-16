@@ -24,11 +24,9 @@ import io.prestosql.sql.tree.NodeRef;
 import java.util.Map;
 import java.util.Set;
 
-public class Coercer
+public final class Coercer
 {
-    private Coercer()
-    {
-    }
+    private Coercer() {}
 
     public static Expression addCoercions(Expression expression, Analysis analysis)
     {

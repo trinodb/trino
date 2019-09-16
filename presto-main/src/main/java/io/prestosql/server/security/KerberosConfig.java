@@ -14,6 +14,7 @@
 package io.prestosql.server.security;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.LegacyConfig;
 
 import javax.validation.constraints.NotNull;
 
@@ -23,7 +24,7 @@ import static io.prestosql.server.security.KerberosNameType.HOSTBASED_SERVICE;
 
 public class KerberosConfig
 {
-    public static final String HTTP_SERVER_AUTHENTICATION_KRB5_KEYTAB = "http.server.authentication.krb5.keytab";
+    public static final String HTTP_SERVER_AUTHENTICATION_KRB5_KEYTAB = "http-server.authentication.krb5.keytab";
 
     private File kerberosConfig;
     private String serviceName;
@@ -37,6 +38,7 @@ public class KerberosConfig
         return kerberosConfig;
     }
 
+    // This property name has to match the one from io.airlift.http.client.spnego.KerberosConfig
     @Config("http.authentication.krb5.config")
     public KerberosConfig setKerberosConfig(File kerberosConfig)
     {
@@ -50,7 +52,8 @@ public class KerberosConfig
         return serviceName;
     }
 
-    @Config("http.server.authentication.krb5.service-name")
+    @Config("http-server.authentication.krb5.service-name")
+    @LegacyConfig("http.server.authentication.krb5.service-name")
     public KerberosConfig setServiceName(String serviceName)
     {
         this.serviceName = serviceName;
@@ -63,6 +66,7 @@ public class KerberosConfig
     }
 
     @Config(HTTP_SERVER_AUTHENTICATION_KRB5_KEYTAB)
+    @LegacyConfig("http.server.authentication.krb5.keytab")
     public KerberosConfig setKeytab(File keytab)
     {
         this.keytab = keytab;
@@ -74,7 +78,8 @@ public class KerberosConfig
         return principalHostname;
     }
 
-    @Config("http.server.authentication.krb5.principal-hostname")
+    @Config("http-server.authentication.krb5.principal-hostname")
+    @LegacyConfig("http.server.authentication.krb5.principal-hostname")
     public KerberosConfig setPrincipalHostname(String principalHostname)
     {
         this.principalHostname = principalHostname;
@@ -87,7 +92,8 @@ public class KerberosConfig
         return nameType;
     }
 
-    @Config("http.server.authentication.krb5.name-type")
+    @Config("http-server.authentication.krb5.name-type")
+    @LegacyConfig("http.server.authentication.krb5.name-type")
     public KerberosConfig setNameType(KerberosNameType nameType)
     {
         this.nameType = nameType;

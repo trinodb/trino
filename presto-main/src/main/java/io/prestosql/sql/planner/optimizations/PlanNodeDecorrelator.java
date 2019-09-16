@@ -21,9 +21,11 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
+import io.prestosql.spi.block.SortOrder;
 import io.prestosql.sql.ExpressionUtils;
-import io.prestosql.sql.planner.PlanNodeIdAllocator;
+import io.prestosql.sql.planner.OrderingScheme;
 import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.SymbolAllocator;
 import io.prestosql.sql.planner.SymbolsExtractor;
 import io.prestosql.sql.planner.iterative.Lookup;
 import io.prestosql.sql.planner.plan.AggregationNode;
@@ -32,8 +34,13 @@ import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
 import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.LimitNode;
 import io.prestosql.sql.planner.plan.PlanNode;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.sql.planner.plan.PlanVisitor;
 import io.prestosql.sql.planner.plan.ProjectNode;
+import io.prestosql.sql.planner.plan.RowNumberNode;
+import io.prestosql.sql.planner.plan.TopNNode;
+import io.prestosql.sql.planner.plan.TopNRowNumberNode;
+import io.prestosql.sql.planner.plan.WindowNode.Specification;
 import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.SymbolReference;
@@ -47,18 +54,20 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.EQUAL;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class PlanNodeDecorrelator
 {
-    private final PlanNodeIdAllocator idAllocator;
+    private final SymbolAllocator symbolAllocator;
     private final Lookup lookup;
 
-    public PlanNodeDecorrelator(PlanNodeIdAllocator idAllocator, Lookup lookup)
+    public PlanNodeDecorrelator(SymbolAllocator symbolAllocator, Lookup lookup)
     {
-        this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
+        this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
         this.lookup = requireNonNull(lookup, "lookup is null");
     }
 
@@ -78,7 +87,7 @@ public class PlanNodeDecorrelator
     private class DecorrelatingVisitor
             extends PlanVisitor<Optional<DecorrelationResult>, Void>
     {
-        final List<Symbol> correlation;
+        private final List<Symbol> correlation;
 
         DecorrelatingVisitor(List<Symbol> correlation)
         {
@@ -123,7 +132,7 @@ public class PlanNodeDecorrelator
 
             DecorrelationResult childDecorrelationResult = childDecorrelationResultOptional.get();
             FilterNode newFilterNode = new FilterNode(
-                    idAllocator.getNextId(),
+                    node.getId(),
                     childDecorrelationResult.node,
                     ExpressionUtils.combineConjuncts(uncorrelatedPredicates));
 
@@ -145,8 +154,12 @@ public class PlanNodeDecorrelator
         @Override
         public Optional<DecorrelationResult> visitLimit(LimitNode node, Void context)
         {
+            if (node.getCount() == 0 || node.isWithTies()) {
+                return Optional.empty();
+            }
+
             Optional<DecorrelationResult> childDecorrelationResultOptional = lookup.resolve(node.getSource()).accept(this, null);
-            if (!childDecorrelationResultOptional.isPresent() || node.getCount() == 0) {
+            if (!childDecorrelationResultOptional.isPresent()) {
                 return Optional.empty();
             }
 
@@ -155,20 +168,38 @@ public class PlanNodeDecorrelator
                 return childDecorrelationResultOptional;
             }
 
-            if (node.getCount() != 1) {
-                return Optional.empty();
+            if (node.getCount() == 1) {
+                return rewriteLimitWithRowCountOne(childDecorrelationResult, node.getId());
             }
+            return rewriteLimitWithRowCountGreaterThanOne(childDecorrelationResult, node);
+        }
 
-            Set<Symbol> constantSymbols = childDecorrelationResult.getConstantSymbols();
+        // TODO Limit (1) could be decorrelated by the method rewriteLimitWithRowCountGreaterThanOne() as well.
+        // The current decorrelation method for Limit (1) cannot deal with subqueries outputting other symbols
+        // than constants.
+        //
+        // An example query that is currently not supported:
+        // SELECT (
+        //      SELECT a+b
+        //      FROM (VALUES (1, 2), (1, 2)) inner_relation(a, b)
+        //      WHERE a=x
+        //      LIMIT 1)
+        // FROM (VALUES (1)) outer_relation(x)
+        //
+        // Switching the decorrelation method would change the way that queries with EXISTS are executed,
+        // and thus it needs benchmarking.
+        private Optional<DecorrelationResult> rewriteLimitWithRowCountOne(DecorrelationResult childDecorrelationResult, PlanNodeId nodeId)
+        {
             PlanNode decorrelatedChildNode = childDecorrelationResult.node;
+            Set<Symbol> constantSymbols = childDecorrelationResult.getConstantSymbols();
 
             if (constantSymbols.isEmpty() || !constantSymbols.containsAll(decorrelatedChildNode.getOutputSymbols())) {
                 return Optional.empty();
             }
 
-            // Rewrite limit to aggregation on constant symbols
+            // rewrite Limit to aggregation on constant symbols
             AggregationNode aggregationNode = new AggregationNode(
-                    idAllocator.getNextId(),
+                    nodeId,
                     decorrelatedChildNode,
                     ImmutableMap.of(),
                     singleGroupingSet(decorrelatedChildNode.getOutputSymbols()),
@@ -185,6 +216,143 @@ public class PlanNodeDecorrelator
                     true));
         }
 
+        private Optional<DecorrelationResult> rewriteLimitWithRowCountGreaterThanOne(DecorrelationResult childDecorrelationResult, LimitNode node)
+        {
+            PlanNode decorrelatedChildNode = childDecorrelationResult.node;
+
+            // no rewrite needed (no symbols to partition by)
+            if (childDecorrelationResult.symbolsToPropagate.isEmpty()) {
+                return Optional.of(new DecorrelationResult(
+                        node.replaceChildren(ImmutableList.of(decorrelatedChildNode)),
+                        childDecorrelationResult.symbolsToPropagate,
+                        childDecorrelationResult.correlatedPredicates,
+                        childDecorrelationResult.correlatedSymbolsMapping,
+                        false));
+            }
+
+            Set<Symbol> constantSymbols = childDecorrelationResult.getConstantSymbols();
+            if (!constantSymbols.containsAll(childDecorrelationResult.symbolsToPropagate)) {
+                return Optional.empty();
+            }
+
+            // rewrite Limit to RowNumberNode partitioned by constant symbols
+            RowNumberNode rowNumberNode = new RowNumberNode(
+                    node.getId(),
+                    decorrelatedChildNode,
+                    ImmutableList.copyOf(childDecorrelationResult.symbolsToPropagate),
+                    symbolAllocator.newSymbol("row_number", BIGINT),
+                    Optional.of(toIntExact(node.getCount())),
+                    Optional.empty());
+
+            return Optional.of(new DecorrelationResult(
+                    rowNumberNode,
+                    childDecorrelationResult.symbolsToPropagate,
+                    childDecorrelationResult.correlatedPredicates,
+                    childDecorrelationResult.correlatedSymbolsMapping,
+                    false));
+        }
+
+        @Override
+        public Optional<DecorrelationResult> visitTopN(TopNNode node, Void context)
+        {
+            if (node.getCount() == 0) {
+                return Optional.empty();
+            }
+
+            Optional<DecorrelationResult> childDecorrelationResultOptional = lookup.resolve(node.getSource()).accept(this, null);
+            if (!childDecorrelationResultOptional.isPresent()) {
+                return Optional.empty();
+            }
+
+            DecorrelationResult childDecorrelationResult = childDecorrelationResultOptional.get();
+            if (childDecorrelationResult.atMostSingleRow) {
+                return childDecorrelationResultOptional;
+            }
+
+            PlanNode decorrelatedChildNode = childDecorrelationResult.node;
+            Set<Symbol> constantSymbols = childDecorrelationResult.getConstantSymbols();
+            Optional<OrderingScheme> decorrelatedOrderingScheme = decorrelateOrderingScheme(node.getOrderingScheme(), constantSymbols);
+
+            // no partitioning needed (no symbols to partition by)
+            if (childDecorrelationResult.symbolsToPropagate.isEmpty()) {
+                return decorrelatedOrderingScheme
+                        .map(orderingScheme -> Optional.of(new DecorrelationResult(
+                                // ordering symbols are present - return decorrelated TopNNode
+                                new TopNNode(node.getId(), decorrelatedChildNode, node.getCount(), orderingScheme, node.getStep()),
+                                childDecorrelationResult.symbolsToPropagate,
+                                childDecorrelationResult.correlatedPredicates,
+                                childDecorrelationResult.correlatedSymbolsMapping,
+                                node.getCount() == 1)))
+                        .orElseGet(() -> Optional.of(new DecorrelationResult(
+                                // no ordering symbols are left - convert to LimitNode
+                                new LimitNode(node.getId(), decorrelatedChildNode, node.getCount(), false),
+                                childDecorrelationResult.symbolsToPropagate,
+                                childDecorrelationResult.correlatedPredicates,
+                                childDecorrelationResult.correlatedSymbolsMapping,
+                                node.getCount() == 1)));
+            }
+
+            if (!constantSymbols.containsAll(childDecorrelationResult.symbolsToPropagate)) {
+                return Optional.empty();
+            }
+
+            return decorrelatedOrderingScheme
+                    .map(orderingScheme -> {
+                        // ordering symbols are present - rewrite TopN to TopNRowNumberNode partitioned by constant symbols
+                        TopNRowNumberNode topNRowNumberNode = new TopNRowNumberNode(
+                                node.getId(),
+                                decorrelatedChildNode,
+                                new Specification(
+                                        ImmutableList.copyOf(childDecorrelationResult.symbolsToPropagate),
+                                        Optional.of(orderingScheme)),
+                                symbolAllocator.newSymbol("row_number", BIGINT),
+                                toIntExact(node.getCount()),
+                                false,
+                                Optional.empty());
+
+                        return Optional.of(new DecorrelationResult(
+                                topNRowNumberNode,
+                                childDecorrelationResult.symbolsToPropagate,
+                                childDecorrelationResult.correlatedPredicates,
+                                childDecorrelationResult.correlatedSymbolsMapping,
+                                node.getCount() == 1));
+                    })
+                    .orElseGet(() -> {
+                        // no ordering symbols are left - rewrite TopN to RowNumberNode partitioned by constant symbols
+                        RowNumberNode rowNumberNode = new RowNumberNode(
+                                node.getId(),
+                                decorrelatedChildNode,
+                                ImmutableList.copyOf(childDecorrelationResult.symbolsToPropagate),
+                                symbolAllocator.newSymbol("row_number", BIGINT),
+                                Optional.of(toIntExact(node.getCount())),
+                                Optional.empty());
+
+                        return Optional.of(new DecorrelationResult(
+                                rowNumberNode,
+                                childDecorrelationResult.symbolsToPropagate,
+                                childDecorrelationResult.correlatedPredicates,
+                                childDecorrelationResult.correlatedSymbolsMapping,
+                                node.getCount() == 1));
+                    });
+        }
+
+        private Optional<OrderingScheme> decorrelateOrderingScheme(OrderingScheme orderingScheme, Set<Symbol> constantSymbols)
+        {
+            // remove local and remote constant sort symbols from the OrderingScheme
+            ImmutableList.Builder<Symbol> nonConstantOrderBy = ImmutableList.builder();
+            ImmutableMap.Builder<Symbol, SortOrder> nonConstantOrderings = ImmutableMap.builder();
+            for (Symbol symbol : orderingScheme.getOrderBy()) {
+                if (!constantSymbols.contains(symbol) && !correlation.contains(symbol)) {
+                    nonConstantOrderBy.add(symbol);
+                    nonConstantOrderings.put(symbol, orderingScheme.getOrdering(symbol));
+                }
+            }
+            if (nonConstantOrderBy.build().isEmpty()) {
+                return Optional.empty();
+            }
+            return Optional.of(new OrderingScheme(nonConstantOrderBy.build(), nonConstantOrderings.build()));
+        }
+
         @Override
         public Optional<DecorrelationResult> visitEnforceSingleRow(EnforceSingleRowNode node, Void context)
         {
@@ -196,6 +364,10 @@ public class PlanNodeDecorrelator
         public Optional<DecorrelationResult> visitAggregation(AggregationNode node, Void context)
         {
             if (node.hasEmptyGroupingSet()) {
+                return Optional.empty();
+            }
+
+            if (node.getGroupingSetCount() != 1) {
                 return Optional.empty();
             }
 
@@ -263,7 +435,7 @@ public class PlanNodeDecorrelator
                     .build();
 
             return Optional.of(new DecorrelationResult(
-                    new ProjectNode(idAllocator.getNextId(), childDecorrelationResult.node, assignments),
+                    new ProjectNode(node.getId(), childDecorrelationResult.node, assignments),
                     childDecorrelationResult.symbolsToPropagate,
                     childDecorrelationResult.correlatedPredicates,
                     childDecorrelationResult.correlatedSymbolsMapping,

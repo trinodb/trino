@@ -109,7 +109,7 @@ import io.prestosql.sql.planner.iterative.rule.RemoveRedundantSort;
 import io.prestosql.sql.planner.iterative.rule.RemoveRedundantTopN;
 import io.prestosql.sql.planner.iterative.rule.RemoveTrivialFilters;
 import io.prestosql.sql.planner.iterative.rule.RemoveUnreferencedScalarApplyNodes;
-import io.prestosql.sql.planner.iterative.rule.RemoveUnreferencedScalarLateralNodes;
+import io.prestosql.sql.planner.iterative.rule.RemoveUnreferencedScalarSubqueries;
 import io.prestosql.sql.planner.iterative.rule.RemoveUnsupportedDynamicFilters;
 import io.prestosql.sql.planner.iterative.rule.ReorderJoins;
 import io.prestosql.sql.planner.iterative.rule.RewriteSpatialPartitioningAggregation;
@@ -117,13 +117,13 @@ import io.prestosql.sql.planner.iterative.rule.SimplifyCountOverConstant;
 import io.prestosql.sql.planner.iterative.rule.SimplifyExpressions;
 import io.prestosql.sql.planner.iterative.rule.SingleDistinctAggregationToGroupBy;
 import io.prestosql.sql.planner.iterative.rule.TransformCorrelatedInPredicateToJoin;
-import io.prestosql.sql.planner.iterative.rule.TransformCorrelatedLateralJoinToJoin;
+import io.prestosql.sql.planner.iterative.rule.TransformCorrelatedJoinToJoin;
 import io.prestosql.sql.planner.iterative.rule.TransformCorrelatedScalarAggregationToJoin;
 import io.prestosql.sql.planner.iterative.rule.TransformCorrelatedScalarSubquery;
 import io.prestosql.sql.planner.iterative.rule.TransformCorrelatedSingleRowSubqueryToProject;
-import io.prestosql.sql.planner.iterative.rule.TransformExistsApplyToLateralNode;
+import io.prestosql.sql.planner.iterative.rule.TransformExistsApplyToCorrelatedJoin;
 import io.prestosql.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToSemiJoin;
-import io.prestosql.sql.planner.iterative.rule.TransformUncorrelatedLateralToJoin;
+import io.prestosql.sql.planner.iterative.rule.TransformUncorrelatedSubqueryToJoin;
 import io.prestosql.sql.planner.iterative.rule.UnwrapCastInComparison;
 import io.prestosql.sql.planner.optimizations.AddExchanges;
 import io.prestosql.sql.planner.optimizations.AddLocalExchanges;
@@ -142,7 +142,7 @@ import io.prestosql.sql.planner.optimizations.ReplicateSemiJoinInDelete;
 import io.prestosql.sql.planner.optimizations.SetFlatteningOptimizer;
 import io.prestosql.sql.planner.optimizations.StatsRecordingPlanOptimizer;
 import io.prestosql.sql.planner.optimizations.TableDeleteOptimizer;
-import io.prestosql.sql.planner.optimizations.TransformQuantifiedComparisonApplyToLateralJoin;
+import io.prestosql.sql.planner.optimizations.TransformQuantifiedComparisonApplyToCorrelatedJoin;
 import io.prestosql.sql.planner.optimizations.UnaliasSymbolReferences;
 import io.prestosql.sql.planner.optimizations.WindowFilterPushDown;
 import org.weakref.jmx.MBeanExporter;
@@ -366,18 +366,18 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableSet.of(new TransformExistsApplyToLateralNode(metadata))),
-                new TransformQuantifiedComparisonApplyToLateralJoin(metadata),
+                        ImmutableSet.of(new TransformExistsApplyToCorrelatedJoin(metadata))),
+                new TransformQuantifiedComparisonApplyToCorrelatedJoin(metadata),
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(
-                                new RemoveUnreferencedScalarLateralNodes(),
-                                new TransformUncorrelatedLateralToJoin(),
+                                new RemoveUnreferencedScalarSubqueries(),
+                                new TransformUncorrelatedSubqueryToJoin(),
                                 new TransformUncorrelatedInPredicateSubqueryToSemiJoin(),
                                 new TransformCorrelatedScalarAggregationToJoin(metadata),
-                                new TransformCorrelatedLateralJoinToJoin())),
+                                new TransformCorrelatedJoinToJoin())),
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
@@ -386,7 +386,7 @@ public class PlanOptimizers
                                 new RemoveUnreferencedScalarApplyNodes(),
                                 new TransformCorrelatedInPredicateToJoin(), // must be run after PruneUnreferencedOutputs
                                 new TransformCorrelatedScalarSubquery(metadata), // must be run after TransformCorrelatedScalarAggregationToJoin
-                                new TransformCorrelatedLateralJoinToJoin(),
+                                new TransformCorrelatedJoinToJoin(),
                                 new ImplementFilteredAggregations())),
                 new IterativeOptimizer(
                         ruleStats,

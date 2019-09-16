@@ -50,7 +50,7 @@ import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toSet;
 
-public class ShardOrganizerUtil
+public final class ShardOrganizerUtil
 {
     private ShardOrganizerUtil() {}
 

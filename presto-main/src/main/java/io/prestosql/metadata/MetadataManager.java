@@ -493,6 +493,13 @@ public final class MetadataManager
     {
         requireNonNull(prefix, "prefix is null");
 
+        Optional<QualifiedObjectName> objectName = prefix.asQualifiedObjectName();
+        if (objectName.isPresent()) {
+            return getTableHandle(session, objectName.get())
+                    .map(handle -> ImmutableList.of(objectName.get()))
+                    .orElseGet(ImmutableList::of);
+        }
+
         Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, prefix.getCatalogName());
         Set<QualifiedObjectName> tables = new LinkedHashSet<>();
         if (catalog.isPresent()) {
@@ -704,12 +711,12 @@ public final class MetadataManager
     }
 
     @Override
-    public void beginQuery(Session session, Set<CatalogName> connectors)
+    public void beginQuery(Session session, Multimap<CatalogName, ConnectorTableHandle> tableHandles)
     {
-        for (CatalogName catalogName : connectors) {
-            ConnectorMetadata metadata = getMetadata(session, catalogName);
-            ConnectorSession connectorSession = session.toConnectorSession(catalogName);
-            metadata.beginQuery(connectorSession);
+        for (Entry<CatalogName, Collection<ConnectorTableHandle>> entry : tableHandles.asMap().entrySet()) {
+            ConnectorMetadata metadata = getMetadata(session, entry.getKey());
+            ConnectorSession connectorSession = session.toConnectorSession(entry.getKey());
+            metadata.beginQuery(connectorSession, entry.getValue());
             registerCatalogForQueryId(session.getQueryId(), metadata);
         }
     }
@@ -867,6 +874,13 @@ public final class MetadataManager
     {
         requireNonNull(prefix, "prefix is null");
 
+        Optional<QualifiedObjectName> objectName = prefix.asQualifiedObjectName();
+        if (objectName.isPresent()) {
+            return getView(session, objectName.get())
+                    .map(handle -> ImmutableList.of(objectName.get()))
+                    .orElseGet(ImmutableList::of);
+        }
+
         Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, prefix.getCatalogName());
 
         Set<QualifiedObjectName> views = new LinkedHashSet<>();
@@ -926,10 +940,16 @@ public final class MetadataManager
     @Override
     public Optional<ConnectorViewDefinition> getView(Session session, QualifiedObjectName viewName)
     {
-        return getOptionalCatalogMetadata(session, viewName.getCatalogName())
-                .flatMap(catalog -> catalog.getMetadata().getView(
-                        session.toConnectorSession(catalog.getCatalogName()),
-                        viewName.asSchemaTableName()));
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, viewName.getCatalogName());
+        if (catalog.isPresent()) {
+            CatalogMetadata catalogMetadata = catalog.get();
+            CatalogName catalogName = catalogMetadata.getConnectorId(session, viewName);
+            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+
+            ConnectorSession connectorSession = session.toConnectorSession(catalogName);
+            return metadata.getView(connectorSession, viewName.asSchemaTableName());
+        }
+        return Optional.empty();
     }
 
     @Override

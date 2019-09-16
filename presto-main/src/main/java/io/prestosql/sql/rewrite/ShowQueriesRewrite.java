@@ -84,12 +84,12 @@ import java.util.SortedMap;
 
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.connector.informationschema.InformationSchemaMetadata.TABLE_COLUMNS;
-import static io.prestosql.connector.informationschema.InformationSchemaMetadata.TABLE_ENABLED_ROLES;
-import static io.prestosql.connector.informationschema.InformationSchemaMetadata.TABLE_ROLES;
-import static io.prestosql.connector.informationschema.InformationSchemaMetadata.TABLE_SCHEMATA;
-import static io.prestosql.connector.informationschema.InformationSchemaMetadata.TABLE_TABLES;
-import static io.prestosql.connector.informationschema.InformationSchemaMetadata.TABLE_TABLE_PRIVILEGES;
+import static io.prestosql.connector.informationschema.InformationSchemaTable.COLUMNS;
+import static io.prestosql.connector.informationschema.InformationSchemaTable.ENABLED_ROLES;
+import static io.prestosql.connector.informationschema.InformationSchemaTable.ROLES;
+import static io.prestosql.connector.informationschema.InformationSchemaTable.SCHEMATA;
+import static io.prestosql.connector.informationschema.InformationSchemaTable.TABLES;
+import static io.prestosql.connector.informationschema.InformationSchemaTable.TABLE_PRIVILEGES;
 import static io.prestosql.metadata.MetadataListing.listCatalogs;
 import static io.prestosql.metadata.MetadataListing.listSchemas;
 import static io.prestosql.metadata.MetadataUtil.createCatalogSchemaName;
@@ -182,7 +182,7 @@ final class ShowQueriesRewrite
         {
             CatalogSchemaName schema = createCatalogSchemaName(session, showTables, showTables.getSchema());
 
-            accessControl.checkCanShowTablesMetadata(session.getRequiredTransactionId(), session.getIdentity(), schema);
+            accessControl.checkCanShowTablesMetadata(session.toSecurityContext(), schema);
 
             if (!metadata.catalogExists(session, schema.getCatalogName())) {
                 throw semanticException(CATALOG_NOT_FOUND, showTables, "Catalog '%s' does not exist", schema.getCatalogName());
@@ -205,7 +205,7 @@ final class ShowQueriesRewrite
 
             return simpleQuery(
                     selectList(aliasedName("table_name", "Table")),
-                    from(schema.getCatalogName(), TABLE_TABLES),
+                    from(schema.getCatalogName(), TABLES.getSchemaTableName()),
                     predicate,
                     ordering(ascending("table_name")));
         }
@@ -228,8 +228,7 @@ final class ShowQueriesRewrite
                 catalogName = qualifiedTableName.getCatalogName();
 
                 accessControl.checkCanShowTablesMetadata(
-                        session.getRequiredTransactionId(),
-                        session.getIdentity(),
+                        session.toSecurityContext(),
                         new CatalogSchemaName(catalogName, qualifiedTableName.getSchemaName()));
 
                 predicate = Optional.of(combineConjuncts(
@@ -243,7 +242,7 @@ final class ShowQueriesRewrite
 
                 Set<String> allowedSchemas = listSchemas(session, metadata, accessControl, catalogName);
                 for (String schema : allowedSchemas) {
-                    accessControl.checkCanShowTablesMetadata(session.getRequiredTransactionId(), session.getIdentity(), new CatalogSchemaName(catalogName, schema));
+                    accessControl.checkCanShowTablesMetadata(session.toSecurityContext(), new CatalogSchemaName(catalogName, schema));
                 }
             }
 
@@ -259,7 +258,7 @@ final class ShowQueriesRewrite
                             aliasedName("privilege_type", "Privilege"),
                             aliasedName("is_grantable", "Grantable"),
                             aliasedName("with_hierarchy", "With Hierarchy")),
-                    from(catalogName, TABLE_TABLE_PRIVILEGES),
+                    from(catalogName, TABLE_PRIVILEGES.getSchemaTableName()),
                     predicate,
                     Optional.empty());
         }
@@ -274,16 +273,16 @@ final class ShowQueriesRewrite
             String catalog = node.getCatalog().map(c -> c.getValue().toLowerCase(ENGLISH)).orElseGet(() -> session.getCatalog().get());
 
             if (node.isCurrent()) {
-                accessControl.checkCanShowCurrentRoles(session.getRequiredTransactionId(), session.getIdentity(), catalog);
+                accessControl.checkCanShowCurrentRoles(session.toSecurityContext(), catalog);
                 return simpleQuery(
                         selectList(aliasedName("role_name", "Role")),
-                        from(catalog, TABLE_ENABLED_ROLES));
+                        from(catalog, ENABLED_ROLES.getSchemaTableName()));
             }
             else {
-                accessControl.checkCanShowRoles(session.getRequiredTransactionId(), session.getIdentity(), catalog);
+                accessControl.checkCanShowRoles(session.toSecurityContext(), catalog);
                 return simpleQuery(
                         selectList(aliasedName("role_name", "Role")),
-                        from(catalog, TABLE_ROLES));
+                        from(catalog, ROLES.getSchemaTableName()));
             }
         }
 
@@ -297,7 +296,7 @@ final class ShowQueriesRewrite
             String catalog = node.getCatalog().map(c -> c.getValue().toLowerCase(ENGLISH)).orElseGet(() -> session.getCatalog().get());
             PrestoPrincipal principal = new PrestoPrincipal(PrincipalType.USER, session.getUser());
 
-            accessControl.checkCanShowRoleGrants(session.getRequiredTransactionId(), session.getIdentity(), catalog);
+            accessControl.checkCanShowRoleGrants(session.toSecurityContext(), catalog);
             List<Expression> rows = metadata.listRoleGrants(session, catalog, principal).stream()
                     .map(roleGrant -> row(new StringLiteral(roleGrant.getRoleName())))
                     .collect(toList());
@@ -316,7 +315,7 @@ final class ShowQueriesRewrite
             }
 
             String catalog = node.getCatalog().map(Identifier::getValue).orElseGet(() -> session.getCatalog().get());
-            accessControl.checkCanShowSchemas(session.getRequiredTransactionId(), session.getIdentity(), catalog);
+            accessControl.checkCanShowSchemas(session.toSecurityContext(), catalog);
 
             Optional<Expression> predicate = Optional.empty();
             Optional<String> likePattern = node.getLikePattern();
@@ -329,7 +328,7 @@ final class ShowQueriesRewrite
 
             return simpleQuery(
                     selectList(aliasedName("schema_name", "Schema")),
-                    from(catalog, TABLE_SCHEMATA),
+                    from(catalog, SCHEMATA.getSchemaTableName()),
                     predicate,
                     Optional.of(ordering(ascending("schema_name"))));
         }
@@ -364,7 +363,7 @@ final class ShowQueriesRewrite
                 throw semanticException(TABLE_NOT_FOUND, showColumns, "Table '%s' does not exist", tableName);
             }
 
-            accessControl.checkCanShowColumnsMetadata(session.getRequiredTransactionId(), session.getIdentity(), tableName.asCatalogSchemaTableName());
+            accessControl.checkCanShowColumnsMetadata(session.toSecurityContext(), tableName.asCatalogSchemaTableName());
 
             return simpleQuery(
                     selectList(
@@ -372,7 +371,7 @@ final class ShowQueriesRewrite
                             aliasedName("data_type", "Type"),
                             aliasedNullToEmpty("extra_info", "Extra"),
                             aliasedNullToEmpty("comment", "Comment")),
-                    from(tableName.getCatalogName(), TABLE_COLUMNS),
+                    from(tableName.getCatalogName(), COLUMNS.getSchemaTableName()),
                     logicalAnd(
                             equal(identifier("table_schema"), new StringLiteral(tableName.getSchemaName())),
                             equal(identifier("table_name"), new StringLiteral(tableName.getObjectName()))),

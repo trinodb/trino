@@ -399,34 +399,34 @@ public class TestJsonOperators
     public void testCastWithJsonParse()
     {
         // the test is to make sure ExpressionOptimizer works with cast + json_parse
-        assertCastWithJsonParse("[[1,1], [2,2]]", "ARRAY<ARRAY<INTEGER>>", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(1, 1), ImmutableList.of(2, 2)));
-        assertInvalidCastWithJsonParse("[1, \"abc\"]", "ARRAY<INTEGER>", "Cannot cast to array(integer). Cannot cast 'abc' to INT\n[1, \"abc\"]");
+        assertCastWithJsonParse("[[1,1], [2,2]]", "ARRAY(ARRAY(INTEGER))", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(1, 1), ImmutableList.of(2, 2)));
+        assertInvalidCastWithJsonParse("[1, \"abc\"]", "ARRAY(INTEGER)", "Cannot cast to array(integer). Cannot cast 'abc' to INT\n[1, \"abc\"]");
 
         // Since we will not reformat the JSON string before parse and cast with the optimization,
         // these extra whitespaces in JSON string is to make sure the cast will work in such cases.
-        assertCastWithJsonParse("{\"a\"\n:1,  \"b\":\t2}", "MAP<VARCHAR,INTEGER>", mapType(VARCHAR, INTEGER), ImmutableMap.of("a", 1, "b", 2));
-        assertInvalidCastWithJsonParse("{\"[1, 1]\":[2, 2]}", "MAP<ARRAY<INTEGER>,ARRAY<INTEGER>>", "Cannot cast JSON to map(array(integer),array(integer))");
-        assertInvalidCastWithJsonParse("{true: false, false:false}", "MAP<BOOLEAN,BOOLEAN>", "Cannot cast to map(boolean,boolean).\n{true: false, false:false}");
+        assertCastWithJsonParse("{\"a\"\n:1,  \"b\":\t2}", "MAP(VARCHAR,INTEGER)", mapType(VARCHAR, INTEGER), ImmutableMap.of("a", 1, "b", 2));
+        assertInvalidCastWithJsonParse("{\"[1, 1]\":[2, 2]}", "MAP(ARRAY(INTEGER),ARRAY(INTEGER))", "Cannot cast JSON to map(array(integer),array(integer))");
+        assertInvalidCastWithJsonParse("{true: false, false:false}", "MAP(BOOLEAN,BOOLEAN)", "Cannot cast to map(boolean,boolean).\n{true: false, false:false}");
 
         assertCastWithJsonParse(
                 "{\"a\"  \n  :1,  \"b\":  \t  [2, 3]}",
-                "ROW(a INTEGER, b ARRAY<INTEGER>)",
+                "ROW(a INTEGER, b ARRAY(INTEGER))",
                 RowType.from(ImmutableList.of(
                         RowType.field("a", INTEGER),
                         RowType.field("b", new ArrayType(INTEGER)))),
                 ImmutableList.of(1, ImmutableList.of(2, 3)));
         assertCastWithJsonParse(
                 "[  1,  [2, 3]  ]",
-                "ROW(INTEGER, ARRAY<INTEGER>)",
+                "ROW(INTEGER, ARRAY(INTEGER))",
                 RowType.anonymous(ImmutableList.of(INTEGER, new ArrayType(INTEGER))),
                 ImmutableList.of(1, ImmutableList.of(2, 3)));
         assertInvalidCastWithJsonParse(
                 "{\"a\" :1,  \"b\": {} }",
-                "ROW(a INTEGER, b ARRAY<INTEGER>)",
+                "ROW(a INTEGER, b ARRAY(INTEGER))",
                 "Cannot cast to row(a integer,b array(integer)). Expected a json array, but got {\n{\"a\" :1,  \"b\": {} }");
         assertInvalidCastWithJsonParse(
                 "[  1,  {}  ]",
-                "ROW(INTEGER, ARRAY<INTEGER>)",
+                "ROW(INTEGER, ARRAY(INTEGER))",
                 "Cannot cast to row(integer,array(integer)). Expected a json array, but got {\n[  1,  {}  ]");
     }
 

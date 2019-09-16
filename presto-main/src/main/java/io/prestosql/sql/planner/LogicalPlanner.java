@@ -15,9 +15,7 @@ package io.prestosql.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
-import io.prestosql.connector.CatalogName;
 import io.prestosql.cost.CachingCostProvider;
 import io.prestosql.cost.CachingStatsProvider;
 import io.prestosql.cost.CostCalculator;
@@ -65,7 +63,6 @@ import io.prestosql.sql.tree.CreateTableAsSelect;
 import io.prestosql.sql.tree.Delete;
 import io.prestosql.sql.tree.Explain;
 import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.Identifier;
 import io.prestosql.sql.tree.Insert;
 import io.prestosql.sql.tree.LambdaArgumentDeclaration;
 import io.prestosql.sql.tree.LongLiteral;
@@ -88,7 +85,6 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Streams.zip;
-import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.statistics.TableStatisticType.ROW_COUNT;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -188,8 +184,7 @@ public class LogicalPlanner
 
     public PlanNode planStatement(Analysis analysis, Statement statement)
     {
-        if (statement instanceof CreateTableAsSelect && analysis.isCreateTableAsSelectNoOp()) {
-            checkState(analysis.getCreateTableDestination().isPresent(), "Table destination is missing");
+        if (statement instanceof CreateTableAsSelect && analysis.getCreate().get().isCreateTableAsSelectNoOp()) {
             Symbol symbol = symbolAllocator.newSymbol("rows", BIGINT);
             PlanNode source = new ValuesNode(idAllocator.getNextId(), ImmutableList.of(symbol), ImmutableList.of(ImmutableList.of(new LongLiteral("0"))));
             return new OutputNode(idAllocator.getNextId(), source, ImmutableList.of("rows"), ImmutableList.of(symbol));
@@ -200,7 +195,7 @@ public class LogicalPlanner
     private RelationPlan planStatementWithoutOutput(Analysis analysis, Statement statement)
     {
         if (statement instanceof CreateTableAsSelect) {
-            if (analysis.isCreateTableAsSelectNoOp()) {
+            if (analysis.getCreate().get().isCreateTableAsSelectNoOp()) {
                 throw new PrestoException(NOT_SUPPORTED, "CREATE TABLE IF NOT EXISTS is not supported in this context " + statement.getClass().getSimpleName());
             }
             return createTableCreationPlan(analysis, ((CreateTableAsSelect) statement).getQuery());
@@ -282,20 +277,21 @@ public class LogicalPlanner
 
     private RelationPlan createTableCreationPlan(Analysis analysis, Query query)
     {
-        QualifiedObjectName destination = analysis.getCreateTableDestination().get();
+        Analysis.Create create = analysis.getCreate().get();
+        QualifiedObjectName destination = create.getDestination().get();
 
         RelationPlan plan = createRelationPlan(analysis, query);
+        if (!create.isCreateTableAsSelectWithData()) {
+            PlanNode root = new LimitNode(idAllocator.getNextId(), plan.getRoot(), 0L, false);
+            plan = new RelationPlan(root, plan.getScope(), plan.getFieldMappings());
+        }
 
-        ConnectorTableMetadata tableMetadata = createTableMetadata(
-                destination,
-                getOutputTableColumns(plan, analysis.getColumnAliases()),
-                analysis.getCreateTableProperties(),
-                analysis.getParameters(),
-                analysis.getCreateTableComment());
-        Optional<NewTableLayout> newTableLayout = metadata.getNewTableLayout(session, destination.getCatalogName(), tableMetadata);
+        ConnectorTableMetadata tableMetadata = create.getMetadata().get();
+
+        Optional<NewTableLayout> newTableLayout = create.getLayout();
 
         List<String> columnNames = tableMetadata.getColumns().stream()
-                .filter(column -> !column.isHidden())
+                .filter(column -> !column.isHidden()) // todo this filter is redundant
                 .map(ColumnMetadata::getName)
                 .collect(toImmutableList());
 
@@ -360,7 +356,6 @@ public class LogicalPlanner
 
         plan = new RelationPlan(projectNode, scope, projectNode.getOutputSymbols());
 
-        Optional<NewTableLayout> newTableLayout = metadata.getInsertLayout(session, insert.getTarget());
         String catalogName = insert.getTarget().getCatalogName().getCatalogName();
         TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, catalogName, tableMetadata.getMetadata());
 
@@ -369,7 +364,7 @@ public class LogicalPlanner
                 plan,
                 new InsertReference(insert.getTarget()),
                 visibleTableColumnNames,
-                newTableLayout,
+                insert.getNewTableLayout(),
                 statisticsMetadata);
     }
 
@@ -382,17 +377,6 @@ public class LogicalPlanner
             TableStatisticsMetadata statisticsMetadata)
     {
         PlanNode source = plan.getRoot();
-
-        if (!analysis.isCreateTableAsSelectWithData()) {
-            source = new LimitNode(idAllocator.getNextId(), source, 0L, false);
-        }
-
-        // todo this should be checked in analysis
-        writeTableLayout.ifPresent(layout -> {
-            if (!ImmutableSet.copyOf(columnNames).containsAll(layout.getPartitionColumns())) {
-                throw new PrestoException(NOT_SUPPORTED, "INSERT must write all distribution columns: " + layout.getPartitionColumns());
-            }
-        });
 
         List<Symbol> symbols = plan.getFieldMappings();
 
@@ -426,21 +410,19 @@ public class LogicalPlanner
             // by the partial aggregation from all of the writer nodes
             StatisticAggregations partialAggregation = aggregations.getPartialAggregation();
 
-            PlanNode writerNode = new TableWriterNode(
-                    idAllocator.getNextId(),
-                    source,
-                    target,
-                    symbolAllocator.newSymbol("partialrows", BIGINT),
-                    symbolAllocator.newSymbol("fragment", VARBINARY),
-                    symbols,
-                    columnNames,
-                    partitioningScheme,
-                    Optional.of(partialAggregation),
-                    Optional.of(result.getDescriptor().map(aggregations.getMappings()::get)));
-
             TableFinishNode commitNode = new TableFinishNode(
                     idAllocator.getNextId(),
-                    writerNode,
+                    new TableWriterNode(
+                            idAllocator.getNextId(),
+                            source,
+                            target,
+                            symbolAllocator.newSymbol("partialrows", BIGINT),
+                            symbolAllocator.newSymbol("fragment", VARBINARY),
+                            symbols,
+                            columnNames,
+                            partitioningScheme,
+                            Optional.of(partialAggregation),
+                            Optional.of(result.getDescriptor().map(aggregations.getMappings()::get))),
                     target,
                     symbolAllocator.newSymbol("rows", BIGINT),
                     Optional.of(aggregations.getFinalAggregation()),
@@ -466,6 +448,7 @@ public class LogicalPlanner
                 symbolAllocator.newSymbol("rows", BIGINT),
                 Optional.empty(),
                 Optional.empty());
+
         return new RelationPlan(commitNode, analysis.getRootScope(), commitNode.getOutputSymbols());
     }
 
@@ -510,34 +493,6 @@ public class LogicalPlanner
     {
         return new RelationPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), metadata, session)
                 .process(query, null);
-    }
-
-    private ConnectorTableMetadata createTableMetadata(QualifiedObjectName table, List<ColumnMetadata> columns, Map<String, Expression> propertyExpressions, List<Expression> parameters, Optional<String> comment)
-    {
-        CatalogName catalogName = metadata.getCatalogHandle(session, table.getCatalogName())
-                .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + table.getCatalogName()));
-
-        Map<String, Object> properties = metadata.getTablePropertyManager().getProperties(
-                catalogName,
-                table.getCatalogName(),
-                propertyExpressions,
-                session,
-                metadata,
-                parameters);
-
-        return new ConnectorTableMetadata(table.asSchemaTableName(), columns, properties, comment);
-    }
-
-    private static List<ColumnMetadata> getOutputTableColumns(RelationPlan plan, Optional<List<Identifier>> columnAliases)
-    {
-        ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
-        int aliasPosition = 0;
-        for (Field field : plan.getDescriptor().getVisibleFields()) {
-            String columnName = columnAliases.isPresent() ? columnAliases.get().get(aliasPosition).getValue() : field.getName().get();
-            columns.add(new ColumnMetadata(columnName, field.getType()));
-            aliasPosition++;
-        }
-        return columns.build();
     }
 
     private static Map<NodeRef<LambdaArgumentDeclaration>, Symbol> buildLambdaDeclarationToSymbolMap(Analysis analysis, SymbolAllocator symbolAllocator)

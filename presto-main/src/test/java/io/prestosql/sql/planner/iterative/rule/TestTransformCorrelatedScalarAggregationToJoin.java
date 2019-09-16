@@ -45,7 +45,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     public void doesNotFireOnCorrelatedWithoutAggregation()
     {
         tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata()))
-                .on(p -> p.lateral(
+                .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
                         p.values(p.symbol("a"))))
@@ -56,7 +56,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     public void doesNotFireOnUncorrelated()
     {
         tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata()))
-                .on(p -> p.lateral(
+                .on(p -> p.correlatedJoin(
                         ImmutableList.of(),
                         p.values(p.symbol("a")),
                         p.values(p.symbol("b"))))
@@ -67,7 +67,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     public void doesNotFireOnCorrelatedWithNonScalarAggregation()
     {
         tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata()))
-                .on(p -> p.lateral(
+                .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
                         p.aggregation(ab -> ab
@@ -81,7 +81,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     public void rewritesOnSubqueryWithoutProjection()
     {
         tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata()))
-                .on(p -> p.lateral(
+                .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
                         p.aggregation(ab -> ab
@@ -103,7 +103,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     public void rewritesOnSubqueryWithProjection()
     {
         tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata()))
-                .on(p -> p.lateral(
+                .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
                         p.project(Assignments.of(p.symbol("expr"), p.expression("sum + 1")),
@@ -114,6 +114,31 @@ public class TestTransformCorrelatedScalarAggregationToJoin
                 .matches(
                         project(ImmutableMap.of("corr", expression("corr"), "expr", expression("(\"sum_1\" + 1)")),
                                 aggregation(ImmutableMap.of("sum_1", functionCall("sum", ImmutableList.of("a"))),
+                                        join(JoinNode.Type.LEFT,
+                                                ImmutableList.of(),
+                                                assignUniqueId("unique",
+                                                        values(ImmutableMap.of("corr", 0))),
+                                                project(ImmutableMap.of("non_null", expression("true")),
+                                                        values(ImmutableMap.of("a", 0, "b", 1)))))));
+    }
+
+    @Test
+    public void testSubqueryWithCount()
+    {
+        tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata()))
+                .on(p -> p.correlatedJoin(
+                        ImmutableList.of(p.symbol("corr")),
+                        p.values(p.symbol("corr")),
+                        p.aggregation(ab -> ab
+                                .source(p.values(p.symbol("a"), p.symbol("b")))
+                                .addAggregation(p.symbol("count_rows"), PlanBuilder.expression("count(*)"), ImmutableList.of(BIGINT))
+                                .addAggregation(p.symbol("count_non_null_values"), PlanBuilder.expression("count(a)"), ImmutableList.of(BIGINT))
+                                .globalGrouping())))
+                .matches(
+                        project(
+                                aggregation(ImmutableMap.of(
+                                        "count_rows", functionCall("count", ImmutableList.of("non_null")),
+                                        "count_non_null_values", functionCall("count", ImmutableList.of("a"))),
                                         join(JoinNode.Type.LEFT,
                                                 ImmutableList.of(),
                                                 assignUniqueId("unique",

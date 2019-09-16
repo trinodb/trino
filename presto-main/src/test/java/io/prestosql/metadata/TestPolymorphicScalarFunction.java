@@ -261,7 +261,7 @@ public class TestPolymorphicScalarFunction
         function.specialize(BOUND_VARIABLES, 1, METADATA);
     }
 
-    public static class TestMethods
+    public static final class TestMethods
     {
         static final Slice VARCHAR_TO_VARCHAR_RETURN_VALUE = Slices.utf8Slice("hello world");
         static final long VARCHAR_TO_BIGINT_RETURN_VALUE = 42L;

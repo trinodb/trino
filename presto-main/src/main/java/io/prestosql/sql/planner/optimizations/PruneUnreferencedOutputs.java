@@ -35,6 +35,7 @@ import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
 import io.prestosql.sql.planner.plan.ApplyNode;
 import io.prestosql.sql.planner.plan.AssignUniqueId;
 import io.prestosql.sql.planner.plan.Assignments;
+import io.prestosql.sql.planner.plan.CorrelatedJoinNode;
 import io.prestosql.sql.planner.plan.DeleteNode;
 import io.prestosql.sql.planner.plan.DistinctLimitNode;
 import io.prestosql.sql.planner.plan.ExceptNode;
@@ -46,7 +47,6 @@ import io.prestosql.sql.planner.plan.IndexJoinNode;
 import io.prestosql.sql.planner.plan.IndexSourceNode;
 import io.prestosql.sql.planner.plan.IntersectNode;
 import io.prestosql.sql.planner.plan.JoinNode;
-import io.prestosql.sql.planner.plan.LateralJoinNode;
 import io.prestosql.sql.planner.plan.LimitNode;
 import io.prestosql.sql.planner.plan.MarkDistinctNode;
 import io.prestosql.sql.planner.plan.OffsetNode;
@@ -89,9 +89,9 @@ import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Sets.intersection;
 import static io.prestosql.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static io.prestosql.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
-import static io.prestosql.sql.planner.plan.LateralJoinNode.Type.INNER;
-import static io.prestosql.sql.planner.plan.LateralJoinNode.Type.LEFT;
-import static io.prestosql.sql.planner.plan.LateralJoinNode.Type.RIGHT;
+import static io.prestosql.sql.planner.plan.CorrelatedJoinNode.Type.INNER;
+import static io.prestosql.sql.planner.plan.CorrelatedJoinNode.Type.LEFT;
+import static io.prestosql.sql.planner.plan.CorrelatedJoinNode.Type.RIGHT;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static java.util.Objects.requireNonNull;
 
@@ -835,7 +835,7 @@ public class PruneUnreferencedOutputs
         }
 
         @Override
-        public PlanNode visitLateralJoin(LateralJoinNode node, RewriteContext<Set<Symbol>> context)
+        public PlanNode visitCorrelatedJoin(CorrelatedJoinNode node, RewriteContext<Set<Symbol>> context)
         {
             Set<Symbol> expectedFilterSymbols = SymbolsExtractor.extractUnique(node.getFilter());
 
@@ -846,13 +846,13 @@ public class PruneUnreferencedOutputs
 
             PlanNode subquery = context.rewrite(node.getSubquery(), expectedFilterAndContextSymbols);
 
-            // remove unused lateral nodes
+            // remove unused correlated join nodes
             if (intersection(ImmutableSet.copyOf(subquery.getOutputSymbols()), context.get()).isEmpty()) {
-                // remove unused lateral subquery of inner join
+                // remove unused subquery of inner join
                 if (node.getType() == INNER && isScalar(subquery) && node.getFilter().equals(TRUE_LITERAL)) {
                     return context.rewrite(node.getInput(), context.get());
                 }
-                // remove unused lateral subquery of left join
+                // remove unused subquery of left join
                 if (node.getType() == LEFT && isAtMostScalar(subquery)) {
                     return context.rewrite(node.getInput(), context.get());
                 }
@@ -886,7 +886,7 @@ public class PruneUnreferencedOutputs
                 }
             }
 
-            return new LateralJoinNode(node.getId(), input, subquery, newCorrelation, node.getType(), node.getFilter(), node.getOriginSubquery());
+            return new CorrelatedJoinNode(node.getId(), input, subquery, newCorrelation, node.getType(), node.getFilter(), node.getOriginSubquery());
         }
     }
 }

@@ -73,7 +73,7 @@ public interface ImplementationDependency
 
     static void checkTypeParameters(TypeSignature typeSignature, Set<String> typeParameterNames, AnnotatedElement element)
     {
-        // Check recursively if `typeSignature` contains something like `T<bigint>`
+        // Check recursively if `typeSignature` contains something like `T(bigint)`
         if (typeParameterNames.contains(typeSignature.getBase())) {
             checkArgument(typeSignature.getParameters().isEmpty(), "Expected type parameter not to take parameters, but got %s on method [%s]", typeSignature.getBase(), element);
             return;
@@ -87,10 +87,9 @@ public interface ImplementationDependency
         }
     }
 
-    class Factory
+    final class Factory
     {
-        private Factory()
-        {}
+        private Factory() {}
 
         public static ImplementationDependency createDependency(Annotation annotation, Set<String> literalParameters)
         {

@@ -135,12 +135,13 @@ public class FunctionCall
                 Objects.equals(filter, o.filter) &&
                 Objects.equals(orderBy, o.orderBy) &&
                 Objects.equals(distinct, o.distinct) &&
+                Objects.equals(ignoreNulls, o.ignoreNulls) &&
                 Objects.equals(arguments, o.arguments);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, distinct, window, filter, orderBy, arguments);
+        return Objects.hash(name, distinct, ignoreNulls, window, filter, orderBy, arguments);
     }
 }

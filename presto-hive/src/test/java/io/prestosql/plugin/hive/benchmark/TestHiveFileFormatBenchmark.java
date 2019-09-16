@@ -14,8 +14,8 @@
 package io.prestosql.plugin.hive.benchmark;
 
 import io.prestosql.plugin.hive.HiveCompressionCodec;
-import io.prestosql.plugin.hive.benchmark.HiveFileFormatBenchmark.CompressionCounter;
-import io.prestosql.plugin.hive.benchmark.HiveFileFormatBenchmark.DataSet;
+import io.prestosql.plugin.hive.benchmark.BenchmarkHiveFileFormat.CompressionCounter;
+import io.prestosql.plugin.hive.benchmark.BenchmarkHiveFileFormat.DataSet;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -58,7 +58,7 @@ public class TestHiveFileFormatBenchmark
     private static void executeBenchmark(DataSet dataSet, HiveCompressionCodec codec, FileFormat format)
             throws IOException
     {
-        HiveFileFormatBenchmark benchmark = new HiveFileFormatBenchmark(dataSet, codec, format);
+        BenchmarkHiveFileFormat benchmark = new BenchmarkHiveFileFormat(dataSet, codec, format);
         try {
             benchmark.setup();
             benchmark.read(new CompressionCounter());

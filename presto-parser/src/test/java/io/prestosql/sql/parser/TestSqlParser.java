@@ -77,6 +77,7 @@ import io.prestosql.sql.tree.Intersect;
 import io.prestosql.sql.tree.IntervalLiteral;
 import io.prestosql.sql.tree.IntervalLiteral.IntervalField;
 import io.prestosql.sql.tree.IntervalLiteral.Sign;
+import io.prestosql.sql.tree.IsNullPredicate;
 import io.prestosql.sql.tree.Isolation;
 import io.prestosql.sql.tree.Join;
 import io.prestosql.sql.tree.JoinOn;
@@ -127,6 +128,7 @@ import io.prestosql.sql.tree.ShowSchemas;
 import io.prestosql.sql.tree.ShowSession;
 import io.prestosql.sql.tree.ShowStats;
 import io.prestosql.sql.tree.ShowTables;
+import io.prestosql.sql.tree.SimpleCaseExpression;
 import io.prestosql.sql.tree.SimpleGroupBy;
 import io.prestosql.sql.tree.SingleColumn;
 import io.prestosql.sql.tree.SortItem;
@@ -143,6 +145,7 @@ import io.prestosql.sql.tree.TransactionAccessMode;
 import io.prestosql.sql.tree.Union;
 import io.prestosql.sql.tree.Unnest;
 import io.prestosql.sql.tree.Values;
+import io.prestosql.sql.tree.WhenClause;
 import io.prestosql.sql.tree.Window;
 import io.prestosql.sql.tree.With;
 import io.prestosql.sql.tree.WithQuery;
@@ -333,6 +336,48 @@ public class TestSqlParser
         assertExpression("ROW (1, 'a', true)[1]", new SubscriptExpression(
                 new Row(ImmutableList.of(new LongLiteral("1"), new StringLiteral("a"), new BooleanLiteral("true"))),
                 new LongLiteral("1")));
+    }
+
+    @Test
+    public void testAllColumns()
+    {
+        assertStatement("SELECT * FROM t", simpleQuery(
+                new Select(
+                        false,
+                        ImmutableList.of(
+                                new AllColumns(
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        ImmutableList.of()))),
+                table(QualifiedName.of("t"))));
+
+        assertStatement("SELECT r.* FROM t", simpleQuery(
+                new Select(
+                        false,
+                        ImmutableList.of(
+                                new AllColumns(
+                                        Optional.empty(),
+                                        Optional.of(new Identifier("r")),
+                                        ImmutableList.of()))),
+                table(QualifiedName.of("t"))));
+
+        assertStatement("SELECT ROW (1, 'a', true).*", simpleQuery(
+                new Select(
+                        false,
+                        ImmutableList.of(
+                                new AllColumns(
+                                        Optional.empty(),
+                                        Optional.of(new Row(ImmutableList.of(new LongLiteral("1"), new StringLiteral("a"), new BooleanLiteral("true")))),
+                                        ImmutableList.of())))));
+
+        assertStatement("SELECT ROW (1, 'a', true).* AS (f1, f2, f3)", simpleQuery(
+                new Select(
+                        false,
+                        ImmutableList.of(
+                                new AllColumns(
+                                        Optional.empty(),
+                                        Optional.of(new Row(ImmutableList.of(new LongLiteral("1"), new StringLiteral("a"), new BooleanLiteral("true")))),
+                                        ImmutableList.of(new Identifier("f1"), new Identifier("f2"), new Identifier("f3")))))));
     }
 
     @Test
@@ -752,6 +797,20 @@ public class TestSqlParser
 
         assertInvalidExpression("format()", "The 'format' function must have at least two arguments");
         assertInvalidExpression("format('%s')", "The 'format' function must have at least two arguments");
+    }
+
+    @Test
+    public void testCase()
+    {
+        assertExpression(
+                "CASE 1 IS NULL WHEN true THEN 2 ELSE 3 END",
+                new SimpleCaseExpression(
+                        new IsNullPredicate(new LongLiteral("1")),
+                        ImmutableList.<WhenClause>of(
+                                new WhenClause(
+                                        new BooleanLiteral("true"),
+                                        new LongLiteral("2"))),
+                        Optional.of(new LongLiteral("3"))));
     }
 
     @Test
@@ -1735,9 +1794,9 @@ public class TestSqlParser
                         QualifiedName.of("t"),
                         new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier("u")),
                         false));
-        assertStatement("GRANT taco ON \"t\" TO ROLE \"public\" WITH GRANT OPTION",
+        assertStatement("GRANT DELETE ON \"t\" TO ROLE \"public\" WITH GRANT OPTION",
                 new Grant(
-                        Optional.of(ImmutableList.of("taco")),
+                        Optional.of(ImmutableList.of("DELETE")),
                         false,
                         QualifiedName.of("t"),
                         new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier("public")),
@@ -1768,10 +1827,10 @@ public class TestSqlParser
                         true,
                         QualifiedName.of("t"),
                         new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier("u"))));
-        assertStatement("REVOKE taco ON TABLE \"t\" FROM \"u\"",
+        assertStatement("REVOKE DELETE ON TABLE \"t\" FROM \"u\"",
                 new Revoke(
                         false,
-                        Optional.of(ImmutableList.of("taco")),
+                        Optional.of(ImmutableList.of("DELETE")),
                         true,
                         QualifiedName.of("t"),
                         new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("u"))));

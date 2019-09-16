@@ -78,7 +78,7 @@ public class TableMetadataSystemTable
         this.dao = onDemandDao(dbi, MetadataDao.class);
         requireNonNull(typeManager, "typeManager is null");
 
-        Type arrayOfVarchar = typeManager.getType(parseTypeSignature("array<varchar>"));
+        Type arrayOfVarchar = typeManager.getType(parseTypeSignature("array(varchar)"));
         this.tableMetadata = new ConnectorTableMetadata(
                 new SchemaTableName("system", "tables"),
                 ImmutableList.of(

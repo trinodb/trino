@@ -224,6 +224,7 @@ public class TestHivePageSink
                 0,
                 outputFile.length(),
                 outputFile.length(),
+                outputFile.lastModified(),
                 splitProperties,
                 ImmutableList.of(),
                 ImmutableList.of(),
@@ -232,7 +233,7 @@ public class TestHivePageSink
                 ImmutableMap.of(),
                 Optional.empty(),
                 false);
-        ConnectorTableHandle table = new HiveTableHandle(SCHEMA_NAME, TABLE_NAME, ImmutableList.of(), Optional.empty());
+        ConnectorTableHandle table = new HiveTableHandle(SCHEMA_NAME, TABLE_NAME, ImmutableMap.of(), ImmutableList.of(), Optional.empty());
         HivePageSourceProvider provider = new HivePageSourceProvider(config, createTestHdfsEnvironment(config), getDefaultHiveRecordCursorProvider(config), getDefaultHiveDataStreamFactories(config), TYPE_MANAGER);
         return provider.createPageSource(transaction, getSession(config), split, table, ImmutableList.copyOf(getColumnHandles()));
     }

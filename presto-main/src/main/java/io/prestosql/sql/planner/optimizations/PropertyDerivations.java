@@ -42,6 +42,7 @@ import io.prestosql.sql.planner.optimizations.ActualProperties.Global;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.ApplyNode;
 import io.prestosql.sql.planner.plan.AssignUniqueId;
+import io.prestosql.sql.planner.plan.CorrelatedJoinNode;
 import io.prestosql.sql.planner.plan.DeleteNode;
 import io.prestosql.sql.planner.plan.DistinctLimitNode;
 import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
@@ -52,7 +53,6 @@ import io.prestosql.sql.planner.plan.GroupIdNode;
 import io.prestosql.sql.planner.plan.IndexJoinNode;
 import io.prestosql.sql.planner.plan.IndexSourceNode;
 import io.prestosql.sql.planner.plan.JoinNode;
-import io.prestosql.sql.planner.plan.LateralJoinNode;
 import io.prestosql.sql.planner.plan.LimitNode;
 import io.prestosql.sql.planner.plan.MarkDistinctNode;
 import io.prestosql.sql.planner.plan.OutputNode;
@@ -105,7 +105,7 @@ import static io.prestosql.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 
-public class PropertyDerivations
+public final class PropertyDerivations
 {
     private PropertyDerivations() {}
 
@@ -213,7 +213,7 @@ public class PropertyDerivations
         }
 
         @Override
-        public ActualProperties visitLateralJoin(LateralJoinNode node, List<ActualProperties> inputProperties)
+        public ActualProperties visitCorrelatedJoin(CorrelatedJoinNode node, List<ActualProperties> inputProperties)
         {
             throw new IllegalArgumentException("Unexpected node: " + node.getClass().getName());
         }

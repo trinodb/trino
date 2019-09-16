@@ -71,7 +71,7 @@ public class AddColumnTask
         CatalogName catalogName = metadata.getCatalogHandle(session, tableName.getCatalogName())
                 .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + tableName.getCatalogName()));
 
-        accessControl.checkCanAddColumns(session.getRequiredTransactionId(), session.getIdentity(), tableName);
+        accessControl.checkCanAddColumns(session.toSecurityContext(), tableName);
 
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());
 

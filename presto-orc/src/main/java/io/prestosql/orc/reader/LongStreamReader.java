@@ -41,7 +41,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Verify.verifyNotNull;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.prestosql.orc.metadata.Stream.StreamKind.DATA;
 import static io.prestosql.orc.metadata.Stream.StreamKind.PRESENT;
@@ -156,7 +156,7 @@ public class LongStreamReader
     private Block readNonNullBlock()
             throws IOException
     {
-        verify(dataStream != null);
+        verifyNotNull(dataStream);
         if (type instanceof BigintType) {
             long[] values = new long[nextBatchSize];
             dataStream.next(values, nextBatchSize);
@@ -193,7 +193,7 @@ public class LongStreamReader
     private Block longReadNullBlock(boolean[] isNull, int nonNullCount)
             throws IOException
     {
-        verify(dataStream != null);
+        verifyNotNull(dataStream);
         int minNonNullValueSize = minNonNullValueSize(nonNullCount);
         if (longNonNullValueTemp.length < minNonNullValueSize) {
             longNonNullValueTemp = new long[minNonNullValueSize];
@@ -210,7 +210,7 @@ public class LongStreamReader
     private Block intReadNullBlock(boolean[] isNull, int nonNullCount)
             throws IOException
     {
-        verify(dataStream != null);
+        verifyNotNull(dataStream);
         int minNonNullValueSize = minNonNullValueSize(nonNullCount);
         if (intNonNullValueTemp.length < minNonNullValueSize) {
             intNonNullValueTemp = new int[minNonNullValueSize];
@@ -227,7 +227,7 @@ public class LongStreamReader
     private Block shortReadNullBlock(boolean[] isNull, int nonNullCount)
             throws IOException
     {
-        verify(dataStream != null);
+        verifyNotNull(dataStream);
         int minNonNullValueSize = minNonNullValueSize(nonNullCount);
         if (shortNonNullValueTemp.length < minNonNullValueSize) {
             shortNonNullValueTemp = new short[minNonNullValueSize];

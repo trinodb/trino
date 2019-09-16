@@ -22,7 +22,7 @@ import java.util.Map;
 
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 
-public class GeoQueryRunner
+public final class GeoQueryRunner
 {
     private static final int DEFAULT_WORKER_COUNT = 4;
 

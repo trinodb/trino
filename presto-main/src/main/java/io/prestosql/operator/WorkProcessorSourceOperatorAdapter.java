@@ -83,6 +83,7 @@ public class WorkProcessorSourceOperatorAdapter
                 .map(Page::getLoadedPage)
                 .withProcessStateMonitor(state -> updateOperatorStats())
                 .finishWhen(() -> operatorFinishing);
+        operatorContext.setInfoSupplier(() -> sourceOperator.getOperatorInfo().orElse(null));
     }
 
     @Override

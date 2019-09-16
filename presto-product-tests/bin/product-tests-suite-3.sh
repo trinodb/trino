@@ -3,15 +3,6 @@
 set -xeuo pipefail
 
 presto-product-tests/bin/run_on_docker.sh \
-    singlenode-ldap \
-    -g ldap \
-    -x simba_jdbc
-
-presto-product-tests/bin/run_on_docker.sh \
-    multinode-tls \
-    -g smoke,cli,group-by,join,tls
-
-presto-product-tests/bin/run_on_docker.sh \
     singlenode-mysql \
     -g mysql_connector,mysql
 
@@ -28,15 +19,11 @@ presto-product-tests/bin/run_on_docker.sh \
     -g storage_formats,cli,hdfs_impersonation,authorization
 
 presto-product-tests/bin/run_on_docker.sh \
-    singlenode-kafka \
-    -g kafka
-
-presto-product-tests/bin/run_on_docker.sh \
     singlenode-kerberos-kms-hdfs-no-impersonation \
     -g storage_formats
 
-# TODO enable avro when adding Metastore impersonation
+# TODO enable avro_schema_url when adding Metastore impersonation
 presto-product-tests/bin/run_on_docker.sh \
     singlenode-kerberos-kms-hdfs-impersonation \
     -g storage_formats \
-    -x avro
+    -x avro_schema_url

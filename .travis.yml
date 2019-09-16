@@ -8,6 +8,7 @@ env:
     - ARTIFACTS_UPLOAD_PATH_BRANCH=travis_build_artifacts/${TRAVIS_REPO_SLUG}/${TRAVIS_BRANCH}/${TRAVIS_BUILD_NUMBER}
     - ARTIFACTS_UPLOAD_PATH_PR=travis_build_artifacts_pr/${TRAVIS_REPO_SLUG}/${TRAVIS_BRANCH}/${TRAVIS_BUILD_NUMBER}
     - TEST_FLAGS=""
+    - PRODUCT_TESTS_CONFIG=config-empty
 
 matrix:
   include:
@@ -29,8 +30,22 @@ matrix:
     - env: PRODUCT_TESTS_SUITE=suite-1
     - env: PRODUCT_TESTS_SUITE=suite-2
     - env: PRODUCT_TESTS_SUITE=suite-3
+    - env: PRODUCT_TESTS_SUITE=suite-4
     - env: HIVE_TESTS=true
     - env: KUDU_TESTS=true
+
+# TODO
+#    # HDP 3
+#    - if: type IN (push, cron)
+#      env: PRODUCT_TESTS_SUITE=suite-1 PRODUCT_TESTS_CONFIG=config-hdp3
+#    - if: type IN (push, cron)
+#      env: PRODUCT_TESTS_SUITE=suite-2 PRODUCT_TESTS_CONFIG=config-hdp3
+#    - if: type IN (push, cron)
+#      env: PRODUCT_TESTS_SUITE=suite-3 PRODUCT_TESTS_CONFIG=config-hdp3
+#    - if: type IN (push, cron)
+#      env: PRODUCT_TESTS_SUITE=suite-4 PRODUCT_TESTS_CONFIG=config-hdp3
+#    - if: type IN (push, cron)
+#      env: HIVE_TESTS=true PRODUCT_TESTS_CONFIG=config-hdp3
 
 dist: xenial
 jdk: openjdk8
@@ -105,14 +120,17 @@ script:
     fi
   - |
     if [[ -v PRODUCT_TESTS_SUITE ]]; then
+      source "presto-product-tests/conf/product-tests-${PRODUCT_TESTS_CONFIG}.sh" &&
       "presto-product-tests/bin/product-tests-${PRODUCT_TESTS_SUITE}.sh"
     fi
   - |
     if [[ -v HIVE_TESTS ]]; then
+      source "presto-product-tests/conf/product-tests-${PRODUCT_TESTS_CONFIG}.sh" &&
       presto-hive-hadoop2/bin/run_hive_tests.sh
     fi
   - |
     if [[ -v HIVE_TESTS && -v HIVE_TESTS_AWS_ACCESS_KEY_ID ]]; then
+      source "presto-product-tests/conf/product-tests-${PRODUCT_TESTS_CONFIG}.sh" &&
       env AWS_ACCESS_KEY_ID="${HIVE_TESTS_AWS_ACCESS_KEY_ID}" \
         AWS_SECRET_ACCESS_KEY="${HIVE_TESTS_AWS_SECRET_ACCESS_KEY}" \
         S3_BUCKET_ENDPOINT="${S3_TESTS_BUCKET_ENDPOINT}" \

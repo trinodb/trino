@@ -202,7 +202,12 @@ public final class StandardColumnMappings
 
     public static ColumnMapping varcharColumnMapping(VarcharType varcharType)
     {
-        return ColumnMapping.sliceMapping(varcharType, (resultSet, columnIndex) -> utf8Slice(resultSet.getString(columnIndex)), varcharWriteFunction());
+        return ColumnMapping.sliceMapping(varcharType, varcharReadFunction(), varcharWriteFunction());
+    }
+
+    public static SliceReadFunction varcharReadFunction()
+    {
+        return (resultSet, columnIndex) -> utf8Slice(resultSet.getString(columnIndex));
     }
 
     public static SliceWriteFunction varcharWriteFunction()
@@ -311,18 +316,19 @@ public final class StandardColumnMappings
 
     public static ColumnMapping timestampColumnMapping(ConnectorSession session)
     {
-        if (session.isLegacyTimestamp()) {
-            ZoneId sessionZone = ZoneId.of(session.getTimeZoneKey().getId());
-            return ColumnMapping.longMapping(
-                    TIMESTAMP,
-                    (resultSet, columnIndex) -> toPrestoLegacyTimestamp(resultSet.getObject(columnIndex, LocalDateTime.class), sessionZone),
-                    timestampWriteFunction(session));
-        }
-
         return ColumnMapping.longMapping(
                 TIMESTAMP,
-                (resultSet, columnIndex) -> toPrestoTimestamp(resultSet.getObject(columnIndex, LocalDateTime.class)),
+                timestampReadFunction(session),
                 timestampWriteFunction(session));
+    }
+
+    public static LongReadFunction timestampReadFunction(ConnectorSession session)
+    {
+        if (session.isLegacyTimestamp()) {
+            ZoneId sessionZone = ZoneId.of(session.getTimeZoneKey().getId());
+            return (resultSet, columnIndex) -> toPrestoLegacyTimestamp(resultSet.getObject(columnIndex, LocalDateTime.class), sessionZone);
+        }
+        return (resultSet, columnIndex) -> toPrestoTimestamp(resultSet.getObject(columnIndex, LocalDateTime.class));
     }
 
     /**
@@ -356,12 +362,12 @@ public final class StandardColumnMappings
      * @deprecated applicable in legacy timestamp semantics only
      */
     @Deprecated
-    private static long toPrestoLegacyTimestamp(LocalDateTime localDateTime, ZoneId sessionZone)
+    public static long toPrestoLegacyTimestamp(LocalDateTime localDateTime, ZoneId sessionZone)
     {
         return localDateTime.atZone(sessionZone).toInstant().toEpochMilli();
     }
 
-    private static long toPrestoTimestamp(LocalDateTime localDateTime)
+    public static long toPrestoTimestamp(LocalDateTime localDateTime)
     {
         return localDateTime.atZone(UTC).toInstant().toEpochMilli();
     }
@@ -370,12 +376,12 @@ public final class StandardColumnMappings
      * @deprecated applicable in legacy timestamp semantics only
      */
     @Deprecated
-    private static LocalDateTime fromPrestoLegacyTimestamp(long value, ZoneId sessionZone)
+    public static LocalDateTime fromPrestoLegacyTimestamp(long value, ZoneId sessionZone)
     {
         return Instant.ofEpochMilli(value).atZone(sessionZone).toLocalDateTime();
     }
 
-    private static LocalDateTime fromPrestoTimestamp(long value)
+    public static LocalDateTime fromPrestoTimestamp(long value)
     {
         return Instant.ofEpochMilli(value).atZone(UTC).toLocalDateTime();
     }

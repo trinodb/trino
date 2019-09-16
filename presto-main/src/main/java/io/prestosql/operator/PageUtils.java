@@ -21,38 +21,29 @@ import java.util.function.LongConsumer;
 
 public final class PageUtils
 {
-    private PageUtils()
-    {
-    }
+    private PageUtils() {}
 
     public static Page recordMaterializedBytes(Page page, LongConsumer sizeInBytesConsumer)
     {
         // account processed bytes from lazy blocks only when they are loaded
         Block[] blocks = new Block[page.getChannelCount()];
         long loadedBlocksSizeInBytes = 0;
-        boolean allBlocksNonLazy = true;
+        boolean allBlocksLoaded = true;
 
         for (int i = 0; i < page.getChannelCount(); ++i) {
             Block block = page.getBlock(i);
-            if (block instanceof LazyBlock) {
-                LazyBlock delegateLazyBlock = (LazyBlock) block;
-                if (delegateLazyBlock.isLoaded()) {
-                    Block loadedBlock = delegateLazyBlock.getLoadedBlock();
-                    loadedBlocksSizeInBytes += loadedBlock.getSizeInBytes();
-                    blocks[i] = loadedBlock;
-                }
-                else {
-                    blocks[i] = new LazyBlock(page.getPositionCount(), lazyBlock -> {
-                        Block loadedBlock = delegateLazyBlock.getLoadedBlock();
-                        sizeInBytesConsumer.accept(loadedBlock.getSizeInBytes());
-                        lazyBlock.setBlock(loadedBlock);
-                    });
-                }
-                allBlocksNonLazy = false;
-            }
-            else {
+            if (block.isLoaded()) {
                 loadedBlocksSizeInBytes += block.getSizeInBytes();
                 blocks[i] = block;
+            }
+            else {
+                // TODO: block might be partially loaded
+                blocks[i] = new LazyBlock(page.getPositionCount(), lazyBlock -> {
+                    Block loadedBlock = block.getLoadedBlock();
+                    sizeInBytesConsumer.accept(loadedBlock.getSizeInBytes());
+                    lazyBlock.setBlock(loadedBlock);
+                });
+                allBlocksLoaded = false;
             }
         }
 
@@ -60,7 +51,7 @@ public final class PageUtils
             sizeInBytesConsumer.accept(loadedBlocksSizeInBytes);
         }
 
-        if (allBlocksNonLazy) {
+        if (allBlocksLoaded) {
             return page;
         }
 

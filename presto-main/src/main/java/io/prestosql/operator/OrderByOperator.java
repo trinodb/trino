@@ -33,6 +33,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterators.transform;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
@@ -267,7 +268,7 @@ public class OrderByOperator
             return null;
         }
 
-        verify(sortedPages != null, "sortedPages is null");
+        verifyNotNull(sortedPages, "sortedPages is null");
         if (!sortedPages.hasNext()) {
             state = State.FINISHED;
             return null;

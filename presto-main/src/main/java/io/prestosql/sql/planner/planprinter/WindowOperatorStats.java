@@ -17,8 +17,6 @@ import io.prestosql.operator.WindowInfo;
 import io.prestosql.operator.WindowInfo.DriverWindowInfo;
 import io.prestosql.util.Mergeable;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
 class WindowOperatorStats
         implements Mergeable<WindowOperatorStats>
 {
@@ -35,8 +33,6 @@ class WindowOperatorStats
 
     public static WindowOperatorStats create(WindowInfo info)
     {
-        checkArgument(info.getWindowInfos().size() > 0, "WindowInfo cannot have empty list of DriverWindowInfos");
-
         int activeDrivers = 0;
         int totalDrivers = 0;
 

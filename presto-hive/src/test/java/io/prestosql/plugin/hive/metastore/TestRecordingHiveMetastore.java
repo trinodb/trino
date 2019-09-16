@@ -131,12 +131,13 @@ public class TestRecordingHiveMetastore
         assertEquals(hiveMetastore.getTableStatistics("database", "table"), PARTITION_STATISTICS);
         assertEquals(hiveMetastore.getPartitionStatistics("database", "table", ImmutableSet.of("value")), ImmutableMap.of("value", PARTITION_STATISTICS));
         assertEquals(hiveMetastore.getAllTables("database"), ImmutableList.of("table"));
+        assertEquals(hiveMetastore.getTablesWithParameter("database", "param", "value3"), ImmutableList.of("table"));
         assertEquals(hiveMetastore.getAllViews("database"), ImmutableList.of());
         assertEquals(hiveMetastore.getPartition("database", "table", ImmutableList.of("value")), Optional.of(PARTITION));
         assertEquals(hiveMetastore.getPartitionNames("database", "table"), Optional.of(ImmutableList.of("value")));
         assertEquals(hiveMetastore.getPartitionNamesByParts("database", "table", ImmutableList.of("value")), Optional.of(ImmutableList.of("value")));
         assertEquals(hiveMetastore.getPartitionsByNames("database", "table", ImmutableList.of("value")), ImmutableMap.of("value", Optional.of(PARTITION)));
-        assertEquals(hiveMetastore.listTablePrivileges("database", "table", new HivePrincipal(USER, "user")), ImmutableSet.of(PRIVILEGE_INFO));
+        assertEquals(hiveMetastore.listTablePrivileges("database", "table", "owner", new HivePrincipal(USER, "user")), ImmutableSet.of(PRIVILEGE_INFO));
         assertEquals(hiveMetastore.listRoles(), ImmutableSet.of("role"));
         assertEquals(hiveMetastore.listRoleGrants(new HivePrincipal(USER, "user")), ImmutableSet.of(ROLE_GRANT));
     }
@@ -211,6 +212,15 @@ public class TestRecordingHiveMetastore
         }
 
         @Override
+        public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
+        {
+            if (databaseName.equals("database") && parameterKey.equals("param") && parameterValue.equals("value3")) {
+                return ImmutableList.of("table");
+            }
+            return ImmutableList.of();
+        }
+
+        @Override
         public List<String> getAllViews(String databaseName)
         {
             return ImmutableList.of();
@@ -263,9 +273,9 @@ public class TestRecordingHiveMetastore
         }
 
         @Override
-        public Set<HivePrivilegeInfo> listTablePrivileges(String database, String table, HivePrincipal prestoPrincipal)
+        public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal principal)
         {
-            if (database.equals("database") && table.equals("table") && prestoPrincipal.getType() == USER && prestoPrincipal.getName().equals("user")) {
+            if (databaseName.equals("database") && tableName.equals("table") && principal.getType() == USER && principal.getName().equals("user")) {
                 return ImmutableSet.of(PRIVILEGE_INFO);
             }
 

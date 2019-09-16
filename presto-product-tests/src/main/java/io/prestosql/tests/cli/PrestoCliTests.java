@@ -40,6 +40,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertTrue;
 
 public class PrestoCliTests
         extends PrestoCliLauncher
@@ -122,6 +123,15 @@ public class PrestoCliTests
     {
         launchPrestoCliWithServerArgument("--execute", "select * from hive.default.nation;");
         assertThat(trimLines(presto.readRemainingOutputLines())).containsAll(nationTableBatchLines);
+        presto.waitForWithTimeoutAndKill();
+    }
+
+    @Test(groups = CLI, timeOut = TIMEOUT)
+    public void shouldExecuteEmptyListOfStatements()
+            throws Exception
+    {
+        launchPrestoCliWithServerArgument("--execute", "");
+        assertTrue(trimLines(presto.readRemainingOutputLines()).isEmpty());
         presto.waitForWithTimeoutAndKill();
     }
 

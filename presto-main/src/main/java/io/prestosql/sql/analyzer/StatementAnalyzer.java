@@ -25,6 +25,7 @@ import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.NewTableLayout;
 import io.prestosql.metadata.OperatorNotFoundException;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.TableHandle;
@@ -37,6 +38,7 @@ import io.prestosql.spi.PrestoWarning;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
+import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.spi.connector.ConnectorViewDefinition.ViewColumn;
 import io.prestosql.spi.function.OperatorType;
@@ -315,13 +317,21 @@ class StatementAnalyzer
             if (!targetTableHandle.isPresent()) {
                 throw semanticException(TABLE_NOT_FOUND, insert, "Table '%s' does not exist", targetTable);
             }
-            accessControl.checkCanInsertIntoTable(session.getRequiredTransactionId(), session.getIdentity(), targetTable);
+            accessControl.checkCanInsertIntoTable(session.toSecurityContext(), targetTable);
 
             TableMetadata tableMetadata = metadata.getTableMetadata(session, targetTableHandle.get());
             List<String> tableColumns = tableMetadata.getColumns().stream()
                     .filter(column -> !column.isHidden())
                     .map(ColumnMetadata::getName)
                     .collect(toImmutableList());
+
+            // analyze target table layout
+            Optional<NewTableLayout> newTableLayout = metadata.getInsertLayout(session, targetTableHandle.get());
+            newTableLayout.ifPresent(layout -> {
+                if (!ImmutableSet.copyOf(tableColumns).containsAll(layout.getPartitionColumns())) {
+                    throw new PrestoException(NOT_SUPPORTED, "INSERT must write all distribution columns: " + layout.getPartitionColumns());
+                }
+            });
 
             List<String> insertColumns;
             if (insert.getColumns().isPresent()) {
@@ -347,7 +357,8 @@ class StatementAnalyzer
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, targetTableHandle.get());
             analysis.setInsert(new Analysis.Insert(
                     targetTableHandle.get(),
-                    insertColumns.stream().map(columnHandles::get).collect(toImmutableList())));
+                    insertColumns.stream().map(columnHandles::get).collect(toImmutableList()),
+                    newTableLayout));
 
             List<Type> tableTypes = insertColumns.stream()
                     .map(insertColumn -> tableMetadata.getColumn(insertColumn).getType())
@@ -405,7 +416,7 @@ class StatementAnalyzer
 
             analysis.setUpdateType("DELETE");
 
-            accessControl.checkCanDeleteFromTable(session.getRequiredTransactionId(), session.getIdentity(), tableName);
+            accessControl.checkCanDeleteFromTable(session.toSecurityContext(), tableName);
 
             return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
         }
@@ -443,7 +454,7 @@ class StatementAnalyzer
                             .putAll(tableName, metadata.getColumnHandles(session, tableHandle).keySet())
                             .build());
             try {
-                accessControl.checkCanInsertIntoTable(session.getRequiredTransactionId(), session.getIdentity(), tableName);
+                accessControl.checkCanInsertIntoTable(session.toSecurityContext(), tableName);
             }
             catch (AccessDeniedException exception) {
                 throw new AccessDeniedException(format("Cannot ANALYZE (missing insert privilege) table %s", tableName));
@@ -460,43 +471,83 @@ class StatementAnalyzer
 
             // turn this into a query that has a new table writer node on top.
             QualifiedObjectName targetTable = createQualifiedObjectName(session, node, node.getName());
-            analysis.setCreateTableDestination(targetTable);
 
             Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
             if (targetTableHandle.isPresent()) {
                 if (node.isNotExists()) {
-                    analysis.setCreateTableAsSelectNoOp(true);
+                    analysis.setCreate(new Analysis.Create(
+                            Optional.of(targetTable),
+                            Optional.empty(),
+                            Optional.empty(),
+                            node.isWithData(),
+                            true));
                     return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
                 }
                 throw semanticException(TABLE_ALREADY_EXISTS, node, "Destination table '%s' already exists", targetTable);
             }
 
             validateProperties(node.getProperties(), scope);
-            analysis.setCreateTableProperties(mapFromProperties(node.getProperties()));
 
-            node.getColumnAliases().ifPresent(analysis::setCreateTableColumnAliases);
-            analysis.setCreateTableComment(node.getComment());
-
-            accessControl.checkCanCreateTable(session.getRequiredTransactionId(), session.getIdentity(), targetTable);
-
-            analysis.setCreateTableAsSelectWithData(node.isWithData());
+            accessControl.checkCanCreateTable(session.toSecurityContext(), targetTable);
 
             // analyze the query that creates the table
             Scope queryScope = process(node.getQuery(), scope);
 
+            ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
+
+            // analyze target table columns and column aliases
             if (node.getColumnAliases().isPresent()) {
                 validateColumnAliases(node.getColumnAliases().get(), queryScope.getRelationType().getVisibleFieldCount());
 
-                // analzie only column types in subquery if column alias exists
+                int aliasPosition = 0;
                 for (Field field : queryScope.getRelationType().getVisibleFields()) {
                     if (field.getType().equals(UNKNOWN)) {
                         throw semanticException(COLUMN_TYPE_UNKNOWN, node, "Column type is unknown at position %s", queryScope.getRelationType().indexOf(field) + 1);
                     }
+                    columns.add(new ColumnMetadata(node.getColumnAliases().get().get(aliasPosition).getValue(), field.getType()));
+                    aliasPosition++;
                 }
             }
             else {
                 validateColumns(node, queryScope.getRelationType());
+                columns.addAll(queryScope.getRelationType().getVisibleFields().stream()
+                        .map(field -> new ColumnMetadata(field.getName().get(), field.getType()))
+                        .collect(toImmutableList()));
             }
+
+            // create target table metadata
+            CatalogName catalogName = metadata.getCatalogHandle(session, targetTable.getCatalogName())
+                    .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + targetTable.getCatalogName()));
+
+            Map<String, Object> properties = metadata.getTablePropertyManager().getProperties(
+                    catalogName,
+                    targetTable.getCatalogName(),
+                    mapFromProperties(node.getProperties()),
+                    session,
+                    metadata,
+                    analysis.getParameters());
+
+            ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(targetTable.asSchemaTableName(), columns.build(), properties, node.getComment());
+
+            // analyze target table layout
+            Optional<NewTableLayout> newTableLayout = metadata.getNewTableLayout(session, targetTable.getCatalogName(), tableMetadata);
+
+            Set<String> columnNames = columns.build().stream()
+                    .map(ColumnMetadata::getName)
+                    .collect(toImmutableSet());
+
+            newTableLayout.ifPresent(layout -> {
+                if (!columnNames.containsAll(layout.getPartitionColumns())) {
+                    throw new PrestoException(NOT_SUPPORTED, "INSERT must write all distribution columns: " + layout.getPartitionColumns());
+                }
+            });
+
+            analysis.setCreate(new Analysis.Create(
+                    Optional.of(targetTable),
+                    Optional.of(tableMetadata),
+                    newTableLayout,
+                    node.isWithData(),
+                    false));
 
             return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
         }
@@ -513,7 +564,7 @@ class StatementAnalyzer
 
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
 
-            accessControl.checkCanCreateView(session.getRequiredTransactionId(), session.getIdentity(), viewName);
+            accessControl.checkCanCreateView(session.toSecurityContext(), viewName);
 
             validateColumns(node, queryScope.getRelationType());
 
@@ -1429,6 +1480,16 @@ class StatementAnalyzer
                     throw semanticException(NOT_SUPPORTED, node, "DISTINCT in window function parameters not yet supported: %s", windowFunction);
                 }
 
+                // TODO get function requirements from window function metadata when we have it
+                if (windowFunction.getName().toString().equalsIgnoreCase("lag") || windowFunction.getName().toString().equalsIgnoreCase("lead")) {
+                    if (!window.getOrderBy().isPresent()) {
+                        throw semanticException(MISSING_ORDER_BY, window, "%s function requires an ORDER BY window clause", windowFunction.getName());
+                    }
+                    if (window.getFrame().isPresent()) {
+                        throw semanticException(INVALID_WINDOW_FRAME, window.getFrame().get(), "Cannot specify window frame for %s function", windowFunction.getName());
+                    }
+                }
+
                 if (window.getFrame().isPresent()) {
                     analyzeWindowFrame(window.getFrame().get());
                 }
@@ -1703,7 +1764,16 @@ class StatementAnalyzer
             for (SelectItem item : node.getSelect().getSelectItems()) {
                 if (item instanceof AllColumns) {
                     // expand * and T.*
-                    Optional<QualifiedName> starPrefix = ((AllColumns) item).getPrefix();
+                    Optional<QualifiedName> starPrefix = ((AllColumns) item).getTarget()
+                            .map(target -> {
+                                if (target instanceof DereferenceExpression) {
+                                    return DereferenceExpression.getQualifiedName((DereferenceExpression) target);
+                                }
+                                if (target instanceof Identifier) {
+                                    return QualifiedName.of(ImmutableList.of((Identifier) target));
+                                }
+                                throw semanticException(NOT_SUPPORTED, item, "Only identifier chains supported with .*");
+                            });
 
                     for (Field field : sourceScope.getRelationType().resolveFieldsWithPrefix(starPrefix)) {
                         outputFields.add(Field.newUnqualified(field.getName(), field.getType(), field.getOriginTable(), field.getOriginColumnName(), false));
@@ -1835,7 +1905,20 @@ class StatementAnalyzer
                 ImmutableList.Builder<Expression> outputExpressionBuilder)
         {
             // expand * and T.*
-            Optional<QualifiedName> starPrefix = allColumns.getPrefix();
+            Optional<QualifiedName> starPrefix = allColumns.getTarget()
+                    .map(target -> {
+                        if (target instanceof DereferenceExpression) {
+                            return DereferenceExpression.getQualifiedName((DereferenceExpression) target);
+                        }
+                        if (target instanceof Identifier) {
+                            return QualifiedName.of(ImmutableList.of((Identifier) target));
+                        }
+                        throw semanticException(NOT_SUPPORTED, allColumns, "Only identifier chains supported with .*");
+                    });
+
+            if (!allColumns.getAliases().isEmpty()) {
+                throw semanticException(NOT_SUPPORTED, allColumns, "Column aliases not supported");
+            }
 
             RelationType relationType = scope.getRelationType();
             List<Field> fields = relationType.resolveFieldsWithPrefix(starPrefix);

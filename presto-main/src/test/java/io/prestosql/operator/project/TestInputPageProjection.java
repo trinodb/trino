@@ -38,7 +38,7 @@ public class TestInputPageProjection
         block = lazyWrapper(block);
         result = projection.project(SESSION, new DriverYieldSignal(), new Page(block), SelectedPositions.positionsRange(0, 100)).getResult();
         assertTrue(result instanceof LazyBlock);
-        assertFalse(((LazyBlock) result).isLoaded());
+        assertFalse(result.isLoaded());
     }
 
     private static LazyBlock lazyWrapper(Block block)

@@ -69,7 +69,7 @@ import static com.floragunn.searchguard.ssl.util.SSLConfigConstants.SEARCHGUARD_
 import static com.floragunn.searchguard.ssl.util.SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_TRUSTSTORE_FILEPATH;
 import static com.floragunn.searchguard.ssl.util.SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_TRUSTSTORE_PASSWORD;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.cache.CacheLoader.asyncReloading;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -198,7 +198,7 @@ public class ElasticsearchClient
             return ImmutableList.of(tableDescription.getIndex());
         }
         TransportClient client = clients.get(tableDescription.getClusterName());
-        verify(client != null, "client is null");
+        verifyNotNull(client, "client is null");
         String[] indices = getIndices(client, new GetIndexRequest());
         return Arrays.stream(indices)
                 .filter(index -> index.startsWith(tableDescription.getIndex()))
@@ -208,7 +208,7 @@ public class ElasticsearchClient
     public ClusterSearchShardsResponse getSearchShards(String index, ElasticsearchTableDescription tableDescription)
     {
         TransportClient client = clients.get(tableDescription.getClusterName());
-        verify(client != null, "client is null");
+        verifyNotNull(client, "client is null");
         return getSearchShardsResponse(client, new ClusterSearchShardsRequest(index));
     }
 
@@ -252,7 +252,6 @@ public class ElasticsearchClient
             Map<String, Object> properties = new HashMap<>();
             properties.put("originalColumnName", column.getName());
             properties.put("jsonPath", column.getJsonPath());
-            properties.put("jsonType", column.getJsonType());
             properties.put("isList", column.isList());
             properties.put("ordinalPosition", column.getOrdinalPosition());
             result.add(new ColumnMetadata(column.getName(), column.getType(), "", "", false, properties));
@@ -264,7 +263,7 @@ public class ElasticsearchClient
     {
         List<ElasticsearchColumn> columns = new ArrayList<>();
         TransportClient client = clients.get(tableDescription.getClusterName());
-        verify(client != null, "client is null");
+        verifyNotNull(client, "client is null");
         for (String index : getIndices(tableDescription)) {
             GetMappingsRequest mappingsRequest = new GetMappingsRequest().types(tableDescription.getType());
 
@@ -381,7 +380,7 @@ public class ElasticsearchClient
                 boolean newColumnFound = columns.stream()
                         .noneMatch(column -> column.getName().equalsIgnoreCase(nestedName));
                 if (newColumnFound) {
-                    columns.add(new ElasticsearchColumn(nestedName, getPrestoType(typeName), nestedName, typeName, arrays.contains(nestedName), -1));
+                    columns.add(new ElasticsearchColumn(nestedName, getPrestoType(typeName), nestedName, arrays.contains(nestedName), -1));
                 }
             }
         }
@@ -417,7 +416,7 @@ public class ElasticsearchClient
             boolean newColumnFound = columns.stream()
                     .noneMatch(column -> column.getName().equalsIgnoreCase(field));
             if (newColumnFound) {
-                columns.add(new ElasticsearchColumn(field, type, field, type.getDisplayName(), arrays.contains(field), -1));
+                columns.add(new ElasticsearchColumn(field, type, field, arrays.contains(field), -1));
             }
             fieldsMap.remove(field);
         }

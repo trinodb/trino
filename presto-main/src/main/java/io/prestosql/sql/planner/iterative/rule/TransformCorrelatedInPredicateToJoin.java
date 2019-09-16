@@ -335,7 +335,7 @@ public class TransformCorrelatedInPredicateToJoin
                 return new Decorrelated(
                         decorrelated.getCorrelatedPredicates(),
                         new ProjectNode(
-                                node.getId(), // FIXME should I reuse or not?
+                                node.getId(),
                                 decorrelated.getDecorrelatedNode(),
                                 assignments.build()));
             });

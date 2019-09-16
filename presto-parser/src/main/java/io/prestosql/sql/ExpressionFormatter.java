@@ -90,7 +90,6 @@ import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
 import java.util.PrimitiveIterator;
 import java.util.function.Function;
 
@@ -113,14 +112,14 @@ public final class ExpressionFormatter
         return new Formatter().process(expression, null);
     }
 
-    public static String formatQualifiedName(QualifiedName name)
+    private static String formatQualifiedName(QualifiedName name)
     {
         return name.getParts().stream()
                 .map(ExpressionFormatter::formatIdentifier)
                 .collect(joining("."));
     }
 
-    public static String formatIdentifier(String s)
+    private static String formatIdentifier(String s)
     {
         return '"' + s.replace("\"", "\"\"") + '"';
     }
@@ -407,9 +406,11 @@ public final class ExpressionFormatter
 
             builder.append("\"$INTERNAL$BIND\"(");
             for (Expression value : node.getValues()) {
-                builder.append(process(value, context) + ", ");
+                builder.append(process(value, context))
+                        .append(", ");
             }
-            builder.append(process(node.getFunction(), context) + ")");
+            builder.append(process(node.getFunction(), context))
+                    .append(")");
             return builder.toString();
         }
 
@@ -510,10 +511,8 @@ public final class ExpressionFormatter
                     .append(" LIKE ")
                     .append(process(node.getPattern(), context));
 
-            node.getEscape().ifPresent(escape -> {
-                builder.append(" ESCAPE ")
-                        .append(process(escape, context));
-            });
+            node.getEscape().ifPresent(escape -> builder.append(" ESCAPE ")
+                    .append(process(escape, context)));
 
             builder.append(')');
 
@@ -523,11 +522,24 @@ public final class ExpressionFormatter
         @Override
         protected String visitAllColumns(AllColumns node, Void context)
         {
-            if (node.getPrefix().isPresent()) {
-                return node.getPrefix().get() + ".*";
+            StringBuilder builder = new StringBuilder();
+            if (node.getTarget().isPresent()) {
+                builder.append(process(node.getTarget().get(), context));
+                builder.append(".*");
+            }
+            else {
+                builder.append("*");
             }
 
-            return "*";
+            if (!node.getAliases().isEmpty()) {
+                builder.append(" AS (");
+                Joiner.on(", ").appendTo(builder, node.getAliases().stream()
+                        .map(alias -> process(alias, context))
+                        .collect(toList()));
+                builder.append(")");
+            }
+
+            return builder.toString();
         }
 
         @Override
@@ -732,7 +744,7 @@ public final class ExpressionFormatter
         return "ORDER BY " + formatSortItems(orderBy.getSortItems());
     }
 
-    static String formatSortItems(List<SortItem> sortItems)
+    private static String formatSortItems(List<SortItem> sortItems)
     {
         return Joiner.on(", ").join(sortItems.stream()
                 .map(sortItemFormatterFunction())
@@ -740,11 +752,6 @@ public final class ExpressionFormatter
     }
 
     static String formatGroupBy(List<GroupingElement> groupingElements)
-    {
-        return formatGroupBy(groupingElements, Optional.empty());
-    }
-
-    static String formatGroupBy(List<GroupingElement> groupingElements, Optional<List<Expression>> parameters)
     {
         ImmutableList.Builder<String> resultStrings = ImmutableList.builder();
 
@@ -762,7 +769,7 @@ public final class ExpressionFormatter
             else if (groupingElement instanceof GroupingSets) {
                 result = format("GROUPING SETS (%s)", Joiner.on(", ").join(
                         ((GroupingSets) groupingElement).getSets().stream()
-                                .map(e -> formatGroupingSet(e))
+                                .map(ExpressionFormatter::formatGroupingSet)
                                 .iterator()));
             }
             else if (groupingElement instanceof Cube) {
@@ -778,10 +785,7 @@ public final class ExpressionFormatter
 
     private static boolean isAsciiPrintable(int codePoint)
     {
-        if (codePoint >= 0x7F || codePoint < 0x20) {
-            return false;
-        }
-        return true;
+        return codePoint >= 0x20 && codePoint < 0x7F;
     }
 
     private static String formatGroupingSet(List<Expression> groupingSet)
@@ -791,7 +795,7 @@ public final class ExpressionFormatter
                 .iterator()));
     }
 
-    public static Function<SortItem, String> sortItemFormatterFunction()
+    private static Function<SortItem, String> sortItemFormatterFunction()
     {
         return input -> {
             StringBuilder builder = new StringBuilder();

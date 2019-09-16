@@ -684,14 +684,11 @@ public class TestArrayOperators
     @Test
     public void testSubscript()
     {
-        String outOfBounds = "Array subscript out of bounds";
-        String negativeIndex = "Array subscript is negative";
-        String indexIsZero = "SQL array indices start at 1";
-        assertInvalidFunction("ARRAY [][1]", INVALID_FUNCTION_ARGUMENT, outOfBounds);
-        assertInvalidFunction("ARRAY [null][-1]", INVALID_FUNCTION_ARGUMENT, negativeIndex);
-        assertInvalidFunction("ARRAY [1, 2, 3][0]", INVALID_FUNCTION_ARGUMENT, indexIsZero);
-        assertInvalidFunction("ARRAY [1, 2, 3][-1]", INVALID_FUNCTION_ARGUMENT, negativeIndex);
-        assertInvalidFunction("ARRAY [1, 2, 3][4]", INVALID_FUNCTION_ARGUMENT, outOfBounds);
+        assertInvalidFunction("ARRAY [][1]", INVALID_FUNCTION_ARGUMENT, "Array subscript must be less than or equal to array length: 1 > 0");
+        assertInvalidFunction("ARRAY [null][-1]", INVALID_FUNCTION_ARGUMENT, "Array subscript is negative: -1");
+        assertInvalidFunction("ARRAY [1, 2, 3][0]", INVALID_FUNCTION_ARGUMENT, "SQL array indices start at 1");
+        assertInvalidFunction("ARRAY [1, 2, 3][-1]", INVALID_FUNCTION_ARGUMENT, "Array subscript is negative: -1");
+        assertInvalidFunction("ARRAY [1, 2, 3][4]", INVALID_FUNCTION_ARGUMENT, "Array subscript must be less than or equal to array length: 4 > 3");
         assertInvalidFunction("ARRAY [1, 2, 3][1.1E0]", TYPE_MISMATCH, "line 1:1: '[]' cannot be applied to array(integer), double");
 
         assertFunction("ARRAY[NULL][1]", UNKNOWN, null);

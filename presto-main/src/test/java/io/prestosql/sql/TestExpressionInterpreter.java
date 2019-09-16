@@ -119,56 +119,56 @@ public class TestExpressionInterpreter
     @Test
     public void testAnd()
     {
-        assertOptimizedEquals("true and false", "false");
-        assertOptimizedEquals("false and true", "false");
-        assertOptimizedEquals("false and false", "false");
+        assertOptimizedEquals("true AND false", "false");
+        assertOptimizedEquals("false AND true", "false");
+        assertOptimizedEquals("false AND false", "false");
 
-        assertOptimizedEquals("true and null", "null");
-        assertOptimizedEquals("false and null", "false");
-        assertOptimizedEquals("null and true", "null");
-        assertOptimizedEquals("null and false", "false");
-        assertOptimizedEquals("null and null", "null");
+        assertOptimizedEquals("true AND NULL", "NULL");
+        assertOptimizedEquals("false AND NULL", "false");
+        assertOptimizedEquals("NULL AND true", "NULL");
+        assertOptimizedEquals("NULL AND false", "false");
+        assertOptimizedEquals("NULL AND NULL", "NULL");
 
-        assertOptimizedEquals("unbound_string='z' and true", "unbound_string='z'");
-        assertOptimizedEquals("unbound_string='z' and false", "false");
-        assertOptimizedEquals("true and unbound_string='z'", "unbound_string='z'");
-        assertOptimizedEquals("false and unbound_string='z'", "false");
+        assertOptimizedEquals("unbound_string='z' AND true", "unbound_string='z'");
+        assertOptimizedEquals("unbound_string='z' AND false", "false");
+        assertOptimizedEquals("true AND unbound_string='z'", "unbound_string='z'");
+        assertOptimizedEquals("false AND unbound_string='z'", "false");
 
-        assertOptimizedEquals("bound_string='z' and bound_long=1+1", "bound_string='z' and bound_long=2");
+        assertOptimizedEquals("bound_string='z' AND bound_long=1+1", "bound_string='z' AND bound_long=2");
     }
 
     @Test
     public void testOr()
     {
-        assertOptimizedEquals("true or true", "true");
-        assertOptimizedEquals("true or false", "true");
-        assertOptimizedEquals("false or true", "true");
-        assertOptimizedEquals("false or false", "false");
+        assertOptimizedEquals("true OR true", "true");
+        assertOptimizedEquals("true OR false", "true");
+        assertOptimizedEquals("false OR true", "true");
+        assertOptimizedEquals("false OR false", "false");
 
-        assertOptimizedEquals("true or null", "true");
-        assertOptimizedEquals("null or true", "true");
-        assertOptimizedEquals("null or null", "null");
+        assertOptimizedEquals("true OR NULL", "true");
+        assertOptimizedEquals("NULL OR true", "true");
+        assertOptimizedEquals("NULL OR NULL", "NULL");
 
-        assertOptimizedEquals("false or null", "null");
-        assertOptimizedEquals("null or false", "null");
+        assertOptimizedEquals("false OR NULL", "NULL");
+        assertOptimizedEquals("NULL OR false", "NULL");
 
-        assertOptimizedEquals("bound_string='z' or true", "true");
-        assertOptimizedEquals("bound_string='z' or false", "bound_string='z'");
-        assertOptimizedEquals("true or bound_string='z'", "true");
-        assertOptimizedEquals("false or bound_string='z'", "bound_string='z'");
+        assertOptimizedEquals("bound_string='z' OR true", "true");
+        assertOptimizedEquals("bound_string='z' OR false", "bound_string='z'");
+        assertOptimizedEquals("true OR bound_string='z'", "true");
+        assertOptimizedEquals("false OR bound_string='z'", "bound_string='z'");
 
-        assertOptimizedEquals("bound_string='z' or bound_long=1+1", "bound_string='z' or bound_long=2");
+        assertOptimizedEquals("bound_string='z' OR bound_long=1+1", "bound_string='z' OR bound_long=2");
     }
 
     @Test
     public void testComparison()
     {
-        assertOptimizedEquals("null = null", "null");
+        assertOptimizedEquals("NULL = NULL", "NULL");
 
         assertOptimizedEquals("'a' = 'b'", "false");
         assertOptimizedEquals("'a' = 'a'", "true");
-        assertOptimizedEquals("'a' = null", "null");
-        assertOptimizedEquals("null = 'a'", "null");
+        assertOptimizedEquals("'a' = NULL", "NULL");
+        assertOptimizedEquals("NULL = 'a'", "NULL");
         assertOptimizedEquals("bound_integer = 1234", "true");
         assertOptimizedEquals("bound_integer = 12340000000", "false");
         assertOptimizedEquals("bound_long = BIGINT '1234'", "true");
@@ -191,99 +191,99 @@ public class TestExpressionInterpreter
     @Test
     public void testIsDistinctFrom()
     {
-        assertOptimizedEquals("null is distinct from null", "false");
+        assertOptimizedEquals("NULL IS DISTINCT FROM NULL", "false");
 
-        assertOptimizedEquals("3 is distinct from 4", "true");
-        assertOptimizedEquals("3 is distinct from BIGINT '4'", "true");
-        assertOptimizedEquals("3 is distinct from 4000000000", "true");
-        assertOptimizedEquals("3 is distinct from 3", "false");
-        assertOptimizedEquals("3 is distinct from null", "true");
-        assertOptimizedEquals("null is distinct from 3", "true");
+        assertOptimizedEquals("3 IS DISTINCT FROM 4", "true");
+        assertOptimizedEquals("3 IS DISTINCT FROM BIGINT '4'", "true");
+        assertOptimizedEquals("3 IS DISTINCT FROM 4000000000", "true");
+        assertOptimizedEquals("3 IS DISTINCT FROM 3", "false");
+        assertOptimizedEquals("3 IS DISTINCT FROM NULL", "true");
+        assertOptimizedEquals("NULL IS DISTINCT FROM 3", "true");
 
-        assertOptimizedEquals("10151082135029368 is distinct from 10151082135029369", "true");
+        assertOptimizedEquals("10151082135029368 IS DISTINCT FROM 10151082135029369", "true");
 
-        assertOptimizedEquals("1.1 is distinct from 1.1", "false");
-        assertOptimizedEquals("9876543210.9874561203 is distinct from NULL", "true");
-        assertOptimizedEquals("bound_decimal_short is distinct from NULL", "true");
-        assertOptimizedEquals("bound_decimal_long is distinct from 12345678901234567890.123", "false");
-        assertOptimizedMatches("unbound_integer is distinct from 1", "unbound_integer is distinct from 1");
-        assertOptimizedMatches("unbound_integer is distinct from null", "unbound_integer is not null");
-        assertOptimizedMatches("null is distinct from unbound_integer", "unbound_integer is not null");
+        assertOptimizedEquals("1.1 IS DISTINCT FROM 1.1", "false");
+        assertOptimizedEquals("9876543210.9874561203 IS DISTINCT FROM NULL", "true");
+        assertOptimizedEquals("bound_decimal_short IS DISTINCT FROM NULL", "true");
+        assertOptimizedEquals("bound_decimal_long IS DISTINCT FROM 12345678901234567890.123", "false");
+        assertOptimizedMatches("unbound_integer IS DISTINCT FROM 1", "unbound_integer IS DISTINCT FROM 1");
+        assertOptimizedMatches("unbound_integer IS DISTINCT FROM NULL", "unbound_integer IS NOT NULL");
+        assertOptimizedMatches("NULL IS DISTINCT FROM unbound_integer", "unbound_integer IS NOT NULL");
     }
 
     @Test
     public void testIsNull()
     {
-        assertOptimizedEquals("null is null", "true");
-        assertOptimizedEquals("1 is null", "false");
-        assertOptimizedEquals("10000000000 is null", "false");
-        assertOptimizedEquals("BIGINT '1' is null", "false");
-        assertOptimizedEquals("1.0 is null", "false");
-        assertOptimizedEquals("'a' is null", "false");
-        assertOptimizedEquals("true is null", "false");
-        assertOptimizedEquals("null+1 is null", "true");
-        assertOptimizedEquals("unbound_string is null", "unbound_string is null");
-        assertOptimizedEquals("unbound_long+(1+1) is null", "unbound_long+2 is null");
-        assertOptimizedEquals("1.1 is null", "false");
-        assertOptimizedEquals("9876543210.9874561203 is null", "false");
-        assertOptimizedEquals("bound_decimal_short is null", "false");
-        assertOptimizedEquals("bound_decimal_long is null", "false");
+        assertOptimizedEquals("NULL IS NULL", "true");
+        assertOptimizedEquals("1 IS NULL", "false");
+        assertOptimizedEquals("10000000000 IS NULL", "false");
+        assertOptimizedEquals("BIGINT '1' IS NULL", "false");
+        assertOptimizedEquals("1.0 IS NULL", "false");
+        assertOptimizedEquals("'a' IS NULL", "false");
+        assertOptimizedEquals("true IS NULL", "false");
+        assertOptimizedEquals("NULL+1 IS NULL", "true");
+        assertOptimizedEquals("unbound_string IS NULL", "unbound_string IS NULL");
+        assertOptimizedEquals("unbound_long+(1+1) IS NULL", "unbound_long+2 IS NULL");
+        assertOptimizedEquals("1.1 IS NULL", "false");
+        assertOptimizedEquals("9876543210.9874561203 IS NULL", "false");
+        assertOptimizedEquals("bound_decimal_short IS NULL", "false");
+        assertOptimizedEquals("bound_decimal_long IS NULL", "false");
     }
 
     @Test
     public void testIsNotNull()
     {
-        assertOptimizedEquals("null is not null", "false");
-        assertOptimizedEquals("1 is not null", "true");
-        assertOptimizedEquals("10000000000 is not null", "true");
-        assertOptimizedEquals("BIGINT '1' is not null", "true");
-        assertOptimizedEquals("1.0 is not null", "true");
-        assertOptimizedEquals("'a' is not null", "true");
-        assertOptimizedEquals("true is not null", "true");
-        assertOptimizedEquals("null+1 is not null", "false");
-        assertOptimizedEquals("unbound_string is not null", "unbound_string is not null");
-        assertOptimizedEquals("unbound_long+(1+1) is not null", "unbound_long+2 is not null");
-        assertOptimizedEquals("1.1 is not null", "true");
-        assertOptimizedEquals("9876543210.9874561203 is not null", "true");
-        assertOptimizedEquals("bound_decimal_short is not null", "true");
-        assertOptimizedEquals("bound_decimal_long is not null", "true");
+        assertOptimizedEquals("NULL IS NOT NULL", "false");
+        assertOptimizedEquals("1 IS NOT NULL", "true");
+        assertOptimizedEquals("10000000000 IS NOT NULL", "true");
+        assertOptimizedEquals("BIGINT '1' IS NOT NULL", "true");
+        assertOptimizedEquals("1.0 IS NOT NULL", "true");
+        assertOptimizedEquals("'a' IS NOT NULL", "true");
+        assertOptimizedEquals("true IS NOT NULL", "true");
+        assertOptimizedEquals("NULL+1 IS NOT NULL", "false");
+        assertOptimizedEquals("unbound_string IS NOT NULL", "unbound_string IS NOT NULL");
+        assertOptimizedEquals("unbound_long+(1+1) IS NOT NULL", "unbound_long+2 IS NOT NULL");
+        assertOptimizedEquals("1.1 IS NOT NULL", "true");
+        assertOptimizedEquals("9876543210.9874561203 IS NOT NULL", "true");
+        assertOptimizedEquals("bound_decimal_short IS NOT NULL", "true");
+        assertOptimizedEquals("bound_decimal_long IS NOT NULL", "true");
     }
 
     @Test
     public void testNullIf()
     {
-        assertOptimizedEquals("nullif(true, true)", "null");
+        assertOptimizedEquals("nullif(true, true)", "NULL");
         assertOptimizedEquals("nullif(true, false)", "true");
-        assertOptimizedEquals("nullif(null, false)", "null");
-        assertOptimizedEquals("nullif(true, null)", "true");
+        assertOptimizedEquals("nullif(NULL, false)", "NULL");
+        assertOptimizedEquals("nullif(true, NULL)", "true");
 
-        assertOptimizedEquals("nullif('a', 'a')", "null");
+        assertOptimizedEquals("nullif('a', 'a')", "NULL");
         assertOptimizedEquals("nullif('a', 'b')", "'a'");
-        assertOptimizedEquals("nullif(null, 'b')", "null");
-        assertOptimizedEquals("nullif('a', null)", "'a'");
+        assertOptimizedEquals("nullif(NULL, 'b')", "NULL");
+        assertOptimizedEquals("nullif('a', NULL)", "'a'");
 
-        assertOptimizedEquals("nullif(1, 1)", "null");
+        assertOptimizedEquals("nullif(1, 1)", "NULL");
         assertOptimizedEquals("nullif(1, 2)", "1");
         assertOptimizedEquals("nullif(1, BIGINT '2')", "1");
         assertOptimizedEquals("nullif(1, 20000000000)", "1");
-        assertOptimizedEquals("nullif(1.0E0, 1)", "null");
-        assertOptimizedEquals("nullif(10000000000.0E0, 10000000000)", "null");
+        assertOptimizedEquals("nullif(1.0E0, 1)", "NULL");
+        assertOptimizedEquals("nullif(10000000000.0E0, 10000000000)", "NULL");
         assertOptimizedEquals("nullif(1.1E0, 1)", "1.1E0");
-        assertOptimizedEquals("nullif(1.1E0, 1.1E0)", "null");
-        assertOptimizedEquals("nullif(1, 2-1)", "null");
-        assertOptimizedEquals("nullif(null, null)", "null");
-        assertOptimizedEquals("nullif(1, null)", "1");
+        assertOptimizedEquals("nullif(1.1E0, 1.1E0)", "NULL");
+        assertOptimizedEquals("nullif(1, 2-1)", "NULL");
+        assertOptimizedEquals("nullif(NULL, NULL)", "NULL");
+        assertOptimizedEquals("nullif(1, NULL)", "1");
         assertOptimizedEquals("nullif(unbound_long, 1)", "nullif(unbound_long, 1)");
         assertOptimizedEquals("nullif(unbound_long, unbound_long2)", "nullif(unbound_long, unbound_long2)");
         assertOptimizedEquals("nullif(unbound_long, unbound_long2+(1+1))", "nullif(unbound_long, unbound_long2+2)");
 
         assertOptimizedEquals("nullif(1.1, 1.2)", "1.1");
-        assertOptimizedEquals("nullif(9876543210.9874561203, 9876543210.9874561203)", "null");
-        assertOptimizedEquals("nullif(bound_decimal_short, 123.45)", "null");
-        assertOptimizedEquals("nullif(bound_decimal_long, 12345678901234567890.123)", "null");
-        assertOptimizedEquals("nullif(ARRAY[CAST(1 AS BIGINT)], ARRAY[CAST(1 AS BIGINT)]) IS NULL", "true");
-        assertOptimizedEquals("nullif(ARRAY[CAST(1 AS BIGINT)], ARRAY[CAST(NULL AS BIGINT)]) IS NULL", "false");
-        assertOptimizedEquals("nullif(ARRAY[CAST(NULL AS BIGINT)], ARRAY[CAST(NULL AS BIGINT)]) IS NULL", "false");
+        assertOptimizedEquals("nullif(9876543210.9874561203, 9876543210.9874561203)", "NULL");
+        assertOptimizedEquals("nullif(bound_decimal_short, 123.45)", "NULL");
+        assertOptimizedEquals("nullif(bound_decimal_long, 12345678901234567890.123)", "NULL");
+        assertOptimizedEquals("nullif(ARRAY[CAST(1 AS bigint)], ARRAY[CAST(1 AS bigint)]) IS NULL", "true");
+        assertOptimizedEquals("nullif(ARRAY[CAST(1 AS bigint)], ARRAY[CAST(NULL AS bigint)]) IS NULL", "false");
+        assertOptimizedEquals("nullif(ARRAY[CAST(NULL AS bigint)], ARRAY[CAST(NULL AS bigint)]) IS NULL", "false");
     }
 
     @Test
@@ -294,12 +294,12 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("-(unbound_long+1)", "-(unbound_long+1)");
         assertOptimizedEquals("-(1+1)", "-2");
         assertOptimizedEquals("-(1+ BIGINT '1')", "BIGINT '-2'");
-        assertOptimizedEquals("-(CAST(NULL AS BIGINT))", "null");
+        assertOptimizedEquals("-(CAST(NULL AS bigint))", "NULL");
         assertOptimizedEquals("-(unbound_long+(1+1))", "-(unbound_long+2)");
         assertOptimizedEquals("-(1.1+1.2)", "-2.3");
-        assertOptimizedEquals("-(9876543210.9874561203-9876543210.9874561203)", "CAST(0 AS DECIMAL(20,10))");
+        assertOptimizedEquals("-(9876543210.9874561203-9876543210.9874561203)", "CAST(0 AS decimal(20,10))");
         assertOptimizedEquals("-(bound_decimal_short+123.45)", "-246.90");
-        assertOptimizedEquals("-(bound_decimal_long-12345678901234567890.123)", "CAST(0 AS DECIMAL(20,10))");
+        assertOptimizedEquals("-(bound_decimal_long-12345678901234567890.123)", "CAST(0 AS decimal(20,10))");
     }
 
     @Test
@@ -307,7 +307,7 @@ public class TestExpressionInterpreter
     {
         assertOptimizedEquals("not true", "false");
         assertOptimizedEquals("not false", "true");
-        assertOptimizedEquals("not null", "null");
+        assertOptimizedEquals("not NULL", "NULL");
         assertOptimizedEquals("not 1=1", "false");
         assertOptimizedEquals("not 1=BIGINT '1'", "false");
         assertOptimizedEquals("not 1!=1", "true");
@@ -344,35 +344,35 @@ public class TestExpressionInterpreter
     @Test
     public void testBetween()
     {
-        assertOptimizedEquals("3 between 2 and 4", "true");
-        assertOptimizedEquals("2 between 3 and 4", "false");
-        assertOptimizedEquals("null between 2 and 4", "null");
-        assertOptimizedEquals("3 between null and 4", "null");
-        assertOptimizedEquals("3 between 2 and null", "null");
+        assertOptimizedEquals("3 BETWEEN 2 AND 4", "true");
+        assertOptimizedEquals("2 BETWEEN 3 AND 4", "false");
+        assertOptimizedEquals("NULL BETWEEN 2 AND 4", "NULL");
+        assertOptimizedEquals("3 BETWEEN NULL AND 4", "NULL");
+        assertOptimizedEquals("3 BETWEEN 2 AND NULL", "NULL");
 
-        assertOptimizedEquals("'cc' between 'b' and 'd'", "true");
-        assertOptimizedEquals("'b' between 'cc' and 'd'", "false");
-        assertOptimizedEquals("null between 'b' and 'd'", "null");
-        assertOptimizedEquals("'cc' between null and 'd'", "null");
-        assertOptimizedEquals("'cc' between 'b' and null", "null");
+        assertOptimizedEquals("'cc' BETWEEN 'b' AND 'd'", "true");
+        assertOptimizedEquals("'b' BETWEEN 'cc' AND 'd'", "false");
+        assertOptimizedEquals("NULL BETWEEN 'b' AND 'd'", "NULL");
+        assertOptimizedEquals("'cc' BETWEEN NULL AND 'd'", "NULL");
+        assertOptimizedEquals("'cc' BETWEEN 'b' AND NULL", "NULL");
 
-        assertOptimizedEquals("bound_integer between 1000 and 2000", "true");
-        assertOptimizedEquals("bound_integer between 3 and 4", "false");
-        assertOptimizedEquals("bound_long between 1000 and 2000", "true");
-        assertOptimizedEquals("bound_long between 3 and 4", "false");
-        assertOptimizedEquals("bound_long between bound_integer and (bound_long + 1)", "true");
-        assertOptimizedEquals("bound_string between 'e' and 'i'", "true");
-        assertOptimizedEquals("bound_string between 'a' and 'b'", "false");
+        assertOptimizedEquals("bound_integer BETWEEN 1000 AND 2000", "true");
+        assertOptimizedEquals("bound_integer BETWEEN 3 AND 4", "false");
+        assertOptimizedEquals("bound_long BETWEEN 1000 AND 2000", "true");
+        assertOptimizedEquals("bound_long BETWEEN 3 AND 4", "false");
+        assertOptimizedEquals("bound_long BETWEEN bound_integer AND (bound_long + 1)", "true");
+        assertOptimizedEquals("bound_string BETWEEN 'e' AND 'i'", "true");
+        assertOptimizedEquals("bound_string BETWEEN 'a' AND 'b'", "false");
 
-        assertOptimizedEquals("bound_long between unbound_long and 2000 + 1", "1234 between unbound_long and 2001");
+        assertOptimizedEquals("bound_long BETWEEN unbound_long AND 2000 + 1", "1234 BETWEEN unbound_long AND 2001");
         assertOptimizedEquals(
-                "bound_string between unbound_string and 'bar'",
-                format("CAST('hello' AS VARCHAR(%s)) between unbound_string and 'bar'", TEST_VARCHAR_TYPE_LENGTH));
+                "bound_string BETWEEN unbound_string AND 'bar'",
+                format("CAST('hello' AS varchar(%s)) BETWEEN unbound_string AND 'bar'", TEST_VARCHAR_TYPE_LENGTH));
 
-        assertOptimizedEquals("1.15 between 1.1 and 1.2", "true");
-        assertOptimizedEquals("9876543210.98745612035 between 9876543210.9874561203 and 9876543210.9874561204", "true");
-        assertOptimizedEquals("123.455 between bound_decimal_short and 123.46", "true");
-        assertOptimizedEquals("12345678901234567890.1235 between bound_decimal_long and 12345678901234567890.123", "false");
+        assertOptimizedEquals("1.15 BETWEEN 1.1 AND 1.2", "true");
+        assertOptimizedEquals("9876543210.98745612035 BETWEEN 9876543210.9874561203 AND 9876543210.9874561204", "true");
+        assertOptimizedEquals("123.455 BETWEEN bound_decimal_short AND 123.46", "true");
+        assertOptimizedEquals("12345678901234567890.1235 BETWEEN bound_decimal_long AND 12345678901234567890.123", "false");
     }
 
     @Test
@@ -381,80 +381,83 @@ public class TestExpressionInterpreter
         DateTime dateTime = new DateTime(2001, 8, 22, 3, 4, 5, 321, getDateTimeZone(TEST_SESSION.getTimeZoneKey()));
         double seconds = dateTime.getMillis() / 1000.0;
 
-        assertOptimizedEquals("extract (YEAR from from_unixtime(" + seconds + "))", "2001");
-        assertOptimizedEquals("extract (QUARTER from from_unixtime(" + seconds + "))", "3");
-        assertOptimizedEquals("extract (MONTH from from_unixtime(" + seconds + "))", "8");
-        assertOptimizedEquals("extract (WEEK from from_unixtime(" + seconds + "))", "34");
-        assertOptimizedEquals("extract (DOW from from_unixtime(" + seconds + "))", "3");
-        assertOptimizedEquals("extract (DOY from from_unixtime(" + seconds + "))", "234");
-        assertOptimizedEquals("extract (DAY from from_unixtime(" + seconds + "))", "22");
-        assertOptimizedEquals("extract (HOUR from from_unixtime(" + seconds + "))", "3");
-        assertOptimizedEquals("extract (MINUTE from from_unixtime(" + seconds + "))", "4");
-        assertOptimizedEquals("extract (SECOND from from_unixtime(" + seconds + "))", "5");
-        assertOptimizedEquals("extract (TIMEZONE_HOUR from from_unixtime(" + seconds + ", 7, 9))", "7");
-        assertOptimizedEquals("extract (TIMEZONE_MINUTE from from_unixtime(" + seconds + ", 7, 9))", "9");
+        assertOptimizedEquals("extract(YEAR FROM from_unixtime(" + seconds + "))", "2001");
+        assertOptimizedEquals("extract(QUARTER FROM from_unixtime(" + seconds + "))", "3");
+        assertOptimizedEquals("extract(MONTH FROM from_unixtime(" + seconds + "))", "8");
+        assertOptimizedEquals("extract(WEEK FROM from_unixtime(" + seconds + "))", "34");
+        assertOptimizedEquals("extract(DOW FROM from_unixtime(" + seconds + "))", "3");
+        assertOptimizedEquals("extract(DOY FROM from_unixtime(" + seconds + "))", "234");
+        assertOptimizedEquals("extract(DAY FROM from_unixtime(" + seconds + "))", "22");
+        assertOptimizedEquals("extract(HOUR FROM from_unixtime(" + seconds + "))", "3");
+        assertOptimizedEquals("extract(MINUTE FROM from_unixtime(" + seconds + "))", "4");
+        assertOptimizedEquals("extract(SECOND FROM from_unixtime(" + seconds + "))", "5");
+        assertOptimizedEquals("extract(TIMEZONE_HOUR FROM from_unixtime(" + seconds + ", 7, 9))", "7");
+        assertOptimizedEquals("extract(TIMEZONE_MINUTE FROM from_unixtime(" + seconds + ", 7, 9))", "9");
 
-        assertOptimizedEquals("extract (YEAR from bound_timestamp)", "2001");
-        assertOptimizedEquals("extract (QUARTER from bound_timestamp)", "3");
-        assertOptimizedEquals("extract (MONTH from bound_timestamp)", "8");
-        assertOptimizedEquals("extract (WEEK from bound_timestamp)", "34");
-        assertOptimizedEquals("extract (DOW from bound_timestamp)", "2");
-        assertOptimizedEquals("extract (DOY from bound_timestamp)", "233");
-        assertOptimizedEquals("extract (DAY from bound_timestamp)", "21");
-        assertOptimizedEquals("extract (HOUR from bound_timestamp)", "16");
-        assertOptimizedEquals("extract (MINUTE from bound_timestamp)", "4");
-        assertOptimizedEquals("extract (SECOND from bound_timestamp)", "5");
+        assertOptimizedEquals("extract(YEAR FROM bound_timestamp)", "2001");
+        assertOptimizedEquals("extract(QUARTER FROM bound_timestamp)", "3");
+        assertOptimizedEquals("extract(MONTH FROM bound_timestamp)", "8");
+        assertOptimizedEquals("extract(WEEK FROM bound_timestamp)", "34");
+        assertOptimizedEquals("extract(DOW FROM bound_timestamp)", "2");
+        assertOptimizedEquals("extract(DOY FROM bound_timestamp)", "233");
+        assertOptimizedEquals("extract(DAY FROM bound_timestamp)", "21");
+        assertOptimizedEquals("extract(HOUR FROM bound_timestamp)", "16");
+        assertOptimizedEquals("extract(MINUTE FROM bound_timestamp)", "4");
+        assertOptimizedEquals("extract(SECOND FROM bound_timestamp)", "5");
         // todo reenable when cast as timestamp with time zone is implemented
         // todo add bound timestamp with time zone
-        //assertOptimizedEquals("extract (TIMEZONE_HOUR from bound_timestamp)", "0");
-        //assertOptimizedEquals("extract (TIMEZONE_MINUTE from bound_timestamp)", "0");
+        //assertOptimizedEquals("extract(TIMEZONE_HOUR FROM bound_timestamp)", "0");
+        //assertOptimizedEquals("extract(TIMEZONE_MINUTE FROM bound_timestamp)", "0");
 
-        assertOptimizedEquals("extract (YEAR from unbound_timestamp)", "extract (YEAR from unbound_timestamp)");
-        assertOptimizedEquals("extract (SECOND from bound_timestamp + INTERVAL '3' SECOND)", "8");
+        assertOptimizedEquals("extract(YEAR FROM unbound_timestamp)", "extract(YEAR FROM unbound_timestamp)");
+        assertOptimizedEquals("extract(SECOND FROM bound_timestamp + INTERVAL '3' SECOND)", "8");
     }
 
     @Test
     public void testIn()
     {
-        assertOptimizedEquals("3 in (2, 4, 3, 5)", "true");
-        assertOptimizedEquals("3 in (2, 4, 9, 5)", "false");
-        assertOptimizedEquals("3 in (2, null, 3, 5)", "true");
+        assertOptimizedEquals("3 IN (2, 4, 3, 5)", "true");
+        assertOptimizedEquals("3 IN (2, 4, 9, 5)", "false");
+        assertOptimizedEquals("3 IN (2, NULL, 3, 5)", "true");
 
-        assertOptimizedEquals("'foo' in ('bar', 'baz', 'foo', 'blah')", "true");
-        assertOptimizedEquals("'foo' in ('bar', 'baz', 'buz', 'blah')", "false");
-        assertOptimizedEquals("'foo' in ('bar', null, 'foo', 'blah')", "true");
+        assertOptimizedEquals("'foo' IN ('bar', 'baz', 'foo', 'blah')", "true");
+        assertOptimizedEquals("'foo' IN ('bar', 'baz', 'buz', 'blah')", "false");
+        assertOptimizedEquals("'foo' IN ('bar', NULL, 'foo', 'blah')", "true");
 
-        assertOptimizedEquals("null in (2, null, 3, 5)", "null");
-        assertOptimizedEquals("3 in (2, null)", "null");
+        assertOptimizedEquals("NULL IN (2, NULL, 3, 5)", "NULL");
+        assertOptimizedEquals("3 IN (2, NULL)", "NULL");
 
-        assertOptimizedEquals("bound_integer in (2, 1234, 3, 5)", "true");
-        assertOptimizedEquals("bound_integer in (2, 4, 3, 5)", "false");
-        assertOptimizedEquals("1234 in (2, bound_integer, 3, 5)", "true");
-        assertOptimizedEquals("99 in (2, bound_integer, 3, 5)", "false");
-        assertOptimizedEquals("bound_integer in (2, bound_integer, 3, 5)", "true");
+        assertOptimizedEquals("bound_integer IN (2, 1234, 3, 5)", "true");
+        assertOptimizedEquals("bound_integer IN (2, 4, 3, 5)", "false");
+        assertOptimizedEquals("1234 IN (2, bound_integer, 3, 5)", "true");
+        assertOptimizedEquals("99 IN (2, bound_integer, 3, 5)", "false");
+        assertOptimizedEquals("bound_integer IN (2, bound_integer, 3, 5)", "true");
 
-        assertOptimizedEquals("bound_long in (2, 1234, 3, 5)", "true");
-        assertOptimizedEquals("bound_long in (2, 4, 3, 5)", "false");
-        assertOptimizedEquals("1234 in (2, bound_long, 3, 5)", "true");
-        assertOptimizedEquals("99 in (2, bound_long, 3, 5)", "false");
-        assertOptimizedEquals("bound_long in (2, bound_long, 3, 5)", "true");
+        assertOptimizedEquals("bound_long IN (2, 1234, 3, 5)", "true");
+        assertOptimizedEquals("bound_long IN (2, 4, 3, 5)", "false");
+        assertOptimizedEquals("1234 IN (2, bound_long, 3, 5)", "true");
+        assertOptimizedEquals("99 IN (2, bound_long, 3, 5)", "false");
+        assertOptimizedEquals("bound_long IN (2, bound_long, 3, 5)", "true");
 
-        assertOptimizedEquals("bound_string in ('bar', 'hello', 'foo', 'blah')", "true");
-        assertOptimizedEquals("bound_string in ('bar', 'baz', 'foo', 'blah')", "false");
-        assertOptimizedEquals("'hello' in ('bar', bound_string, 'foo', 'blah')", "true");
-        assertOptimizedEquals("'baz' in ('bar', bound_string, 'foo', 'blah')", "false");
+        assertOptimizedEquals("bound_string IN ('bar', 'hello', 'foo', 'blah')", "true");
+        assertOptimizedEquals("bound_string IN ('bar', 'baz', 'foo', 'blah')", "false");
+        assertOptimizedEquals("'hello' IN ('bar', bound_string, 'foo', 'blah')", "true");
+        assertOptimizedEquals("'baz' IN ('bar', bound_string, 'foo', 'blah')", "false");
 
-        assertOptimizedEquals("bound_long in (2, 1234, unbound_long, 5)", "true");
-        assertOptimizedEquals("bound_string in ('bar', 'hello', unbound_string, 'blah')", "true");
+        assertOptimizedEquals("bound_long IN (2, 1234, unbound_long, 5)", "true");
+        assertOptimizedEquals("bound_string IN ('bar', 'hello', unbound_string, 'blah')", "true");
 
-        assertOptimizedEquals("bound_long in (2, 4, unbound_long, unbound_long2, 9)", "1234 in (unbound_long, unbound_long2)");
-        assertOptimizedEquals("unbound_long in (2, 4, bound_long, unbound_long2, 5)", "unbound_long in (2, 4, 1234, unbound_long2, 5)");
+        assertOptimizedEquals("bound_long IN (2, 4, unbound_long, unbound_long2, 9)", "1234 IN (unbound_long, unbound_long2)");
+        assertOptimizedEquals("unbound_long IN (2, 4, bound_long, unbound_long2, 5)", "unbound_long IN (2, 4, 1234, unbound_long2, 5)");
 
-        assertOptimizedEquals("1.15 in (1.1, 1.2, 1.3, 1.15)", "true");
-        assertOptimizedEquals("9876543210.98745612035 in (9876543210.9874561203, 9876543210.9874561204, 9876543210.98745612035)", "true");
-        assertOptimizedEquals("bound_decimal_short in (123.455, 123.46, 123.45)", "true");
-        assertOptimizedEquals("bound_decimal_long in (12345678901234567890.123, 9876543210.9874561204, 9876543210.98745612035)", "true");
-        assertOptimizedEquals("bound_decimal_long in (9876543210.9874561204, null, 9876543210.98745612035)", "null");
+        assertOptimizedEquals("1.15 IN (1.1, 1.2, 1.3, 1.15)", "true");
+        assertOptimizedEquals("9876543210.98745612035 IN (9876543210.9874561203, 9876543210.9874561204, 9876543210.98745612035)", "true");
+        assertOptimizedEquals("bound_decimal_short IN (123.455, 123.46, 123.45)", "true");
+        assertOptimizedEquals("bound_decimal_long IN (12345678901234567890.123, 9876543210.9874561204, 9876543210.98745612035)", "true");
+        assertOptimizedEquals("bound_decimal_long IN (9876543210.9874561204, NULL, 9876543210.98745612035)", "NULL");
+
+        assertOptimizedEquals("unbound_integer IN (1)", "unbound_integer = 1");
+        assertOptimizedEquals("unbound_long IN (unbound_long2)", "unbound_long = unbound_long2");
     }
 
     @Test
@@ -463,48 +466,48 @@ public class TestExpressionInterpreter
         assertEvaluatedEquals("ARRAY[1] IN (ARRAY[1])", "true");
         assertEvaluatedEquals("ARRAY[1] IN (ARRAY[2])", "false");
         assertEvaluatedEquals("ARRAY[1] IN (ARRAY[2], ARRAY[1])", "true");
-        assertEvaluatedEquals("ARRAY[1] IN (null)", "null");
-        assertEvaluatedEquals("ARRAY[1] IN (null, ARRAY[1])", "true");
-        assertEvaluatedEquals("ARRAY[1, 2, null] IN (ARRAY[2, null], ARRAY[1, null])", "false");
-        assertEvaluatedEquals("ARRAY[1, null] IN (ARRAY[2, null], null)", "null");
-        assertEvaluatedEquals("ARRAY[null] IN (ARRAY[null])", "null");
-        assertEvaluatedEquals("ARRAY[1] IN (ARRAY[null])", "null");
-        assertEvaluatedEquals("ARRAY[null] IN (ARRAY[1])", "null");
-        assertEvaluatedEquals("ARRAY[1, null] IN (ARRAY[1, null])", "null");
-        assertEvaluatedEquals("ARRAY[1, null] IN (ARRAY[2, null])", "false");
-        assertEvaluatedEquals("ARRAY[1, null] IN (ARRAY[1, null], ARRAY[2, null])", "null");
-        assertEvaluatedEquals("ARRAY[1, null] IN (ARRAY[1, null], ARRAY[2, null], ARRAY[1, null])", "null");
-        assertEvaluatedEquals("ARRAY[ARRAY[1, 2], ARRAY[3, 4]] in (ARRAY[ARRAY[1, 2], ARRAY[3, NULL]])", "null");
+        assertEvaluatedEquals("ARRAY[1] IN (NULL)", "NULL");
+        assertEvaluatedEquals("ARRAY[1] IN (NULL, ARRAY[1])", "true");
+        assertEvaluatedEquals("ARRAY[1, 2, NULL] IN (ARRAY[2, NULL], ARRAY[1, NULL])", "false");
+        assertEvaluatedEquals("ARRAY[1, NULL] IN (ARRAY[2, NULL], NULL)", "NULL");
+        assertEvaluatedEquals("ARRAY[NULL] IN (ARRAY[NULL])", "NULL");
+        assertEvaluatedEquals("ARRAY[1] IN (ARRAY[NULL])", "NULL");
+        assertEvaluatedEquals("ARRAY[NULL] IN (ARRAY[1])", "NULL");
+        assertEvaluatedEquals("ARRAY[1, NULL] IN (ARRAY[1, NULL])", "NULL");
+        assertEvaluatedEquals("ARRAY[1, NULL] IN (ARRAY[2, NULL])", "false");
+        assertEvaluatedEquals("ARRAY[1, NULL] IN (ARRAY[1, NULL], ARRAY[2, NULL])", "NULL");
+        assertEvaluatedEquals("ARRAY[1, NULL] IN (ARRAY[1, NULL], ARRAY[2, NULL], ARRAY[1, NULL])", "NULL");
+        assertEvaluatedEquals("ARRAY[ARRAY[1, 2], ARRAY[3, 4]] in (ARRAY[ARRAY[1, 2], ARRAY[3, NULL]])", "NULL");
 
         assertEvaluatedEquals("ROW(1) IN (ROW(1))", "true");
         assertEvaluatedEquals("ROW(1) IN (ROW(2))", "false");
         assertEvaluatedEquals("ROW(1) IN (ROW(2), ROW(1), ROW(2))", "true");
-        assertEvaluatedEquals("ROW(1) IN (null)", "null");
-        assertEvaluatedEquals("ROW(1) IN (null, ROW(1))", "true");
-        assertEvaluatedEquals("ROW(1, null) IN (ROW(2, null), null)", "null");
-        assertEvaluatedEquals("ROW(null) IN (ROW(null))", "null");
-        assertEvaluatedEquals("ROW(1) IN (ROW(null))", "null");
-        assertEvaluatedEquals("ROW(null) IN (ROW(1))", "null");
-        assertEvaluatedEquals("ROW(1, null) IN (ROW(1, null))", "null");
-        assertEvaluatedEquals("ROW(1, null) IN (ROW(2, null))", "false");
-        assertEvaluatedEquals("ROW(1, null) IN (ROW(1, null), ROW(2, null))", "null");
-        assertEvaluatedEquals("ROW(1, null) IN (ROW(1, null), ROW(2, null), ROW(1, null))", "null");
+        assertEvaluatedEquals("ROW(1) IN (NULL)", "NULL");
+        assertEvaluatedEquals("ROW(1) IN (NULL, ROW(1))", "true");
+        assertEvaluatedEquals("ROW(1, NULL) IN (ROW(2, NULL), NULL)", "NULL");
+        assertEvaluatedEquals("ROW(NULL) IN (ROW(NULL))", "NULL");
+        assertEvaluatedEquals("ROW(1) IN (ROW(NULL))", "NULL");
+        assertEvaluatedEquals("ROW(NULL) IN (ROW(1))", "NULL");
+        assertEvaluatedEquals("ROW(1, NULL) IN (ROW(1, NULL))", "NULL");
+        assertEvaluatedEquals("ROW(1, NULL) IN (ROW(2, NULL))", "false");
+        assertEvaluatedEquals("ROW(1, NULL) IN (ROW(1, NULL), ROW(2, NULL))", "NULL");
+        assertEvaluatedEquals("ROW(1, NULL) IN (ROW(1, NULL), ROW(2, NULL), ROW(1, NULL))", "NULL");
 
-        assertEvaluatedEquals("MAP(ARRAY[1], ARRAY[1]) IN (MAP(ARRAY[1], ARRAY[1]))", "true");
-        assertEvaluatedEquals("MAP(ARRAY[1], ARRAY[1]) IN (null)", "null");
-        assertEvaluatedEquals("MAP(ARRAY[1], ARRAY[1]) IN (null, MAP(ARRAY[1], ARRAY[1]))", "true");
-        assertEvaluatedEquals("MAP(ARRAY[1], ARRAY[1]) IN (MAP(ARRAY[1, 2], ARRAY[1, null]))", "false");
-        assertEvaluatedEquals("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 2], ARRAY[2, null]), null)", "null");
-        assertEvaluatedEquals("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 2], ARRAY[1, null]))", "null");
-        assertEvaluatedEquals("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 3], ARRAY[1, null]))", "false");
-        assertEvaluatedEquals("MAP(ARRAY[1], ARRAY[null]) IN (MAP(ARRAY[1], ARRAY[null]))", "null");
-        assertEvaluatedEquals("MAP(ARRAY[1], ARRAY[1]) IN (MAP(ARRAY[1], ARRAY[null]))", "null");
-        assertEvaluatedEquals("MAP(ARRAY[1], ARRAY[null]) IN (MAP(ARRAY[1], ARRAY[1]))", "null");
-        assertEvaluatedEquals("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 2], ARRAY[1, null]))", "null");
-        assertEvaluatedEquals("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 3], ARRAY[1, null]))", "false");
-        assertEvaluatedEquals("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 2], ARRAY[2, null]))", "false");
-        assertEvaluatedEquals("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 2], ARRAY[1, null]), MAP(ARRAY[1, 2], ARRAY[2, null]))", "null");
-        assertEvaluatedEquals("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 2], ARRAY[1, null]), MAP(ARRAY[1, 2], ARRAY[2, null]), MAP(ARRAY[1, 2], ARRAY[1, null]))", "null");
+        assertEvaluatedEquals("map(ARRAY[1], ARRAY[1]) IN (map(ARRAY[1], ARRAY[1]))", "true");
+        assertEvaluatedEquals("map(ARRAY[1], ARRAY[1]) IN (NULL)", "NULL");
+        assertEvaluatedEquals("map(ARRAY[1], ARRAY[1]) IN (NULL, map(ARRAY[1], ARRAY[1]))", "true");
+        assertEvaluatedEquals("map(ARRAY[1], ARRAY[1]) IN (map(ARRAY[1, 2], ARRAY[1, NULL]))", "false");
+        assertEvaluatedEquals("map(ARRAY[1, 2], ARRAY[1, NULL]) IN (map(ARRAY[1, 2], ARRAY[2, NULL]), NULL)", "NULL");
+        assertEvaluatedEquals("map(ARRAY[1, 2], ARRAY[1, NULL]) IN (map(ARRAY[1, 2], ARRAY[1, NULL]))", "NULL");
+        assertEvaluatedEquals("map(ARRAY[1, 2], ARRAY[1, NULL]) IN (map(ARRAY[1, 3], ARRAY[1, NULL]))", "false");
+        assertEvaluatedEquals("map(ARRAY[1], ARRAY[NULL]) IN (map(ARRAY[1], ARRAY[NULL]))", "NULL");
+        assertEvaluatedEquals("map(ARRAY[1], ARRAY[1]) IN (map(ARRAY[1], ARRAY[NULL]))", "NULL");
+        assertEvaluatedEquals("map(ARRAY[1], ARRAY[NULL]) IN (map(ARRAY[1], ARRAY[1]))", "NULL");
+        assertEvaluatedEquals("map(ARRAY[1, 2], ARRAY[1, NULL]) IN (map(ARRAY[1, 2], ARRAY[1, NULL]))", "NULL");
+        assertEvaluatedEquals("map(ARRAY[1, 2], ARRAY[1, NULL]) IN (map(ARRAY[1, 3], ARRAY[1, NULL]))", "false");
+        assertEvaluatedEquals("map(ARRAY[1, 2], ARRAY[1, NULL]) IN (map(ARRAY[1, 2], ARRAY[2, NULL]))", "false");
+        assertEvaluatedEquals("map(ARRAY[1, 2], ARRAY[1, NULL]) IN (map(ARRAY[1, 2], ARRAY[1, NULL]), map(ARRAY[1, 2], ARRAY[2, NULL]))", "NULL");
+        assertEvaluatedEquals("map(ARRAY[1, 2], ARRAY[1, NULL]) IN (map(ARRAY[1, 2], ARRAY[1, NULL]), map(ARRAY[1, 2], ARRAY[2, NULL]), map(ARRAY[1, 2], ARRAY[1, NULL]))", "NULL");
     }
 
     @Test
@@ -518,7 +521,6 @@ public class TestExpressionInterpreter
 
     @Test
     public void testCurrentUser()
-            throws Exception
     {
         assertOptimizedEquals("current_user", "'" + TEST_SESSION.getUser() + "'");
     }
@@ -527,247 +529,247 @@ public class TestExpressionInterpreter
     public void testCastToString()
     {
         // integer
-        assertOptimizedEquals("cast(123 as VARCHAR(20))", "'123'");
-        assertOptimizedEquals("cast(-123 as VARCHAR(20))", "'-123'");
+        assertOptimizedEquals("CAST(123 AS varchar(20))", "'123'");
+        assertOptimizedEquals("CAST(-123 AS varchar(20))", "'-123'");
 
         // bigint
-        assertOptimizedEquals("cast(BIGINT '123' as VARCHAR)", "'123'");
-        assertOptimizedEquals("cast(12300000000 as VARCHAR)", "'12300000000'");
-        assertOptimizedEquals("cast(-12300000000 as VARCHAR)", "'-12300000000'");
+        assertOptimizedEquals("CAST(BIGINT '123' AS varchar)", "'123'");
+        assertOptimizedEquals("CAST(12300000000 AS varchar)", "'12300000000'");
+        assertOptimizedEquals("CAST(-12300000000 AS varchar)", "'-12300000000'");
 
         // double
-        assertOptimizedEquals("cast(123.0E0 as VARCHAR)", "'123.0'");
-        assertOptimizedEquals("cast(-123.0E0 as VARCHAR)", "'-123.0'");
-        assertOptimizedEquals("cast(123.456E0 as VARCHAR)", "'123.456'");
-        assertOptimizedEquals("cast(-123.456E0 as VARCHAR)", "'-123.456'");
+        assertOptimizedEquals("CAST(123.0E0 AS varchar)", "'123.0'");
+        assertOptimizedEquals("CAST(-123.0E0 AS varchar)", "'-123.0'");
+        assertOptimizedEquals("CAST(123.456E0 AS varchar)", "'123.456'");
+        assertOptimizedEquals("CAST(-123.456E0 AS varchar)", "'-123.456'");
 
         // boolean
-        assertOptimizedEquals("cast(true as VARCHAR)", "'true'");
-        assertOptimizedEquals("cast(false as VARCHAR)", "'false'");
+        assertOptimizedEquals("CAST(true AS varchar)", "'true'");
+        assertOptimizedEquals("CAST(false AS varchar)", "'false'");
 
         // string
-        assertOptimizedEquals("cast('xyz' as VARCHAR)", "'xyz'");
+        assertOptimizedEquals("CAST('xyz' AS varchar)", "'xyz'");
 
-        // null
-        assertOptimizedEquals("cast(null as VARCHAR)", "null");
+        // NULL
+        assertOptimizedEquals("CAST(NULL AS varchar)", "NULL");
 
         // decimal
-        assertOptimizedEquals("cast(1.1 as VARCHAR)", "'1.1'");
-        // TODO enabled when DECIMAL is default for literal: assertOptimizedEquals("cast(12345678901234567890.123 as VARCHAR)", "'12345678901234567890.123'");
+        assertOptimizedEquals("CAST(1.1 AS varchar)", "'1.1'");
+        // TODO enabled when DECIMAL is default for literal: assertOptimizedEquals("CAST(12345678901234567890.123 AS varchar)", "'12345678901234567890.123'");
     }
 
     @Test
     public void testCastToBoolean()
     {
         // integer
-        assertOptimizedEquals("cast(123 as BOOLEAN)", "true");
-        assertOptimizedEquals("cast(-123 as BOOLEAN)", "true");
-        assertOptimizedEquals("cast(0 as BOOLEAN)", "false");
+        assertOptimizedEquals("CAST(123 AS boolean)", "true");
+        assertOptimizedEquals("CAST(-123 AS boolean)", "true");
+        assertOptimizedEquals("CAST(0 AS boolean)", "false");
 
         // bigint
-        assertOptimizedEquals("cast(12300000000 as BOOLEAN)", "true");
-        assertOptimizedEquals("cast(-12300000000 as BOOLEAN)", "true");
-        assertOptimizedEquals("cast(BIGINT '0' as BOOLEAN)", "false");
+        assertOptimizedEquals("CAST(12300000000 AS boolean)", "true");
+        assertOptimizedEquals("CAST(-12300000000 AS boolean)", "true");
+        assertOptimizedEquals("CAST(BIGINT '0' AS boolean)", "false");
 
         // boolean
-        assertOptimizedEquals("cast(true as BOOLEAN)", "true");
-        assertOptimizedEquals("cast(false as BOOLEAN)", "false");
+        assertOptimizedEquals("CAST(true AS boolean)", "true");
+        assertOptimizedEquals("CAST(false AS boolean)", "false");
 
         // string
-        assertOptimizedEquals("cast('true' as BOOLEAN)", "true");
-        assertOptimizedEquals("cast('false' as BOOLEAN)", "false");
-        assertOptimizedEquals("cast('t' as BOOLEAN)", "true");
-        assertOptimizedEquals("cast('f' as BOOLEAN)", "false");
-        assertOptimizedEquals("cast('1' as BOOLEAN)", "true");
-        assertOptimizedEquals("cast('0' as BOOLEAN)", "false");
+        assertOptimizedEquals("CAST('true' AS boolean)", "true");
+        assertOptimizedEquals("CAST('false' AS boolean)", "false");
+        assertOptimizedEquals("CAST('t' AS boolean)", "true");
+        assertOptimizedEquals("CAST('f' AS boolean)", "false");
+        assertOptimizedEquals("CAST('1' AS boolean)", "true");
+        assertOptimizedEquals("CAST('0' AS boolean)", "false");
 
-        // null
-        assertOptimizedEquals("cast(null as BOOLEAN)", "null");
+        // NULL
+        assertOptimizedEquals("CAST(NULL AS boolean)", "NULL");
 
         // double
-        assertOptimizedEquals("cast(123.45E0 as BOOLEAN)", "true");
-        assertOptimizedEquals("cast(-123.45E0 as BOOLEAN)", "true");
-        assertOptimizedEquals("cast(0.0E0 as BOOLEAN)", "false");
+        assertOptimizedEquals("CAST(123.45E0 AS boolean)", "true");
+        assertOptimizedEquals("CAST(-123.45E0 AS boolean)", "true");
+        assertOptimizedEquals("CAST(0.0E0 AS boolean)", "false");
 
         // decimal
-        assertOptimizedEquals("cast(0.00 as BOOLEAN)", "false");
-        assertOptimizedEquals("cast(7.8 as BOOLEAN)", "true");
-        assertOptimizedEquals("cast(12345678901234567890.123 as BOOLEAN)", "true");
-        assertOptimizedEquals("cast(00000000000000000000.000 as BOOLEAN)", "false");
+        assertOptimizedEquals("CAST(0.00 AS boolean)", "false");
+        assertOptimizedEquals("CAST(7.8 AS boolean)", "true");
+        assertOptimizedEquals("CAST(12345678901234567890.123 AS boolean)", "true");
+        assertOptimizedEquals("CAST(00000000000000000000.000 AS boolean)", "false");
     }
 
     @Test
     public void testCastToBigint()
     {
         // integer
-        assertOptimizedEquals("cast(0 as BIGINT)", "0");
-        assertOptimizedEquals("cast(123 as BIGINT)", "123");
-        assertOptimizedEquals("cast(-123 as BIGINT)", "-123");
+        assertOptimizedEquals("CAST(0 AS bigint)", "0");
+        assertOptimizedEquals("CAST(123 AS bigint)", "123");
+        assertOptimizedEquals("CAST(-123 AS bigint)", "-123");
 
         // bigint
-        assertOptimizedEquals("cast(BIGINT '0' as BIGINT)", "0");
-        assertOptimizedEquals("cast(BIGINT '123' as BIGINT)", "123");
-        assertOptimizedEquals("cast(BIGINT '-123' as BIGINT)", "-123");
+        assertOptimizedEquals("CAST(BIGINT '0' AS bigint)", "0");
+        assertOptimizedEquals("CAST(BIGINT '123' AS bigint)", "123");
+        assertOptimizedEquals("CAST(BIGINT '-123' AS bigint)", "-123");
 
         // double
-        assertOptimizedEquals("cast(123.0E0 as BIGINT)", "123");
-        assertOptimizedEquals("cast(-123.0E0 as BIGINT)", "-123");
-        assertOptimizedEquals("cast(123.456E0 as BIGINT)", "123");
-        assertOptimizedEquals("cast(-123.456E0 as BIGINT)", "-123");
+        assertOptimizedEquals("CAST(123.0E0 AS bigint)", "123");
+        assertOptimizedEquals("CAST(-123.0E0 AS bigint)", "-123");
+        assertOptimizedEquals("CAST(123.456E0 AS bigint)", "123");
+        assertOptimizedEquals("CAST(-123.456E0 AS bigint)", "-123");
 
         // boolean
-        assertOptimizedEquals("cast(true as BIGINT)", "1");
-        assertOptimizedEquals("cast(false as BIGINT)", "0");
+        assertOptimizedEquals("CAST(true AS bigint)", "1");
+        assertOptimizedEquals("CAST(false AS bigint)", "0");
 
         // string
-        assertOptimizedEquals("cast('123' as BIGINT)", "123");
-        assertOptimizedEquals("cast('-123' as BIGINT)", "-123");
+        assertOptimizedEquals("CAST('123' AS bigint)", "123");
+        assertOptimizedEquals("CAST('-123' AS bigint)", "-123");
 
-        // null
-        assertOptimizedEquals("cast(null as BIGINT)", "null");
+        // NULL
+        assertOptimizedEquals("CAST(NULL AS bigint)", "NULL");
 
         // decimal
-        assertOptimizedEquals("cast(DECIMAL '1.01' as BIGINT)", "1");
-        assertOptimizedEquals("cast(DECIMAL '7.8' as BIGINT)", "8");
-        assertOptimizedEquals("cast(DECIMAL '1234567890.123' as BIGINT)", "1234567890");
-        assertOptimizedEquals("cast(DECIMAL '00000000000000000000.000' as BIGINT)", "0");
+        assertOptimizedEquals("CAST(DECIMAL '1.01' AS bigint)", "1");
+        assertOptimizedEquals("CAST(DECIMAL '7.8' AS bigint)", "8");
+        assertOptimizedEquals("CAST(DECIMAL '1234567890.123' AS bigint)", "1234567890");
+        assertOptimizedEquals("CAST(DECIMAL '00000000000000000000.000' AS bigint)", "0");
     }
 
     @Test
     public void testCastToInteger()
     {
         // integer
-        assertOptimizedEquals("cast(0 as INTEGER)", "0");
-        assertOptimizedEquals("cast(123 as INTEGER)", "123");
-        assertOptimizedEquals("cast(-123 as INTEGER)", "-123");
+        assertOptimizedEquals("CAST(0 AS integer)", "0");
+        assertOptimizedEquals("CAST(123 AS integer)", "123");
+        assertOptimizedEquals("CAST(-123 AS integer)", "-123");
 
         // bigint
-        assertOptimizedEquals("cast(BIGINT '0' as INTEGER)", "0");
-        assertOptimizedEquals("cast(BIGINT '123' as INTEGER)", "123");
-        assertOptimizedEquals("cast(BIGINT '-123' as INTEGER)", "-123");
+        assertOptimizedEquals("CAST(BIGINT '0' AS integer)", "0");
+        assertOptimizedEquals("CAST(BIGINT '123' AS integer)", "123");
+        assertOptimizedEquals("CAST(BIGINT '-123' AS integer)", "-123");
 
         // double
-        assertOptimizedEquals("cast(123.0E0 as INTEGER)", "123");
-        assertOptimizedEquals("cast(-123.0E0 as INTEGER)", "-123");
-        assertOptimizedEquals("cast(123.456E0 as INTEGER)", "123");
-        assertOptimizedEquals("cast(-123.456E0 as INTEGER)", "-123");
+        assertOptimizedEquals("CAST(123.0E0 AS integer)", "123");
+        assertOptimizedEquals("CAST(-123.0E0 AS integer)", "-123");
+        assertOptimizedEquals("CAST(123.456E0 AS integer)", "123");
+        assertOptimizedEquals("CAST(-123.456E0 AS integer)", "-123");
 
         // boolean
-        assertOptimizedEquals("cast(true as INTEGER)", "1");
-        assertOptimizedEquals("cast(false as INTEGER)", "0");
+        assertOptimizedEquals("CAST(true AS integer)", "1");
+        assertOptimizedEquals("CAST(false AS integer)", "0");
 
         // string
-        assertOptimizedEquals("cast('123' as INTEGER)", "123");
-        assertOptimizedEquals("cast('-123' as INTEGER)", "-123");
+        assertOptimizedEquals("CAST('123' AS integer)", "123");
+        assertOptimizedEquals("CAST('-123' AS integer)", "-123");
 
-        // null
-        assertOptimizedEquals("cast(null as INTEGER)", "null");
+        // NULL
+        assertOptimizedEquals("CAST(NULL AS integer)", "NULL");
     }
 
     @Test
     public void testCastToDouble()
     {
         // integer
-        assertOptimizedEquals("cast(0 as DOUBLE)", "0.0E0");
-        assertOptimizedEquals("cast(123 as DOUBLE)", "123.0E0");
-        assertOptimizedEquals("cast(-123 as DOUBLE)", "-123.0E0");
+        assertOptimizedEquals("CAST(0 AS double)", "0.0E0");
+        assertOptimizedEquals("CAST(123 AS double)", "123.0E0");
+        assertOptimizedEquals("CAST(-123 AS double)", "-123.0E0");
 
         // bigint
-        assertOptimizedEquals("cast(BIGINT '0' as DOUBLE)", "0.0E0");
-        assertOptimizedEquals("cast(12300000000 as DOUBLE)", "12300000000.0E0");
-        assertOptimizedEquals("cast(-12300000000 as DOUBLE)", "-12300000000.0E0");
+        assertOptimizedEquals("CAST(BIGINT '0' AS double)", "0.0E0");
+        assertOptimizedEquals("CAST(12300000000 AS double)", "12300000000.0E0");
+        assertOptimizedEquals("CAST(-12300000000 AS double)", "-12300000000.0E0");
 
         // double
-        assertOptimizedEquals("cast(123.0E0 as DOUBLE)", "123.0E0");
-        assertOptimizedEquals("cast(-123.0E0 as DOUBLE)", "-123.0E0");
-        assertOptimizedEquals("cast(123.456E0 as DOUBLE)", "123.456E0");
-        assertOptimizedEquals("cast(-123.456E0 as DOUBLE)", "-123.456E0");
+        assertOptimizedEquals("CAST(123.0E0 AS double)", "123.0E0");
+        assertOptimizedEquals("CAST(-123.0E0 AS double)", "-123.0E0");
+        assertOptimizedEquals("CAST(123.456E0 AS double)", "123.456E0");
+        assertOptimizedEquals("CAST(-123.456E0 AS double)", "-123.456E0");
 
         // string
-        assertOptimizedEquals("cast('0' as DOUBLE)", "0.0E0");
-        assertOptimizedEquals("cast('123' as DOUBLE)", "123.0E0");
-        assertOptimizedEquals("cast('-123' as DOUBLE)", "-123.0E0");
-        assertOptimizedEquals("cast('123.0E0' as DOUBLE)", "123.0E0");
-        assertOptimizedEquals("cast('-123.0E0' as DOUBLE)", "-123.0E0");
-        assertOptimizedEquals("cast('123.456E0' as DOUBLE)", "123.456E0");
-        assertOptimizedEquals("cast('-123.456E0' as DOUBLE)", "-123.456E0");
+        assertOptimizedEquals("CAST('0' AS double)", "0.0E0");
+        assertOptimizedEquals("CAST('123' AS double)", "123.0E0");
+        assertOptimizedEquals("CAST('-123' AS double)", "-123.0E0");
+        assertOptimizedEquals("CAST('123.0E0' AS double)", "123.0E0");
+        assertOptimizedEquals("CAST('-123.0E0' AS double)", "-123.0E0");
+        assertOptimizedEquals("CAST('123.456E0' AS double)", "123.456E0");
+        assertOptimizedEquals("CAST('-123.456E0' AS double)", "-123.456E0");
 
-        // null
-        assertOptimizedEquals("cast(null as DOUBLE)", "null");
+        // NULL
+        assertOptimizedEquals("CAST(NULL AS double)", "NULL");
 
         // boolean
-        assertOptimizedEquals("cast(true as DOUBLE)", "1.0E0");
-        assertOptimizedEquals("cast(false as DOUBLE)", "0.0E0");
+        assertOptimizedEquals("CAST(true AS double)", "1.0E0");
+        assertOptimizedEquals("CAST(false AS double)", "0.0E0");
 
         // decimal
-        assertOptimizedEquals("cast(1.01 as DOUBLE)", "DOUBLE '1.01'");
-        assertOptimizedEquals("cast(7.8 as DOUBLE)", "DOUBLE '7.8'");
-        assertOptimizedEquals("cast(1234567890.123 as DOUBLE)", "DOUBLE '1234567890.123'");
-        assertOptimizedEquals("cast(00000000000000000000.000 as DOUBLE)", "DOUBLE '0.0'");
+        assertOptimizedEquals("CAST(1.01 AS double)", "DOUBLE '1.01'");
+        assertOptimizedEquals("CAST(7.8 AS double)", "DOUBLE '7.8'");
+        assertOptimizedEquals("CAST(1234567890.123 AS double)", "DOUBLE '1234567890.123'");
+        assertOptimizedEquals("CAST(00000000000000000000.000 AS double)", "DOUBLE '0.0'");
     }
 
     @Test
     public void testCastToDecimal()
     {
         // long
-        assertOptimizedEquals("cast(0 as DECIMAL(1,0))", "DECIMAL '0'");
-        assertOptimizedEquals("cast(123 as DECIMAL(3,0))", "DECIMAL '123'");
-        assertOptimizedEquals("cast(-123 as DECIMAL(3,0))", "DECIMAL '-123'");
-        assertOptimizedEquals("cast(-123 as DECIMAL(20,10))", "cast(-123 as DECIMAL(20,10))");
+        assertOptimizedEquals("CAST(0 AS decimal(1,0))", "DECIMAL '0'");
+        assertOptimizedEquals("CAST(123 AS decimal(3,0))", "DECIMAL '123'");
+        assertOptimizedEquals("CAST(-123 AS decimal(3,0))", "DECIMAL '-123'");
+        assertOptimizedEquals("CAST(-123 AS decimal(20,10))", "CAST(-123 AS decimal(20,10))");
 
         // double
-        assertOptimizedEquals("cast(0E0 as DECIMAL(1,0))", "DECIMAL '0'");
-        assertOptimizedEquals("cast(123.2E0 as DECIMAL(4,1))", "DECIMAL '123.2'");
-        assertOptimizedEquals("cast(-123.0E0 as DECIMAL(3,0))", "DECIMAL '-123'");
-        assertOptimizedEquals("cast(-123.55E0 as DECIMAL(20,10))", "cast(-123.55 as DECIMAL(20,10))");
+        assertOptimizedEquals("CAST(0E0 AS decimal(1,0))", "DECIMAL '0'");
+        assertOptimizedEquals("CAST(123.2E0 AS decimal(4,1))", "DECIMAL '123.2'");
+        assertOptimizedEquals("CAST(-123.0E0 AS decimal(3,0))", "DECIMAL '-123'");
+        assertOptimizedEquals("CAST(-123.55E0 AS decimal(20,10))", "CAST(-123.55 AS decimal(20,10))");
 
         // string
-        assertOptimizedEquals("cast('0' as DECIMAL(1,0))", "DECIMAL '0'");
-        assertOptimizedEquals("cast('123.2' as DECIMAL(4,1))", "DECIMAL '123.2'");
-        assertOptimizedEquals("cast('-123.0' as DECIMAL(3,0))", "DECIMAL '-123'");
-        assertOptimizedEquals("cast('-123.55' as DECIMAL(20,10))", "cast(-123.55 as DECIMAL(20,10))");
+        assertOptimizedEquals("CAST('0' AS decimal(1,0))", "DECIMAL '0'");
+        assertOptimizedEquals("CAST('123.2' AS decimal(4,1))", "DECIMAL '123.2'");
+        assertOptimizedEquals("CAST('-123.0' AS decimal(3,0))", "DECIMAL '-123'");
+        assertOptimizedEquals("CAST('-123.55' AS decimal(20,10))", "CAST(-123.55 AS decimal(20,10))");
 
-        // null
-        assertOptimizedEquals("cast(null as DECIMAL(1,0))", "null");
-        assertOptimizedEquals("cast(null as DECIMAL(20,10))", "null");
+        // NULL
+        assertOptimizedEquals("CAST(NULL AS decimal(1,0))", "NULL");
+        assertOptimizedEquals("CAST(NULL AS decimal(20,10))", "NULL");
 
         // boolean
-        assertOptimizedEquals("cast(true as DECIMAL(1,0))", "DECIMAL '1'");
-        assertOptimizedEquals("cast(false as DECIMAL(4,1))", "DECIMAL '000.0'");
-        assertOptimizedEquals("cast(true as DECIMAL(3,0))", "DECIMAL '001'");
-        assertOptimizedEquals("cast(false as DECIMAL(20,10))", "cast(0 as DECIMAL(20,10))");
+        assertOptimizedEquals("CAST(true AS decimal(1,0))", "DECIMAL '1'");
+        assertOptimizedEquals("CAST(false AS decimal(4,1))", "DECIMAL '000.0'");
+        assertOptimizedEquals("CAST(true AS decimal(3,0))", "DECIMAL '001'");
+        assertOptimizedEquals("CAST(false AS decimal(20,10))", "CAST(0 AS decimal(20,10))");
 
         // decimal
-        assertOptimizedEquals("cast(0.0 as DECIMAL(1,0))", "DECIMAL '0'");
-        assertOptimizedEquals("cast(123.2 as DECIMAL(4,1))", "DECIMAL '123.2'");
-        assertOptimizedEquals("cast(-123.0 as DECIMAL(3,0))", "DECIMAL '-123'");
-        assertOptimizedEquals("cast(-123.55 as DECIMAL(20,10))", "cast(-123.55 as DECIMAL(20,10))");
+        assertOptimizedEquals("CAST(0.0 AS decimal(1,0))", "DECIMAL '0'");
+        assertOptimizedEquals("CAST(123.2 AS decimal(4,1))", "DECIMAL '123.2'");
+        assertOptimizedEquals("CAST(-123.0 AS decimal(3,0))", "DECIMAL '-123'");
+        assertOptimizedEquals("CAST(-123.55 AS decimal(20,10))", "CAST(-123.55 AS decimal(20,10))");
     }
 
     @Test
     public void testCastOptimization()
     {
-        assertOptimizedEquals("cast(bound_integer as VARCHAR)", "'1234'");
-        assertOptimizedEquals("cast(bound_long as VARCHAR)", "'1234'");
-        assertOptimizedEquals("cast(bound_integer + 1 as VARCHAR)", "'1235'");
-        assertOptimizedEquals("cast(bound_long + 1 as VARCHAR)", "'1235'");
-        assertOptimizedEquals("cast(unbound_string as VARCHAR)", "cast(unbound_string as VARCHAR)");
-        assertOptimizedMatches("cast(unbound_string as VARCHAR)", "unbound_string");
-        assertOptimizedMatches("cast(unbound_integer as INTEGER)", "unbound_integer");
-        assertOptimizedMatches("cast(unbound_string as VARCHAR(10))", "cast(unbound_string as VARCHAR(10))");
+        assertOptimizedEquals("CAST(bound_integer AS varchar)", "'1234'");
+        assertOptimizedEquals("CAST(bound_long AS varchar)", "'1234'");
+        assertOptimizedEquals("CAST(bound_integer + 1 AS varchar)", "'1235'");
+        assertOptimizedEquals("CAST(bound_long + 1 AS varchar)", "'1235'");
+        assertOptimizedEquals("CAST(unbound_string AS varchar)", "CAST(unbound_string AS varchar)");
+        assertOptimizedMatches("CAST(unbound_string AS varchar)", "unbound_string");
+        assertOptimizedMatches("CAST(unbound_integer AS integer)", "unbound_integer");
+        assertOptimizedMatches("CAST(unbound_string AS varchar(10))", "CAST(unbound_string AS varchar(10))");
     }
 
     @Test
     public void testTryCast()
     {
-        assertOptimizedEquals("try_cast(null as BIGINT)", "null");
-        assertOptimizedEquals("try_cast(123 as BIGINT)", "123");
-        assertOptimizedEquals("try_cast(null as INTEGER)", "null");
-        assertOptimizedEquals("try_cast(123 as INTEGER)", "123");
-        assertOptimizedEquals("try_cast('foo' as VARCHAR)", "'foo'");
-        assertOptimizedEquals("try_cast('foo' as BIGINT)", "null");
-        assertOptimizedEquals("try_cast(unbound_string as BIGINT)", "try_cast(unbound_string as BIGINT)");
-        assertOptimizedEquals("try_cast('foo' as DECIMAL(2,1))", "null");
+        assertOptimizedEquals("TRY_CAST(NULL AS bigint)", "NULL");
+        assertOptimizedEquals("TRY_CAST(123 AS bigint)", "123");
+        assertOptimizedEquals("TRY_CAST(NULL AS integer)", "NULL");
+        assertOptimizedEquals("TRY_CAST(123 AS integer)", "123");
+        assertOptimizedEquals("TRY_CAST('foo' AS varchar)", "'foo'");
+        assertOptimizedEquals("TRY_CAST('foo' AS bigint)", "NULL");
+        assertOptimizedEquals("TRY_CAST(unbound_string AS bigint)", "TRY_CAST(unbound_string AS bigint)");
+        assertOptimizedEquals("TRY_CAST('foo' AS decimal(2,1))", "NULL");
     }
 
     @Test
@@ -779,367 +781,367 @@ public class TestExpressionInterpreter
     @Test
     public void testSearchCase()
     {
-        assertOptimizedEquals("case " +
-                        "when true then 33 " +
-                        "end",
+        assertOptimizedEquals("CASE " +
+                        "WHEN true THEN 33 " +
+                        "END",
                 "33");
-        assertOptimizedEquals("case " +
-                        "when false then 1 " +
-                        "else 33 " +
-                        "end",
-                "33");
-
-        assertOptimizedEquals("case " +
-                        "when false then 10000000000 " +
-                        "else 33 " +
-                        "end",
+        assertOptimizedEquals("CASE " +
+                        "WHEN false THEN 1 " +
+                        "ELSE 33 " +
+                        "END",
                 "33");
 
-        assertOptimizedEquals("case " +
-                        "when bound_long = 1234 then 33 " +
-                        "end",
+        assertOptimizedEquals("CASE " +
+                        "WHEN false THEN 10000000000 " +
+                        "ELSE 33 " +
+                        "END",
                 "33");
-        assertOptimizedEquals("case " +
-                        "when true then bound_long " +
-                        "end",
+
+        assertOptimizedEquals("CASE " +
+                        "WHEN bound_long = 1234 THEN 33 " +
+                        "END",
+                "33");
+        assertOptimizedEquals("CASE " +
+                        "WHEN true THEN bound_long " +
+                        "END",
                 "1234");
-        assertOptimizedEquals("case " +
-                        "when false then 1 " +
-                        "else bound_long " +
-                        "end",
+        assertOptimizedEquals("CASE " +
+                        "WHEN false THEN 1 " +
+                        "ELSE bound_long " +
+                        "END",
                 "1234");
 
-        assertOptimizedEquals("case " +
-                        "when bound_integer = 1234 then 33 " +
-                        "end",
+        assertOptimizedEquals("CASE " +
+                        "WHEN bound_integer = 1234 THEN 33 " +
+                        "END",
                 "33");
-        assertOptimizedEquals("case " +
-                        "when true then bound_integer " +
-                        "end",
+        assertOptimizedEquals("CASE " +
+                        "WHEN true THEN bound_integer " +
+                        "END",
                 "1234");
-        assertOptimizedEquals("case " +
-                        "when false then 1 " +
-                        "else bound_integer " +
-                        "end",
+        assertOptimizedEquals("CASE " +
+                        "WHEN false THEN 1 " +
+                        "ELSE bound_integer " +
+                        "END",
                 "1234");
 
-        assertOptimizedEquals("case " +
-                        "when bound_long = 1234 then 33 " +
-                        "else unbound_long " +
-                        "end",
+        assertOptimizedEquals("CASE " +
+                        "WHEN bound_long = 1234 THEN 33 " +
+                        "ELSE unbound_long " +
+                        "END",
                 "33");
-        assertOptimizedEquals("case " +
-                        "when true then bound_long " +
-                        "else unbound_long " +
-                        "end",
+        assertOptimizedEquals("CASE " +
+                        "WHEN true THEN bound_long " +
+                        "ELSE unbound_long " +
+                        "END",
                 "1234");
-        assertOptimizedEquals("case " +
-                        "when false then unbound_long " +
-                        "else bound_long " +
-                        "end",
+        assertOptimizedEquals("CASE " +
+                        "WHEN false THEN unbound_long " +
+                        "ELSE bound_long " +
+                        "END",
                 "1234");
 
-        assertOptimizedEquals("case " +
-                        "when bound_integer = 1234 then 33 " +
-                        "else unbound_integer " +
-                        "end",
+        assertOptimizedEquals("CASE " +
+                        "WHEN bound_integer = 1234 THEN 33 " +
+                        "ELSE unbound_integer " +
+                        "END",
                 "33");
-        assertOptimizedEquals("case " +
-                        "when true then bound_integer " +
-                        "else unbound_integer " +
-                        "end",
+        assertOptimizedEquals("CASE " +
+                        "WHEN true THEN bound_integer " +
+                        "ELSE unbound_integer " +
+                        "END",
                 "1234");
-        assertOptimizedEquals("case " +
-                        "when false then unbound_integer " +
-                        "else bound_integer " +
-                        "end",
+        assertOptimizedEquals("CASE " +
+                        "WHEN false THEN unbound_integer " +
+                        "ELSE bound_integer " +
+                        "END",
                 "1234");
 
-        assertOptimizedEquals("case " +
-                        "when unbound_long = 1234 then 33 " +
-                        "else 1 " +
-                        "end",
+        assertOptimizedEquals("CASE " +
+                        "WHEN unbound_long = 1234 THEN 33 " +
+                        "ELSE 1 " +
+                        "END",
                 "" +
-                        "case " +
-                        "when unbound_long = 1234 then 33 " +
-                        "else 1 " +
-                        "end");
+                        "CASE " +
+                        "WHEN unbound_long = 1234 THEN 33 " +
+                        "ELSE 1 " +
+                        "END");
 
-        assertOptimizedMatches("case when 0 / 0 = 0 then 1 end",
-                "case when cast(fail('fail') as boolean) then 1 end");
+        assertOptimizedMatches("CASE WHEN 0 / 0 = 0 THEN 1 END",
+                "CASE WHEN CAST(fail('fail') AS boolean) THEN 1 END");
 
-        assertOptimizedMatches("if(false, 1, 0 / 0)", "cast(fail('fail') as integer)");
+        assertOptimizedMatches("IF(false, 1, 0 / 0)", "CAST(fail('fail') AS integer)");
 
-        assertOptimizedEquals("case " +
-                        "when false then 2.2 " +
-                        "when true then 2.2 " +
-                        "end",
+        assertOptimizedEquals("CASE " +
+                        "WHEN false THEN 2.2 " +
+                        "WHEN true THEN 2.2 " +
+                        "END",
                 "2.2");
 
-        assertOptimizedEquals("case " +
-                        "when false then 1234567890.0987654321 " +
-                        "when true then 3.3 " +
-                        "end",
-                "CAST(3.3 AS DECIMAL(20,10))");
+        assertOptimizedEquals("CASE " +
+                        "WHEN false THEN 1234567890.0987654321 " +
+                        "WHEN true THEN 3.3 " +
+                        "END",
+                "CAST(3.3 AS decimal(20,10))");
 
-        assertOptimizedEquals("case " +
-                        "when false then 1 " +
-                        "when true then 2.2 " +
-                        "end",
+        assertOptimizedEquals("CASE " +
+                        "WHEN false THEN 1 " +
+                        "WHEN true THEN 2.2 " +
+                        "END",
                 "2.2");
 
-        assertOptimizedEquals("case when ARRAY[CAST(1 AS BIGINT)] = ARRAY[CAST(1 AS BIGINT)] then 'matched' else 'not_matched' end", "'matched'");
-        assertOptimizedEquals("case when ARRAY[CAST(2 AS BIGINT)] = ARRAY[CAST(1 AS BIGINT)] then 'matched' else 'not_matched' end", "'not_matched'");
-        assertOptimizedEquals("case when ARRAY[CAST(null AS BIGINT)] = ARRAY[CAST(1 AS BIGINT)] then 'matched' else 'not_matched' end", "'not_matched'");
+        assertOptimizedEquals("CASE WHEN ARRAY[CAST(1 AS bigint)] = ARRAY[CAST(1 AS bigint)] THEN 'matched' ELSE 'not_matched' END", "'matched'");
+        assertOptimizedEquals("CASE WHEN ARRAY[CAST(2 AS bigint)] = ARRAY[CAST(1 AS bigint)] THEN 'matched' ELSE 'not_matched' END", "'not_matched'");
+        assertOptimizedEquals("CASE WHEN ARRAY[CAST(NULL AS bigint)] = ARRAY[CAST(1 AS bigint)] THEN 'matched' ELSE 'not_matched' END", "'not_matched'");
     }
 
     @Test
     public void testSimpleCase()
     {
-        assertOptimizedEquals("case 1 " +
-                        "when 1 then 32 + 1 " +
-                        "when 1 then 34 " +
-                        "end",
+        assertOptimizedEquals("CASE 1 " +
+                        "WHEN 1 THEN 32 + 1 " +
+                        "WHEN 1 THEN 34 " +
+                        "END",
                 "33");
 
-        assertOptimizedEquals("case null " +
-                        "when true then 33 " +
-                        "end",
-                "null");
-        assertOptimizedEquals("case null " +
-                        "when true then 33 " +
-                        "else 33 " +
-                        "end",
+        assertOptimizedEquals("CASE NULL " +
+                        "WHEN true THEN 33 " +
+                        "END",
+                "NULL");
+        assertOptimizedEquals("CASE NULL " +
+                        "WHEN true THEN 33 " +
+                        "ELSE 33 " +
+                        "END",
                 "33");
-        assertOptimizedEquals("case 33 " +
-                        "when null then 1 " +
-                        "else 33 " +
-                        "end",
+        assertOptimizedEquals("CASE 33 " +
+                        "WHEN NULL THEN 1 " +
+                        "ELSE 33 " +
+                        "END",
                 "33");
 
-        assertOptimizedEquals("case null " +
-                        "when true then 3300000000 " +
-                        "end",
-                "null");
-        assertOptimizedEquals("case null " +
-                        "when true then 3300000000 " +
-                        "else 3300000000 " +
-                        "end",
+        assertOptimizedEquals("CASE NULL " +
+                        "WHEN true THEN 3300000000 " +
+                        "END",
+                "NULL");
+        assertOptimizedEquals("CASE NULL " +
+                        "WHEN true THEN 3300000000 " +
+                        "ELSE 3300000000 " +
+                        "END",
                 "3300000000");
-        assertOptimizedEquals("case 33 " +
-                        "when null then 3300000000 " +
-                        "else 33 " +
-                        "end",
+        assertOptimizedEquals("CASE 33 " +
+                        "WHEN NULL THEN 3300000000 " +
+                        "ELSE 33 " +
+                        "END",
                 "33");
 
-        assertOptimizedEquals("case true " +
-                        "when true then 33 " +
-                        "end",
+        assertOptimizedEquals("CASE true " +
+                        "WHEN true THEN 33 " +
+                        "END",
                 "33");
-        assertOptimizedEquals("case true " +
-                        "when false then 1 " +
-                        "else 33 end",
+        assertOptimizedEquals("CASE true " +
+                        "WHEN false THEN 1 " +
+                        "ELSE 33 END",
                 "33");
 
-        assertOptimizedEquals("case bound_long " +
-                        "when 1234 then 33 " +
-                        "end",
+        assertOptimizedEquals("CASE bound_long " +
+                        "WHEN 1234 THEN 33 " +
+                        "END",
                 "33");
-        assertOptimizedEquals("case 1234 " +
-                        "when bound_long then 33 " +
-                        "end",
+        assertOptimizedEquals("CASE 1234 " +
+                        "WHEN bound_long THEN 33 " +
+                        "END",
                 "33");
-        assertOptimizedEquals("case true " +
-                        "when true then bound_long " +
-                        "end",
+        assertOptimizedEquals("CASE true " +
+                        "WHEN true THEN bound_long " +
+                        "END",
                 "1234");
-        assertOptimizedEquals("case true " +
-                        "when false then 1 " +
-                        "else bound_long " +
-                        "end",
+        assertOptimizedEquals("CASE true " +
+                        "WHEN false THEN 1 " +
+                        "ELSE bound_long " +
+                        "END",
                 "1234");
 
-        assertOptimizedEquals("case bound_integer " +
-                        "when 1234 then 33 " +
-                        "end",
+        assertOptimizedEquals("CASE bound_integer " +
+                        "WHEN 1234 THEN 33 " +
+                        "END",
                 "33");
-        assertOptimizedEquals("case 1234 " +
-                        "when bound_integer then 33 " +
-                        "end",
+        assertOptimizedEquals("CASE 1234 " +
+                        "WHEN bound_integer THEN 33 " +
+                        "END",
                 "33");
-        assertOptimizedEquals("case true " +
-                        "when true then bound_integer " +
-                        "end",
+        assertOptimizedEquals("CASE true " +
+                        "WHEN true THEN bound_integer " +
+                        "END",
                 "1234");
-        assertOptimizedEquals("case true " +
-                        "when false then 1 " +
-                        "else bound_integer " +
-                        "end",
+        assertOptimizedEquals("CASE true " +
+                        "WHEN false THEN 1 " +
+                        "ELSE bound_integer " +
+                        "END",
                 "1234");
 
-        assertOptimizedEquals("case bound_long " +
-                        "when 1234 then 33 " +
-                        "else unbound_long " +
-                        "end",
+        assertOptimizedEquals("CASE bound_long " +
+                        "WHEN 1234 THEN 33 " +
+                        "ELSE unbound_long " +
+                        "END",
                 "33");
-        assertOptimizedEquals("case true " +
-                        "when true then bound_long " +
-                        "else unbound_long " +
-                        "end",
+        assertOptimizedEquals("CASE true " +
+                        "WHEN true THEN bound_long " +
+                        "ELSE unbound_long " +
+                        "END",
                 "1234");
-        assertOptimizedEquals("case true " +
-                        "when false then unbound_long " +
-                        "else bound_long " +
-                        "end",
+        assertOptimizedEquals("CASE true " +
+                        "WHEN false THEN unbound_long " +
+                        "ELSE bound_long " +
+                        "END",
                 "1234");
 
-        assertOptimizedEquals("case unbound_long " +
-                        "when 1234 then 33 " +
-                        "else 1 " +
-                        "end",
+        assertOptimizedEquals("CASE unbound_long " +
+                        "WHEN 1234 THEN 33 " +
+                        "ELSE 1 " +
+                        "END",
                 "" +
-                        "case unbound_long " +
-                        "when 1234 then 33 " +
-                        "else 1 " +
-                        "end");
+                        "CASE unbound_long " +
+                        "WHEN 1234 THEN 33 " +
+                        "ELSE 1 " +
+                        "END");
 
-        assertOptimizedEquals("case 33 " +
-                        "when 0 then 0 " +
-                        "when 33 then unbound_long " +
-                        "else 1 " +
-                        "end",
+        assertOptimizedEquals("CASE 33 " +
+                        "WHEN 0 THEN 0 " +
+                        "WHEN 33 THEN unbound_long " +
+                        "ELSE 1 " +
+                        "END",
                 "unbound_long");
-        assertOptimizedEquals("case 33 " +
-                        "when 0 then 0 " +
-                        "when 33 then 1 " +
-                        "when unbound_long then 2 " +
-                        "else 1 " +
-                        "end",
+        assertOptimizedEquals("CASE 33 " +
+                        "WHEN 0 THEN 0 " +
+                        "WHEN 33 THEN 1 " +
+                        "WHEN unbound_long THEN 2 " +
+                        "ELSE 1 " +
+                        "END",
                 "1");
-        assertOptimizedEquals("case 33 " +
-                        "when unbound_long then 0 " +
-                        "when 1 then 1 " +
-                        "when 33 then 2 " +
-                        "else 0 " +
-                        "end",
-                "case 33 " +
-                        "when unbound_long then 0 " +
-                        "else 2 " +
-                        "end");
-        assertOptimizedEquals("case 33 " +
-                        "when 0 then 0 " +
-                        "when 1 then 1 " +
-                        "else unbound_long " +
-                        "end",
+        assertOptimizedEquals("CASE 33 " +
+                        "WHEN unbound_long THEN 0 " +
+                        "WHEN 1 THEN 1 " +
+                        "WHEN 33 THEN 2 " +
+                        "ELSE 0 " +
+                        "END",
+                "CASE 33 " +
+                        "WHEN unbound_long THEN 0 " +
+                        "ELSE 2 " +
+                        "END");
+        assertOptimizedEquals("CASE 33 " +
+                        "WHEN 0 THEN 0 " +
+                        "WHEN 1 THEN 1 " +
+                        "ELSE unbound_long " +
+                        "END",
                 "unbound_long");
-        assertOptimizedEquals("case 33 " +
-                        "when unbound_long then 0 " +
-                        "when 1 then 1 " +
-                        "when unbound_long2 then 2 " +
-                        "else 3 " +
-                        "end",
-                "case 33 " +
-                        "when unbound_long then 0 " +
-                        "when unbound_long2 then 2 " +
-                        "else 3 " +
-                        "end");
+        assertOptimizedEquals("CASE 33 " +
+                        "WHEN unbound_long THEN 0 " +
+                        "WHEN 1 THEN 1 " +
+                        "WHEN unbound_long2 THEN 2 " +
+                        "ELSE 3 " +
+                        "END",
+                "CASE 33 " +
+                        "WHEN unbound_long THEN 0 " +
+                        "WHEN unbound_long2 THEN 2 " +
+                        "ELSE 3 " +
+                        "END");
 
-        assertOptimizedEquals("case true " +
-                        "when unbound_long = 1 then 1 " +
-                        "when 0 / 0 = 0 then 2 " +
-                        "else 33 end",
+        assertOptimizedEquals("CASE true " +
+                        "WHEN unbound_long = 1 THEN 1 " +
+                        "WHEN 0 / 0 = 0 THEN 2 " +
+                        "ELSE 33 END",
                 "" +
-                        "case true " +
-                        "when unbound_long = 1 then 1 " +
-                        "when 0 / 0 = 0 then 2 else 33 " +
-                        "end");
+                        "CASE true " +
+                        "WHEN unbound_long = 1 THEN 1 " +
+                        "WHEN 0 / 0 = 0 THEN 2 ELSE 33 " +
+                        "END");
 
-        assertOptimizedEquals("case bound_long " +
-                        "when unbound_long + 123 * 10  then 1 = 1 " +
-                        "else 1 = 2 " +
-                        "end",
+        assertOptimizedEquals("CASE bound_long " +
+                        "WHEN unbound_long + 123 * 10  THEN 1 = 1 " +
+                        "ELSE 1 = 2 " +
+                        "END",
                 "" +
-                        "case bound_long when unbound_long + 1230 then true " +
-                        "else false " +
-                        "end");
+                        "CASE bound_long WHEN unbound_long + 1230 THEN true " +
+                        "ELSE false " +
+                        "END");
 
-        assertOptimizedEquals("case bound_long " +
-                        "when unbound_long then 2 + 2 " +
-                        "end",
+        assertOptimizedEquals("CASE bound_long " +
+                        "WHEN unbound_long THEN 2 + 2 " +
+                        "END",
                 "" +
-                        "case bound_long " +
-                        "when unbound_long then 4 " +
-                        "end");
+                        "CASE bound_long " +
+                        "WHEN unbound_long THEN 4 " +
+                        "END");
 
-        assertOptimizedEquals("case bound_long " +
-                        "when unbound_long then 2 + 2 " +
-                        "when 1 then null " +
-                        "when 2 then null " +
-                        "end",
+        assertOptimizedEquals("CASE bound_long " +
+                        "WHEN unbound_long THEN 2 + 2 " +
+                        "WHEN 1 THEN NULL " +
+                        "WHEN 2 THEN NULL " +
+                        "END",
                 "" +
-                        "case bound_long " +
-                        "when unbound_long then 4 " +
-                        "end");
+                        "CASE bound_long " +
+                        "WHEN unbound_long THEN 4 " +
+                        "END");
 
-        assertOptimizedMatches("case 1 " +
-                        "when unbound_long then 1 " +
-                        "when 0 / 0 then 2 " +
-                        "else 1 " +
-                        "end",
+        assertOptimizedMatches("CASE 1 " +
+                        "WHEN unbound_long THEN 1 " +
+                        "WHEN 0 / 0 THEN 2 " +
+                        "ELSE 1 " +
+                        "END",
                 "" +
-                        "case BIGINT '1' " +
-                        "when unbound_long then 1 " +
-                        "when cast(fail('fail') AS integer) then 2 " +
-                        "else 1 " +
-                        "end");
+                        "CASE BIGINT '1' " +
+                        "WHEN unbound_long THEN 1 " +
+                        "WHEN CAST(fail('fail') AS integer) THEN 2 " +
+                        "ELSE 1 " +
+                        "END");
 
-        assertOptimizedMatches("case 1 " +
-                        "when 0 / 0 then 1 " +
-                        "when 0 / 0 then 2 " +
-                        "else 1 " +
-                        "end",
+        assertOptimizedMatches("CASE 1 " +
+                        "WHEN 0 / 0 THEN 1 " +
+                        "WHEN 0 / 0 THEN 2 " +
+                        "ELSE 1 " +
+                        "END",
                 "" +
-                        "case 1 " +
-                        "when cast(fail('fail') as integer) then 1 " +
-                        "when cast(fail('fail') as integer) then 2 " +
-                        "else 1 " +
-                        "end");
+                        "CASE 1 " +
+                        "WHEN CAST(fail('fail') AS integer) THEN 1 " +
+                        "WHEN CAST(fail('fail') AS integer) THEN 2 " +
+                        "ELSE 1 " +
+                        "END");
 
-        assertOptimizedEquals("case true " +
-                        "when false then 2.2 " +
-                        "when true then 2.2 " +
-                        "end",
+        assertOptimizedEquals("CASE true " +
+                        "WHEN false THEN 2.2 " +
+                        "WHEN true THEN 2.2 " +
+                        "END",
                 "2.2");
 
-        // TODO enabled when DECIMAL is default for literal:
-//        assertOptimizedEquals("case true " +
-//                        "when false then 1234567890.0987654321 " +
-//                        "when true then 3.3 " +
-//                        "end",
-//                "CAST(3.3 AS DECIMAL(20,10))");
+        // TODO enabled WHEN DECIMAL is default for literal:
+//        assertOptimizedEquals("CASE true " +
+//                        "WHEN false THEN 1234567890.0987654321 " +
+//                        "WHEN true THEN 3.3 " +
+//                        "END",
+//                "CAST(3.3 AS decimal(20,10))");
 
-        assertOptimizedEquals("case true " +
-                        "when false then 1 " +
-                        "when true then 2.2 " +
-                        "end",
+        assertOptimizedEquals("CASE true " +
+                        "WHEN false THEN 1 " +
+                        "WHEN true THEN 2.2 " +
+                        "END",
                 "2.2");
 
-        assertOptimizedEquals("case ARRAY[CAST(1 AS BIGINT)] when ARRAY[CAST(1 AS BIGINT)] then 'matched' else 'not_matched' end", "'matched'");
-        assertOptimizedEquals("case ARRAY[CAST(2 AS BIGINT)] when ARRAY[CAST(1 AS BIGINT)] then 'matched' else 'not_matched' end", "'not_matched'");
-        assertOptimizedEquals("case ARRAY[CAST(null AS BIGINT)] when ARRAY[CAST(1 AS BIGINT)] then 'matched' else 'not_matched' end", "'not_matched'");
+        assertOptimizedEquals("CASE ARRAY[CAST(1 AS bigint)] WHEN ARRAY[CAST(1 AS bigint)] THEN 'matched' ELSE 'not_matched' END", "'matched'");
+        assertOptimizedEquals("CASE ARRAY[CAST(2 AS bigint)] WHEN ARRAY[CAST(1 AS bigint)] THEN 'matched' ELSE 'not_matched' END", "'not_matched'");
+        assertOptimizedEquals("CASE ARRAY[CAST(NULL AS bigint)] WHEN ARRAY[CAST(1 AS bigint)] THEN 'matched' ELSE 'not_matched' END", "'not_matched'");
     }
 
     @Test
     public void testCoalesce()
     {
-        assertOptimizedEquals("coalesce(unbound_long * (2 * 3), 1 - 1, null)", "coalesce(unbound_long * 6, 0)");
-        assertOptimizedEquals("coalesce(unbound_long * (2 * 3), 1.0E0/2.0E0, null)", "coalesce(unbound_long * 6, 0.5E0)");
-        assertOptimizedEquals("coalesce(unbound_long, 2, 1.0E0/2.0E0, 12.34E0, null)", "coalesce(unbound_long, 2.0E0, 0.5E0, 12.34E0)");
-        assertOptimizedEquals("coalesce(unbound_integer * (2 * 3), 1 - 1, null)", "coalesce(6 * unbound_integer, 0)");
-        assertOptimizedEquals("coalesce(unbound_integer * (2 * 3), 1.0E0/2.0E0, null)", "coalesce(6 * unbound_integer, 0.5E0)");
-        assertOptimizedEquals("coalesce(unbound_integer, 2, 1.0E0/2.0E0, 12.34E0, null)", "coalesce(unbound_integer, 2.0E0, 0.5E0, 12.34E0)");
+        assertOptimizedEquals("coalesce(unbound_long * (2 * 3), 1 - 1, NULL)", "coalesce(unbound_long * 6, 0)");
+        assertOptimizedEquals("coalesce(unbound_long * (2 * 3), 1.0E0/2.0E0, NULL)", "coalesce(unbound_long * 6, 0.5E0)");
+        assertOptimizedEquals("coalesce(unbound_long, 2, 1.0E0/2.0E0, 12.34E0, NULL)", "coalesce(unbound_long, 2.0E0, 0.5E0, 12.34E0)");
+        assertOptimizedEquals("coalesce(unbound_integer * (2 * 3), 1 - 1, NULL)", "coalesce(6 * unbound_integer, 0)");
+        assertOptimizedEquals("coalesce(unbound_integer * (2 * 3), 1.0E0/2.0E0, NULL)", "coalesce(6 * unbound_integer, 0.5E0)");
+        assertOptimizedEquals("coalesce(unbound_integer, 2, 1.0E0/2.0E0, 12.34E0, NULL)", "coalesce(unbound_integer, 2.0E0, 0.5E0, 12.34E0)");
         assertOptimizedMatches("coalesce(0 / 0 > 1, unbound_boolean, 0 / 0 = 0)",
-                "coalesce(cast(fail('fail') as boolean), unbound_boolean)");
+                "coalesce(CAST(fail('fail') AS boolean), unbound_boolean)");
         assertOptimizedMatches("coalesce(unbound_long, unbound_long)", "unbound_long");
         assertOptimizedMatches("coalesce(2 * unbound_long, 2 * unbound_long)", "unbound_long * BIGINT '2'");
         assertOptimizedMatches("coalesce(unbound_long, unbound_long2, unbound_long)", "coalesce(unbound_long, unbound_long2)");
@@ -1164,14 +1166,14 @@ public class TestExpressionInterpreter
 
         assertOptimizedEquals("IF(true, 3, 4)", "3");
         assertOptimizedEquals("IF(false, 3, 4)", "4");
-        assertOptimizedEquals("IF(null, 3, 4)", "4");
+        assertOptimizedEquals("IF(NULL, 3, 4)", "4");
 
-        assertOptimizedEquals("IF(true, 3, null)", "3");
-        assertOptimizedEquals("IF(false, 3, null)", "null");
-        assertOptimizedEquals("IF(true, null, 4)", "null");
-        assertOptimizedEquals("IF(false, null, 4)", "4");
-        assertOptimizedEquals("IF(true, null, null)", "null");
-        assertOptimizedEquals("IF(false, null, null)", "null");
+        assertOptimizedEquals("IF(true, 3, NULL)", "3");
+        assertOptimizedEquals("IF(false, 3, NULL)", "NULL");
+        assertOptimizedEquals("IF(true, NULL, 4)", "NULL");
+        assertOptimizedEquals("IF(false, NULL, 4)", "4");
+        assertOptimizedEquals("IF(true, NULL, NULL)", "NULL");
+        assertOptimizedEquals("IF(false, NULL, NULL)", "NULL");
 
         assertOptimizedEquals("IF(true, 3.5E0, 4.2E0)", "3.5E0");
         assertOptimizedEquals("IF(false, 3.5E0, 4.2E0)", "4.2E0");
@@ -1253,9 +1255,9 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("'^' LIKE '^'", "true");
         assertOptimizedEquals("'$' LIKE '$'", "true");
 
-        assertOptimizedEquals("null LIKE '%'", "null");
-        assertOptimizedEquals("'a' LIKE null", "null");
-        assertOptimizedEquals("'a' LIKE '%' ESCAPE null", "null");
+        assertOptimizedEquals("NULL LIKE '%'", "NULL");
+        assertOptimizedEquals("'a' LIKE NULL", "NULL");
+        assertOptimizedEquals("'a' LIKE '%' ESCAPE NULL", "NULL");
 
         assertOptimizedEquals("'%' LIKE 'z%' ESCAPE 'z'", "true");
     }
@@ -1263,13 +1265,13 @@ public class TestExpressionInterpreter
     @Test
     public void testLikeOptimization()
     {
-        assertOptimizedEquals("unbound_string LIKE 'abc'", "unbound_string = CAST('abc' AS VARCHAR)");
+        assertOptimizedEquals("unbound_string LIKE 'abc'", "unbound_string = CAST('abc' AS varchar)");
 
         assertOptimizedEquals("unbound_string LIKE '' ESCAPE '#'", "unbound_string LIKE '' ESCAPE '#'");
-        assertOptimizedEquals("unbound_string LIKE 'abc' ESCAPE '#'", "unbound_string = CAST('abc' AS VARCHAR)");
-        assertOptimizedEquals("unbound_string LIKE 'a#_b' ESCAPE '#'", "unbound_string = CAST('a_b' AS VARCHAR)");
-        assertOptimizedEquals("unbound_string LIKE 'a#%b' ESCAPE '#'", "unbound_string = CAST('a%b' AS VARCHAR)");
-        assertOptimizedEquals("unbound_string LIKE 'a#_##b' ESCAPE '#'", "unbound_string = CAST('a_#b' AS VARCHAR)");
+        assertOptimizedEquals("unbound_string LIKE 'abc' ESCAPE '#'", "unbound_string = CAST('abc' AS varchar)");
+        assertOptimizedEquals("unbound_string LIKE 'a#_b' ESCAPE '#'", "unbound_string = CAST('a_b' AS varchar)");
+        assertOptimizedEquals("unbound_string LIKE 'a#%b' ESCAPE '#'", "unbound_string = CAST('a%b' AS varchar)");
+        assertOptimizedEquals("unbound_string LIKE 'a#_##b' ESCAPE '#'", "unbound_string = CAST('a_#b' AS varchar)");
         assertOptimizedEquals("unbound_string LIKE 'a#__b' ESCAPE '#'", "unbound_string LIKE 'a#__b' ESCAPE '#'");
         assertOptimizedEquals("unbound_string LIKE 'a##%b' ESCAPE '#'", "unbound_string LIKE 'a##%b' ESCAPE '#'");
 
@@ -1294,26 +1296,26 @@ public class TestExpressionInterpreter
     @Test
     public void testFailedExpressionOptimization()
     {
-        assertOptimizedEquals("if(unbound_boolean, 1, 0 / 0)", "CASE WHEN unbound_boolean THEN 1 ELSE 0 / 0 END");
-        assertOptimizedEquals("if(unbound_boolean, 0 / 0, 1)", "CASE WHEN unbound_boolean THEN 0 / 0 ELSE 1 END");
+        assertOptimizedEquals("IF(unbound_boolean, 1, 0 / 0)", "CASE WHEN unbound_boolean THEN 1 ELSE 0 / 0 END");
+        assertOptimizedEquals("IF(unbound_boolean, 0 / 0, 1)", "CASE WHEN unbound_boolean THEN 0 / 0 ELSE 1 END");
 
         assertOptimizedMatches("CASE unbound_long WHEN 1 THEN 1 WHEN 0 / 0 THEN 2 END",
-                "CASE unbound_long WHEN BIGINT '1' THEN 1 WHEN cast(fail('fail') as bigint) THEN 2 END");
+                "CASE unbound_long WHEN BIGINT '1' THEN 1 WHEN CAST(fail('fail') AS bigint) THEN 2 END");
 
         assertOptimizedMatches("CASE unbound_boolean WHEN true THEN 1 ELSE 0 / 0 END",
-                "CASE unbound_boolean WHEN true THEN 1 ELSE cast(fail('fail') as integer) END");
+                "CASE unbound_boolean WHEN true THEN 1 ELSE CAST(fail('fail') AS integer) END");
 
         assertOptimizedMatches("CASE bound_long WHEN unbound_long THEN 1 WHEN 0 / 0 THEN 2 ELSE 1 END",
-                "CASE BIGINT '1234' WHEN unbound_long THEN 1 WHEN cast(fail('fail') as bigint) THEN 2 ELSE 1 END");
+                "CASE BIGINT '1234' WHEN unbound_long THEN 1 WHEN CAST(fail('fail') AS bigint) THEN 2 ELSE 1 END");
 
-        assertOptimizedMatches("case when unbound_boolean then 1 when 0 / 0 = 0 then 2 end",
-                "case when unbound_boolean then 1 when cast(fail('fail') as boolean) then 2 end");
+        assertOptimizedMatches("CASE WHEN unbound_boolean THEN 1 WHEN 0 / 0 = 0 THEN 2 END",
+                "CASE WHEN unbound_boolean THEN 1 WHEN CAST(fail('fail') AS boolean) THEN 2 END");
 
-        assertOptimizedMatches("case when unbound_boolean then 1 else 0 / 0  end",
-                "case when unbound_boolean then 1 else cast(fail('fail') as integer) end");
+        assertOptimizedMatches("CASE WHEN unbound_boolean THEN 1 ELSE 0 / 0  END",
+                "CASE WHEN unbound_boolean THEN 1 ELSE CAST(fail('fail') AS integer) END");
 
-        assertOptimizedMatches("case when unbound_boolean then 0 / 0 else 1 end",
-                "case when unbound_boolean then cast(fail('fail') as integer) else 1 end");
+        assertOptimizedMatches("CASE WHEN unbound_boolean THEN 0 / 0 ELSE 1 END",
+                "CASE WHEN unbound_boolean THEN CAST(fail('fail') AS integer) ELSE 1 END");
     }
 
     @Test(expectedExceptions = PrestoException.class)
@@ -1325,21 +1327,21 @@ public class TestExpressionInterpreter
     @Test
     public void testMassiveArrayConstructor()
     {
-        optimize(format("ARRAY [%s]", Joiner.on(", ").join(IntStream.range(0, 10_000).mapToObj(i -> "(bound_long + " + i + ")").iterator())));
-        optimize(format("ARRAY [%s]", Joiner.on(", ").join(IntStream.range(0, 10_000).mapToObj(i -> "(bound_integer + " + i + ")").iterator())));
-        optimize(format("ARRAY [%s]", Joiner.on(", ").join(IntStream.range(0, 10_000).mapToObj(i -> "'" + i + "'").iterator())));
-        optimize(format("ARRAY [%s]", Joiner.on(", ").join(IntStream.range(0, 10_000).mapToObj(i -> "ARRAY['" + i + "']").iterator())));
+        optimize(format("ARRAY[%s]", Joiner.on(", ").join(IntStream.range(0, 10_000).mapToObj(i -> "(bound_long + " + i + ")").iterator())));
+        optimize(format("ARRAY[%s]", Joiner.on(", ").join(IntStream.range(0, 10_000).mapToObj(i -> "(bound_integer + " + i + ")").iterator())));
+        optimize(format("ARRAY[%s]", Joiner.on(", ").join(IntStream.range(0, 10_000).mapToObj(i -> "'" + i + "'").iterator())));
+        optimize(format("ARRAY[%s]", Joiner.on(", ").join(IntStream.range(0, 10_000).mapToObj(i -> "ARRAY['" + i + "']").iterator())));
     }
 
     @Test
     public void testArrayConstructor()
     {
-        optimize("ARRAY []");
-        assertOptimizedEquals("ARRAY [(unbound_long + 0), (unbound_long + 1), (unbound_long + 2)]",
+        optimize("ARRAY[]");
+        assertOptimizedEquals("ARRAY[(unbound_long + 0), (unbound_long + 1), (unbound_long + 2)]",
                 "array_constructor((unbound_long + 0), (unbound_long + 1), (unbound_long + 2))");
-        assertOptimizedEquals("ARRAY [(bound_long + 0), (unbound_long + 1), (bound_long + 2)]",
+        assertOptimizedEquals("ARRAY[(bound_long + 0), (unbound_long + 1), (bound_long + 2)]",
                 "array_constructor((bound_long + 0), (unbound_long + 1), (bound_long + 2))");
-        assertOptimizedEquals("ARRAY [(bound_long + 0), (unbound_long + 1), NULL]",
+        assertOptimizedEquals("ARRAY[(bound_long + 0), (unbound_long + 1), NULL]",
                 "array_constructor((bound_long + 0), (unbound_long + 1), NULL)");
     }
 
@@ -1351,50 +1353,50 @@ public class TestExpressionInterpreter
         optimize("ROW(unbound_long + 0)");
         optimize("ROW(unbound_long + unbound_long2, unbound_string, unbound_double)");
         optimize("ROW(unbound_boolean, FALSE, ARRAY[unbound_long, unbound_long2], unbound_null_string, unbound_interval)");
-        optimize("ARRAY [ROW(unbound_string, unbound_double), ROW(unbound_string, 0.0E0)]");
-        optimize("ARRAY [ROW('string', unbound_double), ROW('string', bound_double)]");
+        optimize("ARRAY[ROW(unbound_string, unbound_double), ROW(unbound_string, 0.0E0)]");
+        optimize("ARRAY[ROW('string', unbound_double), ROW('string', bound_double)]");
         optimize("ROW(ROW(NULL), ROW(ROW(ROW(ROW('rowception')))))");
         optimize("ROW(unbound_string, bound_string)");
 
-        optimize("ARRAY [ROW(unbound_string, unbound_double), ROW(CAST(bound_string AS VARCHAR), 0.0E0)]");
-        optimize("ARRAY [ROW(CAST(bound_string AS VARCHAR), 0.0E0), ROW(unbound_string, unbound_double)]");
+        optimize("ARRAY[ROW(unbound_string, unbound_double), ROW(CAST(bound_string AS varchar), 0.0E0)]");
+        optimize("ARRAY[ROW(CAST(bound_string AS varchar), 0.0E0), ROW(unbound_string, unbound_double)]");
 
-        optimize("ARRAY [ROW(unbound_string, unbound_double), CAST(NULL AS ROW(VARCHAR, DOUBLE))]");
-        optimize("ARRAY [CAST(NULL AS ROW(VARCHAR, DOUBLE)), ROW(unbound_string, unbound_double)]");
+        optimize("ARRAY[ROW(unbound_string, unbound_double), CAST(NULL AS row(varchar, double))]");
+        optimize("ARRAY[CAST(NULL AS row(varchar, double)), ROW(unbound_string, unbound_double)]");
     }
 
     @Test
     public void testRowSubscript()
     {
-        assertOptimizedEquals("ROW (1, 'a', true)[3]", "true");
-        assertOptimizedEquals("ROW (1, 'a', ROW (2, 'b', ROW (3, 'c')))[3][3][2]", "'c'");
+        assertOptimizedEquals("ROW(1, 'a', true)[3]", "true");
+        assertOptimizedEquals("ROW(1, 'a', ROW(2, 'b', ROW(3, 'c')))[3][3][2]", "'c'");
     }
 
     @Test(expectedExceptions = PrestoException.class)
     public void testArraySubscriptConstantNegativeIndex()
     {
-        optimize("ARRAY [1, 2, 3][-1]");
+        optimize("ARRAY[1, 2, 3][-1]");
     }
 
     @Test(expectedExceptions = PrestoException.class)
     public void testArraySubscriptConstantZeroIndex()
     {
-        optimize("ARRAY [1, 2, 3][0]");
+        optimize("ARRAY[1, 2, 3][0]");
     }
 
     @Test(expectedExceptions = PrestoException.class)
     public void testMapSubscriptMissingKey()
     {
-        optimize("MAP(ARRAY [1, 2], ARRAY [3, 4])[-1]");
+        optimize("MAP(ARRAY[1, 2], ARRAY[3, 4])[-1]");
     }
 
     @Test
     public void testMapSubscriptConstantIndexes()
     {
-        optimize("MAP(ARRAY [1, 2], ARRAY [3, 4])[1]");
-        optimize("MAP(ARRAY [BIGINT '1', 2], ARRAY [3, 4])[1]");
-        optimize("MAP(ARRAY [1, 2], ARRAY [3, 4])[2]");
-        optimize("MAP(ARRAY [ARRAY[1,1]], ARRAY['a'])[ARRAY[1,1]]");
+        optimize("MAP(ARRAY[1, 2], ARRAY[3, 4])[1]");
+        optimize("MAP(ARRAY[BIGINT '1', 2], ARRAY[3, 4])[1]");
+        optimize("MAP(ARRAY[1, 2], ARRAY[3, 4])[2]");
+        optimize("MAP(ARRAY[ARRAY[1,1]], ARRAY['a'])[ARRAY[1,1]]");
     }
 
     @Test(timeOut = 60000)
@@ -1407,14 +1409,14 @@ public class TestExpressionInterpreter
     @Test
     public void testLiterals()
     {
-        optimize("date '2013-04-03' + unbound_interval");
-        optimize("time '03:04:05.321' + unbound_interval");
-        optimize("time '03:04:05.321 UTC' + unbound_interval");
-        optimize("timestamp '2013-04-03 03:04:05.321' + unbound_interval");
-        optimize("timestamp '2013-04-03 03:04:05.321 UTC' + unbound_interval");
+        optimize("DATE '2013-04-03' + unbound_interval");
+        optimize("TIME '03:04:05.321' + unbound_interval");
+        optimize("TIME '03:04:05.321 UTC' + unbound_interval");
+        optimize("TIMESTAMP '2013-04-03 03:04:05.321' + unbound_interval");
+        optimize("TIMESTAMP '2013-04-03 03:04:05.321 UTC' + unbound_interval");
 
-        optimize("interval '3' day * unbound_long");
-        optimize("interval '3' year * unbound_long");
+        optimize("INTERVAL '3' DAY * unbound_long");
+        optimize("INTERVAL '3' YEAR * unbound_long");
 
         assertEquals(optimize("X'1234'"), Slices.wrappedBuffer((byte) 0x12, (byte) 0x34));
     }

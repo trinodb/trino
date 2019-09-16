@@ -44,9 +44,9 @@ import java.util.function.Supplier;
 
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
-import static io.prestosql.plugin.hive.HiveUtil.getColumnNames;
-import static io.prestosql.plugin.hive.HiveUtil.getColumnTypes;
 import static io.prestosql.plugin.hive.rcfile.RcFilePageSourceFactory.createTextVectorEncoding;
+import static io.prestosql.plugin.hive.util.HiveUtil.getColumnNames;
+import static io.prestosql.plugin.hive.util.HiveUtil.getColumnTypes;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 

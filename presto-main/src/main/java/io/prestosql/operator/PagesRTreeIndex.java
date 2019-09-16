@@ -35,7 +35,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
 
-import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Verify.verifyNotNull;
 import static io.prestosql.geospatial.serde.GeometrySerde.deserialize;
 import static io.prestosql.operator.JoinUtils.channelsToPages;
 import static io.prestosql.operator.SyntheticAddress.decodePosition;
@@ -146,7 +146,7 @@ public class PagesRTreeIndex
 
         Slice slice = probeGeometryBlock.getSlice(probePosition, 0, probeGeometryBlock.getSliceLength(probePosition));
         OGCGeometry probeGeometry = deserialize(slice);
-        verify(probeGeometry != null);
+        verifyNotNull(probeGeometry);
         if (probeGeometry.isEmpty()) {
             return EMPTY_ADDRESSES;
         }

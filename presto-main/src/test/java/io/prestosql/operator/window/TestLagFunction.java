@@ -222,6 +222,20 @@ public class TestLagFunction
                         .row(null, null, "O")
                         .row(null, null, null)
                         .build());
+
+        assertWindowQueryWithNulls("lag(orderstatus, 0) RESPECT NULLS OVER (ORDER BY orderkey, orderstatus)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, VARCHAR)
+                        .row(1L, null, null)
+                        .row(3L, "F", "F")
+                        .row(5L, "F", "F")
+                        .row(6L, "F", "F")
+                        .row(7L, null, null)
+                        .row(34L, "O", "O")
+                        .row(null, "F", "F")
+                        .row(null, "O", "O")
+                        .row(null, null, null)
+                        .row(null, null, null)
+                        .build());
     }
 
     @Test
@@ -253,6 +267,20 @@ public class TestLagFunction
                         .row(null, "O", "F")
                         .row(null, null, "O")
                         .row(null, null, "O")
+                        .build());
+
+        assertWindowQueryWithNulls("lag(orderstatus, 0) IGNORE NULLS OVER (ORDER BY orderkey, orderstatus)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, VARCHAR)
+                        .row(1L, null, null)
+                        .row(3L, "F", "F")
+                        .row(5L, "F", "F")
+                        .row(6L, "F", "F")
+                        .row(7L, null, null)
+                        .row(34L, "O", "O")
+                        .row(null, "F", "F")
+                        .row(null, "O", "O")
+                        .row(null, null, null)
+                        .row(null, null, null)
                         .build());
     }
 }

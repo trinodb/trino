@@ -22,10 +22,3 @@ presto-product-tests/bin/run_on_docker.sh \
     singlenode-kerberos-hdfs-impersonation-cross-realm \
     -g storage_formats,cli,hdfs_impersonation
 
-presto-product-tests/bin/run_on_docker.sh \
-    singlenode-sqlserver \
-    -g sqlserver
-
-presto-product-tests/bin/run_on_docker.sh \
-    multinode-tls-kerberos \
-    -g cli,group-by,join,tls

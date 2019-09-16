@@ -67,12 +67,13 @@ import io.prestosql.execution.StartTransactionTask;
 import io.prestosql.execution.TaskManagerConfig;
 import io.prestosql.execution.TaskSource;
 import io.prestosql.execution.resourcegroups.NoOpResourceGroupManager;
-import io.prestosql.execution.scheduler.LegacyNetworkTopology;
 import io.prestosql.execution.scheduler.NodeScheduler;
 import io.prestosql.execution.scheduler.NodeSchedulerConfig;
+import io.prestosql.execution.scheduler.UniformNodeSelectorFactory;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.index.IndexManager;
 import io.prestosql.memory.MemoryManagerConfig;
+import io.prestosql.memory.NodeMemoryConfig;
 import io.prestosql.metadata.AnalyzePropertyManager;
 import io.prestosql.metadata.CatalogManager;
 import io.prestosql.metadata.ColumnPropertyManager;
@@ -285,11 +286,7 @@ public class LocalQueryRunner
         this.pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
         this.indexManager = new IndexManager();
         this.nodeSchedulerConfig = new NodeSchedulerConfig().setIncludeCoordinator(true);
-        NodeScheduler nodeScheduler = new NodeScheduler(
-                new LegacyNetworkTopology(),
-                nodeManager,
-                nodeSchedulerConfig,
-                new NodeTaskMap(finalizerService));
+        NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, nodeSchedulerConfig, new NodeTaskMap(finalizerService)));
         this.featuresConfig = requireNonNull(featuresConfig, "featuresConfig is null");
         this.pageSinkManager = new PageSinkManager();
         CatalogManager catalogManager = new CatalogManager();
@@ -302,7 +299,7 @@ public class LocalQueryRunner
 
         this.metadata = new MetadataManager(
                 featuresConfig,
-                new SessionPropertyManager(new SystemSessionProperties(new QueryManagerConfig(), taskManagerConfig, new MemoryManagerConfig(), featuresConfig)),
+                new SessionPropertyManager(new SystemSessionProperties(new QueryManagerConfig(), taskManagerConfig, new MemoryManagerConfig(), featuresConfig, new NodeMemoryConfig())),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
                 new ColumnPropertyManager(),

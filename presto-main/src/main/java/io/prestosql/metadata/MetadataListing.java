@@ -56,7 +56,7 @@ public final class MetadataListing
     public static SortedSet<String> listSchemas(Session session, Metadata metadata, AccessControl accessControl, String catalogName)
     {
         Set<String> schemaNames = ImmutableSet.copyOf(metadata.listSchemaNames(session, catalogName));
-        return ImmutableSortedSet.copyOf(accessControl.filterSchemas(session.getRequiredTransactionId(), session.getIdentity(), catalogName, schemaNames));
+        return ImmutableSortedSet.copyOf(accessControl.filterSchemas(session.toSecurityContext(), catalogName, schemaNames));
     }
 
     public static Set<SchemaTableName> listTables(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)
@@ -64,7 +64,7 @@ public final class MetadataListing
         Set<SchemaTableName> tableNames = metadata.listTables(session, prefix).stream()
                 .map(QualifiedObjectName::asSchemaTableName)
                 .collect(toImmutableSet());
-        return accessControl.filterTables(session.getRequiredTransactionId(), session.getIdentity(), prefix.getCatalogName(), tableNames);
+        return accessControl.filterTables(session.toSecurityContext(), prefix.getCatalogName(), tableNames);
     }
 
     public static Set<SchemaTableName> listViews(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)
@@ -72,15 +72,14 @@ public final class MetadataListing
         Set<SchemaTableName> tableNames = metadata.listViews(session, prefix).stream()
                 .map(QualifiedObjectName::asSchemaTableName)
                 .collect(toImmutableSet());
-        return accessControl.filterTables(session.getRequiredTransactionId(), session.getIdentity(), prefix.getCatalogName(), tableNames);
+        return accessControl.filterTables(session.toSecurityContext(), prefix.getCatalogName(), tableNames);
     }
 
     public static Set<GrantInfo> listTablePrivileges(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)
     {
         List<GrantInfo> grants = metadata.listTablePrivileges(session, prefix);
         Set<SchemaTableName> allowedTables = accessControl.filterTables(
-                session.getRequiredTransactionId(),
-                session.getIdentity(),
+                session.toSecurityContext(),
                 prefix.getCatalogName(),
                 grants.stream().map(GrantInfo::getSchemaTableName).collect(toImmutableSet()));
 
@@ -94,8 +93,7 @@ public final class MetadataListing
         Map<SchemaTableName, List<ColumnMetadata>> tableColumns = metadata.listTableColumns(session, prefix).entrySet().stream()
                 .collect(toImmutableMap(entry -> entry.getKey().asSchemaTableName(), Entry::getValue));
         Set<SchemaTableName> allowedTables = accessControl.filterTables(
-                session.getRequiredTransactionId(),
-                session.getIdentity(),
+                session.toSecurityContext(),
                 prefix.getCatalogName(),
                 tableColumns.keySet());
 
@@ -103,8 +101,7 @@ public final class MetadataListing
         for (Entry<SchemaTableName, List<ColumnMetadata>> entry : tableColumns.entrySet()) {
             if (allowedTables.contains(entry.getKey())) {
                 result.put(entry.getKey(), accessControl.filterColumns(
-                        session.getRequiredTransactionId(),
-                        session.getIdentity(),
+                        session.toSecurityContext(),
                         new CatalogSchemaTableName(prefix.getCatalogName(), entry.getKey()),
                         entry.getValue()));
             }

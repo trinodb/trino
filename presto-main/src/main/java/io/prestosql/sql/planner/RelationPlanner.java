@@ -35,11 +35,11 @@ import io.prestosql.sql.analyzer.RelationType;
 import io.prestosql.sql.analyzer.Scope;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.Assignments;
+import io.prestosql.sql.planner.plan.CorrelatedJoinNode;
 import io.prestosql.sql.planner.plan.ExceptNode;
 import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.IntersectNode;
 import io.prestosql.sql.planner.plan.JoinNode;
-import io.prestosql.sql.planner.plan.LateralJoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.planner.plan.SampleNode;
@@ -226,7 +226,7 @@ class RelationPlanner
 
         Optional<Lateral> lateral = getLateral(node.getRight());
         if (lateral.isPresent()) {
-            return planLateralJoin(node, leftPlan, lateral.get());
+            return planCorrelatedJoin(node, leftPlan, lateral.get());
         }
 
         RelationPlan rightPlan = process(node.getRight(), context);
@@ -379,7 +379,7 @@ class RelationPlanner
 
         if (node.getType() == INNER) {
             // rewrite all the other conditions using output symbols from left + right plan node.
-            PlanBuilder rootPlanBuilder = new PlanBuilder(translationMap, root, analysis.getParameters());
+            PlanBuilder rootPlanBuilder = new PlanBuilder(translationMap, root);
             rootPlanBuilder = subqueryPlanner.handleSubqueries(rootPlanBuilder, complexJoinExpressions, node);
 
             for (Expression expression : complexJoinExpressions) {
@@ -538,7 +538,7 @@ class RelationPlanner
         return Optional.empty();
     }
 
-    private RelationPlan planLateralJoin(Join join, RelationPlan leftPlan, Lateral lateral)
+    private RelationPlan planCorrelatedJoin(Join join, RelationPlan leftPlan, Lateral lateral)
     {
         RelationPlan rightPlan = process(lateral.getQuery(), null);
         PlanBuilder leftPlanBuilder = initializePlanBuilder(leftPlan);
@@ -578,12 +578,12 @@ class RelationPlanner
 
         Expression rewrittenFilterCondition = translationMap.rewrite(filterExpression);
 
-        PlanBuilder planBuilder = subqueryPlanner.appendLateralJoin(
+        PlanBuilder planBuilder = subqueryPlanner.appendCorrelatedJoin(
                 leftPlanBuilder,
                 rightPlanBuilder,
                 lateral.getQuery(),
                 true,
-                LateralJoinNode.Type.typeConvert(join.getType()),
+                CorrelatedJoinNode.Type.typeConvert(join.getType()),
                 rewrittenFilterCondition);
 
         List<Symbol> outputSymbols = ImmutableList.<Symbol>builder()
@@ -887,7 +887,7 @@ class RelationPlanner
         // This makes it possible to rewrite FieldOrExpressions that reference fields from the underlying tuple directly
         translations.setFieldMappings(relationPlan.getFieldMappings());
 
-        return new PlanBuilder(translations, relationPlan.getRoot(), analysis.getParameters());
+        return new PlanBuilder(translations, relationPlan.getRoot());
     }
 
     private PlanNode distinct(PlanNode node)

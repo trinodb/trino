@@ -20,8 +20,8 @@ import io.prestosql.sql.planner.iterative.Lookup;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.optimizations.ScalarAggregationToJoinRewriter;
 import io.prestosql.sql.planner.plan.AggregationNode;
+import io.prestosql.sql.planner.plan.CorrelatedJoinNode;
 import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
-import io.prestosql.sql.planner.plan.LateralJoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
 
@@ -30,9 +30,9 @@ import java.util.Optional;
 import static io.prestosql.matching.Pattern.nonEmpty;
 import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.prestosql.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
-import static io.prestosql.sql.planner.plan.Patterns.LateralJoin.correlation;
-import static io.prestosql.sql.planner.plan.Patterns.LateralJoin.filter;
-import static io.prestosql.sql.planner.plan.Patterns.lateralJoin;
+import static io.prestosql.sql.planner.plan.Patterns.CorrelatedJoin.correlation;
+import static io.prestosql.sql.planner.plan.Patterns.CorrelatedJoin.filter;
+import static io.prestosql.sql.planner.plan.Patterns.correlatedJoin;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.prestosql.util.MorePredicates.isInstanceOfAny;
 import static java.util.Objects.requireNonNull;
@@ -46,7 +46,7 @@ import static java.util.Objects.requireNonNull;
  * <p>
  * From:
  * <pre>
- * - LateralJoin (with correlation list: [C])
+ * - CorrelatedJoin (with correlation list: [C])
  *   - (input) plan which produces symbols: [A, B, C]
  *   - (subquery) Aggregation(GROUP BY (); functions: [sum(F), count(), ...]
  *     - Filter(D = C AND E > 5)
@@ -58,22 +58,22 @@ import static java.util.Objects.requireNonNull;
  *   - Join(LEFT_OUTER, D = C)
  *     - AssignUniqueId(adds symbol U)
  *       - (input) plan which produces symbols: [A, B, C]
- *     - Filter(E > 5)
- *       - projection which adds non null symbol used for count() function
+ *     - projection which adds non null symbol used for count() function
+ *       - Filter(E > 5)
  *         - plan which produces symbols: [D, E, F]
  * </pre>
  * <p>
  * Note that only conjunction predicates in FilterNode are supported
  */
 public class TransformCorrelatedScalarAggregationToJoin
-        implements Rule<LateralJoinNode>
+        implements Rule<CorrelatedJoinNode>
 {
-    private static final Pattern<LateralJoinNode> PATTERN = lateralJoin()
+    private static final Pattern<CorrelatedJoinNode> PATTERN = correlatedJoin()
             .with(nonEmpty(correlation()))
             .with(filter().equalTo(TRUE_LITERAL)); // todo non-trivial join filter: adding filter/project on top of aggregation
 
     @Override
-    public Pattern<LateralJoinNode> getPattern()
+    public Pattern<CorrelatedJoinNode> getPattern()
     {
         return PATTERN;
     }
@@ -86,9 +86,9 @@ public class TransformCorrelatedScalarAggregationToJoin
     }
 
     @Override
-    public Result apply(LateralJoinNode lateralJoinNode, Captures captures, Context context)
+    public Result apply(CorrelatedJoinNode correlatedJoinNode, Captures captures, Context context)
     {
-        PlanNode subquery = lateralJoinNode.getSubquery();
+        PlanNode subquery = correlatedJoinNode.getSubquery();
 
         if (!isScalar(subquery, context.getLookup())) {
             return Result.empty();
@@ -101,9 +101,9 @@ public class TransformCorrelatedScalarAggregationToJoin
 
         ScalarAggregationToJoinRewriter rewriter = new ScalarAggregationToJoinRewriter(metadata, context.getSymbolAllocator(), context.getIdAllocator(), context.getLookup());
 
-        PlanNode rewrittenNode = rewriter.rewriteScalarAggregation(lateralJoinNode, aggregation.get());
+        PlanNode rewrittenNode = rewriter.rewriteScalarAggregation(correlatedJoinNode, aggregation.get());
 
-        if (rewrittenNode instanceof LateralJoinNode) {
+        if (rewrittenNode instanceof CorrelatedJoinNode) {
             return Result.empty();
         }
 

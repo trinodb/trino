@@ -47,9 +47,7 @@ import static io.prestosql.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 
 public final class IntervalDayTimeOperators
 {
-    private IntervalDayTimeOperators()
-    {
-    }
+    private IntervalDayTimeOperators() {}
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
@@ -177,7 +175,7 @@ public final class IntervalDayTimeOperators
     }
 
     @ScalarOperator(IS_DISTINCT_FROM)
-    public static class IntervalDayTimeDistinctFromOperator
+    public static final class IntervalDayTimeDistinctFromOperator
     {
         @SqlType(StandardTypes.BOOLEAN)
         public static boolean isDistinctFrom(

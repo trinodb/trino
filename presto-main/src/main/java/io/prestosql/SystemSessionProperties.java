@@ -19,6 +19,7 @@ import io.airlift.units.Duration;
 import io.prestosql.execution.QueryManagerConfig;
 import io.prestosql.execution.TaskManagerConfig;
 import io.prestosql.memory.MemoryManagerConfig;
+import io.prestosql.memory.NodeMemoryConfig;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.session.PropertyMetadata;
 import io.prestosql.sql.analyzer.FeaturesConfig;
@@ -118,12 +119,14 @@ public final class SystemSessionProperties
     public static final String SKIP_REDUNDANT_SORT = "skip_redundant_sort";
     public static final String WORK_PROCESSOR_PIPELINES = "work_processor_pipelines";
     public static final String ENABLE_DYNAMIC_FILTERING = "enable_dynamic_filtering";
+    public static final String QUERY_MAX_MEMORY_PER_NODE = "query_max_memory_per_node";
+    public static final String QUERY_MAX_TOTAL_MEMORY_PER_NODE = "query_max_total_memory_per_node";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
     public SystemSessionProperties()
     {
-        this(new QueryManagerConfig(), new TaskManagerConfig(), new MemoryManagerConfig(), new FeaturesConfig());
+        this(new QueryManagerConfig(), new TaskManagerConfig(), new MemoryManagerConfig(), new FeaturesConfig(), new NodeMemoryConfig());
     }
 
     @Inject
@@ -131,7 +134,8 @@ public final class SystemSessionProperties
             QueryManagerConfig queryManagerConfig,
             TaskManagerConfig taskManagerConfig,
             MemoryManagerConfig memoryManagerConfig,
-            FeaturesConfig featuresConfig)
+            FeaturesConfig featuresConfig,
+            NodeMemoryConfig nodeMemoryConfig)
     {
         sessionProperties = ImmutableList.of(
                 stringProperty(
@@ -509,7 +513,17 @@ public final class SystemSessionProperties
                         ENABLE_DYNAMIC_FILTERING,
                         "Enable dynamic filtering",
                         featuresConfig.isEnableDynamicFiltering(),
-                        false));
+                        false),
+                dataSizeProperty(
+                        QUERY_MAX_MEMORY_PER_NODE,
+                        "Maximum amount of memory a query can use per node",
+                        nodeMemoryConfig.getMaxQueryMemoryPerNode(),
+                        true),
+                dataSizeProperty(
+                        QUERY_MAX_TOTAL_MEMORY_PER_NODE,
+                        "Maximum amount of total memory a query can use per node",
+                        nodeMemoryConfig.getMaxQueryTotalMemoryPerNode(),
+                        true));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -905,5 +919,15 @@ public final class SystemSessionProperties
     public static boolean isEnableDynamicFiltering(Session session)
     {
         return session.getSystemProperty(ENABLE_DYNAMIC_FILTERING, Boolean.class);
+    }
+
+    public static DataSize getQueryMaxMemoryPerNode(Session session)
+    {
+        return session.getSystemProperty(QUERY_MAX_MEMORY_PER_NODE, DataSize.class);
+    }
+
+    public static DataSize getQueryMaxTotalMemoryPerNode(Session session)
+    {
+        return session.getSystemProperty(QUERY_MAX_TOTAL_MEMORY_PER_NODE, DataSize.class);
     }
 }

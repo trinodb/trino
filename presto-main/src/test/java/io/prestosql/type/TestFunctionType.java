@@ -25,7 +25,7 @@ public class TestFunctionType
     @Test
     public void testDisplayName()
     {
-        Type function = createTestMetadataManager().getType(TypeSignature.parseTypeSignature("function<row(field double),bigint>"));
-        assertEquals(function.getDisplayName(), "function<row(field double),bigint>");
+        Type function = createTestMetadataManager().getType(TypeSignature.parseTypeSignature("function(row(field double),bigint)"));
+        assertEquals(function.getDisplayName(), "function(row(field double),bigint)");
     }
 }

@@ -411,7 +411,7 @@ class AggregationAnalyzer
         }
 
         @Override
-        public Boolean visitWindow(Window node, Void context)
+        protected Boolean visitWindow(Window node, Void context)
         {
             for (Expression expression : node.getPartitionBy()) {
                 if (!process(expression, context)) {
@@ -440,7 +440,7 @@ class AggregationAnalyzer
         }
 
         @Override
-        public Boolean visitWindowFrame(WindowFrame node, Void context)
+        protected Boolean visitWindowFrame(WindowFrame node, Void context)
         {
             Optional<Expression> start = node.getStart().getValue();
             if (start.isPresent()) {
@@ -464,12 +464,23 @@ class AggregationAnalyzer
             if (analysis.getLambdaArgumentReferences().containsKey(NodeRef.of(node))) {
                 return true;
             }
+
+            if (!hasReferencesToScope(node, analysis, sourceScope)) {
+                // reference to outer scope is group-invariant
+                return true;
+            }
+
             return isGroupingKey(node);
         }
 
         @Override
         protected Boolean visitDereferenceExpression(DereferenceExpression node, Void context)
         {
+            if (!hasReferencesToScope(node, analysis, sourceScope)) {
+                // reference to outer scope is group-invariant
+                return true;
+            }
+
             if (columnReferences.containsKey(NodeRef.<Expression>of(node))) {
                 return isGroupingKey(node);
             }
@@ -589,14 +600,14 @@ class AggregationAnalyzer
         }
 
         @Override
-        public Boolean visitRow(Row node, final Void context)
+        protected Boolean visitRow(Row node, final Void context)
         {
             return node.getItems().stream()
                     .allMatch(item -> process(item, context));
         }
 
         @Override
-        public Boolean visitParameter(Parameter node, Void context)
+        protected Boolean visitParameter(Parameter node, Void context)
         {
             if (analysis.isDescribe()) {
                 return true;
@@ -606,7 +617,8 @@ class AggregationAnalyzer
             return process(parameters.get(node.getPosition()), context);
         }
 
-        public Boolean visitGroupingOperation(GroupingOperation node, Void context)
+        @Override
+        protected Boolean visitGroupingOperation(GroupingOperation node, Void context)
         {
             // ensure that no output fields are referenced from ORDER BY clause
             if (orderByScope.isPresent()) {

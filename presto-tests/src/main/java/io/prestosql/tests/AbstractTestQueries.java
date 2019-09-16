@@ -49,7 +49,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
-import static io.prestosql.connector.informationschema.InformationSchemaMetadata.INFORMATION_SCHEMA;
+import static io.prestosql.connector.informationschema.InformationSchemaTable.INFORMATION_SCHEMA;
 import static io.prestosql.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static io.prestosql.operator.scalar.InvokeFunction.INVOKE_FUNCTION;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -3221,6 +3221,43 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testMultipleOccurrencesOfCorrelatedSymbol()
+    {
+        @Language("SQL") String expected =
+                "VALUES " +
+                        "('AFRICA',      'MOZAMBIQUE'), " +
+                        "('AMERICA',     'UNITED STATES'), " +
+                        "('ASIA',        'VIETNAM'), " +
+                        "('EUROPE',      'UNITED KINGDOM'), " +
+                        "('MIDDLE EAST', 'SAUDI ARABIA')";
+
+        // correlated symbol used twice, no coercion
+        assertQuery(
+                "SELECT region.name, (SELECT max(name) FROM nation WHERE regionkey * 2 = region.regionkey * 2 AND regionkey = region.regionkey) FROM region",
+                expected);
+
+        // correlated symbol used twice, first occurrence coerced to double
+        assertQuery(
+                "SELECT region.name, (SELECT max(name) FROM nation WHERE CAST(regionkey AS double) = region.regionkey AND regionkey = region.regionkey) FROM region",
+                expected);
+
+        // correlated symbol used twice, second occurrence coerced to double
+        assertQuery(
+                "SELECT region.name, (SELECT max(name) FROM nation WHERE regionkey = region.regionkey AND CAST(regionkey AS double) = region.regionkey) FROM region",
+                expected);
+
+        // different coercions
+        assertQuery(
+                "SELECT region.name, " +
+                        "(SELECT max(name) FROM nation " +
+                        "WHERE CAST(regionkey AS double) = region.regionkey " + // region.regionkey coerced to double
+                        "AND regionkey = region.regionkey " +                   // no coercion
+                        "AND regionkey * 1.0 = region.regionkey) " +            // region.regionkey coerced to decimal
+                        "FROM region",
+                expected);
+    }
+
+    @Test
     public void testExistsSubquery()
     {
         // nested
@@ -3420,6 +3457,7 @@ public abstract class AbstractTestQueries
 
         // explicit LIMIT in subquery
         assertQuery("SELECT (SELECT count(*) FROM (VALUES (7,1)) t(orderkey, value) WHERE orderkey = corr_key GROUP BY value LIMIT 1) FROM (values 7) t(corr_key)");
+        // Limit(1) and non-constant output symbol of the subquery (count)
         assertQueryFails("SELECT (SELECT count(*) FROM (VALUES (7,1), (7,2)) t(orderkey, value) WHERE orderkey = corr_key GROUP BY value LIMIT 1) FROM (values 7) t(corr_key)",
                 UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
     }
@@ -3634,11 +3672,23 @@ public abstract class AbstractTestQueries
                 " WHERE n3.nationkey = n1.nationkey)" +
                 "FROM nation n1");
 
-        //count in subquery
+        // count in subquery
         assertQuery("SELECT * " +
-                        "FROM (VALUES (0),( 1), (2), (7)) AS v1(c1) " +
-                        "WHERE v1.c1 > (SELECT count(c1) FROM (VALUES (0),( 1), (2)) AS v2(c1) WHERE v1.c1 = v2.c1)",
+                        "FROM (VALUES (0), (1), (2), (7)) AS v1(c1) " +
+                        "WHERE v1.c1 > (SELECT count(c1) FROM (VALUES (0), (1), (2)) AS v2(c1) WHERE v1.c1 = v2.c1)",
                 "VALUES (2), (7)");
+
+        // count rows
+        assertQuery("SELECT (SELECT count(*) FROM (VALUES (1, true), (null, true)) inner_table(a, b) WHERE inner_table.b = outer_table.b) FROM (VALUES (true)) outer_table(b)",
+                "VALUES (2)");
+
+        // count rows
+        assertQuery("SELECT (SELECT count() FROM (VALUES (1, true), (null, true)) inner_table(a, b) WHERE inner_table.b = outer_table.b) FROM (VALUES (true)) outer_table(b)",
+                "VALUES (2)");
+
+        // count non null values
+        assertQuery("SELECT (SELECT count(a) FROM (VALUES (1, true), (null, true)) inner_table(a, b) WHERE inner_table.b = outer_table.b) FROM (VALUES (true)) outer_table(b)",
+                "VALUES (1)");
     }
 
     @Test
@@ -5076,7 +5126,7 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testLateralJoin()
+    public void testCorrelatedJoin()
     {
         assertQuery(
                 "SELECT name FROM nation, LATERAL (SELECT 1 WHERE false)",
@@ -5161,6 +5211,21 @@ public abstract class AbstractTestQueries
         assertQuery(
                 "SELECT * FROM (VALUES 1, 2) a(x) JOIN LATERAL(SELECT y FROM (VALUES 2, 3) b(y) WHERE y > x) c(z) ON z > 2*x",
                 "VALUES (1, 3)");
+
+        // TopN in correlated subquery
+        assertQuery(
+                "SELECT regionkey, n.name FROM region LEFT JOIN LATERAL (SELECT name FROM nation WHERE region.regionkey = regionkey ORDER BY nationkey LIMIT 2) n ON TRUE",
+                "VALUES " +
+                        "(0, 'ETHIOPIA'), " +
+                        "(0, 'ALGERIA'), " +
+                        "(1, 'BRAZIL'), " +
+                        "(1, 'ARGENTINA'), " +
+                        "(2, 'INDONESIA'), " +
+                        "(2, 'INDIA'), " +
+                        "(3, 'GERMANY'), " +
+                        "(3, 'FRANCE'), " +
+                        "(4, 'IRAN'), " +
+                        "(4, 'EGYPT')");
     }
 
     @Test

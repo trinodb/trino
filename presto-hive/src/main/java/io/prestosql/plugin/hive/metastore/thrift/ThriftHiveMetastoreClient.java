@@ -15,9 +15,11 @@ package io.prestosql.plugin.hive.metastore.thrift;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
-import io.prestosql.plugin.hive.util.LoggingInvocationHandler;
-import io.prestosql.plugin.hive.util.LoggingInvocationHandler.AirliftParameterNamesProvider;
-import io.prestosql.plugin.hive.util.LoggingInvocationHandler.ParameterNamesProvider;
+import io.prestosql.plugin.base.util.LoggingInvocationHandler;
+import io.prestosql.plugin.base.util.LoggingInvocationHandler.AirliftParameterNamesProvider;
+import io.prestosql.plugin.base.util.LoggingInvocationHandler.ParameterNamesProvider;
+import org.apache.hadoop.hive.metastore.api.ClientCapabilities;
+import org.apache.hadoop.hive.metastore.api.ClientCapability;
 import org.apache.hadoop.hive.metastore.api.ColumnStatistics;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsDesc;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
@@ -25,6 +27,7 @@ import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.GetRoleGrantsForPrincipalRequest;
 import org.apache.hadoop.hive.metastore.api.GetRoleGrantsForPrincipalResponse;
+import org.apache.hadoop.hive.metastore.api.GetTableRequest;
 import org.apache.hadoop.hive.metastore.api.GrantRevokeRoleRequest;
 import org.apache.hadoop.hive.metastore.api.GrantRevokeRoleResponse;
 import org.apache.hadoop.hive.metastore.api.GrantRevokeType;
@@ -154,6 +157,17 @@ public class ThriftHiveMetastoreClient
             throws TException
     {
         return client.get_table(databaseName, tableName);
+    }
+
+    @Override
+    public Table getTableWithCapabilities(String databaseName, String tableName)
+            throws TException
+    {
+        GetTableRequest request = new GetTableRequest();
+        request.setDbName(databaseName);
+        request.setTblName(tableName);
+        request.setCapabilities(new ClientCapabilities(ImmutableList.of(ClientCapability.INSERT_ONLY_TABLES)));
+        return client.get_table_req(request).getTable();
     }
 
     @Override

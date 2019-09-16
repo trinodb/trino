@@ -27,8 +27,11 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+import java.util.OptionalLong;
 
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
+import static io.prestosql.connector.informationschema.InformationSchemaTable.COLUMNS;
+import static io.prestosql.connector.informationschema.InformationSchemaTable.INFORMATION_SCHEMA;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -38,9 +41,8 @@ public class TestInformationSchemaTableHandle
     private static final Map<String, Object> SCHEMA_AS_MAP = ImmutableMap.of(
             "@type", "$info_schema",
             "catalogName", "information_schema_catalog",
-            "schemaName", "information_schema_schema",
-            "tableName", "information_schema_table",
-            "prefixes", ImmutableList.of(ImmutableMap.of("catalogName", "abc", "schemaName", "xyz")));
+            "table", "COLUMNS",
+            "prefixes", ImmutableList.of(ImmutableMap.of("catalogName", "abc", "schemaName", INFORMATION_SCHEMA)));
 
     private ObjectMapper objectMapper;
 
@@ -58,9 +60,9 @@ public class TestInformationSchemaTableHandle
     {
         InformationSchemaTableHandle informationSchemaTableHandle = new InformationSchemaTableHandle(
                 "information_schema_catalog",
-                "information_schema_schema",
-                "information_schema_table",
-                ImmutableSet.of(new QualifiedTablePrefix("abc", "xyz")));
+                COLUMNS,
+                ImmutableSet.of(new QualifiedTablePrefix("abc", INFORMATION_SCHEMA)),
+                OptionalLong.empty());
 
         assertTrue(objectMapper.canSerialize(InformationSchemaTableHandle.class));
         String json = objectMapper.writeValueAsString(informationSchemaTableHandle);
@@ -78,8 +80,7 @@ public class TestInformationSchemaTableHandle
         InformationSchemaTableHandle informationSchemaHandle = (InformationSchemaTableHandle) tableHandle;
 
         assertEquals(informationSchemaHandle.getCatalogName(), "information_schema_catalog");
-        assertEquals(informationSchemaHandle.getSchemaName(), "information_schema_schema");
-        assertEquals(informationSchemaHandle.getTableName(), "information_schema_table");
+        assertEquals(informationSchemaHandle.getTable(), COLUMNS);
     }
 
     private void testJsonEquals(String json, Map<String, Object> expectedMap)

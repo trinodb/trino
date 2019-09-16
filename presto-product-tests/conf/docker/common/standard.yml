@@ -19,11 +19,13 @@ services:
       - '8042:8042'
       - '8088:8088'
       - '9000:9000'
-      - '9083:9083'
-      - '10000:10000'
+      - '9083:9083' # Metastore Thrift
+      - '9864:9864' # DataNode Web UI since Hadoop 3
+      - '9870:9870' # NameNode Web UI since Hadoop 3
+      - '10000:10000' # HiveServer2
       - '19888:19888'
-      - '50070:50070'
-      - '50075:50075'
+      - '50070:50070' # NameNode Web UI prior to Hadoop 3
+      - '50075:50075' # DataNode Web UI prior to Hadoop 3
     volumes:
        - ../../../src/main/resources/avro:/docker/volumes/presto-product-tests/avro
 
@@ -49,11 +51,13 @@ services:
     volumes:
       - ${PRESTO_CLI_JAR}:/docker/volumes/presto-cli/presto-cli-executable.jar
       - ${PRODUCT_TESTS_JAR}:/docker/volumes/presto-product-tests/presto-product-tests-executable.jar
+      - ${PRESTO_JDBC_DRIVER_JAR_DIR}:/docker/volumes/jdbc/
       - ${PRESTO_JDBC_DRIVER_JAR}:/docker/volumes/jdbc/driver.jar
       - ../../../conf/tempto/tempto-configuration-for-docker-default.yaml:/docker/volumes/tempto/tempto-configuration-local.yaml
       - ../../../target/test-reports:/docker/volumes/test-reports
       - /tmp/presto_history_docker:/root/.presto_history
     environment:
       - PRESTO_JDBC_DRIVER_CLASS
+      - TEMPTO_ENVIRONMENT_CONFIG_FILE
       - TEMPTO_EXTRA_CONFIG_FILE
       - CLI_ARGUMENTS=--server presto-master:8080

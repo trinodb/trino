@@ -232,7 +232,7 @@ public class JdbcRecordCursor
                 jdbcClient.abortReadConnection(connection);
             }
         }
-        catch (SQLException e) {
+        catch (SQLException | RuntimeException e) {
             // ignore exception from close
         }
     }

@@ -23,6 +23,7 @@ import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorSplitSource;
 import org.testng.annotations.Test;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -298,6 +299,7 @@ public class TestHiveSplitSource
                     0,
                     100,
                     100,
+                    Instant.now().toEpochMilli(),
                     properties("id", String.valueOf(id)),
                     ImmutableList.of(),
                     ImmutableList.of(new InternalHiveBlock(0, 100, ImmutableList.of())),

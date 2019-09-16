@@ -32,9 +32,7 @@ import static java.nio.charset.StandardCharsets.UTF_16BE;
 
 public final class TeradataStringFunctions
 {
-    private TeradataStringFunctions()
-    {
-    }
+    private TeradataStringFunctions() {}
 
     @Description("Returns index of first occurrence of a substring (or 0 if not found)")
     @ScalarFunction("index")

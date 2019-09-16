@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>317-SNAPSHOT</version>
+        <version>319-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-thrift-testing-server</artifactId>
@@ -26,6 +26,12 @@
         <dependency>
             <groupId>io.airlift.drift</groupId>
             <artifactId>drift-server</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>io.airlift</groupId>
+                    <artifactId>parameternames</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>

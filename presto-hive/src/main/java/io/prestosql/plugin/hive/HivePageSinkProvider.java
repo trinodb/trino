@@ -43,7 +43,7 @@ import java.util.Set;
 
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.prestosql.plugin.hive.metastore.CachingHiveMetastore.memoizeMetastore;
+import static io.prestosql.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 

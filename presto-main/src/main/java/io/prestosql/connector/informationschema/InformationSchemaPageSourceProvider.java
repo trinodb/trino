@@ -42,19 +42,18 @@ import io.prestosql.spi.security.RoleGrant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.OptionalLong;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Sets.union;
-import static io.prestosql.connector.informationschema.InformationSchemaMetadata.TABLES;
-import static io.prestosql.connector.informationschema.InformationSchemaMetadata.TABLE_APPLICABLE_ROLES;
-import static io.prestosql.connector.informationschema.InformationSchemaMetadata.TABLE_COLUMNS;
-import static io.prestosql.connector.informationschema.InformationSchemaMetadata.TABLE_ENABLED_ROLES;
-import static io.prestosql.connector.informationschema.InformationSchemaMetadata.TABLE_ROLES;
-import static io.prestosql.connector.informationschema.InformationSchemaMetadata.TABLE_SCHEMATA;
-import static io.prestosql.connector.informationschema.InformationSchemaMetadata.TABLE_TABLES;
-import static io.prestosql.connector.informationschema.InformationSchemaMetadata.TABLE_TABLE_PRIVILEGES;
-import static io.prestosql.connector.informationschema.InformationSchemaMetadata.TABLE_VIEWS;
+import static io.prestosql.connector.informationschema.InformationSchemaTable.APPLICABLE_ROLES;
+import static io.prestosql.connector.informationschema.InformationSchemaTable.COLUMNS;
+import static io.prestosql.connector.informationschema.InformationSchemaTable.ENABLED_ROLES;
+import static io.prestosql.connector.informationschema.InformationSchemaTable.ROLES;
+import static io.prestosql.connector.informationschema.InformationSchemaTable.SCHEMATA;
+import static io.prestosql.connector.informationschema.InformationSchemaTable.TABLES;
+import static io.prestosql.connector.informationschema.InformationSchemaTable.TABLE_PRIVILEGES;
+import static io.prestosql.connector.informationschema.InformationSchemaTable.VIEWS;
 import static io.prestosql.metadata.MetadataListing.listSchemas;
 import static io.prestosql.metadata.MetadataListing.listTableColumns;
 import static io.prestosql.metadata.MetadataListing.listTablePrivileges;
@@ -110,42 +109,35 @@ public class InformationSchemaPageSourceProvider
         InformationSchemaTableHandle handle = (InformationSchemaTableHandle) tablehandle;
         Set<QualifiedTablePrefix> prefixes = handle.getPrefixes();
 
-        return getInformationSchemaTable(session, handle.getCatalogName(), handle.getSchemaTableName(), prefixes);
+        return getInformationSchemaTable(session, handle.getCatalogName(), handle.getTable(), prefixes, handle.getLimit());
     }
 
-    public InternalTable getInformationSchemaTable(Session session, String catalog, SchemaTableName table, Set<QualifiedTablePrefix> prefixes)
+    public InternalTable getInformationSchemaTable(Session session, String catalog, InformationSchemaTable table, Set<QualifiedTablePrefix> prefixes, OptionalLong limit)
     {
-        if (table.equals(TABLE_COLUMNS)) {
-            return buildColumns(session, prefixes);
+        switch (table) {
+            case COLUMNS:
+                return buildColumns(session, prefixes, limit);
+            case TABLES:
+                return buildTables(session, prefixes, limit);
+            case VIEWS:
+                return buildViews(session, prefixes, limit);
+            case SCHEMATA:
+                return buildSchemata(session, catalog, limit);
+            case TABLE_PRIVILEGES:
+                return buildTablePrivileges(session, prefixes, limit);
+            case ROLES:
+                return buildRoles(session, catalog, limit);
+            case APPLICABLE_ROLES:
+                return buildApplicableRoles(session, catalog, limit);
+            case ENABLED_ROLES:
+                return buildEnabledRoles(session, catalog, limit);
         }
-        if (table.equals(TABLE_TABLES)) {
-            return buildTables(session, prefixes);
-        }
-        if (table.equals(TABLE_VIEWS)) {
-            return buildViews(session, prefixes);
-        }
-        if (table.equals(TABLE_SCHEMATA)) {
-            return buildSchemata(session, catalog);
-        }
-        if (table.equals(TABLE_TABLE_PRIVILEGES)) {
-            return buildTablePrivileges(session, prefixes);
-        }
-        if (table.equals(TABLE_ROLES)) {
-            return buildRoles(session, catalog);
-        }
-        if (table.equals(TABLE_APPLICABLE_ROLES)) {
-            return buildApplicableRoles(session, catalog);
-        }
-        if (table.equals(TABLE_ENABLED_ROLES)) {
-            return buildEnabledRoles(session, catalog);
-        }
-
-        throw new IllegalArgumentException(format("table does not exist: %s", table));
+        throw new IllegalArgumentException(format("table does not exist: %s", table.getSchemaTableName()));
     }
 
-    private InternalTable buildColumns(Session session, Set<QualifiedTablePrefix> prefixes)
+    private InternalTable buildColumns(Session session, Set<QualifiedTablePrefix> prefixes, OptionalLong limit)
     {
-        InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_COLUMNS));
+        InternalTable.Builder table = InternalTable.builder(COLUMNS.getTableMetadata().getColumns());
         for (QualifiedTablePrefix prefix : prefixes) {
             for (Entry<SchemaTableName, List<ColumnMetadata>> entry : listTableColumns(session, metadata, accessControl, prefix).entrySet()) {
                 SchemaTableName tableName = entry.getKey();
@@ -167,15 +159,18 @@ public class InformationSchemaPageSourceProvider
                             column.getExtraInfo(),
                             column.getComment());
                     ordinalPosition++;
+                    if (table.atLimit(limit)) {
+                        return table.build();
+                    }
                 }
             }
         }
         return table.build();
     }
 
-    private InternalTable buildTables(Session session, Set<QualifiedTablePrefix> prefixes)
+    private InternalTable buildTables(Session session, Set<QualifiedTablePrefix> prefixes, OptionalLong limit)
     {
-        InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_TABLES));
+        InternalTable.Builder table = InternalTable.builder(TABLES.getTableMetadata().getColumns());
         for (QualifiedTablePrefix prefix : prefixes) {
             Set<SchemaTableName> tables = listTables(session, metadata, accessControl, prefix);
             Set<SchemaTableName> views = listViews(session, metadata, accessControl, prefix);
@@ -189,14 +184,17 @@ public class InformationSchemaPageSourceProvider
                         name.getTableName(),
                         type,
                         null);
+                if (table.atLimit(limit)) {
+                    return table.build();
+                }
             }
         }
         return table.build();
     }
 
-    private InternalTable buildTablePrivileges(Session session, Set<QualifiedTablePrefix> prefixes)
+    private InternalTable buildTablePrivileges(Session session, Set<QualifiedTablePrefix> prefixes, OptionalLong limit)
     {
-        InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_TABLE_PRIVILEGES));
+        InternalTable.Builder table = InternalTable.builder(TABLE_PRIVILEGES.getTableMetadata().getColumns());
         for (QualifiedTablePrefix prefix : prefixes) {
             List<GrantInfo> grants = ImmutableList.copyOf(listTablePrivileges(session, metadata, accessControl, prefix));
             for (GrantInfo grant : grants) {
@@ -211,14 +209,17 @@ public class InformationSchemaPageSourceProvider
                         grant.getPrivilegeInfo().getPrivilege().name(),
                         grant.getPrivilegeInfo().isGrantOption() ? "YES" : "NO",
                         grant.getWithHierarchy().map(withHierarchy -> withHierarchy ? "YES" : "NO").orElse(null));
+                if (table.atLimit(limit)) {
+                    return table.build();
+                }
             }
         }
         return table.build();
     }
 
-    private InternalTable buildViews(Session session, Set<QualifiedTablePrefix> prefixes)
+    private InternalTable buildViews(Session session, Set<QualifiedTablePrefix> prefixes, OptionalLong limit)
     {
-        InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_VIEWS));
+        InternalTable.Builder table = InternalTable.builder(VIEWS.getTableMetadata().getColumns());
         for (QualifiedTablePrefix prefix : prefixes) {
             for (Entry<QualifiedObjectName, ConnectorViewDefinition> entry : metadata.getViews(session, prefix).entrySet()) {
                 table.add(
@@ -226,26 +227,32 @@ public class InformationSchemaPageSourceProvider
                         entry.getKey().getSchemaName(),
                         entry.getKey().getObjectName(),
                         entry.getValue().getOriginalSql());
+                if (table.atLimit(limit)) {
+                    return table.build();
+                }
             }
         }
         return table.build();
     }
 
-    private InternalTable buildSchemata(Session session, String catalogName)
+    private InternalTable buildSchemata(Session session, String catalogName, OptionalLong limit)
     {
-        InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_SCHEMATA));
+        InternalTable.Builder table = InternalTable.builder(SCHEMATA.getTableMetadata().getColumns());
         for (String schema : listSchemas(session, metadata, accessControl, catalogName)) {
             table.add(catalogName, schema);
+            if (table.atLimit(limit)) {
+                return table.build();
+            }
         }
         return table.build();
     }
 
-    private InternalTable buildRoles(Session session, String catalog)
+    private InternalTable buildRoles(Session session, String catalog, OptionalLong limit)
     {
-        InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_ROLES));
+        InternalTable.Builder table = InternalTable.builder(ROLES.getTableMetadata().getColumns());
 
         try {
-            accessControl.checkCanShowRoles(session.getRequiredTransactionId(), session.getIdentity(), catalog);
+            accessControl.checkCanShowRoles(session.toSecurityContext(), catalog);
         }
         catch (AccessDeniedException exception) {
             return table.build();
@@ -253,13 +260,16 @@ public class InformationSchemaPageSourceProvider
 
         for (String role : metadata.listRoles(session, catalog)) {
             table.add(role);
+            if (table.atLimit(limit)) {
+                return table.build();
+            }
         }
         return table.build();
     }
 
-    private InternalTable buildApplicableRoles(Session session, String catalog)
+    private InternalTable buildApplicableRoles(Session session, String catalog, OptionalLong limit)
     {
-        InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_APPLICABLE_ROLES));
+        InternalTable.Builder table = InternalTable.builder(APPLICABLE_ROLES.getTableMetadata().getColumns());
         for (RoleGrant grant : metadata.listApplicableRoles(session, new PrestoPrincipal(USER, session.getUser()), catalog)) {
             PrestoPrincipal grantee = grant.getGrantee();
             table.add(
@@ -267,22 +277,22 @@ public class InformationSchemaPageSourceProvider
                     grantee.getType().toString(),
                     grant.getRoleName(),
                     grant.isGrantable() ? "YES" : "NO");
+            if (table.atLimit(limit)) {
+                return table.build();
+            }
         }
         return table.build();
     }
 
-    private InternalTable buildEnabledRoles(Session session, String catalog)
+    private InternalTable buildEnabledRoles(Session session, String catalog, OptionalLong limit)
     {
-        InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_ENABLED_ROLES));
+        InternalTable.Builder table = InternalTable.builder(ENABLED_ROLES.getTableMetadata().getColumns());
         for (String role : metadata.listEnabledRoles(session, catalog)) {
             table.add(role);
+            if (table.atLimit(limit)) {
+                return table.build();
+            }
         }
         return table.build();
-    }
-
-    private static List<ColumnMetadata> informationSchemaTableColumns(SchemaTableName tableName)
-    {
-        checkArgument(TABLES.containsKey(tableName), "table does not exist: %s", tableName);
-        return TABLES.get(tableName).getColumns();
     }
 }

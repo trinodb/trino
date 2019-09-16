@@ -37,7 +37,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.sql.planner.ExpressionSymbolInliner.inlineSymbols;
 import static java.util.Objects.requireNonNull;
 
-public class LambdaCaptureDesugaringRewriter
+public final class LambdaCaptureDesugaringRewriter
 {
     public static Expression rewrite(Expression expression, TypeProvider symbolTypes, SymbolAllocator symbolAllocator)
     {

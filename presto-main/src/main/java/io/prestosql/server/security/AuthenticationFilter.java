@@ -14,7 +14,9 @@
 package io.prestosql.server.security;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.net.HttpHeaders;
 
 import javax.inject.Inject;
 import javax.servlet.Filter;
@@ -43,12 +45,16 @@ import static javax.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
 public class AuthenticationFilter
         implements Filter
 {
+    private static final String HTTPS_PROTOCOL = "https";
+
     private final List<Authenticator> authenticators;
+    private final boolean httpsForwardingEnabled;
 
     @Inject
-    public AuthenticationFilter(List<Authenticator> authenticators)
+    public AuthenticationFilter(List<Authenticator> authenticators, SecurityConfig securityConfig)
     {
-        this.authenticators = ImmutableList.copyOf(authenticators);
+        this.authenticators = ImmutableList.copyOf(requireNonNull(authenticators, "authenticators is null"));
+        this.httpsForwardingEnabled = requireNonNull(securityConfig, "securityConfig is null").getEnableForwardingHttps();
     }
 
     @Override
@@ -65,7 +71,7 @@ public class AuthenticationFilter
         HttpServletResponse response = (HttpServletResponse) servletResponse;
 
         // skip authentication if non-secure or not configured
-        if (!request.isSecure() || authenticators.isEmpty()) {
+        if (!doesRequestSupportAuthentication(request)) {
             nextFilter.doFilter(request, response);
             return;
         }
@@ -103,6 +109,17 @@ public class AuthenticationFilter
             messages.add("Unauthorized");
         }
         response.sendError(SC_UNAUTHORIZED, Joiner.on(" | ").join(messages));
+    }
+
+    private boolean doesRequestSupportAuthentication(HttpServletRequest request)
+    {
+        if (authenticators.isEmpty()) {
+            return false;
+        }
+        if (request.isSecure()) {
+            return true;
+        }
+        return httpsForwardingEnabled && Strings.nullToEmpty(request.getHeader(HttpHeaders.X_FORWARDED_PROTO)).equalsIgnoreCase(HTTPS_PROTOCOL);
     }
 
     private static ServletRequest withPrincipal(HttpServletRequest request, Principal principal)

@@ -16,6 +16,7 @@ package io.prestosql.plugin.hive;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slice;
 import io.prestosql.plugin.hive.HivePageSourceProvider.ColumnMapping;
+import io.prestosql.plugin.hive.util.HiveUtil;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.type.DecimalType;
@@ -27,19 +28,19 @@ import java.util.List;
 
 import static io.prestosql.plugin.hive.HivePageSourceProvider.ColumnMappingKind.PREFILLED;
 import static io.prestosql.plugin.hive.HivePageSourceProvider.ColumnMappingKind.REGULAR;
-import static io.prestosql.plugin.hive.HiveUtil.bigintPartitionKey;
-import static io.prestosql.plugin.hive.HiveUtil.booleanPartitionKey;
-import static io.prestosql.plugin.hive.HiveUtil.charPartitionKey;
-import static io.prestosql.plugin.hive.HiveUtil.datePartitionKey;
-import static io.prestosql.plugin.hive.HiveUtil.doublePartitionKey;
-import static io.prestosql.plugin.hive.HiveUtil.floatPartitionKey;
-import static io.prestosql.plugin.hive.HiveUtil.integerPartitionKey;
-import static io.prestosql.plugin.hive.HiveUtil.longDecimalPartitionKey;
-import static io.prestosql.plugin.hive.HiveUtil.shortDecimalPartitionKey;
-import static io.prestosql.plugin.hive.HiveUtil.smallintPartitionKey;
-import static io.prestosql.plugin.hive.HiveUtil.timestampPartitionKey;
-import static io.prestosql.plugin.hive.HiveUtil.tinyintPartitionKey;
-import static io.prestosql.plugin.hive.HiveUtil.varcharPartitionKey;
+import static io.prestosql.plugin.hive.util.HiveUtil.bigintPartitionKey;
+import static io.prestosql.plugin.hive.util.HiveUtil.booleanPartitionKey;
+import static io.prestosql.plugin.hive.util.HiveUtil.charPartitionKey;
+import static io.prestosql.plugin.hive.util.HiveUtil.datePartitionKey;
+import static io.prestosql.plugin.hive.util.HiveUtil.doublePartitionKey;
+import static io.prestosql.plugin.hive.util.HiveUtil.floatPartitionKey;
+import static io.prestosql.plugin.hive.util.HiveUtil.integerPartitionKey;
+import static io.prestosql.plugin.hive.util.HiveUtil.longDecimalPartitionKey;
+import static io.prestosql.plugin.hive.util.HiveUtil.shortDecimalPartitionKey;
+import static io.prestosql.plugin.hive.util.HiveUtil.smallintPartitionKey;
+import static io.prestosql.plugin.hive.util.HiveUtil.timestampPartitionKey;
+import static io.prestosql.plugin.hive.util.HiveUtil.tinyintPartitionKey;
+import static io.prestosql.plugin.hive.util.HiveUtil.varcharPartitionKey;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -52,6 +53,7 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.String.format;
@@ -142,7 +144,10 @@ public class HiveRecordCursor
                     longs[columnIndex] = datePartitionKey(columnValue, name);
                 }
                 else if (TIMESTAMP.equals(type)) {
-                    longs[columnIndex] = timestampPartitionKey(columnValue, hiveStorageTimeZone, name);
+                    longs[columnIndex] = timestampPartitionKey(columnValue, hiveStorageTimeZone, name, false);
+                }
+                else if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
+                    longs[columnIndex] = timestampPartitionKey(columnValue, hiveStorageTimeZone, name, true);
                 }
                 else if (isShortDecimal(type)) {
                     longs[columnIndex] = shortDecimalPartitionKey(columnValue, (DecimalType) type, name);

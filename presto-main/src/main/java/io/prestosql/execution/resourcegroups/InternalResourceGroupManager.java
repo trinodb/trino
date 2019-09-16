@@ -41,6 +41,7 @@ import java.io.File;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -51,7 +52,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -67,8 +67,9 @@ public final class InternalResourceGroupManager<C>
         implements ResourceGroupManager<C>
 {
     private static final Logger log = Logger.get(InternalResourceGroupManager.class);
-    private static final File RESOURCE_GROUPS_CONFIGURATION = new File("etc/resource-groups.properties");
-    private static final String CONFIGURATION_MANAGER_PROPERTY_NAME = "resource-groups.configuration-manager";
+
+    private static final File CONFIG_FILE = new File("etc/resource-groups.properties");
+    private static final String NAME_PROPERTY = "resource-groups.configuration-manager";
 
     private final ScheduledExecutorService refreshExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("ResourceGroupManager"));
     private final List<RootInternalResourceGroup> rootGroups = new CopyOnWriteArrayList<>();
@@ -91,17 +92,19 @@ public final class InternalResourceGroupManager<C>
     }
 
     @Override
-    public ResourceGroupInfo getResourceGroupInfo(ResourceGroupId id)
+    public Optional<ResourceGroupInfo> tryGetResourceGroupInfo(ResourceGroupId id)
     {
-        checkArgument(groups.containsKey(id), "Group %s does not exist", id);
-        return groups.get(id).getFullInfo();
+        InternalResourceGroup resourceGroup = groups.get(id);
+        return Optional.ofNullable(resourceGroup)
+                .map(InternalResourceGroup::getFullInfo);
     }
 
     @Override
-    public List<ResourceGroupInfo> getPathToRoot(ResourceGroupId id)
+    public Optional<List<ResourceGroupInfo>> tryGetPathToRoot(ResourceGroupId id)
     {
-        checkArgument(groups.containsKey(id), "Group %s does not exist", id);
-        return groups.get(id).getPathToRoot();
+        InternalResourceGroup resourceGroup = groups.get(id);
+        return Optional.ofNullable(resourceGroup)
+                .map(InternalResourceGroup::getPathToRoot);
     }
 
     @Override
@@ -131,15 +134,17 @@ public final class InternalResourceGroupManager<C>
     public void loadConfigurationManager()
             throws Exception
     {
-        if (RESOURCE_GROUPS_CONFIGURATION.exists()) {
-            Map<String, String> properties = new HashMap<>(loadProperties(RESOURCE_GROUPS_CONFIGURATION));
-
-            String configurationManagerName = properties.remove(CONFIGURATION_MANAGER_PROPERTY_NAME);
-            checkArgument(!isNullOrEmpty(configurationManagerName),
-                    "Resource groups configuration %s does not contain %s", RESOURCE_GROUPS_CONFIGURATION.getAbsoluteFile(), CONFIGURATION_MANAGER_PROPERTY_NAME);
-
-            setConfigurationManager(configurationManagerName, properties);
+        File configFile = CONFIG_FILE.getAbsoluteFile();
+        if (!configFile.exists()) {
+            return;
         }
+
+        Map<String, String> properties = new HashMap<>(loadProperties(configFile));
+
+        String name = properties.remove(NAME_PROPERTY);
+        checkState(!isNullOrEmpty(name), "Resource groups configuration %s does not contain '%s'", configFile, NAME_PROPERTY);
+
+        setConfigurationManager(name, properties);
     }
 
     @VisibleForTesting
@@ -151,7 +156,7 @@ public final class InternalResourceGroupManager<C>
         log.info("-- Loading resource group configuration manager --");
 
         ResourceGroupConfigurationManagerFactory configurationManagerFactory = configurationManagerFactories.get(name);
-        checkState(configurationManagerFactory != null, "Resource group configuration manager %s is not registered", name);
+        checkState(configurationManagerFactory != null, "Resource group configuration manager '%s' is not registered", name);
 
         ResourceGroupConfigurationManager<C> configurationManager = cast(configurationManagerFactory.create(ImmutableMap.copyOf(properties), configurationManagerContext));
         checkState(this.configurationManager.compareAndSet(cast(legacyManager), configurationManager), "configurationManager already set");
@@ -204,7 +209,7 @@ public final class InternalResourceGroupManager<C>
                 log.error(e, "Exception while generation cpu quota for %s", group);
             }
             try {
-                group.processQueuedQueries();
+                group.updateGroupsAndProcessQueuedQueries();
             }
             catch (RuntimeException e) {
                 log.error(e, "Exception while processing queued queries for %s", group);

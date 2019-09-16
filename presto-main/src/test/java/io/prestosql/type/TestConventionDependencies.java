@@ -58,7 +58,7 @@ public class TestConventionDependencies
     }
 
     @ScalarFunction("regular_convention")
-    public static class RegularConvention
+    public static final class RegularConvention
     {
         @SqlType(StandardTypes.INTEGER)
         public static long testRegularConvention(
@@ -81,7 +81,7 @@ public class TestConventionDependencies
     }
 
     @ScalarFunction("block_position_convention")
-    public static class BlockPositionConvention
+    public static final class BlockPositionConvention
     {
         @SqlType(StandardTypes.INTEGER)
         public static long testBlockPositionConvention(
@@ -90,7 +90,7 @@ public class TestConventionDependencies
                         returnType = StandardTypes.INTEGER,
                         argumentTypes = {StandardTypes.INTEGER, StandardTypes.INTEGER},
                         convention = @Convention(arguments = {NEVER_NULL, BLOCK_POSITION}, result = FAIL_ON_NULL)) MethodHandle function,
-                @SqlType("array(int)") Block array)
+                @SqlType("array(integer)") Block array)
         {
             long sum = 0;
             for (int i = 0; i < array.getPositionCount(); i++) {
@@ -108,7 +108,7 @@ public class TestConventionDependencies
     }
 
     @ScalarFunction("add")
-    public static class Add
+    public static final class Add
     {
         @SqlType(StandardTypes.INTEGER)
         public static long add(

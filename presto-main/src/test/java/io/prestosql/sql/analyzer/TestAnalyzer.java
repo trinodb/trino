@@ -24,6 +24,7 @@ import io.prestosql.execution.QueryManagerConfig;
 import io.prestosql.execution.TaskManagerConfig;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.memory.MemoryManagerConfig;
+import io.prestosql.memory.NodeMemoryConfig;
 import io.prestosql.metadata.Catalog;
 import io.prestosql.metadata.CatalogManager;
 import io.prestosql.metadata.InMemoryNodeManager;
@@ -203,6 +204,23 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testRowDereferenceInCorrelatedSubquery()
+    {
+        assertFails("WITH " +
+                "    t(b) AS (VALUES row(cast(row(1) AS row(a bigint))))," +
+                "    u(b) AS (VALUES row(cast(row(1, 1) AS row(a bigint, b bigint))))" +
+                "SELECT b " +
+                "FROM t " +
+                "WHERE EXISTS (" +
+                "    SELECT b.a" + // this should be considered group-variant since it references u.b.a
+                "    FROM u" +
+                "    GROUP BY b.b" +
+                ")")
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessageMatching("line 1:171: 'b.a' must be an aggregate expression or appear in GROUP BY clause");
+    }
+
+    @Test
     public void testReferenceToOutputColumnFromOrderByAggregation()
     {
         assertFails("SELECT max(a) AS a FROM (values (1,2)) t(a,b) GROUP BY b ORDER BY max(a+b)")
@@ -326,8 +344,8 @@ public class TestAnalyzer
                 "GROUP BY a");
 
         assertFails("SELECT (SELECT t.a.someField) " +
-                        "FROM (VALUES ROW(CAST(ROW(1) AS ROW(someField BIGINT)), 2)) t(a, b) " +
-                        "GROUP BY b")
+                "FROM (VALUES ROW(CAST(ROW(1) AS ROW(someField BIGINT)), 2)) t(a, b) " +
+                "GROUP BY b")
                 .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
                 .hasMessageMatching("line 1:16: Subquery uses 't.a' which must appear in GROUP BY clause");
     }
@@ -587,8 +605,8 @@ public class TestAnalyzer
         analyze("SELECT a x FROM t1 ORDER BY a + 1");
 
         assertFails("SELECT x.c as x\n" +
-                        "FROM (VALUES 1) x(c)\n" +
-                        "ORDER BY x.c")
+                "FROM (VALUES 1) x(c)\n" +
+                "ORDER BY x.c")
                 .hasErrorCode(TYPE_MISMATCH)
                 .hasLocation(3, 10);
     }
@@ -612,7 +630,7 @@ public class TestAnalyzer
         analyze("SELECT a AS b FROM t1 GROUP BY t1.a ORDER BY (SELECT b)");
 
         assertFails("SELECT a AS b FROM t1 GROUP BY t1.a \n" +
-                        "ORDER BY MAX((SELECT b))")
+                "ORDER BY MAX((SELECT b))")
                 .hasErrorCode(COLUMN_NOT_FOUND)
                 .hasMessageMatching("line 2:22: Invalid reference to output projection attribute from ORDER BY aggregation");
 
@@ -624,9 +642,9 @@ public class TestAnalyzer
                 "ORDER BY (SELECT x.someField)");
 
         assertFails("SELECT CAST(ROW(1) AS ROW(someField BIGINT)) AS x\n" +
-                        "FROM (VALUES (1, 2)) t(a, b)\n" +
-                        "GROUP BY b\n" +
-                        "ORDER BY MAX((SELECT x.someField))")
+                "FROM (VALUES (1, 2)) t(a, b)\n" +
+                "GROUP BY b\n" +
+                "ORDER BY MAX((SELECT x.someField))")
                 .hasErrorCode(COLUMN_NOT_FOUND)
                 .hasMessageMatching("line 4:22: Invalid reference to output projection attribute from ORDER BY aggregation");
     }
@@ -638,25 +656,26 @@ public class TestAnalyzer
                 new QueryManagerConfig(),
                 new TaskManagerConfig(),
                 new MemoryManagerConfig(),
-                new FeaturesConfig().setMaxGroupingSets(2048)))).build();
+                new FeaturesConfig().setMaxGroupingSets(2048),
+                new NodeMemoryConfig()))).build();
         analyze(session, "SELECT a, b, c, d, e, f, g, h, i, j, k, SUM(l)" +
                 "FROM (VALUES (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12))\n" +
                 "t (a, b, c, d, e, f, g, h, i, j, k, l)\n" +
                 "GROUP BY CUBE (a, b, c, d, e, f), CUBE (g, h, i, j, k)");
         assertFails(session, "SELECT a, b, c, d, e, f, g, h, i, j, k, l, SUM(m)" +
-                        "FROM (VALUES (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13))\n" +
-                        "t (a, b, c, d, e, f, g, h, i, j, k, l, m)\n" +
-                        "GROUP BY CUBE (a, b, c, d, e, f), CUBE (g, h, i, j, k, l)")
+                "FROM (VALUES (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13))\n" +
+                "t (a, b, c, d, e, f, g, h, i, j, k, l, m)\n" +
+                "GROUP BY CUBE (a, b, c, d, e, f), CUBE (g, h, i, j, k, l)")
                 .hasErrorCode(TOO_MANY_GROUPING_SETS)
                 .hasMessageMatching("line 3:10: GROUP BY has 4096 grouping sets but can contain at most 2048");
         assertFails(session, "SELECT a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, " +
-                        "q, r, s, t, u, v, x, w, y, z, aa, ab, ac, ad, ae, SUM(af)" +
-                        "FROM (VALUES (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, " +
-                        "17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32))\n" +
-                        "t (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, " +
-                        "q, r, s, t, u, v, x, w, y, z, aa, ab, ac, ad, ae, af)\n" +
-                        "GROUP BY CUBE (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, " +
-                        "q, r, s, t, u, v, x, w, y, z, aa, ab, ac, ad, ae)")
+                "q, r, s, t, u, v, x, w, y, z, aa, ab, ac, ad, ae, SUM(af)" +
+                "FROM (VALUES (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, " +
+                "17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32))\n" +
+                "t (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, " +
+                "q, r, s, t, u, v, x, w, y, z, aa, ab, ac, ad, ae, af)\n" +
+                "GROUP BY CUBE (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, " +
+                "q, r, s, t, u, v, x, w, y, z, aa, ab, ac, ad, ae)")
                 .hasErrorCode(TOO_MANY_GROUPING_SETS)
                 .hasMessageMatching(format("line 3:10: GROUP BY has more than %s grouping sets but can contain at most 2048", Integer.MAX_VALUE));
     }
@@ -739,6 +758,15 @@ public class TestAnalyzer
                 .hasErrorCode(NESTED_WINDOW);
         assertFails("SELECT avg(a) OVER (ORDER BY sum(b) OVER ()) FROM t1")
                 .hasErrorCode(NESTED_WINDOW);
+    }
+
+    @Test
+    public void testWindowAttributesForLagLeadFunctions()
+    {
+        assertFails("SELECT lag(x, 2) OVER() FROM (VALUES 1, 2, 3, 4, 5) t(x) ")
+                .hasErrorCode(MISSING_ORDER_BY);
+        assertFails("SELECT lag(x, 2) OVER(ORDER BY x ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) FROM (VALUES 1, 2, 3, 4, 5) t(x) ")
+                .hasErrorCode(INVALID_WINDOW_FRAME);
     }
 
     @Test
@@ -960,8 +988,8 @@ public class TestAnalyzer
     public void testDuplicateWithQuery()
     {
         assertFails("WITH a AS (SELECT * FROM t1)," +
-                        "     a AS (SELECT * FROM t1)" +
-                        "SELECT * FROM a")
+                "     a AS (SELECT * FROM t1)" +
+                "SELECT * FROM a")
                 .hasErrorCode(DUPLICATE_NAMED_QUERY);
     }
 
@@ -969,8 +997,8 @@ public class TestAnalyzer
     public void testCaseInsensitiveDuplicateWithQuery()
     {
         assertFails("WITH a AS (SELECT * FROM t1)," +
-                        "     A AS (SELECT * FROM t1)" +
-                        "SELECT * FROM a")
+                "     A AS (SELECT * FROM t1)" +
+                "SELECT * FROM a")
                 .hasErrorCode(DUPLICATE_NAMED_QUERY);
     }
 
@@ -978,8 +1006,8 @@ public class TestAnalyzer
     public void testWithForwardReference()
     {
         assertFails("WITH a AS (SELECT * FROM b)," +
-                        "     b AS (SELECT * FROM t1)" +
-                        "SELECT * FROM a")
+                "     b AS (SELECT * FROM t1)" +
+                "SELECT * FROM a")
                 .hasErrorCode(TABLE_NOT_FOUND);
     }
 
@@ -1594,11 +1622,11 @@ public class TestAnalyzer
 
         // non-GROUP BY column captured in lambda
         assertFails("SELECT (SELECT apply(0, x -> x + a) FROM (VALUES 1) x(c)) " +
-                        "FROM t1 u GROUP BY b")
+                "FROM t1 u GROUP BY b")
                 .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
                 .hasMessageMatching("line 1:34: Subquery uses 'a' which must appear in GROUP BY clause");
         assertFails("SELECT (SELECT apply(0, x -> x + u.a) from (values 1) x(a)) " +
-                        "FROM t1 u GROUP BY b")
+                "FROM t1 u GROUP BY b")
                 .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
                 .hasMessageMatching("line 1:34: Subquery uses 'u.a' which must appear in GROUP BY clause");
 
@@ -1838,6 +1866,7 @@ public class TestAnalyzer
 
         Catalog tpchTestCatalog = createTestingCatalog(TPCH_CATALOG, TPCH_CATALOG_NAME);
         catalogManager.registerCatalog(tpchTestCatalog);
+        metadata.getTablePropertyManager().addProperties(TPCH_CATALOG_NAME, tpchTestCatalog.getConnector(TPCH_CATALOG_NAME).getTableProperties());
         metadata.getAnalyzePropertyManager().addProperties(TPCH_CATALOG_NAME, tpchTestCatalog.getConnector(TPCH_CATALOG_NAME).getAnalyzeProperties());
 
         catalogManager.registerCatalog(createTestingCatalog(SECOND_CATALOG, SECOND_CATALOG_NAME));
@@ -1983,7 +2012,6 @@ public class TestAnalyzer
         transaction(transactionManager, accessControl)
                 .singleStatement()
                 .readUncommitted()
-                .readOnly()
                 .execute(clientSession, session -> {
                     Analyzer analyzer = createAnalyzer(session, metadata);
                     Statement statement = SQL_PARSER.createStatement(query);

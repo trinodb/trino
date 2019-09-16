@@ -34,9 +34,9 @@ public class IntArrayBlockBuilder
     private static final Block NULL_VALUE_BLOCK = new IntArrayBlock(0, 1, new boolean[] {true}, new int[1]);
 
     @Nullable
-    private BlockBuilderStatus blockBuilderStatus;
+    private final BlockBuilderStatus blockBuilderStatus;
     private boolean initialized;
-    private int initialEntryCount;
+    private final int initialEntryCount;
 
     private int positionCount;
     private boolean hasNullValue;

@@ -48,9 +48,7 @@ import static java.lang.Math.toIntExact;
 
 public final class IntervalYearMonthOperators
 {
-    private IntervalYearMonthOperators()
-    {
-    }
+    private IntervalYearMonthOperators() {}
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH)
@@ -178,7 +176,7 @@ public final class IntervalYearMonthOperators
     }
 
     @ScalarOperator(IS_DISTINCT_FROM)
-    public static class IntervalYearMonthDistinctFromOperator
+    public static final class IntervalYearMonthDistinctFromOperator
     {
         @SqlType(StandardTypes.BOOLEAN)
         public static boolean isDistinctFrom(

@@ -26,7 +26,7 @@ import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-public class TestUnnesterUtil
+public final class TestUnnesterUtil
 {
     private TestUnnesterUtil() {}
 

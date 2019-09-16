@@ -35,6 +35,7 @@ import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.values.ValuesReader;
 import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridDecoder;
 import org.apache.parquet.io.ParquetDecodingException;
+import org.apache.parquet.schema.OriginalType;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -88,6 +89,9 @@ public abstract class PrimitiveColumnReader
             case INT32:
                 return createDecimalColumnReader(descriptor).orElse(new IntColumnReader(descriptor));
             case INT64:
+                if (descriptor.getPrimitiveType().getOriginalType() == OriginalType.TIMESTAMP_MICROS) {
+                    return new TimestampMicrosColumnReader(descriptor);
+                }
                 return createDecimalColumnReader(descriptor).orElse(new LongColumnReader(descriptor));
             case INT96:
                 return new TimestampColumnReader(descriptor);

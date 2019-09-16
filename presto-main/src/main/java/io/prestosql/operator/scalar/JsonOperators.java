@@ -394,7 +394,7 @@ public final class JsonOperators
     }
 
     @ScalarOperator(IS_DISTINCT_FROM)
-    public static class JsonDistinctFromOperator
+    public static final class JsonDistinctFromOperator
     {
         @SqlType(BOOLEAN)
         public static boolean isDistinctFrom(@SqlType(JSON) Slice leftJson, @IsNull boolean leftNull, @SqlType(JSON) Slice rightJson, @IsNull boolean rightNull)

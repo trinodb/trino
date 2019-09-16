@@ -73,12 +73,12 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_TABLE_DROPPED_DURING_QUERY;
 import static io.prestosql.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
-import static io.prestosql.plugin.hive.HiveUtil.isPrestoView;
-import static io.prestosql.plugin.hive.HiveUtil.toPartitionValues;
-import static io.prestosql.plugin.hive.HiveWriteUtils.createDirectory;
-import static io.prestosql.plugin.hive.HiveWriteUtils.pathExists;
 import static io.prestosql.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_NEW_DIRECTORY;
 import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
+import static io.prestosql.plugin.hive.util.HiveUtil.isPrestoView;
+import static io.prestosql.plugin.hive.util.HiveUtil.toPartitionValues;
+import static io.prestosql.plugin.hive.util.HiveWriteUtils.createDirectory;
+import static io.prestosql.plugin.hive.util.HiveWriteUtils.pathExists;
 import static io.prestosql.plugin.hive.util.Statistics.ReduceOperator.SUBTRACT;
 import static io.prestosql.plugin.hive.util.Statistics.merge;
 import static io.prestosql.plugin.hive.util.Statistics.reduce;
@@ -404,7 +404,7 @@ public class SemiTransactionalHiveMetastore
         }
     }
 
-    public synchronized void replaceView(String databaseName, String tableName, Table table, PrincipalPrivileges principalPrivileges)
+    public synchronized void replaceTable(String databaseName, String tableName, Table table, PrincipalPrivileges principalPrivileges)
     {
         setExclusive((delegate, hdfsEnvironment) -> delegate.replaceTable(databaseName, tableName, table, principalPrivileges));
     }
@@ -832,7 +832,7 @@ public class SemiTransactionalHiveMetastore
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
         Action<TableAndMore> tableAction = tableActions.get(schemaTableName);
         if (tableAction == null) {
-            return delegate.listTablePrivileges(databaseName, tableName, principal);
+            return delegate.listTablePrivileges(databaseName, tableName, getTableOwner(databaseName, tableName), principal);
         }
         switch (tableAction.getType()) {
             case ADD:
@@ -850,7 +850,7 @@ public class SemiTransactionalHiveMetastore
                         .build();
             }
             case INSERT_EXISTING:
-                return delegate.listTablePrivileges(databaseName, tableName, principal);
+                return delegate.listTablePrivileges(databaseName, tableName, getTableOwner(databaseName, tableName), principal);
             case DROP:
                 throw new TableNotFoundException(schemaTableName);
             default:
@@ -858,14 +858,21 @@ public class SemiTransactionalHiveMetastore
         }
     }
 
+    private String getTableOwner(String databaseName, String tableName)
+    {
+        Table table = delegate.getTable(databaseName, tableName)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
+        return table.getOwner();
+    }
+
     public synchronized void grantTablePrivileges(String databaseName, String tableName, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
-        setExclusive((delegate, hdfsEnvironment) -> delegate.grantTablePrivileges(databaseName, tableName, grantee, privileges));
+        setExclusive((delegate, hdfsEnvironment) -> delegate.grantTablePrivileges(databaseName, tableName, getTableOwner(databaseName, tableName), grantee, privileges));
     }
 
     public synchronized void revokeTablePrivileges(String databaseName, String tableName, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
-        setExclusive((delegate, hdfsEnvironment) -> delegate.revokeTablePrivileges(databaseName, tableName, grantee, privileges));
+        setExclusive((delegate, hdfsEnvironment) -> delegate.revokeTablePrivileges(databaseName, tableName, getTableOwner(databaseName, tableName), grantee, privileges));
     }
 
     public synchronized void declareIntentionToWrite(ConnectorSession session, WriteMode writeMode, Path stagingPathRoot, SchemaTableName schemaTableName)

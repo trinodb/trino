@@ -13,19 +13,17 @@
  */
 package io.prestosql.operator.window;
 
+import com.google.common.base.VerifyException;
 import com.google.common.collect.Lists;
 import io.prestosql.metadata.Signature;
 import io.prestosql.spi.function.Description;
 import io.prestosql.spi.function.ValueWindowFunction;
 import io.prestosql.spi.function.WindowFunction;
 import io.prestosql.spi.type.Type;
-import org.apache.bval.jsr.xml.ConstructorType;
 
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Constructor;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import static io.prestosql.metadata.FunctionKind.WINDOW;
 import static java.util.Objects.requireNonNull;
@@ -36,28 +34,9 @@ public class ReflectionWindowFunctionSupplier<T extends WindowFunction>
     @SuppressWarnings("unchecked")
     private enum ConstructorType
     {
-        NO_INPUTS(0),
-        INPUTS(1),
-        INPUTS_IGNORE_NULLS(2);
-
-        private int value;
-        private static Map map = new HashMap<>();
-
-        ConstructorType(int value)
-        {
-            this.value = value;
-        }
-
-        static {
-            for (ConstructorType constructorType : ConstructorType.values()) {
-                map.put(constructorType.value, constructorType);
-            }
-        }
-
-        public static ConstructorType valueOf(int nParameters)
-        {
-            return (ConstructorType) map.get(nParameters);
-        }
+        NO_INPUTS,
+        INPUTS,
+        INPUTS_IGNORE_NULLS;
     }
 
     private final Constructor<T> constructor;
@@ -72,26 +51,31 @@ public class ReflectionWindowFunctionSupplier<T extends WindowFunction>
     {
         super(signature, getDescription(requireNonNull(type, "type is null")));
         try {
-            Constructor<T> tmpConstructor;
+            Constructor<T> constructor;
+            ConstructorType constructorType;
 
             if (signature.getArgumentTypes().isEmpty()) {
-                tmpConstructor = type.getConstructor();
+                constructor = type.getConstructor();
+                constructorType = ConstructorType.NO_INPUTS;
             }
             else if (ValueWindowFunction.class.isAssignableFrom(type)) {
                 try {
-                    tmpConstructor = type.getConstructor(List.class, boolean.class);
+                    constructor = type.getConstructor(List.class, boolean.class);
+                    constructorType = ConstructorType.INPUTS_IGNORE_NULLS;
                 }
                 catch (NoSuchMethodException e) {
                     // Fallback to default constructor.
-                    tmpConstructor = type.getConstructor(List.class);
+                    constructor = type.getConstructor(List.class);
+                    constructorType = ConstructorType.INPUTS;
                 }
             }
             else {
-                tmpConstructor = type.getConstructor(List.class);
+                constructor = type.getConstructor(List.class);
+                constructorType = ConstructorType.INPUTS;
             }
 
-            constructor = tmpConstructor;
-            constructorType = ConstructorType.valueOf(constructor.getParameterCount());
+            this.constructor = constructor;
+            this.constructorType = constructorType;
         }
         catch (NoSuchMethodException e) {
             throw new RuntimeException(e);
@@ -110,8 +94,7 @@ public class ReflectionWindowFunctionSupplier<T extends WindowFunction>
                 case INPUTS_IGNORE_NULLS:
                     return constructor.newInstance(inputs, ignoreNulls);
                 default:
-                    // This should never happen.
-                    throw new RuntimeException("Invalid constructor type.");
+                    throw new VerifyException("Unhandled constructor type: " + constructorType);
             }
         }
         catch (ReflectiveOperationException e) {

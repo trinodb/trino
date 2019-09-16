@@ -13,7 +13,8 @@
  */
 package io.prestosql.execution;
 
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.log.Logger;
@@ -42,6 +43,7 @@ import io.prestosql.security.AccessControl;
 import io.prestosql.server.BasicQueryInfo;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
+import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.split.SplitManager;
 import io.prestosql.split.SplitSource;
 import io.prestosql.sql.analyzer.Analysis;
@@ -71,7 +73,6 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
@@ -172,18 +173,7 @@ public class SqlQueryExecution
             this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
 
             // analyze query
-            requireNonNull(preparedQuery, "preparedQuery is null");
-            Analyzer analyzer = new Analyzer(
-                    stateMachine.getSession(),
-                    metadata,
-                    sqlParser,
-                    accessControl,
-                    Optional.of(queryExplainer),
-                    preparedQuery.getParameters(),
-                    warningCollector);
-            this.analysis = analyzer.analyze(preparedQuery.getStatement());
-
-            stateMachine.setUpdateType(analysis.getUpdateType());
+            this.analysis = analyze(preparedQuery, stateMachine, metadata, accessControl, sqlParser, queryExplainer, warningCollector);
 
             // when the query finishes cache the final query info, and clear the reference to the output stage
             AtomicReference<SqlQueryScheduler> queryScheduler = this.queryScheduler;
@@ -201,6 +191,35 @@ public class SqlQueryExecution
 
             this.remoteTaskFactory = new MemoryTrackingRemoteTaskFactory(requireNonNull(remoteTaskFactory, "remoteTaskFactory is null"), stateMachine);
         }
+    }
+
+    private Analysis analyze(
+            PreparedQuery preparedQuery,
+            QueryStateMachine stateMachine,
+            Metadata metadata,
+            AccessControl accessControl,
+            SqlParser sqlParser,
+            QueryExplainer queryExplainer,
+            WarningCollector warningCollector)
+    {
+        stateMachine.beginAnalysis();
+
+        requireNonNull(preparedQuery, "preparedQuery is null");
+        Analyzer analyzer = new Analyzer(
+                stateMachine.getSession(),
+                metadata,
+                sqlParser,
+                accessControl,
+                Optional.of(queryExplainer),
+                preparedQuery.getParameters(),
+                warningCollector);
+        Analysis analysis = analyzer.analyze(preparedQuery.getStatement());
+
+        stateMachine.setUpdateType(analysis.getUpdateType());
+
+        stateMachine.endAnalysis();
+
+        return analysis;
     }
 
     @Override
@@ -306,21 +325,17 @@ public class SqlQueryExecution
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             try {
-                // transition to planning
                 if (!stateMachine.transitionToPlanning()) {
                     // query already started or finished
                     return;
                 }
 
-                // analyze query
-                PlanRoot plan = analyzeQuery();
+                PlanRoot plan = planQuery();
 
-                metadata.beginQuery(getSession(), plan.getConnectors());
+                metadata.beginQuery(getSession(), plan.getTableHandles());
 
-                // plan distribution of query
                 planDistribution(plan);
 
-                // transition to starting
                 if (!stateMachine.transitionToStarting()) {
                     // query already started or finished
                     return;
@@ -360,21 +375,18 @@ public class SqlQueryExecution
         stateMachine.addQueryInfoStateChangeListener(stateChangeListener);
     }
 
-    private PlanRoot analyzeQuery()
+    private PlanRoot planQuery()
     {
         try {
-            return doAnalyzeQuery();
+            return doPlanQuery();
         }
         catch (StackOverflowError e) {
             throw new PrestoException(NOT_SUPPORTED, "statement is too large (stack overflow during analysis)", e);
         }
     }
 
-    private PlanRoot doAnalyzeQuery()
+    private PlanRoot doPlanQuery()
     {
-        // time analysis phase
-        stateMachine.beginAnalysis();
-
         // plan query
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
         LogicalPlanner logicalPlanner = new LogicalPlanner(stateMachine.getSession(), planOptimizers, idAllocator, metadata, new TypeAnalyzer(sqlParser, metadata), statsCalculator, costCalculator, stateMachine.getWarningCollector());
@@ -392,38 +404,31 @@ public class SqlQueryExecution
         // fragment the plan
         SubPlan fragmentedPlan = planFragmenter.createSubPlans(stateMachine.getSession(), plan, false, stateMachine.getWarningCollector());
 
-        // record analysis time
-        stateMachine.endAnalysis();
-
         boolean explainAnalyze = analysis.getStatement() instanceof Explain && ((Explain) analysis.getStatement()).isAnalyze();
-        return new PlanRoot(fragmentedPlan, !explainAnalyze, extractConnectors(analysis));
+        return new PlanRoot(fragmentedPlan, !explainAnalyze, extractTableHandles(analysis));
     }
 
-    private static Set<CatalogName> extractConnectors(Analysis analysis)
+    private static Multimap<CatalogName, ConnectorTableHandle> extractTableHandles(Analysis analysis)
     {
-        ImmutableSet.Builder<CatalogName> connectors = ImmutableSet.builder();
+        ImmutableMultimap.Builder<CatalogName, ConnectorTableHandle> tableHandles = ImmutableMultimap.builder();
 
         for (TableHandle tableHandle : analysis.getTables()) {
-            connectors.add(tableHandle.getCatalogName());
+            tableHandles.put(tableHandle.getCatalogName(), tableHandle.getConnectorHandle());
         }
 
         if (analysis.getInsert().isPresent()) {
             TableHandle target = analysis.getInsert().get().getTarget();
-            connectors.add(target.getCatalogName());
+            tableHandles.put(target.getCatalogName(), target.getConnectorHandle());
         }
 
-        return connectors.build();
+        return tableHandles.build();
     }
 
     private void planDistribution(PlanRoot plan)
     {
-        // time distribution planning
-        stateMachine.beginDistributedPlanning();
-
         // plan the execution on the active nodes
         DistributedExecutionPlanner distributedPlanner = new DistributedExecutionPlanner(splitManager, metadata);
         StageExecutionPlan outputStageExecutionPlan = distributedPlanner.plan(plan.getRoot(), stateMachine.getSession());
-        stateMachine.endDistributedPlanning();
 
         // ensure split sources are closed
         stateMachine.addStateChangeListener(state -> {
@@ -598,13 +603,13 @@ public class SqlQueryExecution
     {
         private final SubPlan root;
         private final boolean summarizeTaskInfos;
-        private final Set<CatalogName> connectors;
+        private final Multimap<CatalogName, ConnectorTableHandle> tableHandles;
 
-        public PlanRoot(SubPlan root, boolean summarizeTaskInfos, Set<CatalogName> connectors)
+        public PlanRoot(SubPlan root, boolean summarizeTaskInfos, Multimap<CatalogName, ConnectorTableHandle> tableHandles)
         {
             this.root = requireNonNull(root, "root is null");
             this.summarizeTaskInfos = summarizeTaskInfos;
-            this.connectors = ImmutableSet.copyOf(connectors);
+            this.tableHandles = ImmutableMultimap.copyOf(requireNonNull(tableHandles, "tableHandles is null"));
         }
 
         public SubPlan getRoot()
@@ -617,9 +622,9 @@ public class SqlQueryExecution
             return summarizeTaskInfos;
         }
 
-        public Set<CatalogName> getConnectors()
+        public Multimap<CatalogName, ConnectorTableHandle> getTableHandles()
         {
-            return connectors;
+            return tableHandles;
         }
     }
 
@@ -701,7 +706,7 @@ public class SqlQueryExecution
         {
             String executionPolicyName = SystemSessionProperties.getExecutionPolicy(stateMachine.getSession());
             ExecutionPolicy executionPolicy = executionPolicies.get(executionPolicyName);
-            checkArgument(executionPolicy != null, "No execution policy %s", executionPolicy);
+            checkArgument(executionPolicy != null, "No execution policy %s", executionPolicyName);
 
             return new SqlQueryExecution(
                     preparedQuery,

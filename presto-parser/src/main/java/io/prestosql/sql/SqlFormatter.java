@@ -115,6 +115,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.sql.ExpressionFormatter.formatExpression;
 import static io.prestosql.sql.ExpressionFormatter.formatGroupBy;
@@ -390,7 +391,18 @@ public final class SqlFormatter
         @Override
         protected Void visitAllColumns(AllColumns node, Integer context)
         {
-            builder.append(node.toString());
+            node.getTarget().ifPresent(value -> builder
+                    .append(formatExpression(value))
+                    .append("."));
+            builder.append("*");
+
+            if (!node.getAliases().isEmpty()) {
+                builder.append(" AS (")
+                        .append(Joiner.on(", ").join(node.getAliases().stream()
+                                .map(ExpressionFormatter::formatExpression)
+                                .collect(toImmutableList())))
+                        .append(")");
+            }
 
             return null;
         }
@@ -801,7 +813,8 @@ public final class SqlFormatter
             }
 
             if (node.getComment().isPresent()) {
-                builder.append("\nCOMMENT " + formatStringLiteral(node.getComment().get()));
+                builder.append("\nCOMMENT ")
+                        .append(formatStringLiteral(node.getComment().get()));
             }
 
             builder.append(formatPropertiesMultiLine(node.getProperties()));
@@ -852,7 +865,8 @@ public final class SqlFormatter
             builder.append("\n").append(")");
 
             if (node.getComment().isPresent()) {
-                builder.append("\nCOMMENT " + formatStringLiteral(node.getComment().get()));
+                builder.append("\nCOMMENT ")
+                        .append(formatStringLiteral(node.getComment().get()));
             }
 
             builder.append(formatPropertiesMultiLine(node.getProperties()));

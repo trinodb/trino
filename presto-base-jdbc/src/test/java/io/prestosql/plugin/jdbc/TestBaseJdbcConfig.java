@@ -14,6 +14,7 @@
 package io.prestosql.plugin.jdbc;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
@@ -22,8 +23,11 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.prestosql.plugin.jdbc.credential.CredentialProviderType.FILE;
+import static io.prestosql.plugin.jdbc.credential.CredentialProviderType.INLINE;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.testng.Assert.assertEquals;
 
 public class TestBaseJdbcConfig
 {
@@ -32,12 +36,12 @@ public class TestBaseJdbcConfig
     {
         assertRecordedDefaults(recordDefaults(BaseJdbcConfig.class)
                 .setConnectionUrl(null)
-                .setConnectionUser(null)
-                .setConnectionPassword(null)
                 .setUserCredentialName(null)
                 .setPasswordCredentialName(null)
                 .setCaseInsensitiveNameMatching(false)
-                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES)));
+                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES))
+                .setCredentialProviderType(INLINE)
+                .setJdbcTypesMappedToVarchar(null));
     }
 
     @Test
@@ -45,23 +49,25 @@ public class TestBaseJdbcConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("connection-url", "jdbc:h2:mem:config")
-                .put("connection-user", "user")
-                .put("connection-password", "password")
                 .put("user-credential-name", "foo")
                 .put("password-credential-name", "bar")
                 .put("case-insensitive-name-matching", "true")
                 .put("case-insensitive-name-matching.cache-ttl", "1s")
+                .put("credential-provider.type", "FILE")
+                .put("jdbc-types-mapped-to-varchar", "mytype,struct_type1")
                 .build();
 
         BaseJdbcConfig expected = new BaseJdbcConfig()
                 .setConnectionUrl("jdbc:h2:mem:config")
-                .setConnectionUser("user")
-                .setConnectionPassword("password")
                 .setUserCredentialName("foo")
                 .setPasswordCredentialName("bar")
                 .setCaseInsensitiveNameMatching(true)
-                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, SECONDS));
+                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, SECONDS))
+                .setCredentialProviderType(FILE)
+                .setJdbcTypesMappedToVarchar("mytype, struct_type1");
 
         assertFullMapping(properties, expected);
+
+        assertEquals(expected.getJdbcTypesMappedToVarchar(), ImmutableSet.of("mytype", "struct_type1"));
     }
 }

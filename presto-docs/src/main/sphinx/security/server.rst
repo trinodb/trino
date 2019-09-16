@@ -86,9 +86,9 @@ Kerberos authentication is configured in the coordinator node's
 
     http-server.authentication.type=KERBEROS
 
-    http.server.authentication.krb5.service-name=presto
-    http.server.authentication.krb5.principal-hostname=presto.prestosql.io
-    http.server.authentication.krb5.keytab=/etc/presto/presto.keytab
+    http-server.authentication.krb5.service-name=presto
+    http-server.authentication.krb5.principal-hostname=presto.prestosql.io
+    http-server.authentication.krb5.keytab=/etc/presto/presto.keytab
     http.authentication.krb5.config=/etc/krb5.conf
 
     http-server.https.enabled=true
@@ -102,14 +102,14 @@ Property                                                Description
 ======================================================= ======================================================
 ``http-server.authentication.type``                     Authentication type for the Presto
                                                         coordinator. Must be set to ``KERBEROS``.
-``http.server.authentication.krb5.service-name``        The Kerberos service name for the Presto coordinator.
+``http-server.authentication.krb5.service-name``        The Kerberos service name for the Presto coordinator.
                                                         Must match the Kerberos principal.
-``http.server.authentication.krb5.principal-hostname``  The Kerberos hostname for the Presto coordinator.
+``http-server.authentication.krb5.principal-hostname``  The Kerberos hostname for the Presto coordinator.
                                                         Must match the Kerberos principal. This parameter is
                                                         optional. If included, Presto will use this value
                                                         in the host part of the Kerberos principal instead
                                                         of the machine's hostname.
-``http.server.authentication.krb5.keytab``              The location of the keytab that can be used to
+``http-server.authentication.krb5.keytab``              The location of the keytab that can be used to
                                                         authenticate the Kerberos principal.
 ``http.authentication.krb5.config``                     The location of the Kerberos configuration file.
 ``http-server.https.enabled``                           Enables HTTPS access for the Presto coordinator.

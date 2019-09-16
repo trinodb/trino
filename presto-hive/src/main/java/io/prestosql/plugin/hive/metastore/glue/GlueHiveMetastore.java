@@ -19,6 +19,7 @@ import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
+import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
 import com.amazonaws.regions.Region;
 import com.amazonaws.regions.Regions;
@@ -64,8 +65,6 @@ import io.airlift.log.Logger;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.HiveType;
-import io.prestosql.plugin.hive.HiveUtil;
-import io.prestosql.plugin.hive.HiveWriteUtils;
 import io.prestosql.plugin.hive.PartitionNotFoundException;
 import io.prestosql.plugin.hive.PartitionStatistics;
 import io.prestosql.plugin.hive.SchemaAlreadyExistsException;
@@ -81,6 +80,8 @@ import io.prestosql.plugin.hive.metastore.PrincipalPrivileges;
 import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.plugin.hive.metastore.glue.converter.GlueInputConverter;
 import io.prestosql.plugin.hive.metastore.glue.converter.GlueToPrestoConverter;
+import io.prestosql.plugin.hive.util.HiveUtil;
+import io.prestosql.plugin.hive.util.HiveWriteUtils;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnNotFoundException;
 import io.prestosql.spi.connector.SchemaNotFoundException;
@@ -107,15 +108,16 @@ import java.util.function.Function;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
-import static io.prestosql.plugin.hive.HiveUtil.toPartitionValues;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.makePartName;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.verifyCanDropColumn;
 import static io.prestosql.plugin.hive.metastore.glue.GlueExpressionUtil.buildGlueExpression;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
+import static io.prestosql.plugin.hive.util.HiveUtil.toPartitionValues;
 import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.security.PrincipalType.USER;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.UnaryOperator.identity;
 import static java.util.stream.Collectors.toList;
@@ -143,14 +145,9 @@ public class GlueHiveMetastore
     @Inject
     public GlueHiveMetastore(HdfsEnvironment hdfsEnvironment, GlueHiveMetastoreConfig glueConfig)
     {
-        this(hdfsEnvironment, glueConfig, createAsyncGlueClient(glueConfig));
-    }
-
-    public GlueHiveMetastore(HdfsEnvironment hdfsEnvironment, GlueHiveMetastoreConfig glueConfig, AWSGlueAsync glueClient)
-    {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.hdfsContext = new HdfsContext(new ConnectorIdentity(DEFAULT_METASTORE_USER, Optional.empty(), Optional.empty()));
-        this.glueClient = requireNonNull(glueClient, "glueClient is null");
+        this.glueClient = requireNonNull(createAsyncGlueClient(glueConfig), "glueClient is null");
         this.defaultDir = glueConfig.getDefaultWarehouseDir();
         this.catalogId = glueConfig.getCatalogId().orElse(null);
     }
@@ -182,12 +179,32 @@ public class GlueHiveMetastore
             return new AWSStaticCredentialsProvider(
                 new BasicAWSCredentials(config.getAwsAccessKey().get(), config.getAwsSecretKey().get()));
         }
-        else if (config.getIamRole().isPresent()) {
+        if (config.isUseInstanceCredentials()) {
+            return InstanceProfileCredentialsProvider.getInstance();
+        }
+        if (config.getIamRole().isPresent()) {
             return new STSAssumeRoleSessionCredentialsProvider
                 .Builder(config.getIamRole().get(), "presto-session")
                 .build();
         }
+        if (config.getAwsCredentialsProvider().isPresent()) {
+            return getCustomAWSCredentialsProvider(config.getAwsCredentialsProvider().get());
+        }
         return DefaultAWSCredentialsProviderChain.getInstance();
+    }
+
+    private static AWSCredentialsProvider getCustomAWSCredentialsProvider(String providerClass)
+    {
+        try {
+            Object instance = Class.forName(providerClass).getConstructor().newInstance();
+            if (!(instance instanceof AWSCredentialsProvider)) {
+                throw new RuntimeException("Invalid credentials provider class: " + instance.getClass().getName());
+            }
+            return (AWSCredentialsProvider) instance;
+        }
+        catch (ReflectiveOperationException e) {
+            throw new RuntimeException(format("Error creating an instance of %s", providerClass), e);
+        }
     }
 
     @Override
@@ -363,6 +380,13 @@ public class GlueHiveMetastore
         catch (AmazonServiceException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
+    }
+
+    @Override
+    public synchronized List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
+    {
+        // TODO
+        throw new UnsupportedOperationException("getTablesWithParameter for GlueHiveMetastore is not implemented");
     }
 
     @Override
@@ -870,19 +894,19 @@ public class GlueHiveMetastore
     }
 
     @Override
-    public void grantTablePrivileges(String databaseName, String tableName, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
+    public void grantTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
         throw new PrestoException(NOT_SUPPORTED, "grantTablePrivileges is not supported by Glue");
     }
 
     @Override
-    public void revokeTablePrivileges(String databaseName, String tableName, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
+    public void revokeTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
         throw new PrestoException(NOT_SUPPORTED, "revokeTablePrivileges is not supported by Glue");
     }
 
     @Override
-    public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, HivePrincipal principal)
+    public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal principal)
     {
         throw new PrestoException(NOT_SUPPORTED, "listTablePrivileges is not supported by Glue");
     }

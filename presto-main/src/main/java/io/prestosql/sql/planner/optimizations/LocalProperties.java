@@ -33,9 +33,7 @@ import static com.google.common.collect.Iterators.peekingIterator;
 
 public final class LocalProperties
 {
-    private LocalProperties()
-    {
-    }
+    private LocalProperties() {}
 
     public static <T> List<LocalProperty<T>> none()
     {

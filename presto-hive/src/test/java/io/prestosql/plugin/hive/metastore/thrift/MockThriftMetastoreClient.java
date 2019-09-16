@@ -138,6 +138,12 @@ public class MockThriftMetastoreClient
     }
 
     @Override
+    public Table getTableWithCapabilities(String databaseName, String tableName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public List<FieldSchema> getFields(String databaseName, String tableName)
             throws TException
     {

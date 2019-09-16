@@ -68,6 +68,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/presto-iceberg">
+        <artifact id="${project.groupId}:presto-iceberg:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/memory">
         <artifact id="${project.groupId}:presto-memory:zip:${project.version}">
             <unpack />
@@ -196,6 +202,12 @@
 
     <artifactSet to="plugin/presto-elasticsearch">
         <artifact id="${project.groupId}:presto-elasticsearch:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/google-sheets">
+        <artifact id="${project.groupId}:presto-google-sheets:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>

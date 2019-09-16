@@ -45,6 +45,8 @@ public interface HiveMetastore
 
     List<String> getAllTables(String databaseName);
 
+    List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue);
+
     List<String> getAllViews(String databaseName);
 
     void createDatabase(Database database);
@@ -100,9 +102,9 @@ public interface HiveMetastore
 
     Set<RoleGrant> listRoleGrants(HivePrincipal principal);
 
-    void grantTablePrivileges(String databaseName, String tableName, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges);
+    void grantTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges);
 
-    void revokeTablePrivileges(String databaseName, String tableName, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges);
+    void revokeTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges);
 
-    Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, HivePrincipal principal);
+    Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal principal);
 }

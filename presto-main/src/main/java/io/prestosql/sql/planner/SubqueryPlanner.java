@@ -22,9 +22,9 @@ import io.prestosql.sql.analyzer.Analysis;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.ApplyNode;
 import io.prestosql.sql.planner.plan.Assignments;
+import io.prestosql.sql.planner.plan.CorrelatedJoinNode;
 import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
 import io.prestosql.sql.planner.plan.FilterNode;
-import io.prestosql.sql.planner.plan.LateralJoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.planner.plan.SimplePlanRewriter;
@@ -58,7 +58,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.sql.analyzer.SemanticExceptions.notSupportedException;
-import static io.prestosql.sql.planner.ExpressionNodeInliner.replaceExpression;
+import static io.prestosql.sql.planner.ReferenceAwareExpressionNodeInliner.replaceExpression;
 import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.EQUAL;
@@ -122,7 +122,7 @@ class SubqueryPlanner
     private PlanBuilder handleSubqueries(PlanBuilder builder, Expression expression, Node node, boolean correlationAllowed)
     {
         builder = appendInPredicateApplyNodes(builder, collectInPredicateSubqueries(expression, node), correlationAllowed, node);
-        builder = appendScalarSubqueryApplyNodes(builder, collectScalarSubqueries(expression, node), correlationAllowed);
+        builder = appendScalarSubqueryCorrelatedJoins(builder, collectScalarSubqueries(expression, node), correlationAllowed);
         builder = appendExistsSubqueryApplyNodes(builder, collectExistsSubqueries(expression, node), correlationAllowed);
         builder = appendQuantifiedComparisonApplyNodes(builder, collectQuantifiedComparisonSubqueries(expression, node), correlationAllowed, node);
         return builder;
@@ -196,7 +196,7 @@ class SubqueryPlanner
         return appendApplyNode(subPlan, inPredicate, subqueryPlan.getRoot(), Assignments.of(inPredicateSubquerySymbol, inPredicateSubqueryExpression), correlationAllowed);
     }
 
-    private PlanBuilder appendScalarSubqueryApplyNodes(PlanBuilder builder, Set<SubqueryExpression> scalarSubqueries, boolean correlationAllowed)
+    private PlanBuilder appendScalarSubqueryCorrelatedJoins(PlanBuilder builder, Set<SubqueryExpression> scalarSubqueries, boolean correlationAllowed)
     {
         for (SubqueryExpression scalarSubquery : scalarSubqueries) {
             builder = appendScalarSubqueryApplyNode(builder, scalarSubquery, correlationAllowed);
@@ -227,13 +227,13 @@ class SubqueryPlanner
         }
 
         // The subquery's EnforceSingleRowNode always produces a row, so the join is effectively INNER
-        return appendLateralJoin(subPlan, subqueryPlan, scalarSubquery.getQuery(), correlationAllowed, LateralJoinNode.Type.INNER, TRUE_LITERAL);
+        return appendCorrelatedJoin(subPlan, subqueryPlan, scalarSubquery.getQuery(), correlationAllowed, CorrelatedJoinNode.Type.INNER, TRUE_LITERAL);
     }
 
-    public PlanBuilder appendLateralJoin(PlanBuilder subPlan, PlanBuilder subqueryPlan, Query query, boolean correlationAllowed, LateralJoinNode.Type type, Expression filterCondition)
+    public PlanBuilder appendCorrelatedJoin(PlanBuilder subPlan, PlanBuilder subqueryPlan, Query query, boolean correlationAllowed, CorrelatedJoinNode.Type type, Expression filterCondition)
     {
         PlanNode subqueryNode = subqueryPlan.getRoot();
-        Map<Expression, Expression> correlation = extractCorrelation(subPlan, subqueryNode);
+        Map<NodeRef<Expression>, Expression> correlation = extractCorrelation(subPlan, subqueryNode);
         if (!correlationAllowed && !correlation.isEmpty()) {
             throw notSupportedException(query, "Correlated subquery in given context");
         }
@@ -241,15 +241,14 @@ class SubqueryPlanner
 
         return new PlanBuilder(
                 subPlan.copyTranslations(),
-                new LateralJoinNode(
+                new CorrelatedJoinNode(
                         idAllocator.getNextId(),
                         subPlan.getRoot(),
                         subqueryNode,
                         ImmutableList.copyOf(SymbolsExtractor.extractUnique(correlation.values())),
                         type,
                         filterCondition,
-                        query),
-                analysis.getParameters());
+                        query));
     }
 
     private PlanBuilder appendExistsSubqueryApplyNodes(PlanBuilder builder, Set<ExistsPredicate> existsPredicates, boolean correlationAllowed)
@@ -432,11 +431,14 @@ class SubqueryPlanner
             Assignments subqueryAssignments,
             boolean correlationAllowed)
     {
-        Map<Expression, Expression> correlation = extractCorrelation(subPlan, subqueryNode);
+        Map<NodeRef<Expression>, Expression> correlation = extractCorrelation(subPlan, subqueryNode);
         if (!correlationAllowed && !correlation.isEmpty()) {
             throw notSupportedException(subquery, "Correlated subquery in given context");
         }
-        subPlan = subPlan.appendProjections(correlation.keySet(), symbolAllocator, idAllocator);
+        subPlan = subPlan.appendProjections(
+                correlation.keySet().stream().map(NodeRef::getNode).collect(toImmutableSet()),
+                symbolAllocator,
+                idAllocator);
         subqueryNode = replaceExpressionsWithSymbols(subqueryNode, correlation);
 
         TranslationMap translations = subPlan.copyTranslations();
@@ -447,25 +449,24 @@ class SubqueryPlanner
                         subqueryNode,
                         subqueryAssignments,
                         ImmutableList.copyOf(SymbolsExtractor.extractUnique(correlation.values())),
-                        subquery),
-                analysis.getParameters());
+                        subquery));
     }
 
-    private Map<Expression, Expression> extractCorrelation(PlanBuilder subPlan, PlanNode subquery)
+    private Map<NodeRef<Expression>, Expression> extractCorrelation(PlanBuilder subPlan, PlanNode subquery)
     {
-        Set<Expression> missingReferences = extractOuterColumnReferences(subquery);
-        ImmutableMap.Builder<Expression, Expression> correlation = ImmutableMap.builder();
-        for (Expression missingReference : missingReferences) {
+        Set<NodeRef<Expression>> missingReferences = extractOuterColumnReferences(subquery);
+        ImmutableMap.Builder<NodeRef<Expression>, Expression> correlation = ImmutableMap.builder();
+        for (NodeRef<Expression> missingReference : missingReferences) {
             // missing reference expression can be solved within current subPlan,
             // or within outer plans in case of multiple nesting levels of subqueries.
-            tryResolveMissingExpression(subPlan, missingReference)
+            tryResolveMissingExpression(subPlan, missingReference.getNode())
                     .ifPresent(symbolReference -> correlation.put(missingReference, symbolReference));
         }
         return correlation.build();
     }
 
     /**
-     * Checks if give reference expression can resolved within given plan.
+     * Checks if given reference expression can be resolved within given plan.
      */
     private static Optional<Expression> tryResolveMissingExpression(PlanBuilder subPlan, Expression expression)
     {
@@ -490,14 +491,14 @@ class SubqueryPlanner
             translations.put((Expression) node, getOnlyElement(relationPlan.getFieldMappings()));
         }
 
-        return new PlanBuilder(translations, relationPlan.getRoot(), analysis.getParameters());
+        return new PlanBuilder(translations, relationPlan.getRoot());
     }
 
     /**
      * @return a set of reference expressions which cannot be resolved within this plan. For plan representing:
      * SELECT a, b FROM (VALUES 1) T(a). It will return a set containing single expression reference to 'b'.
      */
-    private Set<Expression> extractOuterColumnReferences(PlanNode planNode)
+    private Set<NodeRef<Expression>> extractOuterColumnReferences(PlanNode planNode)
     {
         // at this point all the column references are already rewritten to SymbolReference
         // when reference expression is not rewritten that means it cannot be satisfied within given PlanNode
@@ -507,14 +508,14 @@ class SubqueryPlanner
                 .collect(toImmutableSet());
     }
 
-    private static Set<Expression> extractColumnReferences(Expression expression, Set<NodeRef<Expression>> columnReferences)
+    private static Set<NodeRef<Expression>> extractColumnReferences(Expression expression, Set<NodeRef<Expression>> columnReferences)
     {
-        ImmutableSet.Builder<Expression> expressionColumnReferences = ImmutableSet.builder();
+        ImmutableSet.Builder<NodeRef<Expression>> expressionColumnReferences = ImmutableSet.builder();
         new ColumnReferencesExtractor(columnReferences).process(expression, expressionColumnReferences);
         return expressionColumnReferences.build();
     }
 
-    private PlanNode replaceExpressionsWithSymbols(PlanNode planNode, Map<Expression, Expression> mapping)
+    private PlanNode replaceExpressionsWithSymbols(PlanNode planNode, Map<NodeRef<Expression>, Expression> mapping)
     {
         if (mapping.isEmpty()) {
             return planNode;
@@ -524,7 +525,7 @@ class SubqueryPlanner
     }
 
     private static class ColumnReferencesExtractor
-            extends DefaultExpressionTraversalVisitor<Void, ImmutableSet.Builder<Expression>>
+            extends DefaultExpressionTraversalVisitor<Void, ImmutableSet.Builder<NodeRef<Expression>>>
     {
         private final Set<NodeRef<Expression>> columnReferences;
 
@@ -534,10 +535,10 @@ class SubqueryPlanner
         }
 
         @Override
-        protected Void visitDereferenceExpression(DereferenceExpression node, ImmutableSet.Builder<Expression> builder)
+        protected Void visitDereferenceExpression(DereferenceExpression node, ImmutableSet.Builder<NodeRef<Expression>> builder)
         {
             if (columnReferences.contains(NodeRef.<Expression>of(node))) {
-                builder.add(node);
+                builder.add(NodeRef.of(node));
             }
             else {
                 process(node.getBase(), builder);
@@ -546,9 +547,9 @@ class SubqueryPlanner
         }
 
         @Override
-        protected Void visitIdentifier(Identifier node, ImmutableSet.Builder<Expression> builder)
+        protected Void visitIdentifier(Identifier node, ImmutableSet.Builder<NodeRef<Expression>> builder)
         {
-            builder.add(node);
+            builder.add(NodeRef.of(node));
             return null;
         }
     }
@@ -557,9 +558,9 @@ class SubqueryPlanner
             extends SimplePlanRewriter<Void>
     {
         private final PlanNodeIdAllocator idAllocator;
-        private final Map<Expression, Expression> mapping;
+        private final Map<NodeRef<Expression>, Expression> mapping;
 
-        public ExpressionReplacer(PlanNodeIdAllocator idAllocator, Map<Expression, Expression> mapping)
+        public ExpressionReplacer(PlanNodeIdAllocator idAllocator, Map<NodeRef<Expression>, Expression> mapping)
         {
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.mapping = requireNonNull(mapping, "mapping is null");

@@ -13,12 +13,13 @@
  */
 package io.prestosql.tests.tpch;
 
-import com.google.common.base.Function;
 import io.prestosql.spi.connector.ConnectorIndex;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.RecordPageSource;
 import io.prestosql.spi.connector.RecordSet;
 import io.prestosql.tests.tpch.TpchIndexedData.IndexedTable;
+
+import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
 

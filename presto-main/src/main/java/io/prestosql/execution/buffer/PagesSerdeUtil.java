@@ -29,11 +29,9 @@ import static java.lang.Math.toIntExact;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
-public class PagesSerdeUtil
+public final class PagesSerdeUtil
 {
-    private PagesSerdeUtil()
-    {
-    }
+    private PagesSerdeUtil() {}
 
     static void writeRawPage(Page page, SliceOutput output, BlockEncodingSerde serde)
     {

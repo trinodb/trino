@@ -32,7 +32,6 @@ import static io.prestosql.tests.utils.QueryExecutors.onPresto;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Requires(ImmutableNationTable.class)
 public class TestHiveBasicTableStatistics
@@ -278,13 +277,17 @@ public class TestHiveBasicTableStatistics
             assertThat(statisticsAfterCreate.getNumRows().getAsLong()).isEqualTo(25);
             assertThat(statisticsAfterCreate.getNumFiles().getAsLong()).isEqualTo(50);
 
-            // Insert into bucketed unpartitioned table is unsupported
-            assertThatThrownBy(() -> insertNationData(onPresto(), tableName))
-                    .hasMessageContaining("Cannot insert into bucketed unpartitioned Hive table");
+            insertNationData(onPresto(), tableName);
 
             BasicStatistics statisticsAfterInsert = getBasicStatisticsForTable(onHive(), tableName);
-            assertThat(statisticsAfterInsert.getNumRows().getAsLong()).isEqualTo(25);
-            assertThat(statisticsAfterCreate.getNumFiles().getAsLong()).isEqualTo(50);
+            assertThat(statisticsAfterInsert.getNumRows().getAsLong()).isEqualTo(50);
+            assertThat(statisticsAfterInsert.getNumFiles().getAsLong()).isEqualTo(100);
+
+            insertNationData(onPresto(), tableName);
+
+            BasicStatistics statisticsAfterInsert2 = getBasicStatisticsForTable(onHive(), tableName);
+            assertThat(statisticsAfterInsert2.getNumRows().getAsLong()).isEqualTo(75);
+            assertThat(statisticsAfterInsert2.getNumFiles().getAsLong()).isEqualTo(150);
         }
         finally {
             onPresto().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
@@ -318,23 +321,22 @@ public class TestHiveBasicTableStatistics
             assertThat(firstPartitionStatistics.getNumRows().getAsLong()).isEqualTo(5);
             assertThat(firstPartitionStatistics.getNumFiles().getAsLong()).isEqualTo(10);
 
-            onPresto().executeQuery(format("" +
-                    "INSERT INTO %s (n_nationkey, n_regionkey, n_name, n_comment) " +
+            String insert = format("INSERT INTO %s (n_nationkey, n_regionkey, n_name, n_comment) " +
                     "SELECT n_nationkey, n_regionkey, n_name, n_comment " +
                     "FROM nation " +
-                    "WHERE n_regionkey = 2", tableName));
+                    "WHERE n_regionkey = 2", tableName);
+
+            onPresto().executeQuery(insert);
 
             BasicStatistics secondPartitionStatistics = getBasicStatisticsForPartition(onHive(), tableName, "n_regionkey=2");
             assertThat(secondPartitionStatistics.getNumRows().getAsLong()).isEqualTo(5);
             assertThat(secondPartitionStatistics.getNumFiles().getAsLong()).isEqualTo(10);
 
-            // Insert into existing bucketed partition is not supported
-            assertThatThrownBy(() -> insertNationData(onPresto(), tableName))
-                    .hasMessageContaining("Cannot insert into existing partition of bucketed Hive table");
+            onPresto().executeQuery(insert);
 
             BasicStatistics secondPartitionUpdatedStatistics = getBasicStatisticsForPartition(onHive(), tableName, "n_regionkey=2");
-            assertThat(secondPartitionUpdatedStatistics.getNumRows().getAsLong()).isEqualTo(5);
-            assertThat(secondPartitionUpdatedStatistics.getNumFiles().getAsLong()).isEqualTo(10);
+            assertThat(secondPartitionUpdatedStatistics.getNumRows().getAsLong()).isEqualTo(10);
+            assertThat(secondPartitionUpdatedStatistics.getNumFiles().getAsLong()).isEqualTo(20);
         }
         finally {
             onPresto().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
@@ -414,7 +416,7 @@ public class TestHiveBasicTableStatistics
     private static OptionalLong getTableParameterValue(QueryResult describeResult, String key)
     {
         verify(describeResult.getColumnsCount() == 3, "describe result is expected to have 3 columns");
-        for (List<Object> row : describeResult.rows()) {
+        for (List<?> row : describeResult.rows()) {
             Optional<String> parameterKey = Optional.ofNullable(row.get(1))
                     .map(Object::toString)
                     .map(String::trim);

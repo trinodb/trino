@@ -246,8 +246,8 @@ public class TestDictionaryAwarePageProjection
 
         if (produceLazyBlock) {
             assertInstanceOf(result, LazyBlock.class);
-            assertFalse(((LazyBlock) result).isLoaded());
-            assertFalse(((LazyBlock) block).isLoaded());
+            assertFalse(result.isLoaded());
+            assertFalse(block.isLoaded());
             result = result.getLoadedBlock();
         }
 
@@ -278,8 +278,8 @@ public class TestDictionaryAwarePageProjection
 
         if (produceLazyBlock) {
             assertInstanceOf(result, LazyBlock.class);
-            assertFalse(((LazyBlock) result).isLoaded());
-            assertFalse(((LazyBlock) block).isLoaded());
+            assertFalse(result.isLoaded());
+            assertFalse(block.isLoaded());
             result = result.getLoadedBlock();
         }
 
@@ -308,8 +308,8 @@ public class TestDictionaryAwarePageProjection
 
         if (produceLazyBlock) {
             assertInstanceOf(result, LazyBlock.class);
-            assertFalse(((LazyBlock) result).isLoaded());
-            assertFalse(((LazyBlock) block).isLoaded());
+            assertFalse(result.isLoaded());
+            assertFalse(block.isLoaded());
             result = result.getLoadedBlock();
         }
 

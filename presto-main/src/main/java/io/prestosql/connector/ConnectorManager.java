@@ -164,7 +164,7 @@ public class ConnectorManager
     {
         checkState(!stopped.get(), "ConnectorManager is stopped");
         ConnectorFactory existingConnectorFactory = connectorFactories.putIfAbsent(connectorFactory.getName(), connectorFactory);
-        checkArgument(existingConnectorFactory == null, "Connector %s is already registered", connectorFactory.getName());
+        checkArgument(existingConnectorFactory == null, "Connector '%s' is already registered", connectorFactory.getName());
         handleResolver.addConnectorName(connectorFactory.getName(), connectorFactory.getHandleResolver());
     }
 
@@ -172,7 +172,7 @@ public class ConnectorManager
     {
         requireNonNull(connectorName, "connectorName is null");
         ConnectorFactory connectorFactory = connectorFactories.get(connectorName);
-        checkArgument(connectorFactory != null, "No factory for connector [%s].  Available factories: %s", connectorName, connectorFactories.keySet());
+        checkArgument(connectorFactory != null, "No factory for connector '%s'.  Available factories: %s", connectorName, connectorFactories.keySet());
         return createConnection(catalogName, connectorFactory, properties);
     }
 
@@ -182,10 +182,10 @@ public class ConnectorManager
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(properties, "properties is null");
         requireNonNull(connectorFactory, "connectorFactory is null");
-        checkArgument(!catalogManager.getCatalog(catalogName).isPresent(), "A catalog already exists for %s", catalogName);
+        checkArgument(!catalogManager.getCatalog(catalogName).isPresent(), "Catalog '%s' already exists", catalogName);
 
         CatalogName catalog = new CatalogName(catalogName);
-        checkState(!connectors.containsKey(catalog), "A catalog %s already exists", catalog);
+        checkState(!connectors.containsKey(catalog), "Catalog '%s' already exists", catalog);
 
         addCatalogConnector(catalog, connectorFactory, properties);
 
@@ -246,7 +246,7 @@ public class ConnectorManager
     {
         checkState(!stopped.get(), "ConnectorManager is stopped");
         CatalogName catalogName = connector.getCatalogName();
-        checkState(!connectors.containsKey(catalogName), "A connector %s already exists", catalogName);
+        checkState(!connectors.containsKey(catalogName), "Catalog '%s' already exists", catalogName);
         connectors.put(catalogName, connector);
 
         connector.getSplitManager()
@@ -353,11 +353,11 @@ public class ConnectorManager
             this.connector = requireNonNull(connector, "connector is null");
 
             Set<SystemTable> systemTables = connector.getSystemTables();
-            requireNonNull(systemTables, "Connector %s returned a null system tables set");
+            requireNonNull(systemTables, format("Connector '%s' returned a null system tables set", catalogName));
             this.systemTables = ImmutableSet.copyOf(systemTables);
 
             Set<Procedure> procedures = connector.getProcedures();
-            requireNonNull(procedures, "Connector %s returned a null procedures set");
+            requireNonNull(procedures, format("Connector '%s' returned a null procedures set", catalogName));
             this.procedures = ImmutableSet.copyOf(procedures);
 
             ConnectorSplitManager splitManager = null;
@@ -371,15 +371,15 @@ public class ConnectorManager
             ConnectorPageSourceProvider connectorPageSourceProvider = null;
             try {
                 connectorPageSourceProvider = connector.getPageSourceProvider();
-                requireNonNull(connectorPageSourceProvider, format("Connector %s returned a null page source provider", catalogName));
+                requireNonNull(connectorPageSourceProvider, format("Connector '%s' returned a null page source provider", catalogName));
             }
             catch (UnsupportedOperationException ignored) {
             }
 
             try {
                 ConnectorRecordSetProvider connectorRecordSetProvider = connector.getRecordSetProvider();
-                requireNonNull(connectorRecordSetProvider, format("Connector %s returned a null record set provider", catalogName));
-                verify(connectorPageSourceProvider == null, "Connector %s returned both page source and record set providers", catalogName);
+                requireNonNull(connectorRecordSetProvider, format("Connector '%s' returned a null record set provider", catalogName));
+                verify(connectorPageSourceProvider == null, "Connector '%s' returned both page source and record set providers", catalogName);
                 connectorPageSourceProvider = new RecordPageSourceProvider(connectorRecordSetProvider);
             }
             catch (UnsupportedOperationException ignored) {
@@ -389,7 +389,7 @@ public class ConnectorManager
             ConnectorPageSinkProvider connectorPageSinkProvider = null;
             try {
                 connectorPageSinkProvider = connector.getPageSinkProvider();
-                requireNonNull(connectorPageSinkProvider, format("Connector %s returned a null page sink provider", catalogName));
+                requireNonNull(connectorPageSinkProvider, format("Connector '%s' returned a null page sink provider", catalogName));
             }
             catch (UnsupportedOperationException ignored) {
             }
@@ -398,7 +398,7 @@ public class ConnectorManager
             ConnectorIndexProvider indexProvider = null;
             try {
                 indexProvider = connector.getIndexProvider();
-                requireNonNull(indexProvider, format("Connector %s returned a null index provider", catalogName));
+                requireNonNull(indexProvider, format("Connector '%s' returned a null index provider", catalogName));
             }
             catch (UnsupportedOperationException ignored) {
             }
@@ -407,7 +407,7 @@ public class ConnectorManager
             ConnectorNodePartitioningProvider partitioningProvider = null;
             try {
                 partitioningProvider = connector.getNodePartitioningProvider();
-                requireNonNull(partitioningProvider, format("Connector %s returned a null partitioning provider", catalogName));
+                requireNonNull(partitioningProvider, format("Connector '%s' returned a null partitioning provider", catalogName));
             }
             catch (UnsupportedOperationException ignored) {
             }
@@ -422,23 +422,23 @@ public class ConnectorManager
             this.accessControl = Optional.ofNullable(accessControl);
 
             List<PropertyMetadata<?>> sessionProperties = connector.getSessionProperties();
-            requireNonNull(sessionProperties, "Connector %s returned a null system properties set");
+            requireNonNull(sessionProperties, format("Connector '%s' returned a null system properties set", catalogName));
             this.sessionProperties = ImmutableList.copyOf(sessionProperties);
 
             List<PropertyMetadata<?>> tableProperties = connector.getTableProperties();
-            requireNonNull(tableProperties, "Connector %s returned a null table properties set");
+            requireNonNull(tableProperties, format("Connector '%s' returned a null table properties set", catalogName));
             this.tableProperties = ImmutableList.copyOf(tableProperties);
 
             List<PropertyMetadata<?>> schemaProperties = connector.getSchemaProperties();
-            requireNonNull(schemaProperties, "Connector %s returned a null schema properties set");
+            requireNonNull(schemaProperties, format("Connector '%s' returned a null schema properties set", catalogName));
             this.schemaProperties = ImmutableList.copyOf(schemaProperties);
 
             List<PropertyMetadata<?>> columnProperties = connector.getColumnProperties();
-            requireNonNull(columnProperties, "Connector %s returned a null column properties set");
+            requireNonNull(columnProperties, format("Connector '%s' returned a null column properties set", catalogName));
             this.columnProperties = ImmutableList.copyOf(columnProperties);
 
             List<PropertyMetadata<?>> analyzeProperties = connector.getAnalyzeProperties();
-            requireNonNull(analyzeProperties, "Connector %s returned a null analyze properties set");
+            requireNonNull(analyzeProperties, format("Connector '%s' returned a null analyze properties set", catalogName));
             this.analyzeProperties = ImmutableList.copyOf(analyzeProperties);
         }
 

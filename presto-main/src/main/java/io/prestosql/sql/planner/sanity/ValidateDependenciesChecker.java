@@ -26,6 +26,7 @@ import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
 import io.prestosql.sql.planner.plan.ApplyNode;
 import io.prestosql.sql.planner.plan.AssignUniqueId;
+import io.prestosql.sql.planner.plan.CorrelatedJoinNode;
 import io.prestosql.sql.planner.plan.DeleteNode;
 import io.prestosql.sql.planner.plan.DistinctLimitNode;
 import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
@@ -38,7 +39,6 @@ import io.prestosql.sql.planner.plan.IndexJoinNode;
 import io.prestosql.sql.planner.plan.IndexSourceNode;
 import io.prestosql.sql.planner.plan.IntersectNode;
 import io.prestosql.sql.planner.plan.JoinNode;
-import io.prestosql.sql.planner.plan.LateralJoinNode;
 import io.prestosql.sql.planner.plan.LimitNode;
 import io.prestosql.sql.planner.plan.MarkDistinctNode;
 import io.prestosql.sql.planner.plan.OffsetNode;
@@ -637,7 +637,7 @@ public final class ValidateDependenciesChecker
         }
 
         @Override
-        public Void visitLateralJoin(LateralJoinNode node, Set<Symbol> boundSymbols)
+        public Void visitCorrelatedJoin(CorrelatedJoinNode node, Set<Symbol> boundSymbols)
         {
             Set<Symbol> subqueryCorrelation = ImmutableSet.<Symbol>builder()
                     .addAll(boundSymbols)
@@ -650,11 +650,11 @@ public final class ValidateDependenciesChecker
             checkDependencies(
                     node.getInput().getOutputSymbols(),
                     node.getCorrelation(),
-                    "LATERAL input must provide all the necessary correlation symbols for subquery");
+                    "Correlated JOIN input must provide all the necessary correlation symbols for subquery");
             checkDependencies(
                     SymbolsExtractor.extractUnique(node.getSubquery()),
                     node.getCorrelation(),
-                    "not all LATERAL correlation symbols are used in subquery");
+                    "not all correlated JOIN correlation symbols are used in subquery");
 
             Set<Symbol> inputs = ImmutableSet.<Symbol>builder()
                     .addAll(createInputs(node.getInput(), boundSymbols))

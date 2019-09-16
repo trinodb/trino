@@ -23,7 +23,7 @@ function export_canonical_path() {
 }
 
 source "${BASH_SOURCE%/*}/../../../bin/locations.sh"
-source "${BASH_SOURCE%/*}/../../../../conf/docker-images-config.sh"
+source "${BASH_SOURCE%/*}/../../../conf/product-tests-defaults.sh"
 
 # The following variables are defined to enable running product tests with arbitrary/downloaded jars
 # and without building the project. The `presto.env` file should only be sourced if any of the variables
@@ -58,4 +58,5 @@ if [[ -z "${PRESTO_JDBC_DRIVER_JAR:-}" ]]; then
 fi
 export_canonical_path PRESTO_JDBC_DRIVER_JAR
 
+export PRESTO_JDBC_DRIVER_JAR_DIR="$(dirname "${PRESTO_JDBC_DRIVER_JAR}")"
 export PRESTO_JDBC_DRIVER_CLASS=${PRESTO_JDBC_DRIVER_CLASS:-"io.prestosql.jdbc.PrestoDriver"}

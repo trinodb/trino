@@ -26,11 +26,9 @@ import java.util.List;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static java.lang.String.format;
 
-public class DateFormatParser
+public final class DateFormatParser
 {
-    private DateFormatParser()
-    {
-    }
+    private DateFormatParser() {}
 
     public static DateTimeFormatter createDateTimeFormatter(String format)
     {

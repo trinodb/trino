@@ -41,6 +41,8 @@ import io.prestosql.plugin.hive.metastore.StorageFormat;
 import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.plugin.hive.security.AccessControlMetadata;
 import io.prestosql.plugin.hive.statistics.HiveStatisticsProvider;
+import io.prestosql.plugin.hive.util.HiveUtil;
+import io.prestosql.plugin.hive.util.HiveWriteUtils;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -86,6 +88,7 @@ import io.prestosql.spi.type.VarcharType;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
+import org.apache.hadoop.hive.serde.serdeConstants;
 import org.apache.hadoop.hive.serde2.OpenCSVSerde;
 import org.apache.hadoop.mapred.JobConf;
 import org.joda.time.DateTimeZone;
@@ -121,12 +124,12 @@ import static com.google.common.collect.Streams.stream;
 import static io.prestosql.plugin.hive.HiveAnalyzeProperties.getPartitionList;
 import static io.prestosql.plugin.hive.HiveBasicStatistics.createEmptyStatistics;
 import static io.prestosql.plugin.hive.HiveBasicStatistics.createZeroStatistics;
-import static io.prestosql.plugin.hive.HiveBucketing.getHiveBucketHandle;
-import static io.prestosql.plugin.hive.HiveBucketing.isHiveBucketingV1;
 import static io.prestosql.plugin.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
+import static io.prestosql.plugin.hive.HiveColumnHandle.FILE_MODIFIED_TIME_COLUMN_NAME;
+import static io.prestosql.plugin.hive.HiveColumnHandle.FILE_SIZE_COLUMN_NAME;
 import static io.prestosql.plugin.hive.HiveColumnHandle.PATH_COLUMN_NAME;
 import static io.prestosql.plugin.hive.HiveColumnHandle.updateRowIdHandle;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_COLUMN_ORDER_MISMATCH;
@@ -157,32 +160,22 @@ import static io.prestosql.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_FPP;
 import static io.prestosql.plugin.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static io.prestosql.plugin.hive.HiveTableProperties.SORTED_BY_PROPERTY;
 import static io.prestosql.plugin.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
+import static io.prestosql.plugin.hive.HiveTableProperties.TEXTFILE_FIELD_SEPARATOR;
+import static io.prestosql.plugin.hive.HiveTableProperties.TEXTFILE_FIELD_SEPARATOR_ESCAPE;
 import static io.prestosql.plugin.hive.HiveTableProperties.TEXTFILE_SKIP_FOOTER_LINE_COUNT;
 import static io.prestosql.plugin.hive.HiveTableProperties.TEXTFILE_SKIP_HEADER_LINE_COUNT;
 import static io.prestosql.plugin.hive.HiveTableProperties.getAvroSchemaUrl;
 import static io.prestosql.plugin.hive.HiveTableProperties.getBucketProperty;
-import static io.prestosql.plugin.hive.HiveTableProperties.getCsvProperty;
 import static io.prestosql.plugin.hive.HiveTableProperties.getExternalLocation;
 import static io.prestosql.plugin.hive.HiveTableProperties.getHiveStorageFormat;
 import static io.prestosql.plugin.hive.HiveTableProperties.getOrcBloomFilterColumns;
 import static io.prestosql.plugin.hive.HiveTableProperties.getOrcBloomFilterFpp;
 import static io.prestosql.plugin.hive.HiveTableProperties.getPartitionedBy;
+import static io.prestosql.plugin.hive.HiveTableProperties.getSingleCharacterProperty;
 import static io.prestosql.plugin.hive.HiveTableProperties.getTextFooterSkipCount;
 import static io.prestosql.plugin.hive.HiveTableProperties.getTextHeaderSkipCount;
 import static io.prestosql.plugin.hive.HiveType.HIVE_STRING;
 import static io.prestosql.plugin.hive.HiveType.toHiveType;
-import static io.prestosql.plugin.hive.HiveUtil.PRESTO_VIEW_FLAG;
-import static io.prestosql.plugin.hive.HiveUtil.columnExtraInfo;
-import static io.prestosql.plugin.hive.HiveUtil.decodeViewData;
-import static io.prestosql.plugin.hive.HiveUtil.encodeViewData;
-import static io.prestosql.plugin.hive.HiveUtil.getPartitionKeyColumnHandles;
-import static io.prestosql.plugin.hive.HiveUtil.hiveColumnHandles;
-import static io.prestosql.plugin.hive.HiveUtil.toPartitionValues;
-import static io.prestosql.plugin.hive.HiveUtil.verifyPartitionTypeSupported;
-import static io.prestosql.plugin.hive.HiveWriteUtils.checkTableIsWritable;
-import static io.prestosql.plugin.hive.HiveWriteUtils.initializeSerializer;
-import static io.prestosql.plugin.hive.HiveWriteUtils.isS3FileSystem;
-import static io.prestosql.plugin.hive.HiveWriteUtils.isWritableType;
 import static io.prestosql.plugin.hive.HiveWriterFactory.computeBucketedFileName;
 import static io.prestosql.plugin.hive.PartitionUpdate.UpdateMode.APPEND;
 import static io.prestosql.plugin.hive.PartitionUpdate.UpdateMode.NEW;
@@ -195,6 +188,20 @@ import static io.prestosql.plugin.hive.metastore.PrincipalPrivileges.fromHivePri
 import static io.prestosql.plugin.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static io.prestosql.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.toJobConf;
+import static io.prestosql.plugin.hive.util.HiveBucketing.getHiveBucketHandle;
+import static io.prestosql.plugin.hive.util.HiveBucketing.isHiveBucketingV1;
+import static io.prestosql.plugin.hive.util.HiveUtil.PRESTO_VIEW_FLAG;
+import static io.prestosql.plugin.hive.util.HiveUtil.columnExtraInfo;
+import static io.prestosql.plugin.hive.util.HiveUtil.decodeViewData;
+import static io.prestosql.plugin.hive.util.HiveUtil.encodeViewData;
+import static io.prestosql.plugin.hive.util.HiveUtil.getPartitionKeyColumnHandles;
+import static io.prestosql.plugin.hive.util.HiveUtil.hiveColumnHandles;
+import static io.prestosql.plugin.hive.util.HiveUtil.toPartitionValues;
+import static io.prestosql.plugin.hive.util.HiveUtil.verifyPartitionTypeSupported;
+import static io.prestosql.plugin.hive.util.HiveWriteUtils.checkTableIsWritable;
+import static io.prestosql.plugin.hive.util.HiveWriteUtils.initializeSerializer;
+import static io.prestosql.plugin.hive.util.HiveWriteUtils.isS3FileSystem;
+import static io.prestosql.plugin.hive.util.HiveWriteUtils.isWritableType;
 import static io.prestosql.plugin.hive.util.Statistics.ReduceOperator.ADD;
 import static io.prestosql.plugin.hive.util.Statistics.createComputedStatisticsToPartitionMap;
 import static io.prestosql.plugin.hive.util.Statistics.createEmptyPartitionStatistics;
@@ -220,6 +227,7 @@ import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
 import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
+import static org.apache.hadoop.hive.ql.io.AcidUtils.isTransactionalTable;
 
 public class HiveMetadata
         implements TransactionalMetadata
@@ -231,8 +239,10 @@ public class HiveMetadata
     private static final String ORC_BLOOM_FILTER_COLUMNS_KEY = "orc.bloom.filter.columns";
     private static final String ORC_BLOOM_FILTER_FPP_KEY = "orc.bloom.filter.fpp";
 
-    private static final String TEXT_SKIP_HEADER_COUNT_KEY = "skip.header.line.count";
-    private static final String TEXT_SKIP_FOOTER_COUNT_KEY = "skip.footer.line.count";
+    public static final String TEXT_SKIP_HEADER_COUNT_KEY = "skip.header.line.count";
+    public static final String TEXT_SKIP_FOOTER_COUNT_KEY = "skip.footer.line.count";
+    private static final String TEXT_FIELD_SEPARATOR_KEY = serdeConstants.FIELD_DELIM;
+    private static final String TEXT_FIELD_SEPARATOR_ESCAPE_KEY = serdeConstants.ESCAPE_CHAR;
 
     public static final String AVRO_SCHEMA_URL_KEY = "avro.schema.url";
 
@@ -314,9 +324,16 @@ public class HiveMetadata
         }
 
         verifyOnline(tableName, Optional.empty(), getProtectMode(table.get()), table.get().getParameters());
+
+        if (isTransactionalTable(table.get().getParameters())) {
+            // TODO support reading from transactional tables
+            throw new PrestoException(NOT_SUPPORTED, "Hive transactional tables are not supported: " + tableName);
+        }
+
         return new HiveTableHandle(
                 tableName.getSchemaName(),
                 tableName.getTableName(),
+                table.get().getParameters(),
                 getPartitionKeyColumnHandles(table.get()),
                 getHiveBucketHandle(table.get()));
     }
@@ -513,14 +530,14 @@ public class HiveMetadata
         }
 
         // Textfile specific property
-        String textSkipHeaderCount = table.get().getParameters().get(TEXT_SKIP_HEADER_COUNT_KEY);
-        if (textSkipHeaderCount != null) {
-            properties.put(TEXTFILE_SKIP_HEADER_LINE_COUNT, Integer.valueOf(textSkipHeaderCount));
-        }
-        String textSkipFooterCount = table.get().getParameters().get(TEXT_SKIP_FOOTER_COUNT_KEY);
-        if (textSkipFooterCount != null) {
-            properties.put(TEXTFILE_SKIP_FOOTER_LINE_COUNT, Integer.valueOf(textSkipFooterCount));
-        }
+        getSerdeProperty(table.get(), TEXT_SKIP_HEADER_COUNT_KEY)
+                .ifPresent(textSkipHeaderCount -> properties.put(TEXTFILE_SKIP_HEADER_LINE_COUNT, Integer.valueOf(textSkipHeaderCount)));
+        getSerdeProperty(table.get(), TEXT_SKIP_FOOTER_COUNT_KEY)
+                .ifPresent(textSkipFooterCount -> properties.put(TEXTFILE_SKIP_FOOTER_LINE_COUNT, Integer.valueOf(textSkipFooterCount)));
+        getSerdeProperty(table.get(), TEXT_FIELD_SEPARATOR_KEY)
+                .ifPresent(fieldSeparator -> properties.put(TEXTFILE_FIELD_SEPARATOR, fieldSeparator));
+        getSerdeProperty(table.get(), TEXT_FIELD_SEPARATOR_ESCAPE_KEY)
+                .ifPresent(fieldEscape -> properties.put(TEXTFILE_FIELD_SEPARATOR_ESCAPE, fieldEscape));
 
         // CSV specific property
         getCsvSerdeProperty(table.get(), CSV_SEPARATOR_KEY)
@@ -801,18 +818,30 @@ public class HiveMetadata
             }
         });
 
+        getSingleCharacterProperty(tableMetadata.getProperties(), TEXTFILE_FIELD_SEPARATOR)
+                .ifPresent(separator -> {
+                    checkFormatForProperty(hiveStorageFormat, HiveStorageFormat.TEXTFILE, TEXT_FIELD_SEPARATOR_KEY);
+                    tableProperties.put(TEXT_FIELD_SEPARATOR_KEY, separator.toString());
+                });
+
+        getSingleCharacterProperty(tableMetadata.getProperties(), TEXTFILE_FIELD_SEPARATOR_ESCAPE)
+                .ifPresent(escape -> {
+                    checkFormatForProperty(hiveStorageFormat, HiveStorageFormat.TEXTFILE, TEXT_FIELD_SEPARATOR_ESCAPE_KEY);
+                    tableProperties.put(TEXT_FIELD_SEPARATOR_ESCAPE_KEY, escape.toString());
+                });
+
         // CSV specific properties
-        getCsvProperty(tableMetadata.getProperties(), CSV_ESCAPE)
+        getSingleCharacterProperty(tableMetadata.getProperties(), CSV_ESCAPE)
                 .ifPresent(escape -> {
                     checkFormatForProperty(hiveStorageFormat, HiveStorageFormat.CSV, CSV_ESCAPE);
                     tableProperties.put(CSV_ESCAPE_KEY, escape.toString());
                 });
-        getCsvProperty(tableMetadata.getProperties(), CSV_QUOTE)
+        getSingleCharacterProperty(tableMetadata.getProperties(), CSV_QUOTE)
                 .ifPresent(quote -> {
                     checkFormatForProperty(hiveStorageFormat, HiveStorageFormat.CSV, CSV_QUOTE);
                     tableProperties.put(CSV_QUOTE_KEY, quote.toString());
                 });
-        getCsvProperty(tableMetadata.getProperties(), CSV_SEPARATOR)
+        getSingleCharacterProperty(tableMetadata.getProperties(), CSV_SEPARATOR)
                 .ifPresent(separator -> {
                     checkFormatForProperty(hiveStorageFormat, HiveStorageFormat.CSV, CSV_SEPARATOR);
                     tableProperties.put(CSV_SEPARATOR_KEY, separator.toString());
@@ -1167,7 +1196,7 @@ public class HiveMetadata
             partitionUpdates = PartitionUpdate.mergePartitionUpdates(concat(partitionUpdates, partitionUpdatesForMissingBuckets));
             for (PartitionUpdate partitionUpdate : partitionUpdatesForMissingBuckets) {
                 Optional<Partition> partition = table.getPartitionColumns().isEmpty() ? Optional.empty() : Optional.of(buildPartitionObject(session, table, partitionUpdate));
-                createEmptyFile(session, partitionUpdate.getWritePath(), table, partition, partitionUpdate.getFileNames());
+                createEmptyFiles(session, partitionUpdate.getWritePath(), table, partition, partitionUpdate.getFileNames());
             }
         }
 
@@ -1275,7 +1304,7 @@ public class HiveMetadata
         return missingFileNames;
     }
 
-    private void createEmptyFile(ConnectorSession session, Path path, Table table, Optional<Partition> partition, List<String> fileNames)
+    private void createEmptyFiles(ConnectorSession session, Path path, Table table, Optional<Partition> partition, List<String> fileNames)
     {
         JobConf conf = toJobConf(hdfsEnvironment.getConfiguration(new HdfsContext(session, table.getDatabaseName(), table.getTableName()), path));
 
@@ -1289,10 +1318,11 @@ public class HiveMetadata
             schema = getHiveSchema(table);
             format = table.getStorage().getStorageFormat();
         }
-
-        for (String fileName : fileNames) {
-            writeEmptyFile(session, new Path(path, fileName), conf, schema, format.getSerDe(), format.getOutputFormat());
-        }
+        hdfsEnvironment.doAs(session.getUser(), () -> {
+            for (String fileName : fileNames) {
+                writeEmptyFile(session, new Path(path, fileName), conf, schema, format.getSerDe(), format.getOutputFormat());
+            }
+        });
     }
 
     private static void writeEmptyFile(ConnectorSession session, Path target, JobConf conf, Properties properties, String serDe, String outputFormatName)
@@ -1381,7 +1411,7 @@ public class HiveMetadata
             partitionUpdates = PartitionUpdate.mergePartitionUpdates(concat(partitionUpdates, partitionUpdatesForMissingBuckets));
             for (PartitionUpdate partitionUpdate : partitionUpdatesForMissingBuckets) {
                 Optional<Partition> partition = table.getPartitionColumns().isEmpty() ? Optional.empty() : Optional.of(buildPartitionObject(session, table, partitionUpdate));
-                createEmptyFile(session, partitionUpdate.getWritePath(), table, partition, partitionUpdate.getFileNames());
+                createEmptyFiles(session, partitionUpdate.getWritePath(), table, partition, partitionUpdate.getFileNames());
             }
         }
 
@@ -1567,7 +1597,7 @@ public class HiveMetadata
                 throw new ViewAlreadyExistsException(viewName);
             }
 
-            metastore.replaceView(viewName.getSchemaName(), viewName.getTableName(), table, principalPrivileges);
+            metastore.replaceTable(viewName.getSchemaName(), viewName.getTableName(), table, principalPrivileges);
             return;
         }
 
@@ -1582,8 +1612,9 @@ public class HiveMetadata
     @Override
     public void dropView(ConnectorSession session, SchemaTableName viewName)
     {
-        ConnectorViewDefinition view = getView(session, viewName)
-                .orElseThrow(() -> new ViewNotFoundException(viewName));
+        if (!getView(session, viewName).isPresent()) {
+            throw new ViewNotFoundException(viewName);
+        }
 
         try {
             metastore.dropTable(session, viewName.getSchemaName(), viewName.getTableName());
@@ -1812,6 +1843,7 @@ public class HiveMetadata
         return new HiveTableHandle(
                 hiveTable.getSchemaName(),
                 hiveTable.getTableName(),
+                hiveTable.getTableParameters(),
                 hiveTable.getPartitionColumns(),
                 hiveTable.getPartitions(),
                 hiveTable.getCompactEffectivePredicate(),
@@ -2188,6 +2220,8 @@ public class HiveMetadata
         if (table.getStorage().getBucketProperty().isPresent()) {
             builder.put(BUCKET_COLUMN_NAME, Optional.empty());
         }
+        builder.put(FILE_SIZE_COLUMN_NAME, Optional.empty());
+        builder.put(FILE_MODIFIED_TIME_COLUMN_NAME, Optional.empty());
 
         Map<String, Optional<String>> columnComment = builder.build();
 
@@ -2268,6 +2302,7 @@ public class HiveMetadata
         }
     }
 
+    @SafeVarargs
     private static <T> Optional<T> firstNonNullable(T... values)
     {
         for (T value : values) {

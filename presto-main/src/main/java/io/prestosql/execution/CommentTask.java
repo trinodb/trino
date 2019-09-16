@@ -54,7 +54,7 @@ public class CommentTask
                 throw semanticException(TABLE_NOT_FOUND, statement, "Table does not exist: " + tableName);
             }
 
-            accessControl.checkCanSetTableComment(session.getRequiredTransactionId(), session.getIdentity(), tableName);
+            accessControl.checkCanSetTableComment(session.toSecurityContext(), tableName);
 
             metadata.setTableComment(session, tableHandle.get(), statement.getComment());
         }

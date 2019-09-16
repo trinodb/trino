@@ -6,6 +6,10 @@ DOCKER_TEMPTO_CONF_DIR="/docker/volumes/conf/tempto"
 TEMPTO_CONFIG_FILES="tempto-configuration.yaml" # this comes from classpath
 TEMPTO_CONFIG_FILES="${TEMPTO_CONFIG_FILES},${DOCKER_TEMPTO_CONF_DIR}/tempto-configuration-for-docker-default.yaml"
 
+if ! test -z ${TEMPTO_ENVIRONMENT_CONFIG_FILE:-}; then
+  TEMPTO_CONFIG_FILES="${TEMPTO_CONFIG_FILES},${TEMPTO_ENVIRONMENT_CONFIG_FILE}"
+fi
+
 if ! test -z ${TEMPTO_PROFILE_CONFIG_FILE:-}; then
   TEMPTO_CONFIG_FILES="${TEMPTO_CONFIG_FILES},${TEMPTO_PROFILE_CONFIG_FILE}"
 fi

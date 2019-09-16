@@ -55,7 +55,7 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
@@ -405,7 +405,7 @@ public class InMemoryTransactionManager
             CatalogMetadata catalogMetadata = this.catalogMetadata.get(catalogName);
             if (catalogMetadata == null) {
                 Catalog catalog = catalogsByName.get(catalogName);
-                verify(catalog != null, "Unknown catalog: %s", catalogName);
+                verifyNotNull(catalog, "Unknown catalog: %s", catalogName);
                 Connector connector = catalog.getConnector(catalogName);
 
                 ConnectorTransactionMetadata metadata = createConnectorTransactionMetadata(catalog.getConnectorCatalogName(), catalog);

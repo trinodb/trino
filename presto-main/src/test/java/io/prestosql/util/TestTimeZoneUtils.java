@@ -33,21 +33,9 @@ public class TestTimeZoneUtils
     @Test
     public void test()
     {
-        TimeZoneKey.getTimeZoneKey("GMT-13:00");
-
-        TreeSet<String> jodaZones = new TreeSet<>(DateTimeZone.getAvailableIDs());
         TreeSet<String> jdkZones = new TreeSet<>(ZoneId.getAvailableZoneIds());
-
-        for (String zoneId : new TreeSet<>(jdkZones)) {
+        for (String zoneId : jdkZones) {
             if (zoneId.startsWith("Etc/") || zoneId.startsWith("GMT") || zoneId.startsWith("SystemV/")) {
-                continue;
-            }
-
-            if (zoneId.equals("Canada/East-Saskatchewan")) {
-                // TODO: remove once minimum Java version is increased to 8u161 and 9.0.4, see PrestoSystemRequirement.
-                // Removed from tzdata since 2017c.
-                // Java updated to 2017c since 8u161, 9.0.4.
-                // All Java 10+ are on later versions
                 continue;
             }
 
@@ -69,7 +57,7 @@ public class TestTimeZoneUtils
     public static void assertTimeZone(String zoneId, DateTimeZone dateTimeZone)
     {
         long dateTimeWithTimeZone = packDateTimeWithZone(new DateTime(42, dateTimeZone));
-        assertEquals(packDateTimeWithZone((long) 42, dateTimeZone.toTimeZone().getID()), dateTimeWithTimeZone);
+        assertEquals(packDateTimeWithZone(42L, dateTimeZone.toTimeZone().getID()), dateTimeWithTimeZone);
         DateTimeZone unpackedZone = unpackDateTimeZone(dateTimeWithTimeZone);
         assertDateTimeZoneEquals(zoneId, unpackedZone);
     }

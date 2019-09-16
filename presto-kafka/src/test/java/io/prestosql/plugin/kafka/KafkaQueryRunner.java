@@ -43,9 +43,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 
 public final class KafkaQueryRunner
 {
-    private KafkaQueryRunner()
-    {
-    }
+    private KafkaQueryRunner() {}
 
     private static final Logger log = Logger.get("TestQueries");
     private static final String TPCH_SCHEMA = "tpch";

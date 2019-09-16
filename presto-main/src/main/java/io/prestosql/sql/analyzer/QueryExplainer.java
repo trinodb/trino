@@ -122,7 +122,7 @@ public class QueryExplainer
                 SubPlan subPlan = getDistributedPlan(session, statement, parameters, warningCollector);
                 return PlanPrinter.textDistributedPlan(subPlan, metadata, session, false);
             case IO:
-                return IoPlanPrinter.textIoPlan(getLogicalPlan(session, statement, parameters, warningCollector).getRoot(), metadata, session);
+                return IoPlanPrinter.textIoPlan(getLogicalPlan(session, statement, parameters, warningCollector), metadata, session);
         }
         throw new IllegalArgumentException("Unhandled plan type: " + planType);
     }
@@ -162,7 +162,7 @@ public class QueryExplainer
         switch (planType) {
             case IO:
                 Plan plan = getLogicalPlan(session, statement, parameters, warningCollector);
-                return textIoPlan(plan.getRoot(), metadata, session);
+                return textIoPlan(plan, metadata, session);
             default:
                 throw new PrestoException(NOT_SUPPORTED, format("Unsupported explain plan type %s for JSON format", planType));
         }

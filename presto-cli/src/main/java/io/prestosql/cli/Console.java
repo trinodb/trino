@@ -16,7 +16,6 @@ package io.prestosql.cli;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.io.Files;
 import io.airlift.airline.Command;
 import io.airlift.airline.HelpOption;
 import io.airlift.log.Logging;
@@ -48,6 +47,7 @@ import java.util.regex.Pattern;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.io.ByteStreams.nullOutputStream;
+import static com.google.common.io.Files.asCharSource;
 import static com.google.common.io.Files.createParentDirs;
 import static com.google.common.util.concurrent.Uninterruptibles.awaitUninterruptibly;
 import static io.prestosql.cli.Completion.commandCompleter;
@@ -86,7 +86,7 @@ public class Console
     public boolean run()
     {
         ClientSession session = clientOptions.toClientSession();
-        boolean hasQuery = !isNullOrEmpty(clientOptions.execute);
+        boolean hasQuery = clientOptions.execute != null;
         boolean isFromFile = !isNullOrEmpty(clientOptions.file);
 
         if (!hasQuery && !isFromFile) {
@@ -105,7 +105,7 @@ public class Console
                 throw new RuntimeException("both --execute and --file specified");
             }
             try {
-                query = Files.toString(new File(clientOptions.file), UTF_8);
+                query = asCharSource(new File(clientOptions.file), UTF_8).read();
                 hasQuery = true;
             }
             catch (IOException e) {
@@ -335,7 +335,7 @@ public class Console
         catch (QueryPreprocessorException e) {
             System.err.println(e.getMessage());
             if (queryRunner.isDebug()) {
-                e.printStackTrace();
+                e.printStackTrace(System.err);
             }
             return false;
         }
@@ -404,7 +404,7 @@ public class Console
         catch (RuntimeException e) {
             System.err.println("Error running command: " + e.getMessage());
             if (queryRunner.isDebug()) {
-                e.printStackTrace();
+                e.printStackTrace(System.err);
             }
             return false;
         }
@@ -466,9 +466,6 @@ public class Console
 
             Logging logging = Logging.initialize();
             logging.configure(config);
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
         }
         finally {
             System.setOut(out);

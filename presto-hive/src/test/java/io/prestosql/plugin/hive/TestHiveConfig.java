@@ -32,7 +32,7 @@ import java.util.concurrent.TimeUnit;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static io.prestosql.plugin.hive.TestHiveUtil.nonDefaultTimeZone;
+import static io.prestosql.plugin.hive.util.TestHiveUtil.nonDefaultTimeZone;
 
 public class TestHiveConfig
 {
@@ -47,13 +47,8 @@ public class TestHiveConfig
                 .setMaxOutstandingSplitsSize(new DataSize(256, Unit.MEGABYTE))
                 .setMaxSplitIteratorThreads(1_000)
                 .setAllowCorruptWritesForTesting(false)
-                .setMetastoreCacheTtl(new Duration(0, TimeUnit.SECONDS))
-                .setMetastoreRefreshInterval(new Duration(0, TimeUnit.SECONDS))
-                .setMetastoreCacheMaximumSize(10000)
                 .setPerTransactionMetastoreCacheMaximumSize(1000)
-                .setMaxMetastoreRefreshThreads(100)
                 .setMetastoreSocksProxy(null)
-                .setMetastoreTimeout(new Duration(10, TimeUnit.SECONDS))
                 .setMinPartitionBatchSize(10)
                 .setMaxPartitionBatchSize(100)
                 .setMaxInitialSplits(200)
@@ -139,13 +134,8 @@ public class TestHiveConfig
                 .put("hive.max-outstanding-splits-size", "32MB")
                 .put("hive.max-split-iterator-threads", "10")
                 .put("hive.allow-corrupt-writes-for-testing", "true")
-                .put("hive.metastore-cache-ttl", "2h")
-                .put("hive.metastore-refresh-interval", "30m")
-                .put("hive.metastore-cache-maximum-size", "5000")
                 .put("hive.per-transaction-metastore-cache-maximum-size", "500")
-                .put("hive.metastore-refresh-max-threads", "2500")
                 .put("hive.metastore.thrift.client.socks-proxy", "localhost:1080")
-                .put("hive.metastore-timeout", "20s")
                 .put("hive.metastore.partition-batch-size.min", "1")
                 .put("hive.metastore.partition-batch-size.max", "1000")
                 .put("hive.dfs.ipc-ping-interval", "34s")
@@ -228,13 +218,8 @@ public class TestHiveConfig
                 .setMaxOutstandingSplitsSize(new DataSize(32, Unit.MEGABYTE))
                 .setMaxSplitIteratorThreads(10)
                 .setAllowCorruptWritesForTesting(true)
-                .setMetastoreCacheTtl(new Duration(2, TimeUnit.HOURS))
-                .setMetastoreRefreshInterval(new Duration(30, TimeUnit.MINUTES))
-                .setMetastoreCacheMaximumSize(5000)
                 .setPerTransactionMetastoreCacheMaximumSize(500)
-                .setMaxMetastoreRefreshThreads(2500)
                 .setMetastoreSocksProxy(HostAndPort.fromParts("localhost", 1080))
-                .setMetastoreTimeout(new Duration(20, TimeUnit.SECONDS))
                 .setMinPartitionBatchSize(1)
                 .setMaxPartitionBatchSize(1000)
                 .setMaxInitialSplits(10)

@@ -15,13 +15,13 @@ package io.prestosql.memory;
 
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
-import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.server.BasicQueryInfo;
 import io.prestosql.server.BasicQueryStats;
 import io.prestosql.server.testing.TestingPrestoServer;
 import io.prestosql.spi.QueryId;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.tests.DistributedQueryRunner;
+import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -379,19 +379,13 @@ public class TestMemoryManager
         }
     }
 
-    public static DistributedQueryRunner createQueryRunner(Session session, Map<String, String> properties)
+    public static DistributedQueryRunner createQueryRunner(Session session, Map<String, String> extraProperties)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(session, 2, properties);
-
-        try {
-            queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog("tpch", "tpch");
-            return queryRunner;
-        }
-        catch (Exception e) {
-            queryRunner.close();
-            throw e;
-        }
+        return TpchQueryRunnerBuilder.builder()
+                .amendSession(sessionBuilder -> Session.builder(session))
+                .setNodeCount(2)
+                .setExtraProperties(extraProperties)
+                .build();
     }
 }

@@ -17,6 +17,9 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
+import io.prestosql.cost.PlanCostEstimate;
+import io.prestosql.cost.PlanNodeStatsEstimate;
+import io.prestosql.cost.StatsAndCosts;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.metadata.TableMetadata;
@@ -29,6 +32,7 @@ import io.prestosql.spi.predicate.Marker.Bound;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.sql.planner.Plan;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanVisitor;
 import io.prestosql.sql.planner.plan.TableFinishNode;
@@ -57,12 +61,14 @@ import static java.util.Objects.requireNonNull;
 
 public class IoPlanPrinter
 {
+    private final Plan plan;
     private final Metadata metadata;
     private final Session session;
     private final ValuePrinter valuePrinter;
 
-    private IoPlanPrinter(Metadata metadata, Session session)
+    private IoPlanPrinter(Plan plan, Metadata metadata, Session session)
     {
+        this.plan = requireNonNull(plan, "plan is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.session = requireNonNull(session, "session is null");
         this.valuePrinter = new ValuePrinter(metadata, session);
@@ -71,15 +77,15 @@ public class IoPlanPrinter
     /**
      * @throws io.prestosql.NotInTransactionException if called without an active transaction
      */
-    public static String textIoPlan(PlanNode plan, Metadata metadata, Session session)
+    public static String textIoPlan(Plan plan, Metadata metadata, Session session)
     {
-        return new IoPlanPrinter(metadata, session).print(plan);
+        return new IoPlanPrinter(plan, metadata, session).print();
     }
 
-    private String print(PlanNode plan)
+    private String print()
     {
-        IoPlanBuilder ioPlanBuilder = new IoPlanBuilder();
-        plan.accept(new IoPlanVisitor(), ioPlanBuilder);
+        IoPlanBuilder ioPlanBuilder = new IoPlanBuilder(plan);
+        plan.getRoot().accept(new IoPlanVisitor(), ioPlanBuilder);
         return jsonCodec(IoPlan.class).toJson(ioPlanBuilder.build());
     }
 
@@ -87,14 +93,17 @@ public class IoPlanPrinter
     {
         private final Set<TableColumnInfo> inputTableColumnInfos;
         private final Optional<CatalogSchemaTableName> outputTable;
+        private final EstimatedStatsAndCost estimate;
 
         @JsonCreator
         public IoPlan(
                 @JsonProperty("inputTableColumnInfos") Set<TableColumnInfo> inputTableColumnInfos,
-                @JsonProperty("outputTable") Optional<CatalogSchemaTableName> outputTable)
+                @JsonProperty("outputTable") Optional<CatalogSchemaTableName> outputTable,
+                @JsonProperty("estimate") EstimatedStatsAndCost estimate)
         {
             this.inputTableColumnInfos = ImmutableSet.copyOf(requireNonNull(inputTableColumnInfos, "inputTableColumnInfos is null"));
             this.outputTable = requireNonNull(outputTable, "outputTable is null");
+            this.estimate = requireNonNull(estimate, "estimate is null");
         }
 
         @JsonProperty
@@ -107,6 +116,12 @@ public class IoPlanPrinter
         public Optional<CatalogSchemaTableName> getOutputTable()
         {
             return outputTable;
+        }
+
+        @JsonProperty
+        public EstimatedStatsAndCost getEstimate()
+        {
+            return estimate;
         }
 
         @Override
@@ -135,33 +150,52 @@ public class IoPlanPrinter
             return toStringHelper(this)
                     .add("inputTableColumnInfos", inputTableColumnInfos)
                     .add("outputTable", outputTable)
+                    .add("estimate", estimate)
                     .toString();
         }
 
         protected static class IoPlanBuilder
         {
+            private final Plan plan;
             private Set<TableColumnInfo> inputTableColumnInfos;
             private Optional<CatalogSchemaTableName> outputTable;
 
-            private IoPlanBuilder()
+            private IoPlanBuilder(Plan plan)
             {
+                this.plan = plan;
                 this.inputTableColumnInfos = new HashSet<>();
                 this.outputTable = Optional.empty();
             }
 
-            private void addInputTableColumnInfo(TableColumnInfo tableColumnInfo)
+            private IoPlanBuilder addInputTableColumnInfo(TableColumnInfo tableColumnInfo)
             {
                 inputTableColumnInfos.add(tableColumnInfo);
+                return this;
             }
 
-            private void setOutputTable(CatalogSchemaTableName outputTable)
+            private IoPlanBuilder setOutputTable(CatalogSchemaTableName outputTable)
             {
                 this.outputTable = Optional.of(outputTable);
+                return this;
             }
 
             private IoPlan build()
             {
-                return new IoPlan(inputTableColumnInfos, outputTable);
+                return new IoPlan(inputTableColumnInfos, outputTable, getEstimatedStatsAndCost());
+            }
+
+            private EstimatedStatsAndCost getEstimatedStatsAndCost()
+            {
+                PlanNode root = plan.getRoot();
+                StatsAndCosts statsAndCosts = plan.getStatsAndCosts();
+                PlanNodeStatsEstimate statsEstimate = statsAndCosts.getStats().get(root.getId());
+                PlanCostEstimate costEstimate = statsAndCosts.getCosts().get(root.getId());
+                return new EstimatedStatsAndCost(
+                        statsEstimate.getOutputRowCount(),
+                        statsEstimate.getOutputSizeInBytes(root.getOutputSymbols(), plan.getTypes()),
+                        costEstimate.getCpuCost(),
+                        costEstimate.getMaxMemory(),
+                        costEstimate.getNetworkCost());
             }
         }
 
@@ -169,14 +203,17 @@ public class IoPlanPrinter
         {
             private final CatalogSchemaTableName table;
             private final Set<ColumnConstraint> columnConstraints;
+            private final EstimatedStatsAndCost estimate;
 
             @JsonCreator
             public TableColumnInfo(
                     @JsonProperty("table") CatalogSchemaTableName table,
-                    @JsonProperty("columnConstraints") Set<ColumnConstraint> columnConstraints)
+                    @JsonProperty("columnConstraints") Set<ColumnConstraint> columnConstraints,
+                    @JsonProperty("estimate") EstimatedStatsAndCost estimate)
             {
                 this.table = requireNonNull(table, "table is null");
                 this.columnConstraints = requireNonNull(columnConstraints, "columnConstraints is null");
+                this.estimate = requireNonNull(estimate, "estimate is null");
             }
 
             @JsonProperty
@@ -191,6 +228,12 @@ public class IoPlanPrinter
                 return columnConstraints;
             }
 
+            @JsonProperty
+            public EstimatedStatsAndCost getEstimate()
+            {
+                return estimate;
+            }
+
             @Override
             public boolean equals(Object obj)
             {
@@ -202,13 +245,14 @@ public class IoPlanPrinter
                 }
                 TableColumnInfo o = (TableColumnInfo) obj;
                 return Objects.equals(table, o.table) &&
-                        Objects.equals(columnConstraints, o.columnConstraints);
+                        Objects.equals(columnConstraints, o.columnConstraints) &&
+                        Objects.equals(estimate, o.estimate);
             }
 
             @Override
             public int hashCode()
             {
-                return Objects.hash(table, columnConstraints);
+                return Objects.hash(table, columnConstraints, estimate);
             }
 
             @Override
@@ -217,6 +261,7 @@ public class IoPlanPrinter
                 return toStringHelper(this)
                         .add("table", table)
                         .add("columnConstraints", columnConstraints)
+                        .add("estimate", estimate)
                         .toString();
             }
         }
@@ -285,6 +330,95 @@ public class IoPlanPrinter
                     .add("columnName", columnName)
                     .add("typeSignature", typeSignature)
                     .add("domain", domain)
+                    .toString();
+        }
+    }
+
+    public static class EstimatedStatsAndCost
+    {
+        private final double outputRowCount;
+        private final double outputSizeInBytes;
+        private final double cpuCost;
+        private final double maxMemory;
+        private final double networkCost;
+
+        @JsonCreator
+        public EstimatedStatsAndCost(
+                @JsonProperty("outputRowCount") double outputRowCount,
+                @JsonProperty("outputSizeInBytes") double outputSizeInBytes,
+                @JsonProperty("cpuCost") double cpuCost,
+                @JsonProperty("maxMemory") double maxMemory,
+                @JsonProperty("networkCost") double networkCost)
+        {
+            this.outputRowCount = requireNonNull(outputRowCount, "outputRowCount is null");
+            this.outputSizeInBytes = requireNonNull(outputSizeInBytes, "outputSizeInBytes is null");
+            this.cpuCost = requireNonNull(cpuCost, "cpuCost is null");
+            this.maxMemory = requireNonNull(maxMemory, "maxMemory is null");
+            this.networkCost = requireNonNull(networkCost, "networkCost is null");
+        }
+
+        @JsonProperty
+        public double getOutputRowCount()
+        {
+            return outputRowCount;
+        }
+
+        @JsonProperty
+        public double getOutputSizeInBytes()
+        {
+            return outputSizeInBytes;
+        }
+
+        @JsonProperty
+        public double getCpuCost()
+        {
+            return cpuCost;
+        }
+
+        @JsonProperty
+        public double getMaxMemory()
+        {
+            return maxMemory;
+        }
+
+        @JsonProperty
+        public double getNetworkCost()
+        {
+            return networkCost;
+        }
+
+        @Override
+        public boolean equals(Object obj)
+        {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null || getClass() != obj.getClass()) {
+                return false;
+            }
+            EstimatedStatsAndCost o = (EstimatedStatsAndCost) obj;
+            return Objects.equals(outputRowCount, o.outputRowCount) &&
+                    Objects.equals(outputSizeInBytes, o.outputSizeInBytes) &&
+                    Objects.equals(cpuCost, o.cpuCost) &&
+                    Objects.equals(maxMemory, o.maxMemory) &&
+                    Objects.equals(networkCost, o.networkCost);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(outputRowCount, outputSizeInBytes, cpuCost, maxMemory, networkCost);
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("outputRowCount", outputRowCount)
+                    .add("outputSizeInBytes", outputSizeInBytes)
+                    .add("cpuCost", cpuCost)
+                    .add("maxMemory", maxMemory)
+                    .add("networkCost", networkCost)
                     .toString();
         }
     }
@@ -471,12 +605,15 @@ public class IoPlanPrinter
         {
             TableMetadata tableMetadata = metadata.getTableMetadata(session, node.getTable());
             TupleDomain<ColumnHandle> predicate = metadata.getTableProperties(session, node.getTable()).getPredicate();
-            context.addInputTableColumnInfo(new IoPlan.TableColumnInfo(
-                    new CatalogSchemaTableName(
-                            tableMetadata.getCatalogName().getCatalogName(),
-                            tableMetadata.getTable().getSchemaName(),
-                            tableMetadata.getTable().getTableName()),
-                    parseConstraints(node.getTable(), predicate)));
+            EstimatedStatsAndCost estimatedStatsAndCost = getEstimatedStatsAndCost(node);
+            context.addInputTableColumnInfo(
+                    new IoPlan.TableColumnInfo(
+                        new CatalogSchemaTableName(
+                                tableMetadata.getCatalogName().getCatalogName(),
+                                tableMetadata.getTable().getSchemaName(),
+                                tableMetadata.getTable().getTableName()),
+                        parseConstraints(node.getTable(), predicate),
+                        estimatedStatsAndCost));
             return null;
         }
 
@@ -512,6 +649,21 @@ public class IoPlanPrinter
                 throw new IllegalStateException(format("Unknown WriterTarget subclass %s", writerTarget.getClass().getSimpleName()));
             }
             return processChildren(node, context);
+        }
+
+        private EstimatedStatsAndCost getEstimatedStatsAndCost(TableScanNode node)
+        {
+            StatsAndCosts statsAndCosts = plan.getStatsAndCosts();
+            PlanNodeStatsEstimate stats = statsAndCosts.getStats().get(node.getId());
+            PlanCostEstimate cost = statsAndCosts.getCosts().get(node.getId());
+
+            EstimatedStatsAndCost estimatedStatsAndCost = new EstimatedStatsAndCost(
+                    stats.getOutputRowCount(),
+                    stats.getOutputSizeInBytes(node.getOutputSymbols(), plan.getTypes()),
+                    cost.getCpuCost(),
+                    cost.getMaxMemory(),
+                    cost.getNetworkCost());
+            return estimatedStatsAndCost;
         }
 
         private Set<ColumnConstraint> parseConstraints(TableHandle tableHandle, TupleDomain<ColumnHandle> constraint)

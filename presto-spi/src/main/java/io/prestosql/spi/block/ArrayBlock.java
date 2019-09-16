@@ -179,6 +179,12 @@ public class ArrayBlock
     }
 
     @Override
+    public boolean isLoaded()
+    {
+        return values.isLoaded();
+    }
+
+    @Override
     public Block getLoadedBlock()
     {
         Block loadedValuesBlock = values.getLoadedBlock();

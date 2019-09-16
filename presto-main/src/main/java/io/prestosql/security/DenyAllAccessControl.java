@@ -86,139 +86,139 @@ public class DenyAllAccessControl
     }
 
     @Override
-    public void checkCanCreateSchema(TransactionId transactionId, Identity identity, CatalogSchemaName schemaName)
+    public void checkCanCreateSchema(SecurityContext context, CatalogSchemaName schemaName)
     {
         denyCreateSchema(schemaName.toString());
     }
 
     @Override
-    public void checkCanDropSchema(TransactionId transactionId, Identity identity, CatalogSchemaName schemaName)
+    public void checkCanDropSchema(SecurityContext context, CatalogSchemaName schemaName)
     {
         denyDropSchema(schemaName.toString());
     }
 
     @Override
-    public void checkCanRenameSchema(TransactionId transactionId, Identity identity, CatalogSchemaName schemaName, String newSchemaName)
+    public void checkCanRenameSchema(SecurityContext context, CatalogSchemaName schemaName, String newSchemaName)
     {
         denyRenameSchema(schemaName.toString(), newSchemaName);
     }
 
     @Override
-    public void checkCanCreateTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    public void checkCanCreateTable(SecurityContext context, QualifiedObjectName tableName)
     {
         denyCreateTable(tableName.toString());
     }
 
     @Override
-    public void checkCanDropTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    public void checkCanDropTable(SecurityContext context, QualifiedObjectName tableName)
     {
         denyDropTable(tableName.toString());
     }
 
     @Override
-    public void checkCanRenameTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, QualifiedObjectName newTableName)
+    public void checkCanRenameTable(SecurityContext context, QualifiedObjectName tableName, QualifiedObjectName newTableName)
     {
         denyRenameTable(tableName.toString(), newTableName.toString());
     }
 
     @Override
-    public void checkCanSetTableComment(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    public void checkCanSetTableComment(SecurityContext context, QualifiedObjectName tableName)
     {
         denyCommentTable(tableName.toString());
     }
 
     @Override
-    public void checkCanShowTablesMetadata(TransactionId transactionId, Identity identity, CatalogSchemaName schema)
+    public void checkCanShowTablesMetadata(SecurityContext context, CatalogSchemaName schema)
     {
         denyShowTablesMetadata(schema.toString());
     }
 
     @Override
-    public Set<SchemaTableName> filterTables(TransactionId transactionId, Identity identity, String catalogName, Set<SchemaTableName> tableNames)
+    public Set<SchemaTableName> filterTables(SecurityContext context, String catalogName, Set<SchemaTableName> tableNames)
     {
         return ImmutableSet.of();
     }
 
     @Override
-    public void checkCanShowColumnsMetadata(TransactionId transactionId, Identity identity, CatalogSchemaTableName table)
+    public void checkCanShowColumnsMetadata(SecurityContext context, CatalogSchemaTableName table)
     {
         denyShowColumnsMetadata(table.toString());
     }
 
     @Override
-    public List<ColumnMetadata> filterColumns(TransactionId transactionId, Identity identity, CatalogSchemaTableName tableName, List<ColumnMetadata> columns)
+    public List<ColumnMetadata> filterColumns(SecurityContext context, CatalogSchemaTableName tableName, List<ColumnMetadata> columns)
     {
         return ImmutableList.of();
     }
 
     @Override
-    public void checkCanShowSchemas(TransactionId transactionId, Identity identity, String catalogName)
+    public void checkCanShowSchemas(SecurityContext context, String catalogName)
     {
         denyShowSchemas();
     }
 
     @Override
-    public Set<String> filterSchemas(TransactionId transactionId, Identity identity, String catalogName, Set<String> schemaNames)
+    public Set<String> filterSchemas(SecurityContext context, String catalogName, Set<String> schemaNames)
     {
         return ImmutableSet.of();
     }
 
     @Override
-    public void checkCanAddColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    public void checkCanAddColumns(SecurityContext context, QualifiedObjectName tableName)
     {
         denyAddColumn(tableName.toString());
     }
 
     @Override
-    public void checkCanRenameColumn(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    public void checkCanRenameColumn(SecurityContext context, QualifiedObjectName tableName)
     {
         denyRenameColumn(tableName.toString());
     }
 
     @Override
-    public void checkCanDropColumn(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    public void checkCanDropColumn(SecurityContext context, QualifiedObjectName tableName)
     {
         denyDropColumn(tableName.toString());
     }
 
     @Override
-    public void checkCanInsertIntoTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    public void checkCanInsertIntoTable(SecurityContext context, QualifiedObjectName tableName)
     {
         denyInsertTable(tableName.toString());
     }
 
     @Override
-    public void checkCanDeleteFromTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    public void checkCanDeleteFromTable(SecurityContext context, QualifiedObjectName tableName)
     {
         denyDeleteTable(tableName.toString());
     }
 
     @Override
-    public void checkCanCreateView(TransactionId transactionId, Identity identity, QualifiedObjectName viewName)
+    public void checkCanCreateView(SecurityContext context, QualifiedObjectName viewName)
     {
         denyCreateView(viewName.toString());
     }
 
     @Override
-    public void checkCanDropView(TransactionId transactionId, Identity identity, QualifiedObjectName viewName)
+    public void checkCanDropView(SecurityContext context, QualifiedObjectName viewName)
     {
         denyDropView(viewName.toString());
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Set<String> columnNames)
+    public void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames)
     {
-        denyCreateViewWithSelect(tableName.toString(), identity);
+        denyCreateViewWithSelect(tableName.toString(), context.getIdentity());
     }
 
     @Override
-    public void checkCanGrantTablePrivilege(TransactionId transactionId, Identity identity, Privilege privilege, QualifiedObjectName tableName, PrestoPrincipal grantee, boolean withGrantOption)
+    public void checkCanGrantTablePrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, PrestoPrincipal grantee, boolean withGrantOption)
     {
         denyGrantTablePrivilege(privilege.name(), tableName.toString());
     }
 
     @Override
-    public void checkCanRevokeTablePrivilege(TransactionId transactionId, Identity identity, Privilege privilege, QualifiedObjectName tableName, PrestoPrincipal revokee, boolean grantOptionFor)
+    public void checkCanRevokeTablePrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, PrestoPrincipal revokee, boolean grantOptionFor)
     {
         denyRevokeTablePrivilege(privilege.name(), tableName.toString());
     }
@@ -236,55 +236,55 @@ public class DenyAllAccessControl
     }
 
     @Override
-    public void checkCanSelectFromColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Set<String> columnNames)
+    public void checkCanSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames)
     {
         denySelectColumns(tableName.toString(), columnNames);
     }
 
     @Override
-    public void checkCanCreateRole(TransactionId transactionId, Identity identity, String role, Optional<PrestoPrincipal> grantor, String catalogName)
+    public void checkCanCreateRole(SecurityContext context, String role, Optional<PrestoPrincipal> grantor, String catalogName)
     {
         denyCreateRole(role);
     }
 
     @Override
-    public void checkCanDropRole(TransactionId transactionId, Identity identity, String role, String catalogName)
+    public void checkCanDropRole(SecurityContext context, String role, String catalogName)
     {
         denyDropRole(role);
     }
 
     @Override
-    public void checkCanGrantRoles(TransactionId transactionId, Identity identity, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor, String catalogName)
+    public void checkCanGrantRoles(SecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor, String catalogName)
     {
         denyGrantRoles(roles, grantees);
     }
 
     @Override
-    public void checkCanRevokeRoles(TransactionId transactionId, Identity identity, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor, String catalogName)
+    public void checkCanRevokeRoles(SecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor, String catalogName)
     {
         denyRevokeRoles(roles, grantees);
     }
 
     @Override
-    public void checkCanSetRole(TransactionId requiredTransactionId, Identity identity, String role, String catalog)
+    public void checkCanSetRole(TransactionId transactionId, Identity identity, String role, String catalog)
     {
         denySetRole(role);
     }
 
     @Override
-    public void checkCanShowRoles(TransactionId transactionId, Identity identity, String catalogName)
+    public void checkCanShowRoles(SecurityContext context, String catalogName)
     {
         denyShowRoles(catalogName);
     }
 
     @Override
-    public void checkCanShowCurrentRoles(TransactionId transactionId, Identity identity, String catalogName)
+    public void checkCanShowCurrentRoles(SecurityContext context, String catalogName)
     {
         denyShowCurrentRoles(catalogName);
     }
 
     @Override
-    public void checkCanShowRoleGrants(TransactionId transactionId, Identity identity, String catalogName)
+    public void checkCanShowRoleGrants(SecurityContext context, String catalogName)
     {
         denyShowRoleGrants(catalogName);
     }

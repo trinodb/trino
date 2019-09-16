@@ -17,9 +17,9 @@ import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.SystemAccessControl;
 import io.prestosql.spi.security.SystemAccessControlFactory;
+import io.prestosql.spi.security.SystemSecurityContext;
 
 import java.security.Principal;
 import java.util.List;
@@ -61,71 +61,71 @@ public class ReadOnlySystemAccessControl
     }
 
     @Override
-    public void checkCanSetSystemSessionProperty(Identity identity, String propertyName)
+    public void checkCanSetSystemSessionProperty(SystemSecurityContext context, String propertyName)
     {
     }
 
     @Override
-    public void checkCanAccessCatalog(Identity identity, String catalogName)
+    public void checkCanAccessCatalog(SystemSecurityContext context, String catalogName)
     {
     }
 
     @Override
-    public void checkCanSelectFromColumns(Identity identity, CatalogSchemaTableName table, Set<String> columns)
+    public void checkCanSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
     {
     }
 
     @Override
-    public void checkCanSetCatalogSessionProperty(Identity identity, String catalogName, String propertyName)
+    public void checkCanSetCatalogSessionProperty(SystemSecurityContext context, String catalogName, String propertyName)
     {
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromColumns(Identity identity, CatalogSchemaTableName table, Set<String> columns)
+    public void checkCanCreateViewWithSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
     {
     }
 
     @Override
-    public Set<String> filterCatalogs(Identity identity, Set<String> catalogs)
+    public Set<String> filterCatalogs(SystemSecurityContext context, Set<String> catalogs)
     {
         return catalogs;
     }
 
     @Override
-    public Set<String> filterSchemas(Identity identity, String catalogName, Set<String> schemaNames)
+    public Set<String> filterSchemas(SystemSecurityContext context, String catalogName, Set<String> schemaNames)
     {
         return schemaNames;
     }
 
     @Override
-    public Set<SchemaTableName> filterTables(Identity identity, String catalogName, Set<SchemaTableName> tableNames)
+    public Set<SchemaTableName> filterTables(SystemSecurityContext context, String catalogName, Set<SchemaTableName> tableNames)
     {
         return tableNames;
     }
 
     @Override
-    public void checkCanShowColumnsMetadata(Identity identity, CatalogSchemaTableName table)
+    public void checkCanShowColumnsMetadata(SystemSecurityContext context, CatalogSchemaTableName table)
     {
     }
 
     @Override
-    public List<ColumnMetadata> filterColumns(Identity identity, CatalogSchemaTableName tableName, List<ColumnMetadata> columns)
+    public List<ColumnMetadata> filterColumns(SystemSecurityContext context, CatalogSchemaTableName tableName, List<ColumnMetadata> columns)
     {
         return columns;
     }
 
     @Override
-    public void checkCanShowSchemas(Identity identity, String catalogName)
+    public void checkCanShowSchemas(SystemSecurityContext context, String catalogName)
     {
     }
 
     @Override
-    public void checkCanShowTablesMetadata(Identity identity, CatalogSchemaName schema)
+    public void checkCanShowTablesMetadata(SystemSecurityContext context, CatalogSchemaName schema)
     {
     }
 
     @Override
-    public void checkCanShowRoles(Identity identity, String catalogName)
+    public void checkCanShowRoles(SystemSecurityContext context, String catalogName)
     {
     }
 }

@@ -1068,9 +1068,7 @@ public class TestSignatureBinder
         assertThat("T2", boundVariables, "bigint");
         assertThat("array(T1)", boundVariables, "array(double)");
         assertThat("array(T3)", boundVariables, "array(decimal(5,3))");
-        assertThat("array<T1>", boundVariables, "array(double)");
         assertThat("map(T1,T2)", boundVariables, "map(double,bigint)");
-        assertThat("map<T1,T2>", boundVariables, "map(double,bigint)");
         assertThat("bla(T1,42,T2)", boundVariables, "bla(double,42,bigint)");
         assertThat("varchar(p)", boundVariables, "varchar(1)");
         assertThat("char(p)", boundVariables, "char(1)");

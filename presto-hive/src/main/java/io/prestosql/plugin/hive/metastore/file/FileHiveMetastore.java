@@ -90,12 +90,13 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
 import static io.prestosql.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.prestosql.plugin.hive.HivePartitionManager.extractPartitionValues;
-import static io.prestosql.plugin.hive.HiveUtil.toPartitionValues;
 import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.makePartName;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.verifyCanDropColumn;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
+import static io.prestosql.plugin.hive.util.HiveUtil.PRESTO_VIEW_FLAG;
+import static io.prestosql.plugin.hive.util.HiveUtil.toPartitionValues;
 import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.security.PrincipalType.ROLE;
@@ -118,6 +119,8 @@ public class FileHiveMetastore
     private static final String PRESTO_PERMISSIONS_DIRECTORY_NAME = ".prestoPermissions";
     // todo there should be a way to manage the admins list
     private static final Set<String> ADMIN_USERS = ImmutableSet.of("admin", "hive", "hdfs");
+    private static final String ICEBERG_TABLE_TYPE_NAME = "table_type";
+    private static final String ICEBERG_TABLE_TYPE_VALUE = "iceberg";
 
     private final HdfsEnvironment hdfsEnvironment;
     private final Path catalogDirectory;
@@ -260,7 +263,7 @@ public class FileHiveMetastore
                 if (!externalFileSystem.isDirectory(externalLocation)) {
                     throw new PrestoException(HIVE_METASTORE_ERROR, "External table location does not exist");
                 }
-                if (isChildDirectory(catalogDirectory, externalLocation)) {
+                if (isChildDirectory(catalogDirectory, externalLocation) && !isIcebergTable(table.getParameters())) {
                     throw new PrestoException(HIVE_METASTORE_ERROR, "External table location can not be inside the system metadata directory");
                 }
             }
@@ -396,19 +399,26 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized List<String> getAllViews(String databaseName)
+    public synchronized List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
     {
+        requireNonNull(parameterKey, "parameterKey is null");
+        requireNonNull(parameterValue, "parameterValue is null");
+
         List<String> tables = getAllTables(databaseName);
 
-        List<String> views = tables.stream()
+        return tables.stream()
                 .map(tableName -> getTable(databaseName, tableName))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
-                .filter(table -> table.getTableType().equals(VIRTUAL_VIEW.name()))
+                .filter(table -> parameterValue.equals(table.getParameters().get(parameterKey)))
                 .map(Table::getTableName)
                 .collect(toImmutableList());
+    }
 
-        return views;
+    @Override
+    public synchronized List<String> getAllViews(String databaseName)
+    {
+        return getTablesWithParameter(databaseName, PRESTO_VIEW_FLAG, "true");
     }
 
     @Override
@@ -436,9 +446,6 @@ public class FileHiveMetastore
     public synchronized void replaceTable(String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges)
     {
         Table table = getRequiredTable(databaseName, tableName);
-        if (!table.getTableType().equals(VIRTUAL_VIEW.name()) || !newTable.getTableType().equals(VIRTUAL_VIEW.name())) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, "Only views can be updated with replaceTable");
-        }
         if (!table.getDatabaseName().equals(databaseName) || !table.getTableName().equals(tableName)) {
             throw new PrestoException(HIVE_METASTORE_ERROR, "Replacement table must have same name");
         }
@@ -465,14 +472,21 @@ public class FileHiveMetastore
         requireNonNull(newDatabaseName, "newDatabaseName is null");
         requireNonNull(newTableName, "newTableName is null");
 
-        getRequiredTable(databaseName, tableName);
+        Table table = getRequiredTable(databaseName, tableName);
         getRequiredDatabase(newDatabaseName);
+
+        if (isIcebergTable(table.getParameters())) {
+            throw new PrestoException(NOT_SUPPORTED, "Rename not supported for Iceberg tables");
+        }
 
         // verify new table does not exist
         verifyTableNotExists(newDatabaseName, newTableName);
 
+        Path oldPath = getTableMetadataDirectory(databaseName, tableName);
+        Path newPath = getTableMetadataDirectory(newDatabaseName, newTableName);
+
         try {
-            if (!metadataFileSystem.rename(getTableMetadataDirectory(databaseName, tableName), getTableMetadataDirectory(newDatabaseName, newTableName))) {
+            if (!metadataFileSystem.rename(oldPath, newPath)) {
                 throw new PrestoException(HIVE_METASTORE_ERROR, "Could not rename table directory");
             }
         }
@@ -956,7 +970,7 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, HivePrincipal principal)
+    public synchronized Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal principal)
     {
         Table table = getRequiredTable(databaseName, tableName);
         Path permissionsDirectory = getPermissionsDirectory(table);
@@ -972,15 +986,15 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized void grantTablePrivileges(String databaseName, String tableName, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
+    public synchronized void grantTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
         setTablePrivileges(grantee, databaseName, tableName, privileges);
     }
 
     @Override
-    public synchronized void revokeTablePrivileges(String databaseName, String tableName, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
+    public synchronized void revokeTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
-        Set<HivePrivilegeInfo> currentPrivileges = listTablePrivileges(databaseName, tableName, grantee);
+        Set<HivePrivilegeInfo> currentPrivileges = listTablePrivileges(databaseName, tableName, tableOwner, grantee);
         currentPrivileges.removeAll(privileges);
 
         setTablePrivileges(grantee, databaseName, tableName, currentPrivileges);
@@ -1215,6 +1229,11 @@ public class FileHiveMetastore
             return false;
         }
         return isChildDirectory(parentDirectory, childDirectory.getParent());
+    }
+
+    private static boolean isIcebergTable(Map<String, String> parameters)
+    {
+        return ICEBERG_TABLE_TYPE_VALUE.equalsIgnoreCase(parameters.get(ICEBERG_TABLE_TYPE_NAME));
     }
 
     private static class RoleGranteeTuple

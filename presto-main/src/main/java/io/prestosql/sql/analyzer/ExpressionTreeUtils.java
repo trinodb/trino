@@ -35,7 +35,7 @@ public final class ExpressionTreeUtils
 
     static List<FunctionCall> extractAggregateFunctions(Iterable<? extends Node> nodes, Metadata metadata)
     {
-        return extractExpressions(nodes, FunctionCall.class, isAggregationPredicate(metadata));
+        return extractExpressions(nodes, FunctionCall.class, function -> isAggregation(function, metadata));
     }
 
     static List<FunctionCall> extractWindowFunctions(Iterable<? extends Node> nodes)
@@ -50,11 +50,11 @@ public final class ExpressionTreeUtils
         return extractExpressions(nodes, clazz, alwaysTrue());
     }
 
-    private static Predicate<FunctionCall> isAggregationPredicate(Metadata metadata)
+    private static boolean isAggregation(FunctionCall functionCall, Metadata metadata)
     {
-        return ((functionCall) -> (metadata.isAggregationFunction(functionCall.getName())
-                || functionCall.getFilter().isPresent()) && !functionCall.getWindow().isPresent()
-                || functionCall.getOrderBy().isPresent());
+        return ((metadata.isAggregationFunction(functionCall.getName()) || functionCall.getFilter().isPresent())
+                && !functionCall.getWindow().isPresent())
+                || functionCall.getOrderBy().isPresent();
     }
 
     private static boolean isWindowFunction(FunctionCall functionCall)

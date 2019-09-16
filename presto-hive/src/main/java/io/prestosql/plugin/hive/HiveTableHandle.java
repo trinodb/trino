@@ -17,13 +17,15 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.hive.HiveBucketing.HiveBucketFilter;
+import com.google.common.collect.ImmutableMap;
+import io.prestosql.plugin.hive.util.HiveBucketing.HiveBucketFilter;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -34,6 +36,7 @@ public class HiveTableHandle
 {
     private final String schemaName;
     private final String tableName;
+    private final Optional<Map<String, String>> tableParameters;
     private final List<HiveColumnHandle> partitionColumns;
     private final Optional<List<HivePartition>> partitions;
     private final TupleDomain<HiveColumnHandle> compactEffectivePredicate;
@@ -53,8 +56,10 @@ public class HiveTableHandle
             @JsonProperty("bucketFilter") Optional<HiveBucketFilter> bucketFilter,
             @JsonProperty("analyzePartitionValues") Optional<List<List<String>>> analyzePartitionValues)
     {
-        this(schemaName,
+        this(
+                schemaName,
                 tableName,
+                Optional.empty(),
                 partitionColumns,
                 Optional.empty(),
                 compactEffectivePredicate,
@@ -67,11 +72,14 @@ public class HiveTableHandle
     public HiveTableHandle(
             String schemaName,
             String tableName,
+            Map<String, String> tableParameters,
             List<HiveColumnHandle> partitionColumns,
             Optional<HiveBucketHandle> bucketHandle)
     {
-        this(schemaName,
+        this(
+                schemaName,
                 tableName,
+                Optional.of(tableParameters),
                 partitionColumns,
                 Optional.empty(),
                 TupleDomain.all(),
@@ -84,6 +92,7 @@ public class HiveTableHandle
     public HiveTableHandle(
             String schemaName,
             String tableName,
+            Optional<Map<String, String>> tableParameters,
             List<HiveColumnHandle> partitionColumns,
             Optional<List<HivePartition>> partitions,
             TupleDomain<HiveColumnHandle> compactEffectivePredicate,
@@ -94,6 +103,7 @@ public class HiveTableHandle
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
+        this.tableParameters = requireNonNull(tableParameters, "tableParameters is null").map(ImmutableMap::copyOf);
         this.partitionColumns = ImmutableList.copyOf(requireNonNull(partitionColumns, "partitionColumns is null"));
         this.partitions = requireNonNull(partitions, "partitions is null").map(ImmutableList::copyOf);
         this.compactEffectivePredicate = requireNonNull(compactEffectivePredicate, "compactEffectivePredicate is null");
@@ -108,6 +118,7 @@ public class HiveTableHandle
         return new HiveTableHandle(
                 schemaName,
                 tableName,
+                tableParameters,
                 partitionColumns,
                 partitions,
                 compactEffectivePredicate,
@@ -127,6 +138,13 @@ public class HiveTableHandle
     public String getTableName()
     {
         return tableName;
+    }
+
+    // do not serialize tableParameters as they are not needed on workers
+    @JsonIgnore
+    public Optional<Map<String, String>> getTableParameters()
+    {
+        return tableParameters;
     }
 
     @JsonProperty

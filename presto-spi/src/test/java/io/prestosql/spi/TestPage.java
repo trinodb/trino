@@ -22,7 +22,7 @@ import io.prestosql.spi.block.DictionaryId;
 import org.testng.annotations.Test;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Verify.verifyNotNull;
 import static io.prestosql.spi.block.DictionaryId.randomDictionaryId;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
@@ -155,7 +155,7 @@ public class TestPage
         BlockBuilder builder = VARBINARY.createBlockBuilder(null, 100);
 
         for (Slice value : values) {
-            verify(value != null);
+            verifyNotNull(value);
             VARBINARY.writeSlice(builder, value);
         }
         return builder.build();

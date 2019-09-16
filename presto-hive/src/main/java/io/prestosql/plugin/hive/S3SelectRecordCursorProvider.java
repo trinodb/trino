@@ -34,7 +34,7 @@ import java.util.Properties;
 import java.util.Set;
 
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
-import static io.prestosql.plugin.hive.HiveUtil.getDeserializerClassName;
+import static io.prestosql.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static java.util.Objects.requireNonNull;
 
 public class S3SelectRecordCursorProvider

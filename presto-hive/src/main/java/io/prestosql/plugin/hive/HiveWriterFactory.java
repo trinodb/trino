@@ -30,6 +30,7 @@ import io.prestosql.plugin.hive.metastore.Partition;
 import io.prestosql.plugin.hive.metastore.SortingColumn;
 import io.prestosql.plugin.hive.metastore.StorageFormat;
 import io.prestosql.plugin.hive.metastore.Table;
+import io.prestosql.plugin.hive.util.HiveWriteUtils;
 import io.prestosql.spi.NodeManager;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageSorter;
@@ -76,13 +77,13 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_TABLE_READ_ONLY;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
-import static io.prestosql.plugin.hive.HiveUtil.getColumnNames;
-import static io.prestosql.plugin.hive.HiveUtil.getColumnTypes;
-import static io.prestosql.plugin.hive.HiveWriteUtils.createPartitionValues;
 import static io.prestosql.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
 import static io.prestosql.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.toJobConf;
+import static io.prestosql.plugin.hive.util.HiveUtil.getColumnNames;
+import static io.prestosql.plugin.hive.util.HiveUtil.getColumnTypes;
+import static io.prestosql.plugin.hive.util.HiveWriteUtils.createPartitionValues;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static java.lang.Math.min;
 import static java.lang.String.format;
@@ -346,9 +347,6 @@ public class HiveWriterFactory
                     switch (insertExistingPartitionsBehavior) {
                         case APPEND:
                             checkState(!immutablePartitions);
-                            if (bucketNumber.isPresent()) {
-                                throw new PrestoException(HIVE_TABLE_READ_ONLY, "Cannot insert into bucketed unpartitioned Hive table");
-                            }
                             updateMode = UpdateMode.APPEND;
                             writeInfo = locationService.getTableWriteInfo(locationHandle, false);
                             break;
@@ -380,9 +378,6 @@ public class HiveWriterFactory
             if (insertExistingPartitionsBehavior == InsertExistingPartitionsBehavior.APPEND) {
                 // Append to an existing partition
                 checkState(!immutablePartitions);
-                if (bucketNumber.isPresent()) {
-                    throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Cannot insert into existing partition of bucketed Hive table: " + partitionName.get());
-                }
                 updateMode = UpdateMode.APPEND;
                 // Check the column types in partition schema match the column types in table schema
                 List<Column> tableColumns = table.getDataColumns();

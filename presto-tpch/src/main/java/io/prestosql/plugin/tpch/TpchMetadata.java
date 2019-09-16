@@ -40,8 +40,6 @@ import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableLayout;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorTablePartitioning;
 import io.prestosql.spi.connector.ConnectorTableProperties;
@@ -195,17 +193,6 @@ public class TpchMetadata
                 .filter(convertToPredicate(constraint.getSummary(), toColumnHandle(column)))
                 .filter(value -> !constraint.predicate().isPresent() || constraint.predicate().get().test(ImmutableMap.of(toColumnHandle(column), value)))
                 .collect(toSet());
-    }
-
-    @Override
-    public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
-    {
-        TpchTableLayoutHandle layout = (TpchTableLayoutHandle) handle;
-
-        // tables in this connector have a single layout
-        return getTableLayouts(session, layout.getTable(), new Constraint(layout.getPredicate()), Optional.empty())
-                .get(0)
-                .getTableLayout();
     }
 
     @Override
@@ -449,8 +436,22 @@ public class TpchMetadata
                     new SortingProperty<>(columns.get(columnNaming.getName(LineItemColumn.LINE_NUMBER)), SortOrder.ASC_NULLS_FIRST));
         }
 
+        TupleDomain<ColumnHandle> constraint = tableHandle.getConstraint();
+        if (predicatePushdownEnabled && constraint.isAll()) {
+            if (tableHandle.getTableName().equals(TpchTable.ORDERS.getTableName())) {
+                constraint = toTupleDomain(ImmutableMap.of(toColumnHandle(OrderColumn.ORDER_STATUS), ORDER_STATUS_NULLABLE_VALUES));
+            }
+            else if (tableHandle.getTableName().equals(TpchTable.PART.getTableName())) {
+                constraint = toTupleDomain(ImmutableMap.of(
+                        toColumnHandle(PartColumn.CONTAINER),
+                        PART_CONTAINER_NULLABLE_VALUES,
+                        toColumnHandle(PartColumn.TYPE),
+                        PART_TYPE_NULLABLE_VALUES));
+            }
+        }
+
         return new ConnectorTableProperties(
-                tableHandle.getConstraint(),
+                constraint,
                 tablePartitioning,
                 partitioningColumns,
                 Optional.empty(),

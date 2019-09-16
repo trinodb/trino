@@ -25,7 +25,6 @@ import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.DictionaryBlock;
 import io.prestosql.spi.block.DictionaryId;
-import io.prestosql.spi.block.LazyBlock;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.sql.gen.ExpressionProfiler;
 
@@ -41,6 +40,7 @@ import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.operator.PageUtils.recordMaterializedBytes;
 import static io.prestosql.operator.WorkProcessor.ProcessState.finished;
@@ -282,7 +282,8 @@ public class PageProcessor
             ReferenceCountMap referenceCountMap = new ReferenceCountMap();
             for (int channel = 0; channel < page.getChannelCount(); channel++) {
                 Block block = page.getBlock(channel);
-                if (!isNotLoadedLazyBlock(block)) {
+                // TODO: block might be partially loaded
+                if (block.isLoaded()) {
                     block.retainedBytesForEachPart((object, size) -> {
                         if (referenceCountMap.incrementAndGet(object) == 1) {
                             retainedSizeInBytes += size;
@@ -352,11 +353,6 @@ public class PageProcessor
         return projections;
     }
 
-    private static boolean isNotLoadedLazyBlock(Block block)
-    {
-        return (block instanceof LazyBlock) && !((LazyBlock) block).isLoaded();
-    }
-
     @NotThreadSafe
     private static class DictionarySourceIdFunction
             implements Function<DictionaryBlock, DictionaryId>
@@ -418,9 +414,8 @@ public class PageProcessor
 
         public Page getPage()
         {
-            verify(page != null);
             verify(state == ProcessBatchState.SUCCESS);
-            return page;
+            return verifyNotNull(page);
         }
 
         private enum ProcessBatchState

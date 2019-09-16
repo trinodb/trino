@@ -29,7 +29,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 
-import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Verify.verifyNotNull;
 import static java.util.Objects.requireNonNull;
 
 public class ElasticsearchSplitManager
@@ -48,7 +48,7 @@ public class ElasticsearchSplitManager
     {
         ElasticsearchTableHandle tableHandle = (ElasticsearchTableHandle) table;
         ElasticsearchTableDescription tableDescription = client.getTable(tableHandle.getSchemaName(), tableHandle.getTableName());
-        verify(table != null, "Table no longer exists: %s", tableHandle.toString());
+        verifyNotNull(table, "Table no longer exists: %s", tableHandle.toString());
 
         List<String> indices = client.getIndices(tableDescription);
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();

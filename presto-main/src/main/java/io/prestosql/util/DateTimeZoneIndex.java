@@ -26,9 +26,7 @@ import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKeys;
 
 public final class DateTimeZoneIndex
 {
-    private DateTimeZoneIndex()
-    {
-    }
+    private DateTimeZoneIndex() {}
 
     private static final DateTimeZone[] DATE_TIME_ZONES;
     private static final ISOChronology[] CHRONOLOGIES;

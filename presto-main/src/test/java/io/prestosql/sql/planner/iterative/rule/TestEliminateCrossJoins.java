@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.assertions.PlanMatchPattern;
 import io.prestosql.sql.planner.iterative.GroupReference;
 import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.prestosql.sql.planner.iterative.rule.test.PlanBuilder;
@@ -27,6 +28,7 @@ import io.prestosql.sql.planner.plan.JoinNode.EquiJoinClause;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
+import io.prestosql.sql.tree.ArithmeticBinaryExpression;
 import io.prestosql.sql.tree.ArithmeticUnaryExpression;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.SymbolReference;
@@ -38,14 +40,17 @@ import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.any;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.join;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.node;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.strictProject;
+import static io.prestosql.sql.planner.iterative.Lookup.noLookup;
 import static io.prestosql.sql.planner.iterative.rule.EliminateCrossJoins.getJoinOrder;
 import static io.prestosql.sql.planner.iterative.rule.EliminateCrossJoins.isOriginalOrder;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
+import static io.prestosql.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 import static io.prestosql.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -109,13 +114,13 @@ public class TestEliminateCrossJoins
         PlanNode plan =
                 joinNode(
                         joinNode(
-                                values(symbol("a")),
-                                values(symbol("b"))),
-                        values(symbol("c")),
-                        symbol("a"), symbol("c"),
-                        symbol("c"), symbol("b"));
+                                values("a"),
+                                values("b")),
+                        values("c"),
+                        "a", "c",
+                        "c", "b");
 
-        JoinGraph joinGraph = getOnlyElement(JoinGraph.buildFrom(plan));
+        JoinGraph joinGraph = JoinGraph.buildFrom(plan, noLookup(), new PlanNodeIdAllocator());
 
         assertEquals(
                 getJoinOrder(joinGraph),
@@ -128,24 +133,24 @@ public class TestEliminateCrossJoins
         PlanNode leftPlan =
                 joinNode(
                         joinNode(
-                                values(symbol("a")),
-                                values(symbol("b"))),
-                        values(symbol("c")),
-                        symbol("a"), symbol("c"),
-                        symbol("c"), symbol("b"));
+                                values("a"),
+                                values("b")),
+                        values("c"),
+                        "a", "c",
+                        "c", "b");
 
         PlanNode rightPlan =
                 joinNode(
                         joinNode(
-                                values(symbol("x")),
-                                values(symbol("y"))),
-                        values(symbol("z")),
-                        symbol("x"), symbol("z"),
-                        symbol("z"), symbol("y"));
+                                values("x"),
+                                values("y")),
+                        values("z"),
+                        "x", "z",
+                        "z", "y");
 
         PlanNode plan = joinNode(leftPlan, rightPlan);
 
-        JoinGraph joinGraph = getOnlyElement(JoinGraph.buildFrom(plan));
+        JoinGraph joinGraph = JoinGraph.buildFrom(plan, noLookup(), new PlanNodeIdAllocator());
 
         assertEquals(
                 getJoinOrder(joinGraph),
@@ -158,14 +163,14 @@ public class TestEliminateCrossJoins
         PlanNode plan =
                 joinNode(
                         joinNode(
-                                values(symbol("a")),
-                                values(symbol("b1"), symbol("b2"))),
-                        values(symbol("c1"), symbol("c2")),
-                        symbol("a"), symbol("c1"),
-                        symbol("c1"), symbol("b1"),
-                        symbol("c2"), symbol("b2"));
+                                values("a"),
+                                values("b1", "b2")),
+                        values("c1", "c2"),
+                        "a", "c1",
+                        "c1", "b1",
+                        "c2", "b2");
 
-        JoinGraph joinGraph = getOnlyElement(JoinGraph.buildFrom(plan));
+        JoinGraph joinGraph = JoinGraph.buildFrom(plan, noLookup(), new PlanNodeIdAllocator());
 
         assertEquals(
                 getJoinOrder(joinGraph),
@@ -173,18 +178,18 @@ public class TestEliminateCrossJoins
     }
 
     @Test
-    public void testDonNotChangeOrderWithoutCrossJoin()
+    public void testDoesNotChangeOrderWithoutCrossJoin()
     {
         PlanNode plan =
                 joinNode(
                         joinNode(
-                                values(symbol("a")),
-                                values(symbol("b")),
-                                symbol("a"), symbol("b")),
-                        values(symbol("c")),
-                        symbol("c"), symbol("b"));
+                                values("a"),
+                                values("b"),
+                                "a", "b"),
+                        values("c"),
+                        "c", "b");
 
-        JoinGraph joinGraph = getOnlyElement(JoinGraph.buildFrom(plan));
+        JoinGraph joinGraph = JoinGraph.buildFrom(plan, noLookup(), new PlanNodeIdAllocator());
 
         assertEquals(
                 getJoinOrder(joinGraph),
@@ -197,12 +202,12 @@ public class TestEliminateCrossJoins
         PlanNode plan =
                 joinNode(
                         joinNode(
-                                values(symbol("a")),
-                                values(symbol("b"))),
-                        values(symbol("c")),
-                        symbol("c"), symbol("b"));
+                                values("a"),
+                                values("b")),
+                        values("c"),
+                        "c", "b");
 
-        JoinGraph joinGraph = getOnlyElement(JoinGraph.buildFrom(plan));
+        JoinGraph joinGraph = JoinGraph.buildFrom(plan, noLookup(), new PlanNodeIdAllocator());
 
         assertEquals(
                 getJoinOrder(joinGraph),
@@ -210,21 +215,84 @@ public class TestEliminateCrossJoins
     }
 
     @Test
-    public void testGiveUpOnNonIdentityProjections()
+    public void testEliminateCrossJoinWithNonIdentityProjections()
+    {
+        tester().assertThat(new EliminateCrossJoins())
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, "ELIMINATE_CROSS_JOINS")
+                .on(p -> {
+                    Symbol a1 = p.symbol("a1");
+                    Symbol a2 = p.symbol("a2");
+                    Symbol b = p.symbol("b");
+                    Symbol c = p.symbol("c");
+                    Symbol d = p.symbol("d");
+                    Symbol e = p.symbol("e");
+                    Symbol f = p.symbol("f");
+
+                    return p.join(
+                            INNER,
+                            p.project(
+                                    Assignments.of(
+                                            a2, new ArithmeticUnaryExpression(MINUS, new SymbolReference("a1")),
+                                            f, new SymbolReference("f")),
+                                    p.join(
+                                            INNER,
+                                            p.project(
+                                                    Assignments.of(
+                                                            a1, new SymbolReference("a1"),
+                                                            f, new ArithmeticUnaryExpression(MINUS, new SymbolReference("b"))),
+                                                    p.join(
+                                                            INNER,
+                                                            p.values(a1),
+                                                            p.values(b))),
+                                            p.values(e),
+                                            new EquiJoinClause(a1, e))),
+                            p.values(c, d),
+                            new EquiJoinClause(a2, c),
+                            new EquiJoinClause(f, d));
+                })
+                .matches(
+                        node(ProjectNode.class,
+                                join(
+                                        INNER,
+                                        ImmutableList.of(aliases -> new EquiJoinClause(new Symbol("d"), new Symbol("f"))),
+                                        join(
+                                                INNER,
+                                                ImmutableList.of(aliases -> new EquiJoinClause(new Symbol("a2"), new Symbol("c"))),
+                                                join(INNER,
+                                                        ImmutableList.of(aliases -> new EquiJoinClause(new Symbol("a1"), new Symbol("e"))),
+                                                        strictProject(
+                                                                ImmutableMap.of(
+                                                                        "a2", expression("-a1"),
+                                                                        "a1", expression("a1")),
+                                                                PlanMatchPattern.values("a1")),
+                                                        strictProject(
+                                                                ImmutableMap.of(
+                                                                        "e", expression("e")),
+                                                                PlanMatchPattern.values("e"))),
+                                                any()),
+                                        strictProject(
+                                                ImmutableMap.of("f", expression("-b")),
+                                                PlanMatchPattern.values("b")))));
+    }
+
+    @Test
+    public void testGiveUpOnComplexProjections()
     {
         PlanNode plan =
                 joinNode(
                         projectNode(
                                 joinNode(
-                                        values(symbol("a1")),
-                                        values(symbol("b"))),
-                                symbol("a2"),
-                                new ArithmeticUnaryExpression(MINUS, new SymbolReference("a1"))),
-                        values(symbol("c")),
-                        symbol("a2"), symbol("c"),
-                        symbol("c"), symbol("b"));
+                                        values("a1"),
+                                        values("b")),
+                                "a2",
+                                new ArithmeticBinaryExpression(ADD, new SymbolReference("a1"), new SymbolReference("b")),
+                                "b",
+                                new SymbolReference("b")),
+                        values("c"),
+                        "a2", "c",
+                        "c", "b");
 
-        assertEquals(JoinGraph.buildFrom(plan).size(), 2);
+        assertEquals(JoinGraph.buildFrom(plan, noLookup(), new PlanNodeIdAllocator()).size(), 2);
     }
 
     private Function<PlanBuilder, PlanNode> crossJoinAndJoin(JoinNode.Type secondJoinType)
@@ -246,17 +314,14 @@ public class TestEliminateCrossJoins
         };
     }
 
-    private PlanNode projectNode(PlanNode source, String symbol, Expression expression)
+    private PlanNode projectNode(PlanNode source, String symbol1, Expression expression1, String symbol2, Expression expression2)
     {
         return new ProjectNode(
                 idAllocator.getNextId(),
                 source,
-                Assignments.of(new Symbol(symbol), expression));
-    }
-
-    private String symbol(String name)
-    {
-        return name;
+                Assignments.of(
+                        new Symbol(symbol1), expression1,
+                        new Symbol(symbol2), expression2));
     }
 
     private JoinNode joinNode(PlanNode left, PlanNode right, String... symbols)

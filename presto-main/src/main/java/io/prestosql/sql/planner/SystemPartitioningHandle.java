@@ -136,7 +136,7 @@ public final class SystemPartitioningHandle
 
     public NodePartitionMap getNodePartitionMap(Session session, NodeScheduler nodeScheduler)
     {
-        NodeSelector nodeSelector = nodeScheduler.createNodeSelector(null);
+        NodeSelector nodeSelector = nodeScheduler.createNodeSelector(Optional.empty());
         List<InternalNode> nodes;
         if (partitioning == SystemPartitioning.COORDINATOR_ONLY) {
             nodes = ImmutableList.of(nodeSelector.selectCurrentNode());

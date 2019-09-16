@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>317-SNAPSHOT</version>
+        <version>319-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-docs</artifactId>
@@ -20,7 +20,7 @@
     Generate HTML docs quickly while developing:
 
     brew install python
-    pip2 install sphinx
+    pip3 install sphinx
 
     make -C presto-docs clean html
 

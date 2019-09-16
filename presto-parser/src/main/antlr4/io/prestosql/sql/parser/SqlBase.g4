@@ -83,7 +83,7 @@ statement
     | REVOKE
         (GRANT OPTION FOR)?
         (privilege (',' privilege)* | ALL PRIVILEGES)
-        ON TABLE? qualifiedName FROM grantee=principal                #revoke
+        ON TABLE? qualifiedName FROM grantee=principal                 #revoke
     | SHOW GRANTS
         (ON TABLE? qualifiedName)?                                     #showGrants
     | EXPLAIN ANALYZE? VERBOSE?
@@ -204,9 +204,9 @@ setQuantifier
     ;
 
 selectItem
-    : expression (AS? identifier)?  #selectSingle
-    | qualifiedName '.' ASTERISK    #selectAll
-    | ASTERISK                      #selectAll
+    : expression (AS? identifier)?                          #selectSingle
+    | primaryExpression '.' ASTERISK (AS columnAliases)?    #selectAll
+    | ASTERISK                                              #selectAll
     ;
 
 relation
@@ -310,7 +310,7 @@ primaryExpression
     | '(' query ')'                                                                       #subqueryExpression
     // This is an extension to ANSI SQL, which considers EXISTS to be a <boolean expression>
     | EXISTS '(' query ')'                                                                #exists
-    | CASE valueExpression whenClause+ (ELSE elseExpression=expression)? END              #simpleCase
+    | CASE operand=expression whenClause+ (ELSE elseExpression=expression)? END           #simpleCase
     | CASE whenClause+ (ELSE elseExpression=expression)? END                              #searchedCase
     | CAST '(' expression AS type ')'                                                     #cast
     | TRY_CAST '(' expression AS type ')'                                                 #cast
@@ -454,7 +454,7 @@ pathSpecification
     ;
 
 privilege
-    : SELECT | DELETE | INSERT | identifier
+    : SELECT | DELETE | INSERT
     ;
 
 qualifiedName

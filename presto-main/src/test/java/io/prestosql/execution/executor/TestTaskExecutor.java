@@ -64,9 +64,9 @@ public class TestTaskExecutor
             verificationComplete.register();
 
             // add two jobs
-            TestingJob driver1 = new TestingJob(ticker, new Phaser(1), beginPhase, verificationComplete, 10, 0);
+            TestingJob driver1 = new TestingJob(ticker, new Phaser(), beginPhase, verificationComplete, 10, 0);
             ListenableFuture<?> future1 = getOnlyElement(taskExecutor.enqueueSplits(taskHandle, true, ImmutableList.of(driver1)));
-            TestingJob driver2 = new TestingJob(ticker, new Phaser(1), beginPhase, verificationComplete, 10, 0);
+            TestingJob driver2 = new TestingJob(ticker, new Phaser(), beginPhase, verificationComplete, 10, 0);
             ListenableFuture<?> future2 = getOnlyElement(taskExecutor.enqueueSplits(taskHandle, true, ImmutableList.of(driver2)));
             assertEquals(driver1.getCompletedPhases(), 0);
             assertEquals(driver2.getCompletedPhases(), 0);
@@ -89,7 +89,7 @@ public class TestTaskExecutor
             verificationComplete.arriveAndAwaitAdvance();
 
             // add one more job
-            TestingJob driver3 = new TestingJob(ticker, new Phaser(1), beginPhase, verificationComplete, 10, 0);
+            TestingJob driver3 = new TestingJob(ticker, new Phaser(), beginPhase, verificationComplete, 10, 0);
             ListenableFuture<?> future3 = getOnlyElement(taskExecutor.enqueueSplits(taskHandle, false, ImmutableList.of(driver3)));
 
             // advance one phase and verify
@@ -152,22 +152,22 @@ public class TestTaskExecutor
             TaskHandle shortQuantaTaskHandle = taskExecutor.addTask(new TaskId("shortQuanta", 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
             TaskHandle longQuantaTaskHandle = taskExecutor.addTask(new TaskId("longQuanta", 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
 
-            Phaser globalPhaser = new Phaser();
+            Phaser endQuantaPhaser = new Phaser();
 
-            TestingJob shortQuantaDriver = new TestingJob(ticker, new Phaser(), new Phaser(), globalPhaser, 10, 10);
-            TestingJob longQuantaDriver = new TestingJob(ticker, new Phaser(), new Phaser(), globalPhaser, 10, 20);
+            TestingJob shortQuantaDriver = new TestingJob(ticker, new Phaser(), new Phaser(), endQuantaPhaser, 10, 10);
+            TestingJob longQuantaDriver = new TestingJob(ticker, new Phaser(), new Phaser(), endQuantaPhaser, 10, 20);
 
             taskExecutor.enqueueSplits(shortQuantaTaskHandle, true, ImmutableList.of(shortQuantaDriver));
             taskExecutor.enqueueSplits(longQuantaTaskHandle, true, ImmutableList.of(longQuantaDriver));
 
             for (int i = 0; i < 11; i++) {
-                globalPhaser.arriveAndAwaitAdvance();
+                endQuantaPhaser.arriveAndAwaitAdvance();
             }
 
             assertTrue(shortQuantaDriver.getCompletedPhases() >= 7 && shortQuantaDriver.getCompletedPhases() <= 8);
             assertTrue(longQuantaDriver.getCompletedPhases() >= 3 && longQuantaDriver.getCompletedPhases() <= 4);
 
-            globalPhaser.arriveAndDeregister();
+            endQuantaPhaser.arriveAndDeregister();
         }
         finally {
             taskExecutor.stop();
@@ -186,7 +186,7 @@ public class TestTaskExecutor
             TaskHandle testTaskHandle = taskExecutor.addTask(new TaskId("test", 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
 
             Phaser globalPhaser = new Phaser();
-            globalPhaser.bulkRegister(3);
+            globalPhaser.bulkRegister(3); // 2 taskExecutor threads + test thread
 
             int quantaTimeMills = 500;
             int phasesPerSecond = 1000 / quantaTimeMills;
@@ -217,7 +217,7 @@ public class TestTaskExecutor
             throws Exception
     {
         TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(1, 3, 3, 4, new MultilevelSplitQueue(2), ticker);
+        TaskExecutor taskExecutor = new TaskExecutor(6, 3, 3, 4, new MultilevelSplitQueue(2), ticker);
         taskExecutor.start();
         ticker.increment(20, MILLISECONDS);
 
@@ -230,18 +230,18 @@ public class TestTaskExecutor
                 };
 
                 // move task 0 to next level
-                TestingJob task0Job = new TestingJob(ticker, new Phaser(1), new Phaser(), new Phaser(), 1, LEVEL_THRESHOLD_SECONDS[i + 1] * 1000);
+                TestingJob task0Job = new TestingJob(ticker, new Phaser(), new Phaser(), new Phaser(), 1, LEVEL_THRESHOLD_SECONDS[i + 1] * 1000);
                 taskExecutor.enqueueSplits(
                         taskHandles[0],
                         true,
                         ImmutableList.of(task0Job));
                 // move tasks 1 and 2 to this level
-                TestingJob task1Job = new TestingJob(ticker, new Phaser(1), new Phaser(), new Phaser(), 1, LEVEL_THRESHOLD_SECONDS[i] * 1000);
+                TestingJob task1Job = new TestingJob(ticker, new Phaser(), new Phaser(), new Phaser(), 1, LEVEL_THRESHOLD_SECONDS[i] * 1000);
                 taskExecutor.enqueueSplits(
                         taskHandles[1],
                         true,
                         ImmutableList.of(task1Job));
-                TestingJob task2Job = new TestingJob(ticker, new Phaser(1), new Phaser(), new Phaser(), 1, LEVEL_THRESHOLD_SECONDS[i] * 1000);
+                TestingJob task2Job = new TestingJob(ticker, new Phaser(), new Phaser(), new Phaser(), 1, LEVEL_THRESHOLD_SECONDS[i] * 1000);
                 taskExecutor.enqueueSplits(
                         taskHandles[2],
                         true,
@@ -252,7 +252,7 @@ public class TestTaskExecutor
                 task2Job.getCompletedFuture().get();
 
                 // then, start new drivers for all tasks
-                Phaser globalPhaser = new Phaser(2);
+                Phaser globalPhaser = new Phaser(7); // 6 taskExecutor threads + test thread
                 int phasesForNextLevel = LEVEL_THRESHOLD_SECONDS[i + 1] - LEVEL_THRESHOLD_SECONDS[i];
                 TestingJob[] drivers = new TestingJob[6];
                 for (int j = 0; j < 6; j++) {
@@ -280,13 +280,7 @@ public class TestTaskExecutor
                     }
                 }
 
-                try {
-                    globalPhaser.arriveAndDeregister();
-                }
-                catch (IllegalStateException e) {
-                    // under high concurrency sometimes the deregister call can occur after completion
-                    // this is not a real problem
-                }
+                globalPhaser.arriveAndDeregister();
                 taskExecutor.removeTask(taskHandles[0]);
                 taskExecutor.removeTask(taskHandles[1]);
                 taskExecutor.removeTask(taskHandles[2]);

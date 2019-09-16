@@ -535,7 +535,6 @@ public class QueryStateMachine
                 queryStateTimer.getDispatchingTime(),
                 queryStateTimer.getExecutionTime(),
                 queryStateTimer.getAnalysisTime(),
-                queryStateTimer.getDistributedPlanningTime(),
                 queryStateTimer.getPlanningTime(),
                 queryStateTimer.getFinishingTime(),
 
@@ -897,22 +896,12 @@ public class QueryStateMachine
 
     public void beginAnalysis()
     {
-        queryStateTimer.beginAnalyzing();
+        queryStateTimer.beginAnalysis();
     }
 
     public void endAnalysis()
     {
         queryStateTimer.endAnalysis();
-    }
-
-    public void beginDistributedPlanning()
-    {
-        queryStateTimer.beginDistributedPlanning();
-    }
-
-    public void endDistributedPlanning()
-    {
-        queryStateTimer.endDistributedPlanning();
     }
 
     public DateTime getCreateTime()
@@ -1033,8 +1022,7 @@ public class QueryStateMachine
                 queryStats.getDispatchingTime(),
                 queryStats.getExecutionTime(),
                 queryStats.getAnalysisTime(),
-                queryStats.getDistributedPlanningTime(),
-                queryStats.getTotalPlanningTime(),
+                queryStats.getPlanningTime(),
                 queryStats.getFinishingTime(),
                 queryStats.getTotalTasks(),
                 queryStats.getRunningTasks(),

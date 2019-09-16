@@ -11,14 +11,12 @@
                 "name": "name",
                 "type": "varchar",
                 "jsonPath": "name",
-                "jsonType": "varchar",
                 "ordinalPosition": "0"
             },
             {
               "name": "fields",
               "type": "row(fielda integer, fieldb varchar)",
               "jsonPath": "fields",
-              "jsonType": "varchar",
               "ordinalPosition": "1"
             }
         ]

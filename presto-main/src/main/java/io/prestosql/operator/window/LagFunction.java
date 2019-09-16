@@ -54,12 +54,12 @@ public class LagFunction
 
             long valuePosition;
 
-            if (ignoreNulls) {
+            if (ignoreNulls && (offset > 0)) {
                 long count = 0;
                 valuePosition = currentPosition - 1;
                 while (withinPartition(valuePosition, currentPosition)) {
                     if (!windowIndex.isNull(valueChannel, toIntExact(valuePosition))) {
-                        count += 1;
+                        count++;
                         if (count == offset) {
                             break;
                         }

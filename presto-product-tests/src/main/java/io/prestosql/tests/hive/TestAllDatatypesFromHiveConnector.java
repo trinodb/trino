@@ -39,7 +39,6 @@ import static io.prestosql.tempto.fulfillment.table.MutableTableRequirement.Stat
 import static io.prestosql.tempto.fulfillment.table.TableHandle.tableHandle;
 import static io.prestosql.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.prestosql.tempto.query.QueryExecutor.query;
-import static io.prestosql.tests.TestGroups.AVRO;
 import static io.prestosql.tests.TestGroups.JDBC;
 import static io.prestosql.tests.TestGroups.SKIP_ON_CDH;
 import static io.prestosql.tests.TestGroups.SMOKE;
@@ -216,7 +215,7 @@ public class TestAllDatatypesFromHiveConnector
     }
 
     @Requires(AvroRequirements.class)
-    @Test(groups = {JDBC, SKIP_ON_CDH, AVRO})
+    @Test(groups = {JDBC, SKIP_ON_CDH})
     public void testSelectAllDatatypesAvro()
     {
         String tableName = mutableTableInstanceOf(ALL_HIVE_SIMPLE_TYPES_AVRO).getNameInDatabase();

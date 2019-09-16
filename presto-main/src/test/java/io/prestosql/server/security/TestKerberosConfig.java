@@ -43,10 +43,10 @@ public class TestKerberosConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("http.authentication.krb5.config", "/etc/krb5.conf")
-                .put("http.server.authentication.krb5.service-name", "airlift")
-                .put("http.server.authentication.krb5.keytab", "/tmp/presto.keytab")
-                .put("http.server.authentication.krb5.principal-hostname", "presto.prestosql.io")
-                .put("http.server.authentication.krb5.name-type", "USER_NAME")
+                .put("http-server.authentication.krb5.service-name", "airlift")
+                .put("http-server.authentication.krb5.keytab", "/tmp/presto.keytab")
+                .put("http-server.authentication.krb5.principal-hostname", "presto.prestosql.io")
+                .put("http-server.authentication.krb5.name-type", "USER_NAME")
                 .build();
 
         KerberosConfig expected = new KerberosConfig()

@@ -121,6 +121,7 @@ public class PhoenixClient
         super(
                 ESCAPE_CHARACTER,
                 connectionFactory,
+                ImmutableSet.of(),
                 config.isCaseInsensitiveNameMatching(),
                 config.getCaseInsensitiveNameMatchingCacheTtl());
         this.configuration = new Configuration(false);

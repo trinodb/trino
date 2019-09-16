@@ -24,19 +24,27 @@ import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
+import com.amazonaws.auth.Signer;
+import com.amazonaws.auth.SignerFactory;
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
 import com.amazonaws.event.ProgressEvent;
 import com.amazonaws.event.ProgressEventType;
 import com.amazonaws.event.ProgressListener;
+import com.amazonaws.metrics.RequestMetricCollector;
 import com.amazonaws.regions.Region;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Builder;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.AmazonS3EncryptionClient;
+import com.amazonaws.services.s3.Headers;
+import com.amazonaws.services.s3.internal.Constants;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.CannedAccessControlList;
+import com.amazonaws.services.s3.model.CopyObjectRequest;
+import com.amazonaws.services.s3.model.DeleteObjectRequest;
 import com.amazonaws.services.s3.model.EncryptionMaterialsProvider;
+import com.amazonaws.services.s3.model.GetObjectMetadataRequest;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.KMSEncryptionMaterialsProvider;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
@@ -147,24 +155,27 @@ public class PrestoS3FileSystem
     public static final String S3_SSL_ENABLED = "presto.s3.ssl.enabled";
     public static final String S3_PATH_STYLE_ACCESS = "presto.s3.path-style-access";
     public static final String S3_SIGNER_TYPE = "presto.s3.signer-type";
+    public static final String S3_SIGNER_CLASS = "presto.s3.signer-class";
     public static final String S3_ENDPOINT = "presto.s3.endpoint";
     public static final String S3_SECRET_KEY = "presto.s3.secret-key";
     public static final String S3_ACCESS_KEY = "presto.s3.access-key";
     public static final String S3_IAM_ROLE = "presto.s3.iam-role";
     public static final String S3_ACL_TYPE = "presto.s3.upload-acl-type";
     public static final String S3_SKIP_GLACIER_OBJECTS = "presto.s3.skip-glacier-objects";
+    public static final String S3_REQUESTER_PAYS_ENABLED = "presto.s3.requester-pays.enabled";
 
     static final String S3_DIRECTORY_OBJECT_CONTENT_TYPE = "application/x-directory";
 
     private static final Logger log = Logger.get(PrestoS3FileSystem.class);
     private static final PrestoS3FileSystemStats STATS = new PrestoS3FileSystemStats();
-    private static final PrestoS3FileSystemMetricCollector METRIC_COLLECTOR = new PrestoS3FileSystemMetricCollector(STATS);
+    private static final RequestMetricCollector METRIC_COLLECTOR = new PrestoS3FileSystemMetricCollector(STATS);
     private static final String DIRECTORY_SUFFIX = "_$folder$";
     private static final DataSize BLOCK_SIZE = new DataSize(32, MEGABYTE);
     private static final DataSize MAX_SKIP_SIZE = new DataSize(1, MEGABYTE);
     private static final String PATH_SEPARATOR = "/";
     private static final Duration BACKOFF_MIN_SLEEP = new Duration(1, SECONDS);
     private static final int HTTP_RANGE_NOT_SATISFIABLE = 416;
+    private static final String S3_CUSTOM_SIGNER = "PrestoS3CustomSigner";
 
     private URI uri;
     private Path workingDirectory;
@@ -185,6 +196,7 @@ public class PrestoS3FileSystem
     private long multiPartUploadMinPartSize;
     private PrestoS3AclType s3AclType;
     private boolean skipGlacierObjects;
+    private boolean requesterPaysEnabled;
 
     @Override
     public void initialize(URI uri, Configuration conf)
@@ -216,7 +228,7 @@ public class PrestoS3FileSystem
         verify(!(useInstanceCredentials && this.iamRole != null),
                 "Invalid configuration: either use instance credentials or specify an iam role");
         this.pinS3ClientToCurrentRegion = conf.getBoolean(S3_PIN_CLIENT_TO_CURRENT_REGION, defaults.isPinS3ClientToCurrentRegion());
-        verify((pinS3ClientToCurrentRegion && conf.get(S3_ENDPOINT) == null) || !pinS3ClientToCurrentRegion,
+        verify(!pinS3ClientToCurrentRegion || conf.get(S3_ENDPOINT) == null,
                 "Invalid configuration: either endpoint can be set or S3 client can be pinned to the current region");
         this.sseEnabled = conf.getBoolean(S3_SSE_ENABLED, defaults.isS3SseEnabled());
         this.sseType = PrestoS3SseType.valueOf(conf.get(S3_SSE_TYPE, defaults.getS3SseType().name()));
@@ -224,6 +236,7 @@ public class PrestoS3FileSystem
         this.s3AclType = PrestoS3AclType.valueOf(conf.get(S3_ACL_TYPE, defaults.getS3AclType().name()));
         String userAgentPrefix = conf.get(S3_USER_AGENT_PREFIX, defaults.getS3UserAgentPrefix());
         this.skipGlacierObjects = conf.getBoolean(S3_SKIP_GLACIER_OBJECTS, defaults.isSkipGlacierObjects());
+        this.requesterPaysEnabled = conf.getBoolean(S3_REQUESTER_PAYS_ENABLED, defaults.isRequesterPaysEnabled());
 
         ClientConfiguration configuration = new ClientConfiguration()
                 .withMaxErrorRetry(maxErrorRetries)
@@ -364,7 +377,7 @@ public class PrestoS3FileSystem
     {
         return new FSDataInputStream(
                 new BufferedFSInputStream(
-                        new PrestoS3InputStream(s3, getBucketName(uri), path, maxAttempts, maxBackoffTime, maxRetryTime),
+                        new PrestoS3InputStream(s3, getBucketName(uri), path, requesterPaysEnabled, maxAttempts, maxBackoffTime, maxRetryTime),
                         bufferSize));
     }
 
@@ -385,7 +398,7 @@ public class PrestoS3FileSystem
 
         String key = keyFromPath(qualifiedPath(path));
         return new FSDataOutputStream(
-                new PrestoS3OutputStream(s3, getBucketName(uri), key, tempFile, sseEnabled, sseType, sseKmsKeyId, multiPartUploadMinFileSize, multiPartUploadMinPartSize, s3AclType),
+                new PrestoS3OutputStream(s3, getBucketName(uri), key, tempFile, sseEnabled, sseType, sseKmsKeyId, multiPartUploadMinFileSize, multiPartUploadMinPartSize, s3AclType, requesterPaysEnabled),
                 statistics);
     }
 
@@ -430,7 +443,8 @@ public class PrestoS3FileSystem
             deleteObject(keyFromPath(src) + DIRECTORY_SUFFIX);
         }
         else {
-            s3.copyObject(getBucketName(uri), keyFromPath(src), getBucketName(uri), keyFromPath(dst));
+            s3.copyObject(new CopyObjectRequest(getBucketName(uri), keyFromPath(src), getBucketName(uri), keyFromPath(dst))
+                    .withRequesterPays(requesterPaysEnabled));
             delete(src, true);
         }
 
@@ -471,7 +485,14 @@ public class PrestoS3FileSystem
     private boolean deleteObject(String key)
     {
         try {
-            s3.deleteObject(getBucketName(uri), key);
+            DeleteObjectRequest deleteObjectRequest = new DeleteObjectRequest(getBucketName(uri), key);
+            if (requesterPaysEnabled) {
+                // TODO use deleteObjectRequest.setRequesterPays() when https://github.com/aws/aws-sdk-java/issues/1219 is fixed
+                // currently the method exists, but is ineffective (doesn't set the required HTTP header)
+                deleteObjectRequest.putCustomRequestHeader(Headers.REQUESTER_PAYS_HEADER, Constants.REQUESTER_PAYS);
+            }
+
+            s3.deleteObject(deleteObjectRequest);
             return true;
         }
         catch (AmazonClientException e) {
@@ -496,7 +517,8 @@ public class PrestoS3FileSystem
         ListObjectsRequest request = new ListObjectsRequest()
                 .withBucketName(getBucketName(uri))
                 .withPrefix(key)
-                .withDelimiter(PATH_SEPARATOR);
+                .withDelimiter(PATH_SEPARATOR)
+                .withRequesterPays(requesterPaysEnabled);
 
         STATS.newListObjectsCall();
         Iterator<ObjectListing> listings = new AbstractSequentialIterator<ObjectListing>(s3.listObjects(request))
@@ -551,7 +573,7 @@ public class PrestoS3FileSystem
                 .iterator();
     }
 
-    private boolean isGlacierObject(S3ObjectSummary object)
+    private static boolean isGlacierObject(S3ObjectSummary object)
     {
         return Glacier.toString().equals(object.getStorageClass());
     }
@@ -596,7 +618,8 @@ public class PrestoS3FileSystem
                     .run("getS3ObjectMetadata", () -> {
                         try {
                             STATS.newMetadataCall();
-                            return s3.getObjectMetadata(bucketName, key);
+                            return s3.getObjectMetadata(new GetObjectMetadataRequest(bucketName, key)
+                                    .withRequesterPays(requesterPaysEnabled));
                         }
                         catch (RuntimeException e) {
                             STATS.newGetMetadataError();
@@ -667,11 +690,24 @@ public class PrestoS3FileSystem
     private AmazonS3 createAmazonS3Client(Configuration hadoopConfig, ClientConfiguration clientConfig)
     {
         Optional<EncryptionMaterialsProvider> encryptionMaterialsProvider = createEncryptionMaterialsProvider(hadoopConfig);
-        AmazonS3Builder<? extends AmazonS3Builder, ? extends AmazonS3> clientBuilder;
+        AmazonS3Builder<? extends AmazonS3Builder<?, ?>, ? extends AmazonS3> clientBuilder;
 
         String signerType = hadoopConfig.get(S3_SIGNER_TYPE);
         if (signerType != null) {
             clientConfig.withSignerOverride(signerType);
+        }
+
+        String signerClass = hadoopConfig.get(S3_SIGNER_CLASS);
+        if (signerClass != null) {
+            Class<? extends Signer> klass;
+            try {
+                klass = Class.forName(signerClass).asSubclass(Signer.class);
+            }
+            catch (ClassNotFoundException e) {
+                throw new RuntimeException("Signer class not found: " + signerClass, e);
+            }
+            SignerFactory.registerSigner(S3_CUSTOM_SIGNER, klass);
+            clientConfig.setSignerOverride(S3_CUSTOM_SIGNER);
         }
 
         if (encryptionMaterialsProvider.isPresent()) {
@@ -694,23 +730,23 @@ public class PrestoS3FileSystem
         if (pinS3ClientToCurrentRegion) {
             Region region = Regions.getCurrentRegion();
             if (region != null) {
-                clientBuilder = clientBuilder.withRegion(region.getName());
+                clientBuilder.setRegion(region.getName());
                 regionOrEndpointSet = true;
             }
         }
 
         String endpoint = hadoopConfig.get(S3_ENDPOINT);
         if (endpoint != null) {
-            clientBuilder = clientBuilder.withEndpointConfiguration(new EndpointConfiguration(endpoint, null));
+            clientBuilder.setEndpointConfiguration(new EndpointConfiguration(endpoint, null));
             regionOrEndpointSet = true;
         }
 
         if (isPathStyleAccess) {
-            clientBuilder = clientBuilder.enablePathStyleAccess();
+            clientBuilder.enablePathStyleAccess();
         }
 
         if (!regionOrEndpointSet) {
-            clientBuilder = clientBuilder.withRegion(US_EAST_1);
+            clientBuilder.withRegion(US_EAST_1);
             clientBuilder.setForceGlobalBucketAccessEnabled(true);
         }
 
@@ -811,6 +847,7 @@ public class PrestoS3FileSystem
         private final AmazonS3 s3;
         private final String host;
         private final Path path;
+        private final boolean requesterPaysEnabled;
         private final int maxAttempts;
         private final Duration maxBackoffTime;
         private final Duration maxRetryTime;
@@ -821,11 +858,12 @@ public class PrestoS3FileSystem
         private long streamPosition;
         private long nextReadPosition;
 
-        public PrestoS3InputStream(AmazonS3 s3, String host, Path path, int maxAttempts, Duration maxBackoffTime, Duration maxRetryTime)
+        public PrestoS3InputStream(AmazonS3 s3, String host, Path path, boolean requesterPaysEnabled, int maxAttempts, Duration maxBackoffTime, Duration maxRetryTime)
         {
             this.s3 = requireNonNull(s3, "s3 is null");
             this.host = requireNonNull(host, "host is null");
             this.path = requireNonNull(path, "path is null");
+            this.requesterPaysEnabled = requesterPaysEnabled;
 
             checkArgument(maxAttempts >= 0, "maxAttempts cannot be negative");
             this.maxAttempts = maxAttempts;
@@ -863,7 +901,8 @@ public class PrestoS3FileSystem
                             InputStream stream;
                             try {
                                 GetObjectRequest request = new GetObjectRequest(host, keyFromPath(path))
-                                        .withRange(position, (position + length) - 1);
+                                        .withRange(position, (position + length) - 1)
+                                        .withRequesterPays(requesterPaysEnabled);
                                 stream = s3.getObject(request).getObjectContent();
                             }
                             catch (RuntimeException e) {
@@ -887,7 +926,10 @@ public class PrestoS3FileSystem
                                 while (read < length) {
                                     int n = stream.read(buffer, offset + read, length - read);
                                     if (n <= 0) {
-                                        break;
+                                        if (read > 0) {
+                                            return read;
+                                        }
+                                        return -1;
                                     }
                                     read += n;
                                 }
@@ -1027,7 +1069,9 @@ public class PrestoS3FileSystem
                         .onRetry(STATS::newGetObjectRetry)
                         .run("getS3Object", () -> {
                             try {
-                                GetObjectRequest request = new GetObjectRequest(host, keyFromPath(path)).withRange(start);
+                                GetObjectRequest request = new GetObjectRequest(host, keyFromPath(path))
+                                        .withRange(start)
+                                        .withRequesterPays(requesterPaysEnabled);
                                 return s3.getObject(request).getObjectContent();
                             }
                             catch (RuntimeException e) {
@@ -1108,6 +1152,7 @@ public class PrestoS3FileSystem
         private final PrestoS3SseType sseType;
         private final String sseKmsKeyId;
         private final CannedAccessControlList aclType;
+        private final boolean requesterPaysEnabled;
 
         private boolean closed;
 
@@ -1121,7 +1166,8 @@ public class PrestoS3FileSystem
                 String sseKmsKeyId,
                 long multiPartUploadMinFileSize,
                 long multiPartUploadMinPartSize,
-                PrestoS3AclType aclType)
+                PrestoS3AclType aclType,
+                boolean requesterPaysEnabled)
                 throws IOException
         {
             super(new BufferedOutputStream(new FileOutputStream(requireNonNull(tempFile, "tempFile is null"))));
@@ -1139,6 +1185,7 @@ public class PrestoS3FileSystem
             this.sseEnabled = sseEnabled;
             this.sseType = requireNonNull(sseType, "sseType is null");
             this.sseKmsKeyId = sseKmsKeyId;
+            this.requesterPaysEnabled = requesterPaysEnabled;
 
             log.debug("OutputStream for key '%s' using file: %s", key, tempFile);
         }
@@ -1172,7 +1219,9 @@ public class PrestoS3FileSystem
                 log.debug("Starting upload for host: %s, key: %s, file: %s, size: %s", host, key, tempFile, tempFile.length());
                 STATS.uploadStarted();
 
-                PutObjectRequest request = new PutObjectRequest(host, key, tempFile);
+                PutObjectRequest request = new PutObjectRequest(host, key, tempFile)
+                        .withRequesterPays(requesterPaysEnabled);
+
                 if (sseEnabled) {
                     switch (sseType) {
                         case KMS:

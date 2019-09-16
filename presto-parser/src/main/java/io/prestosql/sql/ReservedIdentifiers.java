@@ -120,13 +120,13 @@ public final class ReservedIdentifiers
 
     public static Set<String> reservedIdentifiers()
     {
-        return possibleIdentifiers().stream()
+        return sqlKeywords().stream()
                 .filter(ReservedIdentifiers::reserved)
                 .sorted()
                 .collect(toImmutableSet());
     }
 
-    private static Set<String> possibleIdentifiers()
+    public static Set<String> sqlKeywords()
     {
         ImmutableSet.Builder<String> names = ImmutableSet.builder();
         Vocabulary vocabulary = SqlBaseLexer.VOCABULARY;

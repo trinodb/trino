@@ -617,6 +617,11 @@ public class ExpressionInterpreter
                         expressionValues.stream()
                                 .filter((expression -> !isDeterministic(expression))))
                         .collect(toImmutableList());
+
+                if (simplifiedExpressionValues.size() == 1) {
+                    return new ComparisonExpression(ComparisonExpression.Operator.EQUAL, toExpression(value, type), simplifiedExpressionValues.get(0));
+                }
+
                 return new InPredicate(toExpression(value, type), new InListExpression(simplifiedExpressionValues));
             }
             if (hasNullValue) {

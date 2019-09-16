@@ -19,11 +19,9 @@ import org.apache.kudu.client.RowResult;
 
 import java.nio.charset.StandardCharsets;
 
-public class RowHelper
+public final class RowHelper
 {
-    private RowHelper()
-    {
-    }
+    private RowHelper() {}
 
     public static void copyPrimaryKey(Schema schema, RowResult from, PartialRow to)
     {

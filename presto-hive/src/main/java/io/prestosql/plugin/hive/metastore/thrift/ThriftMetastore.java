@@ -54,6 +54,8 @@ public interface ThriftMetastore
 
     List<String> getAllTables(String databaseName);
 
+    List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue);
+
     List<String> getAllViews(String databaseName);
 
     Optional<Database> getDatabase(String databaseName);
@@ -96,11 +98,11 @@ public interface ThriftMetastore
 
     Set<RoleGrant> listRoleGrants(HivePrincipal principal);
 
-    void grantTablePrivileges(String databaseName, String tableName, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges);
+    void grantTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges);
 
-    void revokeTablePrivileges(String databaseName, String tableName, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges);
+    void revokeTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges);
 
-    Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, HivePrincipal principal);
+    Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal principal);
 
     default Optional<List<FieldSchema>> getFields(String databaseName, String tableName)
     {

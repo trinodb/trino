@@ -55,7 +55,7 @@ public class NthValueFunction
                 valuePosition = frameStart;
                 while (valuePosition >= 0 && valuePosition <= frameEnd) {
                     if (!windowIndex.isNull(valueChannel, toIntExact(valuePosition))) {
-                        count += 1;
+                        count++;
                         if (count == offset) {
                             break;
                         }

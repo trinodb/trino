@@ -720,11 +720,15 @@ class AstBuilder
     @Override
     public Node visitSelectAll(SqlBaseParser.SelectAllContext context)
     {
-        if (context.qualifiedName() != null) {
-            return new AllColumns(getLocation(context), getQualifiedName(context.qualifiedName()));
+        List<Identifier> aliases = ImmutableList.of();
+        if (context.columnAliases() != null) {
+            aliases = visit(context.columnAliases().identifier(), Identifier.class);
         }
 
-        return new AllColumns(getLocation(context));
+        return new AllColumns(
+                getLocation(context),
+                visitIfPresent(context.primaryExpression(), Expression.class),
+                aliases);
     }
 
     @Override
@@ -1441,7 +1445,7 @@ class AstBuilder
     {
         return new SimpleCaseExpression(
                 getLocation(context),
-                (Expression) visit(context.valueExpression()),
+                (Expression) visit(context.operand),
                 visit(context.whenClause(), WhenClause.class),
                 visitIfPresent(context.elseExpression, Expression.class));
     }
@@ -1482,7 +1486,6 @@ class AstBuilder
             check(context.expression().size() == 2 || context.expression().size() == 3, "Invalid number of arguments for 'if' function", context);
             check(!window.isPresent(), "OVER clause not valid for 'if' function", context);
             check(!distinct, "DISTINCT not valid for 'if' function", context);
-            check(nullTreatment == null, "Null treatment clause not valid for 'if' function", context);
             check(!filter.isPresent(), "FILTER not valid for 'if' function", context);
 
             Expression elseExpression = null;
@@ -1501,7 +1504,6 @@ class AstBuilder
             check(context.expression().size() == 2, "Invalid number of arguments for 'nullif' function", context);
             check(!window.isPresent(), "OVER clause not valid for 'nullif' function", context);
             check(!distinct, "DISTINCT not valid for 'nullif' function", context);
-            check(nullTreatment == null, "Null treatment clause not valid for 'nullif' function", context);
             check(!filter.isPresent(), "FILTER not valid for 'nullif' function", context);
 
             return new NullIfExpression(
@@ -1514,7 +1516,6 @@ class AstBuilder
             check(context.expression().size() >= 2, "The 'coalesce' function must have at least two arguments", context);
             check(!window.isPresent(), "OVER clause not valid for 'coalesce' function", context);
             check(!distinct, "DISTINCT not valid for 'coalesce' function", context);
-            check(nullTreatment == null, "Null treatment clause not valid for 'coalesce' function", context);
             check(!filter.isPresent(), "FILTER not valid for 'coalesce' function", context);
 
             return new CoalesceExpression(getLocation(context), visit(context.expression(), Expression.class));
@@ -1534,7 +1535,6 @@ class AstBuilder
             check(context.expression().size() >= 2, "The 'format' function must have at least two arguments", context);
             check(!window.isPresent(), "OVER clause not valid for 'format' function", context);
             check(!distinct, "DISTINCT not valid for 'format' function", context);
-            check(nullTreatment == null, "Null treatment clause not valid for 'format' function", context);
             check(!filter.isPresent(), "FILTER not valid for 'format' function", context);
 
             return new Format(getLocation(context), visit(context.expression(), Expression.class));
@@ -1544,7 +1544,6 @@ class AstBuilder
             check(context.expression().size() >= 1, "The '$internal$bind' function must have at least one arguments", context);
             check(!window.isPresent(), "OVER clause not valid for '$internal$bind' function", context);
             check(!distinct, "DISTINCT not valid for '$internal$bind' function", context);
-            check(nullTreatment == null, "Null treatment clause not valid for '$internal$bind' function", context);
             check(!filter.isPresent(), "FILTER not valid for '$internal$bind' function", context);
 
             int numValues = context.expression().size() - 1;
@@ -1561,7 +1560,7 @@ class AstBuilder
 
         return new FunctionCall(
                 Optional.of(getLocation(context)),
-                getQualifiedName(context.qualifiedName()),
+                name,
                 window,
                 filter,
                 orderBy,

@@ -69,7 +69,7 @@ import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcMaxReadBlockS
 import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcStreamBufferSize;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcTinyStripeThreshold;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isOrcBloomFiltersEnabled;
-import static io.prestosql.plugin.hive.HiveUtil.isDeserializerClass;
+import static io.prestosql.plugin.hive.util.HiveUtil.isDeserializerClass;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

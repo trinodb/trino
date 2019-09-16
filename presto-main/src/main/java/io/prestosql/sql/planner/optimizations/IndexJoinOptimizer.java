@@ -468,7 +468,7 @@ public class IndexJoinOptimizer
      * underlying IndexSource symbol. Also note that lookup symbols that do not correspond to underlying index source symbols
      * will be omitted from the returned Map.
      */
-    public static class IndexKeyTracer
+    public static final class IndexKeyTracer
     {
         public static Map<Symbol, Symbol> trace(PlanNode node, Set<Symbol> lookupSymbols)
         {

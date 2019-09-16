@@ -51,9 +51,7 @@ import static java.lang.System.arraycopy;
 
 public final class IpAddressOperators
 {
-    private IpAddressOperators()
-    {
-    }
+    private IpAddressOperators() {}
 
     @ScalarOperator(EQUAL)
     @SqlType(StandardTypes.BOOLEAN)
@@ -190,7 +188,7 @@ public final class IpAddressOperators
     }
 
     @ScalarOperator(IS_DISTINCT_FROM)
-    public static class IpAddressDistinctFromOperator
+    public static final class IpAddressDistinctFromOperator
     {
         @SqlType(StandardTypes.BOOLEAN)
         public static boolean isDistinctFrom(
@@ -221,7 +219,7 @@ public final class IpAddressOperators
             if (left.isNull(leftPosition)) {
                 return false;
             }
-            return left.compareTo(leftPosition, 0, IPADDRESS.getFixedSize(), right, rightPosition, 0, IPADDRESS.getFixedSize()) != 0;
+            return !IPADDRESS.equalTo(left, leftPosition, right, rightPosition);
         }
     }
 

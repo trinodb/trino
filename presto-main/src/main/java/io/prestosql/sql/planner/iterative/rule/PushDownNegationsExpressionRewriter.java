@@ -27,7 +27,7 @@ import static io.prestosql.sql.ExpressionUtils.combinePredicates;
 import static io.prestosql.sql.ExpressionUtils.extractPredicates;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.IS_DISTINCT_FROM;
 
-public class PushDownNegationsExpressionRewriter
+public final class PushDownNegationsExpressionRewriter
 {
     public static Expression pushDownNegations(Expression expression)
     {

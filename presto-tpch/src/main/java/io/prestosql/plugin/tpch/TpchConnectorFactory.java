@@ -20,6 +20,7 @@ import io.prestosql.spi.connector.ConnectorFactory;
 import io.prestosql.spi.connector.ConnectorHandleResolver;
 import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorNodePartitioningProvider;
+import io.prestosql.spi.connector.ConnectorPageSourceProvider;
 import io.prestosql.spi.connector.ConnectorRecordSetProvider;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
@@ -28,11 +29,16 @@ import io.prestosql.spi.transaction.IsolationLevel;
 import java.util.Map;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
+import static java.lang.Boolean.FALSE;
+import static java.lang.String.format;
 
 public class TpchConnectorFactory
         implements ConnectorFactory
 {
     public static final String TPCH_COLUMN_NAMING_PROPERTY = "tpch.column-naming";
+    public static final String TPCH_PRODUCE_PAGES = "tpch.produce-pages";
+    public static final String TPCH_MAX_ROWS_PER_PAGE_PROPERTY = "tpch.max-rows-per-page";
+    private static final int DEFAULT_MAX_ROWS_PER_PAGE = 1_000_000;
 
     private final int defaultSplitsPerNode;
     private final boolean predicatePushdownEnabled;
@@ -95,9 +101,23 @@ public class TpchConnectorFactory
             }
 
             @Override
+            public ConnectorPageSourceProvider getPageSourceProvider()
+            {
+                if (isProducePages(properties)) {
+                    return new TpchPageSourceProvider(getMaxRowsPerPage(properties));
+                }
+
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
             public ConnectorRecordSetProvider getRecordSetProvider()
             {
-                return new TpchRecordSetProvider();
+                if (!isProducePages(properties)) {
+                    return new TpchRecordSetProvider();
+                }
+
+                throw new UnsupportedOperationException();
             }
 
             @Override
@@ -115,6 +135,21 @@ public class TpchConnectorFactory
         }
         catch (NumberFormatException e) {
             throw new IllegalArgumentException("Invalid property tpch.splits-per-node");
+        }
+    }
+
+    private boolean isProducePages(Map<String, String> properties)
+    {
+        return Boolean.parseBoolean(firstNonNull(properties.get(TPCH_PRODUCE_PAGES), FALSE.toString()));
+    }
+
+    private int getMaxRowsPerPage(Map<String, String> properties)
+    {
+        try {
+            return Integer.parseInt(firstNonNull(properties.get(TPCH_MAX_ROWS_PER_PAGE_PROPERTY), String.valueOf(DEFAULT_MAX_ROWS_PER_PAGE)));
+        }
+        catch (NumberFormatException e) {
+            throw new IllegalArgumentException(format("Invalid property %s", TPCH_MAX_ROWS_PER_PAGE_PROPERTY));
         }
     }
 }

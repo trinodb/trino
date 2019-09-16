@@ -77,9 +77,9 @@ public class TestAvroDecoder
     private static final AvroRowDecoderFactory DECODER_FACTORY = new AvroRowDecoderFactory();
 
     private static final Metadata METADATA = createTestMetadataManager();
-    private static final Type VACHAR_MAP_TYPE = METADATA.getType(parseTypeSignature("map<varchar,varchar>"));
-    private static final Type DOUBLE_MAP_TYPE = METADATA.getType(parseTypeSignature("map<varchar,double>"));
-    private static final Type REAL_MAP_TYPE = METADATA.getType(parseTypeSignature("map<varchar,real>"));
+    private static final Type VACHAR_MAP_TYPE = METADATA.getType(parseTypeSignature("map(varchar,varchar)"));
+    private static final Type DOUBLE_MAP_TYPE = METADATA.getType(parseTypeSignature("map(varchar,double)"));
+    private static final Type REAL_MAP_TYPE = METADATA.getType(parseTypeSignature("map(varchar,real)"));
 
     private static String getAvroSchema(String name, String dataType)
     {

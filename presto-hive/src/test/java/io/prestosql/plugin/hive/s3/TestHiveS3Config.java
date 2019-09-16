@@ -38,6 +38,7 @@ public class TestHiveS3Config
                 .setS3AwsSecretKey(null)
                 .setS3Endpoint(null)
                 .setS3SignerType(null)
+                .setS3SignerClass(null)
                 .setS3PathStyleAccess(false)
                 .setS3UseInstanceCredentials(true)
                 .setS3IamRole(null)
@@ -60,7 +61,8 @@ public class TestHiveS3Config
                 .setPinS3ClientToCurrentRegion(false)
                 .setS3UserAgentPrefix("")
                 .setS3AclType(PrestoS3AclType.PRIVATE)
-                .setSkipGlacierObjects(false));
+                .setSkipGlacierObjects(false)
+                .setRequesterPaysEnabled(false));
     }
 
     @Test
@@ -71,6 +73,7 @@ public class TestHiveS3Config
                 .put("hive.s3.aws-secret-key", "secret")
                 .put("hive.s3.endpoint", "endpoint.example.com")
                 .put("hive.s3.signer-type", "S3SignerType")
+                .put("hive.s3.signer-class", "com.amazonaws.services.s3.internal.AWSS3V4Signer")
                 .put("hive.s3.path-style-access", "true")
                 .put("hive.s3.use-instance-credentials", "false")
                 .put("hive.s3.iam-role", "roleArn")
@@ -94,6 +97,7 @@ public class TestHiveS3Config
                 .put("hive.s3.user-agent-prefix", "user-agent-prefix")
                 .put("hive.s3.upload-acl-type", "PUBLIC_READ")
                 .put("hive.s3.skip-glacier-objects", "true")
+                .put("hive.s3.requester-pays.enabled", "true")
                 .build();
 
         HiveS3Config expected = new HiveS3Config()
@@ -101,6 +105,7 @@ public class TestHiveS3Config
                 .setS3AwsSecretKey("secret")
                 .setS3Endpoint("endpoint.example.com")
                 .setS3SignerType(PrestoS3SignerType.S3SignerType)
+                .setS3SignerClass("com.amazonaws.services.s3.internal.AWSS3V4Signer")
                 .setS3PathStyleAccess(true)
                 .setS3UseInstanceCredentials(false)
                 .setS3IamRole("roleArn")
@@ -123,7 +128,8 @@ public class TestHiveS3Config
                 .setPinS3ClientToCurrentRegion(true)
                 .setS3UserAgentPrefix("user-agent-prefix")
                 .setS3AclType(PrestoS3AclType.PUBLIC_READ)
-                .setSkipGlacierObjects(true);
+                .setSkipGlacierObjects(true)
+                .setRequesterPaysEnabled(true);
 
         assertFullMapping(properties, expected);
     }

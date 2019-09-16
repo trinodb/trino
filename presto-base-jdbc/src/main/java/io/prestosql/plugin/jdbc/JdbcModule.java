@@ -19,14 +19,19 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
+import io.airlift.log.Logger;
+import io.prestosql.plugin.base.util.LoggingInvocationHandler;
+import io.prestosql.plugin.base.util.LoggingInvocationHandler.ReflectiveParameterNamesProvider;
 import io.prestosql.plugin.jdbc.jmx.StatisticsAwareConnectionFactory;
 import io.prestosql.plugin.jdbc.jmx.StatisticsAwareJdbcClient;
 import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.procedure.Procedure;
 
+import static com.google.common.reflect.Reflection.newProxy;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -60,9 +65,27 @@ public class JdbcModule
     @Provides
     @Singleton
     @InternalBaseJdbc
-    public static JdbcClient createJdbcClientWithStats(JdbcClient client)
+    public JdbcClient createJdbcClientWithStats(JdbcClient client)
     {
-        return new StatisticsAwareJdbcClient(client);
+        StatisticsAwareJdbcClient statisticsAwareJdbcClient = new StatisticsAwareJdbcClient(client);
+
+        Logger logger = Logger.get(format("io.prestosql.plugin.jdbc.%s.jdbcclient", catalogName));
+
+        JdbcClient loggingInvocationsJdbcClient = newProxy(JdbcClient.class, new LoggingInvocationHandler(
+                statisticsAwareJdbcClient,
+                new ReflectiveParameterNamesProvider(),
+                logger::debug));
+
+        return new ForwardingJdbcClient() {
+            @Override
+            protected JdbcClient getDelegate()
+            {
+                if (logger.isDebugEnabled()) {
+                    return loggingInvocationsJdbcClient;
+                }
+                return statisticsAwareJdbcClient;
+            }
+        };
     }
 
     @Provides
