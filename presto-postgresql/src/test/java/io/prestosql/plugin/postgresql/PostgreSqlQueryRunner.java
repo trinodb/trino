@@ -54,6 +54,7 @@ public final class PostgreSqlQueryRunner
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
             connectorProperties.putIfAbsent("connection-url", server.getJdbcUrl());
             connectorProperties.putIfAbsent("allow-drop-table", "true");
+            connectorProperties.putIfAbsent("postgresql.include-system-tables", "true");
 
             server.execute("CREATE SCHEMA tpch");
 

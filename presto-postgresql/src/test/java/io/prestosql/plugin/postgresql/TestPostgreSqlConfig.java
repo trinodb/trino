@@ -28,7 +28,8 @@ public class TestPostgreSqlConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(PostgreSqlConfig.class)
-                .setArrayMapping(PostgreSqlConfig.ArrayMapping.DISABLED));
+                .setArrayMapping(PostgreSqlConfig.ArrayMapping.DISABLED)
+                .setIncludeSystemTables(false));
     }
 
     @Test
@@ -36,10 +37,12 @@ public class TestPostgreSqlConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("postgresql.experimental.array-mapping", "AS_ARRAY")
+                .put("postgresql.include-system-tables", "true")
                 .build();
 
         PostgreSqlConfig expected = new PostgreSqlConfig()
-                .setArrayMapping(PostgreSqlConfig.ArrayMapping.AS_ARRAY);
+                .setArrayMapping(PostgreSqlConfig.ArrayMapping.AS_ARRAY)
+                .setIncludeSystemTables(true);
 
         assertFullMapping(properties, expected);
     }

@@ -110,6 +110,20 @@ public class TestPostgreSqlIntegrationSmokeTest
     }
 
     @Test
+    public void testSystemTable()
+            throws Exception
+    {
+        assertThat(computeActual("SHOW TABLES FROM pg_catalog").getOnlyColumnAsSet())
+                .contains("pg_tables", "pg_views", "pg_type", "pg_index");
+        // SYSTEM TABLE
+        assertThat(computeActual("SELECT typname FROM pg_catalog.pg_type").getOnlyColumnAsSet())
+                .contains("char", "text");
+        // SYSTEM VIEW
+        assertThat(computeActual("SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname = 'tpch'").getOnlyColumn())
+                .contains("orders");
+    }
+
+    @Test
     public void testTableWithNoSupportedColumns()
             throws Exception
     {
