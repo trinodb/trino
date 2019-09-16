@@ -308,11 +308,8 @@ public class FileBasedAccessControl
     {
         for (SessionPropertyAccessControlRule rule : sessionPropertyRules) {
             Optional<Boolean> allowed = rule.match(context.getIdentity().getUser(), property);
-            if (allowed.isPresent() && allowed.get()) {
-                return true;
-            }
-            if (allowed.isPresent() && !allowed.get()) {
-                return false;
+            if (allowed.isPresent()) {
+                return allowed.get();
             }
         }
         return false;
