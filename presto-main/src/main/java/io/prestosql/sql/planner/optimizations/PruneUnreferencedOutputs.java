@@ -194,7 +194,7 @@ public class PruneUnreferencedOutputs
             }
 
             ImmutableSet.Builder<Symbol> leftInputsBuilder = ImmutableSet.builder();
-            leftInputsBuilder.addAll(context.get()).addAll(Iterables.transform(node.getCriteria(), JoinNode.EquiJoinClause::getLeft));
+            leftInputsBuilder.addAll(context.get()).addAll(node.getCriteria().stream().map(JoinNode.EquiJoinClause::getLeft).iterator());
             if (node.getLeftHashSymbol().isPresent()) {
                 leftInputsBuilder.add(node.getLeftHashSymbol().get());
             }

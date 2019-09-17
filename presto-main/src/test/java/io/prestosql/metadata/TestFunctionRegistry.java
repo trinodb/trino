@@ -13,7 +13,6 @@
  */
 package io.prestosql.metadata;
 
-import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.operator.scalar.CustomFunctions;
@@ -31,10 +30,10 @@ import java.lang.invoke.MethodHandles;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Lists.transform;
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.metadata.Signature.mangleOperatorName;
@@ -58,7 +57,11 @@ public class TestFunctionRegistry
     {
         Signature exactOperator = createTestMetadataManager().getCoercion(HYPER_LOG_LOG, HYPER_LOG_LOG);
         assertEquals(exactOperator.getName(), mangleOperatorName(OperatorType.CAST));
-        assertEquals(transform(exactOperator.getArgumentTypes(), Functions.toStringFunction()), ImmutableList.of(StandardTypes.HYPER_LOG_LOG));
+        assertEquals(
+                exactOperator.getArgumentTypes().stream()
+                        .map(Object::toString)
+                        .collect(Collectors.toList()),
+                ImmutableList.of(StandardTypes.HYPER_LOG_LOG));
         assertEquals(exactOperator.getReturnType().getBase(), StandardTypes.HYPER_LOG_LOG);
     }
 

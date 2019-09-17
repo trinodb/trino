@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -57,11 +56,9 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.TimeZone;
+import java.util.stream.Collectors;
 
-import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.filter;
-import static com.google.common.collect.Iterables.transform;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.plugin.hive.HiveStorageFormat.AVRO;
 import static io.prestosql.plugin.hive.HiveStorageFormat.CSV;
@@ -202,12 +199,14 @@ public class TestHiveFileFormats
     public void testRCText(int rowCount)
             throws Exception
     {
-        List<TestColumn> testColumns = ImmutableList.copyOf(filter(TEST_COLUMNS, testColumn -> {
-            // TODO: This is a bug in the RC text reader
-            // RC file does not support complex type as key of a map
-            return !testColumn.getName().equals("t_struct_null")
-                    && !testColumn.getName().equals("t_map_null_key_complex_key_value");
-        }));
+        List<TestColumn> testColumns = TEST_COLUMNS.stream()
+                .filter(testColumn -> {
+                    // TODO: This is a bug in the RC text reader
+                    // RC file does not support complex type as key of a map
+                    return !testColumn.getName().equals("t_struct_null")
+                            && !testColumn.getName().equals("t_map_null_key_complex_key_value");
+                })
+                .collect(toImmutableList());
         assertThatFileFormat(RCTEXT)
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
@@ -532,8 +531,18 @@ public class TestHiveFileFormats
         Properties splitProperties = new Properties();
         splitProperties.setProperty(FILE_INPUT_FORMAT, storageFormat.getInputFormat());
         splitProperties.setProperty(SERIALIZATION_LIB, storageFormat.getSerDe());
-        splitProperties.setProperty("columns", Joiner.on(',').join(transform(filter(testColumns, not(TestColumn::isPartitionKey)), TestColumn::getName)));
-        splitProperties.setProperty("columns.types", Joiner.on(',').join(transform(filter(testColumns, not(TestColumn::isPartitionKey)), TestColumn::getType)));
+        splitProperties.setProperty(
+                "columns",
+                testColumns.stream()
+                        .filter(column -> !column.isPartitionKey())
+                        .map(TestColumn::getName)
+                        .collect(Collectors.joining(",")));
+        splitProperties.setProperty(
+                "columns.types",
+                testColumns.stream()
+                        .filter(column -> !column.isPartitionKey())
+                        .map(TestColumn::getType)
+                        .collect(Collectors.joining(",")));
 
         List<HivePartitionKey> partitionKeys = testColumns.stream()
                 .filter(TestColumn::isPartitionKey)
@@ -579,8 +588,18 @@ public class TestHiveFileFormats
         Properties splitProperties = new Properties();
         splitProperties.setProperty(FILE_INPUT_FORMAT, storageFormat.getInputFormat());
         splitProperties.setProperty(SERIALIZATION_LIB, storageFormat.getSerDe());
-        splitProperties.setProperty("columns", Joiner.on(',').join(transform(filter(testColumns, not(TestColumn::isPartitionKey)), TestColumn::getName)));
-        splitProperties.setProperty("columns.types", Joiner.on(',').join(transform(filter(testColumns, not(TestColumn::isPartitionKey)), TestColumn::getType)));
+        splitProperties.setProperty(
+                "columns",
+                testColumns.stream()
+                        .filter(column -> !column.isPartitionKey())
+                        .map(TestColumn::getName)
+                        .collect(Collectors.joining(",")));
+        splitProperties.setProperty(
+                "columns.types",
+                testColumns.stream()
+                        .filter(column -> !column.isPartitionKey())
+                        .map(TestColumn::getType)
+                        .collect(Collectors.joining(",")));
 
         List<HivePartitionKey> partitionKeys = testColumns.stream()
                 .filter(TestColumn::isPartitionKey)

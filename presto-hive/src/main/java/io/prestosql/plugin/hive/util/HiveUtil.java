@@ -99,9 +99,7 @@ import java.util.regex.Pattern;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Lists.newArrayList;
-import static com.google.common.collect.Lists.transform;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.prestosql.plugin.hive.HiveColumnHandle.bucketColumnHandle;
@@ -210,8 +208,12 @@ public final class HiveUtil
     public static RecordReader<?, ?> createRecordReader(Configuration configuration, Path path, long start, long length, Properties schema, List<HiveColumnHandle> columns)
     {
         // determine which hive columns we will read
-        List<HiveColumnHandle> readColumns = ImmutableList.copyOf(filter(columns, column -> column.getColumnType() == REGULAR));
-        List<Integer> readHiveColumnIndexes = ImmutableList.copyOf(transform(readColumns, HiveColumnHandle::getHiveColumnIndex));
+        List<HiveColumnHandle> readColumns = columns.stream()
+                .filter(column -> column.getColumnType() == REGULAR)
+                .collect(toImmutableList());
+        List<Integer> readHiveColumnIndexes = readColumns.stream()
+                .map(HiveColumnHandle::getHiveColumnIndex)
+                .collect(toImmutableList());
 
         // Tell hive the columns we would like to read, this lets hive optimize reading column oriented files
         configuration = ConfigurationUtils.copy(configuration);

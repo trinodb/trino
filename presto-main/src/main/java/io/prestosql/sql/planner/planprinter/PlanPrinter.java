@@ -14,12 +14,9 @@
 package io.prestosql.sql.planner.planprinter;
 
 import com.google.common.base.CaseFormat;
-import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
@@ -109,6 +106,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -564,7 +562,9 @@ public class PlanPrinter
         @Override
         public Void visitWindow(WindowNode node, Void context)
         {
-            List<String> partitionBy = Lists.transform(node.getPartitionBy(), Functions.toStringFunction());
+            List<String> partitionBy = node.getPartitionBy().stream()
+                    .map(Objects::toString)
+                    .collect(toImmutableList());
 
             List<String> args = new ArrayList<>();
             if (!partitionBy.isEmpty()) {
@@ -622,7 +622,7 @@ public class PlanPrinter
         public Void visitTopNRowNumber(TopNRowNumberNode node, Void context)
         {
             List<String> partitionBy = node.getPartitionBy().stream()
-                    .map(Functions.toStringFunction())
+                    .map(Object::toString)
                     .collect(toImmutableList());
 
             List<String> orderBy = node.getOrderingScheme().getOrderBy().stream()
@@ -645,7 +645,10 @@ public class PlanPrinter
         @Override
         public Void visitRowNumber(RowNumberNode node, Void context)
         {
-            List<String> partitionBy = Lists.transform(node.getPartitionBy(), Functions.toStringFunction());
+            List<String> partitionBy = node.getPartitionBy().stream()
+                    .map(Objects::toString)
+                    .collect(toImmutableList());
+
             List<String> args = new ArrayList<>();
             if (!partitionBy.isEmpty()) {
                 args.add(format("partition by (%s)", Joiner.on(", ").join(partitionBy)));
@@ -871,22 +874,28 @@ public class PlanPrinter
         @Override
         public Void visitTopN(TopNNode node, Void context)
         {
-            Iterable<String> keys = Iterables.transform(node.getOrderingScheme().getOrderBy(), input -> input + " " + node.getOrderingScheme().getOrdering(input));
+            String keys = node.getOrderingScheme()
+                    .getOrderBy().stream()
+                    .map(input -> input + " " + node.getOrderingScheme().getOrdering(input))
+                    .collect(joining(", "));
 
             addNode(node,
                     format("TopN%s", node.getStep() == TopNNode.Step.PARTIAL ? "Partial" : ""),
-                    format("[%s by (%s)]", node.getCount(), Joiner.on(", ").join(keys)));
+                    format("[%s by (%s)]", node.getCount(), keys));
             return processChildren(node, context);
         }
 
         @Override
         public Void visitSort(SortNode node, Void context)
         {
-            Iterable<String> keys = Iterables.transform(node.getOrderingScheme().getOrderBy(), input -> input + " " + node.getOrderingScheme().getOrdering(input));
+            String keys = node.getOrderingScheme()
+                    .getOrderBy().stream()
+                    .map(input -> input + " " + node.getOrderingScheme().getOrdering(input))
+                    .collect(joining(", "));
 
             addNode(node,
                     format("%sSort", node.isPartial() ? "Partial" : ""),
-                    format("[%s]", Joiner.on(", ").join(keys)));
+                    format("[%s]", keys));
 
             return processChildren(node, context);
         }

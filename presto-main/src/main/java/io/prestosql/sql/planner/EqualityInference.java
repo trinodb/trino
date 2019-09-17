@@ -14,18 +14,16 @@
 package io.prestosql.sql.planner;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Ordering;
 import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.SymbolReference;
 import io.prestosql.util.DisjointSet;
 
 import java.util.ArrayList;
@@ -35,12 +33,11 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-import static com.google.common.base.Predicates.equalTo;
-import static com.google.common.base.Predicates.not;
-import static com.google.common.collect.Iterables.filter;
 import static io.prestosql.sql.ExpressionUtils.extractConjuncts;
 import static io.prestosql.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.prestosql.sql.planner.ExpressionNodeInliner.replaceExpression;
@@ -126,31 +123,37 @@ public class EqualityInference
             Set<Expression> scopeStraddlingExpressions = new LinkedHashSet<>();
 
             // Try to push each non-derived expression into one side of the scope
-            for (Expression expression : filter(equalitySet, not(derivedExpressions::contains))) {
-                Expression scopeRewritten = rewrite(expression, scope::contains, false);
+            List<Expression> candidates = equalitySet.stream()
+                    .filter(candidate -> !derivedExpressions.contains(candidate))
+                    .collect(Collectors.toList());
+
+            for (Expression candidate : candidates) {
+                Expression scopeRewritten = rewrite(candidate, scope::contains, false);
                 if (scopeRewritten != null) {
                     scopeExpressions.add(scopeRewritten);
                 }
-                Expression scopeComplementRewritten = rewrite(expression, not(scope::contains), false);
+                Expression scopeComplementRewritten = rewrite(candidate, expression -> !scope.contains(expression), false);
                 if (scopeComplementRewritten != null) {
                     scopeComplementExpressions.add(scopeComplementRewritten);
                 }
                 if (scopeRewritten == null && scopeComplementRewritten == null) {
-                    scopeStraddlingExpressions.add(expression);
+                    scopeStraddlingExpressions.add(candidate);
                 }
             }
             // Compile the equality expressions on each side of the scope
             Expression matchingCanonical = getCanonical(scopeExpressions);
             if (scopeExpressions.size() >= 2) {
-                for (Expression expression : filter(scopeExpressions, not(equalTo(matchingCanonical)))) {
-                    scopeEqualities.add(new ComparisonExpression(ComparisonExpression.Operator.EQUAL, matchingCanonical, expression));
-                }
+                scopeExpressions.stream()
+                        .filter(expression -> !expression.equals(matchingCanonical))
+                        .map(expression -> new ComparisonExpression(ComparisonExpression.Operator.EQUAL, matchingCanonical, expression))
+                        .forEach(scopeEqualities::add);
             }
             Expression complementCanonical = getCanonical(scopeComplementExpressions);
             if (scopeComplementExpressions.size() >= 2) {
-                for (Expression expression : filter(scopeComplementExpressions, not(equalTo(complementCanonical)))) {
-                    scopeComplementEqualities.add(new ComparisonExpression(ComparisonExpression.Operator.EQUAL, complementCanonical, expression));
-                }
+                scopeComplementExpressions.stream()
+                        .filter(expression -> !expression.equals(complementCanonical))
+                        .map(expression -> new ComparisonExpression(ComparisonExpression.Operator.EQUAL, complementCanonical, expression))
+                        .forEach(scopeComplementEqualities::add);
             }
 
             // Compile the scope straddling equality expressions
@@ -158,12 +161,15 @@ public class EqualityInference
             connectingExpressions.add(matchingCanonical);
             connectingExpressions.add(complementCanonical);
             connectingExpressions.addAll(scopeStraddlingExpressions);
-            connectingExpressions = ImmutableList.copyOf(filter(connectingExpressions, Predicates.notNull()));
+            connectingExpressions = connectingExpressions.stream()
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
             Expression connectingCanonical = getCanonical(connectingExpressions);
             if (connectingCanonical != null) {
-                for (Expression expression : filter(connectingExpressions, not(equalTo(connectingCanonical)))) {
-                    scopeStraddlingEqualities.add(new ComparisonExpression(ComparisonExpression.Operator.EQUAL, connectingCanonical, expression));
-                }
+                connectingExpressions.stream()
+                        .filter(expression -> !expression.equals(connectingCanonical))
+                        .map(expression -> new ComparisonExpression(ComparisonExpression.Operator.EQUAL, connectingCanonical, expression))
+                        .forEach(scopeStraddlingEqualities::add);
             }
         }
 
@@ -256,16 +262,20 @@ public class EqualityInference
     /**
      * Provides a convenience Iterable of Expression conjuncts which have not been added to the inference
      */
-    public static Iterable<Expression> nonInferrableConjuncts(Expression expression)
+    public static List<Expression> nonInferrableConjuncts(Expression expression)
     {
-        return filter(extractConjuncts(expression), not(EqualityInference::isInferenceCandidate));
+        return extractConjuncts(expression).stream()
+            .filter(e -> !isInferenceCandidate(e))
+            .collect(Collectors.toList());
     }
 
     private Expression rewrite(Expression expression, Predicate<Symbol> symbolScope, boolean allowFullReplacement)
     {
-        Iterable<Expression> subExpressions = SubExpressionExtractor.extract(expression);
+        Set<Expression> subExpressions = SubExpressionExtractor.extract(expression);
         if (!allowFullReplacement) {
-            subExpressions = filter(subExpressions, not(equalTo(expression)));
+            subExpressions = subExpressions.stream()
+                    .filter(e -> !e.equals(expression))
+                    .collect(Collectors.toSet());
         }
 
         ImmutableMap.Builder<Expression, Expression> expressionRemap = ImmutableMap.builder();
@@ -290,9 +300,9 @@ public class EqualityInference
     /**
      * Returns the most preferrable expression to be used as the canonical expression
      */
-    private static Expression getCanonical(Iterable<Expression> expressions)
+    private static Expression getCanonical(Collection<Expression> expressions)
     {
-        if (Iterables.isEmpty(expressions)) {
+        if (expressions.isEmpty()) {
             return null;
         }
         return CANONICAL_ORDERING.min(expressions);
@@ -309,12 +319,29 @@ public class EqualityInference
         if (canonicalIndex == null) {
             return null;
         }
-        return getCanonical(filter(equalitySets.get(canonicalIndex), equivalentExpression -> isScoped(equivalentExpression, symbolScope)));
+
+        Collection<Expression> equivalences = equalitySets.get(canonicalIndex);
+        if (expression instanceof SymbolReference) {
+            boolean inScope = equivalences.stream()
+                    .filter(SymbolReference.class::isInstance)
+                    .map(Symbol::from)
+                    .anyMatch(symbolScope);
+
+            if (!inScope) {
+                return null;
+            }
+        }
+
+        Set<Expression> candidates = equivalences.stream()
+                .filter(e -> isScoped(e, symbolScope))
+                .collect(Collectors.toSet());
+
+        return getCanonical(candidates);
     }
 
     private static boolean isScoped(Expression expression, Predicate<Symbol> symbolScope)
     {
-        return Iterables.all(SymbolsExtractor.extractUnique(expression), symbolScope);
+        return SymbolsExtractor.extractUnique(expression).stream().allMatch(symbolScope);
     }
 
     private static Multimap<Expression, Expression> makeEqualitySets(DisjointSet<Expression> equalities)
