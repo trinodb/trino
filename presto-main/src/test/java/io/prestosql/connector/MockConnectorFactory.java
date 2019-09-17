@@ -167,9 +167,14 @@ public class MockConnectorFactory
             @Override
             public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
             {
-                return listTables.apply(session, schemaName.orElse(null)).stream()
-                        .filter(schemaTableName -> !schemaName.isPresent() || schemaTableName.getSchemaName().equals(schemaName.get()))
-                        .collect(toImmutableList());
+                if (schemaName.isPresent()) {
+                    return listTables.apply(session, schemaName.get());
+                }
+                ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
+                for (String schema : listSchemaNames(session)) {
+                    tableNames.addAll(listTables.apply(session, schema));
+                }
+                return tableNames.build();
             }
 
             @Override
