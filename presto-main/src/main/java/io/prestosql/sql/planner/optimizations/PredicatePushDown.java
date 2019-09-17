@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
@@ -865,13 +866,17 @@ public class PredicatePushDown
             leftEffectivePredicate = filterDeterministicConjuncts(leftEffectivePredicate);
             rightEffectivePredicate = filterDeterministicConjuncts(rightEffectivePredicate);
 
+            ImmutableSet<Symbol> leftScope = ImmutableSet.copyOf(leftSymbols);
+            ImmutableSet<Symbol> rightScope = ImmutableSet.copyOf(rightSymbols);
+
+            // simplify predicate based on known equalities guaranteed by the left/right side
+            EqualityInference assertions = EqualityInference.newInstance(leftEffectivePredicate, rightEffectivePredicate);
+            inheritedPredicate = assertions.rewrite(inheritedPredicate, Sets.union(leftScope, rightScope));
+
             // Generate equality inferences
             EqualityInference allInference = EqualityInference.newInstance(inheritedPredicate, leftEffectivePredicate, rightEffectivePredicate, joinPredicate);
             EqualityInference allInferenceWithoutLeftInferred = EqualityInference.newInstance(inheritedPredicate, rightEffectivePredicate, joinPredicate);
             EqualityInference allInferenceWithoutRightInferred = EqualityInference.newInstance(inheritedPredicate, leftEffectivePredicate, joinPredicate);
-
-            ImmutableSet<Symbol> leftScope = ImmutableSet.copyOf(leftSymbols);
-            ImmutableSet<Symbol> rightScope = ImmutableSet.copyOf(rightSymbols);
 
             // Add equalities from the inference back in
             leftPushDownConjuncts.addAll(allInferenceWithoutLeftInferred.generateEqualitiesPartitionedBy(leftScope).getScopeEqualities());
