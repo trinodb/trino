@@ -201,7 +201,7 @@ class DisplayedQueriesList extends React.Component {
             );
         }.bind(this));
         return (
-            <div>
+            <div className="query-list-navigation">
                 {queryNodes}
             </div>
         );

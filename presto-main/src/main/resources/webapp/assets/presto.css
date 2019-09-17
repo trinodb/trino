@@ -425,6 +425,11 @@ pre {
     padding: 0;
 }
 
+.query-list-navigation {
+    max-height: 400px;
+    overflow-y: scroll; 
+}
+
 /** Query List Toolbar **/
 /** ================== **/
 
