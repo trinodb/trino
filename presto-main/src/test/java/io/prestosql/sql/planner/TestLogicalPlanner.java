@@ -856,16 +856,16 @@ public class TestLogicalPlanner
 
         // replicated join is preserved if probe side is single node
         assertPlanWithSession(
-                "SELECT * FROM (SELECT * FROM (VALUES 1) t(a)) t, region r WHERE r.regionkey = t.a",
+                "SELECT * FROM (VALUES 1, 2, 3) t(a), region r WHERE r.regionkey = t.a",
                 broadcastJoin,
                 false,
                 anyTree(
                         node(JoinNode.class,
-                                node(ValuesNode.class),
+                                anyTree(
+                                    node(ValuesNode.class)),
                                 anyTree(
                                         exchange(REMOTE, GATHER,
-                                                anyTree(
-                                                        node(TableScanNode.class)))))));
+                                                        node(TableScanNode.class))))));
 
         // replicated join is preserved if there are no equality criteria
         assertPlanWithSession(
