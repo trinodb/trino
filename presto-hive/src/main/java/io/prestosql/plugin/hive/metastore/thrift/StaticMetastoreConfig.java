@@ -14,7 +14,6 @@
 package io.prestosql.plugin.hive.metastore.thrift;
 
 import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 
@@ -22,8 +21,9 @@ import javax.validation.constraints.NotNull;
 
 import java.net.URI;
 import java.util.List;
+import java.util.stream.StreamSupport;
 
-import static com.google.common.collect.Iterables.transform;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class StaticMetastoreConfig
 {
@@ -47,7 +47,10 @@ public class StaticMetastoreConfig
             return this;
         }
 
-        this.metastoreUris = ImmutableList.copyOf(transform(SPLITTER.split(uris), URI::create));
+        this.metastoreUris = StreamSupport.stream(SPLITTER.split(uris).spliterator(), false)
+                .map(URI::create)
+                .collect(toImmutableList());
+
         return this;
     }
 

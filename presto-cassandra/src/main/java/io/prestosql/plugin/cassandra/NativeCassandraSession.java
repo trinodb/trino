@@ -39,7 +39,6 @@ import com.datastax.driver.core.querybuilder.QueryBuilder;
 import com.datastax.driver.core.querybuilder.Select;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import io.airlift.json.JsonCodec;
@@ -69,11 +68,9 @@ import static com.datastax.driver.core.querybuilder.QueryBuilder.eq;
 import static com.datastax.driver.core.querybuilder.QueryBuilder.select;
 import static com.datastax.driver.core.querybuilder.Select.Where;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Predicates.in;
-import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Suppliers.memoize;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.filter;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.transform;
 import static io.prestosql.plugin.cassandra.CassandraErrorCode.CASSANDRA_VERSION_ERROR;
 import static io.prestosql.plugin.cassandra.CassandraType.isFullySupported;
@@ -214,10 +211,16 @@ public class NativeCassandraSession
             // column ordering
             List<ExtraColumnMetadata> extras = extraColumnMetadataCodec.fromJson(columnOrderingString);
             List<String> explicitColumnOrder = new ArrayList<>(ImmutableList.copyOf(transform(extras, ExtraColumnMetadata::getName)));
-            hiddenColumns = ImmutableSet.copyOf(transform(filter(extras, ExtraColumnMetadata::isHidden), ExtraColumnMetadata::getName));
+            hiddenColumns = extras.stream()
+                    .filter(ExtraColumnMetadata::isHidden)
+                    .map(ExtraColumnMetadata::getName)
+                    .collect(toImmutableSet());
 
             // add columns not in the comment to the ordering
-            Iterables.addAll(explicitColumnOrder, filter(columnNames, not(in(explicitColumnOrder))));
+            List<String> remaining = columnNames.stream()
+                    .filter(name -> !explicitColumnOrder.contains(name))
+                    .collect(toList());
+            explicitColumnOrder.addAll(remaining);
 
             // sort the actual columns names using the explicit column order (this allows for missing columns)
             columnNames = Ordering.explicit(explicitColumnOrder).sortedCopy(columnNames);

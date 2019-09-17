@@ -57,6 +57,7 @@ import javax.inject.Inject;
 
 import java.io.Closeable;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.ExecutorService;
@@ -65,9 +66,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Predicates.notNull;
-import static com.google.common.collect.Iterables.filter;
-import static com.google.common.collect.Iterables.transform;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.prestosql.SystemSessionProperties.getQueryMaxMemoryPerNode;
 import static io.prestosql.SystemSessionProperties.getQueryMaxTotalMemoryPerNode;
@@ -299,7 +298,9 @@ public class SqlTaskManager
     @Override
     public List<TaskInfo> getAllTaskInfo()
     {
-        return ImmutableList.copyOf(transform(tasks.asMap().values(), SqlTask::getTaskInfo));
+        return tasks.asMap().values().stream()
+                .map(SqlTask::getTaskInfo)
+                .collect(toImmutableList());
     }
 
     @Override
@@ -431,18 +432,21 @@ public class SqlTaskManager
     public void removeOldTasks()
     {
         DateTime oldestAllowedTask = DateTime.now().minus(infoCacheTime.toMillis());
-        for (TaskInfo taskInfo : filter(transform(tasks.asMap().values(), SqlTask::getTaskInfo), notNull())) {
-            TaskId taskId = taskInfo.getTaskStatus().getTaskId();
-            try {
-                DateTime endTime = taskInfo.getStats().getEndTime();
-                if (endTime != null && endTime.isBefore(oldestAllowedTask)) {
-                    tasks.asMap().remove(taskId);
-                }
-            }
-            catch (RuntimeException e) {
-                log.warn(e, "Error while inspecting age of complete task %s", taskId);
-            }
-        }
+        tasks.asMap().values().stream()
+                .map(SqlTask::getTaskInfo)
+                .filter(Objects::nonNull)
+                .forEach(taskInfo -> {
+                    TaskId taskId = taskInfo.getTaskStatus().getTaskId();
+                    try {
+                        DateTime endTime = taskInfo.getStats().getEndTime();
+                        if (endTime != null && endTime.isBefore(oldestAllowedTask)) {
+                            tasks.asMap().remove(taskId);
+                        }
+                    }
+                    catch (RuntimeException e) {
+                        log.warn(e, "Error while inspecting age of complete task %s", taskId);
+                    }
+                });
     }
 
     public void failAbandonedTasks()

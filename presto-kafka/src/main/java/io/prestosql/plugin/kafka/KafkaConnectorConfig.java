@@ -27,8 +27,9 @@ import javax.validation.constraints.Size;
 
 import java.io.File;
 import java.util.Set;
+import java.util.stream.StreamSupport;
 
-import static com.google.common.collect.Iterables.transform;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 public class KafkaConnectorConfig
 {
@@ -161,7 +162,9 @@ public class KafkaConnectorConfig
     public static ImmutableSet<HostAddress> parseNodes(String nodes)
     {
         Splitter splitter = Splitter.on(',').omitEmptyStrings().trimResults();
-        return ImmutableSet.copyOf(transform(splitter.split(nodes), KafkaConnectorConfig::toHostAddress));
+        return StreamSupport.stream(splitter.split(nodes).spliterator(), false)
+                .map(KafkaConnectorConfig::toHostAddress)
+                .collect(toImmutableSet());
     }
 
     private static HostAddress toHostAddress(String value)
