@@ -17,12 +17,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.connector.MockConnectorFactory;
+import io.prestosql.connector.informationschema.InformationSchemaTable;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.ConnectorFactory;
 import io.prestosql.spi.connector.SchemaTableName;
 import org.testng.annotations.Test;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
@@ -31,6 +33,7 @@ import java.util.stream.IntStream;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.connector.MockConnectorFactory.Builder.defaultGetColumns;
+import static io.prestosql.connector.informationschema.InformationSchemaTable.INFORMATION_SCHEMA;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
 
@@ -121,7 +124,8 @@ public class TestInformationSchemaConnector
                 "SELECT count(*) from test_catalog.information_schema.tables",
                 "VALUES 300008",
                 new MetadataCallsCount()
-                        .withListTablesCount(1));
+                        .withListSchemasCount(1)
+                        .withListTablesCount(2));
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.tables WHERE table_schema = 'test_schema1'",
                 "VALUES 100000",
@@ -148,7 +152,7 @@ public class TestInformationSchemaConnector
                 "VALUES 2",
                 new MetadataCallsCount()
                         .withListSchemasCount(1)
-                        .withListTablesCount(3));
+                        .withListTablesCount(2));
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.tables WHERE table_name LIKE 'test_t_ble1' AND table_name IN ('test_table1', 'test_table2')",
                 "VALUES 2",
@@ -195,25 +199,26 @@ public class TestInformationSchemaConnector
                     List<SchemaTableName> tablesTestSchema2 = IntStream.range(0, 200000)
                             .mapToObj(i -> new SchemaTableName("test_schema2", "test_table" + i))
                             .collect(toImmutableList());
-                    List<SchemaTableName> allTables = ImmutableList.<SchemaTableName>builder()
-                            .addAll(tablesTestSchema1)
-                            .addAll(tablesTestSchema2)
-                            .build();
+                    List<SchemaTableName> tablesInformationSchema = Arrays.stream(InformationSchemaTable.values())
+                            .map(InformationSchemaTable::getSchemaTableName)
+                            .collect(toImmutableList());
                     MockConnectorFactory mockConnectorFactory = MockConnectorFactory.builder()
                             .withListSchemaNames(connectorSession -> {
                                 LIST_SCHEMAS_CALLS_COUNTER.incrementAndGet();
                                 return ImmutableList.of("test_schema1", "test_schema2");
                             })
-                            .withListTables((connectorSession, schemaNameOrNull) -> {
+                            .withListTables((connectorSession, schemaName) -> {
+                                if (schemaName.equals(INFORMATION_SCHEMA)) {
+                                    return tablesInformationSchema;
+                                }
                                 LIST_TABLES_CALLS_COUNTER.incrementAndGet();
-                                if (schemaNameOrNull == null) {
-                                    return allTables;
+                                if (schemaName.equals("test_schema1")) {
+                                    return tablesTestSchema1;
                                 }
-                                else {
-                                    return allTables.stream()
-                                            .filter(schemaTableName -> schemaTableName.getSchemaName().equals(schemaNameOrNull))
-                                            .collect(toImmutableList());
+                                if (schemaName.equals("test_schema2")) {
+                                    return tablesTestSchema2;
                                 }
+                                return ImmutableList.of();
                             })
                             .withGetColumns(schemaTableName -> {
                                 GET_COLUMNS_CALLS_COUNTER.incrementAndGet();
