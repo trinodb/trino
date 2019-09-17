@@ -55,11 +55,11 @@ import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Properties;
 
-import static com.google.common.base.Functions.toStringFunction;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.transform;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.prestosql.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_ERROR;
 import static io.prestosql.plugin.raptor.legacy.storage.Row.extractRow;
@@ -122,7 +122,9 @@ public class OrcFileWriter
 
         List<StorageType> storageTypes = ImmutableList.copyOf(toStorageTypes(columnTypes));
         Iterable<String> hiveTypeNames = storageTypes.stream().map(StorageType::getHiveTypeName).collect(toList());
-        List<String> columnNames = ImmutableList.copyOf(transform(columnIds, toStringFunction()));
+        List<String> columnNames = columnIds.stream()
+                .map(Objects::toString)
+                .collect(toImmutableList());
 
         Properties properties = new Properties();
         properties.setProperty(IOConstants.COLUMNS, Joiner.on(',').join(columnNames));

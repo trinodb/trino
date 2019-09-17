@@ -16,7 +16,6 @@ package io.prestosql.util;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import io.prestosql.sql.planner.Partitioning.ArgumentBinding;
 import io.prestosql.sql.planner.PlanFragment;
@@ -400,8 +399,12 @@ public final class GraphvizPrinter
         @Override
         public Void visitTopN(final TopNNode node, Void context)
         {
-            Iterable<String> keys = Iterables.transform(node.getOrderingScheme().getOrderBy(), input -> input + " " + node.getOrderingScheme().getOrdering(input));
-            printNode(node, format("TopN[%s]", node.getCount()), Joiner.on(", ").join(keys), NODE_COLORS.get(NodeType.TOPN));
+            String keys = node.getOrderingScheme()
+                    .getOrderBy().stream()
+                    .map(input -> input + " " + node.getOrderingScheme().getOrdering(input))
+                    .collect(Collectors.joining(", "));
+
+            printNode(node, format("TopN[%s]", node.getCount()), keys, NODE_COLORS.get(NodeType.TOPN));
             return node.getSource().accept(this, context);
         }
 

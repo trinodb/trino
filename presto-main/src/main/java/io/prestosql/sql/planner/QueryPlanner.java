@@ -743,7 +743,9 @@ class QueryPlanner
             ImmutableList.Builder<Expression> inputs = ImmutableList.<Expression>builder()
                     .addAll(windowFunction.getArguments())
                     .addAll(window.getPartitionBy())
-                    .addAll(Iterables.transform(getSortItemsFromOrderBy(window.getOrderBy()), SortItem::getSortKey));
+                    .addAll(getSortItemsFromOrderBy(window.getOrderBy()).stream()
+                            .map(SortItem::getSortKey)
+                            .iterator());
 
             if (frameStart != null) {
                 inputs.add(frameStart);

@@ -16,7 +16,6 @@ package io.prestosql.sql.analyzer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import io.prestosql.sql.tree.QualifiedName;
 
 import javax.annotation.concurrent.Immutable;
@@ -28,7 +27,6 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkElementIndex;
-import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -52,7 +50,9 @@ public class RelationType
     {
         requireNonNull(fields, "fields is null");
         this.allFields = ImmutableList.copyOf(fields);
-        this.visibleFields = ImmutableList.copyOf(Iterables.filter(fields, not(Field::isHidden)));
+        this.visibleFields = fields.stream()
+                .filter(field -> !field.isHidden())
+                .collect(toImmutableList());
 
         int index = 0;
         ImmutableMap.Builder<Field, Integer> builder = ImmutableMap.builder();

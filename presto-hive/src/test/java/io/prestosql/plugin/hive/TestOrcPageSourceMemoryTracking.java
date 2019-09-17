@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -91,9 +90,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
-import static com.google.common.base.Predicates.not;
-import static com.google.common.collect.Iterables.filter;
-import static com.google.common.collect.Iterables.transform;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertBetweenInclusive;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -551,11 +548,23 @@ public class TestOrcPageSourceMemoryTracking
             throws Exception
     {
         // filter out partition keys, which are not written to the file
-        testColumns = ImmutableList.copyOf(filter(testColumns, not(TestColumn::isPartitionKey)));
+        testColumns = testColumns.stream()
+                .filter(column -> !column.isPartitionKey())
+                .collect(toImmutableList());
 
         Properties tableProperties = new Properties();
-        tableProperties.setProperty("columns", Joiner.on(',').join(transform(testColumns, TestColumn::getName)));
-        tableProperties.setProperty("columns.types", Joiner.on(',').join(transform(testColumns, TestColumn::getType)));
+        tableProperties.setProperty(
+                "columns",
+                testColumns.stream()
+                        .map(TestColumn::getName)
+                        .collect(Collectors.joining(",")));
+
+        tableProperties.setProperty(
+                "columns.types",
+                testColumns.stream()
+                        .map(TestColumn::getType)
+                        .collect(Collectors.joining(",")));
+
         serializer.initialize(CONFIGURATION, tableProperties);
 
         JobConf jobConf = new JobConf();
@@ -569,8 +578,12 @@ public class TestOrcPageSourceMemoryTracking
 
         try {
             SettableStructObjectInspector objectInspector = getStandardStructObjectInspector(
-                    ImmutableList.copyOf(transform(testColumns, TestColumn::getName)),
-                    ImmutableList.copyOf(transform(testColumns, TestColumn::getObjectInspector)));
+                    testColumns.stream()
+                            .map(TestColumn::getName)
+                            .collect(toImmutableList()),
+                    testColumns.stream()
+                            .map(TestColumn::getObjectInspector)
+                            .collect(toImmutableList()));
 
             Object row = objectInspector.create();
 

@@ -14,7 +14,6 @@
 package io.prestosql.util;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import io.prestosql.client.ErrorLocation;
 import io.prestosql.execution.ExecutionFailureInfo;
 import io.prestosql.execution.Failure;
@@ -31,9 +30,9 @@ import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
-import static com.google.common.base.Functions.toStringFunction;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -41,7 +40,6 @@ import static com.google.common.collect.Sets.newIdentityHashSet;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.StandardErrorCode.SYNTAX_ERROR;
 import static java.lang.String.format;
-import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
 public final class Failures
@@ -124,7 +122,9 @@ public final class Failures
                 Arrays.stream(throwable.getSuppressed())
                         .map(failure -> toFailure(failure, seenFailures))
                         .collect(toImmutableList()),
-                Lists.transform(asList(throwable.getStackTrace()), toStringFunction()),
+                Arrays.stream(throwable.getStackTrace())
+                        .map(Objects::toString)
+                        .collect(toImmutableList()),
                 getErrorLocation(throwable),
                 errorCode,
                 remoteHost);
