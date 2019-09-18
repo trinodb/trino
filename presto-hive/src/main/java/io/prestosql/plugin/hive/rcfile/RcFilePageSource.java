@@ -223,10 +223,7 @@ public class RcFilePageSource
         @Override
         public final void load(LazyBlock lazyBlock)
         {
-            if (loaded) {
-                return;
-            }
-
+            checkState(!loaded, "Already loaded");
             checkState(pageId == expectedBatchId);
 
             try {

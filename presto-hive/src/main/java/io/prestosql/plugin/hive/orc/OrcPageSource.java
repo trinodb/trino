@@ -200,10 +200,7 @@ public class OrcPageSource
         @Override
         public final void load(LazyBlock lazyBlock)
         {
-            if (loaded) {
-                return;
-            }
-
+            checkState(!loaded, "Already loaded");
             checkState(batchId == expectedBatchId);
 
             try {
