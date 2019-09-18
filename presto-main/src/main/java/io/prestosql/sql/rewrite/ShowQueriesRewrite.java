@@ -144,7 +144,7 @@ final class ShowQueriesRewrite
             AccessControl accessControl,
             WarningCollector warningCollector)
     {
-        return (Statement) new Visitor(metadata, parser, session, parameters, accessControl).process(node, null);
+        return (Statement) new Visitor(metadata, parser, session, accessControl).process(node, null);
     }
 
     private static class Visitor
@@ -153,15 +153,13 @@ final class ShowQueriesRewrite
         private final Metadata metadata;
         private final Session session;
         private final SqlParser sqlParser;
-        private final List<Expression> parameters;
         private final AccessControl accessControl;
 
-        public Visitor(Metadata metadata, SqlParser sqlParser, Session session, List<Expression> parameters, AccessControl accessControl)
+        public Visitor(Metadata metadata, SqlParser sqlParser, Session session, AccessControl accessControl)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
             this.session = requireNonNull(session, "session is null");
-            this.parameters = requireNonNull(parameters, "parameters is null");
             this.accessControl = requireNonNull(accessControl, "accessControl is null");
         }
 
