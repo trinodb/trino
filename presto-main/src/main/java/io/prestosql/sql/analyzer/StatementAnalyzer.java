@@ -283,7 +283,7 @@ class StatementAnalyzer
             Scope returnScope = super.process(node, scope);
             checkState(returnScope.getOuterQueryParent().equals(outerQueryScope), "result scope should have outer query scope equal with parameter outer query scope");
             if (scope.isPresent()) {
-                checkState(hasScopeAsLocalParent(returnScope, scope.get()), "return scope should have context scope as one of ancestors");
+                checkState(hasScopeAsLocalParent(returnScope, scope.get()), "return scope should have context scope as one of its ancestors");
             }
             return returnScope;
         }
@@ -1283,7 +1283,7 @@ class StatementAnalyzer
                 analysis.setJoinCriteria(node, expression);
             }
             else {
-                throw new UnsupportedOperationException("unsupported join criteria: " + criteria.getClass().getName());
+                throw new UnsupportedOperationException("Unsupported join criteria: " + criteria.getClass().getName());
             }
 
             return output;
@@ -1831,7 +1831,7 @@ class StatementAnalyzer
             return orderByScope;
         }
 
-        private Scope computeAndAssignOrderByScopeWithAggregation(OrderBy node, Scope sourceScope, Scope outputScope, List<FunctionCall> aggregations, List<Expression> groupByExpressions, List<GroupingOperation> groupingOperations)
+        private void computeAndAssignOrderByScopeWithAggregation(OrderBy node, Scope sourceScope, Scope outputScope, List<FunctionCall> aggregations, List<Expression> groupByExpressions, List<GroupingOperation> groupingOperations)
         {
             // This scope is only used for planning. When aggregation is present then
             // only output fields, groups and aggregation expressions should be visible from ORDER BY expression
@@ -1873,7 +1873,6 @@ class StatementAnalyzer
                     .build();
             analysis.setScope(node, orderByScope);
             analysis.setOrderByAggregates(node, orderByAggregationExpressions);
-            return orderByScope;
         }
 
         private List<Expression> analyzeSelect(QuerySpecification node, Scope scope)
@@ -2239,8 +2238,7 @@ class StatementAnalyzer
                 orderByFieldsBuilder.add(expression);
             }
 
-            List<Expression> orderByFields = orderByFieldsBuilder.build();
-            return orderByFields;
+            return orderByFieldsBuilder.build();
         }
 
         private void analyzeOffset(Offset node)
@@ -2358,8 +2356,8 @@ class StatementAnalyzer
                 // hierarchy should have outer query scope as ancestor already.
                 scopeBuilder.withParent(parentScope.get());
             }
-            else if (outerQueryScope.isPresent()) {
-                scopeBuilder.withOuterQueryParent(outerQueryScope.get());
+            else {
+                outerQueryScope.ifPresent(scopeBuilder::withOuterQueryParent);
             }
 
             return scopeBuilder;
