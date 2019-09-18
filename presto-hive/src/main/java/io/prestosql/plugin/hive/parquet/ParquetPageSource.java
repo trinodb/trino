@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.parquet.Field;
 import io.prestosql.parquet.ParquetCorruptionException;
 import io.prestosql.parquet.reader.ParquetReader;
-import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
@@ -26,9 +25,6 @@ import io.prestosql.spi.block.LazyBlockLoader;
 import io.prestosql.spi.block.RunLengthEncodedBlock;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
-import org.apache.parquet.io.MessageColumnIO;
-import org.apache.parquet.schema.MessageType;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -36,62 +32,25 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.parquet.ParquetTypeUtils.lookupColumnByName;
-import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
-import static io.prestosql.plugin.hive.parquet.ParquetColumnIOConverter.constructField;
-import static io.prestosql.plugin.hive.parquet.ParquetPageSourceFactory.getParquetType;
 import static java.util.Objects.requireNonNull;
 
 public class ParquetPageSource
         implements ConnectorPageSource
 {
     private final ParquetReader parquetReader;
-    // for debugging heap dump
     private final List<Type> types;
     private final List<Optional<Field>> fields;
 
     private int batchId;
     private boolean closed;
 
-    public ParquetPageSource(
-            ParquetReader parquetReader,
-            MessageType fileSchema,
-            MessageColumnIO messageColumnIO,
-            TypeManager typeManager,
-            List<HiveColumnHandle> columns,
-            boolean useParquetColumnNames)
+    public ParquetPageSource(ParquetReader parquetReader, List<Type> types, List<Optional<Field>> fields)
     {
         this.parquetReader = requireNonNull(parquetReader, "parquetReader is null");
-        requireNonNull(fileSchema, "fileSchema is null");
-        requireNonNull(messageColumnIO, "messageColumnIO is null");
-        requireNonNull(typeManager, "typeManager is null");
-        requireNonNull(columns, "columns is null");
-
-        int size = columns.size();
-
-        ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();
-        ImmutableList.Builder<Optional<Field>> fieldsBuilder = ImmutableList.builder();
-        for (int columnIndex = 0; columnIndex < size; columnIndex++) {
-            HiveColumnHandle column = columns.get(columnIndex);
-            checkState(column.getColumnType() == REGULAR, "column type must be regular");
-
-            String name = column.getName();
-            Type type = typeManager.getType(column.getTypeSignature());
-
-            typesBuilder.add(type);
-
-            if (getParquetType(column, fileSchema, useParquetColumnNames) == null) {
-                fieldsBuilder.add(Optional.empty());
-            }
-            else {
-                String columnName = useParquetColumnNames ? name : fileSchema.getFields().get(column.getHiveColumnIndex()).getName();
-                fieldsBuilder.add(constructField(type, lookupColumnByName(messageColumnIO, columnName)));
-            }
-        }
-        types = typesBuilder.build();
-        fields = fieldsBuilder.build();
+        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+        this.fields = ImmutableList.copyOf(requireNonNull(fields, "fields is null"));
     }
 
     @Override

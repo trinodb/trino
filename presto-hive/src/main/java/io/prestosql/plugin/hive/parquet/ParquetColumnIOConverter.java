@@ -40,7 +40,7 @@ import static org.apache.parquet.io.ColumnIOUtil.columnDefinitionLevel;
 import static org.apache.parquet.io.ColumnIOUtil.columnRepetitionLevel;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 
-final class ParquetColumnIOConverter
+public final class ParquetColumnIOConverter
 {
     private ParquetColumnIOConverter() {}
 
