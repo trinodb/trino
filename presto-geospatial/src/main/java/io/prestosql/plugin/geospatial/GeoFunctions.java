@@ -565,11 +565,11 @@ public final class GeoFunctions
 
             // sum up distances between adjacent points on this path
             int pathStart = lineString.getPathStart(path);
-            Point prev = lineString.getPoint(pathStart);
+            Point previous = lineString.getPoint(pathStart);
             for (int i = pathStart + 1; i < lineString.getPathEnd(path); i++) {
                 Point next = lineString.getPoint(i);
-                sum += greatCircleDistance(prev.getY(), prev.getX(), next.getY(), next.getX());
-                prev = next;
+                sum += greatCircleDistance(previous.getY(), previous.getX(), next.getY(), next.getX());
+                previous = next;
             }
         }
 
