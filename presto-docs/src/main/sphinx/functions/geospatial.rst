@@ -342,7 +342,7 @@ Accessors
 
     Return the Y coordinate of the point.
 
-.. function:: ST_InteriorRings(Geometry) -> Geometry
+.. function:: ST_InteriorRings(Geometry) -> array(Geometry)
 
    Returns an array of all interior rings found in the input geometry, or an empty
    array if the polygon has no interior rings. Returns null if the input geometry
@@ -356,7 +356,7 @@ Accessors
     for single geometries returns 1,
     for empty geometries returns 0.
 
-.. function:: ST_Geometries(Geometry) -> Geometry
+.. function:: ST_Geometries(Geometry) -> array(Geometry)
 
    Returns an array of geometries in the specified collection. Returns a one-element array
    if the input geometry is not a multi-geometry. Returns null if input geometry is empty.
