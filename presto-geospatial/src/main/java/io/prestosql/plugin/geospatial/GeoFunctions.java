@@ -542,6 +542,41 @@ public final class GeoFunctions
     }
 
     @SqlNullable
+    @Description("Returns the great-circle length in meters of a linestring or multi-linestring on Earth's surface")
+    @ScalarFunction("ST_Length")
+    @SqlType(DOUBLE)
+    public static Double stSphericalLength(@SqlType(SPHERICAL_GEOGRAPHY_TYPE_NAME) Slice input)
+    {
+        OGCGeometry geometry = deserialize(input);
+        if (geometry.isEmpty()) {
+            return null;
+        }
+
+        validateSphericalType("ST_Length", geometry, EnumSet.of(LINE_STRING, MULTI_LINE_STRING));
+        MultiPath lineString = (MultiPath) geometry.getEsriGeometry();
+
+        double sum = 0;
+
+        // sum up paths on (multi)linestring
+        for (int path = 0; path < lineString.getPathCount(); path++) {
+            if (lineString.getPathSize(path) < 2) {
+                continue;
+            }
+
+            // sum up distances between adjacent points on this path
+            int pathStart = lineString.getPathStart(path);
+            Point prev = lineString.getPoint(pathStart);
+            for (int i = pathStart + 1; i < lineString.getPathEnd(path); i++) {
+                Point next = lineString.getPoint(i);
+                sum += greatCircleDistance(prev.getY(), prev.getX(), next.getY(), next.getX());
+                prev = next;
+            }
+        }
+
+        return sum * 1000;
+    }
+
+    @SqlNullable
     @Description("Returns a float between 0 and 1 representing the location of the closest point on the LineString to the given Point, as a fraction of total 2d line length.")
     @ScalarFunction("line_locate_point")
     @SqlType(DOUBLE)
