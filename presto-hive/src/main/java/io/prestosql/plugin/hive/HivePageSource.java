@@ -53,6 +53,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
@@ -529,9 +530,7 @@ public class HivePageSource
         @Override
         public void load(LazyBlock lazyBlock)
         {
-            if (block == null) {
-                return;
-            }
+            checkState(block != null, "Already loaded");
 
             lazyBlock.setBlock(coercer.apply(block.getLoadedBlock()));
 
@@ -555,9 +554,7 @@ public class HivePageSource
         @Override
         public void load(LazyBlock lazyBlock)
         {
-            if (block == null) {
-                return;
-            }
+            checkState(block != null, "Already loaded");
 
             lazyBlock.setBlock(block.getPositions(rowsToKeep.elements(), 0, rowsToKeep.size()));
 
