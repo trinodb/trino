@@ -403,6 +403,54 @@ public class TestGeoFunctions
     }
 
     @Test
+    public void testSTLengthSphericalGeography()
+    {
+        // Empty linestring returns null
+        assertSTLengthSphericalGeography("LINESTRING EMPTY", null);
+
+        // Linestring with one point has length 0
+        assertSTLengthSphericalGeography("LINESTRING (0 0)", 0.0);
+
+        // Linestring with only one distinct point has length 0
+        assertSTLengthSphericalGeography("LINESTRING (0 0, 0 0, 0 0)", 0.0);
+
+        double length = 4350866.6362;
+
+        // ST_Length is equivalent to sums of ST_DISTANCE between points in the LineString
+        assertSTLengthSphericalGeography("LINESTRING (-71.05 42.36, -87.62 41.87, -122.41 37.77)", length);
+
+        // Linestring has same length as its reverse
+        assertSTLengthSphericalGeography("LINESTRING (-122.41 37.77, -87.62 41.87, -71.05 42.36)", length);
+
+        // Path north pole -> south pole -> north pole should be roughly the circumference of the Earth
+        assertSTLengthSphericalGeography("LINESTRING (0.0 90.0, 0.0 -90.0, 0.0 90.0)", 4.003e7);
+
+        // Empty multi-linestring returns null
+        assertSTLengthSphericalGeography("MULTILINESTRING (EMPTY)", null);
+
+        // Multi-linestring with one path is equivalent to a single linestring
+        assertSTLengthSphericalGeography("MULTILINESTRING ((-71.05 42.36, -87.62 41.87, -122.41 37.77))", length);
+
+        // Multi-linestring with two disjoint paths has length equal to sum of lengths of lines
+        assertSTLengthSphericalGeography("MULTILINESTRING ((-71.05 42.36, -87.62 41.87, -122.41 37.77), (-73.05 42.36, -89.62 41.87, -124.41 37.77))", 2 * length);
+
+        // Multi-linestring with adjacent paths is equivalent to a single linestring
+        assertSTLengthSphericalGeography("MULTILINESTRING ((-71.05 42.36, -87.62 41.87), (-87.62 41.87, -122.41 37.77))", length);
+    }
+
+    private void assertSTLengthSphericalGeography(String lineString, Double expectedLength)
+    {
+        String function = format("ST_Length(to_spherical_geography(ST_GeometryFromText('%s')))", lineString);
+
+        if (expectedLength == null || expectedLength == 0.0) {
+            assertFunction(function, DOUBLE, expectedLength);
+        }
+        else {
+            assertFunction(format("ROUND(ABS((%s / %f) - 1.0) / %f, 0)", function, expectedLength, 1e-4), DOUBLE, 0.0);
+        }
+    }
+
+    @Test
     public void testLineLocatePoint()
     {
         assertFunction("line_locate_point(ST_GeometryFromText('LINESTRING (0 0, 0 1)'), ST_Point(0, 0.2))", DOUBLE, 0.2);
