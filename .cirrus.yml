@@ -1,0 +1,61 @@
+aws_credentials: ENCRYPTED[340e4a4f5dbf62ed509c2c0e638b45f7ca7e9ca2d141377ec59ef2cd032863e65f4d2542b8a93007799def51663ae411]
+
+env:
+  MAVEN_CONFIG: ""
+  MAVEN_OPTS: -Xmx512M -XX:+ExitOnOutOfMemoryError
+  MAVEN_SKIP_CHECKS_AND_DOCS: -Dair.check.skip-all=true -Dmaven.javadoc.skip=true
+  MAVEN_FAST_INSTALL: -DskipTests $MAVEN_SKIP_CHECKS_AND_DOCS -B -q -T 1C
+
+webui_checks_task:
+  eks_container:
+    cluster_name: cirrus-ci
+    region: us-west-2
+    image: node:latest
+  check_script: presto-main/bin/check_webui.sh
+
+maven_checks_task:
+  eks_container:
+    cluster_name: cirrus-ci
+    region: us-west-2
+    image: maven:3-jdk-8
+  maven_cache:
+    folder: ~/.m2
+  test_script: mvn install -DskipTests -B -T 1C -P ci
+  maven_wrapper_script: ./mvnw -v
+  docker_script: docker/build-local.sh
+
+#maven_specific_modules_task:
+#  container:
+#    image: maven:3-jdk-8
+#  maven_cache:
+#    folder: ~/.m2
+#  env:
+#    matrix:
+#      - TEST_MODULES: presto-main
+#      - TEST_MODULES: presto-tests
+#      - TEST_MODULES: presto-raptor-legacy
+#      - TEST_MODULES: presto-accumulo
+#      - TEST_MODULES: presto-cassandra
+#      - TEST_MODULES: presto-hive,presto-orc,presto-parquet
+##      - TEST_MODULES: presto-mongodb,presto-kafka,presto-elasticsearch
+##      - TEST_MODULES: presto-redis
+##      - TEST_MODULES: presto-sqlserver,presto-postgresql,presto-mysql
+#      - TEST_MODULES: presto-phoenix,presto-iceberg
+#  install_script: mvn install $MAVEN_FAST_INSTALL -pl "${TEST_MODULES}" -am
+#  test_script: mvn test $MAVEN_SKIP_CHECKS_AND_DOCS -B -pl "${TEST_MODULES}" $TEST_FLAGS
+#
+#maven_presto_tests_ci_task:
+#  container:
+#    image: maven:3-jdk-8
+#  maven_cache:
+#    folder: ~/.m2
+#  install_script: mvn install $MAVEN_FAST_INSTALL -pl presto-tests -am
+#  test_script: mvn test $MAVEN_SKIP_CHECKS_AND_DOCS -B -pl presto-tests -P ci-only
+#
+#maven_other_modules_task:
+#  container:
+#    image: maven:3-jdk-8
+#  maven_cache:
+#    folder: ~/.m2
+#  install_script: mvn install $MAVEN_FAST_INSTALL -pl '!presto-docs,!presto-server,!presto-server-rpm'
+#  test_script: mvn test $MAVEN_SKIP_CHECKS_AND_DOCS -B -pl '!presto-main,!presto-tests,!presto-raptor-legacy,!presto-accumulo,!presto-cassandra,!presto-hive,!presto-orc,!presto-parquet,!presto-mongodb,!presto-kafka,!presto-elasticsearch,!presto-redis,!presto-sqlserver,!presto-postgresql,!presto-mysql,!presto-phoenix,!presto-iceberg,!presto-kudu,!presto-docs,!presto-server,!presto-server-rpm'
