@@ -190,20 +190,22 @@ public class OrcPageSourceFactory
             OrcReader reader = new OrcReader(orcDataSource, maxMergeDistance, tinyStripeThreshold, maxReadBlockSize);
 
             List<HiveColumnHandle> physicalColumns = getPhysicalHiveColumnHandles(columns, useOrcColumnNames, reader, path);
-            ImmutableMap.Builder<Integer, Type> includedColumns = ImmutableMap.builder();
+            ImmutableMap.Builder<Integer, Type> includedColumnsBuilder = ImmutableMap.builder();
             ImmutableList.Builder<ColumnReference<HiveColumnHandle>> columnReferences = ImmutableList.builder();
             for (HiveColumnHandle column : physicalColumns) {
                 if (column.getColumnType() == REGULAR) {
                     Type type = typeManager.getType(column.getTypeSignature());
-                    includedColumns.put(column.getHiveColumnIndex(), type);
+                    includedColumnsBuilder.put(column.getHiveColumnIndex(), type);
                     columnReferences.add(new ColumnReference<>(column, column.getHiveColumnIndex(), type));
                 }
             }
 
+            ImmutableMap<Integer, Type> includedColumns = includedColumnsBuilder.build();
+
             OrcPredicate predicate = new TupleDomainOrcPredicate<>(effectivePredicate, columnReferences.build(), orcBloomFiltersEnabled);
 
             OrcRecordReader recordReader = reader.createRecordReader(
-                    includedColumns.build(),
+                    includedColumns,
                     predicate,
                     start,
                     length,
@@ -214,8 +216,7 @@ public class OrcPageSourceFactory
             return new OrcPageSource(
                     recordReader,
                     orcDataSource,
-                    physicalColumns,
-                    typeManager,
+                    includedColumns,
                     systemMemoryUsage,
                     stats);
         }
