@@ -47,7 +47,6 @@ import java.util.concurrent.CompletableFuture;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterators.limit;
 import static io.prestosql.plugin.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
-import static io.prestosql.plugin.iceberg.DomainConverter.convertTupleDomainTypes;
 import static io.prestosql.plugin.iceberg.IcebergUtil.getIdentityPartitions;
 import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -90,7 +89,6 @@ public class IcebergSplitSource
     {
         // TODO: move this to a background thread
         List<ConnectorSplit> splits = new ArrayList<>();
-        TupleDomain<HiveColumnHandle> predicate = convertTupleDomainTypes(this.predicate);
         Iterator<FileScanTask> iterator = limit(fileScanIterator, maxSize);
         while (iterator.hasNext()) {
             FileScanTask task = iterator.next();
