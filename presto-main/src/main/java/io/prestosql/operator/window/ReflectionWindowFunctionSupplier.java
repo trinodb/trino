@@ -31,7 +31,6 @@ import static java.util.Objects.requireNonNull;
 public class ReflectionWindowFunctionSupplier<T extends WindowFunction>
         extends AbstractWindowFunctionSupplier
 {
-    @SuppressWarnings("unchecked")
     private enum ConstructorType
     {
         NO_INPUTS,
