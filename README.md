@@ -72,7 +72,9 @@ In the sample configuration, the Hive connector is mounted in the `hive` catalog
 
     SHOW TABLES FROM hive.default;
 
-## Code Style
+## Development
+
+### Code Style
 
 We recommend you use IntelliJ as your IDE. The code style template for the project can be found in the [codestyle](https://github.com/airlift/codestyle) repository along with our general programming and Java guidelines. In addition to those you should also adhere to the following:
 
@@ -85,7 +87,21 @@ We recommend you use IntelliJ as your IDE. The code style template for the proje
 * Use an assertion from Airlift's `Assertions` class if there is one that covers your case rather than writing the assertion by hand. Over time we may move over to more fluent assertions like AssertJ.
 * When writing a Git commit message, follow these [guidelines](https://chris.beams.io/posts/git-commit/).
 
-## Building the Web UI
+### Additional IDE configuration
+
+When using IntelliJ to develop Presto, we recommend starting with all of the default inspections,
+with some modifications.
+
+Enable the following inspections:
+
+- ``Java | Class structure | Utility class is not 'final'``,
+- ``Java | Class structure | Utility class without 'private' constructor``.
+
+Disable the following inspections:
+
+- ``Java | Abstraction issues | 'Optional' used as field or parameter type``.
+
+### Building the Web UI
 
 The Presto Web UI is composed of several React components and is written in JSX and ES6. This source code is compiled and packaged into browser-compatible Javascript, which is then checked in to the Presto source code (in the `dist` folder). You must have [Node.js](https://nodejs.org/en/download/) and [Yarn](https://yarnpkg.com/en/) installed to execute these commands. To update this folder after making changes, simply run:
 
