@@ -121,7 +121,7 @@ Search Guard Authentication
 
 The Elasticsearch connector provides additional security options to support Elasticsearch clusters that have been configured to use Search Guard.
 
-You can configure the certificate format by setting the ``searchguard.ssl.certificate_format`` config property in the Elasticsearch catalog properties file. The allowed values for this configuration are:
+You can configure the certificate format by setting the ``searchguard.ssl.certificate-format`` config property in the Elasticsearch catalog properties file. The allowed values for this configuration are:
 
 ========================== ========================================================
 Property Value	           Description
