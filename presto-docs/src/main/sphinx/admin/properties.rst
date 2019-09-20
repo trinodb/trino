@@ -418,6 +418,7 @@ Task Properties
     to become overloaded due to excessive resource utilization. This can also be specified on
     a per-query basis using the ``task_writer_count`` session property.
 
+.. _node-scheduler-properties:
 
 Node Scheduler Properties
 -------------------------
