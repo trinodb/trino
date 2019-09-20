@@ -140,7 +140,7 @@ public class FunctionCallBuilder
                 filter,
                 orderBy,
                 distinct,
-                false,
+                Optional.empty(),
                 argumentValues);
     }
 }

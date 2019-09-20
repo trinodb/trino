@@ -182,6 +182,7 @@ import static io.prestosql.spi.StandardErrorCode.MISSING_ORDER_BY;
 import static io.prestosql.spi.StandardErrorCode.NESTED_WINDOW;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.StandardErrorCode.NULL_TREATMENT_NOT_ALLOWED;
 import static io.prestosql.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.prestosql.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
@@ -225,6 +226,8 @@ import static java.util.Objects.requireNonNull;
 
 class StatementAnalyzer
 {
+    private static final Set<String> WINDOW_VALUE_FUNCTIONS = ImmutableSet.of("lead", "lag", "first_value", "last_value", "nth_value");
+
     private final Analysis analysis;
     private final Metadata metadata;
     private final TypeCoercion typeCoercion;
@@ -1481,13 +1484,18 @@ class StatementAnalyzer
                 }
 
                 // TODO get function requirements from window function metadata when we have it
-                if (windowFunction.getName().toString().equalsIgnoreCase("lag") || windowFunction.getName().toString().equalsIgnoreCase("lead")) {
+                String name = windowFunction.getName().toString().toLowerCase(ENGLISH);
+                if (name.equals("lag") || name.equals("lead")) {
                     if (!window.getOrderBy().isPresent()) {
                         throw semanticException(MISSING_ORDER_BY, window, "%s function requires an ORDER BY window clause", windowFunction.getName());
                     }
                     if (window.getFrame().isPresent()) {
                         throw semanticException(INVALID_WINDOW_FRAME, window.getFrame().get(), "Cannot specify window frame for %s function", windowFunction.getName());
                     }
+                }
+
+                if (!WINDOW_VALUE_FUNCTIONS.contains(name) && windowFunction.getNullTreatment().isPresent()) {
+                    throw semanticException(NULL_TREATMENT_NOT_ALLOWED, windowFunction, "Cannot specify null treatment clause for %s function", windowFunction.getName());
                 }
 
                 if (window.getFrame().isPresent()) {
