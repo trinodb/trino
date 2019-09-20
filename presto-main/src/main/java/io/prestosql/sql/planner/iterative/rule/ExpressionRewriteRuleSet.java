@@ -164,7 +164,7 @@ public class ExpressionRewriteRuleSet
                                                 orderBy.getOrdering(symbol).isNullsFirst() ? NullOrdering.FIRST : NullOrdering.LAST))
                                         .collect(toImmutableList()))),
                                 aggregation.isDistinct(),
-                                false,
+                                Optional.empty(),
                                 aggregation.getArguments()),
                         context);
                 verify(call.getName().equals(QualifiedName.of(aggregation.getSignature().getName())), "Aggregation function name changed");

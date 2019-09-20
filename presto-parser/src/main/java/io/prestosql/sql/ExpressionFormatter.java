@@ -372,9 +372,16 @@ public final class ExpressionFormatter
 
             builder.append(')');
 
-            if (node.isIgnoreNulls()) {
-                builder.append(" IGNORE NULLS");
-            }
+            node.getNullTreatment().ifPresent(nullTreatment -> {
+                switch (nullTreatment) {
+                    case IGNORE:
+                        builder.append(" IGNORE NULLS");
+                        break;
+                    case RESPECT:
+                        builder.append(" RESPECT NULLS");
+                        break;
+                }
+            });
 
             if (node.getFilter().isPresent()) {
                 builder.append(" FILTER ").append(visitFilter(node.getFilter().get(), context));

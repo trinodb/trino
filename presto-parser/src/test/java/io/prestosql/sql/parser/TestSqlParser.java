@@ -63,6 +63,7 @@ import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FetchFirst;
 import io.prestosql.sql.tree.Format;
 import io.prestosql.sql.tree.FunctionCall;
+import io.prestosql.sql.tree.FunctionCall.NullTreatment;
 import io.prestosql.sql.tree.GenericLiteral;
 import io.prestosql.sql.tree.Grant;
 import io.prestosql.sql.tree.GrantRoles;
@@ -2398,7 +2399,7 @@ public class TestSqlParser
                                                         new LongLiteral("4"))),
                                                 Optional.empty(),
                                                 false,
-                                                false,
+                                                Optional.empty(),
                                                 ImmutableList.of(new Identifier("x")))),
                                 Optional.empty(),
                                 Optional.empty(),
@@ -2446,7 +2447,7 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.of(new OrderBy(ImmutableList.of(new SortItem(identifier("x"), DESCENDING, UNDEFINED)))),
                         false,
-                        false,
+                        Optional.empty(),
                         ImmutableList.of(identifier("x"))));
         assertStatement("SELECT array_agg(x ORDER BY t.y) FROM t",
                 new Query(
@@ -2460,7 +2461,7 @@ public class TestSqlParser
                                                 Optional.empty(),
                                                 Optional.of(new OrderBy(ImmutableList.of(new SortItem(new DereferenceExpression(new Identifier("t"), identifier("y")), ASCENDING, UNDEFINED)))),
                                                 false,
-                                                false,
+                                                Optional.empty(),
                                                 ImmutableList.of(new Identifier("x")))),
                                 Optional.of(table(QualifiedName.of("t"))),
                                 Optional.empty(),
@@ -2669,7 +2670,7 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         false,
-                        true,
+                        Optional.of(NullTreatment.IGNORE),
                         ImmutableList.of(new Identifier("x"), new LongLiteral("1"))));
         assertExpression("lead(x, 1) respect nulls over()",
                 new FunctionCall(
@@ -2679,7 +2680,7 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         false,
-                        false,
+                        Optional.of(NullTreatment.RESPECT),
                         ImmutableList.of(new Identifier("x"), new LongLiteral("1"))));
     }
 

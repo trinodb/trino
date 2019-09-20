@@ -72,6 +72,7 @@ import io.prestosql.sql.tree.FetchFirst;
 import io.prestosql.sql.tree.Format;
 import io.prestosql.sql.tree.FrameBound;
 import io.prestosql.sql.tree.FunctionCall;
+import io.prestosql.sql.tree.FunctionCall.NullTreatment;
 import io.prestosql.sql.tree.GenericLiteral;
 import io.prestosql.sql.tree.Grant;
 import io.prestosql.sql.tree.GrantRoles;
@@ -1563,6 +1564,16 @@ class AstBuilder
                     arguments.get(numValues));
         }
 
+        Optional<NullTreatment> nulls = Optional.empty();
+        if (nullTreatment != null) {
+            if (nullTreatment.IGNORE() != null) {
+                nulls = Optional.of(NullTreatment.IGNORE);
+            }
+            else if (nullTreatment.RESPECT() != null) {
+                nulls = Optional.of(NullTreatment.RESPECT);
+            }
+        }
+
         return new FunctionCall(
                 Optional.of(getLocation(context)),
                 name,
@@ -1570,7 +1581,7 @@ class AstBuilder
                 filter,
                 orderBy,
                 distinct,
-                nullTreatment != null && nullTreatment.IGNORE() != null,
+                nulls,
                 visit(context.expression(), Expression.class));
     }
 
