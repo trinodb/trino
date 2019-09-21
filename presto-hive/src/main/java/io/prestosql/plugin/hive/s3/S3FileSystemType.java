@@ -17,5 +17,5 @@ public enum S3FileSystemType
 {
     PRESTO,
     EMRFS,
-    HADOOP_DEFAULT,
+    NONE,
 }
