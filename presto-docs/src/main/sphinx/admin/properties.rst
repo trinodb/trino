@@ -131,7 +131,7 @@ Spilling Properties
 
     Spilling works by offloading memory to disk. This process can allow a query with a large memory
     footprint to pass at the cost of slower execution times. Spilling is supported for
-    aggregations, joins (inner and outer), sorting, and window functions. This property will not 
+    aggregations, joins (inner and outer), sorting, and window functions. This property will not
     reduce memory usage required for other join types.
 
     Be aware that this is an experimental feature and should be used with care.
@@ -144,18 +144,18 @@ Spilling Properties
 
     * **Type:** ``boolean``
     * **Default value:** ``true``
-      
+
     Try spilling memory to disk to avoid exceeding memory limits for the query when running sorting operators.
     This property must be used in conjunction with the ``experimental.spill-enabled`` property.
 
     This config property can be overridden by the ``spill_order_by`` session property.
-    
+
 ``experimental.spill-window-operator``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``boolean``
     * **Default value:** ``true``
-      
+
     Try spilling memory to disk to avoid exceeding memory limits for the query when running window operators;
     This property must be used in conjunction with the ``experimental.spill-enabled`` property.
 
