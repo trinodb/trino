@@ -91,6 +91,7 @@ import static io.prestosql.plugin.iceberg.IcebergUtil.getIcebergTable;
 import static io.prestosql.plugin.iceberg.IcebergUtil.isIcebergTable;
 import static io.prestosql.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.prestosql.plugin.iceberg.PartitionFields.toPartitionFields;
+import static io.prestosql.plugin.iceberg.TableType.DATA;
 import static io.prestosql.plugin.iceberg.TypeConveter.toIcebergType;
 import static io.prestosql.plugin.iceberg.TypeConveter.toPrestoType;
 import static io.prestosql.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
@@ -142,6 +143,9 @@ public class IcebergMetadata
         Optional<Table> table = metastore.getTable(new HiveIdentity(session), handle.getSchemaName(), handle.getTableName());
         if (!table.isPresent()) {
             return null;
+        }
+        if (handle.getTableType() != DATA) {
+            throw new PrestoException(NOT_SUPPORTED, "Table type not yet supported: " + handle.getSchemaTableNameWithType());
         }
         if (!isIcebergTable(table.get())) {
             throw new UnknownTableTypeException(tableName);
