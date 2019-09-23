@@ -25,6 +25,7 @@ General Changes
 * Improve performance of certain ``JOIN`` queries when automatic join ordering is enabled. (:issue:`1431`)
 * Allow setting the default session catalog and schema via the ``sql.default-catalog``
   and ``sql.default-schema`` configuration properties. (:issue:`1524`)
+* Add support for ``IGNORE NULLS`` for window functions. (:issue:`1244`)
 * Add support for ``INNER`` and ``OUTER`` joins involving ``UNNEST``. (:issue:`1522`)
 * Rename ``legacy`` and ``flat`` :ref:`scheduler policies <node-scheduler-properties>` to
   ``uniform`` and ``topology`` respectively.  These can be configured via the ``node-scheduler.policy``
