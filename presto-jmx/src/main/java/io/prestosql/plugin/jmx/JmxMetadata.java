@@ -19,6 +19,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Streams;
+import io.airlift.log.Logger;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorMetadata;
@@ -56,6 +58,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.prestosql.plugin.jmx.JmxErrorCode.JMX_INVALID_TABLE_NAME;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
@@ -70,6 +73,7 @@ import static javax.management.ObjectName.WILDCARD;
 public class JmxMetadata
         implements ConnectorMetadata
 {
+    private static final Logger LOGGER = Logger.get(JmxMetadata.class);
     public static final String JMX_SCHEMA_NAME = "current";
     public static final String HISTORY_SCHEMA_NAME = "history";
     public static final String NODE_COLUMN_NAME = "node";
@@ -162,20 +166,25 @@ public class JmxMetadata
 
             return new JmxTableHandle(tableName, objectNames.stream().map(ObjectName::toString).collect(toImmutableList()), columns, true, TupleDomain.all());
         }
-        catch (JMException e) {
+        catch (JMException | PrestoException e) {
             return null;
         }
     }
 
-    private String toPattern(String tableName)
-            throws MalformedObjectNameException
+    public static String toPattern(String tableName)
     {
-        if (!tableName.contains("*")) {
-            return Pattern.quote(new ObjectName(tableName).getCanonicalName());
+        try {
+            if (!tableName.contains("*")) {
+                return Pattern.quote(new ObjectName(tableName).getCanonicalName());
+            }
+            return Streams.stream(Splitter.on('*').split(tableName))
+                    .map(Pattern::quote)
+                    .collect(Collectors.joining(".*"));
         }
-        return Streams.stream(Splitter.on('*').split(tableName))
-                .map(Pattern::quote)
-                .collect(Collectors.joining(".*"));
+        catch (MalformedObjectNameException exception) {
+            LOGGER.debug(exception, "Invalid ObjectName");
+            throw new PrestoException(JMX_INVALID_TABLE_NAME, "Not a valid ObjectName " + tableName);
+        }
     }
 
     private Stream<JmxColumnHandle> getColumnHandles(MBeanInfo mbeanInfo)
