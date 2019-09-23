@@ -729,7 +729,6 @@ public abstract class AbstractTestHive
                 false,
                 false,
                 true,
-                1000,
                 TYPE_MANAGER,
                 locationService,
                 partitionUpdateCodec,
