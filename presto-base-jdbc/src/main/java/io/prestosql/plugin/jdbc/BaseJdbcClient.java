@@ -239,6 +239,7 @@ public class BaseJdbcClient
                 ResultSet resultSet = getColumns(tableHandle, connection.getMetaData())) {
             List<JdbcColumnHandle> columns = new ArrayList<>();
             while (resultSet.next()) {
+                String columnName = resultSet.getString("COLUMN_NAME");
                 JdbcTypeHandle typeHandle = new JdbcTypeHandle(
                         resultSet.getInt("DATA_TYPE"),
                         Optional.ofNullable(resultSet.getString("TYPE_NAME")),
@@ -246,9 +247,9 @@ public class BaseJdbcClient
                         resultSet.getInt("DECIMAL_DIGITS"),
                         Optional.empty());
                 Optional<ColumnMapping> columnMapping = toPrestoType(session, connection, typeHandle);
+                log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", tableHandle.getSchemaTableName(), columnName, typeHandle, columnMapping);
                 // skip unsupported column types
                 if (columnMapping.isPresent()) {
-                    String columnName = resultSet.getString("COLUMN_NAME");
                     boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
                     columns.add(new JdbcColumnHandle(columnName, typeHandle, columnMapping.get().getType(), nullable));
                 }
