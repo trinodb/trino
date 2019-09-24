@@ -267,11 +267,10 @@ public class BaseJdbcClient
     protected static ResultSet getColumns(JdbcTableHandle tableHandle, DatabaseMetaData metadata)
             throws SQLException
     {
-        Optional<String> escape = Optional.ofNullable(metadata.getSearchStringEscape());
         return metadata.getColumns(
                 tableHandle.getCatalogName(),
-                escapeNamePattern(Optional.ofNullable(tableHandle.getSchemaName()), escape).orElse(null),
-                escapeNamePattern(Optional.ofNullable(tableHandle.getTableName()), escape).orElse(null),
+                escapeNamePattern(Optional.ofNullable(tableHandle.getSchemaName()), metadata.getSearchStringEscape()).orElse(null),
+                escapeNamePattern(Optional.ofNullable(tableHandle.getTableName()), metadata.getSearchStringEscape()).orElse(null),
                 null);
     }
 
@@ -597,11 +596,10 @@ public class BaseJdbcClient
             throws SQLException
     {
         DatabaseMetaData metadata = connection.getMetaData();
-        Optional<String> escape = Optional.ofNullable(metadata.getSearchStringEscape());
         return metadata.getTables(
                 connection.getCatalog(),
-                escapeNamePattern(schemaName, escape).orElse(null),
-                escapeNamePattern(tableName, escape).orElse(null),
+                escapeNamePattern(schemaName, metadata.getSearchStringEscape()).orElse(null),
+                escapeNamePattern(tableName, metadata.getSearchStringEscape()).orElse(null),
                 new String[] {"TABLE", "VIEW"});
     }
 
@@ -804,18 +802,16 @@ public class BaseJdbcClient
         return sb.toString();
     }
 
-    protected static Optional<String> escapeNamePattern(Optional<String> name, Optional<String> escape)
+    protected static Optional<String> escapeNamePattern(Optional<String> name, String escape)
     {
-        if (!name.isPresent() || !escape.isPresent()) {
-            return name;
-        }
-        return Optional.of(escapeNamePattern(name.get(), escape.get()));
+        return name.map(string -> escapeNamePattern(string, escape));
     }
 
     private static String escapeNamePattern(String name, String escape)
     {
         requireNonNull(name, "name is null");
         requireNonNull(escape, "escape is null");
+        checkArgument(!escape.isEmpty(), "Escape string must not be empty");
         checkArgument(!escape.equals("_"), "Escape string must not be '_'");
         checkArgument(!escape.equals("%"), "Escape string must not be '%'");
         name = name.replace(escape, escape + escape);
@@ -823,6 +819,4 @@ public class BaseJdbcClient
         name = name.replace("%", escape + "%");
         return name;
     }
-
-
 }
