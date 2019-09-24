@@ -231,7 +231,7 @@ public class TestTypedSet
     {
         assertPrestoExceptionThrownBy(() -> {
             TypedSet typedSet = new TypedSet(BIGINT, 10, FUNCTION_NAME);
-            for (int i = 0; i <= TypedSet.FOUR_MEGABYTES + 1; i++) {
+            for (int i = 0; i <= TypedSet.MAX_FUNCTION_MEMORY.toBytes() + 1; i++) {
                 Block block = createLongsBlock(nCopies(1, (long) i));
                 typedSet.add(block, 0);
             }
