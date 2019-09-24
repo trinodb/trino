@@ -1,0 +1,32 @@
+{
+  "created_at": "Mon Jul 28 20:38:07 +0000 2016",
+  "id": 493857959588286460,
+  "timestamp": 1450214872847,
+  "source": "otherworld",
+  "environment": {
+    "windowDims": {
+      "w": 661,
+      "h": 904
+    },
+    "screenDims": {
+      "w": 1680,
+      "h": 1050
+    },
+    "browser": {
+      "ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/47.0.2526.80 Safari/537.36",
+      "name": "Chrome",
+      "version": "47.0.2526.80",
+      "os": "OS X",
+      "osVersion": "10.11.2"
+    }
+  },
+  "user": {
+    "email": "joeblow@wherever.com",
+    "handle": "joeblow"
+  },
+  "tags": [
+    "tag1",
+    "tag2",
+    "tag3"
+  ]
+}
