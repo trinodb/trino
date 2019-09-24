@@ -1,0 +1,5 @@
+{
+  "tableName": "TABLE_NAME",
+  "schemaName": "default",
+  "streamName": "STREAM_NAME"
+}
