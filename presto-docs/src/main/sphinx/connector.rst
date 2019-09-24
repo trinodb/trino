@@ -19,6 +19,7 @@ from different data sources.
     connector/jmx
     connector/kafka
     connector/kafka-tutorial
+    connector/kinesis
     connector/kudu
     connector/localfile
     connector/memory
@@ -33,4 +34,3 @@ from different data sources.
     connector/thrift
     connector/tpcds
     connector/tpch
-    connector/kinesis
