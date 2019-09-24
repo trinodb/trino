@@ -1423,13 +1423,15 @@ public class ThriftHiveMetastore
     private ThriftMetastoreClient createMetastoreClient(HiveIdentity identity)
             throws TException
     {
-        ThriftMetastoreClient client = createMetastoreClient();
         if (!impersonationEnabled) {
-            return client;
+            return createMetastoreClient();
         }
 
-        setMetastoreUserOrClose(client, identity.getUsername()
-                .orElseThrow(() -> new IllegalStateException("End-user name should exist when metastore impersonation is enabled")));
+        String username = identity.getUsername()
+                .orElseThrow(() -> new IllegalStateException("End-user name should exist when metastore impersonation is enabled"));
+
+        ThriftMetastoreClient client = createMetastoreClient();
+        setMetastoreUserOrClose(client, username);
         return client;
     }
 
