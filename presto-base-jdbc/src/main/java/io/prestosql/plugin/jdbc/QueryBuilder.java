@@ -16,6 +16,7 @@ package io.prestosql.plugin.jdbc;
 import com.google.common.base.Joiner;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -43,6 +44,8 @@ import static java.util.stream.Collectors.joining;
 
 public class QueryBuilder
 {
+    private static final Logger log = Logger.get(QueryBuilder.class);
+
     // not all databases support booleans, so use 1=1 and 1=0 instead
     private static final String ALWAYS_TRUE = "1=1";
     private static final String ALWAYS_FALSE = "1=0";
@@ -133,6 +136,7 @@ public class QueryBuilder
         }
 
         String query = sqlFunction.apply(sql.toString());
+        log.debug("Preparing query: %s", query);
         PreparedStatement statement = client.getPreparedStatement(connection, query);
 
         for (int i = 0; i < accumulator.size(); i++) {

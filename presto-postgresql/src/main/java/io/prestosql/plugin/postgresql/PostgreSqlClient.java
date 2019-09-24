@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.ObjectMapperProvider;
+import io.airlift.log.Logger;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -113,6 +114,8 @@ import static java.sql.DatabaseMetaData.columnNoNulls;
 public class PostgreSqlClient
         extends BaseJdbcClient
 {
+    private static final Logger log = Logger.get(PostgreSqlClient.class);
+
     /**
      * @see Array#getResultSet()
      */
@@ -218,6 +221,7 @@ public class PostgreSqlClient
                             resultSet.getInt("DECIMAL_DIGITS"),
                             Optional.ofNullable(arrayColumnDimensions.get(columnName)));
                     Optional<ColumnMapping> columnMapping = toPrestoType(session, connection, typeHandle);
+                    log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", tableHandle.getSchemaTableName(), columnName, typeHandle, columnMapping);
                     // skip unsupported column types
                     if (columnMapping.isPresent()) {
                         boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
