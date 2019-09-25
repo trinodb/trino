@@ -28,12 +28,12 @@ import static io.prestosql.elasticsearch.SearchGuardCertificateFormat.PEM;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-public class TestElasticsearchConnectorConfig
+public class TestElasticsearchConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(ElasticsearchConnectorConfig.class)
+        assertRecordedDefaults(recordDefaults(ElasticsearchConfig.class)
                 .setTableDescriptionDirectory(new File("etc/elasticsearch/"))
                 .setDefaultSchema("default")
                 .setScrollSize(1000)
@@ -74,7 +74,7 @@ public class TestElasticsearchConnectorConfig
                 .put("searchguard.ssl.truststore-password", "333333")
                 .build();
 
-        ElasticsearchConnectorConfig expected = new ElasticsearchConnectorConfig()
+        ElasticsearchConfig expected = new ElasticsearchConfig()
                 .setTableDescriptionDirectory(new File("/etc/elasticsearch/"))
                 .setDefaultSchema("test")
                 .setScrollSize(4000)
