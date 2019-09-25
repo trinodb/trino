@@ -27,8 +27,6 @@ import org.elasticsearch.cluster.node.DiscoveryNode;
 
 import javax.inject.Inject;
 
-import java.util.List;
-
 import static com.google.common.base.Verify.verifyNotNull;
 import static java.util.Objects.requireNonNull;
 
@@ -50,21 +48,19 @@ public class ElasticsearchSplitManager
         ElasticsearchTableDescription tableDescription = client.getTable(tableHandle.getSchemaName(), tableHandle.getTableName());
         verifyNotNull(table, "Table no longer exists: %s", tableHandle.toString());
 
-        List<String> indices = client.getIndices(tableDescription);
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
-        for (String index : indices) {
-            ClusterSearchShardsResponse response = client.getSearchShards(index);
-            DiscoveryNode[] nodes = response.getNodes();
-            for (ClusterSearchShardsGroup group : response.getGroups()) {
-                int nodeIndex = group.getShardId().getId() % nodes.length;
-                ElasticsearchSplit split = new ElasticsearchSplit(
-                        index,
-                        tableDescription.getType(),
-                        group.getShardId().getId(),
-                        nodes[nodeIndex].getHostName(),
-                        nodes[nodeIndex].getAddress().getPort());
-                splits.add(split);
-            }
+        String index = tableDescription.getIndex();
+        ClusterSearchShardsResponse response = client.getSearchShards(index);
+        DiscoveryNode[] nodes = response.getNodes();
+        for (ClusterSearchShardsGroup group : response.getGroups()) {
+            int nodeIndex = group.getShardId().getId() % nodes.length;
+            ElasticsearchSplit split = new ElasticsearchSplit(
+                    index,
+                    tableDescription.getType(),
+                    group.getShardId().getId(),
+                    nodes[nodeIndex].getHostName(),
+                    nodes[nodeIndex].getAddress().getPort());
+            splits.add(split);
         }
         return new FixedSplitSource(splits.build());
     }
