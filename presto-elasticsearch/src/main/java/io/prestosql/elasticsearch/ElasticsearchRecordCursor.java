@@ -13,16 +13,20 @@
  */
 package io.prestosql.elasticsearch;
 
-import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.RecordCursor;
+import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.transport.TransportClient;
+import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.SearchHits;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -30,7 +34,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -40,6 +43,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.prestosql.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_CONNECTION_ERROR;
+import static io.prestosql.elasticsearch.ElasticsearchQueryBuilder.buildSearchQuery;
 import static io.prestosql.elasticsearch.ElasticsearchUtils.serializeObject;
 import static io.prestosql.elasticsearch.RetryDriver.retry;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -48,33 +53,65 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
+import static org.elasticsearch.action.search.SearchType.QUERY_THEN_FETCH;
 
+// TODO: clear scroll on close
 public class ElasticsearchRecordCursor
         implements RecordCursor
 {
     private static final JsonCodec<Object> VALUE_CODEC = jsonCodec(Object.class);
 
-    private final List<ElasticsearchColumnHandle> columnHandles;
+    private final TransportClient client;
+    private final int scrollSize;
+    private final Duration scrollTimeout;
+    private final int maxAttempts;
+    private final Duration maxRetryTime;
+    private final Duration requestTimeout;
+
+    private final List<ElasticsearchColumnHandle> columns;
     private final Map<String, Integer> jsonPathToIndex = new HashMap<>();
-    private final ElasticsearchQueryBuilder builder;
-    private final SearchHitsIterator searchHits;
+    private final TupleDomain<ColumnHandle> constraint;
+    private final List<String> fieldsNames;
+    private final String type;
+    private final int shard;
+    private final String indices;
 
     private long totalBytes;
-    private List<Object> fields;
+    private List<Object> values;
 
-    public ElasticsearchRecordCursor(TransportClient client, List<ElasticsearchColumnHandle> columnHandles, ElasticsearchConfig config, ElasticsearchSplit split, ElasticsearchTableHandle table)
+    private SearchHits searchHits;
+    private String scrollId;
+    private int currentPosition;
+
+    public ElasticsearchRecordCursor(TransportClient client, List<ElasticsearchColumnHandle> columns, ElasticsearchConfig config, ElasticsearchSplit split, ElasticsearchTableHandle table)
     {
         requireNonNull(client, "client is null");
-        requireNonNull(columnHandles, "columnHandle is null");
+        requireNonNull(columns, "columnHandle is null");
         requireNonNull(config, "config is null");
 
-        this.columnHandles = columnHandles;
+        this.client = client;
+        this.columns = columns;
+        this.type = split.getType();
+        this.shard = split.getShard();
+        this.constraint = table.getConstraint();
 
-        for (int i = 0; i < columnHandles.size(); i++) {
-            jsonPathToIndex.put(columnHandles.get(i).getColumnJsonPath(), i);
+        this.scrollSize = config.getScrollSize();
+        this.scrollTimeout = config.getScrollTimeout();
+        this.maxAttempts = config.getMaxRequestRetries();
+        this.maxRetryTime = config.getMaxRetryTime();
+        this.requestTimeout = config.getRequestTimeout();
+
+        for (int i = 0; i < columns.size(); i++) {
+            jsonPathToIndex.put(columns.get(i).getColumnJsonPath(), i);
         }
-        this.builder = new ElasticsearchQueryBuilder(columnHandles, config, split, table);
-        this.searchHits = new SearchHitsIterator(client, builder, config);
+
+        String index = split.getIndex();
+        this.indices = index != null && !index.isEmpty() ? index : "_all";
+
+        this.fieldsNames = columns.stream()
+                .map(ElasticsearchColumnHandle::getColumnName)
+                .collect(toList());
     }
 
     @Override
@@ -92,19 +129,34 @@ public class ElasticsearchRecordCursor
     @Override
     public Type getType(int field)
     {
-        checkArgument(field < columnHandles.size(), "Invalid field index");
-        return columnHandles.get(field).getColumnType();
+        checkArgument(field < columns.size(), "Invalid field index");
+        return columns.get(field).getColumnType();
     }
 
     @Override
     public boolean advanceNextPosition()
     {
-        if (!searchHits.hasNext()) {
+        if (scrollId == null) {
+            SearchResponse response = begin();
+            scrollId = response.getScrollId();
+            searchHits = response.getHits();
+            currentPosition = 0;
+        }
+        else if (currentPosition == searchHits.getHits().length) {
+            SearchResponse response = nextPage();
+            scrollId = response.getScrollId();
+            searchHits = response.getHits();
+            currentPosition = 0;
+        }
+
+        if (currentPosition == searchHits.getHits().length) {
             return false;
         }
 
-        SearchHit hit = searchHits.next();
-        fields = new ArrayList<>(Collections.nCopies(columnHandles.size(), null));
+        SearchHit hit = searchHits.getAt(currentPosition);
+        currentPosition++;
+
+        values = new ArrayList<>(Collections.nCopies(columns.size(), null));
 
         setFieldIfExists("_id", hit.getId());
         setFieldIfExists("_index", hit.getIndex());
@@ -155,13 +207,13 @@ public class ElasticsearchRecordCursor
     @Override
     public Object getObject(int field)
     {
-        return serializeObject(columnHandles.get(field).getColumnType(), null, getFieldValue(field));
+        return serializeObject(columns.get(field).getColumnType(), null, getFieldValue(field));
     }
 
     @Override
     public boolean isNull(int field)
     {
-        checkArgument(field < columnHandles.size(), "Invalid field index");
+        checkArgument(field < columns.size(), "Invalid field index");
         return getFieldValue(field) == null;
     }
 
@@ -174,17 +226,55 @@ public class ElasticsearchRecordCursor
     {
     }
 
+    private SearchResponse begin()
+    {
+        try {
+            return retry()
+                    .maxAttempts(maxAttempts)
+                    .exponentialBackoff(maxRetryTime)
+                    .run("searchRequest", () -> client.prepareSearch(indices)
+                            .setTypes(type)
+                            .setSearchType(QUERY_THEN_FETCH)
+                            .setFetchSource(fieldsNames.toArray(new String[0]), null)
+                            .setQuery(buildSearchQuery(constraint, columns))
+                            .setPreference("_shards:" + shard)
+                            .setSize(scrollSize)
+                            .setScroll(new TimeValue(scrollTimeout.toMillis()))
+                            .execute()
+                            .actionGet(requestTimeout.toMillis()));
+        }
+        catch (Exception e) {
+            throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, e);
+        }
+    }
+
+    private SearchResponse nextPage()
+    {
+        try {
+            return retry()
+                    .maxAttempts(maxAttempts)
+                    .exponentialBackoff(maxRetryTime)
+                    .run("scrollRequest", () -> client.prepareSearchScroll(scrollId)
+                            .setScroll(new TimeValue(scrollTimeout.toMillis()))
+                            .execute()
+                            .actionGet(requestTimeout.toMillis()));
+        }
+        catch (Exception e) {
+            throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, e);
+        }
+    }
+
     private void setFieldIfExists(String jsonPath, Object jsonValue)
     {
         if (jsonPathToIndex.containsKey(jsonPath)) {
-            fields.set(jsonPathToIndex.get(jsonPath), jsonValue);
+            values.set(jsonPathToIndex.get(jsonPath), jsonValue);
         }
     }
 
     private Object getFieldValue(int field)
     {
-        checkState(fields != null, "Cursor has not been advanced yet");
-        return fields.get(field);
+        checkState(values != null, "Cursor has not been advanced yet");
+        return values.get(field);
     }
 
     private void extractFromSource(SearchHit hit)
@@ -269,82 +359,6 @@ public class ElasticsearchRecordCursor
         public Object getValue()
         {
             return value;
-        }
-    }
-
-    /**
-     * Iterator to go over search results in a paged manner.
-     */
-    private static class SearchHitsIterator
-            extends AbstractIterator<SearchHit>
-    {
-        private final TransportClient client;
-        private final ElasticsearchQueryBuilder queryBuilder;
-        private final Duration requestTimeout;
-        private final int maxAttempts;
-        private final Duration maxRetryTime;
-
-        private Iterator<SearchHit> searchHits;
-        private String scrollId;
-
-        SearchHitsIterator(TransportClient client, ElasticsearchQueryBuilder queryBuilder, ElasticsearchConfig config)
-        {
-            this.client = client;
-            this.queryBuilder = queryBuilder;
-            this.requestTimeout = config.getRequestTimeout();
-            this.maxAttempts = config.getMaxRequestRetries();
-            this.maxRetryTime = config.getMaxRetryTime();
-        }
-
-        @Override
-        protected SearchHit computeNext()
-        {
-            if (scrollId == null) {
-                // make the first request and get the scroll id
-                SearchResponse response = getSearchResponse(queryBuilder);
-                scrollId = response.getScrollId();
-                searchHits = response.getHits().iterator();
-            }
-
-            while (!searchHits.hasNext()) {
-                SearchResponse response = getScrollResponse(queryBuilder, scrollId);
-                if (response.getHits().getHits().length == 0) {
-                    return endOfData();
-                }
-                searchHits = response.getHits().iterator();
-            }
-
-            return searchHits.next();
-        }
-
-        private SearchResponse getSearchResponse(ElasticsearchQueryBuilder queryBuilder)
-        {
-            try {
-                return retry()
-                        .maxAttempts(maxAttempts)
-                        .exponentialBackoff(maxRetryTime)
-                        .run("searchRequest", () -> queryBuilder.buildScrollSearchRequest(client)
-                                .execute()
-                                .actionGet(requestTimeout.toMillis()));
-            }
-            catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        }
-
-        private SearchResponse getScrollResponse(ElasticsearchQueryBuilder queryBuilder, String scrollId)
-        {
-            try {
-                return retry()
-                        .maxAttempts(maxAttempts)
-                        .exponentialBackoff(maxRetryTime)
-                        .run("scrollRequest", () -> queryBuilder.prepareSearchScroll(client, scrollId)
-                                .execute()
-                                .actionGet(requestTimeout.toMillis()));
-            }
-            catch (Exception e) {
-                throw new RuntimeException(e);
-            }
         }
     }
 }
