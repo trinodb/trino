@@ -187,34 +187,28 @@ public class ElasticsearchClient
         if (tableDescription.getIndexExactMatch()) {
             return ImmutableList.of(tableDescription.getIndex());
         }
-        verifyNotNull(client, "client is null");
-        String[] indices = getIndices(client, new GetIndexRequest());
-        return Arrays.stream(indices)
-                .filter(index -> index.startsWith(tableDescription.getIndex()))
-                .collect(toImmutableList());
+        try {
+            String[] result = retry()
+                    .maxAttempts(maxAttempts)
+                    .exponentialBackoff(maxRetryTime)
+                    .run("getIndices", () -> client.admin()
+                            .indices()
+                            .getIndex(new GetIndexRequest())
+                            .actionGet(requestTimeout.toMillis())
+                            .getIndices());
+            return Arrays.stream(result)
+                    .filter(index -> index.startsWith(tableDescription.getIndex()))
+                    .collect(toImmutableList());
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public ClusterSearchShardsResponse getSearchShards(String index)
     {
         verifyNotNull(client, "client is null");
         return getSearchShardsResponse(client, new ClusterSearchShardsRequest(index));
-    }
-
-    private String[] getIndices(TransportClient client, GetIndexRequest request)
-    {
-        try {
-            return retry()
-                    .maxAttempts(maxAttempts)
-                    .exponentialBackoff(maxRetryTime)
-                    .run("getIndices", () -> client.admin()
-                            .indices()
-                            .getIndex(request)
-                            .actionGet(requestTimeout.toMillis())
-                            .getIndices());
-        }
-        catch (Exception e) {
-            throw new RuntimeException(e);
-        }
     }
 
     private ClusterSearchShardsResponse getSearchShardsResponse(TransportClient client, ClusterSearchShardsRequest request)
