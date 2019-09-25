@@ -21,6 +21,7 @@ import io.airlift.units.Duration;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.type.Type;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.search.SearchHit;
 
 import java.util.ArrayList;
@@ -61,8 +62,9 @@ public class ElasticsearchRecordCursor
     private long totalBytes;
     private List<Object> fields;
 
-    public ElasticsearchRecordCursor(List<ElasticsearchColumnHandle> columnHandles, ElasticsearchConfig config, ElasticsearchSplit split, ElasticsearchTableHandle table)
+    public ElasticsearchRecordCursor(TransportClient client, List<ElasticsearchColumnHandle> columnHandles, ElasticsearchConfig config, ElasticsearchSplit split, ElasticsearchTableHandle table)
     {
+        requireNonNull(client, "client is null");
         requireNonNull(columnHandles, "columnHandle is null");
         requireNonNull(config, "config is null");
 
@@ -72,7 +74,7 @@ public class ElasticsearchRecordCursor
             jsonPathToIndex.put(columnHandles.get(i).getColumnJsonPath(), i);
         }
         this.builder = new ElasticsearchQueryBuilder(columnHandles, config, split, table);
-        this.searchHits = new SearchHitsIterator(builder, config);
+        this.searchHits = new SearchHitsIterator(client, builder, config);
     }
 
     @Override
@@ -168,10 +170,8 @@ public class ElasticsearchRecordCursor
         checkArgument(expectedTypes.contains(getType(field)), "Field %s has unexpected type %s", field, getType(field));
     }
 
-    @Override
     public void close()
     {
-        builder.close();
     }
 
     private void setFieldIfExists(String jsonPath, Object jsonValue)
@@ -278,6 +278,7 @@ public class ElasticsearchRecordCursor
     private static class SearchHitsIterator
             extends AbstractIterator<SearchHit>
     {
+        private final TransportClient client;
         private final ElasticsearchQueryBuilder queryBuilder;
         private final Duration requestTimeout;
         private final int maxAttempts;
@@ -286,8 +287,9 @@ public class ElasticsearchRecordCursor
         private Iterator<SearchHit> searchHits;
         private String scrollId;
 
-        SearchHitsIterator(ElasticsearchQueryBuilder queryBuilder, ElasticsearchConfig config)
+        SearchHitsIterator(TransportClient client, ElasticsearchQueryBuilder queryBuilder, ElasticsearchConfig config)
         {
+            this.client = client;
             this.queryBuilder = queryBuilder;
             this.requestTimeout = config.getRequestTimeout();
             this.maxAttempts = config.getMaxRequestRetries();
@@ -321,7 +323,7 @@ public class ElasticsearchRecordCursor
                 return retry()
                         .maxAttempts(maxAttempts)
                         .exponentialBackoff(maxRetryTime)
-                        .run("searchRequest", () -> queryBuilder.buildScrollSearchRequest()
+                        .run("searchRequest", () -> queryBuilder.buildScrollSearchRequest(client)
                                 .execute()
                                 .actionGet(requestTimeout.toMillis()));
             }
@@ -336,7 +338,7 @@ public class ElasticsearchRecordCursor
                 return retry()
                         .maxAttempts(maxAttempts)
                         .exponentialBackoff(maxRetryTime)
-                        .run("scrollRequest", () -> queryBuilder.prepareSearchScroll(scrollId)
+                        .run("scrollRequest", () -> queryBuilder.prepareSearchScroll(client, scrollId)
                                 .execute()
                                 .actionGet(requestTimeout.toMillis()));
             }

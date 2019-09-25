@@ -16,6 +16,7 @@ package io.prestosql.elasticsearch;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.RecordSet;
 import io.prestosql.spi.type.Type;
+import org.elasticsearch.client.transport.TransportClient;
 
 import java.util.List;
 
@@ -27,12 +28,14 @@ public class ElasticsearchRecordSet
 {
     private final List<ElasticsearchColumnHandle> columnHandles;
     private final List<Type> columnTypes;
+    private final TransportClient client;
     private final ElasticsearchSplit split;
     private final ElasticsearchTableHandle table;
     private final ElasticsearchConfig config;
 
-    public ElasticsearchRecordSet(ElasticsearchSplit split, ElasticsearchTableHandle table, ElasticsearchConfig config, List<ElasticsearchColumnHandle> columnHandles)
+    public ElasticsearchRecordSet(TransportClient client, ElasticsearchSplit split, ElasticsearchTableHandle table, ElasticsearchConfig config, List<ElasticsearchColumnHandle> columnHandles)
     {
+        this.client = requireNonNull(client, "client is null");
         this.split = requireNonNull(split, "split is null");
         this.table = requireNonNull(table, "table is null");
         this.config = requireNonNull(config, "config is null");
@@ -51,6 +54,6 @@ public class ElasticsearchRecordSet
     @Override
     public RecordCursor cursor()
     {
-        return new ElasticsearchRecordCursor(columnHandles, config, split, table);
+        return new ElasticsearchRecordCursor(client, columnHandles, config, split, table);
     }
 }
