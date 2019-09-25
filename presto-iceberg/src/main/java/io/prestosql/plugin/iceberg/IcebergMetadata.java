@@ -157,10 +157,18 @@ public class IcebergMetadata
     public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
         IcebergTableHandle table = IcebergTableHandle.from(tableName);
-        if (table.getTableType() == TableType.PARTITIONS) {
-            org.apache.iceberg.Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, table.getSchemaTableName());
-            SystemTable systemTable = new PartitionTable(table, session, typeManager, icebergTable);
-            return Optional.of(new ClassLoaderSafeSystemTable(systemTable, getClass().getClassLoader()));
+        return getRawSystemTable(session, table)
+                .map(systemTable -> new ClassLoaderSafeSystemTable(systemTable, getClass().getClassLoader()));
+    }
+
+    private Optional<SystemTable> getRawSystemTable(ConnectorSession session, IcebergTableHandle table)
+    {
+        org.apache.iceberg.Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, table.getSchemaTableName());
+        switch (table.getTableType()) {
+            case PARTITIONS:
+                return Optional.of(new PartitionTable(table, session, typeManager, icebergTable));
+            case HISTORY:
+                return Optional.of(new HistoryTable(table.getSchemaTableNameWithType(), icebergTable));
         }
         return Optional.empty();
     }

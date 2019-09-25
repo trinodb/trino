@@ -243,6 +243,31 @@ public class TestIcebergSmoke
         dropTable(session, "test_partition_table_basic");
     }
 
+    @Test
+    public void testHistoryTableBasic()
+    {
+        testWithAllFileFormats(this::testHistoryTableBasic);
+    }
+
+    private void testHistoryTableBasic(Session session, FileFormat fileFormat)
+    {
+        assertUpdate(session, "CREATE TABLE test_history_table_basic (_string VARCHAR, _bigint BIGINT) WITH (format = '" + fileFormat + "')");
+
+        assertUpdate(session, "INSERT INTO test_history_table_basic VALUES ('string0', 0), ('string1', 1)", 2);
+        assertUpdate(session, "INSERT INTO test_history_table_basic VALUES ('string2', 2), ('string3', 3)", 2);
+
+        assertQuery(session, "SHOW COLUMNS FROM \"test_history_table_basic$history\"",
+                "VALUES ('made_current_at', 'timestamp with time zone', '', '')," +
+                        "('snapshot_id', 'bigint', '', '')," +
+                        "('parent_id', 'bigint', '', '')," +
+                        "('is_current_ancestor', 'boolean', '', '')");
+
+        // Test the number of history entries
+        assertQuery("SELECT count(*) FROM \"test_history_table_basic$history\"", "VALUES 3");
+
+        dropTable(session, "test_history_table_basic");
+    }
+
     private void testWithAllFileFormats(BiConsumer<Session, FileFormat> test)
     {
         test.accept(getSession(), FileFormat.PARQUET);
