@@ -1394,12 +1394,12 @@ public class ThriftHiveMetastore
                 chosenAlternative.updateAndGet(currentChosen -> Math.min(currentChosen, position));
                 return result;
             }
-            catch (NoSuchObjectException e) {
-                // This is likely a valid response. We are not settling on an alternative yet.
-                // We will do it later when we get a more obviously valid response.
-                throw e;
-            }
             catch (TException | RuntimeException exception) {
+                if (isValidExceptionalResponse(exception)) {
+                    // This is likely a valid response. We are not settling on an alternative yet.
+                    // We will do it later when we get a more obviously valid response.
+                    throw exception;
+                }
                 if (firstException == null) {
                     firstException = exception;
                 }
@@ -1412,6 +1412,22 @@ public class ThriftHiveMetastore
         verifyNotNull(firstException);
         propagateIfPossible(firstException, TException.class);
         throw propagate(firstException);
+    }
+
+    // TODO instead of whitelisting exceptions we propagate we should recognize exceptions which we suppress and try different alternative call
+    // this requires product tests with HDP 3
+    private static boolean isValidExceptionalResponse(Exception exception)
+    {
+        if (exception instanceof NoSuchObjectException) {
+            return true;
+        }
+
+        if (exception.toString().contains("AccessControlException")) {
+            // e.g. org.apache.hadoop.hive.metastore.api.MetaException: org.apache.hadoop.security.AccessControlException: Permission denied: ...
+            return true;
+        }
+
+        return false;
     }
 
     private ThriftMetastoreClient createMetastoreClient()
