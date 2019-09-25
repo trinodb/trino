@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -37,9 +38,10 @@ public class MockThriftMetastoreClientFactory
     }
 
     @Override
-    public ThriftMetastoreClient create(HostAndPort address)
+    public ThriftMetastoreClient create(HostAndPort address, Optional<String> delegationToken)
             throws TTransportException
     {
+        checkArgument(!delegationToken.isPresent(), "delegation token is not supported");
         checkState(!clients.isEmpty(), "mock not given enough clients");
         ThriftMetastoreClient client = clients.remove(0);
         if (client == null) {

@@ -40,9 +40,9 @@ public class TestingMetastoreLocator
     }
 
     @Override
-    public ThriftMetastoreClient createMetastoreClient()
+    public ThriftMetastoreClient createMetastoreClient(Optional<String> delegationToken)
             throws TException
     {
-        return factory.create(address);
+        return factory.create(address, delegationToken);
     }
 }
