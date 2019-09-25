@@ -199,45 +199,13 @@ public class TestPushPredicateIntoTableScan
                 .put("orderstatus", singleValue(createVarcharType(1), utf8Slice("F")))
                 .build();
         tester().assertThat(pushPredicateIntoTableScan)
-                .on(p -> p.filter(expression("orderstatus = CAST ('F' AS VARCHAR(1))"),
-                        p.tableScan(
-                                ordersTableHandle,
-                                ImmutableList.of(p.symbol("orderstatus", createVarcharType(1))),
-                                ImmutableMap.of(p.symbol("orderstatus", createVarcharType(1)), new TpchColumnHandle("orderstatus", createVarcharType(1))))))
-                .matches(
-                        constrainedTableScanWithTableLayout("orders", filterConstraint, ImmutableMap.of("orderstatus", "orderstatus")));
-    }
-
-    @Test
-    public void ruleAddedNewTableLayoutIfTableScanHasEmptyConstraint()
-    {
-        tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(expression("orderstatus = 'F'"),
                         p.tableScan(
                                 ordersTableHandle,
                                 ImmutableList.of(p.symbol("orderstatus", createVarcharType(1))),
                                 ImmutableMap.of(p.symbol("orderstatus", createVarcharType(1)), new TpchColumnHandle("orderstatus", createVarcharType(1))))))
                 .matches(
-                        constrainedTableScanWithTableLayout(
-                                "orders",
-                                ImmutableMap.of("orderstatus", singleValue(createVarcharType(1), utf8Slice("F"))),
-                                ImmutableMap.of("orderstatus", "orderstatus")));
-    }
-
-    @Test
-    public void ruleWithPushdownableToTableLayoutPredicate()
-    {
-        Type orderStatusType = createVarcharType(1);
-        tester().assertThat(pushPredicateIntoTableScan)
-                .on(p -> p.filter(expression("orderstatus = 'O'"),
-                        p.tableScan(
-                                ordersTableHandle,
-                                ImmutableList.of(p.symbol("orderstatus", orderStatusType)),
-                                ImmutableMap.of(p.symbol("orderstatus", orderStatusType), new TpchColumnHandle("orderstatus", orderStatusType)))))
-                .matches(constrainedTableScanWithTableLayout(
-                        "orders",
-                        ImmutableMap.of("orderstatus", singleValue(orderStatusType, utf8Slice("O"))),
-                        ImmutableMap.of("orderstatus", "orderstatus")));
+                        constrainedTableScanWithTableLayout("orders", filterConstraint, ImmutableMap.of("orderstatus", "orderstatus")));
     }
 
     @Test
