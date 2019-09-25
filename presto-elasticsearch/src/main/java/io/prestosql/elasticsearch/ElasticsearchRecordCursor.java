@@ -224,6 +224,11 @@ public class ElasticsearchRecordCursor
 
     public void close()
     {
+        if (scrollId != null) {
+            client.prepareClearScroll()
+                    .addScrollId(scrollId)
+                    .execute();
+        }
     }
 
     private SearchResponse begin()
