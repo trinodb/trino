@@ -146,4 +146,7 @@ public interface ThriftMetastoreClient
 
     void setUGI(String userName)
             throws TException;
+
+    String getDelegationToken(String userName)
+            throws TException;
 }

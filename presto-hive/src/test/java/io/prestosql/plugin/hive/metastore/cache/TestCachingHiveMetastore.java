@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.units.Duration;
+import io.prestosql.plugin.hive.authentication.HiveAuthenticationConfig;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.Partition;
 import io.prestosql.plugin.hive.metastore.thrift.BridgingHiveMetastore;
@@ -77,7 +78,7 @@ public class TestCachingHiveMetastore
     private ThriftHiveMetastore createThriftHiveMetastore()
     {
         MetastoreLocator metastoreLocator = new MockMetastoreLocator(mockClient);
-        return new ThriftHiveMetastore(metastoreLocator, new ThriftHiveMetastoreConfig());
+        return new ThriftHiveMetastore(metastoreLocator, new ThriftHiveMetastoreConfig(), new HiveAuthenticationConfig());
     }
 
     @Test
@@ -304,7 +305,7 @@ public class TestCachingHiveMetastore
         }
 
         @Override
-        public ThriftMetastoreClient createMetastoreClient()
+        public ThriftMetastoreClient createMetastoreClient(Optional<String> delegationToken)
         {
             return client;
         }

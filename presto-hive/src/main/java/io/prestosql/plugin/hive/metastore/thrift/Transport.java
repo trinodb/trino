@@ -38,13 +38,14 @@ public final class Transport
             Optional<SSLContext> sslContext,
             Optional<HostAndPort> socksProxy,
             int timeoutMillis,
-            HiveMetastoreAuthentication authentication)
+            HiveMetastoreAuthentication authentication,
+            Optional<String> delegationToken)
             throws TTransportException
     {
         requireNonNull(address, "address is null");
         try {
             TTransport rawTransport = createRaw(address, sslContext, socksProxy, timeoutMillis);
-            TTransport authenticatedTransport = authentication.authenticate(rawTransport, address.getHost());
+            TTransport authenticatedTransport = authentication.authenticate(rawTransport, address.getHost(), delegationToken);
             if (!authenticatedTransport.isOpen()) {
                 authenticatedTransport.open();
             }

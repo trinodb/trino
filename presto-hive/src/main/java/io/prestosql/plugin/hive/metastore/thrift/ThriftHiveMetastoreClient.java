@@ -415,4 +415,11 @@ public class ThriftHiveMetastoreClient
     {
         client.set_ugi(userName, new ArrayList<>());
     }
+
+    @Override
+    public String getDelegationToken(String userName)
+            throws TException
+    {
+        return client.get_delegation_token(userName, userName);
+    }
 }
