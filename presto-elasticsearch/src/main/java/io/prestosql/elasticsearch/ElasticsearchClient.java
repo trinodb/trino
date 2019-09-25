@@ -194,7 +194,7 @@ public class ElasticsearchClient
                 .collect(toImmutableList());
     }
 
-    public ClusterSearchShardsResponse getSearchShards(String index, ElasticsearchTableDescription tableDescription)
+    public ClusterSearchShardsResponse getSearchShards(String index)
     {
         verifyNotNull(client, "client is null");
         return getSearchShardsResponse(client, new ClusterSearchShardsRequest(index));
