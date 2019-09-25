@@ -392,4 +392,10 @@ public class MockThriftMetastoreClient
     {
         // No-op
     }
+
+    @Override
+    public String getDelegationToken(String userName)
+    {
+        throw new UnsupportedOperationException();
+    }
 }
