@@ -50,14 +50,13 @@ public class TestPushPredicateIntoTableScan
     private PushPredicateIntoTableScan pushPredicateIntoTableScan;
     private TableHandle nationTableHandle;
     private TableHandle ordersTableHandle;
-    private CatalogName catalogName;
 
     @BeforeClass
     public void setUpBeforeClass()
     {
         pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getMetadata(), new TypeAnalyzer(new SqlParser(), tester().getMetadata()));
 
-        catalogName = tester().getCurrentConnectorId();
+        CatalogName catalogName = tester().getCurrentConnectorId();
 
         TpchTableHandle nation = new TpchTableHandle("nation", 1.0);
         nationTableHandle = new TableHandle(
