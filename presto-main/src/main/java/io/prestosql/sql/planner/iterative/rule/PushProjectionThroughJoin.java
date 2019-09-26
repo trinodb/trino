@@ -35,9 +35,10 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.sql.planner.SymbolsExtractor.extractUnique;
+import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
 
 /**
- * Utility class for pushing projections through join so that joins are not separated
+ * Utility class for pushing projections through inner join so that joins are not separated
  * by a project node and can participate in cross join elimination or join reordering.
  */
 public final class PushProjectionThroughJoin
@@ -56,6 +57,10 @@ public final class PushProjectionThroughJoin
         JoinNode joinNode = (JoinNode) child;
         PlanNode leftChild = joinNode.getLeft();
         PlanNode rightChild = joinNode.getRight();
+
+        if (joinNode.getType() != INNER) {
+            return Optional.empty();
+        }
 
         Assignments.Builder leftAssignmentsBuilder = Assignments.builder();
         Assignments.Builder rightAssignmentsBuilder = Assignments.builder();
