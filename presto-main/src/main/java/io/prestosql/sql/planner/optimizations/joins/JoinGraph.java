@@ -36,6 +36,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.sql.planner.iterative.rule.PushProjectionThroughJoin.pushProjectionThroughJoin;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
 import static java.util.Objects.requireNonNull;
@@ -250,15 +251,10 @@ public class JoinGraph
         {
             PlanNode dereferenced = lookup.resolve(node);
             JoinGraph graph = dereferenced.accept(this, context);
-            if (isTrivialGraph(graph)) {
-                return replacementGraph(dereferenced, node, context);
+            if (graph.nodes.size() == 1) {
+                return replacementGraph(getOnlyElement(graph.nodes), node, context);
             }
             return graph;
-        }
-
-        private boolean isTrivialGraph(JoinGraph graph)
-        {
-            return graph.nodes.size() < 2 && graph.edges.isEmpty() && graph.filters.isEmpty();
         }
 
         private JoinGraph replacementGraph(PlanNode oldNode, PlanNode newNode, Context context)
