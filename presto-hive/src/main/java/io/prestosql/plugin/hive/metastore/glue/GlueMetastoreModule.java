@@ -40,16 +40,16 @@ public class GlueMetastoreModule
 
         if (buildConfigObject(HiveConfig.class).getRecordingPath() != null) {
             binder.bind(HiveMetastore.class)
-                .annotatedWith(ForRecordingHiveMetastore.class)
-                .to(GlueHiveMetastore.class)
-                .in(Scopes.SINGLETON);
+                    .annotatedWith(ForRecordingHiveMetastore.class)
+                    .to(GlueHiveMetastore.class)
+                    .in(Scopes.SINGLETON);
             binder.bind(GlueHiveMetastore.class).in(Scopes.SINGLETON);
             newExporter(binder).export(GlueHiveMetastore.class).withGeneratedName();
 
             binder.bind(HiveMetastore.class)
-                .annotatedWith(ForCachingHiveMetastore.class)
-                .to(RecordingHiveMetastore.class)
-                .in(Scopes.SINGLETON);
+                    .annotatedWith(ForCachingHiveMetastore.class)
+                    .to(RecordingHiveMetastore.class)
+                    .in(Scopes.SINGLETON);
             binder.bind(RecordingHiveMetastore.class).in(Scopes.SINGLETON);
             newExporter(binder).export(RecordingHiveMetastore.class).withGeneratedName();
 
@@ -58,11 +58,11 @@ public class GlueMetastoreModule
         }
         else {
             binder.bind(HiveMetastore.class)
-                .annotatedWith(ForCachingHiveMetastore.class)
-                .to(GlueHiveMetastore.class)
-                .in(Scopes.SINGLETON);
+                    .annotatedWith(ForCachingHiveMetastore.class)
+                    .to(GlueHiveMetastore.class)
+                    .in(Scopes.SINGLETON);
             newExporter(binder).export(HiveMetastore.class)
-                .as(generator -> generator.generatedNameOf(GlueHiveMetastore.class));
+                    .as(generator -> generator.generatedNameOf(GlueHiveMetastore.class));
         }
 
         binder.install(new CachingHiveMetastoreModule());
