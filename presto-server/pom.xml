@@ -23,5 +23,31 @@
         <!-- Launcher properties -->
         <main-class>io.prestosql.server.PrestoServer</main-class>
         <process-name>${project.artifactId}</process-name>
+
+        <dep.alluxio.version>2.0.1</dep.alluxio.version>
     </properties>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>com.googlecode.maven-download-plugin</groupId>
+                <artifactId>download-maven-plugin</artifactId>
+                <version>1.3.0</version>
+                <executions>
+                    <execution>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>wget</goal>
+                        </goals>
+                        <configuration>
+                            <url>https://downloads.alluxio.io/downloads/files/${dep.alluxio.version}/alluxio-${dep.alluxio.version}-bin.tar.gz</url>
+                            <outputFileName>alluxio-${dep.alluxio.version}-client.jar</outputFileName>
+                            <outputDirectory>${project.build.directory}/alluxio/</outputDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
 </project>

@@ -10,6 +10,12 @@
         </directory>
     </fileSet>
 
+    <fileSet to="/plugin/hive-hadoop2">
+        <directory path="${basedir}/target/alluxio/" >
+            <include>alluxio-*-client.jar</include>
+        </directory>
+    </fileSet>
+
     <!-- Launcher -->
     <artifactSet to="bin">
         <artifact id="io.airlift:launcher:tar.gz:bin:${dep.packaging.version}">
