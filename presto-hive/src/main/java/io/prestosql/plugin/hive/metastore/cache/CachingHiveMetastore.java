@@ -832,11 +832,13 @@ public class CachingHiveMetastore
     {
         private final HiveIdentity identity;
         private final T key;
+        private final int hashCode;
 
         public WithIdentity(HiveIdentity identity, T key)
         {
             this.identity = requireNonNull(identity, "identity is null");
             this.key = requireNonNull(key, "key is null");
+            this.hashCode = Objects.hash(identity, key);
         }
 
         public HiveIdentity getIdentity()
@@ -859,14 +861,15 @@ public class CachingHiveMetastore
                 return false;
             }
             WithIdentity<?> other = (WithIdentity<?>) o;
-            return Objects.equals(identity, other.identity) &&
-                   Objects.equals(key, other.key);
+            return hashCode == other.hashCode &&
+                    Objects.equals(identity, other.identity) &&
+                    Objects.equals(key, other.key);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(identity, key);
+            return hashCode;
         }
 
         @Override
