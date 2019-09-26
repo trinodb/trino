@@ -22,7 +22,6 @@ import io.prestosql.spi.connector.FixedSplitSource;
 
 import javax.inject.Inject;
 
-import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -41,13 +40,11 @@ public class ElasticsearchSplitManager
     public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableHandle table, SplitSchedulingStrategy splitSchedulingStrategy)
     {
         ElasticsearchTableHandle tableHandle = (ElasticsearchTableHandle) table;
-        ElasticsearchTableDescription tableDescription = client.getTable(tableHandle.getSchemaName(), tableHandle.getTableName());
-        verifyNotNull(table, "Table no longer exists: %s", tableHandle.toString());
 
-        List<ElasticsearchSplit> splits = client.getSearchShards(tableDescription.getIndex()).stream()
+        List<ElasticsearchSplit> splits = client.getSearchShards(tableHandle.getIndex()).stream()
                 .map(shard -> new ElasticsearchSplit(
-                        tableDescription.getIndex(),
-                        tableDescription.getType(),
+                        tableHandle.getIndex(),
+                        tableHandle.getType(),
                         shard.getId(),
                         shard.getHost(),
                         shard.getPort()))

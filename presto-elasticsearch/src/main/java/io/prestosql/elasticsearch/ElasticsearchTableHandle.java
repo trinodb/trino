@@ -29,24 +29,43 @@ import static java.util.Objects.requireNonNull;
 public final class ElasticsearchTableHandle
         implements ConnectorTableHandle
 {
+    private final String index;
+    private final String type;
     private final SchemaTableName schemaTableName;
     private final TupleDomain<ColumnHandle> constraint;
 
-    public ElasticsearchTableHandle(String schemaName, String tableName)
+    public ElasticsearchTableHandle(String index, String type, String schemaName, String tableName)
     {
-        this(schemaName, tableName, TupleDomain.all());
+        this(index, type, schemaName, tableName, TupleDomain.all());
     }
 
     @JsonCreator
     public ElasticsearchTableHandle(
+            @JsonProperty("index") String index,
+            @JsonProperty("type") String type,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint)
     {
         requireNonNull(schemaName, "schemaName is null");
         requireNonNull(tableName, "tableName is null");
+
+        this.index = requireNonNull(index, "index is null");
+        this.type = requireNonNull(type, "type is null");
         this.schemaTableName = new SchemaTableName(schemaName.toLowerCase(ENGLISH), tableName.toLowerCase(ENGLISH));
         this.constraint = requireNonNull(constraint, "constraint is null");
+    }
+
+    @JsonProperty
+    public String getIndex()
+    {
+        return index;
+    }
+
+    @JsonProperty
+    public String getType()
+    {
+        return type;
     }
 
     @JsonProperty
