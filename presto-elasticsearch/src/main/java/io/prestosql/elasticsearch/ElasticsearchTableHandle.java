@@ -22,6 +22,7 @@ import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -30,11 +31,11 @@ public final class ElasticsearchTableHandle
         implements ConnectorTableHandle
 {
     private final String index;
-    private final String type;
+    private final Optional<String> type;
     private final SchemaTableName schemaTableName;
     private final TupleDomain<ColumnHandle> constraint;
 
-    public ElasticsearchTableHandle(String index, String type, String schemaName, String tableName)
+    public ElasticsearchTableHandle(String index, Optional<String> type, String schemaName, String tableName)
     {
         this(index, type, schemaName, tableName, TupleDomain.all());
     }
@@ -42,7 +43,7 @@ public final class ElasticsearchTableHandle
     @JsonCreator
     public ElasticsearchTableHandle(
             @JsonProperty("index") String index,
-            @JsonProperty("type") String type,
+            @JsonProperty("type") Optional<String> type,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint)
@@ -63,7 +64,7 @@ public final class ElasticsearchTableHandle
     }
 
     @JsonProperty
-    public String getType()
+    public Optional<String> getType()
     {
         return type;
     }

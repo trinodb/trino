@@ -23,8 +23,6 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static io.prestosql.elasticsearch.SearchGuardCertificateFormat.NONE;
-import static io.prestosql.elasticsearch.SearchGuardCertificateFormat.PEM;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -35,24 +33,21 @@ public class TestElasticsearchConfig
     {
         assertRecordedDefaults(recordDefaults(ElasticsearchConfig.class)
                 .setHost(null)
-                .setPort(9300)
-                .setClusterName(null)
+                .setPort(9200)
                 .setTableDescriptionDirectory(new File("etc/elasticsearch/"))
                 .setDefaultSchema("default")
                 .setScrollSize(1000)
                 .setScrollTimeout(new Duration(1, SECONDS))
                 .setRequestTimeout(new Duration(100, MILLISECONDS))
+                .setConnectTimeout(new Duration(1, SECONDS))
                 .setMaxRequestRetries(5)
                 .setMaxRetryTime(new Duration(10, SECONDS))
-                .setCertificateFormat(NONE)
-                .setPemcertFilepath(new File("etc/elasticsearch/esnode.pem"))
-                .setPemkeyFilepath(new File("etc/elasticsearch/esnode-key.pem"))
-                .setPemkeyPassword(null)
-                .setPemtrustedcasFilepath(new File("etc/elasticsearch/root-ca.pem"))
-                .setKeystoreFilepath(new File("etc/elasticsearch/keystore.jks"))
+                .setTlsEnabled(false)
+                .setKeystorePath(null)
                 .setKeystorePassword(null)
-                .setTruststoreFilepath(new File("etc/elasticsearch/truststore.jks"))
-                .setTruststorePassword(null));
+                .setTrustStorePath(null)
+                .setTruststorePassword(null)
+                .setVerifyHostnames(true));
     }
 
     @Test
@@ -61,45 +56,39 @@ public class TestElasticsearchConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("elasticsearch.host", "example.com")
                 .put("elasticsearch.port", "9999")
-                .put("elasticsearch.cluster-name", "test-cluster")
                 .put("elasticsearch.table-description-directory", "/etc/elasticsearch/")
                 .put("elasticsearch.default-schema-name", "test")
                 .put("elasticsearch.scroll-size", "4000")
                 .put("elasticsearch.scroll-timeout", "20s")
                 .put("elasticsearch.request-timeout", "1s")
+                .put("elasticsearch.connect-timeout", "10s")
                 .put("elasticsearch.max-request-retries", "3")
                 .put("elasticsearch.max-request-retry-time", "5s")
-                .put("searchguard.ssl.certificate-format", "PEM")
-                .put("searchguard.ssl.pemcert-filepath", "etc/elasticsearch/esnode-2.pem")
-                .put("searchguard.ssl.pemkey-filepath", "etc/elasticsearch/esnode-key-2.pem")
-                .put("searchguard.ssl.pemkey-password", "111111")
-                .put("searchguard.ssl.pemtrustedcas-filepath", "etc/elasticsearch/root-ca-2.pem")
-                .put("searchguard.ssl.keystore-filepath", "etc/elasticsearch/keystore-2.jks")
-                .put("searchguard.ssl.keystore-password", "222222")
-                .put("searchguard.ssl.truststore-filepath", "etc/elasticsearch/truststore-2.jks")
-                .put("searchguard.ssl.truststore-password", "333333")
+                .put("elasticsearch.tls.enabled", "true")
+                .put("elasticsearch.tls.keystore-path", "/tmp/keystore")
+                .put("elasticsearch.tls.keystore-password", "keystore-password")
+                .put("elasticsearch.tls.truststore-path", "/tmp/truststore")
+                .put("elasticsearch.tls.truststore-password", "truststore-password")
+                .put("elasticsearch.tls.verify-hostnames", "false")
                 .build();
 
         ElasticsearchConfig expected = new ElasticsearchConfig()
                 .setHost("example.com")
                 .setPort(9999)
-                .setClusterName("test-cluster")
                 .setTableDescriptionDirectory(new File("/etc/elasticsearch/"))
                 .setDefaultSchema("test")
                 .setScrollSize(4000)
                 .setScrollTimeout(new Duration(20, SECONDS))
                 .setRequestTimeout(new Duration(1, SECONDS))
+                .setConnectTimeout(new Duration(10, SECONDS))
                 .setMaxRequestRetries(3)
                 .setMaxRetryTime(new Duration(5, SECONDS))
-                .setCertificateFormat(PEM)
-                .setPemcertFilepath(new File("etc/elasticsearch/esnode-2.pem"))
-                .setPemkeyFilepath(new File("etc/elasticsearch/esnode-key-2.pem"))
-                .setPemkeyPassword("111111")
-                .setPemtrustedcasFilepath(new File("etc/elasticsearch/root-ca-2.pem"))
-                .setKeystoreFilepath(new File("etc/elasticsearch/keystore-2.jks"))
-                .setKeystorePassword("222222")
-                .setTruststoreFilepath(new File("etc/elasticsearch/truststore-2.jks"))
-                .setTruststorePassword("333333");
+                .setTlsEnabled(true)
+                .setKeystorePath(new File("/tmp/keystore"))
+                .setKeystorePassword("keystore-password")
+                .setTrustStorePath(new File("/tmp/truststore"))
+                .setTruststorePassword("truststore-password")
+                .setVerifyHostnames(false);
 
         assertFullMapping(properties, expected);
     }

@@ -22,6 +22,8 @@ import io.prestosql.spi.connector.FixedSplitSource;
 
 import javax.inject.Inject;
 
+import java.util.List;
+
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -46,8 +48,7 @@ public class ElasticsearchSplitManager
                         tableHandle.getIndex(),
                         tableHandle.getType(),
                         shard.getId(),
-                        shard.getHost(),
-                        shard.getPort()))
+                        shard.getAddress()))
                 .collect(toImmutableList());
 
         return new FixedSplitSource(splits);
