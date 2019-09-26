@@ -17,16 +17,12 @@ import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Binder;
 import com.google.inject.Module;
-import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import io.prestosql.decoder.DecoderModule;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 
 import javax.inject.Inject;
-import javax.inject.Singleton;
-
-import java.io.IOException;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
@@ -44,6 +40,7 @@ public class ElasticsearchConnectorModule
         binder.bind(ElasticsearchMetadata.class).in(Scopes.SINGLETON);
         binder.bind(ElasticsearchSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(ElasticsearchRecordSetProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ElasticsearchClient.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(ElasticsearchConfig.class);
 
@@ -51,14 +48,6 @@ public class ElasticsearchConnectorModule
         jsonCodecBinder(binder).bindJsonCodec(ElasticsearchTableDescription.class);
 
         binder.install(new DecoderModule());
-    }
-
-    @Singleton
-    @Provides
-    public static ElasticsearchClient createElasticsearchClient(ElasticsearchConfig config, ElasticsearchTableDescriptionProvider elasticsearchTableDescriptionProvider)
-            throws IOException
-    {
-        return new ElasticsearchClient(elasticsearchTableDescriptionProvider, config);
     }
 
     private static final class TypeDeserializer
