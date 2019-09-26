@@ -40,6 +40,7 @@ import static io.prestosql.sql.planner.assertions.PlanMatchPattern.strictProject
 import static io.prestosql.sql.planner.iterative.Lookup.noLookup;
 import static io.prestosql.sql.planner.iterative.rule.PushProjectionThroughJoin.pushProjectionThroughJoin;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
+import static io.prestosql.sql.planner.plan.JoinNode.Type.LEFT;
 import static io.prestosql.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 import static io.prestosql.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
 import static io.prestosql.sql.tree.ArithmeticUnaryExpression.Sign.PLUS;
@@ -119,6 +120,25 @@ public class TestPushProjectionThroughJoin
                         c, new ArithmeticBinaryExpression(ADD, a.toSymbolReference(), b.toSymbolReference())),
                 p.join(
                         INNER,
+                        p.values(a),
+                        p.values(b)));
+        Optional<PlanNode> rewritten = pushProjectionThroughJoin(planNode, noLookup(), new PlanNodeIdAllocator());
+        assertThat(rewritten).isEmpty();
+    }
+
+    @Test
+    public void testDoesNotPushProjectionThroughOuterJoin()
+    {
+        PlanBuilder p = new PlanBuilder(new PlanNodeIdAllocator(), dummyMetadata());
+        Symbol a = p.symbol("a");
+        Symbol b = p.symbol("b");
+        Symbol c = p.symbol("c");
+
+        ProjectNode planNode = p.project(
+                Assignments.of(
+                        c, new ArithmeticUnaryExpression(MINUS, a.toSymbolReference())),
+                p.join(
+                        LEFT,
                         p.values(a),
                         p.values(b)));
         Optional<PlanNode> rewritten = pushProjectionThroughJoin(planNode, noLookup(), new PlanNodeIdAllocator());
