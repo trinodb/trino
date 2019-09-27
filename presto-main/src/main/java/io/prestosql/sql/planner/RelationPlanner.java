@@ -101,7 +101,6 @@ import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.prestosql.sql.tree.Join.Type.CROSS;
 import static io.prestosql.sql.tree.Join.Type.IMPLICIT;
 import static io.prestosql.sql.tree.Join.Type.INNER;
-import static io.prestosql.sql.tree.Join.Type.RIGHT;
 import static java.util.Objects.requireNonNull;
 
 class RelationPlanner
@@ -224,15 +223,11 @@ class RelationPlanner
         Optional<Unnest> unnest = getUnnest(node.getRight());
         if (unnest.isPresent()) {
             if (node.getType() == CROSS || node.getType() == IMPLICIT) {
-                return planJoinUnnest(leftPlan, node, unnest.get(), false);
+                return planJoinUnnest(leftPlan, node, unnest.get());
             }
             checkState(node.getCriteria().isPresent(), "missing Join criteria");
             if (node.getCriteria().get() instanceof JoinOn && ((JoinOn) node.getCriteria().get()).getExpression().equals(TRUE_LITERAL)) {
-                if (node.getType() == RIGHT || node.getType() == INNER) {
-                    return planJoinUnnest(leftPlan, node, unnest.get(), false);
-                }
-                // LEFT or FULL join
-                return planJoinUnnest(leftPlan, node, unnest.get(), true);
+                return planJoinUnnest(leftPlan, node, unnest.get());
             }
             throw notSupportedException(unnest.get(), "UNNEST in conditional JOIN");
         }
@@ -610,7 +605,7 @@ class RelationPlanner
         return conjunct instanceof ComparisonExpression && ((ComparisonExpression) conjunct).getOperator() == ComparisonExpression.Operator.EQUAL;
     }
 
-    private RelationPlan planJoinUnnest(RelationPlan leftPlan, Join joinNode, Unnest node, boolean outer)
+    private RelationPlan planJoinUnnest(RelationPlan leftPlan, Join joinNode, Unnest node)
     {
         RelationType unnestOutputDescriptor = analysis.getOutputDescriptor(node);
         // Create symbols for the result of unnesting
@@ -655,7 +650,33 @@ class RelationPlanner
         Optional<Symbol> ordinalitySymbol = node.isWithOrdinality() ? Optional.of(unnestedSymbolsIterator.next()) : Optional.empty();
         checkState(!unnestedSymbolsIterator.hasNext(), "Not all output symbols were matched with input symbols");
 
-        UnnestNode unnestNode = new UnnestNode(idAllocator.getNextId(), projectNode, leftPlan.getFieldMappings(), unnestSymbols.build(), ordinalitySymbol, outer);
+        Optional<Expression> filterExpression = Optional.empty();
+        if (joinNode.getCriteria().isPresent()) {
+            JoinCriteria criteria = joinNode.getCriteria().get();
+            if (criteria instanceof NaturalJoin) {
+                throw notSupportedException(joinNode, "Natural join involving UNNEST not supported");
+            }
+            if (criteria instanceof JoinUsing) {
+                throw notSupportedException(joinNode, "USING not supported for join involving UNNEST");
+            }
+            Expression filter = (Expression) getOnlyElement(criteria.getNodes());
+            if (filter.equals(TRUE_LITERAL)) {
+                filterExpression = Optional.of(filter);
+            }
+            else { //TODO rewrite filter to support non-trivial join criteria
+                throw notSupportedException(joinNode, "JOIN involving UNNEST on condition other than TRUE");
+            }
+        }
+
+        UnnestNode unnestNode = new UnnestNode(
+                idAllocator.getNextId(),
+                projectNode,
+                leftPlan.getFieldMappings(),
+                unnestSymbols.build(),
+                ordinalitySymbol,
+                JoinNode.Type.typeConvert(joinNode.getType()),
+                filterExpression);
+
         return new RelationPlan(unnestNode, analysis.getScope(joinNode), unnestNode.getOutputSymbols());
     }
 
@@ -757,7 +778,7 @@ class RelationPlanner
         checkState(!unnestedSymbolsIterator.hasNext(), "Not all output symbols were matched with input symbols");
         ValuesNode valuesNode = new ValuesNode(idAllocator.getNextId(), argumentSymbols.build(), ImmutableList.of(values.build()));
 
-        UnnestNode unnestNode = new UnnestNode(idAllocator.getNextId(), valuesNode, ImmutableList.of(), unnestSymbols.build(), ordinalitySymbol, false);
+        UnnestNode unnestNode = new UnnestNode(idAllocator.getNextId(), valuesNode, ImmutableList.of(), unnestSymbols.build(), ordinalitySymbol, JoinNode.Type.INNER, Optional.empty());
         return new RelationPlan(unnestNode, scope, unnestedSymbols);
     }
 

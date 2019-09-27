@@ -23,6 +23,7 @@ import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
+import io.prestosql.sql.planner.plan.UnnestNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.tree.Expression;
 
@@ -122,6 +123,13 @@ public final class ExpressionExtractor
         {
             node.getFilter().ifPresent(consumer);
             return super.visitJoin(node, context);
+        }
+
+        @Override
+        public Void visitUnnest(UnnestNode node, Void context)
+        {
+            node.getFilter().ifPresent(consumer);
+            return super.visitUnnest(node, context);
         }
 
         @Override

@@ -1288,7 +1288,11 @@ public class PredicatePushDown
         public PlanNode visitUnnest(UnnestNode node, RewriteContext<Expression> context)
         {
             Expression inheritedPredicate = context.get();
+            if (node.getJoinType() == RIGHT || node.getJoinType() == FULL) {
+                return new FilterNode(idAllocator.getNextId(), node, inheritedPredicate);
+            }
 
+            //TODO for LEFT or INNER join type, push down UnnestNode's filter on replicate symbols
             EqualityInference equalityInference = EqualityInference.newInstance(inheritedPredicate);
 
             List<Expression> pushdownConjuncts = new ArrayList<>();
@@ -1322,7 +1326,7 @@ public class PredicatePushDown
 
             PlanNode output = node;
             if (rewrittenSource != node.getSource()) {
-                output = new UnnestNode(node.getId(), rewrittenSource, node.getReplicateSymbols(), node.getUnnestSymbols(), node.getOrdinalitySymbol(), node.isOuter());
+                output = new UnnestNode(node.getId(), rewrittenSource, node.getReplicateSymbols(), node.getUnnestSymbols(), node.getOrdinalitySymbol(), node.getJoinType(), node.getFilter());
             }
             if (!postUnnestConjuncts.isEmpty()) {
                 output = new FilterNode(idAllocator.getNextId(), output, combineConjuncts(postUnnestConjuncts));
