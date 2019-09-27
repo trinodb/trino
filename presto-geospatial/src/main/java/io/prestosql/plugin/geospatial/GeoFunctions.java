@@ -27,6 +27,7 @@ import com.esri.core.geometry.Point;
 import com.esri.core.geometry.Polygon;
 import com.esri.core.geometry.Polyline;
 import com.esri.core.geometry.SpatialReference;
+import com.esri.core.geometry.WktExportFlags;
 import com.esri.core.geometry.ogc.OGCConcreteGeometryCollection;
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.esri.core.geometry.ogc.OGCGeometryCollection;
@@ -56,6 +57,8 @@ import io.prestosql.spi.type.IntegerType;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.linearref.LengthIndexedLine;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -68,6 +71,7 @@ import java.util.Objects;
 import java.util.Set;
 
 import static com.esri.core.geometry.Geometry.Type;
+import static com.esri.core.geometry.GeometryEngine.geometryToWkt;
 import static com.esri.core.geometry.NonSimpleResult.Reason.Clustering;
 import static com.esri.core.geometry.NonSimpleResult.Reason.Cracking;
 import static com.esri.core.geometry.NonSimpleResult.Reason.CrossOver;
@@ -138,6 +142,18 @@ public final class GeoFunctions
     private static final float MAX_LATITUDE = 90;
     private static final float MIN_LONGITUDE = -180;
     private static final float MAX_LONGITUDE = 180;
+
+    private static final int HADOOP_SHAPE_SIZE_WKID = 4;
+    private static final int HADOOP_SHAPE_SIZE_TYPE = 1;
+    private static final int[] HADOOP_SHAPE_TYPES = {
+            WktExportFlags.wktExportDefaults,
+            WktExportFlags.wktExportPoint,
+            WktExportFlags.wktExportLineString,
+            WktExportFlags.wktExportPolygon,
+            WktExportFlags.wktExportMultiPoint,
+            WktExportFlags.wktExportMultiLineString,
+            WktExportFlags.wktExportMultiPolygon
+    };
 
     private static final EnumSet<Type> GEOMETRY_TYPES_FOR_SPHERICAL_GEOGRAPHY = EnumSet.of(
             Type.Point, Type.Polyline, Type.Polygon, Type.MultiPoint);
@@ -282,6 +298,23 @@ public final class GeoFunctions
     public static Slice stGeomFromBinary(@SqlType(VARBINARY) Slice input)
     {
         return serialize(geomFromBinary(input));
+    }
+
+    @Description("Returns a Geometry type object from Spatial Framework for Hadoop representation")
+    @ScalarFunction("geometry_from_hadoop_shape")
+    @SqlType(GEOMETRY_TYPE_NAME)
+    public static Slice geometryFromHadoopShape(@SqlType(VARBINARY) Slice input)
+    {
+        requireNonNull(input, "input is null");
+
+        try {
+            OGCGeometry geometry = OGCGeometry.fromEsriShape(getShapeByteBuffer(input));
+            String wkt = geometryToWkt(geometry.getEsriGeometry(), getWktExportFlags(input));
+            return serialize(OGCGeometry.fromText(wkt));
+        }
+        catch (IndexOutOfBoundsException | UnsupportedOperationException | IllegalArgumentException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid Hadoop shape", e);
+        }
     }
 
     @Description("Converts a Geometry object to a SphericalGeography object")
@@ -1339,6 +1372,24 @@ public final class GeoFunctions
         }
         geometry.setSpatialReference(null);
         return geometry;
+    }
+
+    private static ByteBuffer getShapeByteBuffer(Slice input)
+    {
+        int offset = HADOOP_SHAPE_SIZE_WKID + HADOOP_SHAPE_SIZE_TYPE;
+        if (input.length() <= offset) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Hadoop shape input is too short");
+        }
+        return input.toByteBuffer(offset, input.length() - offset).slice().order(ByteOrder.LITTLE_ENDIAN);
+    }
+
+    private static int getWktExportFlags(Slice input)
+    {
+        byte hadoopShapeType = input.getByte(HADOOP_SHAPE_SIZE_WKID);
+        if (hadoopShapeType < 0 || hadoopShapeType >= HADOOP_SHAPE_TYPES.length) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid Hadoop shape type: " + hadoopShapeType);
+        }
+        return HADOOP_SHAPE_TYPES[hadoopShapeType];
     }
 
     private static void validateType(String function, OGCGeometry geometry, Set<GeometryType> validTypes)
