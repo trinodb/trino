@@ -65,6 +65,7 @@ import io.prestosql.sql.tree.JoinUsing;
 import io.prestosql.sql.tree.LambdaArgumentDeclaration;
 import io.prestosql.sql.tree.Lateral;
 import io.prestosql.sql.tree.NaturalJoin;
+import io.prestosql.sql.tree.Node;
 import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.Query;
@@ -362,9 +363,13 @@ class RelationPlanner
             // subqueries can be applied only to one side of join - left side is selected in arbitrary way
             leftPlanBuilder = subqueryPlanner.handleUncorrelatedSubqueries(leftPlanBuilder, complexJoinExpressions, node);
         }
-
-        RelationPlan intermediateRootRelationPlan = new RelationPlan(root, analysis.getScope(node), outputSymbols);
-        TranslationMap translationMap = new TranslationMap(intermediateRootRelationPlan, analysis, lambdaDeclarationToSymbolMap);
+        TranslationMap translationMap = translationMapFromSourceOutputs(
+                ImmutableList.<Symbol>builder()
+                        .addAll(leftPlanBuilder.getRoot().getOutputSymbols())
+                        .addAll(rightPlanBuilder.getRoot().getOutputSymbols())
+                        .build(),
+                node,
+                outputSymbols);
         translationMap.setFieldMappings(outputSymbols);
         translationMap.putExpressionMappingsFrom(leftPlanBuilder.getTranslations());
         translationMap.putExpressionMappingsFrom(rightPlanBuilder.getTranslations());
@@ -572,18 +577,13 @@ class RelationPlanner
                 .addAll(leftPlan.getFieldMappings())
                 .addAll(rightPlan.getFieldMappings())
                 .build();
-
-        // this node is not used in the plan. It is only used for creating the TranslationMap.
-        PlanNode dummy = new ValuesNode(
-                idAllocator.getNextId(),
+        TranslationMap translationMap = translationMapFromSourceOutputs(
                 ImmutableList.<Symbol>builder()
                         .addAll(leftPlanBuilder.getRoot().getOutputSymbols())
                         .addAll(rightPlanBuilder.getRoot().getOutputSymbols())
                         .build(),
-                ImmutableList.of());
-
-        RelationPlan intermediateRelationPlan = new RelationPlan(dummy, analysis.getScope(join), rewriterOutputSymbols);
-        TranslationMap translationMap = new TranslationMap(intermediateRelationPlan, analysis, lambdaDeclarationToSymbolMap);
+                join,
+                rewriterOutputSymbols);
         translationMap.setFieldMappings(rewriterOutputSymbols);
         translationMap.putExpressionMappingsFrom(leftPlanBuilder.getTranslations());
         translationMap.putExpressionMappingsFrom(rightPlanBuilder.getTranslations());
@@ -759,6 +759,17 @@ class RelationPlanner
 
         UnnestNode unnestNode = new UnnestNode(idAllocator.getNextId(), valuesNode, ImmutableList.of(), unnestSymbols.build(), ordinalitySymbol, false);
         return new RelationPlan(unnestNode, scope, unnestedSymbols);
+    }
+
+    private TranslationMap translationMapFromSourceOutputs(List<Symbol> sourceOutputs, Node node, List<Symbol> outputSymbols)
+    {
+        PlanNode dummy = new ValuesNode(
+                idAllocator.getNextId(),
+                ImmutableList.copyOf(requireNonNull(sourceOutputs, "sourceOutputs is null")),
+                ImmutableList.of());
+
+        RelationPlan dummyRelationPlan = new RelationPlan(dummy, analysis.getScope(node), outputSymbols);
+        return new TranslationMap(dummyRelationPlan, analysis, lambdaDeclarationToSymbolMap);
     }
 
     private RelationPlan processAndCoerceIfNecessary(Relation node, Void context)
