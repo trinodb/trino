@@ -261,6 +261,7 @@ import static io.prestosql.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.prestosql.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.FULL;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
+import static io.prestosql.sql.planner.plan.JoinNode.Type.LEFT;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.RIGHT;
 import static io.prestosql.sql.planner.plan.TableWriterNode.CreateTarget;
 import static io.prestosql.sql.planner.plan.TableWriterNode.InsertTarget;
@@ -1361,6 +1362,7 @@ public class LocalExecutionPlanner
                 outputMappings.put(ordinalitySymbol.get(), channel);
                 channel++;
             }
+            boolean outer = node.getJoinType() == LEFT || node.getJoinType() == FULL;
             OperatorFactory operatorFactory = new UnnestOperatorFactory(
                     context.getNextOperatorId(),
                     node.getId(),
@@ -1369,7 +1371,7 @@ public class LocalExecutionPlanner
                     unnestChannels,
                     unnestTypes.build(),
                     ordinalityType.isPresent(),
-                    node.isOuter());
+                    outer);
             return new PhysicalOperation(operatorFactory, outputMappings.build(), context, source);
         }
 

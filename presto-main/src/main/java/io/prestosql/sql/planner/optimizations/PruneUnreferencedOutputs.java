@@ -524,9 +524,15 @@ public class PruneUnreferencedOutputs
             ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
                     .addAll(replicateSymbols)
                     .addAll(unnestSymbols.keySet());
+            ImmutableSet.Builder<Symbol> unnestedSymbols = ImmutableSet.builder();
+            for (List<Symbol> symbols : unnestSymbols.values()) {
+                unnestedSymbols.addAll(symbols);
+            }
+            Set<Symbol> expectedFilterSymbols = Sets.difference(SymbolsExtractor.extractUnique(node.getFilter().orElse(TRUE_LITERAL)), unnestedSymbols.build());
+            expectedInputs.addAll(expectedFilterSymbols);
 
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
-            return new UnnestNode(node.getId(), source, replicateSymbols, unnestSymbols, ordinalitySymbol, node.isOuter());
+            return new UnnestNode(node.getId(), source, replicateSymbols, unnestSymbols, ordinalitySymbol, node.getJoinType(), node.getFilter());
         }
 
         @Override

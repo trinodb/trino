@@ -430,12 +430,23 @@ public final class StreamPropertyDerivations
 
             // We can describe properties in terms of inputs that are projected unmodified (i.e., not the unnested symbols)
             Set<Symbol> passThroughInputs = ImmutableSet.copyOf(node.getReplicateSymbols());
-            return properties.translate(column -> {
+            StreamProperties translatedProperties = properties.translate(column -> {
                 if (passThroughInputs.contains(column)) {
                     return Optional.of(column);
                 }
                 return Optional.empty();
             });
+
+            switch (node.getJoinType()) {
+                case INNER:
+                case LEFT:
+                    return translatedProperties;
+                case RIGHT:
+                case FULL:
+                    return translatedProperties.unordered(true);
+                default:
+                    throw new UnsupportedOperationException("Unknown UNNEST join type: " + node.getJoinType());
+            }
         }
 
         @Override

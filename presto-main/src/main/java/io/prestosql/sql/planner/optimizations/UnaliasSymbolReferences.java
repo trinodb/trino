@@ -183,7 +183,14 @@ public class UnaliasSymbolReferences
             for (Map.Entry<Symbol, List<Symbol>> entry : node.getUnnestSymbols().entrySet()) {
                 builder.put(canonicalize(entry.getKey()), entry.getValue());
             }
-            return new UnnestNode(node.getId(), source, canonicalizeAndDistinct(node.getReplicateSymbols()), builder.build(), node.getOrdinalitySymbol(), node.isOuter());
+            return new UnnestNode(
+                    node.getId(),
+                    source,
+                    canonicalizeAndDistinct(node.getReplicateSymbols()),
+                    builder.build(),
+                    node.getOrdinalitySymbol(),
+                    node.getJoinType(),
+                    node.getFilter().map(this::canonicalize));
         }
 
         @Override

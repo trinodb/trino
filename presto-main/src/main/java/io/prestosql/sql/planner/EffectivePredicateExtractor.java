@@ -40,6 +40,7 @@ import io.prestosql.sql.planner.plan.SpatialJoinNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.planner.plan.TopNNode;
 import io.prestosql.sql.planner.plan.UnionNode;
+import io.prestosql.sql.planner.plan.UnnestNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.planner.plan.WindowNode;
 import io.prestosql.sql.tree.ComparisonExpression;
@@ -238,6 +239,25 @@ public class EffectivePredicateExtractor
         public Expression visitUnion(UnionNode node, Void context)
         {
             return deriveCommonPredicates(node, source -> node.outputSymbolMap(source).entries());
+        }
+
+        @Override
+        public Expression visitUnnest(UnnestNode node, Void context)
+        {
+            Expression sourcePredicate = node.getSource().accept(this, context);
+
+            switch (node.getJoinType()) {
+                case INNER:
+                case LEFT:
+                    return pullExpressionThroughSymbols(
+                            combineConjuncts(node.getFilter().orElse(TRUE_LITERAL), sourcePredicate),
+                            node.getOutputSymbols());
+                case RIGHT:
+                case FULL:
+                    return TRUE_LITERAL;
+                default:
+                    throw new UnsupportedOperationException("Unknown UNNEST join type: " + node.getJoinType());
+            }
         }
 
         @Override
