@@ -83,11 +83,6 @@ public final class PartitionedConsumption<T>
         return partitions.build();
     }
 
-    public int getConsumersCount()
-    {
-        return consumersCount;
-    }
-
     public Iterator<Partition<T>> beginConsumption()
     {
         Queue<Partition<T>> partitions = new ArrayDeque<>(requireNonNull(this.partitions, "partitions is already null"));
