@@ -662,7 +662,8 @@ public class HashGenerationOptimizer
                                     .build(),
                             node.getUnnestSymbols(),
                             node.getOrdinalitySymbol(),
-                            node.isOuter()),
+                            node.getJoinType(),
+                            node.getFilter()),
                     hashSymbols);
         }
 

@@ -15,6 +15,7 @@ package io.prestosql.sql.planner.sanity;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
@@ -78,6 +79,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.sql.planner.optimizations.IndexJoinOptimizer.IndexKeyTracer;
+import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 /**
  * Ensures that all dependencies (i.e., symbols in expressions) for a plan node are provided by its source nodes
@@ -484,12 +486,16 @@ public final class ValidateDependenciesChecker
             PlanNode source = node.getSource();
             source.accept(this, boundSymbols);
 
-            Set<Symbol> required = ImmutableSet.<Symbol>builder()
+            ImmutableSet.Builder<Symbol> required = ImmutableSet.<Symbol>builder()
                     .addAll(node.getReplicateSymbols())
-                    .addAll(node.getUnnestSymbols().keySet())
-                    .build();
-
-            checkDependencies(source.getOutputSymbols(), required, "Invalid node. Dependencies (%s) not in source plan output (%s)", required, source.getOutputSymbols());
+                    .addAll(node.getUnnestSymbols().keySet());
+            ImmutableSet.Builder<Symbol> unnestedSymbols = ImmutableSet.builder();
+            for (List<Symbol> symbols : node.getUnnestSymbols().values()) {
+                unnestedSymbols.addAll(symbols);
+            }
+            Set<Symbol> expectedFilterSymbols = Sets.difference(SymbolsExtractor.extractUnique(node.getFilter().orElse(TRUE_LITERAL)), unnestedSymbols.build());
+            required.addAll(expectedFilterSymbols);
+            checkDependencies(source.getOutputSymbols(), required.build(), "Invalid node. Dependencies (%s) not in source plan output (%s)", required, source.getOutputSymbols());
 
             return null;
         }

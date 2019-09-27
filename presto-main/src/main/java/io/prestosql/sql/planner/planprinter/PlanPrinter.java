@@ -851,9 +851,21 @@ public class PlanPrinter
         @Override
         public Void visitUnnest(UnnestNode node, Void context)
         {
-            addNode(node,
-                    "Unnest",
-                    format("[replicate=%s, unnest=%s]", formatOutputs(types, node.getReplicateSymbols()), formatOutputs(types, node.getUnnestSymbols().keySet())));
+            String name;
+            if (node.getFilter().isPresent()) {
+                name = node.getJoinType().getJoinLabel() + " Unnest";
+            }
+            else if (!node.getReplicateSymbols().isEmpty()) {
+                name = "CrossJoin Unnest";
+            }
+            else {
+                name = "Unnest";
+            }
+            addNode(
+                    node,
+                    name,
+                    format("[replicate=%s, unnest=%s", formatOutputs(types, node.getReplicateSymbols()), formatOutputs(types, node.getUnnestSymbols().keySet()))
+                            + (node.getFilter().isPresent() ? format(", filter=%s]", node.getFilter().get().toString()) : "]"));
             return processChildren(node, context);
         }
 

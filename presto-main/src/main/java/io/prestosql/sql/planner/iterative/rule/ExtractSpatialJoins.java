@@ -605,7 +605,8 @@ public class ExtractSpatialJoins
                 node.getOutputSymbols(),
                 ImmutableMap.of(partitionsSymbol, ImmutableList.of(partitionSymbol)),
                 Optional.empty(),
-                false);
+                INNER,
+                Optional.empty());
     }
 
     private static boolean containsNone(Collection<Symbol> values, Collection<Symbol> testValues)

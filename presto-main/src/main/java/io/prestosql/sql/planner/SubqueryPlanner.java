@@ -28,6 +28,7 @@ import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.planner.plan.SimplePlanRewriter;
+import io.prestosql.sql.planner.plan.UnnestNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.tree.DefaultExpressionTraversalVisitor;
 import io.prestosql.sql.tree.DereferenceExpression;
@@ -580,6 +581,20 @@ class SubqueryPlanner
         {
             FilterNode rewrittenNode = (FilterNode) context.defaultRewrite(node);
             return new FilterNode(node.getId(), rewrittenNode.getSource(), replaceExpression(rewrittenNode.getPredicate(), mapping));
+        }
+
+        @Override
+        public PlanNode visitUnnest(UnnestNode node, RewriteContext<Void> context)
+        {
+            UnnestNode rewrittenNode = (UnnestNode) context.defaultRewrite(node);
+            return new UnnestNode(
+                    node.getId(),
+                    rewrittenNode.getSource(),
+                    rewrittenNode.getReplicateSymbols(),
+                    rewrittenNode.getUnnestSymbols(),
+                    rewrittenNode.getOrdinalitySymbol(),
+                    rewrittenNode.getJoinType(),
+                    rewrittenNode.getFilter().map(expression -> replaceExpression(expression, mapping)));
         }
 
         @Override

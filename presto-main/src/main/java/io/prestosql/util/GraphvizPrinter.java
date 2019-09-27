@@ -387,12 +387,23 @@ public final class GraphvizPrinter
         @Override
         public Void visitUnnest(UnnestNode node, Void context)
         {
-            if (!node.getOrdinalitySymbol().isPresent()) {
-                printNode(node, format("Unnest[%s]", node.getUnnestSymbols().keySet()), NODE_COLORS.get(NodeType.UNNEST));
+            StringBuilder label = new StringBuilder();
+            if (node.getFilter().isPresent()) {
+                label.append(node.getJoinType().getJoinLabel())
+                        .append(" Unnest");
+            }
+            else if (!node.getReplicateSymbols().isEmpty()) {
+                label.append("CrossJoin Unnest");
             }
             else {
-                printNode(node, format("Unnest[%s (ordinality)]", node.getUnnestSymbols().keySet()), NODE_COLORS.get(NodeType.UNNEST));
+                label.append("Unnest");
             }
+            label.append(format(" [%s", node.getUnnestSymbols().keySet()))
+                    .append(node.getOrdinalitySymbol().isPresent() ? " (ordinality)]" : "]");
+
+            String details = node.getFilter().isPresent() ? " filter " + node.getFilter().get().toString() : "";
+
+            printNode(node, label.toString(), details, NODE_COLORS.get(NodeType.UNNEST));
             return node.getSource().accept(this, context);
         }
 
