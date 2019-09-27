@@ -521,7 +521,7 @@ class SubqueryPlanner
             return planNode;
         }
 
-        return SimplePlanRewriter.rewriteWith(new ExpressionReplacer(idAllocator, mapping), planNode, null);
+        return SimplePlanRewriter.rewriteWith(new ExpressionReplacer(mapping), planNode, null);
     }
 
     private static class ColumnReferencesExtractor
@@ -557,12 +557,10 @@ class SubqueryPlanner
     private static class ExpressionReplacer
             extends SimplePlanRewriter<Void>
     {
-        private final PlanNodeIdAllocator idAllocator;
         private final Map<NodeRef<Expression>, Expression> mapping;
 
-        public ExpressionReplacer(PlanNodeIdAllocator idAllocator, Map<NodeRef<Expression>, Expression> mapping)
+        public ExpressionReplacer(Map<NodeRef<Expression>, Expression> mapping)
         {
-            this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.mapping = requireNonNull(mapping, "mapping is null");
         }
 
@@ -574,14 +572,14 @@ class SubqueryPlanner
             Assignments assignments = rewrittenNode.getAssignments()
                     .rewrite(expression -> replaceExpression(expression, mapping));
 
-            return new ProjectNode(idAllocator.getNextId(), rewrittenNode.getSource(), assignments);
+            return new ProjectNode(node.getId(), rewrittenNode.getSource(), assignments);
         }
 
         @Override
         public PlanNode visitFilter(FilterNode node, RewriteContext<Void> context)
         {
             FilterNode rewrittenNode = (FilterNode) context.defaultRewrite(node);
-            return new FilterNode(idAllocator.getNextId(), rewrittenNode.getSource(), replaceExpression(rewrittenNode.getPredicate(), mapping));
+            return new FilterNode(node.getId(), rewrittenNode.getSource(), replaceExpression(rewrittenNode.getPredicate(), mapping));
         }
 
         @Override
@@ -594,7 +592,7 @@ class SubqueryPlanner
                             .collect(toImmutableList()))
                     .collect(toImmutableList());
             return new ValuesNode(
-                    idAllocator.getNextId(),
+                    node.getId(),
                     rewrittenNode.getOutputSymbols(),
                     rewrittenRows);
         }
