@@ -13,6 +13,7 @@
  */
 package io.prestosql.operator;
 
+import io.prestosql.execution.Lifespan;
 import io.prestosql.operator.WorkProcessorOperatorAdapter.ProcessorContext;
 import io.prestosql.spi.Page;
 import io.prestosql.sql.planner.plan.PlanNodeId;
@@ -28,4 +29,14 @@ public interface WorkProcessorOperatorFactory
     WorkProcessorOperator create(
             ProcessorContext processorContext,
             WorkProcessor<Page> sourcePages);
+
+    default void lifespanFinished(Lifespan lifespan)
+    {
+        //do nothing
+    }
+
+    default void close()
+    {
+        //do nothing
+    }
 }
