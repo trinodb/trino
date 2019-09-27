@@ -68,6 +68,10 @@ Constructors
 
     Returns a geometry type object from WKB representation.
 
+.. function:: geometry_from_hadoop_shape(varbinary) -> Geometry
+
+    Returns a geometry type object from Spatial Framework for Hadoop representation.
+
 .. function:: ST_LineFromText(varchar) -> LineString
 
     Returns a geometry type linestring object from WKT representation.
