@@ -19,6 +19,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.execution.Lifespan;
 import io.prestosql.memory.context.AggregatedMemoryContext;
 import io.prestosql.memory.context.LocalMemoryContext;
 import io.prestosql.memory.context.MemoryTrackingContext;
@@ -711,7 +712,14 @@ public class WorkProcessorPipelineSourceOperator
         @Override
         public void noMoreOperators()
         {
+            this.operatorFactories.forEach(WorkProcessorOperatorFactory::close);
             closed = true;
+        }
+
+        @Override
+        public void noMoreOperators(Lifespan lifespan)
+        {
+            this.operatorFactories.forEach(operatorFactory -> operatorFactory.lifespanFinished(lifespan));
         }
     }
 }
