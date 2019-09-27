@@ -563,7 +563,7 @@ class RelationPlanner
         else {
             JoinCriteria criteria = join.getCriteria().get();
             if (criteria instanceof JoinUsing || criteria instanceof NaturalJoin) {
-                throw notSupportedException(join, "Lateral join with criteria other than ON");
+                throw notSupportedException(join, "Correlated join with criteria other than ON");
             }
             filterExpression = (Expression) getOnlyElement(criteria.getNodes());
         }
