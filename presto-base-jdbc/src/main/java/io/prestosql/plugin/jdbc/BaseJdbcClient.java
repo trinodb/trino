@@ -238,8 +238,10 @@ public class BaseJdbcClient
     {
         try (Connection connection = connectionFactory.openConnection(JdbcIdentity.from(session));
                 ResultSet resultSet = getColumns(tableHandle, connection.getMetaData())) {
+            int allColumns = 0;
             List<JdbcColumnHandle> columns = new ArrayList<>();
             while (resultSet.next()) {
+                allColumns++;
                 String columnName = resultSet.getString("COLUMN_NAME");
                 JdbcTypeHandle typeHandle = new JdbcTypeHandle(
                         resultSet.getInt("DATA_TYPE"),
@@ -256,8 +258,10 @@ public class BaseJdbcClient
                 }
             }
             if (columns.isEmpty()) {
-                // In rare cases (e.g. PostgreSQL) a table might have no columns.
-                throw new TableNotFoundException(tableHandle.getSchemaTableName());
+                // A table may have no supported columns. In rare cases (e.g. PostgreSQL) a table might have no columns at all.
+                throw new TableNotFoundException(
+                        tableHandle.getSchemaTableName(),
+                        format("Table '%s' has no supported columns (all %s columns are not supported)", tableHandle.getSchemaTableName(), allColumns));
             }
             return ImmutableList.copyOf(columns);
         }
