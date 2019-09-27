@@ -61,7 +61,7 @@ public class MySqlClientModule
             throws SQLException
     {
         Properties connectionProperties = new Properties();
-        connectionProperties.setProperty("useInformationSchema", "true");
+        connectionProperties.setProperty("useInformationSchema", Boolean.toString(mySqlConfig.isDriverUseInformationSchema()));
         connectionProperties.setProperty("nullCatalogMeansCurrent", "false");
         connectionProperties.setProperty("useUnicode", "true");
         connectionProperties.setProperty("characterEncoding", "utf8");

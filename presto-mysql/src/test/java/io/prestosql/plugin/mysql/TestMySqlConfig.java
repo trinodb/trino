@@ -32,7 +32,8 @@ public class TestMySqlConfig
         assertRecordedDefaults(recordDefaults(MySqlConfig.class)
                 .setAutoReconnect(true)
                 .setMaxReconnects(3)
-                .setConnectionTimeout(new Duration(10, TimeUnit.SECONDS)));
+                .setConnectionTimeout(new Duration(10, TimeUnit.SECONDS))
+                .setDriverUseInformationSchema(true));
     }
 
     @Test
@@ -41,12 +42,15 @@ public class TestMySqlConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("mysql.auto-reconnect", "false")
                 .put("mysql.max-reconnects", "4")
-                .put("mysql.connection-timeout", "4s").build();
+                .put("mysql.connection-timeout", "4s")
+                .put("mysql.jdbc.use-information-schema", "false")
+                .build();
 
         MySqlConfig expected = new MySqlConfig()
                 .setAutoReconnect(false)
                 .setMaxReconnects(4)
-                .setConnectionTimeout(new Duration(4, TimeUnit.SECONDS));
+                .setConnectionTimeout(new Duration(4, TimeUnit.SECONDS))
+                .setDriverUseInformationSchema(false);
 
         assertFullMapping(properties, expected);
     }
