@@ -16,6 +16,7 @@ package io.prestosql.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.prestosql.orc.OrcWriteValidation.OrcWriteValidationMode;
+import io.prestosql.plugin.hive.orc.OrcReaderConfig;
 import io.prestosql.plugin.hive.orc.OrcWriterConfig;
 import io.prestosql.plugin.hive.parquet.ParquetReaderConfig;
 import io.prestosql.plugin.hive.parquet.ParquetWriterConfig;
@@ -107,6 +108,7 @@ public final class HiveSessionProperties
     @Inject
     public HiveSessionProperties(
             HiveConfig hiveConfig,
+            OrcReaderConfig orcReaderConfig,
             OrcWriterConfig orcWriterConfig,
             ParquetReaderConfig parquetReaderConfig,
             ParquetWriterConfig parquetWriterConfig)
@@ -134,37 +136,37 @@ public final class HiveSessionProperties
                 booleanProperty(
                         ORC_BLOOM_FILTERS_ENABLED,
                         "ORC: Enable bloom filters for predicate pushdown",
-                        hiveConfig.isOrcBloomFiltersEnabled(),
+                        orcReaderConfig.isBloomFiltersEnabled(),
                         false),
                 dataSizeProperty(
                         ORC_MAX_MERGE_DISTANCE,
                         "ORC: Maximum size of gap between two reads to merge into a single read",
-                        hiveConfig.getOrcMaxMergeDistance(),
+                        orcReaderConfig.getMaxMergeDistance(),
                         false),
                 dataSizeProperty(
                         ORC_MAX_BUFFER_SIZE,
                         "ORC: Maximum size of a single read",
-                        hiveConfig.getOrcMaxBufferSize(),
+                        orcReaderConfig.getMaxBufferSize(),
                         false),
                 dataSizeProperty(
                         ORC_STREAM_BUFFER_SIZE,
                         "ORC: Size of buffer for streaming reads",
-                        hiveConfig.getOrcStreamBufferSize(),
+                        orcReaderConfig.getStreamBufferSize(),
                         false),
                 dataSizeProperty(
                         ORC_TINY_STRIPE_THRESHOLD,
                         "ORC: Threshold below which an ORC stripe or file will read in its entirety",
-                        hiveConfig.getOrcTinyStripeThreshold(),
+                        orcReaderConfig.getTinyStripeThreshold(),
                         false),
                 dataSizeProperty(
                         ORC_MAX_READ_BLOCK_SIZE,
                         "ORC: Soft max size of Presto blocks produced by ORC reader",
-                        hiveConfig.getOrcMaxReadBlockSize(),
+                        orcReaderConfig.getMaxBlockSize(),
                         false),
                 booleanProperty(
                         ORC_LAZY_READ_SMALL_RANGES,
                         "Experimental: ORC: Read small file segments lazily",
-                        hiveConfig.isOrcLazyReadSmallRanges(),
+                        orcReaderConfig.isLazyReadSmallRanges(),
                         false),
                 dataSizeProperty(
                         ORC_STRING_STATISTICS_LIMIT,
