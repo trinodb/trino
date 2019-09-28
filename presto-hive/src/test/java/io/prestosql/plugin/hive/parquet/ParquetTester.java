@@ -23,7 +23,7 @@ import io.airlift.units.DataSize;
 import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HiveSessionProperties;
 import io.prestosql.plugin.hive.HiveStorageFormat;
-import io.prestosql.plugin.hive.OrcFileWriterConfig;
+import io.prestosql.plugin.hive.orc.OrcFileWriterConfig;
 import io.prestosql.plugin.hive.benchmark.FileFormat;
 import io.prestosql.plugin.hive.parquet.write.MapKeyValuesSchemaConverter;
 import io.prestosql.plugin.hive.parquet.write.SingleLevelArrayMapKeyValuesSchemaConverter;

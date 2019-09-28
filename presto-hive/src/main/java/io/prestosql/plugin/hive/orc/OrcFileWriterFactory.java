@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive;
+package io.prestosql.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.orc.OrcDataSink;
@@ -21,8 +21,15 @@ import io.prestosql.orc.OrcWriterOptions;
 import io.prestosql.orc.OrcWriterStats;
 import io.prestosql.orc.OutputStreamOrcDataSink;
 import io.prestosql.orc.metadata.CompressionKind;
+import io.prestosql.plugin.hive.FileFormatDataSourceStats;
+import io.prestosql.plugin.hive.HdfsEnvironment;
+import io.prestosql.plugin.hive.HiveConfig;
+import io.prestosql.plugin.hive.HiveFileWriter;
+import io.prestosql.plugin.hive.HiveFileWriterFactory;
+import io.prestosql.plugin.hive.HiveMetadata;
+import io.prestosql.plugin.hive.HiveSessionProperties;
+import io.prestosql.plugin.hive.NodeVersion;
 import io.prestosql.plugin.hive.metastore.StorageFormat;
-import io.prestosql.plugin.hive.orc.HdfsOrcDataSource;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.Type;
@@ -205,7 +212,7 @@ public class OrcFileWriterFactory
     /**
      * Allow subclass to replace data sink implementation.
      */
-    protected OrcDataSink createOrcDataSink(ConnectorSession session, FileSystem fileSystem, Path path)
+    public static OrcDataSink createOrcDataSink(ConnectorSession session, FileSystem fileSystem, Path path)
             throws IOException
     {
         return new OutputStreamOrcDataSink(fileSystem.create(path));

@@ -15,6 +15,7 @@ package io.prestosql.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
+import io.prestosql.plugin.hive.orc.OrcFileWriterConfig;
 import org.testng.annotations.Test;
 
 import java.util.Map;

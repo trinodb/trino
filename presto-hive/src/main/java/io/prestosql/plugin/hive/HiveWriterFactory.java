@@ -30,6 +30,7 @@ import io.prestosql.plugin.hive.metastore.Partition;
 import io.prestosql.plugin.hive.metastore.SortingColumn;
 import io.prestosql.plugin.hive.metastore.StorageFormat;
 import io.prestosql.plugin.hive.metastore.Table;
+import io.prestosql.plugin.hive.orc.OrcFileWriterFactory;
 import io.prestosql.plugin.hive.util.HiveWriteUtils;
 import io.prestosql.spi.NodeManager;
 import io.prestosql.spi.Page;
@@ -81,6 +82,7 @@ import static io.prestosql.plugin.hive.HiveSessionProperties.getCompressionCodec
 import static io.prestosql.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
 import static io.prestosql.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
+import static io.prestosql.plugin.hive.orc.OrcFileWriterFactory.createOrcDataSink;
 import static io.prestosql.plugin.hive.util.CompressionConfigUtil.configureCompression;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.toJobConf;
 import static io.prestosql.plugin.hive.util.HiveUtil.getColumnNames;
@@ -540,7 +542,7 @@ public class HiveWriterFactory
                     sortFields,
                     sortOrders,
                     pageSorter,
-                    (fs, p) -> orcFileWriterFactory.createOrcDataSink(session, fs, p));
+                    (fs, p) -> createOrcDataSink(session, fs, p));
         }
 
         return new HiveWriter(
