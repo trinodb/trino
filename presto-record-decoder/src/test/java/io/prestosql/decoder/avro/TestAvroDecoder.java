@@ -86,10 +86,30 @@ public class TestAvroDecoder
         return getAvroSchema(ImmutableMap.of(name, dataType));
     }
 
+    private static String determineDefaultValue(String dataType)
+    {
+        // Apache Avro 1.9 got more strict on the nullability of datatypes.
+        // If the datatype is not nullable, then we don't want to set the null as default.
+        if (dataType.contains("\"array\"")) {
+            // In the case of an Array we just will return an empty array
+            return ", \"default\": []";
+        }
+        if (dataType.contains("\"map\"")) {
+            // In the case of a Map we just will return an empty map
+            return ", \"default\": {}";
+        }
+        if (dataType.contains("null")) {
+            // Will match ["null", "string"] and any other variation.
+            return ", \"default\": null";
+        }
+        // In case of non-nullable types like "string"
+        return "";
+    }
+
     private static String getAvroSchema(Map<String, String> fields)
     {
         String fieldSchema = fields.entrySet().stream()
-                .map(entry -> "{\"name\": \"" + entry.getKey() + "\",\"type\": " + entry.getValue() + ",\"default\": null}")
+                .map(entry -> "{\"name\": \"" + entry.getKey() + "\",\"type\": " + entry.getValue() + determineDefaultValue(entry.getValue()) + "}")
                 .collect(Collectors.joining(","));
 
         return "{\"type\" : \"record\"," +
@@ -427,7 +447,7 @@ public class TestAvroDecoder
     {
         DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", new ArrayType(BIGINT), "array_field", null, null, false, false, false);
 
-        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "array_field", "{\"type\": \"array\", \"items\": \"long\"}", ImmutableList.of(114L, 136L));
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "array_field", "{\"type\": \"array\", \"items\": [\"long\"]}", ImmutableList.of(114L, 136L));
         checkArrayValue(decodedRow, row, new long[] {114, 136});
     }
 
@@ -439,7 +459,7 @@ public class TestAvroDecoder
 
         List<Long> values = new ArrayList<>();
         values.add(null);
-        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "array_field", "{\"type\": \"array\", \"items\": \"null\"}", values);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "array_field", "{\"type\": \"array\", \"items\": [\"null\"]}", values);
         checkArrayItemIsNull(decodedRow, row, new long[] {0});
     }
 

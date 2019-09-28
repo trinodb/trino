@@ -1283,6 +1283,7 @@
                                     <exclude>org.codehaus.plexus:plexus-utils</exclude>
                                     <exclude>com.google.guava:guava</exclude>
                                     <exclude>com.fasterxml.jackson.core:jackson-core</exclude>
+                                    <exclude>com.fasterxml.jackson.core:jackson-databind</exclude>
                                     <exclude>com.google.j2objc:j2objc-annotations</exclude>
                                 </excludes>
                             </requireUpperBoundDeps>
