@@ -174,14 +174,14 @@ public final class HiveSessionProperties
                 booleanProperty(
                         ORC_OPTIMIZED_WRITER_VALIDATE,
                         "Experimental: ORC: Force all validation for files",
-                        hiveConfig.getOrcWriterValidationPercentage() > 0.0,
+                        orcWriterConfig.getValidationPercentage() > 0.0,
                         false),
                 new PropertyMetadata<>(
                         ORC_OPTIMIZED_WRITER_VALIDATE_PERCENTAGE,
                         "Experimental: ORC: sample percentage for validation for files",
                         DOUBLE,
                         Double.class,
-                        hiveConfig.getOrcWriterValidationPercentage(),
+                        orcWriterConfig.getValidationPercentage(),
                         false,
                         value -> {
                             double doubleValue = ((Number) value).doubleValue();
@@ -197,7 +197,7 @@ public final class HiveSessionProperties
                         ORC_OPTIMIZED_WRITER_VALIDATE_MODE,
                         "Experimental: ORC: Level of detail in ORC validation",
                         OrcWriteValidationMode.class,
-                        hiveConfig.getOrcWriterValidationMode(),
+                        orcWriterConfig.getValidationMode(),
                         false),
                 dataSizeProperty(
                         ORC_OPTIMIZED_WRITER_MIN_STRIPE_SIZE,

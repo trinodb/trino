@@ -118,6 +118,7 @@ public final class HiveTestUtils
                 TYPE_MANAGER,
                 new NodeVersion("test_version"),
                 hiveConfig,
+                new OrcWriterConfig(),
                 new FileFormatDataSourceStats(),
                 new OrcWriterConfig());
     }

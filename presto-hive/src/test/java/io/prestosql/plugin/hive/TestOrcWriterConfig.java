@@ -15,6 +15,7 @@ package io.prestosql.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
+import io.prestosql.orc.OrcWriteValidation.OrcWriteValidationMode;
 import io.prestosql.plugin.hive.orc.OrcWriterConfig;
 import org.testng.annotations.Test;
 
@@ -39,7 +40,11 @@ public class TestOrcWriterConfig
                 .setRowGroupMaxRowCount(10_000)
                 .setDictionaryMaxMemory(new DataSize(16, MEGABYTE))
                 .setStringStatisticsLimit(new DataSize(64, BYTE))
-                .setMaxCompressionBufferSize(new DataSize(256, KILOBYTE)));
+                .setMaxCompressionBufferSize(new DataSize(256, KILOBYTE))
+                .setDefaultBloomFilterFpp(0.05)
+                .setUseLegacyVersion(false)
+                .setValidationPercentage(0.0)
+                .setValidationMode(OrcWriteValidationMode.BOTH));
     }
 
     @Test
@@ -53,6 +58,10 @@ public class TestOrcWriterConfig
                 .put("hive.orc.writer.dictionary-max-memory", "13MB")
                 .put("hive.orc.writer.string-statistics-limit", "17MB")
                 .put("hive.orc.writer.max-compression-buffer-size", "19MB")
+                .put("hive.orc.default-bloom-filter-fpp", "0.96")
+                .put("hive.orc.writer.use-legacy-version-number", "true")
+                .put("hive.orc.writer.validation-percentage", "0.16")
+                .put("hive.orc.writer.validation-mode", "DETAILED")
                 .build();
 
         OrcWriterConfig expected = new OrcWriterConfig()
@@ -62,7 +71,11 @@ public class TestOrcWriterConfig
                 .setRowGroupMaxRowCount(11)
                 .setDictionaryMaxMemory(new DataSize(13, MEGABYTE))
                 .setStringStatisticsLimit(new DataSize(17, MEGABYTE))
-                .setMaxCompressionBufferSize(new DataSize(19, MEGABYTE));
+                .setMaxCompressionBufferSize(new DataSize(19, MEGABYTE))
+                .setDefaultBloomFilterFpp(0.96)
+                .setUseLegacyVersion(true)
+                .setValidationPercentage(0.16)
+                .setValidationMode(OrcWriteValidationMode.DETAILED);
 
         assertFullMapping(properties, expected);
     }

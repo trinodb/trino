@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
-import io.prestosql.orc.OrcWriteValidation.OrcWriteValidationMode;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -68,7 +67,6 @@ public class TestHiveConfig
                 .setUseOrcColumnNames(false)
                 .setAssumeCanonicalPartitionKeys(false)
                 .setOrcBloomFiltersEnabled(false)
-                .setOrcDefaultBloomFilterFpp(0.05)
                 .setOrcMaxMergeDistance(new DataSize(1, Unit.MEGABYTE))
                 .setOrcMaxBufferSize(new DataSize(8, Unit.MEGABYTE))
                 .setOrcStreamBufferSize(new DataSize(8, Unit.MEGABYTE))
@@ -76,9 +74,6 @@ public class TestHiveConfig
                 .setOrcMaxReadBlockSize(new DataSize(16, Unit.MEGABYTE))
                 .setOrcLazyReadSmallRanges(true)
                 .setRcfileWriterValidate(false)
-                .setOrcWriteLegacyVersion(false)
-                .setOrcWriterValidationPercentage(0.0)
-                .setOrcWriterValidationMode(OrcWriteValidationMode.BOTH)
                 .setSkipDeletionForAlter(false)
                 .setSkipTargetCleanupOnRollback(false)
                 .setBucketExecutionEnabled(true)
@@ -137,7 +132,6 @@ public class TestHiveConfig
                 .put("hive.parquet.use-column-names", "true")
                 .put("hive.orc.use-column-names", "true")
                 .put("hive.orc.bloom-filters.enabled", "true")
-                .put("hive.orc.default-bloom-filter-fpp", "0.96")
                 .put("hive.orc.max-merge-distance", "22kB")
                 .put("hive.orc.max-buffer-size", "44kB")
                 .put("hive.orc.stream-buffer-size", "55kB")
@@ -145,9 +139,6 @@ public class TestHiveConfig
                 .put("hive.orc.max-read-block-size", "66kB")
                 .put("hive.orc.lazy-read-small-ranges", "false")
                 .put("hive.rcfile.writer.validate", "true")
-                .put("hive.orc.writer.use-legacy-version-number", "true")
-                .put("hive.orc.writer.validation-percentage", "0.16")
-                .put("hive.orc.writer.validation-mode", "DETAILED")
                 .put("hive.skip-deletion-for-alter", "true")
                 .put("hive.skip-target-cleanup-on-rollback", "true")
                 .put("hive.bucket-execution", "false")
@@ -204,7 +195,6 @@ public class TestHiveConfig
                 .setUseOrcColumnNames(true)
                 .setAssumeCanonicalPartitionKeys(true)
                 .setOrcBloomFiltersEnabled(true)
-                .setOrcDefaultBloomFilterFpp(0.96)
                 .setOrcMaxMergeDistance(new DataSize(22, Unit.KILOBYTE))
                 .setOrcMaxBufferSize(new DataSize(44, Unit.KILOBYTE))
                 .setOrcStreamBufferSize(new DataSize(55, Unit.KILOBYTE))
@@ -212,9 +202,6 @@ public class TestHiveConfig
                 .setOrcMaxReadBlockSize(new DataSize(66, Unit.KILOBYTE))
                 .setOrcLazyReadSmallRanges(false)
                 .setRcfileWriterValidate(true)
-                .setOrcWriteLegacyVersion(true)
-                .setOrcWriterValidationPercentage(0.16)
-                .setOrcWriterValidationMode(OrcWriteValidationMode.DETAILED)
                 .setSkipDeletionForAlter(true)
                 .setSkipTargetCleanupOnRollback(true)
                 .setBucketExecutionEnabled(false)

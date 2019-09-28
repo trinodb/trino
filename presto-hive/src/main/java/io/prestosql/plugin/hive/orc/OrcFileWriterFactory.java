@@ -88,6 +88,7 @@ public class OrcFileWriterFactory
             TypeManager typeManager,
             NodeVersion nodeVersion,
             HiveConfig hiveConfig,
+            OrcWriterConfig orcWriterConfig,
             FileFormatDataSourceStats readStats,
             OrcWriterConfig config)
     {
@@ -96,7 +97,7 @@ public class OrcFileWriterFactory
                 typeManager,
                 nodeVersion,
                 requireNonNull(hiveConfig, "hiveConfig is null").getDateTimeZone(),
-                hiveConfig.isOrcWriteLegacyVersion(),
+                requireNonNull(orcWriterConfig, "orcWriterConfig is null").isUseLegacyVersion(),
                 readStats,
                 requireNonNull(config, "config is null").toOrcWriterOptions());
     }

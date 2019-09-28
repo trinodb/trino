@@ -14,13 +14,26 @@
 package io.prestosql.plugin.hive.orc;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.DataSize;
+import io.prestosql.orc.OrcWriteValidation.OrcWriteValidationMode;
 import io.prestosql.orc.OrcWriterOptions;
 
+import javax.validation.constraints.DecimalMax;
+import javax.validation.constraints.DecimalMin;
+import javax.validation.constraints.NotNull;
+
+@DefunctConfig("hive.orc.optimized-writer.enabled")
 @SuppressWarnings("unused")
 public class OrcWriterConfig
 {
     private OrcWriterOptions options = new OrcWriterOptions();
+
+    private double defaultBloomFilterFpp = 0.05;
+    private boolean useLegacyVersion;
+    private double validationPercentage;
+    private OrcWriteValidationMode validationMode = OrcWriteValidationMode.BOTH;
 
     public OrcWriterOptions toOrcWriterOptions()
     {
@@ -108,6 +121,61 @@ public class OrcWriterConfig
     public OrcWriterConfig setMaxCompressionBufferSize(DataSize maxCompressionBufferSize)
     {
         options = options.withMaxCompressionBufferSize(maxCompressionBufferSize);
+        return this;
+    }
+
+    public double getDefaultBloomFilterFpp()
+    {
+        return defaultBloomFilterFpp;
+    }
+
+    @Config("hive.orc.default-bloom-filter-fpp")
+    @ConfigDescription("ORC Bloom filter false positive probability")
+    public OrcWriterConfig setDefaultBloomFilterFpp(double defaultBloomFilterFpp)
+    {
+        this.defaultBloomFilterFpp = defaultBloomFilterFpp;
+        return this;
+    }
+
+    public boolean isUseLegacyVersion()
+    {
+        return useLegacyVersion;
+    }
+
+    @Config("hive.orc.writer.use-legacy-version-number")
+    @ConfigDescription("Write ORC files with a version number that is readable by Hive 2.0.0 to 2.2.0")
+    public OrcWriterConfig setUseLegacyVersion(boolean useLegacyVersion)
+    {
+        this.useLegacyVersion = useLegacyVersion;
+        return this;
+    }
+
+    @DecimalMin("0.0")
+    @DecimalMax("100.0")
+    public double getValidationPercentage()
+    {
+        return validationPercentage;
+    }
+
+    @Config("hive.orc.writer.validation-percentage")
+    @ConfigDescription("Percentage of ORC files to validate after write by re-reading the whole file")
+    public OrcWriterConfig setValidationPercentage(double validationPercentage)
+    {
+        this.validationPercentage = validationPercentage;
+        return this;
+    }
+
+    @NotNull
+    public OrcWriteValidationMode getValidationMode()
+    {
+        return validationMode;
+    }
+
+    @Config("hive.orc.writer.validation-mode")
+    @ConfigDescription("Level of detail in ORC validation. Lower levels require more memory.")
+    public OrcWriterConfig setValidationMode(OrcWriteValidationMode validationMode)
+    {
+        this.validationMode = validationMode;
         return this;
     }
 }
