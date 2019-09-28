@@ -16,7 +16,6 @@ package io.prestosql.orc;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import io.airlift.slice.Slice;
-import io.airlift.units.DataSize;
 import io.prestosql.orc.metadata.CompressionKind;
 import io.prestosql.orc.metadata.Footer;
 import io.prestosql.orc.metadata.statistics.IntegerStatistics;
@@ -42,12 +41,11 @@ import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.util.Map;
 
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.orc.OrcReader.BATCH_SIZE_GROWTH_FACTOR;
 import static io.prestosql.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static io.prestosql.orc.OrcReader.MAX_BATCH_SIZE;
 import static io.prestosql.orc.OrcTester.Format.ORC_12;
-import static io.prestosql.orc.OrcTester.MAX_BLOCK_SIZE;
+import static io.prestosql.orc.OrcTester.READER_OPTIONS;
 import static io.prestosql.orc.OrcTester.createCustomOrcRecordReader;
 import static io.prestosql.orc.OrcTester.createOrcRecordWriter;
 import static io.prestosql.orc.OrcTester.createSettableStructObjectInspector;
@@ -216,7 +214,7 @@ public class TestOrcReaderPositions
                     rowCountsInCurrentRowGroup += batchSize;
 
                     Block block = reader.readBlock(0);
-                    if (MAX_BATCH_SIZE * currentStringBytes <= MAX_BLOCK_SIZE.toBytes()) {
+                    if (MAX_BATCH_SIZE * currentStringBytes <= READER_OPTIONS.getMaxBlockSize().toBytes()) {
                         // Either we are bounded by 1024 rows per batch, or it is the last batch in the row group
                         // For the first 3 row groups, the strings are of length 300, 600, and 900 respectively
                         // So the loaded data is bounded by MAX_BATCH_SIZE
@@ -226,7 +224,7 @@ public class TestOrcReaderPositions
                         // Either we are bounded by 1MB per batch, or it is the last batch in the row group
                         // From the 4th row group, the strings are have length > 1200
                         // So the loaded data is bounded by MAX_BLOCK_SIZE
-                        assertTrue(block.getPositionCount() == MAX_BLOCK_SIZE.toBytes() / currentStringBytes || rowCountsInCurrentRowGroup == rowsInRowGroup);
+                        assertTrue(block.getPositionCount() == READER_OPTIONS.getMaxBlockSize().toBytes() / currentStringBytes || rowCountsInCurrentRowGroup == rowsInRowGroup);
                     }
 
                     if (rowCountsInCurrentRowGroup == rowsInRowGroup) {
@@ -295,8 +293,8 @@ public class TestOrcReaderPositions
                     "c", "kota");
             createFileWithOnlyUserMetadata(tempFile.getFile(), metadata);
 
-            OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
-            OrcReader orcReader = new OrcReader(orcDataSource, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
+            OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), READER_OPTIONS);
+            OrcReader orcReader = new OrcReader(orcDataSource, READER_OPTIONS);
             Footer footer = orcReader.getFooter();
             Map<String, String> readMetadata = Maps.transformValues(footer.getUserMetadata(), Slice::toStringAscii);
             assertEquals(readMetadata, metadata);

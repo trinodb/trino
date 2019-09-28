@@ -21,6 +21,7 @@ import io.prestosql.orc.OrcCorruptionException;
 import io.prestosql.orc.OrcDataSource;
 import io.prestosql.orc.OrcPredicate;
 import io.prestosql.orc.OrcReader;
+import io.prestosql.orc.OrcReaderOptions;
 import io.prestosql.orc.OrcRecordReader;
 import io.prestosql.spi.type.Type;
 import org.joda.time.DateTimeZone;
@@ -41,16 +42,23 @@ final class OrcTestingUtil
 {
     private OrcTestingUtil() {}
 
+    public static final OrcReaderOptions READER_OPTIONS = new OrcReaderOptions()
+            .withMaxReadBlockSize(new DataSize(1, MEGABYTE))
+            .withMaxMergeDistance(new DataSize(1, MEGABYTE))
+            .withMaxBufferSize(new DataSize(1, MEGABYTE))
+            .withStreamBufferSize(new DataSize(1, MEGABYTE))
+            .withTinyStripeThreshold(new DataSize(1, MEGABYTE));
+
     public static OrcDataSource fileOrcDataSource(File file)
             throws FileNotFoundException
     {
-        return new FileOrcDataSource(file, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
+        return new FileOrcDataSource(file, READER_OPTIONS);
     }
 
     public static OrcRecordReader createReader(OrcDataSource dataSource, List<Long> columnIds, List<Type> types)
             throws IOException
     {
-        OrcReader orcReader = new OrcReader(dataSource, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
+        OrcReader orcReader = new OrcReader(dataSource, READER_OPTIONS);
 
         List<String> columnNames = orcReader.getColumnNames();
         assertEquals(columnNames.size(), columnIds.size());
@@ -69,7 +77,7 @@ final class OrcTestingUtil
     public static OrcRecordReader createReaderNoRows(OrcDataSource dataSource)
             throws IOException
     {
-        OrcReader orcReader = new OrcReader(dataSource, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
+        OrcReader orcReader = new OrcReader(dataSource, READER_OPTIONS);
 
         assertEquals(orcReader.getColumnNames().size(), 0);
 

@@ -13,8 +13,6 @@
  */
 package io.prestosql.orc;
 
-import io.airlift.units.DataSize;
-
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -25,10 +23,10 @@ public class FileOrcDataSource
 {
     private final RandomAccessFile input;
 
-    public FileOrcDataSource(File path, DataSize maxMergeDistance, DataSize maxReadSize, DataSize streamBufferSize, boolean lazyReadSmallRanges)
+    public FileOrcDataSource(File path, OrcReaderOptions options)
             throws FileNotFoundException
     {
-        super(new OrcDataSourceId(path.getPath()), path.length(), maxMergeDistance, maxReadSize, streamBufferSize, lazyReadSmallRanges);
+        super(new OrcDataSourceId(path.getPath()), path.length(), options);
         this.input = new RandomAccessFile(path, "r");
     }
 

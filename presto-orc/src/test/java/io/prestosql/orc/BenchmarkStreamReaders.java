@@ -14,7 +14,6 @@
 package io.prestosql.orc;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.DataSize;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.SqlDecimal;
@@ -53,7 +52,6 @@ import java.util.concurrent.TimeUnit;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.orc.OrcReader.INITIAL_BATCH_SIZE;
@@ -458,7 +456,7 @@ public class BenchmarkStreamReaders
             orcFile = new File(temporaryDirectory, randomUUID().toString());
             writeOrcColumnPresto(orcFile, NONE, type, createValues(), new OrcWriterStats());
 
-            OrcDataSource dataSource = new FileOrcDataSource(orcFile, new DataSize(1, MEGABYTE), new DataSize(8, MEGABYTE), new DataSize(8, MEGABYTE), true);
+            OrcDataSource dataSource = new FileOrcDataSource(orcFile, new OrcReaderOptions());
             DiskRange diskRange = new DiskRange(0, toIntExact(dataSource.getSize()));
             dataSource = new CachingOrcDataSource(dataSource, desiredOffset -> diskRange);
             this.dataSource = dataSource;
@@ -481,7 +479,7 @@ public class BenchmarkStreamReaders
         OrcRecordReader createRecordReader()
                 throws IOException
         {
-            OrcReader orcReader = new OrcReader(dataSource, new DataSize(1, MEGABYTE), new DataSize(8, MEGABYTE), new DataSize(16, MEGABYTE));
+            OrcReader orcReader = new OrcReader(dataSource, new OrcReaderOptions());
             return orcReader.createRecordReader(
                     ImmutableMap.of(0, type),
                     OrcPredicate.TRUE,

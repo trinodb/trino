@@ -15,7 +15,6 @@ package io.prestosql.orc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.DataSize;
 import io.prestosql.orc.TupleDomainOrcPredicate.ColumnReference;
 import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.type.SqlDate;
@@ -33,12 +32,11 @@ import static com.google.common.collect.Iterables.cycle;
 import static com.google.common.collect.Iterables.limit;
 import static com.google.common.collect.Lists.newArrayList;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.orc.OrcReader.MAX_BATCH_SIZE;
 import static io.prestosql.orc.OrcTester.Format.ORC_12;
 import static io.prestosql.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
-import static io.prestosql.orc.OrcTester.MAX_BLOCK_SIZE;
+import static io.prestosql.orc.OrcTester.READER_OPTIONS;
 import static io.prestosql.orc.OrcTester.writeOrcColumnHive;
 import static io.prestosql.orc.metadata.CompressionKind.LZ4;
 import static io.prestosql.spi.predicate.TupleDomain.fromFixedValues;
@@ -133,8 +131,8 @@ public class TestReadBloomFilter
     private static OrcRecordReader createCustomOrcRecordReader(TempFile tempFile, OrcPredicate predicate, Type type, int initialBatchSize)
             throws IOException
     {
-        OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
-        OrcReader orcReader = new OrcReader(orcDataSource, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), MAX_BLOCK_SIZE);
+        OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), READER_OPTIONS);
+        OrcReader orcReader = new OrcReader(orcDataSource, READER_OPTIONS);
 
         assertEquals(orcReader.getColumnNames(), ImmutableList.of("test"));
         assertEquals(orcReader.getFooter().getRowsInRowGroup(), 10_000);

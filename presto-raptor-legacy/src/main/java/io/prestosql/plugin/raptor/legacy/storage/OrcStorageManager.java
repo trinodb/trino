@@ -28,6 +28,7 @@ import io.prestosql.orc.FileOrcDataSource;
 import io.prestosql.orc.OrcDataSource;
 import io.prestosql.orc.OrcPredicate;
 import io.prestosql.orc.OrcReader;
+import io.prestosql.orc.OrcReaderOptions;
 import io.prestosql.orc.OrcRecordReader;
 import io.prestosql.orc.TupleDomainOrcPredicate;
 import io.prestosql.orc.TupleDomainOrcPredicate.ColumnReference;
@@ -142,7 +143,7 @@ public class OrcStorageManager
     private final String nodeId;
     private final StorageService storageService;
     private final Optional<BackupStore> backupStore;
-    private final ReaderAttributes defaultReaderAttributes;
+    private final OrcReaderOptions orcReaderOptions;
     private final BackupManager backupManager;
     private final ShardRecoveryManager recoveryManager;
     private final ShardRecorder shardRecorder;
@@ -159,7 +160,6 @@ public class OrcStorageManager
             NodeManager nodeManager,
             StorageService storageService,
             Optional<BackupStore> backupStore,
-            ReaderAttributes readerAttributes,
             StorageManagerConfig config,
             RaptorConnectorId connectorId,
             BackupManager backgroundBackupManager,
@@ -170,7 +170,7 @@ public class OrcStorageManager
         this(nodeManager.getCurrentNode().getNodeIdentifier(),
                 storageService,
                 backupStore,
-                readerAttributes,
+                config.toOrcReaderOptions(),
                 backgroundBackupManager,
                 recoveryManager,
                 shardRecorder,
@@ -187,7 +187,7 @@ public class OrcStorageManager
             String nodeId,
             StorageService storageService,
             Optional<BackupStore> backupStore,
-            ReaderAttributes readerAttributes,
+            OrcReaderOptions orcReaderOptions,
             BackupManager backgroundBackupManager,
             ShardRecoveryManager recoveryManager,
             ShardRecorder shardRecorder,
@@ -202,7 +202,8 @@ public class OrcStorageManager
         this.nodeId = requireNonNull(nodeId, "nodeId is null");
         this.storageService = requireNonNull(storageService, "storageService is null");
         this.backupStore = requireNonNull(backupStore, "backupStore is null");
-        this.defaultReaderAttributes = requireNonNull(readerAttributes, "readerAttributes is null");
+        this.orcReaderOptions = requireNonNull(orcReaderOptions, "orcReaderOptions is null")
+                .withMaxReadBlockSize(HUGE_MAX_READ_BLOCK_SIZE);
 
         backupManager = requireNonNull(backgroundBackupManager, "backgroundBackupManager is null");
         this.recoveryManager = requireNonNull(recoveryManager, "recoveryManager is null");
@@ -232,15 +233,16 @@ public class OrcStorageManager
             List<Long> columnIds,
             List<Type> columnTypes,
             TupleDomain<RaptorColumnHandle> effectivePredicate,
-            ReaderAttributes readerAttributes,
+            OrcReaderOptions orcReaderOptions,
             OptionalLong transactionId)
     {
-        OrcDataSource dataSource = openShard(shardUuid, readerAttributes);
+        orcReaderOptions = orcReaderOptions.withMaxReadBlockSize(HUGE_MAX_READ_BLOCK_SIZE);
+        OrcDataSource dataSource = openShard(shardUuid, orcReaderOptions);
 
         AggregatedMemoryContext systemMemoryUsage = newSimpleAggregatedMemoryContext();
 
         try {
-            OrcReader reader = new OrcReader(dataSource, readerAttributes.getMaxMergeDistance(), readerAttributes.getTinyStripeThreshold(), HUGE_MAX_READ_BLOCK_SIZE);
+            OrcReader reader = new OrcReader(dataSource, orcReaderOptions);
 
             Map<Long, Integer> indexMap = columnIdIndex(reader.getColumnNames());
             ImmutableMap.Builder<Integer, Type> includedColumns = ImmutableMap.builder();
@@ -336,7 +338,7 @@ public class OrcStorageManager
     }
 
     @VisibleForTesting
-    OrcDataSource openShard(UUID shardUuid, ReaderAttributes readerAttributes)
+    OrcDataSource openShard(UUID shardUuid, OrcReaderOptions orcReaderOptions)
     {
         File file = storageService.getStorageFile(shardUuid).getAbsoluteFile();
 
@@ -361,17 +363,17 @@ public class OrcStorageManager
         }
 
         try {
-            return fileOrcDataSource(readerAttributes, file);
+            return fileOrcDataSource(orcReaderOptions, file);
         }
         catch (IOException e) {
             throw new PrestoException(RAPTOR_ERROR, "Failed to open shard file: " + file, e);
         }
     }
 
-    private static FileOrcDataSource fileOrcDataSource(ReaderAttributes readerAttributes, File file)
+    private static FileOrcDataSource fileOrcDataSource(OrcReaderOptions orcReaderOptions, File file)
             throws FileNotFoundException
     {
-        return new FileOrcDataSource(file, readerAttributes.getMaxMergeDistance(), readerAttributes.getMaxReadSize(), readerAttributes.getStreamBufferSize(), readerAttributes.isLazyReadSmallRanges());
+        return new FileOrcDataSource(file, orcReaderOptions);
     }
 
     private ShardInfo createShardInfo(UUID shardUuid, OptionalInt bucketNumber, File file, Set<String> nodes, long rowCount, long uncompressedSize)
@@ -381,8 +383,8 @@ public class OrcStorageManager
 
     private List<ColumnStats> computeShardStats(File file)
     {
-        try (OrcDataSource dataSource = fileOrcDataSource(defaultReaderAttributes, file)) {
-            OrcReader reader = new OrcReader(dataSource, defaultReaderAttributes.getMaxMergeDistance(), defaultReaderAttributes.getTinyStripeThreshold(), HUGE_MAX_READ_BLOCK_SIZE);
+        try (OrcDataSource dataSource = fileOrcDataSource(orcReaderOptions, file)) {
+            OrcReader reader = new OrcReader(dataSource, orcReaderOptions);
 
             ImmutableList.Builder<ColumnStats> list = ImmutableList.builder();
             for (ColumnInfo info : getColumnInfo(reader)) {

@@ -128,9 +128,7 @@ public class OrcRecordReader
             DateTimeZone hiveStorageTimeZone,
             HiveWriterVersion hiveWriterVersion,
             MetadataReader metadataReader,
-            DataSize maxMergeDistance,
-            DataSize tinyStripeThreshold,
-            DataSize maxBlockSize,
+            OrcReaderOptions options,
             Map<String, Slice> userMetadata,
             AggregatedMemoryContext systemMemoryUsage,
             Optional<OrcWriteValidation> writeValidation,
@@ -169,7 +167,8 @@ public class OrcRecordReader
         }
         this.presentColumns = presentColumns.build();
 
-        this.maxBlockBytes = requireNonNull(maxBlockSize, "maxBlockSize is null").toBytes();
+        requireNonNull(options, "options is null");
+        this.maxBlockBytes = options.getMaxBlockSize().toBytes();
 
         // it is possible that old versions of orc use 0 to mean there are no row groups
         checkArgument(rowsInRowGroup > 0, "rowsInRowGroup must be greater than zero");
@@ -206,7 +205,7 @@ public class OrcRecordReader
         this.stripes = stripes.build();
         this.stripeFilePositions = stripeFilePositions.build();
 
-        orcDataSource = wrapWithCacheIfTinyStripes(orcDataSource, this.stripes, maxMergeDistance, tinyStripeThreshold);
+        orcDataSource = wrapWithCacheIfTinyStripes(orcDataSource, this.stripes, options.getMaxMergeDistance(), options.getTinyStripeThreshold());
         this.orcDataSource = orcDataSource;
         this.splitLength = splitLength;
 
