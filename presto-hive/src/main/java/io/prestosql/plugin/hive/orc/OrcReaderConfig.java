@@ -16,22 +16,20 @@ package io.prestosql.plugin.hive.orc;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.DataSize;
+import io.prestosql.orc.OrcReaderOptions;
 
 import javax.validation.constraints.NotNull;
-
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class OrcReaderConfig
 {
     private boolean useColumnNames;
-    private boolean bloomFiltersEnabled;
 
-    private DataSize maxMergeDistance = new DataSize(1, MEGABYTE);
-    private DataSize maxBufferSize = new DataSize(8, MEGABYTE);
-    private DataSize tinyStripeThreshold = new DataSize(8, MEGABYTE);
-    private DataSize streamBufferSize = new DataSize(8, MEGABYTE);
-    private DataSize maxBlockSize = new DataSize(16, MEGABYTE);
-    private boolean lazyReadSmallRanges = true;
+    private OrcReaderOptions options = new OrcReaderOptions();
+
+    public OrcReaderOptions toOrcReaderOptions()
+    {
+        return options;
+    }
 
     public boolean isUseColumnNames()
     {
@@ -48,85 +46,85 @@ public class OrcReaderConfig
 
     public boolean isBloomFiltersEnabled()
     {
-        return bloomFiltersEnabled;
+        return options.isBloomFiltersEnabled();
     }
 
     @Config("hive.orc.bloom-filters.enabled")
     public OrcReaderConfig setBloomFiltersEnabled(boolean bloomFiltersEnabled)
     {
-        this.bloomFiltersEnabled = bloomFiltersEnabled;
+        options = options.withBloomFiltersEnabled(bloomFiltersEnabled);
         return this;
     }
 
     @NotNull
     public DataSize getMaxMergeDistance()
     {
-        return maxMergeDistance;
+        return options.getMaxMergeDistance();
     }
 
     @Config("hive.orc.max-merge-distance")
     public OrcReaderConfig setMaxMergeDistance(DataSize maxMergeDistance)
     {
-        this.maxMergeDistance = maxMergeDistance;
+        options = options.withMaxMergeDistance(maxMergeDistance);
         return this;
     }
 
     @NotNull
     public DataSize getMaxBufferSize()
     {
-        return maxBufferSize;
+        return options.getMaxBufferSize();
     }
 
     @Config("hive.orc.max-buffer-size")
     public OrcReaderConfig setMaxBufferSize(DataSize maxBufferSize)
     {
-        this.maxBufferSize = maxBufferSize;
+        options = options.withMaxBufferSize(maxBufferSize);
         return this;
     }
 
     @NotNull
     public DataSize getTinyStripeThreshold()
     {
-        return tinyStripeThreshold;
+        return options.getTinyStripeThreshold();
     }
 
     @Config("hive.orc.tiny-stripe-threshold")
     public OrcReaderConfig setTinyStripeThreshold(DataSize tinyStripeThreshold)
     {
-        this.tinyStripeThreshold = tinyStripeThreshold;
+        options = options.withTinyStripeThreshold(tinyStripeThreshold);
         return this;
     }
 
     @NotNull
     public DataSize getStreamBufferSize()
     {
-        return streamBufferSize;
+        return options.getStreamBufferSize();
     }
 
     @Config("hive.orc.stream-buffer-size")
     public OrcReaderConfig setStreamBufferSize(DataSize streamBufferSize)
     {
-        this.streamBufferSize = streamBufferSize;
+        options = options.withStreamBufferSize(streamBufferSize);
         return this;
     }
 
     @NotNull
     public DataSize getMaxBlockSize()
     {
-        return maxBlockSize;
+        return options.getMaxBlockSize();
     }
 
     @Config("hive.orc.max-read-block-size")
     public OrcReaderConfig setMaxBlockSize(DataSize maxBlockSize)
     {
-        this.maxBlockSize = maxBlockSize;
+        options = options.withMaxReadBlockSize(maxBlockSize);
         return this;
     }
 
     @Deprecated
     public boolean isLazyReadSmallRanges()
     {
-        return lazyReadSmallRanges;
+        return options.isLazyReadSmallRanges();
     }
 
     // TODO remove config option once efficacy is proven
@@ -135,7 +133,7 @@ public class OrcReaderConfig
     @ConfigDescription("ORC read small disk ranges lazily")
     public OrcReaderConfig setLazyReadSmallRanges(boolean lazyReadSmallRanges)
     {
-        this.lazyReadSmallRanges = lazyReadSmallRanges;
+        options = options.withLazyReadSmallRanges(lazyReadSmallRanges);
         return this;
     }
 }

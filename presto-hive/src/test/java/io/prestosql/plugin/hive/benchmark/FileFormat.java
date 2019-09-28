@@ -15,6 +15,7 @@ package io.prestosql.plugin.hive.benchmark;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.OutputStreamSliceOutput;
+import io.prestosql.orc.OrcReaderOptions;
 import io.prestosql.orc.OrcWriter;
 import io.prestosql.orc.OrcWriterOptions;
 import io.prestosql.orc.OrcWriterStats;
@@ -130,7 +131,7 @@ public enum FileFormat
         @Override
         public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes)
         {
-            HivePageSourceFactory pageSourceFactory = new OrcPageSourceFactory(TYPE_MANAGER, false, hdfsEnvironment, new FileFormatDataSourceStats());
+            HivePageSourceFactory pageSourceFactory = new OrcPageSourceFactory(TYPE_MANAGER, false, new OrcReaderOptions(), hdfsEnvironment, new FileFormatDataSourceStats());
             return createPageSource(pageSourceFactory, session, targetFile, columnNames, columnTypes, HiveStorageFormat.ORC);
         }
 

@@ -20,6 +20,7 @@ import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.orc.OrcDataSource;
+import io.prestosql.orc.OrcReaderOptions;
 import io.prestosql.orc.OrcRecordReader;
 import io.prestosql.plugin.raptor.legacy.RaptorColumnHandle;
 import io.prestosql.plugin.raptor.legacy.backup.BackupManager;
@@ -121,7 +122,11 @@ public class TestOrcStorageManager
     private static final int MAX_SHARD_ROWS = 100;
     private static final DataSize MAX_FILE_SIZE = new DataSize(1, MEGABYTE);
     private static final Duration MISSING_SHARD_DISCOVERY = new Duration(5, TimeUnit.MINUTES);
-    private static final ReaderAttributes READER_ATTRIBUTES = new ReaderAttributes(new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
+    private static final OrcReaderOptions READER_OPTIONS = new OrcReaderOptions()
+            .withMaxMergeDistance(new DataSize(1, MEGABYTE))
+            .withMaxBufferSize(new DataSize(1, MEGABYTE))
+            .withStreamBufferSize(new DataSize(1, MEGABYTE))
+            .withTinyStripeThreshold(new DataSize(1, MEGABYTE));
 
     private final NodeManager nodeManager = new TestingNodeManager();
     private Handle dummyHandle;
@@ -220,7 +225,7 @@ public class TestOrcStorageManager
 
         recoveryManager.restoreFromBackup(shardUuid, shardInfo.getCompressedSize(), OptionalLong.of(shardInfo.getXxhash64()));
 
-        try (OrcDataSource dataSource = manager.openShard(shardUuid, READER_ATTRIBUTES)) {
+        try (OrcDataSource dataSource = manager.openShard(shardUuid, READER_OPTIONS)) {
             OrcRecordReader reader = createReader(dataSource, columnIds, columnTypes);
 
             assertEquals(reader.nextBatch(), 2);
@@ -543,7 +548,7 @@ public class TestOrcStorageManager
             UUID uuid,
             TupleDomain<RaptorColumnHandle> tupleDomain)
     {
-        return manager.getPageSource(uuid, OptionalInt.empty(), columnIds, columnTypes, tupleDomain, READER_ATTRIBUTES);
+        return manager.getPageSource(uuid, OptionalInt.empty(), columnIds, columnTypes, tupleDomain, READER_OPTIONS);
     }
 
     private static StoragePageSink createStoragePageSink(StorageManager manager, List<Long> columnIds, List<Type> columnTypes)
@@ -607,7 +612,7 @@ public class TestOrcStorageManager
                 CURRENT_NODE,
                 storageService,
                 backupStore,
-                READER_ATTRIBUTES,
+                READER_OPTIONS,
                 new BackupManager(backupStore, storageService, 1),
                 recoveryManager,
                 shardRecorder,

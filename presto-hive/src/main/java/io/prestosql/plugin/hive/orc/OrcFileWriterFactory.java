@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.orc.OrcDataSink;
 import io.prestosql.orc.OrcDataSource;
 import io.prestosql.orc.OrcDataSourceId;
+import io.prestosql.orc.OrcReaderOptions;
 import io.prestosql.orc.OrcWriterOptions;
 import io.prestosql.orc.OrcWriterStats;
 import io.prestosql.orc.OutputStreamOrcDataSink;
@@ -55,14 +56,11 @@ import java.util.function.Supplier;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
-import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcMaxBufferSize;
-import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcMaxMergeDistance;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcOptimizedWriterMaxDictionaryMemory;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcOptimizedWriterMaxStripeRows;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcOptimizedWriterMaxStripeSize;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcOptimizedWriterMinStripeSize;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcOptimizedWriterValidateMode;
-import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcStreamBufferSize;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcStringStatisticsLimit;
 import static io.prestosql.plugin.hive.util.HiveUtil.getColumnNames;
 import static io.prestosql.plugin.hive.util.HiveUtil.getColumnTypes;
@@ -164,10 +162,7 @@ public class OrcFileWriterFactory
                         return new HdfsOrcDataSource(
                                 new OrcDataSourceId(path.toString()),
                                 fileSystem.getFileStatus(path).getLen(),
-                                getOrcMaxMergeDistance(session),
-                                getOrcMaxBufferSize(session),
-                                getOrcStreamBufferSize(session),
-                                false,
+                                new OrcReaderOptions(),
                                 fileSystem.open(path),
                                 readStats);
                     }

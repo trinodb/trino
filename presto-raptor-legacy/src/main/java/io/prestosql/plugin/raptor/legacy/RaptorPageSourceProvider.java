@@ -13,7 +13,7 @@
  */
 package io.prestosql.plugin.raptor.legacy;
 
-import io.prestosql.plugin.raptor.legacy.storage.ReaderAttributes;
+import io.prestosql.orc.OrcReaderOptions;
 import io.prestosql.plugin.raptor.legacy.storage.StorageManager;
 import io.prestosql.plugin.raptor.legacy.util.ConcatPageSource;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -34,6 +34,11 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.UUID;
 
+import static io.prestosql.plugin.raptor.legacy.RaptorSessionProperties.getReaderMaxMergeDistance;
+import static io.prestosql.plugin.raptor.legacy.RaptorSessionProperties.getReaderMaxReadSize;
+import static io.prestosql.plugin.raptor.legacy.RaptorSessionProperties.getReaderStreamBufferSize;
+import static io.prestosql.plugin.raptor.legacy.RaptorSessionProperties.getReaderTinyStripeThreshold;
+import static io.prestosql.plugin.raptor.legacy.RaptorSessionProperties.isReaderLazyReadSmallRanges;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -56,16 +61,22 @@ public class RaptorPageSourceProvider
 
         OptionalInt bucketNumber = raptorSplit.getBucketNumber();
         TupleDomain<RaptorColumnHandle> predicate = raptorTable.getConstraint();
-        ReaderAttributes attributes = ReaderAttributes.from(session);
+        OrcReaderOptions options = new OrcReaderOptions()
+                .withMaxMergeDistance(getReaderMaxMergeDistance(session))
+                .withMaxBufferSize(getReaderMaxReadSize(session))
+                .withStreamBufferSize(getReaderStreamBufferSize(session))
+                .withTinyStripeThreshold(getReaderTinyStripeThreshold(session))
+                .withLazyReadSmallRanges(isReaderLazyReadSmallRanges(session));
+
         OptionalLong transactionId = raptorSplit.getTransactionId();
 
         if (raptorSplit.getShardUuids().size() == 1) {
             UUID shardUuid = raptorSplit.getShardUuids().iterator().next();
-            return createPageSource(shardUuid, bucketNumber, columns, predicate, attributes, transactionId);
+            return createPageSource(shardUuid, bucketNumber, columns, predicate, options, transactionId);
         }
 
         Iterator<ConnectorPageSource> iterator = raptorSplit.getShardUuids().stream()
-                .map(shardUuid -> createPageSource(shardUuid, bucketNumber, columns, predicate, attributes, transactionId))
+                .map(shardUuid -> createPageSource(shardUuid, bucketNumber, columns, predicate, options, transactionId))
                 .iterator();
 
         return new ConcatPageSource(iterator);
@@ -76,13 +87,13 @@ public class RaptorPageSourceProvider
             OptionalInt bucketNumber,
             List<ColumnHandle> columns,
             TupleDomain<RaptorColumnHandle> predicate,
-            ReaderAttributes attributes,
+            OrcReaderOptions orcReaderOptions,
             OptionalLong transactionId)
     {
         List<RaptorColumnHandle> columnHandles = columns.stream().map(RaptorColumnHandle.class::cast).collect(toList());
         List<Long> columnIds = columnHandles.stream().map(RaptorColumnHandle::getColumnId).collect(toList());
         List<Type> columnTypes = columnHandles.stream().map(RaptorColumnHandle::getColumnType).collect(toList());
 
-        return storageManager.getPageSource(shardUuid, bucketNumber, columnIds, columnTypes, predicate, attributes, transactionId);
+        return storageManager.getPageSource(shardUuid, bucketNumber, columnIds, columnTypes, predicate, orcReaderOptions, transactionId);
     }
 }

@@ -53,6 +53,7 @@ import static io.prestosql.orc.OrcRecordReader.LinearProbeRangeFinder.createTiny
 import static io.prestosql.orc.OrcRecordReader.wrapWithCacheIfTinyStripes;
 import static io.prestosql.orc.OrcTester.Format.ORC_12;
 import static io.prestosql.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
+import static io.prestosql.orc.OrcTester.READER_OPTIONS;
 import static io.prestosql.orc.OrcTester.writeOrcFileColumnHive;
 import static io.prestosql.orc.metadata.CompressionKind.NONE;
 import static io.prestosql.orc.metadata.CompressionKind.ZLIB;
@@ -182,14 +183,12 @@ public class TestCachingOrcDataSource
             throws IOException
     {
         // tiny file
-        TestingOrcDataSource orcDataSource = new TestingOrcDataSource(
-                new FileOrcDataSource(tempFile.getFile(), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE), true));
+        TestingOrcDataSource orcDataSource = new TestingOrcDataSource(new FileOrcDataSource(tempFile.getFile(), READER_OPTIONS));
         doIntegration(orcDataSource, new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE));
         assertEquals(orcDataSource.getReadCount(), 1); // read entire file at once
 
         // tiny stripes
-        orcDataSource = new TestingOrcDataSource(
-                new FileOrcDataSource(tempFile.getFile(), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE), true));
+        orcDataSource = new TestingOrcDataSource(new FileOrcDataSource(tempFile.getFile(), READER_OPTIONS));
         doIntegration(orcDataSource, new DataSize(400, Unit.KILOBYTE), new DataSize(400, Unit.KILOBYTE));
         assertEquals(orcDataSource.getReadCount(), 3); // footer, first few stripes, last few stripes
     }
@@ -197,7 +196,11 @@ public class TestCachingOrcDataSource
     private void doIntegration(TestingOrcDataSource orcDataSource, DataSize maxMergeDistance, DataSize tinyStripeThreshold)
             throws IOException
     {
-        OrcReader orcReader = new OrcReader(orcDataSource, maxMergeDistance, tinyStripeThreshold, new DataSize(1, Unit.MEGABYTE));
+        OrcReaderOptions options = new OrcReaderOptions()
+                .withMaxMergeDistance(maxMergeDistance)
+                .withTinyStripeThreshold(tinyStripeThreshold)
+                .withMaxReadBlockSize(new DataSize(1, Unit.MEGABYTE));
+        OrcReader orcReader = new OrcReader(orcDataSource, options);
         // 1 for reading file footer
         assertEquals(orcDataSource.getReadCount(), 1);
         List<StripeInformation> stripes = orcReader.getFooter().getStripes();

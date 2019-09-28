@@ -22,6 +22,7 @@ import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
 import io.airlift.units.MinDuration;
+import io.prestosql.orc.OrcReaderOptions;
 import io.prestosql.spi.type.TimeZoneKey;
 import org.joda.time.DateTimeZone;
 
@@ -48,11 +49,7 @@ public class StorageManagerConfig
     private boolean compactionEnabled = true;
     private Duration compactionInterval = new Duration(1, TimeUnit.HOURS);
     private Duration shardEjectorInterval = new Duration(4, TimeUnit.HOURS);
-    private DataSize orcMaxMergeDistance = new DataSize(1, MEGABYTE);
-    private DataSize orcMaxReadSize = new DataSize(8, MEGABYTE);
-    private DataSize orcStreamBufferSize = new DataSize(8, MEGABYTE);
-    private DataSize orcTinyStripeThreshold = new DataSize(8, MEGABYTE);
-    private boolean orcLazyReadSmallRanges = true;
+    private OrcReaderOptions options = new OrcReaderOptions();
     private int deletionThreads = max(1, getRuntime().availableProcessors() / 2);
     private int recoveryThreads = 10;
     private int organizationThreads = 5;
@@ -94,62 +91,67 @@ public class StorageManagerConfig
         return this;
     }
 
+    public OrcReaderOptions toOrcReaderOptions()
+    {
+        return options;
+    }
+
     @NotNull
     public DataSize getOrcMaxMergeDistance()
     {
-        return orcMaxMergeDistance;
+        return options.getMaxMergeDistance();
     }
 
     @Config("storage.orc.max-merge-distance")
     public StorageManagerConfig setOrcMaxMergeDistance(DataSize orcMaxMergeDistance)
     {
-        this.orcMaxMergeDistance = orcMaxMergeDistance;
+        options = options.withMaxMergeDistance(orcMaxMergeDistance);
         return this;
     }
 
     @NotNull
     public DataSize getOrcMaxReadSize()
     {
-        return orcMaxReadSize;
+        return options.getMaxBufferSize();
     }
 
     @Config("storage.orc.max-read-size")
     public StorageManagerConfig setOrcMaxReadSize(DataSize orcMaxReadSize)
     {
-        this.orcMaxReadSize = orcMaxReadSize;
+        options = options.withMaxBufferSize(orcMaxReadSize);
         return this;
     }
 
     @NotNull
     public DataSize getOrcStreamBufferSize()
     {
-        return orcStreamBufferSize;
+        return options.getStreamBufferSize();
     }
 
     @Config("storage.orc.stream-buffer-size")
     public StorageManagerConfig setOrcStreamBufferSize(DataSize orcStreamBufferSize)
     {
-        this.orcStreamBufferSize = orcStreamBufferSize;
+        options = options.withStreamBufferSize(orcStreamBufferSize);
         return this;
     }
 
     @NotNull
     public DataSize getOrcTinyStripeThreshold()
     {
-        return orcTinyStripeThreshold;
+        return options.getTinyStripeThreshold();
     }
 
     @Config("storage.orc.tiny-stripe-threshold")
     public StorageManagerConfig setOrcTinyStripeThreshold(DataSize orcTinyStripeThreshold)
     {
-        this.orcTinyStripeThreshold = orcTinyStripeThreshold;
+        options = options.withTinyStripeThreshold(orcTinyStripeThreshold);
         return this;
     }
 
     @Deprecated
     public boolean isOrcLazyReadSmallRanges()
     {
-        return orcLazyReadSmallRanges;
+        return options.isLazyReadSmallRanges();
     }
 
     // TODO remove config option once efficacy is proven
@@ -157,7 +159,7 @@ public class StorageManagerConfig
     @Config("storage.orc.lazy-read-small-ranges")
     public StorageManagerConfig setOrcLazyReadSmallRanges(boolean orcLazyReadSmallRanges)
     {
-        this.orcLazyReadSmallRanges = orcLazyReadSmallRanges;
+        options = options.withLazyReadSmallRanges(orcLazyReadSmallRanges);
         return this;
     }
 

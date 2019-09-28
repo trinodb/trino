@@ -15,12 +15,12 @@ package io.prestosql.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.DataSize;
 import io.prestosql.memory.context.AggregatedMemoryContext;
 import io.prestosql.orc.OrcDataSource;
 import io.prestosql.orc.OrcDataSourceId;
 import io.prestosql.orc.OrcPredicate;
 import io.prestosql.orc.OrcReader;
+import io.prestosql.orc.OrcReaderOptions;
 import io.prestosql.orc.OrcRecordReader;
 import io.prestosql.orc.TupleDomainOrcPredicate;
 import io.prestosql.orc.TupleDomainOrcPredicate.ColumnReference;
@@ -78,19 +78,26 @@ public class OrcPageSourceFactory
     private static final Pattern DEFAULT_HIVE_COLUMN_NAME_PATTERN = Pattern.compile("_col\\d+");
     private final TypeManager typeManager;
     private final boolean useOrcColumnNames;
+    private final OrcReaderOptions orcReaderOptions;
     private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats stats;
 
     @Inject
     public OrcPageSourceFactory(TypeManager typeManager, OrcReaderConfig config, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats)
     {
-        this(typeManager, requireNonNull(config, "config is null").isUseColumnNames(), hdfsEnvironment, stats);
+        this(typeManager, requireNonNull(config, "config is null").isUseColumnNames(), config.toOrcReaderOptions(), hdfsEnvironment, stats);
     }
 
-    public OrcPageSourceFactory(TypeManager typeManager, boolean useOrcColumnNames, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats)
+    public OrcPageSourceFactory(
+            TypeManager typeManager,
+            boolean useOrcColumnNames,
+            OrcReaderOptions orcReaderOptions,
+            HdfsEnvironment hdfsEnvironment,
+            FileFormatDataSourceStats stats)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.useOrcColumnNames = useOrcColumnNames;
+        this.orcReaderOptions = requireNonNull(orcReaderOptions, "orcReaderOptions is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.stats = requireNonNull(stats, "stats is null");
     }
@@ -130,17 +137,18 @@ public class OrcPageSourceFactory
                 effectivePredicate,
                 hiveStorageTimeZone,
                 typeManager,
-                getOrcMaxMergeDistance(session),
-                getOrcMaxBufferSize(session),
-                getOrcStreamBufferSize(session),
-                getOrcTinyStripeThreshold(session),
-                getOrcMaxReadBlockSize(session),
-                getOrcLazyReadSmallRanges(session),
-                isOrcBloomFiltersEnabled(session),
+                orcReaderOptions
+                        .withMaxMergeDistance(getOrcMaxMergeDistance(session))
+                        .withMaxBufferSize(getOrcMaxBufferSize(session))
+                        .withStreamBufferSize(getOrcStreamBufferSize(session))
+                        .withTinyStripeThreshold(getOrcTinyStripeThreshold(session))
+                        .withMaxReadBlockSize(getOrcMaxReadBlockSize(session))
+                        .withLazyReadSmallRanges(getOrcLazyReadSmallRanges(session))
+                        .withBloomFiltersEnabled(isOrcBloomFiltersEnabled(session)),
                 stats));
     }
 
-    public static OrcPageSource createOrcPageSource(
+    private static OrcPageSource createOrcPageSource(
             HdfsEnvironment hdfsEnvironment,
             String sessionUser,
             Configuration configuration,
@@ -153,13 +161,7 @@ public class OrcPageSourceFactory
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
-            DataSize maxMergeDistance,
-            DataSize maxBufferSize,
-            DataSize streamBufferSize,
-            DataSize tinyStripeThreshold,
-            DataSize maxReadBlockSize,
-            boolean lazyReadSmallRanges,
-            boolean orcBloomFiltersEnabled,
+            OrcReaderOptions options,
             FileFormatDataSourceStats stats)
     {
         OrcDataSource orcDataSource;
@@ -169,10 +171,7 @@ public class OrcPageSourceFactory
             orcDataSource = new HdfsOrcDataSource(
                     new OrcDataSourceId(path.toString()),
                     fileSize,
-                    maxMergeDistance,
-                    maxBufferSize,
-                    streamBufferSize,
-                    lazyReadSmallRanges,
+                    options,
                     inputStream,
                     stats);
         }
@@ -186,7 +185,7 @@ public class OrcPageSourceFactory
 
         AggregatedMemoryContext systemMemoryUsage = newSimpleAggregatedMemoryContext();
         try {
-            OrcReader reader = new OrcReader(orcDataSource, maxMergeDistance, tinyStripeThreshold, maxReadBlockSize);
+            OrcReader reader = new OrcReader(orcDataSource, options);
 
             List<HiveColumnHandle> physicalColumns = getPhysicalHiveColumnHandles(columns, useOrcColumnNames, reader, path);
             ImmutableMap.Builder<Integer, Type> includedColumnsBuilder = ImmutableMap.builder();
@@ -201,7 +200,7 @@ public class OrcPageSourceFactory
 
             ImmutableMap<Integer, Type> includedColumns = includedColumnsBuilder.build();
 
-            OrcPredicate predicate = new TupleDomainOrcPredicate<>(effectivePredicate, columnReferences.build(), orcBloomFiltersEnabled);
+            OrcPredicate predicate = new TupleDomainOrcPredicate<>(effectivePredicate, columnReferences.build(), options.isBloomFiltersEnabled());
 
             OrcRecordReader recordReader = reader.createRecordReader(
                     includedColumns,

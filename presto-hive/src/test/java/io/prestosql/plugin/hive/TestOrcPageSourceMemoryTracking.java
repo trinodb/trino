@@ -30,6 +30,7 @@ import io.prestosql.operator.SourceOperatorFactory;
 import io.prestosql.operator.TableScanOperator.TableScanOperatorFactory;
 import io.prestosql.operator.project.CursorProcessor;
 import io.prestosql.operator.project.PageProcessor;
+import io.prestosql.orc.OrcReaderOptions;
 import io.prestosql.plugin.hive.orc.OrcPageSourceFactory;
 import io.prestosql.plugin.hive.orc.OrcReaderConfig;
 import io.prestosql.plugin.hive.orc.OrcWriterConfig;
@@ -473,7 +474,7 @@ public class TestOrcPageSourceMemoryTracking
 
         public ConnectorPageSource newPageSource(FileFormatDataSourceStats stats, ConnectorSession session)
         {
-            OrcPageSourceFactory orcPageSourceFactory = new OrcPageSourceFactory(TYPE_MANAGER, false, HDFS_ENVIRONMENT, stats);
+            OrcPageSourceFactory orcPageSourceFactory = new OrcPageSourceFactory(TYPE_MANAGER, false, new OrcReaderOptions(), HDFS_ENVIRONMENT, stats);
             return HivePageSourceProvider.createHivePageSource(
                     ImmutableSet.of(),
                     ImmutableSet.of(orcPageSourceFactory),

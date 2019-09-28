@@ -40,6 +40,7 @@ import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
+import static io.prestosql.orc.OrcTester.READER_OPTIONS;
 import static io.prestosql.orc.StripeReader.isIndexStream;
 import static io.prestosql.orc.TestingOrcPredicate.ORC_ROW_GROUP_SIZE;
 import static io.prestosql.orc.TestingOrcPredicate.ORC_STRIPE_SIZE;
@@ -95,9 +96,8 @@ public class TestOrcWriter
             writer.close();
 
             // read the footer and verify the streams are ordered by size
-            DataSize dataSize = new DataSize(1, MEGABYTE);
-            OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), dataSize, dataSize, dataSize, true);
-            Footer footer = new OrcReader(orcDataSource, dataSize, dataSize, dataSize).getFooter();
+            OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), READER_OPTIONS);
+            Footer footer = new OrcReader(orcDataSource, READER_OPTIONS).getFooter();
 
             for (StripeInformation stripe : footer.getStripes()) {
                 // read the footer
