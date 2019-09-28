@@ -14,7 +14,6 @@
 package io.prestosql.elasticsearch;
 
 import com.google.inject.Injector;
-import com.google.inject.Scopes;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
 import io.prestosql.spi.NodeManager;
@@ -57,7 +56,6 @@ public class ElasticsearchConnectorFactory
                 binder -> {
                     binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                     binder.bind(NodeManager.class).toInstance(context.getNodeManager());
-                    binder.bind(ElasticsearchTableDescriptionProvider.class).in(Scopes.SINGLETON);
                 });
 
         Injector injector = app.strictConfig()

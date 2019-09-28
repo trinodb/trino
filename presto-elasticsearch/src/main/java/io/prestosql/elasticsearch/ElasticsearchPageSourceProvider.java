@@ -13,46 +13,44 @@
  */
 package io.prestosql.elasticsearch;
 
-import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ConnectorRecordSetProvider;
+import io.prestosql.spi.connector.ConnectorPageSource;
+import io.prestosql.spi.connector.ConnectorPageSourceProvider;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.connector.RecordSet;
 
 import javax.inject.Inject;
 
 import java.util.List;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
-public class ElasticsearchRecordSetProvider
-        implements ConnectorRecordSetProvider
+public class ElasticsearchPageSourceProvider
+        implements ConnectorPageSourceProvider
 {
-    private final ElasticsearchConfig config;
     private final ElasticsearchClient client;
 
     @Inject
-    public ElasticsearchRecordSetProvider(ElasticsearchClient client, ElasticsearchConfig config)
+    public ElasticsearchPageSourceProvider(ElasticsearchClient client)
     {
         this.client = requireNonNull(client, "client is null");
-        this.config = requireNonNull(config, "config is null");
     }
 
     @Override
-    public RecordSet getRecordSet(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<? extends ColumnHandle> columns)
+    public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<ColumnHandle> columns)
     {
         requireNonNull(split, "split is null");
         requireNonNull(table, "table is null");
-        ElasticsearchSplit elasticsearchSplit = (ElasticsearchSplit) split;
-        ElasticsearchTableHandle elasticsearchTable = (ElasticsearchTableHandle) table;
-        ImmutableList.Builder<ElasticsearchColumnHandle> handles = ImmutableList.builder();
-        for (ColumnHandle handle : columns) {
-            handles.add((ElasticsearchColumnHandle) handle);
-        }
 
-        return new ElasticsearchRecordSet(client, elasticsearchSplit, elasticsearchTable, config, handles.build());
+        return new ElasticsearchPageSource(
+                client,
+                session,
+                (ElasticsearchTableHandle) table, (ElasticsearchSplit) split,
+                columns.stream()
+                        .map(ElasticsearchColumnHandle.class::cast)
+                        .collect(toImmutableList()));
     }
 }

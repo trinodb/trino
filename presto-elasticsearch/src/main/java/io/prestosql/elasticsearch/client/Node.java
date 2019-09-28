@@ -11,22 +11,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.elasticsearch;
+package io.prestosql.elasticsearch.client;
 
 import static java.util.Objects.requireNonNull;
 
-public class Shard
+public class Node
 {
-    private final int id;
+    private final String id;
     private final String address;
 
-    public Shard(int id, String address)
+    public Node(String id, String address)
     {
-        this.id = id;
+        this.id = requireNonNull(id, "id is null");
         this.address = requireNonNull(address, "address is null");
     }
 
-    public int getId()
+    public String getId()
     {
         return id;
     }

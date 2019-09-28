@@ -30,12 +30,6 @@ replacing the properties as appropriate:
     elasticsearch.host=localhost
     elasticsearch.port=9200
     elasticsearch.default-schema-name=default
-    elasticsearch.table-description-directory=etc/elasticsearch/
-    elasticsearch.scroll-size=1000
-    elasticsearch.scroll-timeout=1m
-    elasticsearch.request-timeout=2s
-    elasticsearch.max-request-retries=5
-    elasticsearch.max-request-retry-time=10s
 
 Configuration Properties
 ------------------------
@@ -48,13 +42,10 @@ Property Name                                 Description
 ``elasticsearch.host``                        Host name of the Elasticsearch server.
 ``elasticsearch.port``                        Port of the Elasticsearch server.
 ``elasticsearch.default-schema-name``         Default schema name for tables.
-``elasticsearch.table-description-directory`` Directory containing JSON table description files.
 ``elasticsearch.scroll-size``                 Maximum number of hits to be returned with each Elasticsearch scroll request.
 ``elasticsearch.scroll-timeout``              Timeout for keeping the search context alive for scroll requests.
 ``elasticsearch.request-timeout``             Timeout for Elasticsearch requests.
 ``elasticsearch.connect-timeout``             Timeout for connections to Elasticsearch hosts.
-``elasticsearch.max-request-retries``         Maximum number of Elasticsearch request retries.
-``elasticsearch.max-request-retry-time``      Use exponential backoff starting at 1s up to the value specified by this configuration when retrying failed requests.
 ============================================= ==============================================================================
 
 ``elasticsearch.host``
@@ -78,14 +69,6 @@ Defines the schema that will contain all tables defined without
 a qualifying schema name.
 
 This property is optional; the default is ``default``.
-
-``elasticsearch.table-description-directory``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Specifies a path under the Presto deployment directory that contains
-one or more JSON files with table descriptions (must end with ``.json``).
-
-This property is optional; the default is ``etc/elasticsearch``.
 
 ``elasticsearch.scroll-size``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -117,20 +100,6 @@ This property is optional; the default is ``100ms``.
 This property defines the timeout value for all Elasticsearch connection attempts.
 
 This property is optional; the default is ``1s``.
-
-``elasticsearch.max-request-retries``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-This property defines the maximum number of Elasticsearch request retries.
-
-This property is optional; the default is ``5``.
-
-``elasticsearch.max-request-retry-time``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Use exponential backoff starting at 1s up to the value specified by this configuration when retrying failed requests.
-
-This property is optional; the default is ``10s``.
 
 TLS Security
 ------------
@@ -178,73 +147,37 @@ The key password for the trust store specified by ``elasticsearch.tls.truststore
 
 This property is optional.
 
-Table Definition Files
-----------------------
-
-Elasticsearch stores the data across multiple nodes and builds indices for fast retrieval.
-For Presto, this data must be mapped into columns to allow queries against the data.
-
-A table definition file describes a table in JSON format.
-
-.. code-block:: none
-
-    {
-        "tableName": ...,
-        "schemaName": ...,
-        "index": ...,
-        "type": ...
-        "columns": [
-            {
-                "name": ...,
-                "type": ...,
-                "jsonPath": ...,
-                "ordinalPosition": ...
-            }
-        ]
-    }
-
-=================== ========= ============== =============================
-Field               Required  Type           Description
-=================== ========= ============== =============================
-``tableName``       required  string         Name of the table.
-``schemaName``      optional  string         Schema that contains the table. If omitted, the default schema name is used.
-``index``           required  string         Elasticsearch index that is backing this table.
-``type``            optional  string         Elasticsearch `mapping type`_, which determines how the document are indexed (like "_doc").
-``columns``         optional  list           List of column metadata information.
-=================== ========= ============== =============================
-
-.. _mapping type: https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping.html#mapping-type
-
-Elasticsearch Column Metadata
------------------------------
-
-Optionally, column metadata can be described in the same table description JSON file with these fields:
-
-===================== ========= ============== =============================
-Field                 Required  Type           Description
-===================== ========= ============== =============================
-``name``              required  string         Column name of Elasticsearch field.
-``type``              required  string         Column type of Elasticsearch field (see second column of `Data Types <#data-types>`__).
-``jsonPath``          required  string         Json path of Elasticsearch field (when in doubt set to the same as ``name``).
-``ordinalPosition``   optional  integer        Ordinal position of the column.
-===================== ========= ============== =============================
-
 Data Types
 ----------
 
 The data type mappings are as follows:
 
-============= ======
+============= =============
 Elasticsearch Presto
-============= ======
+============= =============
 ``binary``    ``VARBINARY``
 ``boolean``   ``BOOLEAN``
 ``double``    ``DOUBLE``
-``float``     ``DOUBLE``
+``float``     ``REAL``
+``byte``      ``TINYINT``
+``short``     ``SMALLINT``
 ``integer``   ``INTEGER``
-``keyword``   ``VARCHAR``
 ``long``      ``BIGINT``
-``string``    ``VARCHAR``
+``keyword``   ``VARCHAR``
 ``text``      ``VARCHAR``
+``date``      ``TIMESTAMP``
 (all others)  (unsupported)
-============= ======
+============= =============
+
+Special Columns
+---------------
+
+The following hidden columns are available:
+
+======= =======================================================
+Column  Description
+======= =======================================================
+_id     The Elasticsearch document ID
+_score  The document score returned by the Elasticsearch query
+_source The source of the original document
+======= =======================================================

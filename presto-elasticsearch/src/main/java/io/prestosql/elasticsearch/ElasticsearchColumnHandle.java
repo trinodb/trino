@@ -16,11 +16,8 @@ package io.prestosql.elasticsearch;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.type.Type;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -29,75 +26,34 @@ import static java.util.Objects.requireNonNull;
 public final class ElasticsearchColumnHandle
         implements ColumnHandle
 {
-    private final String columnName;
-    private final Type columnType;
-    private final String columnJsonPath;
-    private final int ordinalPosition;
-    private final boolean isList;
+    private final String name;
+    private final Type type;
 
     @JsonCreator
     public ElasticsearchColumnHandle(
-            @JsonProperty("columnName") String columnName,
-            @JsonProperty("columnType") Type columnType,
-            @JsonProperty("columnJsonPath") String columnJsonPath,
-            @JsonProperty("ordinalPosition") int ordinalPosition,
-            @JsonProperty("isList") boolean isList)
+            @JsonProperty("name") String name,
+            @JsonProperty("type") Type type)
     {
-        this.columnName = requireNonNull(columnName, "columnName is null");
-        this.columnType = requireNonNull(columnType, "columnType is null");
-        this.columnJsonPath = requireNonNull(columnJsonPath, "columnJsonPath is null");
-        this.ordinalPosition = ordinalPosition;
-        this.isList = isList;
+        this.name = requireNonNull(name, "name is null");
+        this.type = requireNonNull(type, "type is null");
     }
 
     @JsonProperty
-    public String getColumnName()
+    public String getName()
     {
-        return columnName;
+        return name;
     }
 
     @JsonProperty
-    public Type getColumnType()
+    public Type getType()
     {
-        return columnType;
-    }
-
-    @JsonProperty
-    public String getColumnJsonPath()
-    {
-        return columnJsonPath;
-    }
-
-    @JsonProperty
-    public int getOrdinalPosition()
-    {
-        return ordinalPosition;
-    }
-
-    @JsonProperty
-    public boolean getIsList()
-    {
-        return isList;
-    }
-
-    public ColumnMetadata getColumnMetadata()
-    {
-        Map<String, Object> properties = new HashMap<>();
-        properties.put("jsonPath", columnJsonPath);
-        properties.put("isList", isList);
-        properties.put("ordinalPosition", ordinalPosition);
-        return new ColumnMetadata(columnName, columnType, "", "", false, properties);
+        return type;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(
-                columnName,
-                columnType,
-                columnJsonPath,
-                ordinalPosition,
-                isList);
+        return Objects.hash(name, type);
     }
 
     @Override
@@ -111,22 +67,16 @@ public final class ElasticsearchColumnHandle
         }
 
         ElasticsearchColumnHandle other = (ElasticsearchColumnHandle) obj;
-        return Objects.equals(this.getColumnName(), other.getColumnName()) &&
-                Objects.equals(this.getColumnType(), other.getColumnType()) &&
-                Objects.equals(this.getColumnJsonPath(), other.getColumnJsonPath()) &&
-                this.getOrdinalPosition() == other.getOrdinalPosition() &&
-                this.getIsList() == other.getIsList();
+        return Objects.equals(this.getName(), other.getName()) &&
+                Objects.equals(this.getType(), other.getType());
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("columnName", getColumnName())
-                .add("columnType", getColumnType())
-                .add("columnJsonPath", getColumnJsonPath())
-                .add("ordinalPosition", getOrdinalPosition())
-                .add("isList", getIsList())
+                .add("columnName", getName())
+                .add("columnType", getType())
                 .toString();
     }
 }
