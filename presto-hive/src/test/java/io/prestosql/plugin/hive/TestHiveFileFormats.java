@@ -23,6 +23,7 @@ import io.airlift.slice.Slices;
 import io.prestosql.orc.OrcWriterOptions;
 import io.prestosql.plugin.hive.orc.OrcFileWriterFactory;
 import io.prestosql.plugin.hive.orc.OrcPageSourceFactory;
+import io.prestosql.plugin.hive.orc.OrcReaderConfig;
 import io.prestosql.plugin.hive.orc.OrcWriterConfig;
 import io.prestosql.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.prestosql.plugin.hive.parquet.ParquetReaderConfig;
@@ -312,6 +313,7 @@ public class TestHiveFileFormats
     {
         ConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(
                 new HiveConfig(),
+                new OrcReaderConfig(),
                 new OrcWriterConfig()
                         .setValidationPercentage(100.0),
                 new ParquetReaderConfig(),

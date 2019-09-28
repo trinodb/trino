@@ -88,15 +88,6 @@ public class HiveConfig
 
     private boolean assumeCanonicalPartitionKeys;
 
-    private boolean useOrcColumnNames;
-    private boolean orcBloomFiltersEnabled;
-    private DataSize orcMaxMergeDistance = new DataSize(1, MEGABYTE);
-    private DataSize orcMaxBufferSize = new DataSize(8, MEGABYTE);
-    private DataSize orcTinyStripeThreshold = new DataSize(8, MEGABYTE);
-    private DataSize orcStreamBufferSize = new DataSize(8, MEGABYTE);
-    private DataSize orcMaxReadBlockSize = new DataSize(16, MEGABYTE);
-    private boolean orcLazyReadSmallRanges = true;
-
     private boolean rcfileWriterValidate;
 
     private boolean skipDeletionForAlter;
@@ -489,112 +480,6 @@ public class HiveConfig
     public HiveConfig setWriteValidationThreads(int writeValidationThreads)
     {
         this.writeValidationThreads = writeValidationThreads;
-        return this;
-    }
-
-    public boolean isUseOrcColumnNames()
-    {
-        return useOrcColumnNames;
-    }
-
-    @Config("hive.orc.use-column-names")
-    @ConfigDescription("Access ORC columns using names from the file")
-    public HiveConfig setUseOrcColumnNames(boolean useOrcColumnNames)
-    {
-        this.useOrcColumnNames = useOrcColumnNames;
-        return this;
-    }
-
-    @NotNull
-    public DataSize getOrcMaxMergeDistance()
-    {
-        return orcMaxMergeDistance;
-    }
-
-    @Config("hive.orc.max-merge-distance")
-    public HiveConfig setOrcMaxMergeDistance(DataSize orcMaxMergeDistance)
-    {
-        this.orcMaxMergeDistance = orcMaxMergeDistance;
-        return this;
-    }
-
-    @NotNull
-    public DataSize getOrcMaxBufferSize()
-    {
-        return orcMaxBufferSize;
-    }
-
-    @Config("hive.orc.max-buffer-size")
-    public HiveConfig setOrcMaxBufferSize(DataSize orcMaxBufferSize)
-    {
-        this.orcMaxBufferSize = orcMaxBufferSize;
-        return this;
-    }
-
-    @NotNull
-    public DataSize getOrcStreamBufferSize()
-    {
-        return orcStreamBufferSize;
-    }
-
-    @Config("hive.orc.stream-buffer-size")
-    public HiveConfig setOrcStreamBufferSize(DataSize orcStreamBufferSize)
-    {
-        this.orcStreamBufferSize = orcStreamBufferSize;
-        return this;
-    }
-
-    @NotNull
-    public DataSize getOrcTinyStripeThreshold()
-    {
-        return orcTinyStripeThreshold;
-    }
-
-    @Config("hive.orc.tiny-stripe-threshold")
-    public HiveConfig setOrcTinyStripeThreshold(DataSize orcTinyStripeThreshold)
-    {
-        this.orcTinyStripeThreshold = orcTinyStripeThreshold;
-        return this;
-    }
-
-    @NotNull
-    public DataSize getOrcMaxReadBlockSize()
-    {
-        return orcMaxReadBlockSize;
-    }
-
-    @Config("hive.orc.max-read-block-size")
-    public HiveConfig setOrcMaxReadBlockSize(DataSize orcMaxReadBlockSize)
-    {
-        this.orcMaxReadBlockSize = orcMaxReadBlockSize;
-        return this;
-    }
-
-    @Deprecated
-    public boolean isOrcLazyReadSmallRanges()
-    {
-        return orcLazyReadSmallRanges;
-    }
-
-    // TODO remove config option once efficacy is proven
-    @Deprecated
-    @Config("hive.orc.lazy-read-small-ranges")
-    @ConfigDescription("ORC read small disk ranges lazily")
-    public HiveConfig setOrcLazyReadSmallRanges(boolean orcLazyReadSmallRanges)
-    {
-        this.orcLazyReadSmallRanges = orcLazyReadSmallRanges;
-        return this;
-    }
-
-    public boolean isOrcBloomFiltersEnabled()
-    {
-        return orcBloomFiltersEnabled;
-    }
-
-    @Config("hive.orc.bloom-filters.enabled")
-    public HiveConfig setOrcBloomFiltersEnabled(boolean orcBloomFiltersEnabled)
-    {
-        this.orcBloomFiltersEnabled = orcBloomFiltersEnabled;
         return this;
     }
 

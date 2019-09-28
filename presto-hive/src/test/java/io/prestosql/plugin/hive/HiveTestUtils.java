@@ -26,6 +26,7 @@ import io.prestosql.plugin.hive.gcs.GoogleGcsConfigurationInitializer;
 import io.prestosql.plugin.hive.gcs.HiveGcsConfig;
 import io.prestosql.plugin.hive.orc.OrcFileWriterFactory;
 import io.prestosql.plugin.hive.orc.OrcPageSourceFactory;
+import io.prestosql.plugin.hive.orc.OrcReaderConfig;
 import io.prestosql.plugin.hive.orc.OrcWriterConfig;
 import io.prestosql.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.prestosql.plugin.hive.parquet.ParquetReaderConfig;
@@ -81,6 +82,7 @@ public final class HiveTestUtils
     {
         return new HiveSessionProperties(
                 hiveConfig,
+                new OrcReaderConfig(),
                 new OrcWriterConfig(),
                 new ParquetReaderConfig(),
                 new ParquetWriterConfig());
@@ -91,7 +93,7 @@ public final class HiveTestUtils
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
         return ImmutableSet.<HivePageSourceFactory>builder()
                 .add(new RcFilePageSourceFactory(TYPE_MANAGER, hdfsEnvironment, stats))
-                .add(new OrcPageSourceFactory(TYPE_MANAGER, hiveConfig, hdfsEnvironment, stats))
+                .add(new OrcPageSourceFactory(TYPE_MANAGER, new OrcReaderConfig(), hdfsEnvironment, stats))
                 .add(new ParquetPageSourceFactory(TYPE_MANAGER, hdfsEnvironment, stats))
                 .build();
     }
