@@ -18,7 +18,7 @@ import io.airlift.units.DataSize;
 import io.prestosql.orc.OrcWriterOptions;
 
 @SuppressWarnings("unused")
-public class OrcFileWriterConfig
+public class OrcWriterConfig
 {
     private OrcWriterOptions options = new OrcWriterOptions();
 
@@ -33,7 +33,7 @@ public class OrcFileWriterConfig
     }
 
     @Config("hive.orc.writer.stripe-min-size")
-    public OrcFileWriterConfig setStripeMinSize(DataSize stripeMinSize)
+    public OrcWriterConfig setStripeMinSize(DataSize stripeMinSize)
     {
         options = options.withStripeMinSize(stripeMinSize);
         return this;
@@ -45,7 +45,7 @@ public class OrcFileWriterConfig
     }
 
     @Config("hive.orc.writer.stripe-max-size")
-    public OrcFileWriterConfig setStripeMaxSize(DataSize stripeMaxSize)
+    public OrcWriterConfig setStripeMaxSize(DataSize stripeMaxSize)
     {
         options = options.withStripeMaxSize(stripeMaxSize);
         return this;
@@ -57,7 +57,7 @@ public class OrcFileWriterConfig
     }
 
     @Config("hive.orc.writer.stripe-max-rows")
-    public OrcFileWriterConfig setStripeMaxRowCount(int stripeMaxRowCount)
+    public OrcWriterConfig setStripeMaxRowCount(int stripeMaxRowCount)
     {
         options = options.withStripeMaxRowCount(stripeMaxRowCount);
         return this;
@@ -69,7 +69,7 @@ public class OrcFileWriterConfig
     }
 
     @Config("hive.orc.writer.row-group-max-rows")
-    public OrcFileWriterConfig setRowGroupMaxRowCount(int rowGroupMaxRowCount)
+    public OrcWriterConfig setRowGroupMaxRowCount(int rowGroupMaxRowCount)
     {
         options = options.withRowGroupMaxRowCount(rowGroupMaxRowCount);
         return this;
@@ -81,7 +81,7 @@ public class OrcFileWriterConfig
     }
 
     @Config("hive.orc.writer.dictionary-max-memory")
-    public OrcFileWriterConfig setDictionaryMaxMemory(DataSize dictionaryMaxMemory)
+    public OrcWriterConfig setDictionaryMaxMemory(DataSize dictionaryMaxMemory)
     {
         options = options.withDictionaryMaxMemory(dictionaryMaxMemory);
         return this;
@@ -93,7 +93,7 @@ public class OrcFileWriterConfig
     }
 
     @Config("hive.orc.writer.string-statistics-limit")
-    public OrcFileWriterConfig setStringStatisticsLimit(DataSize stringStatisticsLimit)
+    public OrcWriterConfig setStringStatisticsLimit(DataSize stringStatisticsLimit)
     {
         options = options.withMaxStringStatisticsLimit(stringStatisticsLimit);
         return this;
@@ -105,7 +105,7 @@ public class OrcFileWriterConfig
     }
 
     @Config("hive.orc.writer.max-compression-buffer-size")
-    public OrcFileWriterConfig setMaxCompressionBufferSize(DataSize maxCompressionBufferSize)
+    public OrcWriterConfig setMaxCompressionBufferSize(DataSize maxCompressionBufferSize)
     {
         options = options.withMaxCompressionBufferSize(maxCompressionBufferSize);
         return this;

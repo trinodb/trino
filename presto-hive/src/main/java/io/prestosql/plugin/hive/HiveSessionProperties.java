@@ -16,7 +16,7 @@ package io.prestosql.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.prestosql.orc.OrcWriteValidation.OrcWriteValidationMode;
-import io.prestosql.plugin.hive.orc.OrcFileWriterConfig;
+import io.prestosql.plugin.hive.orc.OrcWriterConfig;
 import io.prestosql.plugin.hive.parquet.ParquetReaderConfig;
 import io.prestosql.plugin.hive.parquet.ParquetWriterConfig;
 import io.prestosql.spi.PrestoException;
@@ -107,7 +107,7 @@ public final class HiveSessionProperties
     @Inject
     public HiveSessionProperties(
             HiveConfig hiveConfig,
-            OrcFileWriterConfig orcFileWriterConfig,
+            OrcWriterConfig orcWriterConfig,
             ParquetReaderConfig parquetReaderConfig,
             ParquetWriterConfig parquetWriterConfig)
     {
@@ -169,7 +169,7 @@ public final class HiveSessionProperties
                 dataSizeProperty(
                         ORC_STRING_STATISTICS_LIMIT,
                         "ORC: Maximum size of string statistics; drop if exceeding",
-                        orcFileWriterConfig.getStringStatisticsLimit(),
+                        orcWriterConfig.getStringStatisticsLimit(),
                         false),
                 booleanProperty(
                         ORC_OPTIMIZED_WRITER_VALIDATE,
@@ -202,22 +202,22 @@ public final class HiveSessionProperties
                 dataSizeProperty(
                         ORC_OPTIMIZED_WRITER_MIN_STRIPE_SIZE,
                         "Experimental: ORC: Min stripe size",
-                        orcFileWriterConfig.getStripeMinSize(),
+                        orcWriterConfig.getStripeMinSize(),
                         false),
                 dataSizeProperty(
                         ORC_OPTIMIZED_WRITER_MAX_STRIPE_SIZE,
                         "Experimental: ORC: Max stripe size",
-                        orcFileWriterConfig.getStripeMaxSize(),
+                        orcWriterConfig.getStripeMaxSize(),
                         false),
                 integerProperty(
                         ORC_OPTIMIZED_WRITER_MAX_STRIPE_ROWS,
                         "Experimental: ORC: Max stripe row count",
-                        orcFileWriterConfig.getStripeMaxRowCount(),
+                        orcWriterConfig.getStripeMaxRowCount(),
                         false),
                 dataSizeProperty(
                         ORC_OPTIMIZED_WRITER_MAX_DICTIONARY_MEMORY,
                         "Experimental: ORC: Max dictionary memory",
-                        orcFileWriterConfig.getDictionaryMaxMemory(),
+                        orcWriterConfig.getDictionaryMaxMemory(),
                         false),
                 enumProperty(
                         HIVE_STORAGE_FORMAT,

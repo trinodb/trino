@@ -15,7 +15,7 @@ package io.prestosql.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
-import io.prestosql.plugin.hive.orc.OrcFileWriterConfig;
+import io.prestosql.plugin.hive.orc.OrcWriterConfig;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -27,12 +27,12 @@ import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
-public class TestOrcFileWriterConfig
+public class TestOrcWriterConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(OrcFileWriterConfig.class)
+        assertRecordedDefaults(recordDefaults(OrcWriterConfig.class)
                 .setStripeMinSize(new DataSize(32, MEGABYTE))
                 .setStripeMaxSize(new DataSize(64, MEGABYTE))
                 .setStripeMaxRowCount(10_000_000)
@@ -55,7 +55,7 @@ public class TestOrcFileWriterConfig
                 .put("hive.orc.writer.max-compression-buffer-size", "19MB")
                 .build();
 
-        OrcFileWriterConfig expected = new OrcFileWriterConfig()
+        OrcWriterConfig expected = new OrcWriterConfig()
                 .setStripeMinSize(new DataSize(13, MEGABYTE))
                 .setStripeMaxSize(new DataSize(27, MEGABYTE))
                 .setStripeMaxRowCount(44)

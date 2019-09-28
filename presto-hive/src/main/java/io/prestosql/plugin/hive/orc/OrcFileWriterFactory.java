@@ -89,7 +89,7 @@ public class OrcFileWriterFactory
             NodeVersion nodeVersion,
             HiveConfig hiveConfig,
             FileFormatDataSourceStats readStats,
-            OrcFileWriterConfig config)
+            OrcWriterConfig config)
     {
         this(
                 hdfsEnvironment,

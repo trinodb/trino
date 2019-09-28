@@ -24,9 +24,9 @@ import io.prestosql.operator.PagesIndex;
 import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
 import io.prestosql.plugin.hive.gcs.GoogleGcsConfigurationInitializer;
 import io.prestosql.plugin.hive.gcs.HiveGcsConfig;
-import io.prestosql.plugin.hive.orc.OrcFileWriterConfig;
 import io.prestosql.plugin.hive.orc.OrcFileWriterFactory;
 import io.prestosql.plugin.hive.orc.OrcPageSourceFactory;
+import io.prestosql.plugin.hive.orc.OrcWriterConfig;
 import io.prestosql.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.prestosql.plugin.hive.parquet.ParquetReaderConfig;
 import io.prestosql.plugin.hive.parquet.ParquetWriterConfig;
@@ -81,7 +81,7 @@ public final class HiveTestUtils
     {
         return new HiveSessionProperties(
                 hiveConfig,
-                new OrcFileWriterConfig(),
+                new OrcWriterConfig(),
                 new ParquetReaderConfig(),
                 new ParquetWriterConfig());
     }
@@ -119,7 +119,7 @@ public final class HiveTestUtils
                 new NodeVersion("test_version"),
                 hiveConfig,
                 new FileFormatDataSourceStats(),
-                new OrcFileWriterConfig());
+                new OrcWriterConfig());
     }
 
     public static List<Type> getTypes(List<? extends ColumnHandle> columnHandles)
