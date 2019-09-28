@@ -23,8 +23,8 @@ import io.airlift.units.DataSize;
 import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HiveSessionProperties;
 import io.prestosql.plugin.hive.HiveStorageFormat;
-import io.prestosql.plugin.hive.orc.OrcFileWriterConfig;
 import io.prestosql.plugin.hive.benchmark.FileFormat;
+import io.prestosql.plugin.hive.orc.OrcWriterConfig;
 import io.prestosql.plugin.hive.parquet.write.MapKeyValuesSchemaConverter;
 import io.prestosql.plugin.hive.parquet.write.SingleLevelArrayMapKeyValuesSchemaConverter;
 import io.prestosql.plugin.hive.parquet.write.SingleLevelArraySchemaConverter;
@@ -339,7 +339,7 @@ public class ParquetTester
                 new HiveConfig()
                         .setHiveStorageFormat(HiveStorageFormat.PARQUET)
                         .setUseParquetColumnNames(false),
-                new OrcFileWriterConfig(),
+                new OrcWriterConfig(),
                 new ParquetReaderConfig()
                         .setMaxReadBlockSize(maxReadBlockSize),
                 new ParquetWriterConfig())
