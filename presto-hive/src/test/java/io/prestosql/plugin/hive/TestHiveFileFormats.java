@@ -23,7 +23,10 @@ import io.airlift.slice.Slices;
 import io.prestosql.orc.OrcWriterOptions;
 import io.prestosql.plugin.hive.orc.OrcFileWriterFactory;
 import io.prestosql.plugin.hive.orc.OrcPageSourceFactory;
+import io.prestosql.plugin.hive.orc.OrcWriterConfig;
 import io.prestosql.plugin.hive.parquet.ParquetPageSourceFactory;
+import io.prestosql.plugin.hive.parquet.ParquetReaderConfig;
+import io.prestosql.plugin.hive.parquet.ParquetWriterConfig;
 import io.prestosql.plugin.hive.rcfile.RcFilePageSourceFactory;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorPageSource;
@@ -31,6 +34,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.RecordPageSource;
 import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.testing.TestingConnectorSession;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.apache.hadoop.hive.serde2.objectinspector.ListObjectInspector;
@@ -306,8 +310,12 @@ public class TestHiveFileFormats
     public void testOrcOptimizedWriter(int rowCount)
             throws Exception
     {
-        ConnectorSession session = getHiveSession(new HiveConfig()
-                .setOrcWriterValidationPercentage(100.0));
+        ConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(
+                new HiveConfig(),
+                new OrcWriterConfig()
+                        .setValidationPercentage(100.0),
+                new ParquetReaderConfig(),
+                new ParquetWriterConfig()).getSessionProperties());
 
         // A Presto page can not contain a map with null keys, so a page based writer can not write null keys
         List<TestColumn> testColumns = TEST_COLUMNS.stream()

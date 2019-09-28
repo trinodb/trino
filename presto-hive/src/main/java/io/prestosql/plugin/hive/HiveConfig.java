@@ -22,12 +22,9 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
-import io.prestosql.orc.OrcWriteValidation.OrcWriteValidationMode;
 import org.joda.time.DateTimeZone;
 
 import javax.annotation.Nullable;
-import javax.validation.constraints.DecimalMax;
-import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
@@ -46,7 +43,6 @@ import static java.util.concurrent.TimeUnit.MINUTES;
         "hive.max-sort-files-per-bucket",
         "hive.bucket-writing",
         "hive.optimized-reader.enabled",
-        "hive.orc.optimized-writer.enabled",
         "hive.rcfile-optimized-writer.enabled",
 })
 public class HiveConfig
@@ -94,16 +90,12 @@ public class HiveConfig
 
     private boolean useOrcColumnNames;
     private boolean orcBloomFiltersEnabled;
-    private double orcDefaultBloomFilterFpp = 0.05;
     private DataSize orcMaxMergeDistance = new DataSize(1, MEGABYTE);
     private DataSize orcMaxBufferSize = new DataSize(8, MEGABYTE);
     private DataSize orcTinyStripeThreshold = new DataSize(8, MEGABYTE);
     private DataSize orcStreamBufferSize = new DataSize(8, MEGABYTE);
     private DataSize orcMaxReadBlockSize = new DataSize(16, MEGABYTE);
     private boolean orcLazyReadSmallRanges = true;
-    private boolean orcWriteLegacyVersion;
-    private double orcWriterValidationPercentage;
-    private OrcWriteValidationMode orcWriterValidationMode = OrcWriteValidationMode.BOTH;
 
     private boolean rcfileWriterValidate;
 
@@ -603,61 +595,6 @@ public class HiveConfig
     public HiveConfig setOrcBloomFiltersEnabled(boolean orcBloomFiltersEnabled)
     {
         this.orcBloomFiltersEnabled = orcBloomFiltersEnabled;
-        return this;
-    }
-
-    public double getOrcDefaultBloomFilterFpp()
-    {
-        return orcDefaultBloomFilterFpp;
-    }
-
-    @Config("hive.orc.default-bloom-filter-fpp")
-    @ConfigDescription("ORC Bloom filter false positive probability")
-    public HiveConfig setOrcDefaultBloomFilterFpp(double orcDefaultBloomFilterFpp)
-    {
-        this.orcDefaultBloomFilterFpp = orcDefaultBloomFilterFpp;
-        return this;
-    }
-
-    public boolean isOrcWriteLegacyVersion()
-    {
-        return orcWriteLegacyVersion;
-    }
-
-    @Config("hive.orc.writer.use-legacy-version-number")
-    @ConfigDescription("Write ORC files with a version number that is readable by Hive 2.0.0 to 2.2.0")
-    public HiveConfig setOrcWriteLegacyVersion(boolean orcWriteLegacyVersion)
-    {
-        this.orcWriteLegacyVersion = orcWriteLegacyVersion;
-        return this;
-    }
-
-    @DecimalMin("0.0")
-    @DecimalMax("100.0")
-    public double getOrcWriterValidationPercentage()
-    {
-        return orcWriterValidationPercentage;
-    }
-
-    @Config("hive.orc.writer.validation-percentage")
-    @ConfigDescription("Percentage of ORC files to validate after write by re-reading the whole file")
-    public HiveConfig setOrcWriterValidationPercentage(double orcWriterValidationPercentage)
-    {
-        this.orcWriterValidationPercentage = orcWriterValidationPercentage;
-        return this;
-    }
-
-    @NotNull
-    public OrcWriteValidationMode getOrcWriterValidationMode()
-    {
-        return orcWriterValidationMode;
-    }
-
-    @Config("hive.orc.writer.validation-mode")
-    @ConfigDescription("Level of detail in ORC validation. Lower levels require more memory.")
-    public HiveConfig setOrcWriterValidationMode(OrcWriteValidationMode orcWriterValidationMode)
-    {
-        this.orcWriterValidationMode = orcWriterValidationMode;
         return this;
     }
 

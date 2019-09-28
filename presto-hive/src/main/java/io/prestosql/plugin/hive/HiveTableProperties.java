@@ -15,6 +15,7 @@ package io.prestosql.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.plugin.hive.metastore.SortingColumn;
+import io.prestosql.plugin.hive.orc.OrcWriterConfig;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.session.PropertyMetadata;
 import io.prestosql.spi.type.TypeManager;
@@ -61,7 +62,10 @@ public class HiveTableProperties
     private final List<PropertyMetadata<?>> tableProperties;
 
     @Inject
-    public HiveTableProperties(TypeManager typeManager, HiveConfig config)
+    public HiveTableProperties(
+            TypeManager typeManager,
+            HiveConfig config,
+            OrcWriterConfig orcWriterConfig)
     {
         tableProperties = ImmutableList.of(
                 stringProperty(
@@ -127,7 +131,7 @@ public class HiveTableProperties
                 doubleProperty(
                         ORC_BLOOM_FILTER_FPP,
                         "ORC Bloom filter false positive probability",
-                        config.getOrcDefaultBloomFilterFpp(),
+                        orcWriterConfig.getDefaultBloomFilterFpp(),
                         false),
                 integerProperty(BUCKET_COUNT_PROPERTY, "Number of buckets", 0, false),
                 stringProperty(AVRO_SCHEMA_URL, "URI pointing to Avro schema for the table", null, false),
