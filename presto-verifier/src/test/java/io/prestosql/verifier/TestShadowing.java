@@ -77,8 +77,8 @@ public class TestShadowing
 
         CreateTableAsSelect createTableAs = (CreateTableAsSelect) parser.createStatement(rewrittenQuery.getPreQueries().get(0));
         assertEquals(createTableAs.getName().getParts().size(), 1);
-        assertTrue(createTableAs.getName().getSuffix().startsWith("tmp_"));
-        assertFalse(createTableAs.getName().getSuffix().contains("my_test_table"));
+        assertTrue(createTableAs.getName().getLegacySuffix().startsWith("tmp_"));
+        assertFalse(createTableAs.getName().getLegacySuffix().contains("my_test_table"));
 
         assertEquals(statementToQueryType(parser, rewrittenQuery.getQuery()), READ);
 
@@ -105,8 +105,8 @@ public class TestShadowing
         CreateTableAsSelect createTableAs = (CreateTableAsSelect) parser.createStatement(rewrittenQuery.getPreQueries().get(0));
         assertEquals(createTableAs.getName().getParts().size(), 3);
         assertEquals(createTableAs.getName().getPrefix().get(), QualifiedName.of("other_catalog", "other_schema"));
-        assertTrue(createTableAs.getName().getSuffix().startsWith("tmp_"));
-        assertFalse(createTableAs.getName().getSuffix().contains("my_test_table"));
+        assertTrue(createTableAs.getName().getLegacySuffix().startsWith("tmp_"));
+        assertFalse(createTableAs.getName().getLegacySuffix().contains("my_test_table"));
     }
 
     @Test
@@ -123,8 +123,8 @@ public class TestShadowing
         CreateTable createTable = (CreateTable) parser.createStatement(rewrittenQuery.getPreQueries().get(0));
         assertEquals(createTable.getName().getParts().size(), 3);
         assertEquals(createTable.getName().getPrefix().get(), QualifiedName.of("other_catalog", "other_schema"));
-        assertTrue(createTable.getName().getSuffix().startsWith("tmp_"));
-        assertFalse(createTable.getName().getSuffix().contains("test_insert_table"));
+        assertTrue(createTable.getName().getLegacySuffix().startsWith("tmp_"));
+        assertFalse(createTable.getName().getLegacySuffix().contains("test_insert_table"));
 
         Insert insert = (Insert) parser.createStatement(rewrittenQuery.getPreQueries().get(1));
         assertEquals(insert.getTarget(), createTable.getName());

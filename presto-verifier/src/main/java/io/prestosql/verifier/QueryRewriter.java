@@ -171,7 +171,7 @@ public class QueryRewriter
 
     private String createTemporaryTableName()
     {
-        return rewritePrefix.getSuffix() + UUID.randomUUID().toString().replace("-", "");
+        return rewritePrefix.getLegacySuffix() + UUID.randomUUID().toString().replace("-", "");
     }
 
     private List<Column> getColumnsForTable(Connection connection, String catalog, String schema, String table)

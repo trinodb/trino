@@ -108,7 +108,7 @@ public class SymbolAllocator
             nameHint = ((Identifier) expression).getValue();
         }
         else if (expression instanceof FunctionCall) {
-            nameHint = ((FunctionCall) expression).getName().getSuffix();
+            nameHint = ((FunctionCall) expression).getName().getLegacySuffix();
         }
         else if (expression instanceof SymbolReference) {
             nameHint = ((SymbolReference) expression).getName();

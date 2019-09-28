@@ -345,7 +345,7 @@ public final class SqlToRowExpressionTranslator
                     .map(Type::getTypeSignature)
                     .collect(toImmutableList());
 
-            Signature signature = new Signature(node.getName().getSuffix(), functionKind, getType(node).getTypeSignature(), argumentTypes);
+            Signature signature = new Signature(node.getName().getLegacySuffix(), functionKind, getType(node).getTypeSignature(), argumentTypes);
 
             return call(signature, getType(node), arguments);
         }

@@ -540,7 +540,7 @@ public abstract class AbstractMockMetadata
     @Override
     public Signature resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
-        String nameSuffix = name.getSuffix();
+        String nameSuffix = name.getLegacySuffix();
         if (nameSuffix.equals("rand") && parameterTypes.isEmpty()) {
             return new Signature(nameSuffix, FunctionKind.SCALAR, DOUBLE.getTypeSignature(), ImmutableList.of());
         }

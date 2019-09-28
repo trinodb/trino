@@ -121,7 +121,7 @@ public final class MetadataUtil
             if (parts.size() == 2) {
                 catalogName = parts.get(0);
             }
-            schemaName = schema.get().getSuffix();
+            schemaName = schema.get().getLegacySuffix();
         }
 
         if (catalogName == null) {

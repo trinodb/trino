@@ -86,7 +86,7 @@ public final class DynamicFilters
 
         FunctionCall functionCall = (FunctionCall) expression;
 
-        if (!functionCall.getName().getSuffix().equals(Function.NAME)) {
+        if (!functionCall.getName().getLegacySuffix().equals(Function.NAME)) {
             return Optional.empty();
         }
 

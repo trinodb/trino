@@ -866,7 +866,7 @@ class StatementAnalyzer
         {
             if (!table.getName().getPrefix().isPresent()) {
                 // is this a reference to a WITH query?
-                Optional<WithQuery> withQuery = createScope(scope).getNamedQuery(table.getName().getSuffix());
+                Optional<WithQuery> withQuery = createScope(scope).getNamedQuery(table.getName().getLegacySuffix());
                 if (withQuery.isPresent()) {
                     return createScopeForCommonTableExpression(table, scope, withQuery.get());
                 }
@@ -934,7 +934,7 @@ class StatementAnalyzer
                 for (Identifier columnName : columnNames.get()) {
                     Field inputField = queryDescriptor.getFieldByIndex(field);
                     fieldBuilder.add(Field.newQualified(
-                            QualifiedName.of(table.getName().getSuffix()),
+                            QualifiedName.of(table.getName().getLegacySuffix()),
                             Optional.of(columnName.getValue()),
                             inputField.getType(),
                             false,
@@ -950,7 +950,7 @@ class StatementAnalyzer
             else {
                 fields = queryDescriptor.getAllFields().stream()
                         .map(field -> Field.newQualified(
-                                QualifiedName.of(table.getName().getSuffix()),
+                                QualifiedName.of(table.getName().getLegacySuffix()),
                                 field.getName(),
                                 field.getType(),
                                 field.isHidden(),
