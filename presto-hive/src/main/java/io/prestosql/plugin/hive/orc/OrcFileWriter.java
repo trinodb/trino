@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive;
+package io.prestosql.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.orc.OrcDataSink;
@@ -21,6 +21,7 @@ import io.prestosql.orc.OrcWriter;
 import io.prestosql.orc.OrcWriterOptions;
 import io.prestosql.orc.OrcWriterStats;
 import io.prestosql.orc.metadata.CompressionKind;
+import io.prestosql.plugin.hive.HiveFileWriter;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
