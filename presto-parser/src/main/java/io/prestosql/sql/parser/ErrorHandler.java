@@ -293,7 +293,11 @@ class ErrorHandler
                             labels = labels.complement(IntervalSet.of(Token.MIN_USER_TOKEN_TYPE, atn.maxTokenType));
                         }
 
-                        if (labels.contains(currentToken)) {
+                        // Surprisingly, TokenStream (i.e. BufferedTokenStream) may not have loaded all the tokens from the
+                        // underlying stream. TokenStream.get() does not force tokens to be buffered -- it just returns what's
+                        // in the current buffer, or fail with an IndexOutOfBoundsError. Since Antlr decided the error occurred
+                        // within the current set of buffered tokens, stop when we reach the end of the buffer.
+                        if (labels.contains(currentToken) && tokenIndex < stream.size() - 1) {
                             activeStates.push(new ParsingState(transition.target, tokenIndex + 1, false, parser));
                         }
                         else {

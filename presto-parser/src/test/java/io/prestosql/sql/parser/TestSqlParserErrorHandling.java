@@ -136,6 +136,10 @@ public class TestSqlParserErrorHandling
                         "line 1:15: Zero-length delimited identifier not allowed"},
                 {"SELECT a FROM \"\".s.t",
                         "line 1:15: Zero-length delimited identifier not allowed"},
+                {"WITH t AS (SELECT 1 SELECT t.* FROM t",
+                        "line 1:21: mismatched input 'SELECT'. Expecting: '%', '(', ')', '*', '+', ',', '-', '.', '/', 'AND', 'AS', 'AT', 'EXCEPT', 'FETCH', 'FROM', " +
+                                "'GROUP', 'HAVING', 'INTERSECT', 'LIMIT', 'OFFSET', 'OR', 'ORDER', 'SELECT', 'TABLE', 'UNION', 'VALUES', 'WHERE', '[', '||', <EOF>, " +
+                                "<identifier>, <predicate>"}
         };
     }
 
