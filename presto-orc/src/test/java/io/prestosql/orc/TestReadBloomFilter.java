@@ -53,6 +53,7 @@ import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.lang.Float.floatToIntBits;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNull;
 
 public class TestReadBloomFilter
 {
@@ -93,7 +94,7 @@ public class TestReadBloomFilter
 
             // without predicate a normal block will be created
             try (OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, OrcPredicate.TRUE, type, MAX_BATCH_SIZE)) {
-                assertEquals(recordReader.nextBatch(), 1024);
+                assertEquals(recordReader.nextPage().getLoadedPage().getPositionCount(), 1024);
             }
 
             // predicate for specific value within the min/max range without bloom filter being enabled
@@ -103,7 +104,7 @@ public class TestReadBloomFilter
                     false);
 
             try (OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, noBloomFilterPredicate, type, MAX_BATCH_SIZE)) {
-                assertEquals(recordReader.nextBatch(), 1024);
+                assertEquals(recordReader.nextPage().getLoadedPage().getPositionCount(), 1024);
             }
 
             // predicate for specific value within the min/max range with bloom filter enabled, but a value not in the bloom filter
@@ -113,7 +114,7 @@ public class TestReadBloomFilter
                     true);
 
             try (OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, notMatchBloomFilterPredicate, type, MAX_BATCH_SIZE)) {
-                assertEquals(recordReader.nextBatch(), -1);
+                assertNull(recordReader.nextPage());
             }
 
             // predicate for specific value within the min/max range with bloom filter enabled, and a value in the bloom filter
@@ -123,7 +124,7 @@ public class TestReadBloomFilter
                     true);
 
             try (OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, matchBloomFilterPredicate, type, MAX_BATCH_SIZE)) {
-                assertEquals(recordReader.nextBatch(), 1024);
+                assertEquals(recordReader.nextPage().getLoadedPage().getPositionCount(), 1024);
             }
         }
     }
@@ -137,6 +138,13 @@ public class TestReadBloomFilter
         assertEquals(orcReader.getColumnNames(), ImmutableList.of("test"));
         assertEquals(orcReader.getFooter().getRowsInRowGroup(), 10_000);
 
-        return orcReader.createRecordReader(ImmutableMap.of(0, type), predicate, HIVE_STORAGE_TIME_ZONE, newSimpleAggregatedMemoryContext(), initialBatchSize);
+        return orcReader.createRecordReader(
+                ImmutableList.of(0),
+                ImmutableList.of(type),
+                predicate,
+                HIVE_STORAGE_TIME_ZONE,
+                newSimpleAggregatedMemoryContext(),
+                initialBatchSize,
+                RuntimeException::new);
     }
 }

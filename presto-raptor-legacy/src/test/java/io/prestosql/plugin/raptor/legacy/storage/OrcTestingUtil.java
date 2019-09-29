@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.raptor.legacy.storage;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.UnsignedBytes;
 import io.airlift.units.DataSize;
 import io.prestosql.orc.FileOrcDataSource;
@@ -29,10 +28,10 @@ import org.joda.time.DateTimeZone;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.stream.IntStream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.orc.OrcReader.MAX_BATCH_SIZE;
@@ -42,7 +41,7 @@ final class OrcTestingUtil
 {
     private OrcTestingUtil() {}
 
-    public static final OrcReaderOptions READER_OPTIONS = new OrcReaderOptions()
+    private static final OrcReaderOptions READER_OPTIONS = new OrcReaderOptions()
             .withMaxReadBlockSize(new DataSize(1, MEGABYTE))
             .withMaxMergeDistance(new DataSize(1, MEGABYTE))
             .withMaxBufferSize(new DataSize(1, MEGABYTE))
@@ -63,31 +62,16 @@ final class OrcTestingUtil
         List<String> columnNames = orcReader.getColumnNames();
         assertEquals(columnNames.size(), columnIds.size());
 
-        Map<Integer, Type> includedColumns = new HashMap<>();
-        int ordinal = 0;
-        for (long columnId : columnIds) {
-            assertEquals(columnNames.get(ordinal), String.valueOf(columnId));
-            includedColumns.put(ordinal, types.get(ordinal));
-            ordinal++;
-        }
-
-        return createRecordReader(orcReader, includedColumns);
+        return createRecordReader(
+                orcReader,
+                IntStream.range(0, types.size()).boxed().collect(toImmutableList()),
+                types);
     }
 
-    public static OrcRecordReader createReaderNoRows(OrcDataSource dataSource)
-            throws IOException
-    {
-        OrcReader orcReader = new OrcReader(dataSource, READER_OPTIONS);
-
-        assertEquals(orcReader.getColumnNames().size(), 0);
-
-        return createRecordReader(orcReader, ImmutableMap.of());
-    }
-
-    public static OrcRecordReader createRecordReader(OrcReader orcReader, Map<Integer, Type> includedColumns)
+    private static OrcRecordReader createRecordReader(OrcReader orcReader, List<Integer> readColumns, List<Type> readTypes)
             throws OrcCorruptionException
     {
-        return orcReader.createRecordReader(includedColumns, OrcPredicate.TRUE, DateTimeZone.UTC, newSimpleAggregatedMemoryContext(), MAX_BATCH_SIZE);
+        return orcReader.createRecordReader(readColumns, readTypes, OrcPredicate.TRUE, DateTimeZone.UTC, newSimpleAggregatedMemoryContext(), MAX_BATCH_SIZE, RuntimeException::new);
     }
 
     public static byte[] octets(int... values)

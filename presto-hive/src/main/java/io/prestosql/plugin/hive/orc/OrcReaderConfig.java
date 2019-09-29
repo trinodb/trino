@@ -136,4 +136,20 @@ public class OrcReaderConfig
         options = options.withLazyReadSmallRanges(lazyReadSmallRanges);
         return this;
     }
+
+    @Deprecated
+    public boolean isNestedLazy()
+    {
+        return options.isNestedLazy();
+    }
+
+    // TODO remove config option once efficacy is proven
+    @Deprecated
+    @Config("hive.orc.nested-lazy")
+    @ConfigDescription("ORC lazily read nested data")
+    public OrcReaderConfig setNestedLazy(boolean nestedLazy)
+    {
+        options = options.withNestedLazy(nestedLazy);
+        return this;
+    }
 }

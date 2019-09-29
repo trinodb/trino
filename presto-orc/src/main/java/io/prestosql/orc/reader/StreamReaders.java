@@ -14,6 +14,7 @@
 package io.prestosql.orc.reader;
 
 import io.prestosql.memory.context.AggregatedMemoryContext;
+import io.prestosql.orc.OrcBlockFactory.NestedBlockFactory;
 import io.prestosql.orc.OrcCorruptionException;
 import io.prestosql.orc.StreamDescriptor;
 import io.prestosql.spi.type.Type;
@@ -22,7 +23,7 @@ public final class StreamReaders
 {
     private StreamReaders() {}
 
-    public static StreamReader createStreamReader(Type type, StreamDescriptor streamDescriptor, AggregatedMemoryContext systemMemoryContext)
+    public static StreamReader createStreamReader(Type type, StreamDescriptor streamDescriptor, AggregatedMemoryContext systemMemoryContext, NestedBlockFactory blockFactory)
             throws OrcCorruptionException
     {
         switch (streamDescriptor.getStreamType()) {
@@ -47,11 +48,11 @@ public final class StreamReaders
             case TIMESTAMP:
                 return new TimestampStreamReader(type, streamDescriptor, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
             case LIST:
-                return new ListStreamReader(type, streamDescriptor, systemMemoryContext);
+                return new ListStreamReader(type, streamDescriptor, systemMemoryContext, blockFactory);
             case STRUCT:
-                return new StructStreamReader(type, streamDescriptor, systemMemoryContext);
+                return new StructStreamReader(type, streamDescriptor, systemMemoryContext, blockFactory);
             case MAP:
-                return new MapStreamReader(type, streamDescriptor, systemMemoryContext);
+                return new MapStreamReader(type, streamDescriptor, systemMemoryContext, blockFactory);
             case DECIMAL:
                 return new DecimalStreamReader(type, streamDescriptor, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
             case UNION:

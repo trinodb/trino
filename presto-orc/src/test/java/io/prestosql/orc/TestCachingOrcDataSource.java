@@ -14,7 +14,6 @@
 package io.prestosql.orc;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
@@ -23,6 +22,7 @@ import io.prestosql.orc.OrcTester.Format;
 import io.prestosql.orc.metadata.CompressionKind;
 import io.prestosql.orc.metadata.StripeInformation;
 import io.prestosql.orc.stream.OrcDataReader;
+import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
@@ -210,18 +210,21 @@ public class TestCachingOrcDataSource
         assertInstanceOf(wrapWithCacheIfTinyStripes(orcDataSource, stripes, maxMergeDistance, tinyStripeThreshold), CachingOrcDataSource.class);
 
         OrcRecordReader orcRecordReader = orcReader.createRecordReader(
-                ImmutableMap.of(0, VARCHAR),
+                ImmutableList.of(0),
+                ImmutableList.of(VARCHAR),
                 (numberOfRows, statisticsByColumnIndex) -> true,
                 HIVE_STORAGE_TIME_ZONE,
                 newSimpleAggregatedMemoryContext(),
-                INITIAL_BATCH_SIZE);
+                INITIAL_BATCH_SIZE,
+                RuntimeException::new);
         int positionCount = 0;
         while (true) {
-            int batchSize = orcRecordReader.nextBatch();
-            if (batchSize <= 0) {
+            Page page = orcRecordReader.nextPage();
+            if (page == null) {
                 break;
             }
-            Block block = orcRecordReader.readBlock(0);
+            page = page.getLoadedPage();
+            Block block = page.getBlock(0);
             positionCount += block.getPositionCount();
         }
         assertEquals(positionCount, POSITION_COUNT);

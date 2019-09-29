@@ -15,6 +15,7 @@ package io.prestosql.orc.reader;
 
 import com.google.common.io.Closer;
 import io.prestosql.memory.context.AggregatedMemoryContext;
+import io.prestosql.orc.OrcBlockFactory.NestedBlockFactory;
 import io.prestosql.orc.OrcCorruptionException;
 import io.prestosql.orc.StreamDescriptor;
 import io.prestosql.orc.metadata.ColumnEncoding;
@@ -54,6 +55,7 @@ public class ListStreamReader
 
     private final Type elementType;
     private final StreamDescriptor streamDescriptor;
+    private final NestedBlockFactory blockFactory;
 
     private final StreamReader elementStreamReader;
 
@@ -70,7 +72,7 @@ public class ListStreamReader
 
     private boolean rowGroupOpen;
 
-    public ListStreamReader(Type type, StreamDescriptor streamDescriptor, AggregatedMemoryContext systemMemoryContext)
+    public ListStreamReader(Type type, StreamDescriptor streamDescriptor, AggregatedMemoryContext systemMemoryContext, NestedBlockFactory blockFactory)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
@@ -78,7 +80,8 @@ public class ListStreamReader
         elementType = ((ArrayType) type).getElementType();
 
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
-        this.elementStreamReader = createStreamReader(elementType, streamDescriptor.getNestedStreams().get(0), systemMemoryContext);
+        this.blockFactory = requireNonNull(blockFactory, "blockFactory is null");
+        this.elementStreamReader = createStreamReader(elementType, streamDescriptor.getNestedStreams().get(0), systemMemoryContext, blockFactory);
     }
 
     @Override
@@ -139,7 +142,7 @@ public class ListStreamReader
         Block elements;
         if (elementCount > 0) {
             elementStreamReader.prepareNextRead(elementCount);
-            elements = elementStreamReader.readBlock();
+            elements = blockFactory.createBlock(elementCount, elementStreamReader::readBlock);
         }
         else {
             elements = elementType.createBlockBuilder(null, 0).build();

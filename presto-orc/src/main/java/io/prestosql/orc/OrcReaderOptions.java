@@ -27,6 +27,7 @@ public class OrcReaderOptions
     private static final DataSize DEFAULT_STREAM_BUFFER_SIZE = new DataSize(8, MEGABYTE);
     private static final DataSize DEFAULT_MAX_BLOCK_SIZE = new DataSize(16, MEGABYTE);
     private static final boolean DEFAULT_LAZY_READ_SMALL_RANGES = true;
+    private static final boolean DEFAULT_NESTED_LAZY = true;
 
     private final boolean bloomFiltersEnabled;
 
@@ -36,6 +37,7 @@ public class OrcReaderOptions
     private final DataSize streamBufferSize;
     private final DataSize maxBlockSize;
     private final boolean lazyReadSmallRanges;
+    private final boolean nestedLazy;
 
     public OrcReaderOptions()
     {
@@ -46,6 +48,7 @@ public class OrcReaderOptions
         streamBufferSize = DEFAULT_STREAM_BUFFER_SIZE;
         maxBlockSize = DEFAULT_MAX_BLOCK_SIZE;
         lazyReadSmallRanges = DEFAULT_LAZY_READ_SMALL_RANGES;
+        nestedLazy = DEFAULT_NESTED_LAZY;
     }
 
     private OrcReaderOptions(
@@ -55,7 +58,8 @@ public class OrcReaderOptions
             DataSize tinyStripeThreshold,
             DataSize streamBufferSize,
             DataSize maxBlockSize,
-            boolean lazyReadSmallRanges)
+            boolean lazyReadSmallRanges,
+            boolean nestedLazy)
     {
         this.maxMergeDistance = requireNonNull(maxMergeDistance, "maxMergeDistance is null");
         this.maxBufferSize = requireNonNull(maxBufferSize, "maxBufferSize is null");
@@ -64,6 +68,7 @@ public class OrcReaderOptions
         this.maxBlockSize = requireNonNull(maxBlockSize, "maxBlockSize is null");
         this.lazyReadSmallRanges = requireNonNull(lazyReadSmallRanges, "lazyReadSmallRanges is null");
         this.bloomFiltersEnabled = bloomFiltersEnabled;
+        this.nestedLazy = nestedLazy;
     }
 
     public boolean isBloomFiltersEnabled()
@@ -101,6 +106,11 @@ public class OrcReaderOptions
         return lazyReadSmallRanges;
     }
 
+    public boolean isNestedLazy()
+    {
+        return nestedLazy;
+    }
+
     public OrcReaderOptions withBloomFiltersEnabled(boolean bloomFiltersEnabled)
     {
         return new OrcReaderOptions(
@@ -110,7 +120,8 @@ public class OrcReaderOptions
                 tinyStripeThreshold,
                 streamBufferSize,
                 maxBlockSize,
-                lazyReadSmallRanges);
+                lazyReadSmallRanges,
+                nestedLazy);
     }
 
     public OrcReaderOptions withMaxMergeDistance(DataSize maxMergeDistance)
@@ -122,7 +133,8 @@ public class OrcReaderOptions
                 tinyStripeThreshold,
                 streamBufferSize,
                 maxBlockSize,
-                lazyReadSmallRanges);
+                lazyReadSmallRanges,
+                nestedLazy);
     }
 
     public OrcReaderOptions withMaxBufferSize(DataSize maxBufferSize)
@@ -134,7 +146,8 @@ public class OrcReaderOptions
                 tinyStripeThreshold,
                 streamBufferSize,
                 maxBlockSize,
-                lazyReadSmallRanges);
+                lazyReadSmallRanges,
+                nestedLazy);
     }
 
     public OrcReaderOptions withTinyStripeThreshold(DataSize tinyStripeThreshold)
@@ -146,7 +159,8 @@ public class OrcReaderOptions
                 tinyStripeThreshold,
                 streamBufferSize,
                 maxBlockSize,
-                lazyReadSmallRanges);
+                lazyReadSmallRanges,
+                nestedLazy);
     }
 
     public OrcReaderOptions withStreamBufferSize(DataSize streamBufferSize)
@@ -158,7 +172,8 @@ public class OrcReaderOptions
                 tinyStripeThreshold,
                 streamBufferSize,
                 maxBlockSize,
-                lazyReadSmallRanges);
+                lazyReadSmallRanges,
+                nestedLazy);
     }
 
     public OrcReaderOptions withMaxReadBlockSize(DataSize maxBlockSize)
@@ -170,7 +185,8 @@ public class OrcReaderOptions
                 tinyStripeThreshold,
                 streamBufferSize,
                 maxBlockSize,
-                lazyReadSmallRanges);
+                lazyReadSmallRanges,
+                nestedLazy);
     }
 
     // TODO remove config option once efficacy is proven
@@ -184,6 +200,22 @@ public class OrcReaderOptions
                 tinyStripeThreshold,
                 streamBufferSize,
                 maxBlockSize,
-                lazyReadSmallRanges);
+                lazyReadSmallRanges,
+                nestedLazy);
+    }
+
+    // TODO remove config option once efficacy is proven
+    @Deprecated
+    public OrcReaderOptions withNestedLazy(boolean nestedLazy)
+    {
+        return new OrcReaderOptions(
+                bloomFiltersEnabled,
+                maxMergeDistance,
+                maxBufferSize,
+                tinyStripeThreshold,
+                streamBufferSize,
+                maxBlockSize,
+                lazyReadSmallRanges,
+                nestedLazy);
     }
 }

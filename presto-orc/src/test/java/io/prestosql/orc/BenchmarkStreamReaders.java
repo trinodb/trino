@@ -13,7 +13,8 @@
  */
 package io.prestosql.orc;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.SqlDecimal;
@@ -95,9 +96,8 @@ public class BenchmarkStreamReaders
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             List<Block> blocks = new ArrayList<>();
-            while (recordReader.nextBatch() > 0) {
-                Block block = recordReader.readBlock(0);
-                blocks.add(block);
+            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
+                blocks.add(page.getBlock(0).getLoadedBlock());
             }
             return blocks;
         }
@@ -109,9 +109,8 @@ public class BenchmarkStreamReaders
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             List<Block> blocks = new ArrayList<>();
-            while (recordReader.nextBatch() > 0) {
-                Block block = recordReader.readBlock(0);
-                blocks.add(block);
+            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
+                blocks.add(page.getBlock(0).getLoadedBlock());
             }
             return blocks;
         }
@@ -123,9 +122,8 @@ public class BenchmarkStreamReaders
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             List<Block> blocks = new ArrayList<>();
-            while (recordReader.nextBatch() > 0) {
-                Block block = recordReader.readBlock(0);
-                blocks.add(block);
+            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
+                blocks.add(page.getBlock(0).getLoadedBlock());
             }
             return blocks;
         }
@@ -137,9 +135,8 @@ public class BenchmarkStreamReaders
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             List<Block> blocks = new ArrayList<>();
-            while (recordReader.nextBatch() > 0) {
-                Block block = recordReader.readBlock(0);
-                blocks.add(block);
+            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
+                blocks.add(page.getBlock(0).getLoadedBlock());
             }
             return blocks;
         }
@@ -151,9 +148,8 @@ public class BenchmarkStreamReaders
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             List<Block> blocks = new ArrayList<>();
-            while (recordReader.nextBatch() > 0) {
-                Block block = recordReader.readBlock(0);
-                blocks.add(block);
+            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
+                blocks.add(page.getBlock(0).getLoadedBlock());
             }
             return blocks;
         }
@@ -165,9 +161,8 @@ public class BenchmarkStreamReaders
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             List<Block> blocks = new ArrayList<>();
-            while (recordReader.nextBatch() > 0) {
-                Block block = recordReader.readBlock(0);
-                blocks.add(block);
+            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
+                blocks.add(page.getBlock(0).getLoadedBlock());
             }
             return blocks;
         }
@@ -179,9 +174,8 @@ public class BenchmarkStreamReaders
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             List<Block> blocks = new ArrayList<>();
-            while (recordReader.nextBatch() > 0) {
-                Block block = recordReader.readBlock(0);
-                blocks.add(block);
+            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
+                blocks.add(page.getBlock(0).getLoadedBlock());
             }
             return blocks;
         }
@@ -193,9 +187,8 @@ public class BenchmarkStreamReaders
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             List<Block> blocks = new ArrayList<>();
-            while (recordReader.nextBatch() > 0) {
-                Block block = recordReader.readBlock(0);
-                blocks.add(block);
+            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
+                blocks.add(page.getBlock(0).getLoadedBlock());
             }
             return blocks;
         }
@@ -207,9 +200,8 @@ public class BenchmarkStreamReaders
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             List<Block> blocks = new ArrayList<>();
-            while (recordReader.nextBatch() > 0) {
-                Block block = recordReader.readBlock(0);
-                blocks.add(block);
+            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
+                blocks.add(page.getBlock(0).getLoadedBlock());
             }
             return blocks;
         }
@@ -221,9 +213,8 @@ public class BenchmarkStreamReaders
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             List<Block> blocks = new ArrayList<>();
-            while (recordReader.nextBatch() > 0) {
-                Block block = recordReader.readBlock(0);
-                blocks.add(block);
+            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
+                blocks.add(page.getBlock(0).getLoadedBlock());
             }
             return blocks;
         }
@@ -235,9 +226,8 @@ public class BenchmarkStreamReaders
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             List<Block> blocks = new ArrayList<>();
-            while (recordReader.nextBatch() > 0) {
-                Block block = recordReader.readBlock(0);
-                blocks.add(block);
+            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
+                blocks.add(page.getBlock(0).getLoadedBlock());
             }
             return blocks;
         }
@@ -249,9 +239,8 @@ public class BenchmarkStreamReaders
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             List<Block> blocks = new ArrayList<>();
-            while (recordReader.nextBatch() > 0) {
-                Block block = recordReader.readBlock(0);
-                blocks.add(block);
+            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
+                blocks.add(page.getBlock(0).getLoadedBlock());
             }
             return blocks;
         }
@@ -263,9 +252,8 @@ public class BenchmarkStreamReaders
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             List<Block> blocks = new ArrayList<>();
-            while (recordReader.nextBatch() > 0) {
-                Block block = recordReader.readBlock(0);
-                blocks.add(block);
+            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
+                blocks.add(page.getBlock(0).getLoadedBlock());
             }
             return blocks;
         }
@@ -277,9 +265,8 @@ public class BenchmarkStreamReaders
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             List<Block> blocks = new ArrayList<>();
-            while (recordReader.nextBatch() > 0) {
-                Block block = recordReader.readBlock(0);
-                blocks.add(block);
+            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
+                blocks.add(page.getBlock(0).getLoadedBlock());
             }
             return blocks;
         }
@@ -291,9 +278,8 @@ public class BenchmarkStreamReaders
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             List<Block> blocks = new ArrayList<>();
-            while (recordReader.nextBatch() > 0) {
-                Block block = recordReader.readBlock(0);
-                blocks.add(block);
+            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
+                blocks.add(page.getBlock(0).getLoadedBlock());
             }
             return blocks;
         }
@@ -305,9 +291,8 @@ public class BenchmarkStreamReaders
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             List<Block> blocks = new ArrayList<>();
-            while (recordReader.nextBatch() > 0) {
-                Block block = recordReader.readBlock(0);
-                blocks.add(block);
+            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
+                blocks.add(page.getBlock(0).getLoadedBlock());
             }
             return blocks;
         }
@@ -319,9 +304,8 @@ public class BenchmarkStreamReaders
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             List<Block> blocks = new ArrayList<>();
-            while (recordReader.nextBatch() > 0) {
-                Block block = recordReader.readBlock(0);
-                blocks.add(block);
+            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
+                blocks.add(page.getBlock(0).getLoadedBlock());
             }
             return blocks;
         }
@@ -333,9 +317,8 @@ public class BenchmarkStreamReaders
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             List<Block> blocks = new ArrayList<>();
-            while (recordReader.nextBatch() > 0) {
-                Block block = recordReader.readBlock(0);
-                blocks.add(block);
+            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
+                blocks.add(page.getBlock(0).getLoadedBlock());
             }
             return blocks;
         }
@@ -347,9 +330,8 @@ public class BenchmarkStreamReaders
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             List<Block> blocks = new ArrayList<>();
-            while (recordReader.nextBatch() > 0) {
-                Block block = recordReader.readBlock(0);
-                blocks.add(block);
+            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
+                blocks.add(page.getBlock(0).getLoadedBlock());
             }
             return blocks;
         }
@@ -361,9 +343,8 @@ public class BenchmarkStreamReaders
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             List<Block> blocks = new ArrayList<>();
-            while (recordReader.nextBatch() > 0) {
-                Block block = recordReader.readBlock(0);
-                blocks.add(block);
+            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
+                blocks.add(page.getBlock(0).getLoadedBlock());
             }
             return blocks;
         }
@@ -375,9 +356,8 @@ public class BenchmarkStreamReaders
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             List<Block> blocks = new ArrayList<>();
-            while (recordReader.nextBatch() > 0) {
-                Block block = recordReader.readBlock(0);
-                blocks.add(block);
+            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
+                blocks.add(page.getBlock(0).getLoadedBlock());
             }
             return blocks;
         }
@@ -389,9 +369,8 @@ public class BenchmarkStreamReaders
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             List<Block> blocks = new ArrayList<>();
-            while (recordReader.nextBatch() > 0) {
-                Block block = recordReader.readBlock(0);
-                blocks.add(block);
+            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
+                blocks.add(page.getBlock(0).getLoadedBlock());
             }
             return blocks;
         }
@@ -403,9 +382,8 @@ public class BenchmarkStreamReaders
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             List<Block> blocks = new ArrayList<>();
-            while (recordReader.nextBatch() > 0) {
-                Block block = recordReader.readBlock(0);
-                blocks.add(block);
+            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
+                blocks.add(page.getBlock(0).getLoadedBlock());
             }
             return blocks;
         }
@@ -417,9 +395,8 @@ public class BenchmarkStreamReaders
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             List<Block> blocks = new ArrayList<>();
-            while (recordReader.nextBatch() > 0) {
-                Block block = recordReader.readBlock(0);
-                blocks.add(block);
+            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
+                blocks.add(page.getBlock(0).getLoadedBlock());
             }
             return blocks;
         }
@@ -431,9 +408,8 @@ public class BenchmarkStreamReaders
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
             List<Block> blocks = new ArrayList<>();
-            while (recordReader.nextBatch() > 0) {
-                Block block = recordReader.readBlock(0);
-                blocks.add(block);
+            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
+                blocks.add(page.getBlock(0).getLoadedBlock());
             }
             return blocks;
         }
@@ -480,11 +456,13 @@ public class BenchmarkStreamReaders
         {
             OrcReader orcReader = new OrcReader(dataSource, new OrcReaderOptions());
             return orcReader.createRecordReader(
-                    ImmutableMap.of(0, type),
+                    ImmutableList.of(0),
+                    ImmutableList.of(type),
                     OrcPredicate.TRUE,
                     UTC, // arbitrary
                     newSimpleAggregatedMemoryContext(),
-                    INITIAL_BATCH_SIZE);
+                    INITIAL_BATCH_SIZE,
+                    RuntimeException::new);
         }
     }
 

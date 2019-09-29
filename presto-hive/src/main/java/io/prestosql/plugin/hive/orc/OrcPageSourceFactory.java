@@ -28,6 +28,7 @@ import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HivePageSourceFactory;
+import io.prestosql.plugin.hive.orc.OrcPageSource.ColumnAdaptation;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -46,6 +47,7 @@ import javax.inject.Inject;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -53,6 +55,7 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.regex.Pattern;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.orc.OrcReader.INITIAL_BATCH_SIZE;
@@ -67,6 +70,8 @@ import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcMaxReadBlockS
 import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcStreamBufferSize;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcTinyStripeThreshold;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isOrcBloomFiltersEnabled;
+import static io.prestosql.plugin.hive.HiveSessionProperties.isOrcNestedLazy;
+import static io.prestosql.plugin.hive.orc.OrcPageSource.handleException;
 import static io.prestosql.plugin.hive.util.HiveUtil.isDeserializerClass;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -139,6 +144,7 @@ public class OrcPageSourceFactory
                         .withTinyStripeThreshold(getOrcTinyStripeThreshold(session))
                         .withMaxReadBlockSize(getOrcMaxReadBlockSize(session))
                         .withLazyReadSmallRanges(getOrcLazyReadSmallRanges(session))
+                        .withNestedLazy(isOrcNestedLazy(session))
                         .withBloomFiltersEnabled(isOrcBloomFiltersEnabled(session)),
                 stats));
     }
@@ -158,6 +164,10 @@ public class OrcPageSourceFactory
             OrcReaderOptions options,
             FileFormatDataSourceStats stats)
     {
+        for (HiveColumnHandle column : columns) {
+            checkArgument(column.getColumnType() == REGULAR, "column type must be regular: %s", column);
+        }
+
         OrcDataSource orcDataSource;
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(sessionUser, path, configuration);
@@ -182,33 +192,43 @@ public class OrcPageSourceFactory
             OrcReader reader = new OrcReader(orcDataSource, options);
 
             List<HiveColumnHandle> physicalColumns = getPhysicalHiveColumnHandles(columns, useOrcColumnNames, reader, path);
-            ImmutableMap.Builder<Integer, Type> includedColumnsBuilder = ImmutableMap.builder();
-            ImmutableList.Builder<ColumnReference<HiveColumnHandle>> columnReferences = ImmutableList.builder();
+
+            int fileTopLevelColumnCount = reader.getFooter().getTypes().get(0).getFieldCount();
+            List<ColumnReference<HiveColumnHandle>> columnReferences = new ArrayList<>(physicalColumns.size());
+            List<Integer> fileReadColumns = new ArrayList<>(physicalColumns.size());
+            List<Type> fileReadTypes = new ArrayList<>(physicalColumns.size());
+            List<ColumnAdaptation> columnAdaptations = new ArrayList<>(physicalColumns.size());
             for (HiveColumnHandle column : physicalColumns) {
-                if (column.getColumnType() == REGULAR) {
-                    Type type = column.getType();
-                    includedColumnsBuilder.put(column.getHiveColumnIndex(), type);
-                    columnReferences.add(new ColumnReference<>(column, column.getHiveColumnIndex(), type));
+                Type type = column.getType();
+                columnReferences.add(new ColumnReference<>(column, column.getHiveColumnIndex(), type));
+                if (column.getHiveColumnIndex() < fileTopLevelColumnCount) {
+                    int sourceIndex = fileReadColumns.size();
+                    columnAdaptations.add(ColumnAdaptation.sourceColumn(sourceIndex));
+                    fileReadColumns.add(column.getHiveColumnIndex());
+                    fileReadTypes.add(type);
+                }
+                else {
+                    columnAdaptations.add(ColumnAdaptation.nullColumn(type));
                 }
             }
 
-            ImmutableMap<Integer, Type> includedColumns = includedColumnsBuilder.build();
-
-            OrcPredicate predicate = new TupleDomainOrcPredicate<>(effectivePredicate, columnReferences.build(), options.isBloomFiltersEnabled());
+            OrcPredicate predicate = new TupleDomainOrcPredicate<>(effectivePredicate, columnReferences, options.isBloomFiltersEnabled());
 
             OrcRecordReader recordReader = reader.createRecordReader(
-                    includedColumns,
+                    fileReadColumns,
+                    fileReadTypes,
                     predicate,
                     start,
                     length,
                     hiveStorageTimeZone,
                     systemMemoryUsage,
-                    INITIAL_BATCH_SIZE);
+                    INITIAL_BATCH_SIZE,
+                    exception -> handleException(orcDataSource.getId(), exception));
 
             return new OrcPageSource(
                     recordReader,
+                    columnAdaptations,
                     orcDataSource,
-                    includedColumns,
                     systemMemoryUsage,
                     stats);
         }

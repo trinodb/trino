@@ -14,7 +14,6 @@
 package io.prestosql.orc;
 
 import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
@@ -28,16 +27,20 @@ import io.prestosql.orc.metadata.PostScript;
 import io.prestosql.orc.metadata.PostScript.HiveWriterVersion;
 import io.prestosql.orc.stream.OrcChunkLoader;
 import io.prestosql.orc.stream.OrcInputStream;
+import io.prestosql.spi.Page;
 import io.prestosql.spi.type.Type;
 import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.IntStream;
 
+import static com.google.common.base.Throwables.throwIfUnchecked;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.orc.OrcDecompressor.createOrcDecompressor;
@@ -203,24 +206,43 @@ public class OrcReader
         return compressionKind;
     }
 
-    public OrcRecordReader createRecordReader(Map<Integer, Type> includedColumns, OrcPredicate predicate, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryUsage, int initialBatchSize)
+    public OrcRecordReader createRecordReader(
+            List<Integer> readColumns,
+            List<Type> readTypes,
+            OrcPredicate predicate,
+            DateTimeZone hiveStorageTimeZone,
+            AggregatedMemoryContext systemMemoryUsage,
+            int initialBatchSize,
+            Function<Exception, RuntimeException> exceptionTransform)
             throws OrcCorruptionException
     {
-        return createRecordReader(includedColumns, predicate, 0, orcDataSource.getSize(), hiveStorageTimeZone, systemMemoryUsage, initialBatchSize);
+        return createRecordReader(
+                readColumns,
+                readTypes,
+                predicate,
+                0,
+                orcDataSource.getSize(),
+                hiveStorageTimeZone,
+                systemMemoryUsage,
+                initialBatchSize,
+                exceptionTransform);
     }
 
     public OrcRecordReader createRecordReader(
-            Map<Integer, Type> includedColumns,
+            List<Integer> readColumns,
+            List<Type> readTypes,
             OrcPredicate predicate,
             long offset,
             long length,
             DateTimeZone hiveStorageTimeZone,
             AggregatedMemoryContext systemMemoryUsage,
-            int initialBatchSize)
+            int initialBatchSize,
+            Function<Exception, RuntimeException> exceptionTransform)
             throws OrcCorruptionException
     {
         return new OrcRecordReader(
-                requireNonNull(includedColumns, "includedColumns is null"),
+                requireNonNull(readColumns, "readColumns is null"),
+                requireNonNull(readTypes, "readTypes is null"),
                 requireNonNull(predicate, "predicate is null"),
                 footer.getNumberOfRows(),
                 footer.getStripes(),
@@ -239,7 +261,8 @@ public class OrcReader
                 footer.getUserMetadata(),
                 systemMemoryUsage,
                 writeValidation,
-                initialBatchSize);
+                initialBatchSize,
+                exceptionTransform);
     }
 
     private static OrcDataSource wrapWithCacheIfTiny(OrcDataSource dataSource, DataSize maxCacheSize)
@@ -303,15 +326,22 @@ public class OrcReader
             DateTimeZone hiveStorageTimeZone)
             throws OrcCorruptionException
     {
-        ImmutableMap.Builder<Integer, Type> readTypes = ImmutableMap.builder();
-        for (int columnIndex = 0; columnIndex < types.size(); columnIndex++) {
-            readTypes.put(columnIndex, types.get(columnIndex));
-        }
         try {
             OrcReader orcReader = new OrcReader(input, new OrcReaderOptions(), Optional.of(writeValidation));
-            try (OrcRecordReader orcRecordReader = orcReader.createRecordReader(readTypes.build(), OrcPredicate.TRUE, hiveStorageTimeZone, newSimpleAggregatedMemoryContext(), INITIAL_BATCH_SIZE)) {
-                while (orcRecordReader.nextBatch() >= 0) {
-                    // ignored
+            try (OrcRecordReader orcRecordReader = orcReader.createRecordReader(
+                    IntStream.range(0, types.size()).boxed().collect(toImmutableList()),
+                    types,
+                    OrcPredicate.TRUE,
+                    hiveStorageTimeZone,
+                    newSimpleAggregatedMemoryContext(),
+                    INITIAL_BATCH_SIZE,
+                    exception -> {
+                        throwIfUnchecked(exception);
+                        return new RuntimeException(exception);
+                    })) {
+                for (Page page = orcRecordReader.nextPage(); page != null; page = orcRecordReader.nextPage()) {
+                    // fully load the page
+                    page.getLoadedPage();
                 }
             }
         }

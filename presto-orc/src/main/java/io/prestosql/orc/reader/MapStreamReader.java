@@ -15,6 +15,7 @@ package io.prestosql.orc.reader;
 
 import com.google.common.io.Closer;
 import io.prestosql.memory.context.AggregatedMemoryContext;
+import io.prestosql.orc.OrcBlockFactory.NestedBlockFactory;
 import io.prestosql.orc.OrcCorruptionException;
 import io.prestosql.orc.StreamDescriptor;
 import io.prestosql.orc.metadata.ColumnEncoding;
@@ -55,6 +56,7 @@ public class MapStreamReader
 
     private final MapType type;
     private final StreamDescriptor streamDescriptor;
+    private final NestedBlockFactory blockFactory;
 
     private final StreamReader keyStreamReader;
     private final StreamReader valueStreamReader;
@@ -74,7 +76,7 @@ public class MapStreamReader
 
     private boolean rowGroupOpen;
 
-    public MapStreamReader(Type type, StreamDescriptor streamDescriptor, AggregatedMemoryContext systemMemoryContext)
+    public MapStreamReader(Type type, StreamDescriptor streamDescriptor, AggregatedMemoryContext systemMemoryContext, NestedBlockFactory blockFactory)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
@@ -82,8 +84,9 @@ public class MapStreamReader
         this.type = (MapType) type;
 
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
-        this.keyStreamReader = createStreamReader(this.type.getKeyType(), streamDescriptor.getNestedStreams().get(0), systemMemoryContext);
-        this.valueStreamReader = createStreamReader(this.type.getValueType(), streamDescriptor.getNestedStreams().get(1), systemMemoryContext);
+        this.blockFactory = requireNonNull(blockFactory, "blockFactory is null");
+        this.keyStreamReader = createStreamReader(this.type.getKeyType(), streamDescriptor.getNestedStreams().get(0), systemMemoryContext, blockFactory);
+        this.valueStreamReader = createStreamReader(this.type.getValueType(), streamDescriptor.getNestedStreams().get(1), systemMemoryContext, blockFactory);
     }
 
     @Override
@@ -152,7 +155,7 @@ public class MapStreamReader
             keyStreamReader.prepareNextRead(entryCount);
             valueStreamReader.prepareNextRead(entryCount);
             keys = keyStreamReader.readBlock();
-            values = valueStreamReader.readBlock();
+            values = blockFactory.createBlock(entryCount, valueStreamReader::readBlock);
         }
         else {
             keys = type.getKeyType().createBlockBuilder(null, 0).build();

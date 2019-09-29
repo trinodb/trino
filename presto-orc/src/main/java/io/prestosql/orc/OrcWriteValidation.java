@@ -309,22 +309,16 @@ public class OrcWriteValidation
         }
     }
 
-    public StatisticsValidation createWriteStatisticsBuilder(Map<Integer, Type> readColumns)
+    public StatisticsValidation createWriteStatisticsBuilder(List<Integer> readColumns, List<Type> readTypes)
     {
         requireNonNull(readColumns, "readColumns is null");
         checkArgument(!readColumns.isEmpty(), "readColumns is empty");
-        int columnCount = readColumns.keySet().stream()
+        int columnCount = readColumns.stream()
                 .mapToInt(Integer::intValue)
                 .max().getAsInt() + 1;
         checkArgument(readColumns.size() == columnCount, "statistics validation requires all columns to be read");
-
-        ImmutableList.Builder<Type> types = ImmutableList.builder();
-        for (int column = 0; column < columnCount; column++) {
-            Type type = readColumns.get(column);
-            checkArgument(type != null, "statistics validation requires all columns to be read");
-            types.add(type);
-        }
-        return new StatisticsValidation(types.build());
+        checkArgument(readTypes.size() == columnCount, "statistics validation requires all columns to be read");
+        return new StatisticsValidation(readTypes);
     }
 
     private static void validateColumnStatisticsEquivalent(
@@ -465,22 +459,16 @@ public class OrcWriteValidation
             this.columnHashes = columnHashes.build();
         }
 
-        public static WriteChecksumBuilder createWriteChecksumBuilder(Map<Integer, Type> readColumns)
+        public static WriteChecksumBuilder createWriteChecksumBuilder(List<Integer> readColumns, List<Type> readTypes)
         {
             requireNonNull(readColumns, "readColumns is null");
             checkArgument(!readColumns.isEmpty(), "readColumns is empty");
-            int columnCount = readColumns.keySet().stream()
+            int columnCount = readColumns.stream()
                     .mapToInt(Integer::intValue)
                     .max().getAsInt() + 1;
             checkArgument(readColumns.size() == columnCount, "checksum requires all columns to be read");
-
-            ImmutableList.Builder<Type> types = ImmutableList.builder();
-            for (int column = 0; column < columnCount; column++) {
-                Type type = readColumns.get(column);
-                checkArgument(type != null, "checksum requires all columns to be read");
-                types.add(type);
-            }
-            return new WriteChecksumBuilder(types.build());
+            checkArgument(readTypes.size() == columnCount, "checksum requires all columns to be read");
+            return new WriteChecksumBuilder(readTypes);
         }
 
         public void addStripe(int rowCount)
