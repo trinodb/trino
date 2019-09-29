@@ -22,8 +22,6 @@ import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.LazyBlock;
-import io.prestosql.spi.block.LazyBlockLoader;
 import io.prestosql.spi.block.RunLengthEncodedBlock;
 import io.prestosql.spi.connector.UpdatablePageSource;
 import io.prestosql.spi.type.Type;
@@ -41,85 +39,41 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.orc.OrcReader.MAX_BATCH_SIZE;
+import static io.prestosql.plugin.raptor.legacy.RaptorColumnHandle.SHARD_UUID_COLUMN_TYPE;
 import static io.prestosql.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_ERROR;
-import static io.prestosql.spi.predicate.Utils.nativeValueToBlock;
 import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class OrcPageSource
         implements UpdatablePageSource
 {
-    public static final int NULL_COLUMN = -1;
-    public static final int ROWID_COLUMN = -2;
-    public static final int SHARD_UUID_COLUMN = -3;
-    public static final int BUCKET_NUMBER_COLUMN = -4;
-
     private final Optional<ShardRewriter> shardRewriter;
 
     private final OrcRecordReader recordReader;
+    private final List<ColumnAdaptation> columnAdaptations;
     private final OrcDataSource orcDataSource;
 
     private final BitSet rowsToDelete;
 
-    private final List<Long> columnIds;
-    private final List<Type> types;
-
-    private final Block[] constantBlocks;
-    private final int[] columnIndexes;
-
     private final AggregatedMemoryContext systemMemoryContext;
 
-    private int batchId;
     private boolean closed;
 
     public OrcPageSource(
             Optional<ShardRewriter> shardRewriter,
             OrcRecordReader recordReader,
+            List<ColumnAdaptation> columnAdaptations,
             OrcDataSource orcDataSource,
-            List<Long> columnIds,
-            List<Type> columnTypes,
-            List<Integer> columnIndexes,
-            UUID shardUuid,
-            OptionalInt bucketNumber,
             AggregatedMemoryContext systemMemoryContext)
     {
         this.shardRewriter = requireNonNull(shardRewriter, "shardRewriter is null");
         this.recordReader = requireNonNull(recordReader, "recordReader is null");
+        this.columnAdaptations = ImmutableList.copyOf(requireNonNull(columnAdaptations, "columnAdaptations is null"));
         this.orcDataSource = requireNonNull(orcDataSource, "orcDataSource is null");
 
         this.rowsToDelete = new BitSet(toIntExact(recordReader.getFileRowCount()));
-
-        checkArgument(columnIds.size() == columnTypes.size(), "ids and types mismatch");
-        checkArgument(columnIds.size() == columnIndexes.size(), "ids and indexes mismatch");
-        int size = columnIds.size();
-
-        this.columnIds = ImmutableList.copyOf(columnIds);
-        this.types = ImmutableList.copyOf(columnTypes);
-
-        this.constantBlocks = new Block[size];
-        this.columnIndexes = new int[size];
-
-        requireNonNull(shardUuid, "shardUuid is null");
-
-        for (int i = 0; i < size; i++) {
-            this.columnIndexes[i] = columnIndexes.get(i);
-            if (this.columnIndexes[i] == NULL_COLUMN) {
-                constantBlocks[i] = buildSingleValueBlock(columnTypes.get(i), null);
-            }
-            else if (this.columnIndexes[i] == SHARD_UUID_COLUMN) {
-                constantBlocks[i] = buildSingleValueBlock(columnTypes.get(i), utf8Slice(shardUuid.toString()));
-            }
-            else if (this.columnIndexes[i] == BUCKET_NUMBER_COLUMN) {
-                if (bucketNumber.isPresent()) {
-                    constantBlocks[i] = buildSingleValueBlock(columnTypes.get(i), (long) bucketNumber.getAsInt());
-                }
-                else {
-                    constantBlocks[i] = buildSingleValueBlock(columnTypes.get(i), null);
-                }
-            }
-        }
 
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
     }
@@ -145,39 +99,42 @@ public class OrcPageSource
     @Override
     public Page getNextPage()
     {
+        Page page;
         try {
-            batchId++;
-            int batchSize = recordReader.nextBatch();
-            if (batchSize <= 0) {
-                close();
-                return null;
-            }
-            long filePosition = recordReader.getFilePosition();
-
-            Block[] blocks = new Block[columnIndexes.length];
-            for (int fieldId = 0; fieldId < blocks.length; fieldId++) {
-                if (constantBlocks[fieldId] != null) {
-                    blocks[fieldId] = constantBlocks[fieldId].getRegion(0, batchSize);
-                }
-                else if (columnIndexes[fieldId] == ROWID_COLUMN) {
-                    blocks[fieldId] = buildSequenceBlock(filePosition, batchSize);
-                }
-                else {
-                    blocks[fieldId] = new LazyBlock(batchSize, new OrcBlockLoader(columnIndexes[fieldId]));
-                }
-            }
-
-            return new Page(batchSize, blocks);
+            page = recordReader.nextPage();
         }
         catch (IOException | RuntimeException e) {
             closeWithSuppression(e);
-            throw new PrestoException(RAPTOR_ERROR, e);
+            throw handleException(e);
         }
+
+        if (page == null) {
+            close();
+            return null;
+        }
+
+        long filePosition = recordReader.getFilePosition();
+        Block[] blocks = new Block[columnAdaptations.size()];
+        for (int i = 0; i < columnAdaptations.size(); i++) {
+            blocks[i] = columnAdaptations.get(i).block(page, filePosition);
+        }
+        return new Page(page.getPositionCount(), blocks);
+    }
+
+    static PrestoException handleException(Exception exception)
+    {
+        if (exception instanceof PrestoException) {
+            return (PrestoException) exception;
+        }
+        throw new PrestoException(RAPTOR_ERROR, exception);
     }
 
     @Override
     public void close()
     {
+        if (closed) {
+            return;
+        }
         closed = true;
 
         try {
@@ -192,8 +149,7 @@ public class OrcPageSource
     public String toString()
     {
         return toStringHelper(this)
-                .add("columnNames", columnIds)
-                .add("types", types)
+                .add("columns", columnAdaptations)
                 .toString();
     }
 
@@ -233,48 +189,166 @@ public class OrcPageSource
         }
     }
 
-    private static Block buildSequenceBlock(long start, int count)
+    public interface ColumnAdaptation
     {
-        BlockBuilder builder = BIGINT.createFixedSizeBlockBuilder(count);
-        for (int i = 0; i < count; i++) {
-            BIGINT.writeLong(builder, start + i);
-        }
-        return builder.build();
-    }
+        Block block(Page sourcePage, long filePosition);
 
-    private static Block buildSingleValueBlock(Type type, Object value)
-    {
-        Block block = nativeValueToBlock(type, value);
-        return new RunLengthEncodedBlock(block, MAX_BATCH_SIZE);
-    }
-
-    private final class OrcBlockLoader
-            implements LazyBlockLoader<LazyBlock>
-    {
-        private final int expectedBatchId = batchId;
-        private final int columnIndex;
-        private boolean loaded;
-
-        public OrcBlockLoader(int columnIndex)
+        static ColumnAdaptation nullColumn(Type type)
         {
-            this.columnIndex = columnIndex;
+            return new NullColumn(type);
+        }
+
+        static ColumnAdaptation shardUuidColumn(UUID shardUuid)
+        {
+            return new ShardUuidAdaptation(shardUuid);
+        }
+
+        static ColumnAdaptation bucketNumberColumn(OptionalInt bucketNumber)
+        {
+            if (!bucketNumber.isPresent()) {
+                return nullColumn(INTEGER);
+            }
+            return new BucketNumberColumn(bucketNumber.getAsInt());
+        }
+
+        static ColumnAdaptation rowIdColumn()
+        {
+            return new RowIdColumn();
+        }
+
+        static ColumnAdaptation sourceColumn(int index)
+        {
+            return new SourceColumn(index);
+        }
+    }
+
+    private static class ShardUuidAdaptation
+            implements ColumnAdaptation
+    {
+        private final Block shardUuidBlock;
+
+        public ShardUuidAdaptation(UUID shardUuid)
+        {
+            Slice slice = utf8Slice(shardUuid.toString());
+            BlockBuilder blockBuilder = SHARD_UUID_COLUMN_TYPE.createBlockBuilder(null, 1, slice.length());
+            SHARD_UUID_COLUMN_TYPE.writeSlice(blockBuilder, slice);
+            this.shardUuidBlock = blockBuilder.build();
         }
 
         @Override
-        public final void load(LazyBlock lazyBlock)
+        public Block block(Page sourcePage, long filePosition)
         {
-            checkState(!loaded, "Already loaded");
-            checkState(batchId == expectedBatchId);
+            return new RunLengthEncodedBlock(shardUuidBlock, sourcePage.getPositionCount());
+        }
 
-            try {
-                Block block = recordReader.readBlock(columnIndex);
-                lazyBlock.setBlock(block);
-            }
-            catch (IOException e) {
-                throw new PrestoException(RAPTOR_ERROR, e);
-            }
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .toString();
+        }
+    }
 
-            loaded = true;
+    private static class RowIdColumn
+            implements ColumnAdaptation
+    {
+        @Override
+        public Block block(Page sourcePage, long filePosition)
+        {
+            int count = sourcePage.getPositionCount();
+            BlockBuilder builder = BIGINT.createFixedSizeBlockBuilder(count);
+            for (int i = 0; i < count; i++) {
+                BIGINT.writeLong(builder, filePosition + i);
+            }
+            return builder.build();
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .toString();
+        }
+    }
+
+    private static class NullColumn
+            implements ColumnAdaptation
+    {
+        private final Type type;
+        private final Block nullBlock;
+
+        public NullColumn(Type type)
+        {
+            this.type = requireNonNull(type, "type is null");
+            this.nullBlock = type.createBlockBuilder(null, 1, 0)
+                    .appendNull()
+                    .build();
+        }
+
+        @Override
+        public Block block(Page sourcePage, long filePosition)
+        {
+            return new RunLengthEncodedBlock(nullBlock, sourcePage.getPositionCount());
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("type", type)
+                    .toString();
+        }
+    }
+
+    private static class BucketNumberColumn
+            implements ColumnAdaptation
+    {
+        private final Block bucketNumberBlock;
+
+        public BucketNumberColumn(int bucketNumber)
+        {
+            BlockBuilder blockBuilder = INTEGER.createFixedSizeBlockBuilder(1);
+            INTEGER.writeLong(blockBuilder, bucketNumber);
+            this.bucketNumberBlock = blockBuilder.build();
+        }
+
+        @Override
+        public Block block(Page sourcePage, long filePosition)
+        {
+            return new RunLengthEncodedBlock(bucketNumberBlock, sourcePage.getPositionCount());
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .toString();
+        }
+    }
+
+    private static class SourceColumn
+            implements ColumnAdaptation
+    {
+        private final int index;
+
+        public SourceColumn(int index)
+        {
+            checkArgument(index >= 0, "index is negative");
+            this.index = index;
+        }
+
+        @Override
+        public Block block(Page sourcePage, long filePosition)
+        {
+            return sourcePage.getBlock(index);
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("index", index)
+                    .toString();
         }
     }
 }

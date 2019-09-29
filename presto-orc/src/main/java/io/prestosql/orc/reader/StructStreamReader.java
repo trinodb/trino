@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Closer;
 import io.prestosql.memory.context.AggregatedMemoryContext;
+import io.prestosql.orc.OrcBlockFactory.NestedBlockFactory;
 import io.prestosql.orc.OrcCorruptionException;
 import io.prestosql.orc.StreamDescriptor;
 import io.prestosql.orc.metadata.ColumnEncoding;
@@ -57,6 +58,7 @@ public class StructStreamReader
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(StructStreamReader.class).instanceSize();
 
     private final StreamDescriptor streamDescriptor;
+    private final NestedBlockFactory blockFactory;
 
     private final Map<String, StreamReader> structFields;
     private final RowType type;
@@ -71,7 +73,7 @@ public class StructStreamReader
 
     private boolean rowGroupOpen;
 
-    StructStreamReader(Type type, StreamDescriptor streamDescriptor, AggregatedMemoryContext systemMemoryContext)
+    StructStreamReader(Type type, StreamDescriptor streamDescriptor, AggregatedMemoryContext systemMemoryContext, NestedBlockFactory blockFactory)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
@@ -79,6 +81,7 @@ public class StructStreamReader
         this.type = (RowType) type;
 
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
+        this.blockFactory = requireNonNull(blockFactory, "blockFactory is null");
 
         Map<String, StreamDescriptor> nestedStreams = streamDescriptor.getNestedStreams().stream()
                 .collect(toImmutableMap(stream -> stream.getFieldName().toLowerCase(Locale.ENGLISH), stream -> stream));
@@ -93,7 +96,7 @@ public class StructStreamReader
 
             StreamDescriptor fieldStream = nestedStreams.get(fieldName);
             if (fieldStream != null) {
-                structFields.put(fieldName, createStreamReader(field.getType(), fieldStream, systemMemoryContext));
+                structFields.put(fieldName, createStreamReader(field.getType(), fieldStream, systemMemoryContext, blockFactory));
             }
         }
         this.fieldNames = fieldNames.build();
@@ -214,7 +217,6 @@ public class StructStreamReader
     }
 
     private Block[] getBlocksForType(int positionCount)
-            throws IOException
     {
         Block[] blocks = new Block[fieldNames.size()];
 
@@ -224,7 +226,7 @@ public class StructStreamReader
             StreamReader streamReader = structFields.get(fieldName);
             if (streamReader != null) {
                 streamReader.prepareNextRead(positionCount);
-                blocks[i] = streamReader.readBlock();
+                blocks[i] = blockFactory.createBlock(positionCount, streamReader::readBlock);
             }
             else {
                 blocks[i] = RunLengthEncodedBlock.create(type.getFields().get(i).getType(), null, positionCount);

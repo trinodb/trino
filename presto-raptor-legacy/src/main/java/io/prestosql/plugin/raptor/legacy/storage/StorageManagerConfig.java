@@ -163,6 +163,21 @@ public class StorageManagerConfig
         return this;
     }
 
+    @Deprecated
+    public boolean isOrcNestedLazy()
+    {
+        return options.isNestedLazy();
+    }
+
+    // TODO remove config option once efficacy is proven
+    @Deprecated
+    @Config("storage.orc.nested-lazy")
+    public StorageManagerConfig setOrcNestedLazy(boolean nestedLazy)
+    {
+        options = options.withNestedLazy(nestedLazy);
+        return this;
+    }
+
     @Min(1)
     public int getDeletionThreads()
     {

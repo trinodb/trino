@@ -104,6 +104,7 @@ import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 import static org.testng.FileAssert.assertDirectory;
@@ -228,19 +229,20 @@ public class TestOrcStorageManager
         try (OrcDataSource dataSource = manager.openShard(shardUuid, READER_OPTIONS)) {
             OrcRecordReader reader = createReader(dataSource, columnIds, columnTypes);
 
-            assertEquals(reader.nextBatch(), 2);
+            Page page = reader.nextPage();
+            assertEquals(page.getPositionCount(), 2);
 
-            Block column0 = reader.readBlock(0);
+            Block column0 = page.getBlock(0);
             assertEquals(column0.isNull(0), false);
             assertEquals(column0.isNull(1), false);
             assertEquals(BIGINT.getLong(column0, 0), 123L);
             assertEquals(BIGINT.getLong(column0, 1), 456L);
 
-            Block column1 = reader.readBlock(1);
+            Block column1 = page.getBlock(1);
             assertEquals(createVarcharType(10).getSlice(column1, 0), utf8Slice("hello"));
             assertEquals(createVarcharType(10).getSlice(column1, 1), utf8Slice("bye"));
 
-            assertEquals(reader.nextBatch(), -1);
+            assertNull(reader.nextPage());
         }
     }
 

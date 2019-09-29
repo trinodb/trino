@@ -38,9 +38,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -264,13 +262,16 @@ public class TestStructStreamReader
         OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), READER_OPTIONS);
         OrcReader orcReader = new OrcReader(orcDataSource, READER_OPTIONS);
 
-        Map<Integer, Type> includedColumns = new HashMap<>();
-        includedColumns.put(0, readerType);
+        OrcRecordReader recordReader = orcReader.createRecordReader(
+                ImmutableList.of(0),
+                ImmutableList.of(readerType),
+                OrcPredicate.TRUE,
+                UTC,
+                newSimpleAggregatedMemoryContext(),
+                OrcReader.INITIAL_BATCH_SIZE,
+                RuntimeException::new);
 
-        OrcRecordReader recordReader = orcReader.createRecordReader(includedColumns, OrcPredicate.TRUE, UTC, newSimpleAggregatedMemoryContext(), OrcReader.INITIAL_BATCH_SIZE);
-
-        recordReader.nextBatch();
-        RowBlock block = (RowBlock) recordReader.readBlock(0);
+        RowBlock block = (RowBlock) recordReader.nextPage().getLoadedPage().getBlock(0);
         recordReader.close();
         return block;
     }

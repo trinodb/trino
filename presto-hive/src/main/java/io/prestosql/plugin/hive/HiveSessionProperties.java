@@ -55,6 +55,7 @@ public final class HiveSessionProperties
     private static final String ORC_TINY_STRIPE_THRESHOLD = "orc_tiny_stripe_threshold";
     private static final String ORC_MAX_READ_BLOCK_SIZE = "orc_max_read_block_size";
     private static final String ORC_LAZY_READ_SMALL_RANGES = "orc_lazy_read_small_ranges";
+    private static final String ORC_NESTED_LAZY_ENABLED = "orc_nested_lazy_enabled";
     private static final String ORC_STRING_STATISTICS_LIMIT = "orc_string_statistics_limit";
     private static final String ORC_OPTIMIZED_WRITER_VALIDATE = "orc_optimized_writer_validate";
     private static final String ORC_OPTIMIZED_WRITER_VALIDATE_PERCENTAGE = "orc_optimized_writer_validate_percentage";
@@ -167,6 +168,11 @@ public final class HiveSessionProperties
                         ORC_LAZY_READ_SMALL_RANGES,
                         "Experimental: ORC: Read small file segments lazily",
                         orcReaderConfig.isLazyReadSmallRanges(),
+                        false),
+                booleanProperty(
+                        ORC_NESTED_LAZY_ENABLED,
+                        "Experimental: ORC: Lazily read nested data",
+                        orcReaderConfig.isNestedLazy(),
                         false),
                 dataSizeProperty(
                         ORC_STRING_STATISTICS_LIMIT,
@@ -383,6 +389,11 @@ public final class HiveSessionProperties
     public static boolean getOrcLazyReadSmallRanges(ConnectorSession session)
     {
         return session.getProperty(ORC_LAZY_READ_SMALL_RANGES, Boolean.class);
+    }
+
+    public static boolean isOrcNestedLazy(ConnectorSession session)
+    {
+        return session.getProperty(ORC_NESTED_LAZY_ENABLED, Boolean.class);
     }
 
     public static DataSize getOrcStringStatisticsLimit(ConnectorSession session)
