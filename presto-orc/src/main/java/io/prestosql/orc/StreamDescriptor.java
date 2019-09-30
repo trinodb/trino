@@ -27,16 +27,22 @@ public final class StreamDescriptor
     private final int streamId;
     private final OrcTypeKind streamType;
     private final String fieldName;
-    private final OrcDataSource orcDataSource;
+    private final OrcDataSourceId orcDataSourceId;
     private final List<StreamDescriptor> nestedStreams;
 
-    public StreamDescriptor(String streamName, int streamId, String fieldName, OrcTypeKind streamType, OrcDataSource orcDataSource, List<StreamDescriptor> nestedStreams)
+    public StreamDescriptor(
+            String streamName,
+            int streamId,
+            String fieldName,
+            OrcTypeKind streamType,
+            OrcDataSourceId orcDataSourceId,
+            List<StreamDescriptor> nestedStreams)
     {
         this.streamName = requireNonNull(streamName, "streamName is null");
         this.streamId = streamId;
         this.fieldName = requireNonNull(fieldName, "fieldName is null");
         this.streamType = requireNonNull(streamType, "type is null");
-        this.orcDataSource = requireNonNull(orcDataSource, "orcDataSource is null");
+        this.orcDataSourceId = requireNonNull(orcDataSourceId, "orcDataSourceId is null");
         this.nestedStreams = ImmutableList.copyOf(requireNonNull(nestedStreams, "nestedStreams is null"));
     }
 
@@ -62,12 +68,7 @@ public final class StreamDescriptor
 
     public OrcDataSourceId getOrcDataSourceId()
     {
-        return orcDataSource.getId();
-    }
-
-    public OrcDataSource getOrcDataSource()
-    {
-        return orcDataSource;
+        return orcDataSourceId;
     }
 
     public List<StreamDescriptor> getNestedStreams()
@@ -82,7 +83,7 @@ public final class StreamDescriptor
                 .add("streamName", streamName)
                 .add("streamId", streamId)
                 .add("streamType", streamType)
-                .add("dataSource", orcDataSource.getId())
+                .add("dataSource", orcDataSourceId)
                 .toString();
     }
 }

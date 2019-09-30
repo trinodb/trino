@@ -49,7 +49,7 @@ public class TestOrcLz4
         assertEquals(orcReader.getFooter().getNumberOfRows(), 10_000);
 
         OrcRecordReader reader = orcReader.createRecordReader(
-                ImmutableList.of(0, 1, 2),
+                orcReader.getRootColumn().getNestedStreams(),
                 ImmutableList.of(BIGINT, INTEGER, BIGINT),
                 OrcPredicate.TRUE,
                 DateTimeZone.UTC,

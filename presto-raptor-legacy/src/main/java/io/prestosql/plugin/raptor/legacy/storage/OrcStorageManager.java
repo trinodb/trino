@@ -15,7 +15,6 @@ package io.prestosql.plugin.raptor.legacy.storage;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
@@ -30,8 +29,9 @@ import io.prestosql.orc.OrcPredicate;
 import io.prestosql.orc.OrcReader;
 import io.prestosql.orc.OrcReaderOptions;
 import io.prestosql.orc.OrcRecordReader;
+import io.prestosql.orc.StreamDescriptor;
 import io.prestosql.orc.TupleDomainOrcPredicate;
-import io.prestosql.orc.TupleDomainOrcPredicate.ColumnReference;
+import io.prestosql.orc.TupleDomainOrcPredicate.TupleDomainOrcPredicateBuilder;
 import io.prestosql.orc.metadata.OrcType;
 import io.prestosql.plugin.raptor.legacy.RaptorColumnHandle;
 import io.prestosql.plugin.raptor.legacy.RaptorConnectorId;
@@ -94,6 +94,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Maps.uniqueIndex;
 import static io.airlift.concurrent.MoreFutures.allAsList;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -241,8 +242,8 @@ public class OrcStorageManager
         try {
             OrcReader reader = new OrcReader(dataSource, orcReaderOptions);
 
-            Map<Long, Integer> indexMap = columnIdIndex(reader.getColumnNames());
-            List<Integer> fileReadColumn = new ArrayList<>(columnIds.size());
+            Map<Long, StreamDescriptor> indexMap = columnIdIndex(reader.getRootColumn().getNestedStreams());
+            List<StreamDescriptor> fileReadColumn = new ArrayList<>(columnIds.size());
             List<Type> fileReadTypes = new ArrayList<>(columnIds.size());
             List<ColumnAdaptation> columnAdaptations = new ArrayList<>(columnIds.size());
             for (int i = 0; i < columnIds.size(); i++) {
@@ -254,14 +255,14 @@ public class OrcStorageManager
                 }
 
                 Type type = toOrcFileType(columnTypes.get(i), typeManager);
-                Integer index = indexMap.get(columnId);
-                if (index == null) {
+                StreamDescriptor fileColumn = indexMap.get(columnId);
+                if (fileColumn == null) {
                     columnAdaptations.add(ColumnAdaptation.nullColumn(type));
                 }
                 else {
                     int sourceIndex = fileReadColumn.size();
                     columnAdaptations.add(ColumnAdaptation.sourceColumn(sourceIndex));
-                    fileReadColumn.add(index);
+                    fileReadColumn.add(fileColumn);
                     fileReadTypes.add(type);
                 }
             }
@@ -570,25 +571,21 @@ public class OrcStorageManager
         return raptorType;
     }
 
-    private static OrcPredicate getPredicate(TupleDomain<RaptorColumnHandle> effectivePredicate, Map<Long, Integer> indexMap)
+    private static OrcPredicate getPredicate(TupleDomain<RaptorColumnHandle> effectivePredicate, Map<Long, StreamDescriptor> indexMap)
     {
-        ImmutableList.Builder<ColumnReference<RaptorColumnHandle>> columns = ImmutableList.builder();
-        for (RaptorColumnHandle column : effectivePredicate.getDomains().get().keySet()) {
-            Integer index = indexMap.get(column.getColumnId());
-            if (index != null) {
-                columns.add(new ColumnReference<>(column, index, column.getColumnType()));
+        TupleDomainOrcPredicateBuilder predicateBuilder = TupleDomainOrcPredicate.builder();
+        effectivePredicate.getDomains().get().forEach((columnHandle, value) -> {
+            StreamDescriptor fileColumn = indexMap.get(columnHandle.getColumnId());
+            if (fileColumn != null) {
+                predicateBuilder.addColumn(fileColumn.getStreamId(), value);
             }
-        }
-        return new TupleDomainOrcPredicate<>(effectivePredicate, columns.build(), false);
+        });
+        return predicateBuilder.build();
     }
 
-    private static Map<Long, Integer> columnIdIndex(List<String> columnNames)
+    private static Map<Long, StreamDescriptor> columnIdIndex(List<StreamDescriptor> columns)
     {
-        ImmutableMap.Builder<Long, Integer> map = ImmutableMap.builder();
-        for (int i = 0; i < columnNames.size(); i++) {
-            map.put(Long.valueOf(columnNames.get(i)), i);
-        }
-        return map.build();
+        return uniqueIndex(columns, column -> Long.valueOf(column.getFieldName()));
     }
 
     private class OrcStoragePageSink

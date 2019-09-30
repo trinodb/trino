@@ -98,11 +98,11 @@ public class TestOrcReaderPositions
             createMultiStripeFile(tempFile.getFile());
 
             // test reading second and fourth stripes
-            OrcPredicate predicate = (numberOfRows, statisticsByColumnIndex) -> {
+            OrcPredicate predicate = (numberOfRows, allColumnStatistics) -> {
                 if (numberOfRows == 100) {
                     return true;
                 }
-                IntegerStatistics stats = statisticsByColumnIndex.get(0).getIntegerStatistics();
+                IntegerStatistics stats = allColumnStatistics.get(1).getIntegerStatistics();
                 return ((stats.getMin() == 60) && (stats.getMax() == 117)) ||
                         ((stats.getMin() == 180) && (stats.getMax() == 237));
             };
@@ -145,11 +145,11 @@ public class TestOrcReaderPositions
             createSequentialFile(tempFile.getFile(), rowCount);
 
             // test reading two row groups from middle of file
-            OrcPredicate predicate = (numberOfRows, statisticsByColumnIndex) -> {
+            OrcPredicate predicate = (numberOfRows, allColumnStatistics) -> {
                 if (numberOfRows == rowCount) {
                     return true;
                 }
-                IntegerStatistics stats = statisticsByColumnIndex.get(0).getIntegerStatistics();
+                IntegerStatistics stats = allColumnStatistics.get(1).getIntegerStatistics();
                 return (stats.getMin() == 50_000) || (stats.getMin() == 60_000);
             };
 

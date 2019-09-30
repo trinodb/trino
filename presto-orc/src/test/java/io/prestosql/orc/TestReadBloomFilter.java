@@ -14,9 +14,7 @@
 package io.prestosql.orc;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import io.prestosql.orc.TupleDomainOrcPredicate.ColumnReference;
-import io.prestosql.spi.predicate.NullableValue;
+import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.type.SqlDate;
 import io.prestosql.spi.type.SqlTimestamp;
 import io.prestosql.spi.type.SqlVarbinary;
@@ -39,7 +37,6 @@ import static io.prestosql.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
 import static io.prestosql.orc.OrcTester.READER_OPTIONS;
 import static io.prestosql.orc.OrcTester.writeOrcColumnHive;
 import static io.prestosql.orc.metadata.CompressionKind.LZ4;
-import static io.prestosql.spi.predicate.TupleDomain.fromFixedValues;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
@@ -98,30 +95,29 @@ public class TestReadBloomFilter
             }
 
             // predicate for specific value within the min/max range without bloom filter being enabled
-            TupleDomainOrcPredicate<String> noBloomFilterPredicate = new TupleDomainOrcPredicate<>(
-                    fromFixedValues(ImmutableMap.of("test", NullableValue.of(type, notInBloomFilter))),
-                    ImmutableList.of(new ColumnReference<>("test", 0, type)),
-                    false);
+            TupleDomainOrcPredicate noBloomFilterPredicate = TupleDomainOrcPredicate.builder()
+                    .addColumn(1, Domain.singleValue(type, notInBloomFilter))
+                    .build();
 
             try (OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, noBloomFilterPredicate, type, MAX_BATCH_SIZE)) {
                 assertEquals(recordReader.nextPage().getLoadedPage().getPositionCount(), 1024);
             }
 
             // predicate for specific value within the min/max range with bloom filter enabled, but a value not in the bloom filter
-            TupleDomainOrcPredicate<String> notMatchBloomFilterPredicate = new TupleDomainOrcPredicate<>(
-                    fromFixedValues(ImmutableMap.of("test", NullableValue.of(type, notInBloomFilter))),
-                    ImmutableList.of(new ColumnReference<>("test", 0, type)),
-                    true);
+            TupleDomainOrcPredicate notMatchBloomFilterPredicate = TupleDomainOrcPredicate.builder()
+                    .addColumn(1, Domain.singleValue(type, notInBloomFilter))
+                    .setBloomFiltersEnabled(true)
+                    .build();
 
             try (OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, notMatchBloomFilterPredicate, type, MAX_BATCH_SIZE)) {
                 assertNull(recordReader.nextPage());
             }
 
             // predicate for specific value within the min/max range with bloom filter enabled, and a value in the bloom filter
-            TupleDomainOrcPredicate<String> matchBloomFilterPredicate = new TupleDomainOrcPredicate<>(
-                    fromFixedValues(ImmutableMap.of("test", NullableValue.of(type, inBloomFilter))),
-                    ImmutableList.of(new ColumnReference<>("test", 0, type)),
-                    true);
+            TupleDomainOrcPredicate matchBloomFilterPredicate = TupleDomainOrcPredicate.builder()
+                    .addColumn(1, Domain.singleValue(type, inBloomFilter))
+                    .setBloomFiltersEnabled(true)
+                    .build();
 
             try (OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, matchBloomFilterPredicate, type, MAX_BATCH_SIZE)) {
                 assertEquals(recordReader.nextPage().getLoadedPage().getPositionCount(), 1024);
@@ -139,7 +135,7 @@ public class TestReadBloomFilter
         assertEquals(orcReader.getFooter().getRowsInRowGroup(), 10_000);
 
         return orcReader.createRecordReader(
-                ImmutableList.of(0),
+                orcReader.getRootColumn().getNestedStreams(),
                 ImmutableList.of(type),
                 predicate,
                 HIVE_STORAGE_TIME_ZONE,

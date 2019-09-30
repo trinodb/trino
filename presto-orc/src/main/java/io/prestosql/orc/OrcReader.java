@@ -14,6 +14,7 @@
 package io.prestosql.orc;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
@@ -23,6 +24,8 @@ import io.prestosql.orc.metadata.ExceptionWrappingMetadataReader;
 import io.prestosql.orc.metadata.Footer;
 import io.prestosql.orc.metadata.Metadata;
 import io.prestosql.orc.metadata.OrcMetadataReader;
+import io.prestosql.orc.metadata.OrcType;
+import io.prestosql.orc.metadata.OrcType.OrcTypeKind;
 import io.prestosql.orc.metadata.PostScript;
 import io.prestosql.orc.metadata.PostScript.HiveWriterVersion;
 import io.prestosql.orc.stream.OrcChunkLoader;
@@ -70,6 +73,7 @@ public class OrcReader
     private final Optional<OrcDecompressor> decompressor;
     private final Footer footer;
     private final Metadata metadata;
+    private final StreamDescriptor rootColumn;
 
     private final Optional<OrcWriteValidation> writeValidation;
 
@@ -172,6 +176,8 @@ public class OrcReader
             throw new OrcCorruptionException(orcDataSource.getId(), "File has no columns");
         }
 
+        this.rootColumn = createStreamDescriptor("", "", 0, footer.getTypes(), orcDataSource.getId());
+
         validateWrite(validation -> validation.getColumnNames().equals(getColumnNames()), "Unexpected column names");
         validateWrite(validation -> validation.getRowGroupMaxRowCount() == footer.getRowsInRowGroup(), "Unexpected rows in group");
         if (writeValidation.isPresent()) {
@@ -196,6 +202,11 @@ public class OrcReader
         return metadata;
     }
 
+    public StreamDescriptor getRootColumn()
+    {
+        return rootColumn;
+    }
+
     public int getBufferSize()
     {
         return bufferSize;
@@ -207,7 +218,7 @@ public class OrcReader
     }
 
     public OrcRecordReader createRecordReader(
-            List<Integer> readColumns,
+            List<StreamDescriptor> readColumns,
             List<Type> readTypes,
             OrcPredicate predicate,
             DateTimeZone hiveStorageTimeZone,
@@ -229,7 +240,7 @@ public class OrcReader
     }
 
     public OrcRecordReader createRecordReader(
-            List<Integer> readColumns,
+            List<StreamDescriptor> readColumns,
             List<Type> readTypes,
             OrcPredicate predicate,
             long offset,
@@ -277,6 +288,38 @@ public class OrcReader
         return new CachingOrcDataSource(dataSource, desiredOffset -> diskRange);
     }
 
+    private static StreamDescriptor createStreamDescriptor(
+            String parentStreamName,
+            String fieldName,
+            int typeId,
+            List<OrcType> types,
+            OrcDataSourceId orcDataSourceId)
+    {
+        String path = fieldName.isEmpty() ? parentStreamName : parentStreamName + "." + fieldName;
+        OrcType orcType = types.get(typeId);
+
+        List<StreamDescriptor> nestedStreams = ImmutableList.of();
+        if (orcType.getOrcTypeKind() == OrcTypeKind.STRUCT) {
+            nestedStreams = IntStream.range(0, orcType.getFieldCount())
+                    .mapToObj(fieldId -> createStreamDescriptor(
+                            path,
+                            orcType.getFieldName(fieldId),
+                            orcType.getFieldTypeIndex(fieldId),
+                            types,
+                            orcDataSourceId))
+                    .collect(toImmutableList());
+        }
+        else if (orcType.getOrcTypeKind() == OrcTypeKind.LIST) {
+            nestedStreams = ImmutableList.of(createStreamDescriptor(path, "item", orcType.getFieldTypeIndex(0), types, orcDataSourceId));
+        }
+        else if (orcType.getOrcTypeKind() == OrcTypeKind.MAP) {
+            nestedStreams = ImmutableList.of(
+                    createStreamDescriptor(path, "key", orcType.getFieldTypeIndex(0), types, orcDataSourceId),
+                    createStreamDescriptor(path, "value", orcType.getFieldTypeIndex(1), types, orcDataSourceId));
+        }
+        return new StreamDescriptor(path, typeId, fieldName, orcType.getOrcTypeKind(), orcDataSourceId, nestedStreams);
+    }
+
     /**
      * Does the file start with the ORC magic bytes?
      */
@@ -322,15 +365,15 @@ public class OrcReader
     static void validateFile(
             OrcWriteValidation writeValidation,
             OrcDataSource input,
-            List<Type> types,
+            List<Type> readTypes,
             DateTimeZone hiveStorageTimeZone)
             throws OrcCorruptionException
     {
         try {
             OrcReader orcReader = new OrcReader(input, new OrcReaderOptions(), Optional.of(writeValidation));
             try (OrcRecordReader orcRecordReader = orcReader.createRecordReader(
-                    IntStream.range(0, types.size()).boxed().collect(toImmutableList()),
-                    types,
+                    orcReader.getRootColumn().getNestedStreams(),
+                    readTypes,
                     OrcPredicate.TRUE,
                     hiveStorageTimeZone,
                     newSimpleAggregatedMemoryContext(),

@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Longs;
 import io.airlift.slice.Slice;
-import io.prestosql.orc.TupleDomainOrcPredicate.ColumnReference;
 import io.prestosql.orc.metadata.OrcMetadataReader;
 import io.prestosql.orc.metadata.statistics.BloomFilter;
 import io.prestosql.orc.metadata.statistics.ColumnStatistics;
@@ -25,7 +24,6 @@ import io.prestosql.orc.metadata.statistics.IntegerStatistics;
 import io.prestosql.orc.proto.OrcProto;
 import io.prestosql.orc.protobuf.CodedInputStream;
 import io.prestosql.spi.predicate.Domain;
-import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.Type;
 import org.apache.orc.util.Murmur3;
@@ -283,22 +281,11 @@ public class TestOrcBloomFilters
     // simulate query on a 2 columns where 1 is used as part of the where, with and without bloom filter
     public void testMatches()
     {
-        // stripe column
-        Domain testingColumnHandleDomain = Domain.singleValue(BIGINT, 1234L);
-        TupleDomain.ColumnDomain<String> column0 = new TupleDomain.ColumnDomain<>(COLUMN_0, testingColumnHandleDomain);
-
-        // predicate consist of the bigint_0 = 1234
-        TupleDomain<String> effectivePredicate = TupleDomain.fromColumnDomains(Optional.of(ImmutableList.of(column0)));
-        TupleDomain<String> emptyEffectivePredicate = TupleDomain.all();
-
-        // predicate column references
-        List<ColumnReference<String>> columnReferences = ImmutableList.<ColumnReference<String>>builder()
-                .add(new ColumnReference<>(COLUMN_0, 0, BIGINT))
-                .add(new ColumnReference<>(COLUMN_1, 1, BIGINT))
+        TupleDomainOrcPredicate predicate = TupleDomainOrcPredicate.builder()
+                .setBloomFiltersEnabled(true)
+                .addColumn(0, Domain.singleValue(BIGINT, 1234L))
                 .build();
-
-        TupleDomainOrcPredicate<String> predicate = new TupleDomainOrcPredicate<>(effectivePredicate, columnReferences, true);
-        TupleDomainOrcPredicate<String> emptyPredicate = new TupleDomainOrcPredicate<>(emptyEffectivePredicate, columnReferences, true);
+        TupleDomainOrcPredicate emptyPredicate = TupleDomainOrcPredicate.builder().build();
 
         // assemble a matching and a non-matching bloom filter
         BloomFilter bloomFilter = new BloomFilter(1000, 0.01);
@@ -306,7 +293,7 @@ public class TestOrcBloomFilters
         bloomFilter.addLong(1234);
         OrcProto.BloomFilter orcBloomFilter = toOrcBloomFilter(bloomFilter);
 
-        Map<Integer, ColumnStatistics> matchingStatisticsByColumnIndex = ImmutableMap.of(0, new ColumnStatistics(
+        List<ColumnStatistics> matchingStatisticsByColumnIndex = ImmutableList.of(new ColumnStatistics(
                 null,
                 0,
                 null,
@@ -318,7 +305,7 @@ public class TestOrcBloomFilters
                 null,
                 toBloomFilter(orcBloomFilter)));
 
-        Map<Integer, ColumnStatistics> nonMatchingStatisticsByColumnIndex = ImmutableMap.of(0, new ColumnStatistics(
+        List<ColumnStatistics> nonMatchingStatisticsByColumnIndex = ImmutableList.of(new ColumnStatistics(
                 null,
                 0,
                 null,
@@ -330,7 +317,7 @@ public class TestOrcBloomFilters
                 null,
                 toBloomFilter(emptyOrcBloomFilter)));
 
-        Map<Integer, ColumnStatistics> withoutBloomFilterStatisticsByColumnIndex = ImmutableMap.of(0, new ColumnStatistics(
+        List<ColumnStatistics> withoutBloomFilterStatisticsByColumnIndex = ImmutableList.of(new ColumnStatistics(
                 null,
                 0,
                 null,

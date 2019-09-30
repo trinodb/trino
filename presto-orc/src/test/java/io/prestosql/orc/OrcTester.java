@@ -575,7 +575,7 @@ public class OrcTester
         assertEquals(orcReader.getFooter().getRowsInRowGroup(), 10_000);
 
         return orcReader.createRecordReader(
-                ImmutableList.of(0),
+                orcReader.getRootColumn().getNestedStreams(),
                 ImmutableList.of(type),
                 predicate,
                 HIVE_STORAGE_TIME_ZONE,

@@ -29,7 +29,6 @@ import io.prestosql.orc.OrcWriteValidation.WriteChecksumBuilder;
 import io.prestosql.orc.metadata.ColumnEncoding;
 import io.prestosql.orc.metadata.MetadataReader;
 import io.prestosql.orc.metadata.OrcType;
-import io.prestosql.orc.metadata.OrcType.OrcTypeKind;
 import io.prestosql.orc.metadata.PostScript.HiveWriterVersion;
 import io.prestosql.orc.metadata.StripeInformation;
 import io.prestosql.orc.metadata.statistics.ColumnStatistics;
@@ -116,7 +115,7 @@ public class OrcRecordReader
     private final Optional<StatisticsValidation> fileStatisticsValidation;
 
     public OrcRecordReader(
-            List<Integer> readColumns,
+            List<StreamDescriptor> readColumns,
             List<Type> readTypes,
             OrcPredicate predicate,
             long numberOfRows,
@@ -156,10 +155,10 @@ public class OrcRecordReader
         requireNonNull(exceptionTransform, "exceptionTransform is null");
 
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
-        this.writeChecksumBuilder = writeValidation.map(validation -> createWriteChecksumBuilder(readColumns, readTypes));
-        this.rowGroupStatisticsValidation = writeValidation.map(validation -> validation.createWriteStatisticsBuilder(readColumns, readTypes));
-        this.stripeStatisticsValidation = writeValidation.map(validation -> validation.createWriteStatisticsBuilder(readColumns, readTypes));
-        this.fileStatisticsValidation = writeValidation.map(validation -> validation.createWriteStatisticsBuilder(readColumns, readTypes));
+        this.writeChecksumBuilder = writeValidation.map(validation -> createWriteChecksumBuilder(orcTypes.get(0).getFieldCount(), readTypes));
+        this.rowGroupStatisticsValidation = writeValidation.map(validation -> validation.createWriteStatisticsBuilder(orcTypes.get(0).getFieldCount(), readTypes));
+        this.stripeStatisticsValidation = writeValidation.map(validation -> validation.createWriteStatisticsBuilder(orcTypes.get(0).getFieldCount(), readTypes));
+        this.fileStatisticsValidation = writeValidation.map(validation -> validation.createWriteStatisticsBuilder(orcTypes.get(0).getFieldCount(), readTypes));
         this.systemMemoryUsage = systemMemoryUsage.newAggregatedMemoryContext();
         this.blockFactory = new OrcBlockFactory(exceptionTransform, options.isNestedLazy());
 
@@ -185,11 +184,11 @@ public class OrcRecordReader
         long fileRowCount = 0;
         ImmutableList.Builder<StripeInformation> stripes = ImmutableList.builder();
         ImmutableList.Builder<Long> stripeFilePositions = ImmutableList.builder();
-        if (predicate.matches(numberOfRows, getStatisticsByColumnOrdinal(orcTypes.get(0), fileStats))) {
+        if (predicate.matches(numberOfRows, fileStats)) {
             // select stripes that start within the specified split
             for (StripeInfo info : stripeInfos) {
                 StripeInformation stripe = info.getStripe();
-                if (splitContainsStripe(splitOffset, splitLength, stripe) && isStripeIncluded(orcTypes.get(0), stripe, info.getStats(), predicate)) {
+                if (splitContainsStripe(splitOffset, splitLength, stripe) && isStripeIncluded(stripe, info.getStats(), predicate)) {
                     stripes.add(stripe);
                     stripeFilePositions.add(fileRowCount);
                     totalRowCount += stripe.getNumberOfRows();
@@ -232,7 +231,7 @@ public class OrcRecordReader
                 metadataReader,
                 writeValidation);
 
-        streamReaders = createStreamReaders(orcDataSource, readColumns, readTypes, orcTypes, streamReadersSystemMemoryContext, blockFactory);
+        streamReaders = createStreamReaders(readColumns, readTypes, streamReadersSystemMemoryContext, blockFactory);
         maxBytesPerCell = new long[streamReaders.length];
         currentBytesPerCell = new long[streamReaders.length];
         nextBatchSize = initialBatchSize;
@@ -245,7 +244,6 @@ public class OrcRecordReader
     }
 
     private static boolean isStripeIncluded(
-            OrcType rootStructType,
             StripeInformation stripe,
             Optional<StripeStatistics> stripeStats,
             OrcPredicate predicate)
@@ -253,8 +251,7 @@ public class OrcRecordReader
         // if there are no stats, include the column
         return stripeStats
                 .map(StripeStatistics::getColumnStatistics)
-                .map(columnStats -> getStatisticsByColumnOrdinal(rootStructType, columnStats))
-                .map(statsByColumn -> predicate.matches(stripe.getNumberOfRows(), statsByColumn))
+                .map(columnStats -> predicate.matches(stripe.getNumberOfRows(), columnStats))
                 .orElse(true);
     }
 
@@ -548,70 +545,24 @@ public class OrcRecordReader
     }
 
     private StreamReader[] createStreamReaders(
-            OrcDataSource orcDataSource,
-            List<Integer> readColumns,
+            List<StreamDescriptor> columns,
             List<Type> readTypes,
-            List<OrcType> orcTypes,
             AggregatedMemoryContext systemMemoryContext,
             OrcBlockFactory blockFactory)
             throws OrcCorruptionException
     {
-        List<StreamDescriptor> streamDescriptors = createStreamDescriptor("", "", 0, orcTypes, orcDataSource).getNestedStreams();
-
-        StreamReader[] streamReaders = new StreamReader[readColumns.size()];
-        for (int i = 0; i < readColumns.size(); i++) {
-            int columnIndex = readColumns.get(i);
-            Type type = readTypes.get(i);
-            StreamDescriptor streamDescriptor = streamDescriptors.get(columnIndex);
+        StreamReader[] streamReaders = new StreamReader[columns.size()];
+        for (int i = 0; i < columns.size(); i++) {
+            int columnIndex = i;
+            Type readType = readTypes.get(columnIndex);
+            StreamDescriptor streamDescriptor = columns.get(columnIndex);
             streamReaders[columnIndex] = createStreamReader(
-                    type,
+                    readType,
                     streamDescriptor,
                     systemMemoryContext,
                     blockFactory.createNestedBlockFactory(block -> blockLoaded(columnIndex, block)));
         }
         return streamReaders;
-    }
-
-    private static StreamDescriptor createStreamDescriptor(String parentStreamName, String fieldName, int typeId, List<OrcType> types, OrcDataSource dataSource)
-    {
-        OrcType type = types.get(typeId);
-
-        if (!fieldName.isEmpty()) {
-            parentStreamName += "." + fieldName;
-        }
-
-        ImmutableList.Builder<StreamDescriptor> nestedStreams = ImmutableList.builder();
-        if (type.getOrcTypeKind() == OrcTypeKind.STRUCT) {
-            for (int i = 0; i < type.getFieldCount(); ++i) {
-                nestedStreams.add(createStreamDescriptor(parentStreamName, type.getFieldName(i), type.getFieldTypeIndex(i), types, dataSource));
-            }
-        }
-        else if (type.getOrcTypeKind() == OrcTypeKind.LIST) {
-            nestedStreams.add(createStreamDescriptor(parentStreamName, "item", type.getFieldTypeIndex(0), types, dataSource));
-        }
-        else if (type.getOrcTypeKind() == OrcTypeKind.MAP) {
-            nestedStreams.add(createStreamDescriptor(parentStreamName, "key", type.getFieldTypeIndex(0), types, dataSource));
-            nestedStreams.add(createStreamDescriptor(parentStreamName, "value", type.getFieldTypeIndex(1), types, dataSource));
-        }
-        return new StreamDescriptor(parentStreamName, typeId, fieldName, type.getOrcTypeKind(), dataSource, nestedStreams.build());
-    }
-
-    private static Map<Integer, ColumnStatistics> getStatisticsByColumnOrdinal(OrcType rootStructType, List<ColumnStatistics> fileStats)
-    {
-        requireNonNull(rootStructType, "rootStructType is null");
-        checkArgument(rootStructType.getOrcTypeKind() == OrcTypeKind.STRUCT);
-        requireNonNull(fileStats, "fileStats is null");
-
-        ImmutableMap.Builder<Integer, ColumnStatistics> statistics = ImmutableMap.builder();
-        for (int ordinal = 0; ordinal < rootStructType.getFieldCount(); ordinal++) {
-            if (fileStats.size() > ordinal) {
-                ColumnStatistics element = fileStats.get(rootStructType.getFieldTypeIndex(ordinal));
-                if (element != null) {
-                    statistics.put(ordinal, element);
-                }
-            }
-        }
-        return statistics.build();
     }
 
     /**

@@ -33,7 +33,6 @@ import io.prestosql.spi.type.VarcharType;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -126,9 +125,9 @@ public final class TestingOrcPredicate
         }
 
         @Override
-        public boolean matches(long numberOfRows, Map<Integer, ColumnStatistics> statisticsByColumnIndex)
+        public boolean matches(long numberOfRows, List<ColumnStatistics> allColumnStatistics)
         {
-            ColumnStatistics columnStatistics = statisticsByColumnIndex.get(0);
+            ColumnStatistics columnStatistics = allColumnStatistics.get(1);
             assertTrue(columnStatistics.hasNumberOfValues());
 
             if (numberOfRows == expectedValues.size()) {
