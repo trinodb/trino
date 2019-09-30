@@ -15,6 +15,7 @@ package io.prestosql.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slices;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.plugin.tpch.TpchColumnHandle;
@@ -142,6 +143,26 @@ public class TestPushPredicateIntoTableScan
                         "nation",
                         ImmutableMap.of("nationkey", singleValue(BIGINT, (long) 44)),
                         ImmutableMap.of("nationkey", "nationkey")));
+    }
+
+    @Test
+    public void consumesDeterministicPredicateIfNewDomainIsNarrower()
+    {
+        Type orderStatusType = createVarcharType(1);
+        ColumnHandle columnHandle = new TpchColumnHandle("orderstatus", orderStatusType);
+        Map<String, Domain> filterConstraint = ImmutableMap.<String, Domain>builder()
+                .put("orderstatus", singleValue(orderStatusType, utf8Slice("O")))
+                .build();
+        tester().assertThat(pushPredicateIntoTableScan)
+                .on(p -> p.filter(expression("orderstatus = 'O' OR orderstatus = 'F'"),
+                        p.tableScan(
+                                ordersTableHandle,
+                                ImmutableList.of(p.symbol("orderstatus", orderStatusType)),
+                                ImmutableMap.of(p.symbol("orderstatus", orderStatusType), new TpchColumnHandle("orderstatus", orderStatusType)),
+                                TupleDomain.withColumnDomains(ImmutableMap.of(
+                                        columnHandle, Domain.multipleValues(orderStatusType, ImmutableList.of(Slices.utf8Slice("O"), Slices.utf8Slice("P"))))))))
+                .matches(
+                        constrainedTableScanWithTableLayout("orders", filterConstraint, ImmutableMap.of("orderstatus", "orderstatus")));
     }
 
     @Test
