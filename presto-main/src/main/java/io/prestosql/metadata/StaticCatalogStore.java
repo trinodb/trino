@@ -85,7 +85,7 @@ public class StaticCatalogStore
         String connectorName = properties.remove("connector.name");
         checkState(connectorName != null, "Catalog configuration %s does not contain connector.name", file.getAbsoluteFile());
 
-        connectorManager.createConnection(catalogName, connectorName, ImmutableMap.copyOf(properties));
+        connectorManager.createCatalog(catalogName, connectorName, ImmutableMap.copyOf(properties));
         log.info("-- Added catalog %s using connector %s --", catalogName, connectorName);
     }
 

@@ -362,7 +362,7 @@ public class LocalQueryRunner
                 new SessionPropertyDefaults(nodeInfo));
 
         connectorManager.addConnectorFactory(globalSystemConnectorFactory);
-        connectorManager.createConnection(GlobalSystemConnector.NAME, GlobalSystemConnector.NAME, ImmutableMap.of());
+        connectorManager.createCatalog(GlobalSystemConnector.NAME, GlobalSystemConnector.NAME, ImmutableMap.of());
 
         // add bogus connector for testing session properties
         catalogManager.registerCatalog(createBogusTestingCatalog(TESTING_CATALOG));
@@ -529,7 +529,7 @@ public class LocalQueryRunner
     {
         nodeManager.addCurrentNodeConnector(new CatalogName(catalogName));
         connectorManager.addConnectorFactory(connectorFactory);
-        connectorManager.createConnection(catalogName, connectorFactory.getName(), properties);
+        connectorManager.createCatalog(catalogName, connectorFactory.getName(), properties);
     }
 
     @Override
