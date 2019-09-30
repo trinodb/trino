@@ -309,14 +309,8 @@ public class OrcWriteValidation
         }
     }
 
-    public StatisticsValidation createWriteStatisticsBuilder(List<Integer> readColumns, List<Type> readTypes)
+    public StatisticsValidation createWriteStatisticsBuilder(int columnCount, List<Type> readTypes)
     {
-        requireNonNull(readColumns, "readColumns is null");
-        checkArgument(!readColumns.isEmpty(), "readColumns is empty");
-        int columnCount = readColumns.stream()
-                .mapToInt(Integer::intValue)
-                .max().getAsInt() + 1;
-        checkArgument(readColumns.size() == columnCount, "statistics validation requires all columns to be read");
         checkArgument(readTypes.size() == columnCount, "statistics validation requires all columns to be read");
         return new StatisticsValidation(readTypes);
     }
@@ -459,14 +453,8 @@ public class OrcWriteValidation
             this.columnHashes = columnHashes.build();
         }
 
-        public static WriteChecksumBuilder createWriteChecksumBuilder(List<Integer> readColumns, List<Type> readTypes)
+        public static WriteChecksumBuilder createWriteChecksumBuilder(int columnCount, List<Type> readTypes)
         {
-            requireNonNull(readColumns, "readColumns is null");
-            checkArgument(!readColumns.isEmpty(), "readColumns is empty");
-            int columnCount = readColumns.stream()
-                    .mapToInt(Integer::intValue)
-                    .max().getAsInt() + 1;
-            checkArgument(readColumns.size() == columnCount, "checksum requires all columns to be read");
             checkArgument(readTypes.size() == columnCount, "checksum requires all columns to be read");
             return new WriteChecksumBuilder(readTypes);
         }

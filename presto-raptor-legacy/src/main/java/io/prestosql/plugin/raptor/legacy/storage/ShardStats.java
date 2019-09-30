@@ -18,6 +18,7 @@ import io.airlift.slice.Slice;
 import io.prestosql.orc.OrcPredicate;
 import io.prestosql.orc.OrcReader;
 import io.prestosql.orc.OrcRecordReader;
+import io.prestosql.orc.StreamDescriptor;
 import io.prestosql.plugin.raptor.legacy.metadata.ColumnStats;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
@@ -69,10 +70,10 @@ public final class ShardStats
     private static ColumnStats doComputeColumnStats(OrcReader orcReader, long columnId, Type type, TypeManager typeManager)
             throws IOException
     {
-        int columnIndex = columnIndex(orcReader.getColumnNames(), columnId);
+        StreamDescriptor column = getColumn(orcReader.getRootColumn().getNestedStreams(), columnId);
         Type columnType = toOrcFileType(type, typeManager);
         OrcRecordReader reader = orcReader.createRecordReader(
-                ImmutableList.of(columnIndex),
+                ImmutableList.of(column),
                 ImmutableList.of(columnType),
                 OrcPredicate.TRUE,
                 UTC,
@@ -97,13 +98,13 @@ public final class ShardStats
         return null;
     }
 
-    private static int columnIndex(List<String> columnNames, long columnId)
+    private static StreamDescriptor getColumn(List<StreamDescriptor> columnNames, long columnId)
     {
-        int index = columnNames.indexOf(String.valueOf(columnId));
-        if (index == -1) {
-            throw new PrestoException(RAPTOR_ERROR, "Missing column ID: " + columnId);
-        }
-        return index;
+        String columnName = String.valueOf(columnId);
+        return columnNames.stream()
+                .filter(column -> column.getFieldName().equals(columnName))
+                .findFirst()
+                .orElseThrow(() -> new PrestoException(RAPTOR_ERROR, "Missing column ID: " + columnId));
     }
 
     private static ColumnStats indexBoolean(OrcRecordReader reader, long columnId)

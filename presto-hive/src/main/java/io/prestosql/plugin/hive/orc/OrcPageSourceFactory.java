@@ -18,12 +18,12 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.memory.context.AggregatedMemoryContext;
 import io.prestosql.orc.OrcDataSource;
 import io.prestosql.orc.OrcDataSourceId;
-import io.prestosql.orc.OrcPredicate;
 import io.prestosql.orc.OrcReader;
 import io.prestosql.orc.OrcReaderOptions;
 import io.prestosql.orc.OrcRecordReader;
+import io.prestosql.orc.StreamDescriptor;
 import io.prestosql.orc.TupleDomainOrcPredicate;
-import io.prestosql.orc.TupleDomainOrcPredicate.ColumnReference;
+import io.prestosql.orc.TupleDomainOrcPredicate.TupleDomainOrcPredicateBuilder;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveColumnHandle;
@@ -33,6 +33,7 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.FixedPageSource;
+import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
 import org.apache.hadoop.conf.Configuration;
@@ -49,7 +50,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
@@ -57,6 +57,7 @@ import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.collect.Maps.uniqueIndex;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
@@ -74,6 +75,7 @@ import static io.prestosql.plugin.hive.HiveSessionProperties.isOrcNestedLazy;
 import static io.prestosql.plugin.hive.orc.OrcPageSource.handleException;
 import static io.prestosql.plugin.hive.util.HiveUtil.isDeserializerClass;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class OrcPageSourceFactory
@@ -167,6 +169,7 @@ public class OrcPageSourceFactory
         for (HiveColumnHandle column : columns) {
             checkArgument(column.getColumnType() == REGULAR, "column type must be regular: %s", column);
         }
+        checkArgument(!effectivePredicate.isNone());
 
         OrcDataSource orcDataSource;
         try {
@@ -191,33 +194,54 @@ public class OrcPageSourceFactory
         try {
             OrcReader reader = new OrcReader(orcDataSource, options);
 
-            List<HiveColumnHandle> physicalColumns = getPhysicalHiveColumnHandles(columns, useOrcColumnNames, reader, path);
-
-            int fileTopLevelColumnCount = reader.getFooter().getTypes().get(0).getFieldCount();
-            List<ColumnReference<HiveColumnHandle>> columnReferences = new ArrayList<>(physicalColumns.size());
-            List<Integer> fileReadColumns = new ArrayList<>(physicalColumns.size());
-            List<Type> fileReadTypes = new ArrayList<>(physicalColumns.size());
-            List<ColumnAdaptation> columnAdaptations = new ArrayList<>(physicalColumns.size());
-            for (HiveColumnHandle column : physicalColumns) {
-                Type type = column.getType();
-                columnReferences.add(new ColumnReference<>(column, column.getHiveColumnIndex(), type));
-                if (column.getHiveColumnIndex() < fileTopLevelColumnCount) {
-                    int sourceIndex = fileReadColumns.size();
-                    columnAdaptations.add(ColumnAdaptation.sourceColumn(sourceIndex));
-                    fileReadColumns.add(column.getHiveColumnIndex());
-                    fileReadTypes.add(type);
-                }
-                else {
-                    columnAdaptations.add(ColumnAdaptation.nullColumn(type));
-                }
+            if (useOrcColumnNames) {
+                verifyFileHasColumnNames(reader.getColumnNames(), path);
             }
 
-            OrcPredicate predicate = new TupleDomainOrcPredicate<>(effectivePredicate, columnReferences, options.isBloomFiltersEnabled());
+            List<StreamDescriptor> fileColumns = reader.getRootColumn().getNestedStreams();
+            Map<String, StreamDescriptor> fileColumnsByName = ImmutableMap.of();
+            if (useOrcColumnNames) {
+                // Convert column names read from ORC files to lower case to be consistent with those stored in Hive Metastore
+                fileColumnsByName = uniqueIndex(fileColumns, descriptor -> descriptor.getFieldName().toLowerCase(ENGLISH));
+            }
+
+            TupleDomainOrcPredicateBuilder predicateBuilder = TupleDomainOrcPredicate.builder()
+                    .setBloomFiltersEnabled(options.isBloomFiltersEnabled());
+            Map<HiveColumnHandle, Domain> effectivePredicateDomains = effectivePredicate.getDomains()
+                    .orElseThrow(() -> new IllegalArgumentException("Effective predicate is none"));
+            List<StreamDescriptor> fileReadColumns = new ArrayList<>(columns.size());
+            List<Type> fileReadTypes = new ArrayList<>(columns.size());
+            List<ColumnAdaptation> columnAdaptations = new ArrayList<>(columns.size());
+            for (HiveColumnHandle column : columns) {
+                StreamDescriptor streamDescriptor = null;
+                if (useOrcColumnNames) {
+                    streamDescriptor = fileColumnsByName.get(column.getName().toLowerCase(ENGLISH));
+                }
+                else if (column.getHiveColumnIndex() < fileColumns.size()) {
+                    streamDescriptor = fileColumns.get(column.getHiveColumnIndex());
+                }
+
+                Type readType = column.getType();
+                if (streamDescriptor != null) {
+                    int sourceIndex = fileReadColumns.size();
+                    columnAdaptations.add(ColumnAdaptation.sourceColumn(sourceIndex));
+                    fileReadColumns.add(streamDescriptor);
+                    fileReadTypes.add(readType);
+
+                    Domain domain = effectivePredicateDomains.get(column);
+                    if (domain != null) {
+                        predicateBuilder.addColumn(streamDescriptor.getStreamId(), domain);
+                    }
+                }
+                else {
+                    columnAdaptations.add(ColumnAdaptation.nullColumn(readType));
+                }
+            }
 
             OrcRecordReader recordReader = reader.createRecordReader(
                     fileReadColumns,
                     fileReadTypes,
-                    predicate,
+                    predicateBuilder.build(),
                     start,
                     length,
                     hiveStorageTimeZone,
@@ -254,31 +278,6 @@ public class OrcPageSourceFactory
         return format("Error opening Hive split %s (offset=%s, length=%s): %s", path, start, length, t.getMessage());
     }
 
-    private static List<HiveColumnHandle> getPhysicalHiveColumnHandles(List<HiveColumnHandle> columns, boolean useOrcColumnNames, OrcReader reader, Path path)
-    {
-        if (!useOrcColumnNames) {
-            return columns;
-        }
-
-        verifyFileHasColumnNames(reader.getColumnNames(), path);
-
-        Map<String, Integer> physicalNameOrdinalMap = buildPhysicalNameOrdinalMap(reader);
-        int nextMissingColumnIndex = physicalNameOrdinalMap.size();
-
-        ImmutableList.Builder<HiveColumnHandle> physicalColumns = ImmutableList.builder();
-        for (HiveColumnHandle column : columns) {
-            Integer physicalOrdinal = physicalNameOrdinalMap.get(column.getName());
-            if (physicalOrdinal == null) {
-                // if the column is missing from the file, assign it a column number larger
-                // than the number of columns in the file so the reader will fill it with nulls
-                physicalOrdinal = nextMissingColumnIndex;
-                nextMissingColumnIndex++;
-            }
-            physicalColumns.add(new HiveColumnHandle(column.getName(), column.getHiveType(), column.getType(), physicalOrdinal, column.getColumnType(), column.getComment()));
-        }
-        return physicalColumns.build();
-    }
-
     private static void verifyFileHasColumnNames(List<String> physicalColumnNames, Path path)
     {
         if (!physicalColumnNames.isEmpty() && physicalColumnNames.stream().allMatch(physicalColumnName -> DEFAULT_HIVE_COLUMN_NAME_PATTERN.matcher(physicalColumnName).matches())) {
@@ -286,19 +285,5 @@ public class OrcPageSourceFactory
                     HIVE_FILE_MISSING_COLUMN_NAMES,
                     "ORC file does not contain column names in the footer: " + path);
         }
-    }
-
-    private static Map<String, Integer> buildPhysicalNameOrdinalMap(OrcReader reader)
-    {
-        ImmutableMap.Builder<String, Integer> physicalNameOrdinalMap = ImmutableMap.builder();
-
-        int ordinal = 0;
-        for (String physicalColumnName : reader.getColumnNames()) {
-            // Convert column names read from ORC files to lower case to be consistent with those stored in Hive Metastore
-            physicalNameOrdinalMap.put(physicalColumnName.toLowerCase(Locale.ENGLISH), ordinal);
-            ordinal++;
-        }
-
-        return physicalNameOrdinalMap.build();
     }
 }

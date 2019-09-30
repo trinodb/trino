@@ -16,7 +16,6 @@ package io.prestosql.plugin.raptor.legacy.storage;
 import com.google.common.primitives.UnsignedBytes;
 import io.airlift.units.DataSize;
 import io.prestosql.orc.FileOrcDataSource;
-import io.prestosql.orc.OrcCorruptionException;
 import io.prestosql.orc.OrcDataSource;
 import io.prestosql.orc.OrcPredicate;
 import io.prestosql.orc.OrcReader;
@@ -29,9 +28,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.List;
-import java.util.stream.IntStream;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.orc.OrcReader.MAX_BATCH_SIZE;
@@ -62,16 +59,14 @@ final class OrcTestingUtil
         List<String> columnNames = orcReader.getColumnNames();
         assertEquals(columnNames.size(), columnIds.size());
 
-        return createRecordReader(
-                orcReader,
-                IntStream.range(0, types.size()).boxed().collect(toImmutableList()),
-                types);
-    }
-
-    private static OrcRecordReader createRecordReader(OrcReader orcReader, List<Integer> readColumns, List<Type> readTypes)
-            throws OrcCorruptionException
-    {
-        return orcReader.createRecordReader(readColumns, readTypes, OrcPredicate.TRUE, DateTimeZone.UTC, newSimpleAggregatedMemoryContext(), MAX_BATCH_SIZE, RuntimeException::new);
+        return orcReader.createRecordReader(
+                orcReader.getRootColumn().getNestedStreams(),
+                types,
+                OrcPredicate.TRUE,
+                DateTimeZone.UTC,
+                newSimpleAggregatedMemoryContext(),
+                MAX_BATCH_SIZE,
+                RuntimeException::new);
     }
 
     public static byte[] octets(int... values)

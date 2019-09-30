@@ -26,9 +26,7 @@ import io.prestosql.spi.type.Type;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.util.List;
-import java.util.stream.IntStream;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
@@ -47,7 +45,7 @@ public class TempFileReader
         try {
             OrcReader orcReader = new OrcReader(dataSource, new OrcReaderOptions());
             reader = orcReader.createRecordReader(
-                    IntStream.range(0, types.size()).boxed().collect(toImmutableList()),
+                    orcReader.getRootColumn().getNestedStreams(),
                     types,
                     OrcPredicate.TRUE,
                     UTC,
