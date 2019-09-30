@@ -27,6 +27,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class StaticMetastoreConfig
 {
+    public static final String HIVE_METASTORE_USERNAME = "hive.metastore.username";
+
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
     private List<URI> metastoreUris;
@@ -59,7 +61,7 @@ public class StaticMetastoreConfig
         return metastoreUsername;
     }
 
-    @Config("hive.metastore.username")
+    @Config(HIVE_METASTORE_USERNAME)
     @ConfigDescription("Optional username for accessing the Hive metastore")
     public StaticMetastoreConfig setMetastoreUsername(String metastoreUsername)
     {
