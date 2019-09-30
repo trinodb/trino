@@ -69,6 +69,14 @@ Date and Time Functions
 
     Parses the ISO 8601 formatted ``string`` into a ``date``.
 
+.. function:: at_timezone(timestamp with time zone, zone) -> timestamp with time zone
+
+    Change the time zone component of a TIMESTAMP WITH TIME ZONE while preserving the instant in time.
+
+.. function:: with_timezone(timestamp, zone) -> timestamp with time zone
+
+    Make a TIMESTAMP WITH TIME ZONE from a TIMESTAMP and a time zone.
+
 .. function:: from_unixtime(unixtime) -> timestamp
 
     Returns the UNIX timestamp ``unixtime`` as a timestamp. ``unixtime`` is the number of seconds since ``1970-01-01 00:00:00``.

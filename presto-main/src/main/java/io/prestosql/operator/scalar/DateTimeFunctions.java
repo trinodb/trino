@@ -284,7 +284,7 @@ public final class DateTimeFunctions
         return timeAtTimeZone(session, timeWithTimeZone, getTimeZoneKeyForOffset(zoneOffsetMinutes));
     }
 
-    @ScalarFunction(value = "at_timezone", hidden = true)
+    @ScalarFunction(value = "at_timezone")
     @LiteralParameters("x")
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
     public static long timestampAtTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone, @SqlType("varchar(x)") Slice zoneId)
@@ -299,6 +299,17 @@ public final class DateTimeFunctions
         checkCondition((zoneOffset % 60_000L) == 0L, INVALID_FUNCTION_ARGUMENT, "Invalid time zone offset interval: interval contains seconds");
         long zoneOffsetMinutes = zoneOffset / 60_000L;
         return packDateTimeWithZone(unpackMillisUtc(timestampWithTimeZone), getTimeZoneKeyForOffset(zoneOffsetMinutes));
+    }
+
+    @ScalarFunction(value = "with_timezone")
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
+    public static long withTimezone(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long timestamp, @SqlType("varchar(x)") Slice zoneId)
+    {
+        TimeZoneKey toTimeZoneKey = getTimeZoneKey(zoneId.toStringUtf8());
+        DateTimeZone fromDateTimeZone = session.isLegacyTimestamp() ? getDateTimeZone(session.getTimeZoneKey()) : DateTimeZone.UTC;
+        DateTimeZone toDateTimeZone = getDateTimeZone(toTimeZoneKey);
+        return packDateTimeWithZone(fromDateTimeZone.getMillisKeepLocal(toDateTimeZone, timestamp), toTimeZoneKey);
     }
 
     @Description("truncate to the specified precision in the session timezone")
