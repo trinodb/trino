@@ -45,6 +45,10 @@ public final class SqlTimeWithTimeZone
         this.timeZoneKey = timeZoneKey;
     }
 
+    /**
+     * @deprecated Use {@link #SqlTimeWithTimeZone(long, TimeZoneKey)} instead.
+     */
+    @Deprecated
     public SqlTimeWithTimeZone(long millisUtc, TimeZone timeZone)
     {
         this.millisUtc = millisUtc;
