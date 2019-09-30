@@ -53,6 +53,7 @@ import java.util.concurrent.TimeUnit;
 import static io.prestosql.SystemSessionProperties.isLegacyTimestamp;
 import static io.prestosql.operator.scalar.DateTimeFunctions.currentDate;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
@@ -1129,6 +1130,46 @@ public abstract class TestDateTimeFunctionsBase
         assertFunction("to_milliseconds(parse_duration('1s'))", BigintType.BIGINT, SECONDS.toMillis(1));
         assertFunction("to_milliseconds(parse_duration('1h'))", BigintType.BIGINT, HOURS.toMillis(1));
         assertFunction("to_milliseconds(parse_duration('1d'))", BigintType.BIGINT, DAYS.toMillis(1));
+    }
+
+    @Test
+    public void testWithTimezone()
+    {
+        assertFunction(
+                "with_timezone(TIMESTAMP '2001-08-22 03:04:05.321', 'UTC')",
+                TIMESTAMP_WITH_TIME_ZONE,
+                toTimestampWithTimeZone(new DateTime(2001, 8, 22, 3, 4, 5, 321, getDateTimeZone(getTimeZoneKey("UTC")))));
+        assertFunction(
+                "with_timezone(TIMESTAMP '2001-08-22 03:04:05.321', '+13')",
+                TIMESTAMP_WITH_TIME_ZONE,
+                toTimestampWithTimeZone(new DateTime(2001, 8, 22, 3, 4, 5, 321, getDateTimeZone(getTimeZoneKey("+13")))));
+        assertFunction(
+                "with_timezone(TIMESTAMP '2001-08-22 03:04:05.321', '-14')",
+                TIMESTAMP_WITH_TIME_ZONE,
+                toTimestampWithTimeZone(new DateTime(2001, 8, 22, 3, 4, 5, 321, getDateTimeZone(getTimeZoneKey("-14")))));
+        assertFunction(
+                "with_timezone(TIMESTAMP '2001-08-22 03:04:05.321', '+00:45')",
+                TIMESTAMP_WITH_TIME_ZONE,
+                toTimestampWithTimeZone(new DateTime(2001, 8, 22, 3, 4, 5, 321, getDateTimeZone(getTimeZoneKey("+00:45")))));
+        assertFunction(
+                "with_timezone(TIMESTAMP '2001-08-22 03:04:05.321', 'Asia/Shanghai')",
+                TIMESTAMP_WITH_TIME_ZONE,
+                toTimestampWithTimeZone(new DateTime(2001, 8, 22, 3, 4, 5, 321, getDateTimeZone(getTimeZoneKey("Asia/Shanghai")))));
+        assertFunction(
+                "with_timezone(TIMESTAMP '2001-08-22 03:04:05.321', 'America/New_York')",
+                TIMESTAMP_WITH_TIME_ZONE,
+                toTimestampWithTimeZone(new DateTime(2001, 8, 22, 3, 4, 5, 321, getDateTimeZone(getTimeZoneKey("America/New_York")))));
+
+        assertFunction(
+                "with_timezone(TIMESTAMP '2001-06-01 03:04:05.321', 'America/Los_Angeles')",
+                TIMESTAMP_WITH_TIME_ZONE,
+                toTimestampWithTimeZone(new DateTime(2001, 6, 1, 3, 4, 5, 321, getDateTimeZone(getTimeZoneKey("America/Los_Angeles")))));
+        assertFunction(
+                "with_timezone(TIMESTAMP '2001-12-01 03:04:05.321', 'America/Los_Angeles')",
+                TIMESTAMP_WITH_TIME_ZONE,
+                toTimestampWithTimeZone(new DateTime(2001, 12, 1, 3, 4, 5, 321, getDateTimeZone(getTimeZoneKey("America/Los_Angeles")))));
+
+        assertInvalidFunction("with_timezone(TIMESTAMP '2001-08-22 03:04:05.321', 'invalidzoneid')", NOT_SUPPORTED, "Time zone not supported: invalidzoneid");
     }
 
     private void assertFunctionString(String projection, Type expectedType, String expected)
