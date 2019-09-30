@@ -15,7 +15,8 @@ databases:
     jdbc_password: na
     jdbc_pooling: false
     schema: default
-    prepare_statement: USE ${databases.hive.schema}
+    prepare_statement:
+      - USE ${databases.hive.schema}
     table_manager_type: hive
     warehouse_directory_path: /user/hive/warehouse
     path: /user/hive/warehouse
