@@ -134,7 +134,7 @@ public class ThriftHiveMetastore
     private static final Pattern TABLE_PARAMETER_SAFE_VALUE_PATTERN = Pattern.compile("^[a-zA-Z0-9]*$");
 
     @Inject
-    public ThriftHiveMetastore(MetastoreLocator metastoreLocator, ThriftHiveMetastoreConfig thriftConfig, HiveAuthenticationConfig authenticationConfig)
+    public ThriftHiveMetastore(MetastoreLocator metastoreLocator, ThriftMetastoreConfig thriftConfig, HiveAuthenticationConfig authenticationConfig)
     {
         this.clientProvider = requireNonNull(metastoreLocator, "metastoreLocator is null");
         this.backoffScaleFactor = thriftConfig.getBackoffScaleFactor();
