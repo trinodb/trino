@@ -20,6 +20,7 @@ import io.prestosql.spi.function.AggregationState;
 import io.prestosql.spi.function.CombineFunction;
 import io.prestosql.spi.function.InputFunction;
 import io.prestosql.spi.function.OutputFunction;
+import io.prestosql.spi.function.RemoveInputFunction;
 import io.prestosql.spi.type.StandardTypes;
 
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -33,6 +34,12 @@ public final class CountAggregation
     public static void input(@AggregationState LongState state)
     {
         state.setLong(state.getLong() + 1);
+    }
+
+    @RemoveInputFunction
+    public static void removeInput(@AggregationState LongState state)
+    {
+        state.setLong(state.getLong() - 1);
     }
 
     @CombineFunction

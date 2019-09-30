@@ -16,6 +16,7 @@ package io.prestosql.operator.aggregation;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.MoreCollectors;
 import io.prestosql.operator.ParametricImplementationsGroup;
 import io.prestosql.operator.annotations.FunctionsParserHelper;
 import io.prestosql.spi.function.AccumulatorState;
@@ -24,6 +25,7 @@ import io.prestosql.spi.function.AggregationStateSerializerFactory;
 import io.prestosql.spi.function.CombineFunction;
 import io.prestosql.spi.function.InputFunction;
 import io.prestosql.spi.function.OutputFunction;
+import io.prestosql.spi.function.RemoveInputFunction;
 import io.prestosql.spi.type.TypeSignature;
 
 import javax.annotation.Nullable;
@@ -75,8 +77,9 @@ public final class AggregationFromAnnotationsParser
             Optional<Method> aggregationStateSerializerFactory = getAggregationStateSerializerFactory(aggregationDefinition, stateClass);
             for (Method outputFunction : getOutputFunctions(aggregationDefinition, stateClass)) {
                 for (Method inputFunction : getInputFunctions(aggregationDefinition, stateClass)) {
+                    Optional<Method> removeInputFunction = getRemoveInputFunction(aggregationDefinition, inputFunction);
                     for (AggregationHeader header : parseHeaders(aggregationDefinition, outputFunction)) {
-                        AggregationImplementation onlyImplementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, outputFunction, combineFunction, aggregationStateSerializerFactory);
+                        AggregationImplementation onlyImplementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, removeInputFunction, outputFunction, combineFunction, aggregationStateSerializerFactory);
                         ParametricImplementationsGroup<AggregationImplementation> implementations = ParametricImplementationsGroup.of(onlyImplementation);
                         builder.add(new ParametricAggregation(implementations.getSignature(), header, implementations));
                     }
@@ -97,7 +100,8 @@ public final class AggregationFromAnnotationsParser
             Optional<Method> aggregationStateSerializerFactory = getAggregationStateSerializerFactory(aggregationDefinition, stateClass);
             Method outputFunction = getOnlyElement(getOutputFunctions(aggregationDefinition, stateClass));
             for (Method inputFunction : getInputFunctions(aggregationDefinition, stateClass)) {
-                AggregationImplementation implementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, outputFunction, combineFunction, aggregationStateSerializerFactory);
+                Optional<Method> removeInputFunction = getRemoveInputFunction(aggregationDefinition, inputFunction);
+                AggregationImplementation implementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, removeInputFunction, outputFunction, combineFunction, aggregationStateSerializerFactory);
                 implementationsBuilder.addImplementation(implementation);
             }
         }
@@ -202,6 +206,15 @@ public final class AggregationFromAnnotationsParser
 
         checkArgument(!inputFunctions.isEmpty(), "Aggregation has no input functions");
         return inputFunctions;
+    }
+
+    private static Optional<Method> getRemoveInputFunction(Class<?> clazz, Method inputFunction)
+    {
+        // Only include methods which take the same parameters as the corresponding input function
+        return FunctionsParserHelper.findPublicStaticMethodsWithAnnotation(clazz, RemoveInputFunction.class).stream()
+                .filter(method -> Arrays.equals(method.getParameterTypes(), inputFunction.getParameterTypes()))
+                .filter(method -> Arrays.deepEquals(method.getParameterAnnotations(), inputFunction.getParameterAnnotations()))
+                .collect(MoreCollectors.toOptional());
     }
 
     private static Set<Class<?>> getStateClasses(Class<?> clazz)

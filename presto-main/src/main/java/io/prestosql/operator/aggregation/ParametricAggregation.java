@@ -86,6 +86,8 @@ public class ParametricAggregation
 
         // Bind provided dependencies to aggregation method handlers
         MethodHandle inputHandle = bindDependencies(concreteImplementation.getInputFunction(), concreteImplementation.getInputDependencies(), variables, metadata);
+        Optional<MethodHandle> removeInputHandle = concreteImplementation.getRemoveInputFunction().map(
+                removeInputFunction -> bindDependencies(removeInputFunction, concreteImplementation.getRemoveInputDependencies(), variables, metadata));
         MethodHandle combineHandle = bindDependencies(concreteImplementation.getCombineFunction(), concreteImplementation.getCombineDependencies(), variables, metadata);
         MethodHandle outputHandle = bindDependencies(concreteImplementation.getOutputFunction(), concreteImplementation.getOutputDependencies(), variables, metadata);
 
@@ -100,6 +102,7 @@ public class ParametricAggregation
                 aggregationName,
                 parametersMetadata,
                 inputHandle,
+                removeInputHandle,
                 combineHandle,
                 outputHandle,
                 ImmutableList.of(new AccumulatorStateDescriptor(

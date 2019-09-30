@@ -30,6 +30,7 @@ import io.prestosql.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
+import java.util.Optional;
 
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
@@ -50,6 +51,7 @@ public class RealAverageAggregation
     private static final String NAME = "avg";
 
     private static final MethodHandle INPUT_FUNCTION = methodHandle(RealAverageAggregation.class, "input", LongState.class, DoubleState.class, long.class);
+    private static final MethodHandle REMOVE_INPUT_FUNCTION = methodHandle(RealAverageAggregation.class, "removeInput", LongState.class, DoubleState.class, long.class);
     private static final MethodHandle COMBINE_FUNCTION = methodHandle(RealAverageAggregation.class, "combine", LongState.class, DoubleState.class, LongState.class, DoubleState.class);
     private static final MethodHandle OUTPUT_FUNCTION = methodHandle(RealAverageAggregation.class, "output", LongState.class, DoubleState.class, BlockBuilder.class);
 
@@ -81,6 +83,7 @@ public class RealAverageAggregation
                 generateAggregationName(NAME, parseTypeSignature(StandardTypes.REAL), ImmutableList.of(parseTypeSignature(StandardTypes.REAL))),
                 ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(STATE), new ParameterMetadata(INPUT_CHANNEL, REAL)),
                 INPUT_FUNCTION,
+                Optional.of(REMOVE_INPUT_FUNCTION),
                 COMBINE_FUNCTION,
                 OUTPUT_FUNCTION,
                 ImmutableList.of(
@@ -116,6 +119,12 @@ public class RealAverageAggregation
     {
         count.setLong(count.getLong() + 1);
         sum.setDouble(sum.getDouble() + intBitsToFloat((int) value));
+    }
+
+    public static void removeInput(LongState count, DoubleState sum, long value)
+    {
+        count.setLong(count.getLong() - 1);
+        sum.setDouble(sum.getDouble() - intBitsToFloat((int) value));
     }
 
     public static void combine(LongState count, DoubleState sum, LongState otherCount, DoubleState otherSum)
