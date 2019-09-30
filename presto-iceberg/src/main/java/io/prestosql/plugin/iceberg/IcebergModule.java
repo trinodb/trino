@@ -32,7 +32,6 @@ import io.prestosql.plugin.hive.HiveTypeTranslator;
 import io.prestosql.plugin.hive.LocationService;
 import io.prestosql.plugin.hive.NamenodeStats;
 import io.prestosql.plugin.hive.TypeTranslator;
-import io.prestosql.plugin.hive.metastore.thrift.ThriftHiveMetastoreConfig;
 import io.prestosql.plugin.hive.parquet.ParquetReaderConfig;
 import io.prestosql.plugin.hive.parquet.ParquetWriterConfig;
 import io.prestosql.spi.connector.ConnectorNodePartitioningProvider;
@@ -76,7 +75,6 @@ public class IcebergModule
 
         configBinder(binder).bindConfig(ParquetReaderConfig.class);
         configBinder(binder).bindConfig(ParquetWriterConfig.class);
-        configBinder(binder).bindConfig(ThriftHiveMetastoreConfig.class);
 
         binder.bind(LocationService.class).to(HiveLocationService.class).in(Scopes.SINGLETON);
         binder.bind(IcebergMetadataFactory.class).in(Scopes.SINGLETON);
