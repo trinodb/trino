@@ -20,6 +20,7 @@ import io.prestosql.spi.function.AggregationState;
 import io.prestosql.spi.function.CombineFunction;
 import io.prestosql.spi.function.InputFunction;
 import io.prestosql.spi.function.OutputFunction;
+import io.prestosql.spi.function.RemoveInputFunction;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.StandardTypes;
 
@@ -35,6 +36,14 @@ public final class CountIfAggregation
     {
         if (value) {
             state.setLong(state.getLong() + 1);
+        }
+    }
+
+    @RemoveInputFunction
+    public static void removeInput(@AggregationState LongState state, @SqlType(StandardTypes.BOOLEAN) boolean value)
+    {
+        if (value) {
+            state.setLong(state.getLong() - 1);
         }
     }
 

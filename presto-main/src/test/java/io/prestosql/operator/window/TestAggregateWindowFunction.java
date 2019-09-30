@@ -19,6 +19,7 @@ import org.testng.annotations.Test;
 
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
@@ -54,6 +55,70 @@ public class TestAggregateWindowFunction
                         .row(7L, null, 2L)
                         .row(null, null, 4L)
                         .row(null, null, 4L)
+                        .build());
+    }
+
+    @Test
+    public void testCountRowsRolling()
+    {
+        assertWindowQuery("count(*) OVER (ORDER BY orderkey ROWS BETWEEN 4 PRECEDING AND 1 PRECEDING)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                        .row(1, "O", 0L)
+                        .row(2, "O", 1L)
+                        .row(3, "F", 2L)
+                        .row(4, "O", 3L)
+                        .row(5, "F", 4L)
+                        .row(6, "F", 4L)
+                        .row(7, "O", 4L)
+                        .row(32, "O", 4L)
+                        .row(33, "F", 4L)
+                        .row(34, "O", 4L)
+                        .build());
+
+        assertWindowQuery("count(*) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN 4 PRECEDING AND 1 PRECEDING)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                        .row(3, "F", 0L)
+                        .row(5, "F", 1L)
+                        .row(6, "F", 2L)
+                        .row(33, "F", 3L)
+                        .row(1, "O", 0L)
+                        .row(2, "O", 1L)
+                        .row(4, "O", 2L)
+                        .row(7, "O", 3L)
+                        .row(32, "O", 4L)
+                        .row(34, "O", 4L)
+                        .build());
+    }
+
+    @Test
+    public void testAverageRowsRolling()
+    {
+        assertWindowQuery("avg(orderkey) OVER (ORDER BY orderkey ROWS BETWEEN 4 PRECEDING AND 1 PRECEDING)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, DOUBLE)
+                        .row(1, "O", null)
+                        .row(2, "O", 1.0)
+                        .row(3, "F", 1.5)
+                        .row(4, "O", 2.0)
+                        .row(5, "F", 2.5)
+                        .row(6, "F", 3.5)
+                        .row(7, "O", 4.5)
+                        .row(32, "O", 5.5)
+                        .row(33, "F", 12.5)
+                        .row(34, "O", 19.5)
+                        .build());
+
+        assertWindowQuery("avg(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey ROWS BETWEEN 4 PRECEDING AND 1 PRECEDING)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, DOUBLE)
+                        .row(3, "F", null)
+                        .row(5, "F", 3.0)
+                        .row(6, "F", 4.0)
+                        .row(33, "F", 4.666666666666667)
+                        .row(1, "O", null)
+                        .row(2, "O", 1.0)
+                        .row(4, "O", 1.5)
+                        .row(7, "O", 2.3333333333333334)
+                        .row(32, "O", 3.5)
+                        .row(34, "O", 11.25)
                         .build());
     }
 

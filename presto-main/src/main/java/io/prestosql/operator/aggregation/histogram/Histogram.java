@@ -31,6 +31,7 @@ import io.prestosql.spi.type.TypeSignatureParameter;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.metadata.Signature.comparableTypeParameter;
@@ -98,6 +99,7 @@ public class Histogram
                 generateAggregationName(functionName, outputType.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createInputParameterMetadata(keyType),
                 inputFunction,
+                Optional.empty(),
                 COMBINE_FUNCTION,
                 outputFunction,
                 ImmutableList.of(new AccumulatorStateDescriptor(

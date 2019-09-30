@@ -35,6 +35,7 @@ import io.prestosql.spi.type.UnscaledDecimal128Arithmetic;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -107,6 +108,7 @@ public class DecimalSumAggregation
                 generateAggregationName(NAME, outputType.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createInputParameterMetadata(inputType),
                 inputFunction.bindTo(inputType),
+                Optional.empty(),
                 COMBINE_FUNCTION,
                 LONG_DECIMAL_OUTPUT_FUNCTION.bindTo(outputType),
                 ImmutableList.of(new AccumulatorStateDescriptor(

@@ -31,6 +31,7 @@ import io.prestosql.sql.gen.lambda.BinaryFunctionInterface;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
+import java.util.Optional;
 
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
@@ -135,6 +136,7 @@ public class ReduceAggregationFunction
                 inputMethodHandle.asType(
                         inputMethodHandle.type()
                                 .changeParameterType(1, inputType.getJavaType())),
+                Optional.empty(),
                 combineMethodHandle,
                 outputMethodHandle,
                 ImmutableList.of(stateDescriptor),

@@ -31,6 +31,7 @@ import io.prestosql.spi.type.TypeSignatureParameter;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -105,6 +106,7 @@ public final class QuantileDigestAggregationFunction
                 generateAggregationName(NAME, outputType.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createInputParameterMetadata(inputTypes),
                 getMethodHandle(valueType, arity),
+                Optional.empty(),
                 COMBINE_FUNCTION,
                 OUTPUT_FUNCTION.bindTo(stateSerializer),
                 ImmutableList.of(new AccumulatorStateDescriptor(

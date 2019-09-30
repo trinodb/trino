@@ -45,6 +45,7 @@ import io.prestosql.sql.gen.SqlTypeBytecodeExpression;
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.bytecode.Access.FINAL;
@@ -152,6 +153,7 @@ public abstract class AbstractMinMaxBy
                 generateAggregationName(getSignature().getName(), valueType.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createInputParameterMetadata(valueType, keyType),
                 inputMethod,
+                Optional.empty(),
                 combineMethod,
                 outputMethod,
                 ImmutableList.of(new AccumulatorStateDescriptor(

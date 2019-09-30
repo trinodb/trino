@@ -38,6 +38,7 @@ import java.lang.invoke.MethodHandle;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -118,6 +119,7 @@ public class DecimalAverageAggregation
                 generateAggregationName(NAME, type.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createInputParameterMetadata(type),
                 inputFunction,
+                Optional.empty(),
                 COMBINE_FUNCTION,
                 outputFunction,
                 ImmutableList.of(new AccumulatorStateDescriptor(

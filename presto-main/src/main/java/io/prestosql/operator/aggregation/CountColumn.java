@@ -30,6 +30,7 @@ import io.prestosql.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.metadata.Signature.typeVariable;
@@ -48,6 +49,7 @@ public class CountColumn
     public static final CountColumn COUNT_COLUMN = new CountColumn();
     private static final String NAME = "count";
     private static final MethodHandle INPUT_FUNCTION = methodHandle(CountColumn.class, "input", LongState.class, Block.class, int.class);
+    private static final MethodHandle REMOVE_INPUT_FUNCTION = methodHandle(CountColumn.class, "removeInput", LongState.class, Block.class, int.class);
     private static final MethodHandle COMBINE_FUNCTION = methodHandle(CountColumn.class, "combine", LongState.class, LongState.class);
     private static final MethodHandle OUTPUT_FUNCTION = methodHandle(CountColumn.class, "output", LongState.class, BlockBuilder.class);
 
@@ -87,6 +89,7 @@ public class CountColumn
                 generateAggregationName(NAME, BIGINT.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createInputParameterMetadata(type),
                 INPUT_FUNCTION,
+                Optional.of(REMOVE_INPUT_FUNCTION),
                 COMBINE_FUNCTION,
                 OUTPUT_FUNCTION,
                 ImmutableList.of(new AccumulatorStateDescriptor(
@@ -107,6 +110,11 @@ public class CountColumn
     public static void input(LongState state, Block block, int index)
     {
         state.setLong(state.getLong() + 1);
+    }
+
+    public static void removeInput(LongState state, Block block, int index)
+    {
+        state.setLong(state.getLong() - 1);
     }
 
     public static void combine(LongState state, LongState otherState)

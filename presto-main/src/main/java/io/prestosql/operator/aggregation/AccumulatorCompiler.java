@@ -96,6 +96,7 @@ public final class AccumulatorCompiler
         return new GenericAccumulatorFactoryBinder(
                 metadata.getAccumulatorStateDescriptors(),
                 accumulatorClass,
+                metadata.getRemoveInputFunction().isPresent(),
                 groupedAccumulatorClass);
     }
 
@@ -157,14 +158,25 @@ public final class AccumulatorCompiler
                 metadata.getInputFunction(),
                 callSiteBinder,
                 grouped);
-        generateAddInputWindowIndex(
+        generateAddOrRemoveInputWindowIndex(
                 definition,
                 stateFields,
                 metadata.getValueInputMetadata(),
                 metadata.getLambdaInterfaces(),
                 lambdaProviderFields,
                 metadata.getInputFunction(),
+                "addInput",
                 callSiteBinder);
+        metadata.getRemoveInputFunction().ifPresent(
+                removeInputFunction -> generateAddOrRemoveInputWindowIndex(
+                        definition,
+                        stateFields,
+                        metadata.getValueInputMetadata(),
+                        metadata.getLambdaInterfaces(),
+                        lambdaProviderFields,
+                        removeInputFunction,
+                        "removeInput",
+                        callSiteBinder));
         generateGetEstimatedSize(definition, stateFields);
 
         generateGetIntermediateType(
@@ -317,13 +329,14 @@ public final class AccumulatorCompiler
         body.ret();
     }
 
-    private static void generateAddInputWindowIndex(
+    private static void generateAddOrRemoveInputWindowIndex(
             ClassDefinition definition,
             List<FieldDefinition> stateField,
             List<ParameterMetadata> parameterMetadatas,
             List<Class<?>> lambdaInterfaces,
             List<FieldDefinition> lambdaProviderFields,
             MethodHandle inputFunction,
+            String generatedFunctionName,
             CallSiteBinder callSiteBinder)
     {
         // TODO: implement masking based on maskChannel field once Window Functions support DISTINCT arguments to the functions.
@@ -333,7 +346,11 @@ public final class AccumulatorCompiler
         Parameter startPosition = arg("startPosition", int.class);
         Parameter endPosition = arg("endPosition", int.class);
 
-        MethodDefinition method = definition.declareMethod(a(PUBLIC), "addInput", type(void.class), ImmutableList.of(index, channels, startPosition, endPosition));
+        MethodDefinition method = definition.declareMethod(
+                a(PUBLIC),
+                generatedFunctionName,
+                type(void.class),
+                ImmutableList.of(index, channels, startPosition, endPosition));
         Scope scope = method.getScope();
 
         Variable position = scope.declareVariable(int.class, "position");
@@ -342,7 +359,7 @@ public final class AccumulatorCompiler
         BytecodeExpression invokeInputFunction = invokeDynamic(
                 BOOTSTRAP_METHOD,
                 ImmutableList.of(binding.getBindingId()),
-                "input",
+                generatedFunctionName,
                 binding.getType(),
                 getInvokeFunctionOnWindowIndexParameters(
                         scope,

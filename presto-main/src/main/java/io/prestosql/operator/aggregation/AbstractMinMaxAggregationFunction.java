@@ -36,6 +36,7 @@ import io.prestosql.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.metadata.Signature.internalOperator;
@@ -144,6 +145,7 @@ public abstract class AbstractMinMaxAggregationFunction
                 generateAggregationName(getSignature().getName(), type.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createParameterMetadata(type),
                 inputFunction,
+                Optional.empty(),
                 combineFunction,
                 outputFunction,
                 ImmutableList.of(new AccumulatorStateDescriptor(
