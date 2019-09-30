@@ -24,7 +24,7 @@ import javax.validation.constraints.NotNull;
 
 import java.util.concurrent.TimeUnit;
 
-public class ThriftHiveMetastoreConfig
+public class ThriftMetastoreConfig
 {
     private Duration metastoreTimeout = new Duration(10, TimeUnit.SECONDS);
     private HostAndPort socksProxy;
@@ -42,7 +42,7 @@ public class ThriftHiveMetastoreConfig
     }
 
     @Config("hive.metastore-timeout")
-    public ThriftHiveMetastoreConfig setMetastoreTimeout(Duration metastoreTimeout)
+    public ThriftMetastoreConfig setMetastoreTimeout(Duration metastoreTimeout)
     {
         this.metastoreTimeout = metastoreTimeout;
         return this;
@@ -54,7 +54,7 @@ public class ThriftHiveMetastoreConfig
     }
 
     @Config("hive.metastore.thrift.client.socks-proxy")
-    public ThriftHiveMetastoreConfig setSocksProxy(HostAndPort socksProxy)
+    public ThriftMetastoreConfig setSocksProxy(HostAndPort socksProxy)
     {
         this.socksProxy = socksProxy;
         return this;
@@ -68,7 +68,7 @@ public class ThriftHiveMetastoreConfig
 
     @Config("hive.metastore.thrift.client.max-retries")
     @ConfigDescription("Maximum number of retry attempts for metastore requests")
-    public ThriftHiveMetastoreConfig setMaxRetries(int maxRetries)
+    public ThriftMetastoreConfig setMaxRetries(int maxRetries)
     {
         this.maxRetries = maxRetries;
         return this;
@@ -81,7 +81,7 @@ public class ThriftHiveMetastoreConfig
 
     @Config("hive.metastore.thrift.client.backoff-scale-factor")
     @ConfigDescription("Scale factor for metastore request retry delay")
-    public ThriftHiveMetastoreConfig setBackoffScaleFactor(double backoffScaleFactor)
+    public ThriftMetastoreConfig setBackoffScaleFactor(double backoffScaleFactor)
     {
         this.backoffScaleFactor = backoffScaleFactor;
         return this;
@@ -95,7 +95,7 @@ public class ThriftHiveMetastoreConfig
 
     @Config("hive.metastore.thrift.client.max-retry-time")
     @ConfigDescription("Total time limit for a metastore request to be retried")
-    public ThriftHiveMetastoreConfig setMaxRetryTime(Duration maxRetryTime)
+    public ThriftMetastoreConfig setMaxRetryTime(Duration maxRetryTime)
     {
         this.maxRetryTime = maxRetryTime;
         return this;
@@ -108,7 +108,7 @@ public class ThriftHiveMetastoreConfig
 
     @Config("hive.metastore.thrift.client.min-backoff-delay")
     @ConfigDescription("Minimum delay between metastore request retries")
-    public ThriftHiveMetastoreConfig setMinBackoffDelay(Duration minBackoffDelay)
+    public ThriftMetastoreConfig setMinBackoffDelay(Duration minBackoffDelay)
     {
         this.minBackoffDelay = minBackoffDelay;
         return this;
@@ -121,7 +121,7 @@ public class ThriftHiveMetastoreConfig
 
     @Config("hive.metastore.thrift.client.max-backoff-delay")
     @ConfigDescription("Maximum delay between metastore request retries")
-    public ThriftHiveMetastoreConfig setMaxBackoffDelay(Duration maxBackoffDelay)
+    public ThriftMetastoreConfig setMaxBackoffDelay(Duration maxBackoffDelay)
     {
         this.maxBackoffDelay = maxBackoffDelay;
         return this;
@@ -134,7 +134,7 @@ public class ThriftHiveMetastoreConfig
 
     @Config("hive.metastore.thrift.impersonation.enabled")
     @ConfigDescription("Should end user be impersonated when communicating with metastore")
-    public ThriftHiveMetastoreConfig setImpersonationEnabled(boolean impersonationEnabled)
+    public ThriftMetastoreConfig setImpersonationEnabled(boolean impersonationEnabled)
     {
         this.impersonationEnabled = impersonationEnabled;
         return this;

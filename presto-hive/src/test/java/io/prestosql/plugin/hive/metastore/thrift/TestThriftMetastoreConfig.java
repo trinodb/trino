@@ -26,12 +26,12 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDe
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-public class TestThriftHiveMetastoreConfig
+public class TestThriftMetastoreConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(ThriftHiveMetastoreConfig.class)
+        assertRecordedDefaults(recordDefaults(ThriftMetastoreConfig.class)
                 .setMetastoreTimeout(new Duration(10, TimeUnit.SECONDS))
                 .setSocksProxy(null)
                 .setMaxRetries(9)
@@ -56,7 +56,7 @@ public class TestThriftHiveMetastoreConfig
                 .put("hive.metastore.thrift.impersonation.enabled", "true")
                 .build();
 
-        ThriftHiveMetastoreConfig expected = new ThriftHiveMetastoreConfig()
+        ThriftMetastoreConfig expected = new ThriftMetastoreConfig()
                 .setMetastoreTimeout(new Duration(20, TimeUnit.SECONDS))
                 .setSocksProxy(HostAndPort.fromParts("localhost", 1234))
                 .setMaxRetries(15)

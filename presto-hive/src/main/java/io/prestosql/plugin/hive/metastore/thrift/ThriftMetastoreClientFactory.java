@@ -46,7 +46,7 @@ public class ThriftMetastoreClientFactory
     }
 
     @Inject
-    public ThriftMetastoreClientFactory(ThriftHiveMetastoreConfig config, HiveMetastoreAuthentication metastoreAuthentication)
+    public ThriftMetastoreClientFactory(ThriftMetastoreConfig config, HiveMetastoreAuthentication metastoreAuthentication)
     {
         this(Optional.empty(), Optional.ofNullable(config.getSocksProxy()), config.getMetastoreTimeout(), metastoreAuthentication);
     }
