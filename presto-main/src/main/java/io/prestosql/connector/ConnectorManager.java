@@ -168,15 +168,15 @@ public class ConnectorManager
         handleResolver.addConnectorName(connectorFactory.getName(), connectorFactory.getHandleResolver());
     }
 
-    public synchronized CatalogName createConnection(String catalogName, String connectorName, Map<String, String> properties)
+    public synchronized CatalogName createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
         requireNonNull(connectorName, "connectorName is null");
         ConnectorFactory connectorFactory = connectorFactories.get(connectorName);
         checkArgument(connectorFactory != null, "No factory for connector '%s'.  Available factories: %s", connectorName, connectorFactories.keySet());
-        return createConnection(catalogName, connectorFactory, properties);
+        return createCatalog(catalogName, connectorFactory, properties);
     }
 
-    private synchronized CatalogName createConnection(String catalogName, ConnectorFactory connectorFactory, Map<String, String> properties)
+    private synchronized CatalogName createCatalog(String catalogName, ConnectorFactory connectorFactory, Map<String, String> properties)
     {
         checkState(!stopped.get(), "ConnectorManager is stopped");
         requireNonNull(catalogName, "catalogName is null");
@@ -187,12 +187,12 @@ public class ConnectorManager
         CatalogName catalog = new CatalogName(catalogName);
         checkState(!connectors.containsKey(catalog), "Catalog '%s' already exists", catalog);
 
-        addCatalogConnector(catalog, connectorFactory, properties);
+        createCatalog(catalog, connectorFactory, properties);
 
         return catalog;
     }
 
-    private synchronized void addCatalogConnector(CatalogName catalogName, ConnectorFactory factory, Map<String, String> properties)
+    private synchronized void createCatalog(CatalogName catalogName, ConnectorFactory factory, Map<String, String> properties)
     {
         // create all connectors before adding, so a broken connector does not leave the system half updated
         MaterializedConnector connector = new MaterializedConnector(catalogName, createConnector(catalogName, factory, properties));
