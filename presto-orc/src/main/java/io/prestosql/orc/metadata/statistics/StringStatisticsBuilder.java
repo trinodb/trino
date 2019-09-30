@@ -50,12 +50,6 @@ public class StringStatisticsBuilder
         this.sum = sum;
     }
 
-    public StringStatisticsBuilder withStringStatisticsLimit(int limitInBytes)
-    {
-        checkArgument(limitInBytes >= 0, "limitInBytes is less than 0");
-        return new StringStatisticsBuilder(limitInBytes, nonNullValueCount, minimum, maximum, sum);
-    }
-
     public long getNonNullValueCount()
     {
         return nonNullValueCount;
