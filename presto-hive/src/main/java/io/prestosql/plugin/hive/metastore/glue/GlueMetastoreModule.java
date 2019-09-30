@@ -22,6 +22,8 @@ import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.RecordingHiveMetastore;
 import io.prestosql.plugin.hive.metastore.WriteHiveMetastoreRecordingProcedure;
+import io.prestosql.plugin.hive.metastore.cache.CachingHiveMetastoreModule;
+import io.prestosql.plugin.hive.metastore.cache.ForCachingHiveMetastore;
 import io.prestosql.spi.procedure.Procedure;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
@@ -44,7 +46,10 @@ public class GlueMetastoreModule
             binder.bind(GlueHiveMetastore.class).in(Scopes.SINGLETON);
             newExporter(binder).export(GlueHiveMetastore.class).withGeneratedName();
 
-            binder.bind(HiveMetastore.class).to(RecordingHiveMetastore.class).in(Scopes.SINGLETON);
+            binder.bind(HiveMetastore.class)
+                    .annotatedWith(ForCachingHiveMetastore.class)
+                    .to(RecordingHiveMetastore.class)
+                    .in(Scopes.SINGLETON);
             binder.bind(RecordingHiveMetastore.class).in(Scopes.SINGLETON);
             newExporter(binder).export(RecordingHiveMetastore.class).withGeneratedName();
 
@@ -52,9 +57,13 @@ public class GlueMetastoreModule
             procedures.addBinding().toProvider(WriteHiveMetastoreRecordingProcedure.class).in(Scopes.SINGLETON);
         }
         else {
-            binder.bind(HiveMetastore.class).to(GlueHiveMetastore.class).in(Scopes.SINGLETON);
+            binder.bind(HiveMetastore.class)
+                    .annotatedWith(ForCachingHiveMetastore.class)
+                    .to(GlueHiveMetastore.class)
+                    .in(Scopes.SINGLETON);
             newExporter(binder).export(HiveMetastore.class)
                     .as(generator -> generator.generatedNameOf(GlueHiveMetastore.class));
         }
+        binder.install(new CachingHiveMetastoreModule());
     }
 }
