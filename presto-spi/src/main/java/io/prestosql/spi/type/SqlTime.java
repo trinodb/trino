@@ -24,7 +24,7 @@ import java.util.Optional;
 
 public final class SqlTime
 {
-    private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss.SSS");
+    private static final DateTimeFormatter JSON_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss.SSS");
 
     private final long millis;
     private final Optional<TimeZoneKey> sessionTimeZoneKey;
@@ -96,12 +96,14 @@ public final class SqlTime
     @Override
     public String toString()
     {
-        if (isLegacyTimestamp()) {
-            return Instant.ofEpochMilli(millis).atZone(ZoneId.of(sessionTimeZoneKey.get().getId())).format(formatter);
-        }
-        else {
-            return Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).format(formatter);
-        }
+        ZoneId zoneId = sessionTimeZoneKey
+                .map(TimeZoneKey::getId)
+                .map(ZoneId::of)
+                .orElse(ZoneOffset.UTC);
+
+        return Instant.ofEpochMilli(millis)
+                .atZone(zoneId)
+                .format(JSON_FORMATTER);
     }
 
     private static void checkState(boolean condition, String message)
