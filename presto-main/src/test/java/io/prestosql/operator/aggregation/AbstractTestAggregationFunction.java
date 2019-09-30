@@ -13,11 +13,17 @@
  */
 package io.prestosql.operator.aggregation;
 
+import com.google.common.primitives.Ints;
+import io.prestosql.block.BlockAssertions;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
+import io.prestosql.operator.PagesIndex;
+import io.prestosql.operator.window.PagesWindowIndex;
+import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.RunLengthEncodedBlock;
+import io.prestosql.spi.function.WindowIndex;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.analyzer.TypeSignatureProvider;
@@ -27,10 +33,14 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
+import static io.prestosql.operator.aggregation.AggregationTestUtils.createArgs;
+import static io.prestosql.operator.aggregation.AggregationTestUtils.getFinalBlock;
+import static io.prestosql.operator.aggregation.AggregationTestUtils.makeValidityAssertion;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 
@@ -129,6 +139,59 @@ public abstract class AbstractTestAggregationFunction
     public void testPositiveOnlyValues()
     {
         testAggregation(getExpectedValue(2, 4), getSequenceBlocks(2, 4));
+    }
+
+    @Test
+    public void testSlidingWindow()
+    {
+        // Builds trailing windows of length 0, 1, 2, 3, 4, 5, 5, 4, 3, 2, 1, 0
+        int totalPositions = 12;
+        int[] windowWidths = new int[totalPositions];
+        Object[] expectedValues = new Object[totalPositions];
+
+        for (int i = 0; i < totalPositions; ++i) {
+            int windowWidth = Integer.min(i, totalPositions - 1 - i);
+            windowWidths[i] = windowWidth;
+            expectedValues[i] = getExpectedValue(i, windowWidth);
+        }
+        Page inputPage = new Page(totalPositions, getSequenceBlocks(0, totalPositions));
+
+        InternalAggregationFunction function = getFunction();
+        List<Integer> channels = Ints.asList(createArgs(function));
+        AccumulatorFactory accumulatorFactory = function.bind(channels, Optional.empty());
+        PagesIndex pagesIndex = new PagesIndex.TestingFactory(false).newPagesIndex(function.getParameterTypes(), totalPositions);
+        pagesIndex.addPage(inputPage);
+        WindowIndex windowIndex = new PagesWindowIndex(pagesIndex, 0, totalPositions - 1);
+
+        Accumulator aggregation = accumulatorFactory.createAccumulator();
+        int oldStart = 0;
+        int oldWidth = 0;
+        for (int start = 0; start < totalPositions; ++start) {
+            int width = windowWidths[start];
+            // Note that add/removeInput's interval is inclusive on both ends
+            if (accumulatorFactory.hasRemoveInput()) {
+                for (int oldi = oldStart; oldi < oldStart + oldWidth; ++oldi) {
+                    if (oldi < start || oldi >= start + width) {
+                        aggregation.removeInput(windowIndex, channels, oldi, oldi);
+                    }
+                }
+                for (int newi = start; newi < start + width; ++newi) {
+                    if (newi < oldStart || newi >= oldStart + oldWidth) {
+                        aggregation.addInput(windowIndex, channels, newi, newi);
+                    }
+                }
+            }
+            else {
+                aggregation = accumulatorFactory.createAccumulator();
+                aggregation.addInput(windowIndex, channels, start, start + width - 1);
+            }
+            oldStart = start;
+            oldWidth = width;
+            Block block = getFinalBlock(aggregation);
+            makeValidityAssertion(expectedValues[start]).apply(
+                    BlockAssertions.getOnlyValue(aggregation.getFinalType(), block),
+                    expectedValues[start]);
+        }
     }
 
     protected static Block[] createAlternatingNullsBlock(List<Type> types, Block... sequenceBlocks)
