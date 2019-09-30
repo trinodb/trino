@@ -14,6 +14,7 @@
 package io.prestosql.plugin.hive.metastore.thrift;
 
 import io.airlift.units.Duration;
+import io.prestosql.plugin.hive.authentication.HiveAuthenticationConfig;
 import org.apache.thrift.TException;
 import org.testng.annotations.Test;
 
@@ -99,7 +100,7 @@ public class TestStaticMetastoreLocator
 
     private static MetastoreLocator createMetastoreLocator(StaticMetastoreConfig config, List<ThriftMetastoreClient> clients)
     {
-        return new StaticMetastoreLocator(config, new MockThriftMetastoreClientFactory(Optional.empty(), new Duration(1, SECONDS), clients));
+        return new StaticMetastoreLocator(config, new HiveAuthenticationConfig(), new MockThriftMetastoreClientFactory(Optional.empty(), new Duration(1, SECONDS), clients));
     }
 
     private static ThriftMetastoreClient createFakeMetastoreClient()
