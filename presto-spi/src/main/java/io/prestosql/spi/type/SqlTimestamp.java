@@ -17,11 +17,10 @@ import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.time.Instant;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.Objects;
 import java.util.Optional;
-
-import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 
 public final class SqlTimestamp
 {
@@ -99,12 +98,14 @@ public final class SqlTimestamp
     @Override
     public String toString()
     {
-        if (isLegacyTimestamp()) {
-            return Instant.ofEpochMilli(millis).atZone(ZoneId.of(sessionTimeZoneKey.get().getId())).format(JSON_FORMATTER);
-        }
-        else {
-            return Instant.ofEpochMilli(millis).atZone(ZoneId.of(UTC_KEY.getId())).format(JSON_FORMATTER);
-        }
+        ZoneId zoneId = sessionTimeZoneKey
+                .map(TimeZoneKey::getId)
+                .map(ZoneId::of)
+                .orElse(ZoneOffset.UTC);
+
+        return Instant.ofEpochMilli(millis)
+                .atZone(zoneId)
+                .format(JSON_FORMATTER);
     }
 
     private static void checkState(boolean condition, String message)
