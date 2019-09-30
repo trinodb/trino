@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
+import static io.prestosql.plugin.memory.MemoryMetadata.SCHEMA_NAME;
 import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -60,7 +61,7 @@ public class TestMemoryMetadata
     {
         assertNoTables();
 
-        SchemaTableName schemaTableName = new SchemaTableName("default", "temp_table");
+        SchemaTableName schemaTableName = new SchemaTableName(SCHEMA_NAME, "temp_table");
 
         ConnectorOutputTableHandle table = metadata.beginCreateTable(
                 SESSION,
@@ -79,8 +80,8 @@ public class TestMemoryMetadata
     {
         assertNoTables();
 
-        SchemaTableName test1Table = new SchemaTableName("default", "test1");
-        SchemaTableName test2Table = new SchemaTableName("default", "test2");
+        SchemaTableName test1Table = new SchemaTableName(SCHEMA_NAME, "test1");
+        SchemaTableName test2Table = new SchemaTableName(SCHEMA_NAME, "test2");
         metadata.createTable(SESSION, new ConnectorTableMetadata(test1Table, ImmutableList.of()), false);
 
         try {
@@ -89,7 +90,7 @@ public class TestMemoryMetadata
         }
         catch (PrestoException ex) {
             assertEquals(ex.getErrorCode(), ALREADY_EXISTS.toErrorCode());
-            assertEquals(ex.getMessage(), "Table [default.test1] already exists");
+            assertEquals(ex.getMessage(), "Table [DEFAULT.test1] already exists");
         }
 
         ConnectorTableHandle test1TableHandle = metadata.getTableHandle(SESSION, test1Table);
@@ -101,7 +102,7 @@ public class TestMemoryMetadata
         }
         catch (PrestoException ex) {
             assertEquals(ex.getErrorCode(), ALREADY_EXISTS.toErrorCode());
-            assertEquals(ex.getMessage(), "Table [default.test2] already exists");
+            assertEquals(ex.getMessage(), "Table [DEFAULT.test2] already exists");
         }
     }
 
@@ -110,7 +111,7 @@ public class TestMemoryMetadata
     {
         assertNoTables();
 
-        SchemaTableName firstTableName = new SchemaTableName("default", "first_table");
+        SchemaTableName firstTableName = new SchemaTableName(SCHEMA_NAME, "first_table");
         metadata.createTable(SESSION, new ConnectorTableMetadata(firstTableName, ImmutableList.of(), ImmutableMap.of()), false);
 
         MemoryTableHandle firstTableHandle = (MemoryTableHandle) metadata.getTableHandle(SESSION, firstTableName);
@@ -118,7 +119,7 @@ public class TestMemoryMetadata
 
         assertTrue(metadata.beginInsert(SESSION, firstTableHandle).getActiveTableIds().contains(firstTableId));
 
-        SchemaTableName secondTableName = new SchemaTableName("default", "second_table");
+        SchemaTableName secondTableName = new SchemaTableName(SCHEMA_NAME, "second_table");
         metadata.createTable(SESSION, new ConnectorTableMetadata(secondTableName, ImmutableList.of(), ImmutableMap.of()), false);
 
         MemoryTableHandle secondTableHandle = (MemoryTableHandle) metadata.getTableHandle(SESSION, secondTableName);
@@ -134,7 +135,7 @@ public class TestMemoryMetadata
     {
         assertNoTables();
 
-        SchemaTableName tableName = new SchemaTableName("default", "temp_table");
+        SchemaTableName tableName = new SchemaTableName(SCHEMA_NAME, "temp_table");
 
         ConnectorOutputTableHandle table = metadata.beginCreateTable(
                 SESSION,
@@ -150,9 +151,9 @@ public class TestMemoryMetadata
     @Test
     public void testCreateSchema()
     {
-        assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of("default"));
+        assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of(SCHEMA_NAME));
         metadata.createSchema(SESSION, "test", ImmutableMap.of());
-        assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of("default", "test"));
+        assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of(SCHEMA_NAME, "test"));
         assertEquals(metadata.listTables(SESSION, Optional.of("test")), ImmutableList.of());
 
         SchemaTableName tableName = new SchemaTableName("test", "first_table");
@@ -166,7 +167,7 @@ public class TestMemoryMetadata
 
         assertEquals(metadata.listTables(SESSION, Optional.empty()), ImmutableList.of(tableName));
         assertEquals(metadata.listTables(SESSION, Optional.of("test")), ImmutableList.of(tableName));
-        assertEquals(metadata.listTables(SESSION, Optional.of("default")), ImmutableList.of());
+        assertEquals(metadata.listTables(SESSION, Optional.of(SCHEMA_NAME)), ImmutableList.of());
     }
 
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "View already exists: test\\.test_view")
@@ -257,7 +258,7 @@ public class TestMemoryMetadata
     @Test
     public void testCreateTableAndViewInNotExistSchema()
     {
-        assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of("default"));
+        assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of(SCHEMA_NAME));
 
         SchemaTableName table1 = new SchemaTableName("test1", "test_schema_table1");
         try {
@@ -292,7 +293,7 @@ public class TestMemoryMetadata
         }
         assertEquals(metadata.getTableHandle(SESSION, view3), null);
 
-        assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of("default"));
+        assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of(SCHEMA_NAME));
     }
 
     @Test

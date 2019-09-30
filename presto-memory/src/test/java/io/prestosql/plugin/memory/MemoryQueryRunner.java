@@ -24,6 +24,7 @@ import io.prestosql.tests.DistributedQueryRunner;
 import java.util.Map;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
+import static io.prestosql.plugin.memory.MemoryMetadata.SCHEMA_NAME;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.tests.QueryAssertions.copyTpchTables;
@@ -45,7 +46,7 @@ public final class MemoryQueryRunner
     {
         Session session = testSessionBuilder()
                 .setCatalog(CATALOG)
-                .setSchema("default")
+                .setSchema(SCHEMA_NAME)
                 .build();
 
         DistributedQueryRunner queryRunner = new DistributedQueryRunner(session, 4, extraProperties);

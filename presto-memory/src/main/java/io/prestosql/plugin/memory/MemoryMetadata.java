@@ -64,6 +64,7 @@ import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static io.prestosql.spi.connector.SampleType.SYSTEM;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
@@ -72,7 +73,7 @@ import static java.util.stream.Collectors.toMap;
 public class MemoryMetadata
         implements ConnectorMetadata
 {
-    public static final String SCHEMA_NAME = "default";
+    public static final String SCHEMA_NAME = "DEFAULT";
 
     private final NodeManager nodeManager;
     private final List<String> schemas = new ArrayList<>();
@@ -382,5 +383,11 @@ public class MemoryMetadata
         }
 
         return Optional.of(new MemoryTableHandle(table.getId(), table.getLimit(), OptionalDouble.of(table.getSampleRatio().orElse(1) * sampleRatio)));
+    }
+
+    @Override
+    public String canonicalize(ConnectorSession session, String identifier, boolean delimited)
+    {
+        return delimited ? identifier : identifier.toUpperCase(ENGLISH);
     }
 }
