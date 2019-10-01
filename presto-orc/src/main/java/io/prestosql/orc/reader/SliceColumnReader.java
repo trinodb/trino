@@ -46,17 +46,17 @@ import static io.prestosql.spi.type.Varchars.byteCount;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.util.Objects.requireNonNull;
 
-public class SliceStreamReader
-        implements StreamReader
+public class SliceColumnReader
+        implements ColumnReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceStreamReader.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceColumnReader.class).instanceSize();
 
     private final OrcColumn column;
-    private final SliceDirectStreamReader directReader;
-    private final SliceDictionaryStreamReader dictionaryReader;
-    private StreamReader currentReader;
+    private final SliceDirectColumnReader directReader;
+    private final SliceDictionaryColumnReader dictionaryReader;
+    private ColumnReader currentReader;
 
-    public SliceStreamReader(Type type, OrcColumn column, AggregatedMemoryContext systemMemoryContext)
+    public SliceColumnReader(Type type, OrcColumn column, AggregatedMemoryContext systemMemoryContext)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
@@ -66,8 +66,8 @@ public class SliceStreamReader
 
         int maxCodePointCount = getMaxCodePointCount(type);
         boolean charType = isCharType(type);
-        directReader = new SliceDirectStreamReader(column, maxCodePointCount, charType);
-        dictionaryReader = new SliceDictionaryStreamReader(column, systemMemoryContext.newLocalMemoryContext(SliceStreamReader.class.getSimpleName()), maxCodePointCount, charType);
+        directReader = new SliceDirectColumnReader(column, maxCodePointCount, charType);
+        dictionaryReader = new SliceDictionaryColumnReader(column, systemMemoryContext.newLocalMemoryContext(SliceColumnReader.class.getSimpleName()), maxCodePointCount, charType);
     }
 
     @Override

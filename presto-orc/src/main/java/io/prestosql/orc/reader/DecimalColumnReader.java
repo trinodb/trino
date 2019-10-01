@@ -55,10 +55,10 @@ import static io.prestosql.orc.stream.MissingInputStreamSource.missingStreamSour
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static java.util.Objects.requireNonNull;
 
-public class DecimalStreamReader
-        implements StreamReader
+public class DecimalColumnReader
+        implements ColumnReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DecimalStreamReader.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DecimalColumnReader.class).instanceSize();
 
     private final DecimalType type;
     private final OrcColumn column;
@@ -87,7 +87,7 @@ public class DecimalStreamReader
 
     private final LocalMemoryContext systemMemoryContext;
 
-    public DecimalStreamReader(Type type, OrcColumn column, LocalMemoryContext systemMemoryContext)
+    public DecimalColumnReader(Type type, OrcColumn column, LocalMemoryContext systemMemoryContext)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");

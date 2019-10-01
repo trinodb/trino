@@ -56,7 +56,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 
 @Test(singleThreaded = true)
-public class TestStructStreamReader
+public class TestStructColumnReader
 {
     private static final Metadata METADATA = createTestMetadataManager();
 

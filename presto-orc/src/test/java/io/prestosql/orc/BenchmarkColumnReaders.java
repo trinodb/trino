@@ -80,8 +80,8 @@ import static org.joda.time.DateTimeZone.UTC;
 @Warmup(iterations = 30, time = 500, timeUnit = MILLISECONDS)
 @Measurement(iterations = 20, time = 500, timeUnit = MILLISECONDS)
 @BenchmarkMode(Mode.AverageTime)
-@OperationsPerInvocation(BenchmarkStreamReaders.ROWS)
-public class BenchmarkStreamReaders
+@OperationsPerInvocation(BenchmarkColumnReaders.ROWS)
+public class BenchmarkColumnReaders
 {
     private static final DecimalType SHORT_DECIMAL_TYPE = createDecimalType(10, 5);
     private static final DecimalType LONG_DECIMAL_TYPE = createDecimalType(30, 5);
@@ -1161,7 +1161,7 @@ public class BenchmarkStreamReaders
     static {
         try {
             // call all versions of the long stream reader to pollute the profile
-            BenchmarkStreamReaders benchmark = new BenchmarkStreamReaders();
+            BenchmarkColumnReaders benchmark = new BenchmarkColumnReaders();
             benchmark.readLongNoNull(BigintNoNullBenchmarkData.create());
             benchmark.readLongWithNull(BigintWithNullBenchmarkData.create());
             benchmark.readIntNoNull(IntegerNoNullBenchmarkData.create());
@@ -1179,7 +1179,7 @@ public class BenchmarkStreamReaders
     {
         Options options = new OptionsBuilder()
                 .verbosity(VerboseMode.NORMAL)
-                .include(".*" + BenchmarkStreamReaders.class.getSimpleName() + ".*")
+                .include(".*" + BenchmarkColumnReaders.class.getSimpleName() + ".*")
                 .build();
 
         new Runner(options).run();

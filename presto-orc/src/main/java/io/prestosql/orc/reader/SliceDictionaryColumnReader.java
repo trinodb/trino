@@ -47,16 +47,16 @@ import static io.prestosql.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
 import static io.prestosql.orc.metadata.Stream.StreamKind.LENGTH;
 import static io.prestosql.orc.metadata.Stream.StreamKind.PRESENT;
 import static io.prestosql.orc.reader.ReaderUtils.minNonNullValueSize;
-import static io.prestosql.orc.reader.SliceStreamReader.computeTruncatedLength;
+import static io.prestosql.orc.reader.SliceColumnReader.computeTruncatedLength;
 import static io.prestosql.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static java.lang.Math.toIntExact;
 import static java.util.Arrays.fill;
 import static java.util.Objects.requireNonNull;
 
-public class SliceDictionaryStreamReader
-        implements StreamReader
+public class SliceDictionaryColumnReader
+        implements ColumnReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceDictionaryStreamReader.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceDictionaryColumnReader.class).instanceSize();
 
     private static final byte[] EMPTY_DICTIONARY_DATA = new byte[0];
     // add one extra entry for null after strip/rowGroup dictionary
@@ -97,7 +97,7 @@ public class SliceDictionaryStreamReader
 
     private final LocalMemoryContext systemMemoryContext;
 
-    public SliceDictionaryStreamReader(OrcColumn column, LocalMemoryContext systemMemoryContext, int maxCodePointCount, boolean isCharType)
+    public SliceDictionaryColumnReader(OrcColumn column, LocalMemoryContext systemMemoryContext, int maxCodePointCount, boolean isCharType)
     {
         this.maxCodePointCount = maxCodePointCount;
         this.isCharType = isCharType;

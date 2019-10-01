@@ -24,13 +24,12 @@ import io.prestosql.orc.stream.BooleanInputStream;
 import io.prestosql.orc.stream.InputStreamSource;
 import io.prestosql.orc.stream.InputStreamSources;
 import io.prestosql.orc.stream.LongInputStream;
+import io.prestosql.spi.block.ArrayBlock;
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.Type;
-import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.openjdk.jol.info.ClassLayout;
 
-import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
@@ -41,52 +40,48 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.prestosql.orc.metadata.Stream.StreamKind.LENGTH;
 import static io.prestosql.orc.metadata.Stream.StreamKind.PRESENT;
+import static io.prestosql.orc.reader.ColumnReaders.createColumnReader;
 import static io.prestosql.orc.reader.ReaderUtils.convertLengthVectorToOffsetVector;
 import static io.prestosql.orc.reader.ReaderUtils.unpackLengthNulls;
 import static io.prestosql.orc.reader.ReaderUtils.verifyStreamType;
-import static io.prestosql.orc.reader.StreamReaders.createStreamReader;
 import static io.prestosql.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
-public class MapStreamReader
-        implements StreamReader
+public class ListColumnReader
+        implements ColumnReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapStreamReader.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ListColumnReader.class).instanceSize();
 
-    private final MapType type;
+    private final Type elementType;
     private final OrcColumn column;
     private final NestedBlockFactory blockFactory;
 
-    private final StreamReader keyStreamReader;
-    private final StreamReader valueStreamReader;
+    private final ColumnReader elementColumnReader;
 
     private int readOffset;
     private int nextBatchSize;
 
-    @Nonnull
     private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
     @Nullable
     private BooleanInputStream presentStream;
 
-    @Nonnull
     private InputStreamSource<LongInputStream> lengthStreamSource = missingStreamSource(LongInputStream.class);
     @Nullable
     private LongInputStream lengthStream;
 
     private boolean rowGroupOpen;
 
-    public MapStreamReader(Type type, OrcColumn column, AggregatedMemoryContext systemMemoryContext, NestedBlockFactory blockFactory)
+    public ListColumnReader(Type type, OrcColumn column, AggregatedMemoryContext systemMemoryContext, NestedBlockFactory blockFactory)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
-        verifyStreamType(column, type, MapType.class::isInstance);
-        this.type = (MapType) type;
+        verifyStreamType(column, type, ArrayType.class::isInstance);
+        elementType = ((ArrayType) type).getElementType();
 
         this.column = requireNonNull(column, "column is null");
         this.blockFactory = requireNonNull(blockFactory, "blockFactory is null");
-        this.keyStreamReader = createStreamReader(this.type.getKeyType(), column.getNestedColumns().get(0), systemMemoryContext, blockFactory);
-        this.valueStreamReader = createStreamReader(this.type.getValueType(), column.getNestedColumns().get(1), systemMemoryContext, blockFactory);
+        this.elementColumnReader = createColumnReader(elementType, column.getNestedColumns().get(0), systemMemoryContext, blockFactory);
     }
 
     @Override
@@ -114,9 +109,8 @@ public class MapStreamReader
                 if (lengthStream == null) {
                     throw new OrcCorruptionException(column.getOrcDataSourceId(), "Value is not null but data stream is not present");
                 }
-                long entrySkipSize = lengthStream.sum(readOffset);
-                keyStreamReader.prepareNextRead(toIntExact(entrySkipSize));
-                valueStreamReader.prepareNextRead(toIntExact(entrySkipSize));
+                long elementSkipSize = lengthStream.sum(readOffset);
+                elementColumnReader.prepareNextRead(toIntExact(elementSkipSize));
             }
         }
 
@@ -124,7 +118,6 @@ public class MapStreamReader
         // and the length values will be converted in-place to an offset vector.
         int[] offsetVector = new int[nextBatchSize + 1];
         boolean[] nullVector = null;
-
         if (presentStream == null) {
             if (lengthStream == null) {
                 throw new OrcCorruptionException(column.getOrcDataSourceId(), "Value is not null but data stream is not present");
@@ -142,76 +135,24 @@ public class MapStreamReader
                 unpackLengthNulls(offsetVector, nullVector, nextBatchSize - nullValues);
             }
         }
+        convertLengthVectorToOffsetVector(offsetVector);
 
-        // Calculate the entryCount. Note that the values in the offsetVector are still length values now.
-        int entryCount = 0;
-        for (int i = 0; i < offsetVector.length - 1; i++) {
-            entryCount += offsetVector[i];
-        }
+        int elementCount = offsetVector[offsetVector.length - 1];
 
-        Block keys;
-        Block values;
-        if (entryCount > 0) {
-            keyStreamReader.prepareNextRead(entryCount);
-            valueStreamReader.prepareNextRead(entryCount);
-            keys = keyStreamReader.readBlock();
-            values = blockFactory.createBlock(entryCount, valueStreamReader::readBlock);
+        Block elements;
+        if (elementCount > 0) {
+            elementColumnReader.prepareNextRead(elementCount);
+            elements = blockFactory.createBlock(elementCount, elementColumnReader::readBlock);
         }
         else {
-            keys = type.getKeyType().createBlockBuilder(null, 0).build();
-            values = type.getValueType().createBlockBuilder(null, 1).build();
+            elements = elementType.createBlockBuilder(null, 0).build();
         }
-
-        Block[] keyValueBlock = createKeyValueBlock(nextBatchSize, keys, values, offsetVector);
-
-        convertLengthVectorToOffsetVector(offsetVector);
+        Block arrayBlock = ArrayBlock.fromElementBlock(nextBatchSize, Optional.ofNullable(nullVector), offsetVector, elements);
 
         readOffset = 0;
         nextBatchSize = 0;
 
-        return type.createBlockFromKeyValue(Optional.ofNullable(nullVector), offsetVector, keyValueBlock[0], keyValueBlock[1]);
-    }
-
-    private static Block[] createKeyValueBlock(int positionCount, Block keys, Block values, int[] lengths)
-    {
-        if (!hasNull(keys)) {
-            return new Block[] {keys, values};
-        }
-
-        //
-        // Map entries with a null key are skipped in the Hive ORC reader, so skip them here also
-        //
-
-        IntArrayList nonNullPositions = new IntArrayList(keys.getPositionCount());
-
-        int position = 0;
-        for (int mapIndex = 0; mapIndex < positionCount; mapIndex++) {
-            int length = lengths[mapIndex];
-            for (int entryIndex = 0; entryIndex < length; entryIndex++) {
-                if (keys.isNull(position)) {
-                    // key is null, so remove this entry from the map
-                    lengths[mapIndex]--;
-                }
-                else {
-                    nonNullPositions.add(position);
-                }
-                position++;
-            }
-        }
-
-        Block newKeys = keys.copyPositions(nonNullPositions.elements(), 0, nonNullPositions.size());
-        Block newValues = values.copyPositions(nonNullPositions.elements(), 0, nonNullPositions.size());
-        return new Block[] {newKeys, newValues};
-    }
-
-    private static boolean hasNull(Block keys)
-    {
-        for (int position = 0; position < keys.getPositionCount(); position++) {
-            if (keys.isNull(position)) {
-                return true;
-            }
-        }
-        return false;
+        return arrayBlock;
     }
 
     private void openRowGroup()
@@ -238,8 +179,7 @@ public class MapStreamReader
 
         rowGroupOpen = false;
 
-        keyStreamReader.startStripe(timeZone, dictionaryStreamSources, encoding);
-        valueStreamReader.startStripe(timeZone, dictionaryStreamSources, encoding);
+        elementColumnReader.startStripe(timeZone, dictionaryStreamSources, encoding);
     }
 
     @Override
@@ -257,8 +197,7 @@ public class MapStreamReader
 
         rowGroupOpen = false;
 
-        keyStreamReader.startRowGroup(dataStreamSources);
-        valueStreamReader.startRowGroup(dataStreamSources);
+        elementColumnReader.startRowGroup(dataStreamSources);
     }
 
     @Override
@@ -273,8 +212,7 @@ public class MapStreamReader
     public void close()
     {
         try (Closer closer = Closer.create()) {
-            closer.register(keyStreamReader::close);
-            closer.register(valueStreamReader::close);
+            closer.register(elementColumnReader::close);
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -284,6 +222,6 @@ public class MapStreamReader
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + keyStreamReader.getRetainedSizeInBytes() + valueStreamReader.getRetainedSizeInBytes();
+        return INSTANCE_SIZE + elementColumnReader.getRetainedSizeInBytes();
     }
 }

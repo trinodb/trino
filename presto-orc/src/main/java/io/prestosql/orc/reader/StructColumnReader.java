@@ -48,20 +48,20 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.orc.metadata.Stream.StreamKind.PRESENT;
+import static io.prestosql.orc.reader.ColumnReaders.createColumnReader;
 import static io.prestosql.orc.reader.ReaderUtils.verifyStreamType;
-import static io.prestosql.orc.reader.StreamReaders.createStreamReader;
 import static io.prestosql.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static java.util.Objects.requireNonNull;
 
-public class StructStreamReader
-        implements StreamReader
+public class StructColumnReader
+        implements ColumnReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(StructStreamReader.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(StructColumnReader.class).instanceSize();
 
     private final OrcColumn column;
     private final NestedBlockFactory blockFactory;
 
-    private final Map<String, StreamReader> structFields;
+    private final Map<String, ColumnReader> structFields;
     private final RowType type;
     private final ImmutableList<String> fieldNames;
 
@@ -74,7 +74,7 @@ public class StructStreamReader
 
     private boolean rowGroupOpen;
 
-    StructStreamReader(Type type, OrcColumn column, AggregatedMemoryContext systemMemoryContext, NestedBlockFactory blockFactory)
+    StructColumnReader(Type type, OrcColumn column, AggregatedMemoryContext systemMemoryContext, NestedBlockFactory blockFactory)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
@@ -88,7 +88,7 @@ public class StructStreamReader
                 .collect(toImmutableMap(stream -> stream.getColumnName().toLowerCase(Locale.ENGLISH), stream -> stream));
 
         ImmutableList.Builder<String> fieldNames = ImmutableList.builder();
-        ImmutableMap.Builder<String, StreamReader> structFields = ImmutableMap.builder();
+        ImmutableMap.Builder<String, ColumnReader> structFields = ImmutableMap.builder();
         for (Field field : this.type.getFields()) {
             String fieldName = field.getName()
                     .orElseThrow(() -> new IllegalArgumentException("ROW type does not have field names declared: " + type))
@@ -97,7 +97,7 @@ public class StructStreamReader
 
             OrcColumn fieldStream = nestedColumns.get(fieldName);
             if (fieldStream != null) {
-                structFields.put(fieldName, createStreamReader(field.getType(), fieldStream, systemMemoryContext, blockFactory));
+                structFields.put(fieldName, createColumnReader(field.getType(), fieldStream, systemMemoryContext, blockFactory));
             }
         }
         this.fieldNames = fieldNames.build();
@@ -125,7 +125,7 @@ public class StructStreamReader
                 // and use this as the skip size for the field readers
                 readOffset = presentStream.countBitsSet(readOffset);
             }
-            for (StreamReader structField : structFields.values()) {
+            for (ColumnReader structField : structFields.values()) {
                 structField.prepareNextRead(readOffset);
             }
         }
@@ -186,7 +186,7 @@ public class StructStreamReader
 
         rowGroupOpen = false;
 
-        for (StreamReader structField : structFields.values()) {
+        for (ColumnReader structField : structFields.values()) {
             structField.startStripe(timeZone, dictionaryStreamSources, encoding);
         }
     }
@@ -204,7 +204,7 @@ public class StructStreamReader
 
         rowGroupOpen = false;
 
-        for (StreamReader structField : structFields.values()) {
+        for (ColumnReader structField : structFields.values()) {
             structField.startRowGroup(dataStreamSources);
         }
     }
@@ -224,10 +224,10 @@ public class StructStreamReader
         for (int i = 0; i < fieldNames.size(); i++) {
             String fieldName = fieldNames.get(i);
 
-            StreamReader streamReader = structFields.get(fieldName);
-            if (streamReader != null) {
-                streamReader.prepareNextRead(positionCount);
-                blocks[i] = blockFactory.createBlock(positionCount, streamReader::readBlock);
+            ColumnReader columnReader = structFields.get(fieldName);
+            if (columnReader != null) {
+                columnReader.prepareNextRead(positionCount);
+                blocks[i] = blockFactory.createBlock(positionCount, columnReader::readBlock);
             }
             else {
                 blocks[i] = RunLengthEncodedBlock.create(type.getFields().get(i).getType(), null, positionCount);
@@ -240,7 +240,7 @@ public class StructStreamReader
     public void close()
     {
         try (Closer closer = Closer.create()) {
-            for (StreamReader structField : structFields.values()) {
+            for (ColumnReader structField : structFields.values()) {
                 closer.register(structField::close);
             }
         }
@@ -253,7 +253,7 @@ public class StructStreamReader
     public long getRetainedSizeInBytes()
     {
         long retainedSizeInBytes = INSTANCE_SIZE;
-        for (StreamReader structField : structFields.values()) {
+        for (ColumnReader structField : structFields.values()) {
             retainedSizeInBytes += structField.getRetainedSizeInBytes();
         }
         return retainedSizeInBytes;

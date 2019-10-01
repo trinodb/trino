@@ -53,10 +53,10 @@ import static io.prestosql.orc.reader.ReaderUtils.verifyStreamType;
 import static io.prestosql.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static java.util.Objects.requireNonNull;
 
-public class LongStreamReader
-        implements StreamReader
+public class LongColumnReader
+        implements ColumnReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongStreamReader.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongColumnReader.class).instanceSize();
 
     private final Type type;
     private final OrcColumn column;
@@ -82,7 +82,7 @@ public class LongStreamReader
 
     private final LocalMemoryContext systemMemoryContext;
 
-    public LongStreamReader(Type type, OrcColumn column, LocalMemoryContext systemMemoryContext)
+    public LongColumnReader(Type type, OrcColumn column, LocalMemoryContext systemMemoryContext)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
