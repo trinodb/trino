@@ -44,7 +44,7 @@ public class Identity
     {
         this.user = requireNonNull(user, "user is null");
         this.principal = requireNonNull(principal, "principal is null");
-        this.roles = unmodifiableMap(requireNonNull(roles, "roles is null"));
+        this.roles = unmodifiableMap(new HashMap<>(requireNonNull(roles, "roles is null")));
         this.extraCredentials = unmodifiableMap(new HashMap<>(requireNonNull(extraCredentials, "extraCredentials is null")));
     }
 
