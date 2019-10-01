@@ -19,13 +19,13 @@ import io.prestosql.orc.OrcCorruptionException;
 import io.prestosql.orc.metadata.ColumnEncoding;
 import io.prestosql.orc.metadata.ColumnMetadata;
 import io.prestosql.orc.stream.BooleanInputStream;
-import io.prestosql.orc.stream.DoubleInputStream;
+import io.prestosql.orc.stream.ByteInputStream;
 import io.prestosql.orc.stream.InputStreamSource;
 import io.prestosql.orc.stream.InputStreamSources;
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.LongArrayBlock;
+import io.prestosql.spi.block.ByteArrayBlock;
 import io.prestosql.spi.block.RunLengthEncodedBlock;
-import io.prestosql.spi.type.DoubleType;
+import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -41,16 +41,15 @@ import static io.airlift.slice.SizeOf.sizeOf;
 import static io.prestosql.orc.metadata.Stream.StreamKind.DATA;
 import static io.prestosql.orc.metadata.Stream.StreamKind.PRESENT;
 import static io.prestosql.orc.reader.ReaderUtils.minNonNullValueSize;
-import static io.prestosql.orc.reader.ReaderUtils.unpackLongNulls;
 import static io.prestosql.orc.reader.ReaderUtils.verifyStreamType;
 import static io.prestosql.orc.stream.MissingInputStreamSource.missingStreamSource;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static java.util.Objects.requireNonNull;
 
-public class DoubleStreamReader
-        implements StreamReader
+public class ByteColumnReader
+        implements ColumnReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DoubleStreamReader.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ByteColumnReader.class).instanceSize();
 
     private final OrcColumn column;
 
@@ -62,21 +61,21 @@ public class DoubleStreamReader
     private BooleanInputStream presentStream;
     private boolean[] nullVector = new boolean[0];
 
-    private InputStreamSource<DoubleInputStream> dataStreamSource = missingStreamSource(DoubleInputStream.class);
+    private InputStreamSource<ByteInputStream> dataStreamSource = missingStreamSource(ByteInputStream.class);
     @Nullable
-    private DoubleInputStream dataStream;
+    private ByteInputStream dataStream;
 
     private boolean rowGroupOpen;
 
-    private long[] nonNullValueTemp = new long[0];
+    private byte[] nonNullValueTemp = new byte[0];
 
     private final LocalMemoryContext systemMemoryContext;
 
-    public DoubleStreamReader(Type type, OrcColumn column, LocalMemoryContext systemMemoryContext)
+    public ByteColumnReader(Type type, OrcColumn column, LocalMemoryContext systemMemoryContext)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
-        verifyStreamType(column, type, DoubleType.class::isInstance);
+        verifyStreamType(column, type, TinyintType.class::isInstance);
 
         this.column = requireNonNull(column, "column is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
@@ -117,7 +116,7 @@ public class DoubleStreamReader
                 throw new OrcCorruptionException(column.getOrcDataSourceId(), "Value is null but present stream is missing");
             }
             presentStream.skip(nextBatchSize);
-            block = RunLengthEncodedBlock.create(DOUBLE, null, nextBatchSize);
+            block = RunLengthEncodedBlock.create(TINYINT, null, nextBatchSize);
         }
         else if (presentStream == null) {
             block = readNonNullBlock();
@@ -132,7 +131,7 @@ public class DoubleStreamReader
                 block = readNullBlock(isNull, nextBatchSize - nullCount);
             }
             else {
-                block = RunLengthEncodedBlock.create(DOUBLE, null, nextBatchSize);
+                block = RunLengthEncodedBlock.create(TINYINT, null, nextBatchSize);
             }
         }
 
@@ -146,9 +145,8 @@ public class DoubleStreamReader
             throws IOException
     {
         verifyNotNull(dataStream);
-        long[] values = new long[nextBatchSize];
-        dataStream.next(values, nextBatchSize);
-        return new LongArrayBlock(nextBatchSize, Optional.empty(), values);
+        byte[] values = dataStream.next(nextBatchSize);
+        return new ByteArrayBlock(nextBatchSize, Optional.empty(), values);
     }
 
     private Block readNullBlock(boolean[] isNull, int nonNullCount)
@@ -157,15 +155,15 @@ public class DoubleStreamReader
         verifyNotNull(dataStream);
         int minNonNullValueSize = minNonNullValueSize(nonNullCount);
         if (nonNullValueTemp.length < minNonNullValueSize) {
-            nonNullValueTemp = new long[minNonNullValueSize];
+            nonNullValueTemp = new byte[minNonNullValueSize];
             systemMemoryContext.setBytes(sizeOf(nonNullValueTemp));
         }
 
         dataStream.next(nonNullValueTemp, nonNullCount);
 
-        long[] result = unpackLongNulls(nonNullValueTemp, isNull);
+        byte[] result = ReaderUtils.unpackByteNulls(nonNullValueTemp, isNull);
 
-        return new LongArrayBlock(isNull.length, Optional.of(isNull), result);
+        return new ByteArrayBlock(nextBatchSize, Optional.of(isNull), result);
     }
 
     private void openRowGroup()
@@ -181,7 +179,7 @@ public class DoubleStreamReader
     public void startStripe(ZoneId timeZone, InputStreamSources dictionaryStreamSources, ColumnMetadata<ColumnEncoding> encoding)
     {
         presentStreamSource = missingStreamSource(BooleanInputStream.class);
-        dataStreamSource = missingStreamSource(DoubleInputStream.class);
+        dataStreamSource = missingStreamSource(ByteInputStream.class);
 
         readOffset = 0;
         nextBatchSize = 0;
@@ -196,7 +194,7 @@ public class DoubleStreamReader
     public void startRowGroup(InputStreamSources dataStreamSources)
     {
         presentStreamSource = dataStreamSources.getInputStreamSource(column, PRESENT, BooleanInputStream.class);
-        dataStreamSource = dataStreamSources.getInputStreamSource(column, DATA, DoubleInputStream.class);
+        dataStreamSource = dataStreamSources.getInputStreamSource(column, DATA, ByteInputStream.class);
 
         readOffset = 0;
         nextBatchSize = 0;

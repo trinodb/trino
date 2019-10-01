@@ -46,10 +46,10 @@ import static io.prestosql.orc.stream.MissingInputStreamSource.missingStreamSour
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static java.util.Objects.requireNonNull;
 
-public class TimestampStreamReader
-        implements StreamReader
+public class TimestampColumnReader
+        implements ColumnReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(TimestampStreamReader.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(TimestampColumnReader.class).instanceSize();
 
     private static final int MILLIS_PER_SECOND = 1000;
 
@@ -80,7 +80,7 @@ public class TimestampStreamReader
 
     private final LocalMemoryContext systemMemoryContext;
 
-    public TimestampStreamReader(Type type, OrcColumn column, LocalMemoryContext systemMemoryContext)
+    public TimestampColumnReader(Type type, OrcColumn column, LocalMemoryContext systemMemoryContext)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");

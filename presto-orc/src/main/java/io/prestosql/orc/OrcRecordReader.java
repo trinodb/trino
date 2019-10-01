@@ -34,7 +34,7 @@ import io.prestosql.orc.metadata.PostScript.HiveWriterVersion;
 import io.prestosql.orc.metadata.StripeInformation;
 import io.prestosql.orc.metadata.statistics.ColumnStatistics;
 import io.prestosql.orc.metadata.statistics.StripeStatistics;
-import io.prestosql.orc.reader.StreamReader;
+import io.prestosql.orc.reader.ColumnReader;
 import io.prestosql.orc.stream.InputStreamSources;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
@@ -61,7 +61,7 @@ import static io.prestosql.orc.OrcReader.BATCH_SIZE_GROWTH_FACTOR;
 import static io.prestosql.orc.OrcReader.MAX_BATCH_SIZE;
 import static io.prestosql.orc.OrcRecordReader.LinearProbeRangeFinder.createTinyStripesRangeFinder;
 import static io.prestosql.orc.OrcWriteValidation.WriteChecksumBuilder.createWriteChecksumBuilder;
-import static io.prestosql.orc.reader.StreamReaders.createStreamReader;
+import static io.prestosql.orc.reader.ColumnReaders.createColumnReader;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
@@ -75,7 +75,7 @@ public class OrcRecordReader
 
     private final OrcDataSource orcDataSource;
 
-    private final StreamReader[] streamReaders;
+    private final ColumnReader[] columnReaders;
     private final long[] currentBytesPerCell;
     private final long[] maxBytesPerCell;
     private long maxCombinedBytesPerRow;
@@ -232,9 +232,9 @@ public class OrcRecordReader
                 metadataReader,
                 writeValidation);
 
-        streamReaders = createStreamReaders(readColumns, readTypes, streamReadersSystemMemoryContext, blockFactory);
-        maxBytesPerCell = new long[streamReaders.length];
-        currentBytesPerCell = new long[streamReaders.length];
+        columnReaders = createColumnReaders(readColumns, readTypes, streamReadersSystemMemoryContext, blockFactory);
+        currentBytesPerCell = new long[columnReaders.length];
+        maxBytesPerCell = new long[columnReaders.length];
         nextBatchSize = initialBatchSize;
     }
 
@@ -328,7 +328,7 @@ public class OrcRecordReader
     {
         try (Closer closer = Closer.create()) {
             closer.register(orcDataSource);
-            for (StreamReader column : streamReaders) {
+            for (ColumnReader column : columnReaders) {
                 if (column != null) {
                     closer.register(column::close);
                 }
@@ -383,7 +383,7 @@ public class OrcRecordReader
         nextBatchSize = min(currentBatchSize * BATCH_SIZE_GROWTH_FACTOR, MAX_BATCH_SIZE);
         currentBatchSize = toIntExact(min(currentBatchSize, currentGroupRowCount - nextRowInGroup));
 
-        for (StreamReader column : streamReaders) {
+        for (ColumnReader column : columnReaders) {
             if (column != null) {
                 column.prepareNextRead(currentBatchSize);
             }
@@ -395,12 +395,12 @@ public class OrcRecordReader
         // create a lazy page
         blockFactory.nextPage();
         Arrays.fill(currentBytesPerCell, 0);
-        Block[] blocks = new Block[streamReaders.length];
-        for (int i = 0; i < streamReaders.length; i++) {
+        Block[] blocks = new Block[columnReaders.length];
+        for (int i = 0; i < columnReaders.length; i++) {
             int columnIndex = i;
             blocks[columnIndex] = blockFactory.createBlock(
                     currentBatchSize,
-                    streamReaders[columnIndex]::readBlock,
+                    columnReaders[columnIndex]::readBlock,
                     block -> blockLoaded(columnIndex, block));
         }
         return new Page(currentBatchSize, blocks);
@@ -461,7 +461,7 @@ public class OrcRecordReader
 
         // give reader data streams from row group
         InputStreamSources rowGroupStreamSources = currentRowGroup.getStreamSources();
-        for (StreamReader column : streamReaders) {
+        for (ColumnReader column : columnReaders) {
             if (column != null) {
                 column.startRowGroup(rowGroupStreamSources);
             }
@@ -504,7 +504,7 @@ public class OrcRecordReader
             InputStreamSources dictionaryStreamSources = stripe.getDictionaryStreamSources();
             ColumnMetadata<ColumnEncoding> columnEncodings = stripe.getColumnEncodings();
             ZoneId timeZone = stripe.getTimeZone();
-            for (StreamReader column : streamReaders) {
+            for (ColumnReader column : columnReaders) {
                 if (column != null) {
                     column.startStripe(timeZone, dictionaryStreamSources, columnEncodings);
                 }
@@ -531,9 +531,9 @@ public class OrcRecordReader
             throws IOException
     {
         if (writeChecksumBuilder.isPresent()) {
-            Block[] blocks = new Block[streamReaders.length];
-            for (int columnIndex = 0; columnIndex < streamReaders.length; columnIndex++) {
-                Block block = streamReaders[columnIndex].readBlock();
+            Block[] blocks = new Block[columnReaders.length];
+            for (int columnIndex = 0; columnIndex < columnReaders.length; columnIndex++) {
+                Block block = columnReaders[columnIndex].readBlock();
                 blocks[columnIndex] = block;
                 blockLoaded(columnIndex, block);
             }
@@ -545,25 +545,25 @@ public class OrcRecordReader
         }
     }
 
-    private StreamReader[] createStreamReaders(
+    private ColumnReader[] createColumnReaders(
             List<OrcColumn> columns,
             List<Type> readTypes,
             AggregatedMemoryContext systemMemoryContext,
             OrcBlockFactory blockFactory)
             throws OrcCorruptionException
     {
-        StreamReader[] streamReaders = new StreamReader[columns.size()];
+        ColumnReader[] columnReaders = new ColumnReader[columns.size()];
         for (int i = 0; i < columns.size(); i++) {
             int columnIndex = i;
             Type readType = readTypes.get(columnIndex);
             OrcColumn column = columns.get(columnIndex);
-            streamReaders[columnIndex] = createStreamReader(
+            columnReaders[columnIndex] = createColumnReader(
                     readType,
                     column,
                     systemMemoryContext,
                     blockFactory.createNestedBlockFactory(block -> blockLoaded(columnIndex, block)));
         }
-        return streamReaders;
+        return columnReaders;
     }
 
     /**
@@ -573,7 +573,7 @@ public class OrcRecordReader
     long getStreamReaderRetainedSizeInBytes()
     {
         long totalRetainedSizeInBytes = 0;
-        for (StreamReader column : streamReaders) {
+        for (ColumnReader column : columnReaders) {
             if (column != null) {
                 totalRetainedSizeInBytes += column.getRetainedSizeInBytes();
             }

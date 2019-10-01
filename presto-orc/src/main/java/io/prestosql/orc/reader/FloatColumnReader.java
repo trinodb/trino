@@ -46,10 +46,10 @@ import static io.prestosql.orc.stream.MissingInputStreamSource.missingStreamSour
 import static io.prestosql.spi.type.RealType.REAL;
 import static java.util.Objects.requireNonNull;
 
-public class FloatStreamReader
-        implements StreamReader
+public class FloatColumnReader
+        implements ColumnReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(FloatStreamReader.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(FloatColumnReader.class).instanceSize();
 
     private final OrcColumn column;
 
@@ -71,7 +71,7 @@ public class FloatStreamReader
 
     private final LocalMemoryContext systemMemoryContext;
 
-    public FloatStreamReader(Type type, OrcColumn column, LocalMemoryContext systemMemoryContext)
+    public FloatColumnReader(Type type, OrcColumn column, LocalMemoryContext systemMemoryContext)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");

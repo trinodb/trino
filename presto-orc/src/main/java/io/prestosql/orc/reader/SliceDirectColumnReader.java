@@ -47,17 +47,17 @@ import static io.prestosql.orc.metadata.Stream.StreamKind.LENGTH;
 import static io.prestosql.orc.metadata.Stream.StreamKind.PRESENT;
 import static io.prestosql.orc.reader.ReaderUtils.convertLengthVectorToOffsetVector;
 import static io.prestosql.orc.reader.ReaderUtils.unpackLengthNulls;
-import static io.prestosql.orc.reader.SliceStreamReader.computeTruncatedLength;
+import static io.prestosql.orc.reader.SliceColumnReader.computeTruncatedLength;
 import static io.prestosql.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class SliceDirectStreamReader
-        implements StreamReader
+public class SliceDirectColumnReader
+        implements ColumnReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceDirectStreamReader.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceDirectColumnReader.class).instanceSize();
     private static final int ONE_GIGABYTE = toIntExact(new DataSize(1, GIGABYTE).toBytes());
 
     private final int maxCodePointCount;
@@ -81,7 +81,7 @@ public class SliceDirectStreamReader
 
     private boolean rowGroupOpen;
 
-    public SliceDirectStreamReader(OrcColumn column, int maxCodePointCount, boolean isCharType)
+    public SliceDirectColumnReader(OrcColumn column, int maxCodePointCount, boolean isCharType)
     {
         this.maxCodePointCount = maxCodePointCount;
         this.isCharType = isCharType;
