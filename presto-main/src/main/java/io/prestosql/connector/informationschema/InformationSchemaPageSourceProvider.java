@@ -115,7 +115,7 @@ public class InformationSchemaPageSourceProvider
         return getInformationSchemaTable(session, handle.getCatalogName(), handle.getTable(), prefixes, handle.getLimit());
     }
 
-    public InternalTable getInformationSchemaTable(Session session, String catalog, InformationSchemaTable table, Set<QualifiedTablePrefix> prefixes, OptionalLong limit)
+    private InternalTable getInformationSchemaTable(Session session, String catalog, InformationSchemaTable table, Set<QualifiedTablePrefix> prefixes, OptionalLong limit)
     {
         log.debug("Building information schema table (queryId=%s; catalog=%s; table=%s; prefixes=%s, limit=%s)", session.getQueryId(), catalog, table, prefixes, limit);
 
