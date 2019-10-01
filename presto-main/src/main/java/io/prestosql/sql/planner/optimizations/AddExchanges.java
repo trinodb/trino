@@ -68,6 +68,7 @@ import io.prestosql.sql.planner.plan.TopNNode;
 import io.prestosql.sql.planner.plan.TopNRowNumberNode;
 import io.prestosql.sql.planner.plan.UnionNode;
 import io.prestosql.sql.planner.plan.UnnestNode;
+import io.prestosql.sql.planner.plan.UnnestingNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.planner.plan.WindowNode;
 import io.prestosql.sql.tree.Expression;
@@ -105,9 +106,7 @@ import static io.prestosql.sql.planner.plan.ExchangeNode.mergingExchange;
 import static io.prestosql.sql.planner.plan.ExchangeNode.partitionedExchange;
 import static io.prestosql.sql.planner.plan.ExchangeNode.replicatedExchange;
 import static io.prestosql.sql.planner.plan.ExchangeNode.roundRobinExchange;
-import static io.prestosql.sql.planner.plan.JoinNode.Type.FULL;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
-import static io.prestosql.sql.planner.plan.JoinNode.Type.RIGHT;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
@@ -808,6 +807,17 @@ public class AddExchanges
             boolean onTrue = node.getFilter().map(expression -> expression.equals(TRUE_LITERAL)).orElse(true);
             if (onTrue || node.getJoinType() == INNER) {
                 translatedPreferred = preferredProperties.translate(symbol -> node.getReplicateSymbols().contains(symbol) ? Optional.of(symbol) : Optional.empty());
+            }
+
+            return rebaseAndDeriveProperties(node, planChild(node, translatedPreferred));
+        }
+
+        @Override
+        public PlanWithProperties visitUnnesting(UnnestingNode node, PreferredProperties preferredProperties)
+        {
+            PreferredProperties translatedPreferred = preferredProperties.translate(symbol -> node.getReplicateSymbols().contains(symbol) ? Optional.of(symbol) : Optional.empty());
+            if (!node.isOnTrue() && node.getJoinType() != INNER) {
+                translatedPreferred = PreferredProperties.builder().global(preferredProperties).build();
             }
 
             return rebaseAndDeriveProperties(node, planChild(node, translatedPreferred));

@@ -57,6 +57,7 @@ import io.prestosql.sql.planner.plan.SpatialJoinNode;
 import io.prestosql.sql.planner.plan.TopNRowNumberNode;
 import io.prestosql.sql.planner.plan.UnionNode;
 import io.prestosql.sql.planner.plan.UnnestNode;
+import io.prestosql.sql.planner.plan.UnnestingNode;
 import io.prestosql.sql.planner.plan.WindowNode;
 import io.prestosql.sql.tree.CoalesceExpression;
 import io.prestosql.sql.tree.Expression;
@@ -667,6 +668,40 @@ public class HashGenerationOptimizer
                                 node.getOrdinalitySymbol(),
                                 node.getJoinType(),
                                 node.getFilter()),
+                        hashSymbols);
+            }
+
+            PlanWithProperties child = planAndEnforce(node.getSource(), new HashComputationSet(), true, new HashComputationSet());
+            checkState(child.getHashSymbols().isEmpty());
+            return new PlanWithProperties(
+                    replaceChildren(node, ImmutableList.of(child.getNode())),
+                    ImmutableMap.of());
+        }
+
+        @Override
+        public PlanWithProperties visitUnnesting(UnnestingNode node, HashComputationSet parentPreference)
+        {
+            if (node.isOnTrue() || node.getJoinType() == INNER || node.getJoinType() == LEFT) {
+                PlanWithProperties child = plan(node.getSource(), parentPreference.pruneSymbols(node.getSource().getOutputSymbols()));
+
+                // only pass through hash symbols requested by the parent
+                Map<HashComputation, Symbol> hashSymbols = new HashMap<>(child.getHashSymbols());
+                hashSymbols.keySet().retainAll(parentPreference.getHashes());
+
+                return new PlanWithProperties(
+                        new UnnestingNode(
+                                node.getId(),
+                                child.getNode(),
+                                ImmutableList.<Symbol>builder()
+                                        .addAll(node.getReplicateSymbols())
+                                        .addAll(hashSymbols.values())
+                                        .build(),
+                                node.getUnnestSymbols(),
+                                node.getOrdinalitySymbol(),
+                                node.getRightIdSymbol(),
+                                node.getMarkerSymbol(),
+                                node.getJoinType(),
+                                node.isOnTrue()),
                         hashSymbols);
             }
 

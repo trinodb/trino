@@ -51,6 +51,7 @@ import io.prestosql.sql.planner.plan.SpatialJoinNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.planner.plan.UnionNode;
 import io.prestosql.sql.planner.plan.UnnestNode;
+import io.prestosql.sql.planner.plan.UnnestingNode;
 import io.prestosql.sql.planner.plan.WindowNode;
 import io.prestosql.sql.tree.BooleanLiteral;
 import io.prestosql.sql.tree.ComparisonExpression;
@@ -1349,6 +1350,64 @@ public class PredicatePushDown
             }
             if (!postUnnestConjuncts.isEmpty()) {
                 output = new FilterNode(idAllocator.getNextId(), output, combineConjuncts(metadata, postUnnestConjuncts));
+            }
+            return output;
+        }
+
+        @Override
+        public PlanNode visitUnnesting(UnnestingNode node, RewriteContext<Expression> context)
+        {
+            Expression inheritedPredicate = context.get();
+            if ((node.getJoinType() == RIGHT || node.getJoinType() == FULL) && !node.isOnTrue()) {
+                return new FilterNode(idAllocator.getNextId(), node, inheritedPredicate);
+            }
+
+            EqualityInference equalityInference = EqualityInference.newInstance(metadata, inheritedPredicate);
+
+            List<Expression> pushdownConjuncts = new ArrayList<>();
+            List<Expression> postUnnestingConjuncts = new ArrayList<>();
+
+            // Strip out non-deterministic conjuncts
+            extractConjuncts(inheritedPredicate).stream()
+                    .filter(e -> !isDeterministic(e, metadata))
+                    .forEach(postUnnestingConjuncts::add);
+            inheritedPredicate = filterDeterministicConjuncts(metadata, inheritedPredicate);
+
+            // Sort non-equality predicates by those that can be pushed down and those that cannot
+            Set<Symbol> replicatedSymbols = ImmutableSet.copyOf(node.getReplicateSymbols());
+            for (Expression conjunct : EqualityInference.nonInferrableConjuncts(metadata, inheritedPredicate)) {
+                Expression rewrittenConjunct = equalityInference.rewrite(conjunct, replicatedSymbols);
+                if (rewrittenConjunct != null) {
+                    pushdownConjuncts.add(rewrittenConjunct);
+                }
+                else {
+                    postUnnestingConjuncts.add(conjunct);
+                }
+            }
+
+            // Add the equality predicates back in
+            EqualityInference.EqualityPartition equalityPartition = equalityInference.generateEqualitiesPartitionedBy(replicatedSymbols);
+            pushdownConjuncts.addAll(equalityPartition.getScopeEqualities());
+            postUnnestingConjuncts.addAll(equalityPartition.getScopeComplementEqualities());
+            postUnnestingConjuncts.addAll(equalityPartition.getScopeStraddlingEqualities());
+
+            PlanNode rewrittenSource = context.rewrite(node.getSource(), combineConjuncts(metadata, pushdownConjuncts));
+
+            PlanNode output = node;
+            if (rewrittenSource != node.getSource()) {
+                output = new UnnestingNode(
+                        node.getId(),
+                        rewrittenSource,
+                        node.getReplicateSymbols(),
+                        node.getUnnestSymbols(),
+                        node.getOrdinalitySymbol(),
+                        node.getRightIdSymbol(),
+                        node.getMarkerSymbol(),
+                        node.getJoinType(),
+                        node.isOnTrue());
+            }
+            if (!postUnnestingConjuncts.isEmpty()) {
+                output = new FilterNode(idAllocator.getNextId(), output, combineConjuncts(metadata, postUnnestingConjuncts));
             }
             return output;
         }

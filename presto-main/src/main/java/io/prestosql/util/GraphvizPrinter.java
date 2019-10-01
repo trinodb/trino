@@ -15,6 +15,7 @@ package io.prestosql.util;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import io.prestosql.sql.planner.Partitioning.ArgumentBinding;
@@ -55,6 +56,7 @@ import io.prestosql.sql.planner.plan.TopNNode;
 import io.prestosql.sql.planner.plan.TopNRowNumberNode;
 import io.prestosql.sql.planner.plan.UnionNode;
 import io.prestosql.sql.planner.plan.UnnestNode;
+import io.prestosql.sql.planner.plan.UnnestingNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.planner.plan.WindowNode;
 import io.prestosql.sql.tree.ComparisonExpression;
@@ -404,6 +406,26 @@ public final class GraphvizPrinter
             String details = node.getFilter().isPresent() ? " filter " + node.getFilter().get().toString() : "";
 
             printNode(node, label.toString(), details, NODE_COLORS.get(NodeType.UNNEST));
+            return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Void visitUnnesting(UnnestingNode node, Void context)
+        {
+            StringBuilder label = new StringBuilder().append(node.getJoinType().getJoinLabel())
+                    .append(format(" Unnesting [%s", node.getUnnestSymbols().keySet()))
+                    .append(node.getOrdinalitySymbol().isPresent() ? " (ordinality)]" : "]");
+
+            ImmutableList.Builder<String> details = ImmutableList.builder();
+            if (node.getRightIdSymbol().isPresent()) {
+                details.add("rightId " + node.getRightIdSymbol().get());
+            }
+            if (node.getMarkerSymbol().isPresent()) {
+                details.add("marker " + node.getMarkerSymbol().get());
+            }
+            details.add("onTrue" + node.isOnTrue());
+
+            printNode(node, label.toString(), Joiner.on(", ").join(details.build()), NODE_COLORS.get(NodeType.UNNEST));
             return node.getSource().accept(this, context);
         }
 

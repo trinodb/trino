@@ -93,6 +93,7 @@ import io.prestosql.sql.planner.plan.TopNNode;
 import io.prestosql.sql.planner.plan.TopNRowNumberNode;
 import io.prestosql.sql.planner.plan.UnionNode;
 import io.prestosql.sql.planner.plan.UnnestNode;
+import io.prestosql.sql.planner.plan.UnnestingNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.planner.plan.WindowNode;
 import io.prestosql.sql.planner.planprinter.NodeRepresentation.TypedSymbol;
@@ -867,6 +868,23 @@ public class PlanPrinter
                     name,
                     format("[replicate=%s, unnest=%s", formatOutputs(types, node.getReplicateSymbols()), formatOutputs(types, node.getUnnestSymbols().keySet()))
                             + (node.getFilter().isPresent() ? format(", filter=%s]", node.getFilter().get().toString()) : "]"));
+            return processChildren(node, context);
+        }
+
+        @Override
+        public Void visitUnnesting(UnnestingNode node, Void context)
+        {
+            ImmutableList.Builder<String> identifiers = ImmutableList.builder();
+            identifiers.add(format("replicate=%s", formatOutputs(types, node.getReplicateSymbols())));
+            identifiers.add(format("unnest=%s", formatOutputs(types, node.getUnnestSymbols().keySet())));
+            node.getOrdinalitySymbol().ifPresent(ordinalitySymbol -> identifiers.add("ordinality=" + ordinalitySymbol));
+            node.getRightIdSymbol().ifPresent(rightIdSymbol -> identifiers.add("rightId=" + rightIdSymbol));
+            node.getMarkerSymbol().ifPresent(markerSymbol -> identifiers.add("marker=" + markerSymbol));
+            identifiers.add("onTrue=" + node.isOnTrue());
+            addNode(
+                    node,
+                    node.getJoinType().getJoinLabel() + " Unnesting",
+                    identifiers.build().stream().collect(Collectors.joining(", ", "[", "]")));
             return processChildren(node, context);
         }
 

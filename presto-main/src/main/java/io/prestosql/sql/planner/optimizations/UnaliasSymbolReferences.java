@@ -71,6 +71,7 @@ import io.prestosql.sql.planner.plan.TopNNode;
 import io.prestosql.sql.planner.plan.TopNRowNumberNode;
 import io.prestosql.sql.planner.plan.UnionNode;
 import io.prestosql.sql.planner.plan.UnnestNode;
+import io.prestosql.sql.planner.plan.UnnestingNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.planner.plan.WindowNode;
 import io.prestosql.sql.tree.Expression;
@@ -201,6 +202,26 @@ public class UnaliasSymbolReferences
                     node.getOrdinalitySymbol(),
                     node.getJoinType(),
                     node.getFilter().map(this::canonicalize));
+        }
+
+        @Override
+        public PlanNode visitUnnesting(UnnestingNode node, RewriteContext<Void> context)
+        {
+            PlanNode source = context.rewrite(node.getSource());
+            ImmutableMap.Builder<Symbol, List<Symbol>> builder = ImmutableMap.builder();
+            for (Map.Entry<Symbol, List<Symbol>> entry : node.getUnnestSymbols().entrySet()) {
+                builder.put(canonicalize(entry.getKey()), entry.getValue());
+            }
+            return new UnnestingNode(
+                    node.getId(),
+                    source,
+                    canonicalizeAndDistinct(node.getReplicateSymbols()),
+                    builder.build(),
+                    node.getOrdinalitySymbol(),
+                    node.getRightIdSymbol(),
+                    node.getMarkerSymbol(),
+                    node.getJoinType(),
+                    node.isOnTrue());
         }
 
         @Override

@@ -68,6 +68,7 @@ import io.prestosql.sql.planner.plan.TopNNode;
 import io.prestosql.sql.planner.plan.TopNRowNumberNode;
 import io.prestosql.sql.planner.plan.UnionNode;
 import io.prestosql.sql.planner.plan.UnnestNode;
+import io.prestosql.sql.planner.plan.UnnestingNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.planner.plan.WindowNode;
 import io.prestosql.sql.tree.Expression;
@@ -533,6 +534,34 @@ public class PruneUnreferencedOutputs
 
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
             return new UnnestNode(node.getId(), source, replicateSymbols, unnestSymbols, ordinalitySymbol, node.getJoinType(), node.getFilter());
+        }
+
+        @Override
+        public PlanNode visitUnnesting(UnnestingNode node, RewriteContext<Set<Symbol>> context)
+        {
+            List<Symbol> replicateSymbols = node.getReplicateSymbols().stream()
+                    .filter(context.get()::contains)
+                    .collect(toImmutableList());
+
+            Optional<Symbol> ordinalitySymbol = node.getOrdinalitySymbol();
+            if (ordinalitySymbol.isPresent() && !context.get().contains(ordinalitySymbol.get())) {
+                ordinalitySymbol = Optional.empty();
+            }
+            Optional<Symbol> rightIdSymbol = node.getRightIdSymbol();
+            if (rightIdSymbol.isPresent() && !context.get().contains(rightIdSymbol.get())) {
+                rightIdSymbol = Optional.empty();
+            }
+            Optional<Symbol> markerSymbol = node.getMarkerSymbol();
+            if (markerSymbol.isPresent() && !context.get().contains(markerSymbol.get())) {
+                markerSymbol = Optional.empty();
+            }
+            Map<Symbol, List<Symbol>> unnestSymbols = node.getUnnestSymbols();
+            ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
+                    .addAll(replicateSymbols)
+                    .addAll(unnestSymbols.keySet());
+
+            PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
+            return new UnnestingNode(node.getId(), source, replicateSymbols, unnestSymbols, ordinalitySymbol, rightIdSymbol, markerSymbol, node.getJoinType(), node.isOnTrue());
         }
 
         @Override

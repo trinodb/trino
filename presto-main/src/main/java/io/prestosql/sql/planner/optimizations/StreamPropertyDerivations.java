@@ -61,6 +61,7 @@ import io.prestosql.sql.planner.plan.TopNNode;
 import io.prestosql.sql.planner.plan.TopNRowNumberNode;
 import io.prestosql.sql.planner.plan.UnionNode;
 import io.prestosql.sql.planner.plan.UnnestNode;
+import io.prestosql.sql.planner.plan.UnnestingNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.planner.plan.WindowNode;
 import io.prestosql.sql.tree.Expression;
@@ -440,6 +441,35 @@ public final class StreamPropertyDerivations
                 });
             }
             return StreamProperties.singleStream();
+        }
+
+        @Override
+        public StreamProperties visitUnnesting(UnnestingNode node, List<StreamProperties> inputProperties)
+        {
+            StreamProperties properties = Iterables.getOnlyElement(inputProperties);
+
+            // We can describe properties in terms of inputs that are projected unmodified (i.e., not the unnested symbols)
+            Set<Symbol> passThroughInputs = ImmutableSet.copyOf(node.getReplicateSymbols());
+            StreamProperties translatedProperties = properties.translate(column -> {
+                if (passThroughInputs.contains(column)) {
+                    return Optional.of(column);
+                }
+                return Optional.empty();
+            });
+
+            switch (node.getJoinType()) {
+                case INNER:
+                case LEFT:
+                    return translatedProperties;
+                case RIGHT:
+                case FULL:
+                    if (node.isOnTrue()) {
+                        return translatedProperties;
+                    }
+                    return translatedProperties.unordered(true);
+                default:
+                    throw new UnsupportedOperationException("Unknown UNNESTING join type: " + node.getJoinType());
+            }
         }
 
         @Override

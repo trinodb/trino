@@ -72,6 +72,7 @@ import io.prestosql.sql.planner.plan.TableWriterNode;
 import io.prestosql.sql.planner.plan.TopNNode;
 import io.prestosql.sql.planner.plan.TopNRowNumberNode;
 import io.prestosql.sql.planner.plan.UnnestNode;
+import io.prestosql.sql.planner.plan.UnnestingNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.planner.plan.WindowNode;
 import io.prestosql.sql.tree.CoalesceExpression;
@@ -696,6 +697,35 @@ public final class PropertyDerivations
 
             return ActualProperties.builder()
                     .build();
+        }
+
+        @Override
+        public ActualProperties visitUnnesting(UnnestingNode node, List<ActualProperties> inputProperties)
+        {
+            Set<Symbol> passThroughInputs = ImmutableSet.copyOf(node.getReplicateSymbols());
+
+            ActualProperties translatedProperties = Iterables.getOnlyElement(inputProperties).translate(column -> {
+                if (passThroughInputs.contains(column)) {
+                    return Optional.of(column);
+                }
+                return Optional.empty();
+            });
+
+            switch (node.getJoinType()) {
+                case INNER:
+                case LEFT:
+                    return translatedProperties;
+                case RIGHT:
+                case FULL:
+                    if (node.isOnTrue()) {
+                        return translatedProperties;
+                    }
+                    return ActualProperties.builderFrom(translatedProperties)
+                            .local(ImmutableList.of())
+                            .build();
+                default:
+                    throw new UnsupportedOperationException("Unknown UNNESTING join type: " + node.getJoinType());
+            }
         }
 
         @Override
