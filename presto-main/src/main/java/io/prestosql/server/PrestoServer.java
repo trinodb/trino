@@ -110,7 +110,8 @@ public class PrestoServer
                 new EventListenerModule(),
                 new ServerMainModule(sqlParserOptions),
                 new GracefulShutdownModule(),
-                new WarningCollectorModule());
+                new WarningCollectorModule(),
+                new RemoteDebugModule());
 
         modules.addAll(getAdditionalModules());
 
