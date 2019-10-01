@@ -31,6 +31,8 @@ matrix:
     - env: PRODUCT_TESTS_SUITE=suite-3
     - env: PRODUCT_TESTS_SUITE=suite-4
     - env: PRODUCT_TESTS_SUITE=suite-5
+    - env: PRODUCT_TESTS_SUITE=suite-6-non-generic
+    - env: PRODUCT_TESTS_SUITE=suite-7-non-generic
     - env: HIVE_TESTS=true
     - env: KUDU_TESTS=true
 
