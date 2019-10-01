@@ -117,7 +117,7 @@ public class BenchmarkOrcDecimalReader
             OrcDataSource dataSource = new FileOrcDataSource(dataPath, READER_OPTIONS);
             OrcReader orcReader = new OrcReader(dataSource, READER_OPTIONS);
             return orcReader.createRecordReader(
-                    orcReader.getRootColumn().getNestedStreams(),
+                    orcReader.getRootColumn().getNestedColumns(),
                     ImmutableList.of(DECIMAL_TYPE),
                     OrcPredicate.TRUE,
                     DateTimeZone.UTC, // arbitrary

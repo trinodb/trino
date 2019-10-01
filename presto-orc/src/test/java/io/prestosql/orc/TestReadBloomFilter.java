@@ -136,7 +136,7 @@ public class TestReadBloomFilter
         assertEquals(orcReader.getFooter().getRowsInRowGroup(), 10_000);
 
         return orcReader.createRecordReader(
-                orcReader.getRootColumn().getNestedStreams(),
+                orcReader.getRootColumn().getNestedColumns(),
                 ImmutableList.of(type),
                 predicate,
                 HIVE_STORAGE_TIME_ZONE,

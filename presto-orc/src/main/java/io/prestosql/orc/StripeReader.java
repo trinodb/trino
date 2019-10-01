@@ -92,7 +92,7 @@ public class StripeReader
             ZoneId defaultTimeZone,
             Optional<OrcDecompressor> decompressor,
             ColumnMetadata<OrcType> types,
-            Set<StreamDescriptor> readColumns,
+            Set<OrcColumn> readColumns,
             int rowsInRowGroup,
             OrcPredicate predicate,
             HiveWriterVersion hiveWriterVersion,
@@ -494,18 +494,18 @@ public class StripeReader
         return streamDiskRanges.build();
     }
 
-    private static Set<OrcColumnId> getIncludeColumns(Set<StreamDescriptor> includedColumns)
+    private static Set<OrcColumnId> getIncludeColumns(Set<OrcColumn> includedColumns)
     {
         Set<OrcColumnId> result = new LinkedHashSet<>();
         includeColumnsRecursive(result, includedColumns);
         return result;
     }
 
-    private static void includeColumnsRecursive(Set<OrcColumnId> result, Collection<StreamDescriptor> readColumns)
+    private static void includeColumnsRecursive(Set<OrcColumnId> result, Collection<OrcColumn> readColumns)
     {
-        for (StreamDescriptor column : readColumns) {
+        for (OrcColumn column : readColumns) {
             result.add(column.getColumnId());
-            includeColumnsRecursive(result, column.getNestedStreams());
+            includeColumnsRecursive(result, column.getNestedColumns());
         }
     }
 

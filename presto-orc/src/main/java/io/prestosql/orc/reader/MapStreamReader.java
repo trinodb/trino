@@ -16,8 +16,8 @@ package io.prestosql.orc.reader;
 import com.google.common.io.Closer;
 import io.prestosql.memory.context.AggregatedMemoryContext;
 import io.prestosql.orc.OrcBlockFactory.NestedBlockFactory;
+import io.prestosql.orc.OrcColumn;
 import io.prestosql.orc.OrcCorruptionException;
-import io.prestosql.orc.StreamDescriptor;
 import io.prestosql.orc.metadata.ColumnEncoding;
 import io.prestosql.orc.metadata.ColumnMetadata;
 import io.prestosql.orc.stream.BooleanInputStream;
@@ -55,7 +55,7 @@ public class MapStreamReader
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapStreamReader.class).instanceSize();
 
     private final MapType type;
-    private final StreamDescriptor streamDescriptor;
+    private final OrcColumn column;
     private final NestedBlockFactory blockFactory;
 
     private final StreamReader keyStreamReader;
@@ -76,17 +76,17 @@ public class MapStreamReader
 
     private boolean rowGroupOpen;
 
-    public MapStreamReader(Type type, StreamDescriptor streamDescriptor, AggregatedMemoryContext systemMemoryContext, NestedBlockFactory blockFactory)
+    public MapStreamReader(Type type, OrcColumn column, AggregatedMemoryContext systemMemoryContext, NestedBlockFactory blockFactory)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
-        verifyStreamType(streamDescriptor, type, MapType.class::isInstance);
+        verifyStreamType(column, type, MapType.class::isInstance);
         this.type = (MapType) type;
 
-        this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
+        this.column = requireNonNull(column, "column is null");
         this.blockFactory = requireNonNull(blockFactory, "blockFactory is null");
-        this.keyStreamReader = createStreamReader(this.type.getKeyType(), streamDescriptor.getNestedStreams().get(0), systemMemoryContext, blockFactory);
-        this.valueStreamReader = createStreamReader(this.type.getValueType(), streamDescriptor.getNestedStreams().get(1), systemMemoryContext, blockFactory);
+        this.keyStreamReader = createStreamReader(this.type.getKeyType(), column.getNestedColumns().get(0), systemMemoryContext, blockFactory);
+        this.valueStreamReader = createStreamReader(this.type.getValueType(), column.getNestedColumns().get(1), systemMemoryContext, blockFactory);
     }
 
     @Override
@@ -112,7 +112,7 @@ public class MapStreamReader
             }
             if (readOffset > 0) {
                 if (lengthStream == null) {
-                    throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
+                    throw new OrcCorruptionException(column.getOrcDataSourceId(), "Value is not null but data stream is not present");
                 }
                 long entrySkipSize = lengthStream.sum(readOffset);
                 keyStreamReader.prepareNextRead(toIntExact(entrySkipSize));
@@ -127,7 +127,7 @@ public class MapStreamReader
 
         if (presentStream == null) {
             if (lengthStream == null) {
-                throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
+                throw new OrcCorruptionException(column.getOrcDataSourceId(), "Value is not null but data stream is not present");
             }
             lengthStream.next(offsetVector, nextBatchSize);
         }
@@ -136,7 +136,7 @@ public class MapStreamReader
             int nullValues = presentStream.getUnsetBits(nextBatchSize, nullVector);
             if (nullValues != nextBatchSize) {
                 if (lengthStream == null) {
-                    throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
+                    throw new OrcCorruptionException(column.getOrcDataSourceId(), "Value is not null but data stream is not present");
                 }
                 lengthStream.next(offsetVector, nextBatchSize - nullValues);
                 unpackLengthNulls(offsetVector, nullVector, nextBatchSize - nullValues);
@@ -246,8 +246,8 @@ public class MapStreamReader
     public void startRowGroup(InputStreamSources dataStreamSources)
             throws IOException
     {
-        presentStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, PRESENT, BooleanInputStream.class);
-        lengthStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, LENGTH, LongInputStream.class);
+        presentStreamSource = dataStreamSources.getInputStreamSource(column, PRESENT, BooleanInputStream.class);
+        lengthStreamSource = dataStreamSources.getInputStreamSource(column, LENGTH, LongInputStream.class);
 
         readOffset = 0;
         nextBatchSize = 0;
@@ -265,7 +265,7 @@ public class MapStreamReader
     public String toString()
     {
         return toStringHelper(this)
-                .addValue(streamDescriptor)
+                .addValue(column)
                 .toString();
     }
 

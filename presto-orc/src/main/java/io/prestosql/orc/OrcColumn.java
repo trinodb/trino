@@ -22,34 +22,34 @@ import java.util.List;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public final class StreamDescriptor
+public final class OrcColumn
 {
-    private final String streamName;
+    private final String path;
     private final OrcColumnId columnId;
-    private final OrcTypeKind streamType;
-    private final String fieldName;
+    private final OrcTypeKind columnType;
+    private final String columnName;
     private final OrcDataSourceId orcDataSourceId;
-    private final List<StreamDescriptor> nestedStreams;
+    private final List<OrcColumn> nestedColumns;
 
-    public StreamDescriptor(
-            String streamName,
+    public OrcColumn(
+            String path,
             OrcColumnId columnId,
-            String fieldName,
-            OrcTypeKind streamType,
+            String columnName,
+            OrcTypeKind columnType,
             OrcDataSourceId orcDataSourceId,
-            List<StreamDescriptor> nestedStreams)
+            List<OrcColumn> nestedColumns)
     {
-        this.streamName = requireNonNull(streamName, "streamName is null");
-        this.columnId = columnId;
-        this.fieldName = requireNonNull(fieldName, "fieldName is null");
-        this.streamType = requireNonNull(streamType, "type is null");
+        this.path = requireNonNull(path, "path is null");
+        this.columnId = requireNonNull(columnId, "columnId is null");
+        this.columnName = requireNonNull(columnName, "columnName is null");
+        this.columnType = requireNonNull(columnType, "columnType is null");
         this.orcDataSourceId = requireNonNull(orcDataSourceId, "orcDataSourceId is null");
-        this.nestedStreams = ImmutableList.copyOf(requireNonNull(nestedStreams, "nestedStreams is null"));
+        this.nestedColumns = ImmutableList.copyOf(requireNonNull(nestedColumns, "nestedColumns is null"));
     }
 
-    public String getStreamName()
+    public String getPath()
     {
-        return streamName;
+        return path;
     }
 
     public OrcColumnId getColumnId()
@@ -57,14 +57,14 @@ public final class StreamDescriptor
         return columnId;
     }
 
-    public OrcTypeKind getStreamType()
+    public OrcTypeKind getColumnType()
     {
-        return streamType;
+        return columnType;
     }
 
-    public String getFieldName()
+    public String getColumnName()
     {
-        return fieldName;
+        return columnName;
     }
 
     public OrcDataSourceId getOrcDataSourceId()
@@ -72,18 +72,18 @@ public final class StreamDescriptor
         return orcDataSourceId;
     }
 
-    public List<StreamDescriptor> getNestedStreams()
+    public List<OrcColumn> getNestedColumns()
     {
-        return nestedStreams;
+        return nestedColumns;
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("streamName", streamName)
-                .add("streamId", columnId)
-                .add("streamType", streamType)
+                .add("path", path)
+                .add("columnId", columnId)
+                .add("streamType", columnType)
                 .add("dataSource", orcDataSourceId)
                 .toString();
     }

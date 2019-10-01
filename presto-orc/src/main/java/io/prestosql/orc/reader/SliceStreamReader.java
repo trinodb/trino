@@ -16,8 +16,8 @@ package io.prestosql.orc.reader;
 import com.google.common.io.Closer;
 import io.airlift.slice.Slice;
 import io.prestosql.memory.context.AggregatedMemoryContext;
+import io.prestosql.orc.OrcColumn;
 import io.prestosql.orc.OrcCorruptionException;
-import io.prestosql.orc.StreamDescriptor;
 import io.prestosql.orc.metadata.ColumnEncoding;
 import io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import io.prestosql.orc.metadata.ColumnMetadata;
@@ -51,23 +51,23 @@ public class SliceStreamReader
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceStreamReader.class).instanceSize();
 
-    private final StreamDescriptor streamDescriptor;
+    private final OrcColumn column;
     private final SliceDirectStreamReader directReader;
     private final SliceDictionaryStreamReader dictionaryReader;
     private StreamReader currentReader;
 
-    public SliceStreamReader(Type type, StreamDescriptor streamDescriptor, AggregatedMemoryContext systemMemoryContext)
+    public SliceStreamReader(Type type, OrcColumn column, AggregatedMemoryContext systemMemoryContext)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
-        verifyStreamType(streamDescriptor, type, t -> t instanceof VarcharType || t instanceof CharType || t instanceof VarbinaryType);
+        verifyStreamType(column, type, t -> t instanceof VarcharType || t instanceof CharType || t instanceof VarbinaryType);
 
-        this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
+        this.column = requireNonNull(column, "column is null");
 
         int maxCodePointCount = getMaxCodePointCount(type);
         boolean charType = isCharType(type);
-        directReader = new SliceDirectStreamReader(streamDescriptor, maxCodePointCount, charType);
-        dictionaryReader = new SliceDictionaryStreamReader(streamDescriptor, systemMemoryContext.newLocalMemoryContext(SliceStreamReader.class.getSimpleName()), maxCodePointCount, charType);
+        directReader = new SliceDirectStreamReader(column, maxCodePointCount, charType);
+        dictionaryReader = new SliceDictionaryStreamReader(column, systemMemoryContext.newLocalMemoryContext(SliceStreamReader.class.getSimpleName()), maxCodePointCount, charType);
     }
 
     @Override
@@ -87,7 +87,7 @@ public class SliceStreamReader
     public void startStripe(ZoneId timeZone, InputStreamSources dictionaryStreamSources, ColumnMetadata<ColumnEncoding> encoding)
             throws IOException
     {
-        ColumnEncodingKind columnEncodingKind = encoding.get(streamDescriptor.getColumnId()).getColumnEncodingKind();
+        ColumnEncodingKind columnEncodingKind = encoding.get(column.getColumnId()).getColumnEncodingKind();
         if (columnEncodingKind == DIRECT || columnEncodingKind == DIRECT_V2) {
             currentReader = directReader;
         }
@@ -112,7 +112,7 @@ public class SliceStreamReader
     public String toString()
     {
         return toStringHelper(this)
-                .addValue(streamDescriptor)
+                .addValue(column)
                 .toString();
     }
 

@@ -16,8 +16,8 @@ package io.prestosql.orc.reader;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.prestosql.memory.context.LocalMemoryContext;
+import io.prestosql.orc.OrcColumn;
 import io.prestosql.orc.OrcCorruptionException;
-import io.prestosql.orc.StreamDescriptor;
 import io.prestosql.orc.metadata.ColumnEncoding;
 import io.prestosql.orc.metadata.ColumnMetadata;
 import io.prestosql.orc.stream.BooleanInputStream;
@@ -61,7 +61,7 @@ public class DecimalStreamReader
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(DecimalStreamReader.class).instanceSize();
 
     private final DecimalType type;
-    private final StreamDescriptor streamDescriptor;
+    private final OrcColumn column;
 
     private int readOffset;
     private int nextBatchSize;
@@ -87,14 +87,14 @@ public class DecimalStreamReader
 
     private final LocalMemoryContext systemMemoryContext;
 
-    public DecimalStreamReader(Type type, StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
+    public DecimalStreamReader(Type type, OrcColumn column, LocalMemoryContext systemMemoryContext)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
-        verifyStreamType(streamDescriptor, type, DecimalType.class::isInstance);
+        verifyStreamType(column, type, DecimalType.class::isInstance);
         this.type = (DecimalType) type;
 
-        this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
+        this.column = requireNonNull(column, "column is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
     }
 
@@ -118,7 +118,7 @@ public class DecimalStreamReader
         Block block;
         if (decimalStream == null && scaleStream == null) {
             if (presentStream == null) {
-                throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is null but present stream is missing");
+                throw new OrcCorruptionException(column.getOrcDataSourceId(), "Value is null but present stream is missing");
             }
             presentStream.skip(nextBatchSize);
             block = RunLengthEncodedBlock.create(type, null, nextBatchSize);
@@ -152,10 +152,10 @@ public class DecimalStreamReader
             throws OrcCorruptionException
     {
         if (decimalStream == null) {
-            throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but decimal stream is missing");
+            throw new OrcCorruptionException(column.getOrcDataSourceId(), "Value is not null but decimal stream is missing");
         }
         if (scaleStream == null) {
-            throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but scale stream is missing");
+            throw new OrcCorruptionException(column.getOrcDataSourceId(), "Value is not null but scale stream is missing");
         }
     }
 
@@ -325,9 +325,9 @@ public class DecimalStreamReader
     @Override
     public void startRowGroup(InputStreamSources dataStreamSources)
     {
-        presentStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, PRESENT, BooleanInputStream.class);
-        decimalStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, DATA, DecimalInputStream.class);
-        scaleStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, SECONDARY, LongInputStream.class);
+        presentStreamSource = dataStreamSources.getInputStreamSource(column, PRESENT, BooleanInputStream.class);
+        decimalStreamSource = dataStreamSources.getInputStreamSource(column, DATA, DecimalInputStream.class);
+        scaleStreamSource = dataStreamSources.getInputStreamSource(column, SECONDARY, LongInputStream.class);
 
         readOffset = 0;
         nextBatchSize = 0;
@@ -343,7 +343,7 @@ public class DecimalStreamReader
     public String toString()
     {
         return toStringHelper(this)
-                .addValue(streamDescriptor)
+                .addValue(column)
                 .toString();
     }
 

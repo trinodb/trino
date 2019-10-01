@@ -16,8 +16,8 @@ package io.prestosql.orc.reader;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
+import io.prestosql.orc.OrcColumn;
 import io.prestosql.orc.OrcCorruptionException;
-import io.prestosql.orc.StreamDescriptor;
 import io.prestosql.orc.metadata.ColumnEncoding;
 import io.prestosql.orc.metadata.ColumnMetadata;
 import io.prestosql.orc.stream.BooleanInputStream;
@@ -62,7 +62,7 @@ public class SliceDirectStreamReader
 
     private final int maxCodePointCount;
     private final boolean isCharType;
-    private final StreamDescriptor streamDescriptor;
+    private final OrcColumn column;
 
     private int readOffset;
     private int nextBatchSize;
@@ -81,12 +81,12 @@ public class SliceDirectStreamReader
 
     private boolean rowGroupOpen;
 
-    public SliceDirectStreamReader(StreamDescriptor streamDescriptor, int maxCodePointCount, boolean isCharType)
+    public SliceDirectStreamReader(OrcColumn column, int maxCodePointCount, boolean isCharType)
     {
         this.maxCodePointCount = maxCodePointCount;
         this.isCharType = isCharType;
 
-        this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
+        this.column = requireNonNull(column, "column is null");
     }
 
     @Override
@@ -112,12 +112,12 @@ public class SliceDirectStreamReader
             }
             if (readOffset > 0) {
                 if (lengthStream == null) {
-                    throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but length stream is missing");
+                    throw new OrcCorruptionException(column.getOrcDataSourceId(), "Value is not null but length stream is missing");
                 }
                 long dataSkipSize = lengthStream.sum(readOffset);
                 if (dataSkipSize > 0) {
                     if (dataStream == null) {
-                        throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is missing");
+                        throw new OrcCorruptionException(column.getOrcDataSourceId(), "Value is not null but data stream is missing");
                     }
                     dataStream.skip(dataSkipSize);
                 }
@@ -126,7 +126,7 @@ public class SliceDirectStreamReader
 
         if (lengthStream == null) {
             if (presentStream == null) {
-                throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is null but present stream is missing");
+                throw new OrcCorruptionException(column.getOrcDataSourceId(), "Value is null but present stream is missing");
             }
             presentStream.skip(nextBatchSize);
             Block nullValueBlock = readAllNullsBlock();
@@ -157,7 +157,7 @@ public class SliceDirectStreamReader
             }
 
             if (lengthStream == null) {
-                throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but length stream is missing");
+                throw new OrcCorruptionException(column.getOrcDataSourceId(), "Value is not null but length stream is missing");
             }
             if (nullCount == 0) {
                 isNullVector = null;
@@ -183,10 +183,10 @@ public class SliceDirectStreamReader
         }
         if (totalLength > ONE_GIGABYTE) {
             throw new PrestoException(GENERIC_INTERNAL_ERROR,
-                    format("Values in column \"%s\" are too large to process for Presto. %s column values are larger than 1GB [%s]", streamDescriptor.getFieldName(), nextBatchSize, streamDescriptor.getOrcDataSourceId()));
+                    format("Values in column \"%s\" are too large to process for Presto. %s column values are larger than 1GB [%s]", column.getPath(), nextBatchSize, column.getOrcDataSourceId()));
         }
         if (dataStream == null) {
-            throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is missing");
+            throw new OrcCorruptionException(column.getOrcDataSourceId(), "Value is not null but data stream is missing");
         }
 
         // allocate enough space to read
@@ -265,9 +265,9 @@ public class SliceDirectStreamReader
     @Override
     public void startRowGroup(InputStreamSources dataStreamSources)
     {
-        presentStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, PRESENT, BooleanInputStream.class);
-        lengthStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, LENGTH, LongInputStream.class);
-        dataByteSource = dataStreamSources.getInputStreamSource(streamDescriptor, DATA, ByteArrayInputStream.class);
+        presentStreamSource = dataStreamSources.getInputStreamSource(column, PRESENT, BooleanInputStream.class);
+        lengthStreamSource = dataStreamSources.getInputStreamSource(column, LENGTH, LongInputStream.class);
+        dataByteSource = dataStreamSources.getInputStreamSource(column, DATA, ByteArrayInputStream.class);
 
         readOffset = 0;
         nextBatchSize = 0;
@@ -283,7 +283,7 @@ public class SliceDirectStreamReader
     public String toString()
     {
         return toStringHelper(this)
-                .addValue(streamDescriptor)
+                .addValue(column)
                 .toString();
     }
 

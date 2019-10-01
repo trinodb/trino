@@ -13,8 +13,8 @@
  */
 package io.prestosql.orc.reader;
 
+import io.prestosql.orc.OrcColumn;
 import io.prestosql.orc.OrcCorruptionException;
-import io.prestosql.orc.StreamDescriptor;
 import io.prestosql.spi.type.Type;
 
 import java.util.function.Predicate;
@@ -25,7 +25,7 @@ final class ReaderUtils
 {
     private ReaderUtils() {}
 
-    public static void verifyStreamType(StreamDescriptor streamDescriptor, Type actual, Predicate<Type> validTypes)
+    public static void verifyStreamType(OrcColumn column, Type actual, Predicate<Type> validTypes)
             throws OrcCorruptionException
     {
         if (validTypes.test(actual)) {
@@ -33,11 +33,11 @@ final class ReaderUtils
         }
 
         throw new OrcCorruptionException(
-                streamDescriptor.getOrcDataSourceId(),
+                column.getOrcDataSourceId(),
                 "Can not read SQL type %s from ORC stream %s of type %s",
                 actual,
-                streamDescriptor.getStreamName(),
-                streamDescriptor.getStreamType());
+                column.getPath(),
+                column.getColumnType());
     }
 
     public static int minNonNullValueSize(int nonNullCount)

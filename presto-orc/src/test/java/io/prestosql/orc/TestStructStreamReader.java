@@ -263,7 +263,7 @@ public class TestStructStreamReader
         OrcReader orcReader = new OrcReader(orcDataSource, READER_OPTIONS);
 
         OrcRecordReader recordReader = orcReader.createRecordReader(
-                orcReader.getRootColumn().getNestedStreams(),
+                orcReader.getRootColumn().getNestedColumns(),
                 ImmutableList.of(readerType),
                 OrcPredicate.TRUE,
                 UTC,
