@@ -15,6 +15,7 @@ package io.prestosql.connector.informationschema;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
+import io.prestosql.metadata.NameCanonicalizer;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
@@ -127,9 +128,9 @@ public enum InformationSchemaTable
         throw new PrestoException(INVALID_ARGUMENTS, "Invalid table name");
     }
 
-    public static Optional<InformationSchemaTable> of(SchemaTableName schemaTableName)
+    public static Optional<InformationSchemaTable> of(SchemaTableName schemaTableName, NameCanonicalizer nameCanonicalizer)
     {
-        if (!schemaTableName.getSchemaName().equals(INFORMATION_SCHEMA)) {
+        if (!schemaTableName.getSchemaName().equals(nameCanonicalizer.canonicalizeName(INFORMATION_SCHEMA, false))) {
             return Optional.empty();
         }
         try {

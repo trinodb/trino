@@ -108,7 +108,8 @@ public class CatalogMetadata
 
     public CatalogName getConnectorId(Session session, QualifiedObjectName table)
     {
-        if (table.getSchemaName().equals(INFORMATION_SCHEMA_NAME)) {
+        String normalizedInformationSchemaName = metadata.canonicalize(session.toConnectorSession(catalogName), INFORMATION_SCHEMA_NAME, false);
+        if (table.getSchemaName().equals(normalizedInformationSchemaName)) {
             return informationSchemaId;
         }
 

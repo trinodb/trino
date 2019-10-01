@@ -92,17 +92,15 @@ public class InformationSchemaMetadata
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
-        return ImmutableList.of(INFORMATION_SCHEMA);
+        return ImmutableList.of(canonicalize(session, INFORMATION_SCHEMA, false));
     }
 
     @Override
     public ConnectorTableHandle getTableHandle(ConnectorSession connectorSession, SchemaTableName tableName)
     {
-        Optional<InformationSchemaTable> informationSchemaTable = InformationSchemaTable.of(tableName);
-        if (informationSchemaTable.isPresent()) {
-            return new InformationSchemaTableHandle(catalogName, informationSchemaTable.get(), defaultPrefixes(), OptionalLong.empty());
-        }
-        return null;
+        Session session = ((FullConnectorSession) connectorSession).getSession();
+        Optional<InformationSchemaTable> informationSchemaTable = InformationSchemaTable.of(tableName, metadata.getNameCanonicalizer(session, catalogName));
+        return informationSchemaTable.map(schemaTable -> new InformationSchemaTableHandle(catalogName, schemaTable, defaultPrefixes(), OptionalLong.empty())).orElse(null);
     }
 
     @Override
@@ -247,7 +245,6 @@ public class InformationSchemaMetadata
         Optional<Set<String>> schemas = filterString(constraint, SCHEMA_COLUMN_HANDLE);
         if (schemas.isPresent()) {
             return schemas.get().stream()
-                    .filter(this::isLowerCase)
                     .filter(schema -> !predicate.isPresent() || predicate.get().test(schemaAsFixedValues(schema)))
                     .map(schema -> new QualifiedTablePrefix(catalogName, schema))
                     .collect(toImmutableSet());
@@ -371,5 +368,11 @@ public class InformationSchemaMetadata
     private boolean isLowerCase(String value)
     {
         return value.toLowerCase(ENGLISH).equals(value);
+    }
+
+    @Override
+    public String canonicalize(ConnectorSession session, String identifier, boolean delimited)
+    {
+        return metadata.getNameCanonicalizer(((FullConnectorSession) session).getSession(), catalogName).canonicalizeName(identifier, delimited);
     }
 }
