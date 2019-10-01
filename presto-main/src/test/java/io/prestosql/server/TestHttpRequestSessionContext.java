@@ -78,7 +78,7 @@ public class TestHttpRequestSessionContext
         assertEquals(context.getCatalog(), "testCatalog");
         assertEquals(context.getSchema(), "testSchema");
         assertEquals(context.getPath(), "testPath");
-        assertEquals(context.getIdentity(), new Identity("testUser", Optional.empty()));
+        assertEquals(context.getIdentity(), Identity.ofUser("testUser"));
         assertEquals(context.getClientInfo(), "client-info");
         assertEquals(context.getLanguage(), "zh-TW");
         assertEquals(context.getTimeZoneId(), "Asia/Taipei");

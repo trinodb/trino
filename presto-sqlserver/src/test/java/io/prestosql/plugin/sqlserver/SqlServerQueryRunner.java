@@ -28,7 +28,6 @@ import io.prestosql.tests.DistributedQueryRunner;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -96,7 +95,7 @@ public final class SqlServerQueryRunner
         return testSessionBuilder()
                 .setCatalog(CATALOG)
                 .setSchema(TEST_SCHEMA)
-                .setIdentity(new Identity(TestingSqlServer.USER, Optional.empty()))
+                .setIdentity(Identity.ofUser(TestingSqlServer.USER))
                 .build();
     }
 

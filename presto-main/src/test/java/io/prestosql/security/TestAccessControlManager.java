@@ -85,7 +85,7 @@ public class TestAccessControlManager
     @Test
     public void testReadOnlySystemAccessControl()
     {
-        Identity identity = new Identity(USER_NAME, Optional.of(PRINCIPAL));
+        Identity identity = Identity.forUser(USER_NAME).withPrincipal(PRINCIPAL).build();
         QualifiedObjectName tableName = new QualifiedObjectName("catalog", "schema", "table");
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControlManager accessControlManager = new AccessControlManager(transactionManager);
@@ -173,7 +173,7 @@ public class TestAccessControlManager
 
     private static SecurityContext context(TransactionId transactionId)
     {
-        Identity identity = new Identity(USER_NAME, Optional.of(PRINCIPAL));
+        Identity identity = Identity.forUser(USER_NAME).withPrincipal(PRINCIPAL).build();
         return new SecurityContext(transactionId, identity);
     }
 

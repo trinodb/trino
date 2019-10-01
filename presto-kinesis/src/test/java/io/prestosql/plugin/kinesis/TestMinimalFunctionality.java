@@ -66,7 +66,7 @@ public class TestMinimalFunctionality
     private static final Logger log = Logger.get(TestMinimalFunctionality.class);
 
     public static final Session SESSION = Session.builder(new SessionPropertyManager())
-            .setIdentity(new Identity("user", Optional.empty()))
+            .setIdentity(Identity.ofUser("user"))
             .setSource("source")
             .setCatalog("kinesis")
             .setSchema("default")

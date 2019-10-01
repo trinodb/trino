@@ -351,7 +351,9 @@ public final class Session
                 queryId,
                 Optional.of(transactionId),
                 clientTransactionSupport,
-                new Identity(identity.getUser(), identity.getPrincipal(), roles.build(), identity.getExtraCredentials()),
+                Identity.from(identity)
+                        .withRoles(roles.build())
+                        .build(),
                 source,
                 catalog,
                 schema,

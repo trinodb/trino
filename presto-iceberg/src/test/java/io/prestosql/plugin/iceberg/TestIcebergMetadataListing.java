@@ -54,10 +54,9 @@ public class TestIcebergMetadataListing
             throws Exception
     {
         Session session = testSessionBuilder()
-                .setIdentity(new Identity(
-                        "hive",
-                        Optional.empty(),
-                        ImmutableMap.of("hive", new SelectedRole(ROLE, Optional.of("admin")))))
+                .setIdentity(Identity.forUser("hive")
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
                 .build();
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
 

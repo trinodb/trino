@@ -14,7 +14,6 @@
 package io.prestosql.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import io.prestosql.Session;
@@ -167,7 +166,9 @@ public class TestHiveIntegrationSmokeTest
     public void testSchemaOperations()
     {
         Session admin = Session.builder(getQueryRunner().getDefaultSession())
-                .setIdentity(new Identity("hive", Optional.empty(), ImmutableMap.of("hive", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("admin")))))
+                .setIdentity(Identity.forUser("hive")
+                        .withRole("hive", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("admin")))
+                        .build())
                 .build();
 
         assertUpdate(admin, "CREATE SCHEMA new_schema");
@@ -3564,7 +3565,7 @@ public class TestHiveIntegrationSmokeTest
         @Language("SQL") String createTable = "CREATE TABLE " + tableName + " (a bigint, b varchar, c double)";
 
         Session testSession = testSessionBuilder()
-                .setIdentity(new Identity("test_access_owner", Optional.empty()))
+                .setIdentity(Identity.ofUser("test_access_owner"))
                 .setCatalog(getSession().getCatalog().get())
                 .setSchema(getSession().getSchema().get())
                 .build();
@@ -3673,13 +3674,13 @@ public class TestHiveIntegrationSmokeTest
         Session user1 = testSessionBuilder()
                 .setCatalog(getSession().getCatalog().get())
                 .setSchema(getSession().getSchema().get())
-                .setIdentity(new Identity("user1", getSession().getIdentity().getPrincipal()))
+                .setIdentity(Identity.forUser("user1").withPrincipal(getSession().getIdentity().getPrincipal()).build())
                 .build();
 
         Session user2 = testSessionBuilder()
                 .setCatalog(getSession().getCatalog().get())
                 .setSchema(getSession().getSchema().get())
-                .setIdentity(new Identity("user2", getSession().getIdentity().getPrincipal()))
+                .setIdentity(Identity.forUser("user2").withPrincipal(getSession().getIdentity().getPrincipal()).build())
                 .build();
 
         assertQuery(user1, "SELECT account_name FROM test_accounts_view", "VALUES 'account1'");

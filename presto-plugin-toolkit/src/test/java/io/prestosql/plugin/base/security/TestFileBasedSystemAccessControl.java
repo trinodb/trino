@@ -39,18 +39,18 @@ import static org.testng.Assert.assertEquals;
 
 public class TestFileBasedSystemAccessControl
 {
-    private static final Identity alice = new Identity("alice", Optional.empty());
-    private static final Identity kerberosValidAlice = new Identity("alice", Optional.of(new KerberosPrincipal("alice/example.com@EXAMPLE.COM")));
-    private static final Identity kerberosValidNonAsciiUser = new Identity("\u0194\u0194\u0194", Optional.of(new KerberosPrincipal("\u0194\u0194\u0194/example.com@EXAMPLE.COM")));
-    private static final Identity kerberosInvalidAlice = new Identity("alice", Optional.of(new KerberosPrincipal("mallory/example.com@EXAMPLE.COM")));
-    private static final Identity kerberosValidShare = new Identity("alice", Optional.of(new KerberosPrincipal("valid/example.com@EXAMPLE.COM")));
-    private static final Identity kerberosInValidShare = new Identity("alice", Optional.of(new KerberosPrincipal("invalid/example.com@EXAMPLE.COM")));
-    private static final Identity validSpecialRegexWildDot = new Identity(".*", Optional.of(new KerberosPrincipal("special/.*@EXAMPLE.COM")));
-    private static final Identity validSpecialRegexEndQuote = new Identity("\\E", Optional.of(new KerberosPrincipal("special/\\E@EXAMPLE.COM")));
-    private static final Identity invalidSpecialRegex = new Identity("alice", Optional.of(new KerberosPrincipal("special/.*@EXAMPLE.COM")));
-    private static final Identity bob = new Identity("bob", Optional.empty());
-    private static final Identity admin = new Identity("admin", Optional.empty());
-    private static final Identity nonAsciiUser = new Identity("\u0194\u0194\u0194", Optional.empty());
+    private static final Identity alice = Identity.ofUser("alice");
+    private static final Identity kerberosValidAlice = Identity.forUser("alice").withPrincipal(new KerberosPrincipal("alice/example.com@EXAMPLE.COM")).build();
+    private static final Identity kerberosValidNonAsciiUser = Identity.forUser("\u0194\u0194\u0194").withPrincipal(new KerberosPrincipal("\u0194\u0194\u0194/example.com@EXAMPLE.COM")).build();
+    private static final Identity kerberosInvalidAlice = Identity.forUser("alice").withPrincipal(new KerberosPrincipal("mallory/example.com@EXAMPLE.COM")).build();
+    private static final Identity kerberosValidShare = Identity.forUser("alice").withPrincipal(new KerberosPrincipal("valid/example.com@EXAMPLE.COM")).build();
+    private static final Identity kerberosInValidShare = Identity.forUser("alice").withPrincipal(new KerberosPrincipal("invalid/example.com@EXAMPLE.COM")).build();
+    private static final Identity validSpecialRegexWildDot = Identity.forUser(".*").withPrincipal(new KerberosPrincipal("special/.*@EXAMPLE.COM")).build();
+    private static final Identity validSpecialRegexEndQuote = Identity.forUser("\\E").withPrincipal(new KerberosPrincipal("special/\\E@EXAMPLE.COM")).build();
+    private static final Identity invalidSpecialRegex = Identity.forUser("alice").withPrincipal(new KerberosPrincipal("special/.*@EXAMPLE.COM")).build();
+    private static final Identity bob = Identity.ofUser("bob");
+    private static final Identity admin = Identity.ofUser("admin");
+    private static final Identity nonAsciiUser = Identity.ofUser("\u0194\u0194\u0194");
     private static final Set<String> allCatalogs = ImmutableSet.of("secret", "open-to-all", "all-allowed", "alice-catalog", "allowed-absent", "\u0200\u0200\u0200");
     private static final CatalogSchemaTableName aliceView = new CatalogSchemaTableName("alice-catalog", "schema", "view");
 

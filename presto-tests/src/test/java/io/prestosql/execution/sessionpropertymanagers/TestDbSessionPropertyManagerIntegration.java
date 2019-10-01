@@ -155,7 +155,7 @@ public class TestDbSessionPropertyManagerIntegration
     private void assertSessionPropertyValue(String user, Duration expectedValue)
     {
         Session session = testSessionBuilder()
-                .setIdentity(new Identity(user, Optional.empty()))
+                .setIdentity(Identity.ofUser(user))
                 .build();
 
         MaterializedResult result = queryRunner.execute(session, "SHOW SESSION");
@@ -174,7 +174,7 @@ public class TestDbSessionPropertyManagerIntegration
     {
         return Session.builder(new SessionPropertyManager())
                 .setQueryId(new QueryIdGenerator().createNextQueryId())
-                .setIdentity(new Identity("user", Optional.empty()))
+                .setIdentity(Identity.ofUser("user"))
                 .setSource("test")
                 .setCatalog("catalog")
                 .setSchema("schema")

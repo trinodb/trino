@@ -30,16 +30,19 @@ public class Identity
     private final Map<String, SelectedRole> roles;
     private final Map<String, String> extraCredentials;
 
+    @Deprecated
     public Identity(String user, Optional<Principal> principal)
     {
         this(user, principal, emptyMap());
     }
 
+    @Deprecated
     public Identity(String user, Optional<Principal> principal, Map<String, SelectedRole> roles)
     {
         this(user, principal, roles, emptyMap());
     }
 
+    @Deprecated
     public Identity(String user, Optional<Principal> principal, Map<String, SelectedRole> roles, Map<String, String> extraCredentials)
     {
         this.user = requireNonNull(user, "user is null");
@@ -108,5 +111,74 @@ public class Identity
         sb.append(", extraCredentials=").append(extraCredentials.keySet());
         sb.append('}');
         return sb.toString();
+    }
+
+    public static Identity ofUser(String user)
+    {
+        return new Builder(user).build();
+    }
+
+    public static Builder forUser(String user)
+    {
+        return new Builder(user);
+    }
+
+    public static Builder from(Identity identity)
+    {
+        return new Builder(identity.getUser())
+                .withPrincipal(identity.getPrincipal())
+                .withRoles(identity.getRoles())
+                .withExtraCredentials(identity.getExtraCredentials());
+    }
+
+    public static class Builder
+    {
+        private final String user;
+        private Optional<Principal> principal = Optional.empty();
+        private Map<String, SelectedRole> roles = new HashMap<>();
+        private Map<String, String> extraCredentials = new HashMap<>();
+
+        public Builder(String user)
+        {
+            this.user = requireNonNull(user, "user is null");
+        }
+
+        public Builder withPrincipal(Principal principal)
+        {
+            return withPrincipal(Optional.of(principal));
+        }
+
+        public Builder withPrincipal(Optional<Principal> principal)
+        {
+            this.principal = requireNonNull(principal, "principal is null");
+            return this;
+        }
+
+        public Builder withRole(String catalog, SelectedRole role)
+        {
+            requireNonNull(catalog, "catalog is null");
+            requireNonNull(role, "role is null");
+            if (this.roles.put(catalog, role) != null) {
+                throw new IllegalStateException("There is already role set for " + catalog);
+            }
+            return this;
+        }
+
+        public Builder withRoles(Map<String, SelectedRole> roles)
+        {
+            this.roles = new HashMap<>(requireNonNull(roles, "roles is null"));
+            return this;
+        }
+
+        public Builder withExtraCredentials(Map<String, String> extraCredentials)
+        {
+            this.extraCredentials = new HashMap<>(requireNonNull(extraCredentials, "extraCredentials is null"));
+            return this;
+        }
+
+        public Identity build()
+        {
+            return new Identity(user, principal, roles, extraCredentials);
+        }
     }
 }

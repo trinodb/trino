@@ -66,6 +66,7 @@ public class TestHiveFileBasedSecurity
         return testSessionBuilder()
                 .setCatalog(queryRunner.getDefaultSession().getCatalog().get())
                 .setSchema(queryRunner.getDefaultSession().getSchema().get())
-                .setIdentity(new Identity(user, Optional.empty())).build();
+                .setIdentity(Identity.ofUser(user))
+                .build();
     }
 }

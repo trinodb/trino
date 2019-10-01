@@ -56,7 +56,7 @@ public class TestSessionPropertyDefaults
 
         Session session = Session.builder(new SessionPropertyManager())
                 .setQueryId(new QueryId("test_query_id"))
-                .setIdentity(new Identity("testUser", Optional.empty()))
+                .setIdentity(Identity.ofUser("testUser"))
                 .setSystemProperty(QUERY_MAX_MEMORY, "1GB")
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "partitioned")
                 .setSystemProperty(HASH_PARTITION_COUNT, "43")

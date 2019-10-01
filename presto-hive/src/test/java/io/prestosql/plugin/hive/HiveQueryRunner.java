@@ -160,11 +160,10 @@ public final class HiveQueryRunner
     public static Session createSession(Optional<SelectedRole> role)
     {
         return testSessionBuilder()
-                .setIdentity(new Identity(
-                        "hive",
-                        Optional.empty(),
-                        role.map(selectedRole -> ImmutableMap.of("hive", selectedRole))
-                                .orElse(ImmutableMap.of())))
+                .setIdentity(Identity.forUser("hive")
+                        .withRoles(role.map(selectedRole -> ImmutableMap.of("hive", selectedRole))
+                                .orElse(ImmutableMap.of()))
+                        .build())
                 .setCatalog(HIVE_CATALOG)
                 .setSchema(TPCH_SCHEMA)
                 .build();
@@ -173,11 +172,10 @@ public final class HiveQueryRunner
     public static Session createBucketedSession(Optional<SelectedRole> role)
     {
         return testSessionBuilder()
-                .setIdentity(new Identity(
-                        "hive",
-                        Optional.empty(),
-                        role.map(selectedRole -> ImmutableMap.of("hive", selectedRole))
-                                .orElse(ImmutableMap.of())))
+                .setIdentity(Identity.forUser("hive")
+                        .withRoles(role.map(selectedRole -> ImmutableMap.of("hive", selectedRole))
+                                .orElse(ImmutableMap.of()))
+                        .build())
                 .setCatalog(HIVE_BUCKETED_CATALOG)
                 .setSchema(TPCH_BUCKETED_SCHEMA)
                 .build();

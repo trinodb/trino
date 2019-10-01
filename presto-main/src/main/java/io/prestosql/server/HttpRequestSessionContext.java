@@ -117,11 +117,11 @@ public final class HttpRequestSessionContext
 
         String user = trimEmptyToNull(servletRequest.getHeader(PRESTO_USER));
         assertRequest(user != null, "User must be set");
-        identity = new Identity(
-                user,
-                Optional.ofNullable(servletRequest.getUserPrincipal()),
-                parseRoleHeaders(servletRequest),
-                parseExtraCredentials(servletRequest));
+        identity = Identity.forUser(user)
+                .withPrincipal(Optional.ofNullable(servletRequest.getUserPrincipal()))
+                .withRoles(parseRoleHeaders(servletRequest))
+                .withExtraCredentials(parseExtraCredentials(servletRequest))
+                .build();
 
         source = servletRequest.getHeader(PRESTO_SOURCE);
         traceToken = Optional.ofNullable(trimEmptyToNull(servletRequest.getHeader(PRESTO_TRACE_TOKEN)));

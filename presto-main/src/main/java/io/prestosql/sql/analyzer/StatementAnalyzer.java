@@ -2053,7 +2053,7 @@ class StatementAnalyzer
                 Identity identity;
                 AccessControl viewAccessControl;
                 if (owner.isPresent() && !owner.get().equals(session.getIdentity().getUser())) {
-                    identity = new Identity(owner.get(), Optional.empty());
+                    identity = Identity.ofUser(owner.get());
                     viewAccessControl = new ViewAccessControl(accessControl);
                 }
                 else {

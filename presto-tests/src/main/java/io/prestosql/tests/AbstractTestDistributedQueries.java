@@ -33,7 +33,6 @@ import io.prestosql.testing.TestingSession;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -949,7 +948,7 @@ public abstract class AbstractTestDistributedQueries
         skipTestUnless(supportsViews());
 
         Session viewOwnerSession = TestingSession.testSessionBuilder()
-                .setIdentity(new Identity("test_view_access_owner", Optional.empty()))
+                .setIdentity(Identity.ofUser("test_view_access_owner"))
                 .setCatalog(getSession().getCatalog().get())
                 .setSchema(getSession().getSchema().get())
                 .build();
@@ -982,7 +981,7 @@ public abstract class AbstractTestDistributedQueries
                 privilege(getSession().getUser(), "orders", SELECT_COLUMN));
 
         Session nestedViewOwnerSession = TestingSession.testSessionBuilder()
-                .setIdentity(new Identity("test_nested_view_access_owner", Optional.empty()))
+                .setIdentity(Identity.ofUser("test_nested_view_access_owner"))
                 .setCatalog(getSession().getCatalog().get())
                 .setSchema(getSession().getSchema().get())
                 .build();
