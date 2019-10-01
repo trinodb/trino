@@ -118,8 +118,8 @@ where profile is one of either:
  a single Docker container, a single node installation of Presto
  also running on a single Docker container and one running SQL Server server.
  While running tests on ``singlenode-sqlserver`` make sure to exclude
- `mysql_connector` and `postgresql` tests i.e.
- `-x mysql_connector, postgresql`.
+ `mysql` and `postgresql` tests i.e.
+ `-x mysql, postgresql`.
 
 ### Hadoop docker image used for testing
 The default Hadoop/Hive docker image used for testing is defined in `conf/common/compose-commons.sh` and can be controlled

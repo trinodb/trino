@@ -6,7 +6,7 @@ exit_code=0
 
 presto-product-tests/bin/run_on_docker.sh \
     singlenode-mysql \
-    -g mysql_connector,mysql \
+    -g mysql \
     || exit_code=1
 
 presto-product-tests/bin/run_on_docker.sh \
