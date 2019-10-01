@@ -76,7 +76,7 @@ public class OrcReader
     private final Optional<OrcDecompressor> decompressor;
     private final Footer footer;
     private final Metadata metadata;
-    private final StreamDescriptor rootColumn;
+    private final OrcColumn rootColumn;
 
     private final Optional<OrcWriteValidation> writeValidation;
 
@@ -179,7 +179,7 @@ public class OrcReader
             throw new OrcCorruptionException(orcDataSource.getId(), "File has no columns");
         }
 
-        this.rootColumn = createStreamDescriptor("", "", new OrcColumnId(0), footer.getTypes(), orcDataSource.getId());
+        this.rootColumn = createOrcColumn("", "", new OrcColumnId(0), footer.getTypes(), orcDataSource.getId());
 
         validateWrite(validation -> validation.getColumnNames().equals(getColumnNames()), "Unexpected column names");
         validateWrite(validation -> validation.getRowGroupMaxRowCount() == footer.getRowsInRowGroup(), "Unexpected rows in group");
@@ -205,7 +205,7 @@ public class OrcReader
         return metadata;
     }
 
-    public StreamDescriptor getRootColumn()
+    public OrcColumn getRootColumn()
     {
         return rootColumn;
     }
@@ -221,7 +221,7 @@ public class OrcReader
     }
 
     public OrcRecordReader createRecordReader(
-            List<StreamDescriptor> readColumns,
+            List<OrcColumn> readColumns,
             List<Type> readTypes,
             OrcPredicate predicate,
             DateTimeZone hiveStorageTimeZone,
@@ -243,7 +243,7 @@ public class OrcReader
     }
 
     public OrcRecordReader createRecordReader(
-            List<StreamDescriptor> readColumns,
+            List<OrcColumn> readColumns,
             List<Type> readTypes,
             OrcPredicate predicate,
             long offset,
@@ -291,7 +291,7 @@ public class OrcReader
         return new CachingOrcDataSource(dataSource, desiredOffset -> diskRange);
     }
 
-    private static StreamDescriptor createStreamDescriptor(
+    private static OrcColumn createOrcColumn(
             String parentStreamName,
             String fieldName,
             OrcColumnId columnId,
@@ -301,10 +301,10 @@ public class OrcReader
         String path = fieldName.isEmpty() ? parentStreamName : parentStreamName + "." + fieldName;
         OrcType orcType = types.get(columnId);
 
-        List<StreamDescriptor> nestedStreams = ImmutableList.of();
+        List<OrcColumn> nestedColumns = ImmutableList.of();
         if (orcType.getOrcTypeKind() == OrcTypeKind.STRUCT) {
-            nestedStreams = IntStream.range(0, orcType.getFieldCount())
-                    .mapToObj(fieldId -> createStreamDescriptor(
+            nestedColumns = IntStream.range(0, orcType.getFieldCount())
+                    .mapToObj(fieldId -> createOrcColumn(
                             path,
                             orcType.getFieldName(fieldId),
                             orcType.getFieldTypeIndex(fieldId),
@@ -313,14 +313,14 @@ public class OrcReader
                     .collect(toImmutableList());
         }
         else if (orcType.getOrcTypeKind() == OrcTypeKind.LIST) {
-            nestedStreams = ImmutableList.of(createStreamDescriptor(path, "item", orcType.getFieldTypeIndex(0), types, orcDataSourceId));
+            nestedColumns = ImmutableList.of(createOrcColumn(path, "item", orcType.getFieldTypeIndex(0), types, orcDataSourceId));
         }
         else if (orcType.getOrcTypeKind() == OrcTypeKind.MAP) {
-            nestedStreams = ImmutableList.of(
-                    createStreamDescriptor(path, "key", orcType.getFieldTypeIndex(0), types, orcDataSourceId),
-                    createStreamDescriptor(path, "value", orcType.getFieldTypeIndex(1), types, orcDataSourceId));
+            nestedColumns = ImmutableList.of(
+                    createOrcColumn(path, "key", orcType.getFieldTypeIndex(0), types, orcDataSourceId),
+                    createOrcColumn(path, "value", orcType.getFieldTypeIndex(1), types, orcDataSourceId));
         }
-        return new StreamDescriptor(path, columnId, fieldName, orcType.getOrcTypeKind(), orcDataSourceId, nestedStreams);
+        return new OrcColumn(path, columnId, fieldName, orcType.getOrcTypeKind(), orcDataSourceId, nestedColumns);
     }
 
     /**
@@ -375,7 +375,7 @@ public class OrcReader
         try {
             OrcReader orcReader = new OrcReader(input, new OrcReaderOptions(), Optional.of(writeValidation));
             try (OrcRecordReader orcRecordReader = orcReader.createRecordReader(
-                    orcReader.getRootColumn().getNestedStreams(),
+                    orcReader.getRootColumn().getNestedColumns(),
                     readTypes,
                     OrcPredicate.TRUE,
                     hiveStorageTimeZone,

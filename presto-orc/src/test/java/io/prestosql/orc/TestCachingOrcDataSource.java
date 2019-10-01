@@ -210,7 +210,7 @@ public class TestCachingOrcDataSource
         assertInstanceOf(wrapWithCacheIfTinyStripes(orcDataSource, stripes, maxMergeDistance, tinyStripeThreshold), CachingOrcDataSource.class);
 
         OrcRecordReader orcRecordReader = orcReader.createRecordReader(
-                orcReader.getRootColumn().getNestedStreams(),
+                orcReader.getRootColumn().getNestedColumns(),
                 ImmutableList.of(VARCHAR),
                 (numberOfRows, statisticsByColumnIndex) -> true,
                 HIVE_STORAGE_TIME_ZONE,

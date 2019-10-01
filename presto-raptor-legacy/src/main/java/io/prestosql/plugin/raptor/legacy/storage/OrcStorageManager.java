@@ -24,12 +24,12 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.memory.context.AggregatedMemoryContext;
 import io.prestosql.orc.FileOrcDataSource;
+import io.prestosql.orc.OrcColumn;
 import io.prestosql.orc.OrcDataSource;
 import io.prestosql.orc.OrcPredicate;
 import io.prestosql.orc.OrcReader;
 import io.prestosql.orc.OrcReaderOptions;
 import io.prestosql.orc.OrcRecordReader;
-import io.prestosql.orc.StreamDescriptor;
 import io.prestosql.orc.TupleDomainOrcPredicate;
 import io.prestosql.orc.TupleDomainOrcPredicate.TupleDomainOrcPredicateBuilder;
 import io.prestosql.orc.metadata.ColumnMetadata;
@@ -245,8 +245,8 @@ public class OrcStorageManager
         try {
             OrcReader reader = new OrcReader(dataSource, orcReaderOptions);
 
-            Map<Long, StreamDescriptor> indexMap = columnIdIndex(reader.getRootColumn().getNestedStreams());
-            List<StreamDescriptor> fileReadColumn = new ArrayList<>(columnIds.size());
+            Map<Long, OrcColumn> indexMap = columnIdIndex(reader.getRootColumn().getNestedColumns());
+            List<OrcColumn> fileReadColumn = new ArrayList<>(columnIds.size());
             List<Type> fileReadTypes = new ArrayList<>(columnIds.size());
             List<ColumnAdaptation> columnAdaptations = new ArrayList<>(columnIds.size());
             for (int i = 0; i < columnIds.size(); i++) {
@@ -258,7 +258,7 @@ public class OrcStorageManager
                 }
 
                 Type type = toOrcFileType(columnTypes.get(i), typeManager);
-                StreamDescriptor fileColumn = indexMap.get(columnId);
+                OrcColumn fileColumn = indexMap.get(columnId);
                 if (fileColumn == null) {
                     columnAdaptations.add(ColumnAdaptation.nullColumn(type));
                 }
@@ -574,11 +574,11 @@ public class OrcStorageManager
         return raptorType;
     }
 
-    private static OrcPredicate getPredicate(TupleDomain<RaptorColumnHandle> effectivePredicate, Map<Long, StreamDescriptor> indexMap)
+    private static OrcPredicate getPredicate(TupleDomain<RaptorColumnHandle> effectivePredicate, Map<Long, OrcColumn> indexMap)
     {
         TupleDomainOrcPredicateBuilder predicateBuilder = TupleDomainOrcPredicate.builder();
         effectivePredicate.getDomains().get().forEach((columnHandle, value) -> {
-            StreamDescriptor fileColumn = indexMap.get(columnHandle.getColumnId());
+            OrcColumn fileColumn = indexMap.get(columnHandle.getColumnId());
             if (fileColumn != null) {
                 predicateBuilder.addColumn(fileColumn.getColumnId(), value);
             }
@@ -586,9 +586,9 @@ public class OrcStorageManager
         return predicateBuilder.build();
     }
 
-    private static Map<Long, StreamDescriptor> columnIdIndex(List<StreamDescriptor> columns)
+    private static Map<Long, OrcColumn> columnIdIndex(List<OrcColumn> columns)
     {
-        return uniqueIndex(columns, column -> Long.valueOf(column.getFieldName()));
+        return uniqueIndex(columns, column -> Long.valueOf(column.getColumnName()));
     }
 
     private class OrcStoragePageSink

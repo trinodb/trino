@@ -14,8 +14,8 @@
 package io.prestosql.orc.reader;
 
 import io.prestosql.memory.context.LocalMemoryContext;
+import io.prestosql.orc.OrcColumn;
 import io.prestosql.orc.OrcCorruptionException;
-import io.prestosql.orc.StreamDescriptor;
 import io.prestosql.orc.metadata.ColumnEncoding;
 import io.prestosql.orc.metadata.ColumnMetadata;
 import io.prestosql.orc.stream.BooleanInputStream;
@@ -51,7 +51,7 @@ public class BooleanStreamReader
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(BooleanStreamReader.class).instanceSize();
 
-    private final StreamDescriptor streamDescriptor;
+    private final OrcColumn column;
 
     private int readOffset;
     private int nextBatchSize;
@@ -71,13 +71,13 @@ public class BooleanStreamReader
 
     private final LocalMemoryContext systemMemoryContext;
 
-    public BooleanStreamReader(Type type, StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
+    public BooleanStreamReader(Type type, OrcColumn column, LocalMemoryContext systemMemoryContext)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
-        verifyStreamType(streamDescriptor, type, BooleanType.class::isInstance);
+        verifyStreamType(column, type, BooleanType.class::isInstance);
 
-        this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
+        this.column = requireNonNull(column, "column is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
     }
 
@@ -104,7 +104,7 @@ public class BooleanStreamReader
             }
             if (readOffset > 0) {
                 if (dataStream == null) {
-                    throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is missing");
+                    throw new OrcCorruptionException(column.getOrcDataSourceId(), "Value is not null but data stream is missing");
                 }
                 dataStream.skip(readOffset);
             }
@@ -113,7 +113,7 @@ public class BooleanStreamReader
         Block block;
         if (dataStream == null) {
             if (presentStream == null) {
-                throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is null but present stream is missing");
+                throw new OrcCorruptionException(column.getOrcDataSourceId(), "Value is null but present stream is missing");
             }
             presentStream.skip(nextBatchSize);
             block = RunLengthEncodedBlock.create(BOOLEAN, null, nextBatchSize);
@@ -192,8 +192,8 @@ public class BooleanStreamReader
     @Override
     public void startRowGroup(InputStreamSources dataStreamSources)
     {
-        presentStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, PRESENT, BooleanInputStream.class);
-        dataStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, DATA, BooleanInputStream.class);
+        presentStreamSource = dataStreamSources.getInputStreamSource(column, PRESENT, BooleanInputStream.class);
+        dataStreamSource = dataStreamSources.getInputStreamSource(column, DATA, BooleanInputStream.class);
 
         readOffset = 0;
         nextBatchSize = 0;
@@ -208,7 +208,7 @@ public class BooleanStreamReader
     public String toString()
     {
         return toStringHelper(this)
-                .addValue(streamDescriptor)
+                .addValue(column)
                 .toString();
     }
 

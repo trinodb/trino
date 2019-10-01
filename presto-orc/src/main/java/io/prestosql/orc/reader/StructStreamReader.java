@@ -18,8 +18,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Closer;
 import io.prestosql.memory.context.AggregatedMemoryContext;
 import io.prestosql.orc.OrcBlockFactory.NestedBlockFactory;
+import io.prestosql.orc.OrcColumn;
 import io.prestosql.orc.OrcCorruptionException;
-import io.prestosql.orc.StreamDescriptor;
 import io.prestosql.orc.metadata.ColumnEncoding;
 import io.prestosql.orc.metadata.ColumnMetadata;
 import io.prestosql.orc.stream.BooleanInputStream;
@@ -58,7 +58,7 @@ public class StructStreamReader
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(StructStreamReader.class).instanceSize();
 
-    private final StreamDescriptor streamDescriptor;
+    private final OrcColumn column;
     private final NestedBlockFactory blockFactory;
 
     private final Map<String, StreamReader> structFields;
@@ -74,18 +74,18 @@ public class StructStreamReader
 
     private boolean rowGroupOpen;
 
-    StructStreamReader(Type type, StreamDescriptor streamDescriptor, AggregatedMemoryContext systemMemoryContext, NestedBlockFactory blockFactory)
+    StructStreamReader(Type type, OrcColumn column, AggregatedMemoryContext systemMemoryContext, NestedBlockFactory blockFactory)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
-        verifyStreamType(streamDescriptor, type, RowType.class::isInstance);
+        verifyStreamType(column, type, RowType.class::isInstance);
         this.type = (RowType) type;
 
-        this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
+        this.column = requireNonNull(column, "column is null");
         this.blockFactory = requireNonNull(blockFactory, "blockFactory is null");
 
-        Map<String, StreamDescriptor> nestedStreams = streamDescriptor.getNestedStreams().stream()
-                .collect(toImmutableMap(stream -> stream.getFieldName().toLowerCase(Locale.ENGLISH), stream -> stream));
+        Map<String, OrcColumn> nestedColumns = column.getNestedColumns().stream()
+                .collect(toImmutableMap(stream -> stream.getColumnName().toLowerCase(Locale.ENGLISH), stream -> stream));
 
         ImmutableList.Builder<String> fieldNames = ImmutableList.builder();
         ImmutableMap.Builder<String, StreamReader> structFields = ImmutableMap.builder();
@@ -95,7 +95,7 @@ public class StructStreamReader
                     .toLowerCase(Locale.ENGLISH);
             fieldNames.add(fieldName);
 
-            StreamDescriptor fieldStream = nestedStreams.get(fieldName);
+            OrcColumn fieldStream = nestedColumns.get(fieldName);
             if (fieldStream != null) {
                 structFields.put(fieldName, createStreamReader(field.getType(), fieldStream, systemMemoryContext, blockFactory));
             }
@@ -195,7 +195,7 @@ public class StructStreamReader
     public void startRowGroup(InputStreamSources dataStreamSources)
             throws IOException
     {
-        presentStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, PRESENT, BooleanInputStream.class);
+        presentStreamSource = dataStreamSources.getInputStreamSource(column, PRESENT, BooleanInputStream.class);
 
         readOffset = 0;
         nextBatchSize = 0;
@@ -213,7 +213,7 @@ public class StructStreamReader
     public String toString()
     {
         return toStringHelper(this)
-                .addValue(streamDescriptor)
+                .addValue(column)
                 .toString();
     }
 

@@ -116,7 +116,7 @@ public class OrcRecordReader
     private final Optional<StatisticsValidation> fileStatisticsValidation;
 
     public OrcRecordReader(
-            List<StreamDescriptor> readColumns,
+            List<OrcColumn> readColumns,
             List<Type> readTypes,
             OrcPredicate predicate,
             long numberOfRows,
@@ -546,7 +546,7 @@ public class OrcRecordReader
     }
 
     private StreamReader[] createStreamReaders(
-            List<StreamDescriptor> columns,
+            List<OrcColumn> columns,
             List<Type> readTypes,
             AggregatedMemoryContext systemMemoryContext,
             OrcBlockFactory blockFactory)
@@ -556,10 +556,10 @@ public class OrcRecordReader
         for (int i = 0; i < columns.size(); i++) {
             int columnIndex = i;
             Type readType = readTypes.get(columnIndex);
-            StreamDescriptor streamDescriptor = columns.get(columnIndex);
+            OrcColumn column = columns.get(columnIndex);
             streamReaders[columnIndex] = createStreamReader(
                     readType,
-                    streamDescriptor,
+                    column,
                     systemMemoryContext,
                     blockFactory.createNestedBlockFactory(block -> blockLoaded(columnIndex, block)));
         }

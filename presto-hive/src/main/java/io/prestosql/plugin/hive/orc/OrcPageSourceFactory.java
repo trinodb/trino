@@ -16,12 +16,12 @@ package io.prestosql.plugin.hive.orc;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.memory.context.AggregatedMemoryContext;
+import io.prestosql.orc.OrcColumn;
 import io.prestosql.orc.OrcDataSource;
 import io.prestosql.orc.OrcDataSourceId;
 import io.prestosql.orc.OrcReader;
 import io.prestosql.orc.OrcReaderOptions;
 import io.prestosql.orc.OrcRecordReader;
-import io.prestosql.orc.StreamDescriptor;
 import io.prestosql.orc.TupleDomainOrcPredicate;
 import io.prestosql.orc.TupleDomainOrcPredicate.TupleDomainOrcPredicateBuilder;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
@@ -198,39 +198,39 @@ public class OrcPageSourceFactory
                 verifyFileHasColumnNames(reader.getColumnNames(), path);
             }
 
-            List<StreamDescriptor> fileColumns = reader.getRootColumn().getNestedStreams();
-            Map<String, StreamDescriptor> fileColumnsByName = ImmutableMap.of();
+            List<OrcColumn> fileColumns = reader.getRootColumn().getNestedColumns();
+            Map<String, OrcColumn> fileColumnsByName = ImmutableMap.of();
             if (useOrcColumnNames) {
                 // Convert column names read from ORC files to lower case to be consistent with those stored in Hive Metastore
-                fileColumnsByName = uniqueIndex(fileColumns, descriptor -> descriptor.getFieldName().toLowerCase(ENGLISH));
+                fileColumnsByName = uniqueIndex(fileColumns, orcColumn -> orcColumn.getColumnName().toLowerCase(ENGLISH));
             }
 
             TupleDomainOrcPredicateBuilder predicateBuilder = TupleDomainOrcPredicate.builder()
                     .setBloomFiltersEnabled(options.isBloomFiltersEnabled());
             Map<HiveColumnHandle, Domain> effectivePredicateDomains = effectivePredicate.getDomains()
                     .orElseThrow(() -> new IllegalArgumentException("Effective predicate is none"));
-            List<StreamDescriptor> fileReadColumns = new ArrayList<>(columns.size());
+            List<OrcColumn> fileReadColumns = new ArrayList<>(columns.size());
             List<Type> fileReadTypes = new ArrayList<>(columns.size());
             List<ColumnAdaptation> columnAdaptations = new ArrayList<>(columns.size());
             for (HiveColumnHandle column : columns) {
-                StreamDescriptor streamDescriptor = null;
+                OrcColumn orcColumn = null;
                 if (useOrcColumnNames) {
-                    streamDescriptor = fileColumnsByName.get(column.getName().toLowerCase(ENGLISH));
+                    orcColumn = fileColumnsByName.get(column.getName().toLowerCase(ENGLISH));
                 }
                 else if (column.getHiveColumnIndex() < fileColumns.size()) {
-                    streamDescriptor = fileColumns.get(column.getHiveColumnIndex());
+                    orcColumn = fileColumns.get(column.getHiveColumnIndex());
                 }
 
                 Type readType = column.getType();
-                if (streamDescriptor != null) {
+                if (orcColumn != null) {
                     int sourceIndex = fileReadColumns.size();
                     columnAdaptations.add(ColumnAdaptation.sourceColumn(sourceIndex));
-                    fileReadColumns.add(streamDescriptor);
+                    fileReadColumns.add(orcColumn);
                     fileReadTypes.add(readType);
 
                     Domain domain = effectivePredicateDomains.get(column);
                     if (domain != null) {
-                        predicateBuilder.addColumn(streamDescriptor.getColumnId(), domain);
+                        predicateBuilder.addColumn(orcColumn.getColumnId(), domain);
                     }
                 }
                 else {

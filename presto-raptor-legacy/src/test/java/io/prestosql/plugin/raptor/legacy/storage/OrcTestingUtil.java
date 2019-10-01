@@ -60,7 +60,7 @@ final class OrcTestingUtil
         assertEquals(columnNames.size(), columnIds.size());
 
         return orcReader.createRecordReader(
-                orcReader.getRootColumn().getNestedStreams(),
+                orcReader.getRootColumn().getNestedColumns(),
                 types,
                 OrcPredicate.TRUE,
                 DateTimeZone.UTC,

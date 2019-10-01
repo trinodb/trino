@@ -15,8 +15,8 @@ package io.prestosql.orc.reader;
 
 import io.airlift.slice.Slice;
 import io.prestosql.memory.context.LocalMemoryContext;
+import io.prestosql.orc.OrcColumn;
 import io.prestosql.orc.OrcCorruptionException;
-import io.prestosql.orc.StreamDescriptor;
 import io.prestosql.orc.metadata.ColumnEncoding;
 import io.prestosql.orc.metadata.ColumnMetadata;
 import io.prestosql.orc.stream.BooleanInputStream;
@@ -62,7 +62,7 @@ public class SliceDictionaryStreamReader
     // add one extra entry for null after strip/rowGroup dictionary
     private static final int[] EMPTY_DICTIONARY_OFFSETS = new int[2];
 
-    private final StreamDescriptor streamDescriptor;
+    private final OrcColumn column;
     private final int maxCodePointCount;
     private final boolean isCharType;
 
@@ -97,11 +97,11 @@ public class SliceDictionaryStreamReader
 
     private final LocalMemoryContext systemMemoryContext;
 
-    public SliceDictionaryStreamReader(StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext, int maxCodePointCount, boolean isCharType)
+    public SliceDictionaryStreamReader(OrcColumn column, LocalMemoryContext systemMemoryContext, int maxCodePointCount, boolean isCharType)
     {
         this.maxCodePointCount = maxCodePointCount;
         this.isCharType = isCharType;
-        this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
+        this.column = requireNonNull(column, "column is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
     }
 
@@ -128,7 +128,7 @@ public class SliceDictionaryStreamReader
             }
             if (readOffset > 0) {
                 if (dataStream == null) {
-                    throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is missing");
+                    throw new OrcCorruptionException(column.getOrcDataSourceId(), "Value is not null but data stream is missing");
                 }
                 dataStream.skip(readOffset);
             }
@@ -137,7 +137,7 @@ public class SliceDictionaryStreamReader
         Block block;
         if (dataStream == null) {
             if (presentStream == null) {
-                throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is null but present stream is missing");
+                throw new OrcCorruptionException(column.getOrcDataSourceId(), "Value is null but present stream is missing");
             }
             presentStream.skip(nextBatchSize);
             block = readAllNullsBlock();
@@ -237,7 +237,7 @@ public class SliceDictionaryStreamReader
                 // read the lengths
                 LongInputStream lengthStream = dictionaryLengthStreamSource.openStream();
                 if (lengthStream == null) {
-                    throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Dictionary is not empty but dictionary length stream is missing");
+                    throw new OrcCorruptionException(column.getOrcDataSourceId(), "Dictionary is not empty but dictionary length stream is missing");
                 }
                 lengthStream.next(dictionaryLength, dictionarySize);
 
@@ -315,9 +315,9 @@ public class SliceDictionaryStreamReader
     @Override
     public void startStripe(ZoneId timeZone, InputStreamSources dictionaryStreamSources, ColumnMetadata<ColumnEncoding> encoding)
     {
-        dictionaryDataStreamSource = dictionaryStreamSources.getInputStreamSource(streamDescriptor, DICTIONARY_DATA, ByteArrayInputStream.class);
-        dictionaryLengthStreamSource = dictionaryStreamSources.getInputStreamSource(streamDescriptor, LENGTH, LongInputStream.class);
-        dictionarySize = encoding.get(streamDescriptor.getColumnId()).getDictionarySize();
+        dictionaryDataStreamSource = dictionaryStreamSources.getInputStreamSource(column, DICTIONARY_DATA, ByteArrayInputStream.class);
+        dictionaryLengthStreamSource = dictionaryStreamSources.getInputStreamSource(column, LENGTH, LongInputStream.class);
+        dictionarySize = encoding.get(column.getColumnId()).getDictionarySize();
         dictionaryOpen = false;
 
         presentStreamSource = missingStreamSource(BooleanInputStream.class);
@@ -335,8 +335,8 @@ public class SliceDictionaryStreamReader
     @Override
     public void startRowGroup(InputStreamSources dataStreamSources)
     {
-        presentStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, PRESENT, BooleanInputStream.class);
-        dataStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, DATA, LongInputStream.class);
+        presentStreamSource = dataStreamSources.getInputStreamSource(column, PRESENT, BooleanInputStream.class);
+        dataStreamSource = dataStreamSources.getInputStreamSource(column, DATA, LongInputStream.class);
 
         readOffset = 0;
         nextBatchSize = 0;
@@ -351,7 +351,7 @@ public class SliceDictionaryStreamReader
     public String toString()
     {
         return toStringHelper(this)
-                .addValue(streamDescriptor)
+                .addValue(column)
                 .toString();
     }
 

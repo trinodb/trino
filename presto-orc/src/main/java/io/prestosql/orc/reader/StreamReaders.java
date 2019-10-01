@@ -15,49 +15,49 @@ package io.prestosql.orc.reader;
 
 import io.prestosql.memory.context.AggregatedMemoryContext;
 import io.prestosql.orc.OrcBlockFactory.NestedBlockFactory;
+import io.prestosql.orc.OrcColumn;
 import io.prestosql.orc.OrcCorruptionException;
-import io.prestosql.orc.StreamDescriptor;
 import io.prestosql.spi.type.Type;
 
 public final class StreamReaders
 {
     private StreamReaders() {}
 
-    public static StreamReader createStreamReader(Type type, StreamDescriptor streamDescriptor, AggregatedMemoryContext systemMemoryContext, NestedBlockFactory blockFactory)
+    public static StreamReader createStreamReader(Type type, OrcColumn column, AggregatedMemoryContext systemMemoryContext, NestedBlockFactory blockFactory)
             throws OrcCorruptionException
     {
-        switch (streamDescriptor.getStreamType()) {
+        switch (column.getColumnType()) {
             case BOOLEAN:
-                return new BooleanStreamReader(type, streamDescriptor, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
+                return new BooleanStreamReader(type, column, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
             case BYTE:
-                return new ByteStreamReader(type, streamDescriptor, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
+                return new ByteStreamReader(type, column, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
             case SHORT:
             case INT:
             case LONG:
             case DATE:
-                return new LongStreamReader(type, streamDescriptor, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
+                return new LongStreamReader(type, column, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
             case FLOAT:
-                return new FloatStreamReader(type, streamDescriptor, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
+                return new FloatStreamReader(type, column, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
             case DOUBLE:
-                return new DoubleStreamReader(type, streamDescriptor, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
+                return new DoubleStreamReader(type, column, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
             case BINARY:
             case STRING:
             case VARCHAR:
             case CHAR:
-                return new SliceStreamReader(type, streamDescriptor, systemMemoryContext);
+                return new SliceStreamReader(type, column, systemMemoryContext);
             case TIMESTAMP:
-                return new TimestampStreamReader(type, streamDescriptor, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
+                return new TimestampStreamReader(type, column, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
             case LIST:
-                return new ListStreamReader(type, streamDescriptor, systemMemoryContext, blockFactory);
+                return new ListStreamReader(type, column, systemMemoryContext, blockFactory);
             case STRUCT:
-                return new StructStreamReader(type, streamDescriptor, systemMemoryContext, blockFactory);
+                return new StructStreamReader(type, column, systemMemoryContext, blockFactory);
             case MAP:
-                return new MapStreamReader(type, streamDescriptor, systemMemoryContext, blockFactory);
+                return new MapStreamReader(type, column, systemMemoryContext, blockFactory);
             case DECIMAL:
-                return new DecimalStreamReader(type, streamDescriptor, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
+                return new DecimalStreamReader(type, column, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
             case UNION:
             default:
-                throw new IllegalArgumentException("Unsupported type: " + streamDescriptor.getStreamType());
+                throw new IllegalArgumentException("Unsupported type: " + column.getColumnType());
         }
     }
 }

@@ -456,7 +456,7 @@ public class BenchmarkStreamReaders
         {
             OrcReader orcReader = new OrcReader(dataSource, new OrcReaderOptions());
             return orcReader.createRecordReader(
-                    orcReader.getRootColumn().getNestedStreams(),
+                    orcReader.getRootColumn().getNestedColumns(),
                     ImmutableList.of(type),
                     OrcPredicate.TRUE,
                     UTC, // arbitrary

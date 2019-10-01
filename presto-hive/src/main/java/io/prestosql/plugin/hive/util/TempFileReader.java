@@ -45,7 +45,7 @@ public class TempFileReader
         try {
             OrcReader orcReader = new OrcReader(dataSource, new OrcReaderOptions());
             reader = orcReader.createRecordReader(
-                    orcReader.getRootColumn().getNestedStreams(),
+                    orcReader.getRootColumn().getNestedColumns(),
                     types,
                     OrcPredicate.TRUE,
                     UTC,
