@@ -41,7 +41,7 @@ public class DesugarCurrentUser
         }, expression);
     }
 
-    public static FunctionCall getCall(CurrentUser  node, Metadata metadata)
+    public static FunctionCall getCall(CurrentUser node, Metadata metadata)
     {
         return new FunctionCallBuilder(metadata)
                 .setName(QualifiedName.of("$current_user"))
