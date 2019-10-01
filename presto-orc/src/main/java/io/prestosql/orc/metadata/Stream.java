@@ -31,22 +31,22 @@ public class Stream
         BLOOM_FILTER_UTF8,
     }
 
-    private final int column;
+    private final OrcColumnId columnId;
     private final StreamKind streamKind;
     private final int length;
     private final boolean useVInts;
 
-    public Stream(int column, StreamKind streamKind, int length, boolean useVInts)
+    public Stream(OrcColumnId columnId, StreamKind streamKind, int length, boolean useVInts)
     {
-        this.column = column;
+        this.columnId = columnId;
         this.streamKind = requireNonNull(streamKind, "streamKind is null");
         this.length = length;
         this.useVInts = useVInts;
     }
 
-    public int getColumn()
+    public OrcColumnId getColumnId()
     {
-        return column;
+        return columnId;
     }
 
     public StreamKind getStreamKind()
@@ -68,7 +68,7 @@ public class Stream
     public String toString()
     {
         return toStringHelper(this)
-                .add("column", column)
+                .add("column", columnId)
                 .add("streamKind", streamKind)
                 .add("length", length)
                 .add("useVInts", useVInts)

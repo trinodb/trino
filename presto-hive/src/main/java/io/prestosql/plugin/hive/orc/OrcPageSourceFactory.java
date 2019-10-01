@@ -230,7 +230,7 @@ public class OrcPageSourceFactory
 
                     Domain domain = effectivePredicateDomains.get(column);
                     if (domain != null) {
-                        predicateBuilder.addColumn(streamDescriptor.getStreamId(), domain);
+                        predicateBuilder.addColumn(streamDescriptor.getColumnId(), domain);
                     }
                 }
                 else {

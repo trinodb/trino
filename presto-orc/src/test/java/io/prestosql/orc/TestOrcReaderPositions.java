@@ -18,6 +18,7 @@ import com.google.common.collect.Maps;
 import io.airlift.slice.Slice;
 import io.prestosql.orc.metadata.CompressionKind;
 import io.prestosql.orc.metadata.Footer;
+import io.prestosql.orc.metadata.OrcColumnId;
 import io.prestosql.orc.metadata.statistics.IntegerStatistics;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
@@ -102,7 +103,7 @@ public class TestOrcReaderPositions
                 if (numberOfRows == 100) {
                     return true;
                 }
-                IntegerStatistics stats = allColumnStatistics.get(1).getIntegerStatistics();
+                IntegerStatistics stats = allColumnStatistics.get(new OrcColumnId(1)).getIntegerStatistics();
                 return ((stats.getMin() == 60) && (stats.getMax() == 117)) ||
                         ((stats.getMin() == 180) && (stats.getMax() == 237));
             };
@@ -149,7 +150,7 @@ public class TestOrcReaderPositions
                 if (numberOfRows == rowCount) {
                     return true;
                 }
-                IntegerStatistics stats = allColumnStatistics.get(1).getIntegerStatistics();
+                IntegerStatistics stats = allColumnStatistics.get(new OrcColumnId(1)).getIntegerStatistics();
                 return (stats.getMin() == 50_000) || (stats.getMin() == 60_000);
             };
 

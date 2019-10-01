@@ -24,7 +24,9 @@ import io.prestosql.orc.checkpoint.InvalidCheckpointException;
 import io.prestosql.orc.checkpoint.StreamCheckpoint;
 import io.prestosql.orc.metadata.ColumnEncoding;
 import io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind;
+import io.prestosql.orc.metadata.ColumnMetadata;
 import io.prestosql.orc.metadata.MetadataReader;
+import io.prestosql.orc.metadata.OrcColumnId;
 import io.prestosql.orc.metadata.OrcType;
 import io.prestosql.orc.metadata.OrcType.OrcTypeKind;
 import io.prestosql.orc.metadata.PostScript.HiveWriterVersion;
@@ -78,9 +80,9 @@ public class StripeReader
     private final OrcDataSource orcDataSource;
     private final ZoneId defaultTimeZone;
     private final Optional<OrcDecompressor> decompressor;
-    private final List<OrcType> types;
+    private final ColumnMetadata<OrcType> types;
     private final HiveWriterVersion hiveWriterVersion;
-    private final Set<Integer> includedOrcColumnIds;
+    private final Set<OrcColumnId> includedOrcColumnIds;
     private final int rowsInRowGroup;
     private final OrcPredicate predicate;
     private final MetadataReader metadataReader;
@@ -89,7 +91,7 @@ public class StripeReader
     public StripeReader(OrcDataSource orcDataSource,
             ZoneId defaultTimeZone,
             Optional<OrcDecompressor> decompressor,
-            List<OrcType> types,
+            ColumnMetadata<OrcType> types,
             Set<StreamDescriptor> readColumns,
             int rowsInRowGroup,
             OrcPredicate predicate,
@@ -100,7 +102,7 @@ public class StripeReader
         this.orcDataSource = requireNonNull(orcDataSource, "orcDataSource is null");
         this.defaultTimeZone = requireNonNull(defaultTimeZone, "defaultTimeZone is null");
         this.decompressor = requireNonNull(decompressor, "decompressor is null");
-        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+        this.types = requireNonNull(types, "types is null");
         this.includedOrcColumnIds = getIncludeColumns(requireNonNull(readColumns, "readColumns is null"));
         this.rowsInRowGroup = rowsInRowGroup;
         this.predicate = requireNonNull(predicate, "predicate is null");
@@ -114,7 +116,7 @@ public class StripeReader
     {
         // read the stripe footer
         StripeFooter stripeFooter = readStripeFooter(stripe, systemMemoryUsage);
-        List<ColumnEncoding> columnEncodings = stripeFooter.getColumnEncodings();
+        ColumnMetadata<ColumnEncoding> columnEncodings = stripeFooter.getColumnEncodings();
         if (writeValidation.isPresent()) {
             writeValidation.get().validateTimeZone(orcDataSource.getId(), stripeFooter.getTimeZone().orElse(null));
         }
@@ -123,7 +125,7 @@ public class StripeReader
         // get streams for selected columns
         Map<StreamId, Stream> streams = new HashMap<>();
         for (Stream stream : stripeFooter.getStreams()) {
-            if (includedOrcColumnIds.contains(stream.getColumn()) && isSupportedStreamType(stream, types.get(stream.getColumn()).getOrcTypeKind())) {
+            if (includedOrcColumnIds.contains(stream.getColumnId()) && isSupportedStreamType(stream, types.get(stream.getColumnId()).getOrcTypeKind())) {
                 streams.put(new StreamId(stream), stream);
             }
         }
@@ -139,7 +141,7 @@ public class StripeReader
             Map<StreamId, OrcChunkLoader> streamsData = readDiskRanges(stripe.getOffset(), diskRanges, systemMemoryUsage);
 
             // read the bloom filter for each column
-            Map<Integer, List<BloomFilter>> bloomFilterIndexes = readBloomFilterIndexes(streams, streamsData);
+            Map<OrcColumnId, List<BloomFilter>> bloomFilterIndexes = readBloomFilterIndexes(streams, streamsData);
 
             // read the row index for each column
             Map<StreamId, List<RowGroupIndex>> columnIndexes = readColumnIndexes(streams, streamsData, bloomFilterIndexes);
@@ -185,7 +187,7 @@ public class StripeReader
         ImmutableMap.Builder<StreamId, DiskRange> diskRangesBuilder = ImmutableMap.builder();
         for (Entry<StreamId, DiskRange> entry : getDiskRanges(stripeFooter.getStreams()).entrySet()) {
             StreamId streamId = entry.getKey();
-            if (streams.keySet().contains(streamId)) {
+            if (streams.containsKey(streamId)) {
                 diskRangesBuilder.put(entry);
             }
         }
@@ -270,13 +272,13 @@ public class StripeReader
         return dataBuilder.build();
     }
 
-    private Map<StreamId, ValueInputStream<?>> createValueStreams(Map<StreamId, Stream> streams, Map<StreamId, OrcChunkLoader> streamsData, List<ColumnEncoding> columnEncodings)
+    private Map<StreamId, ValueInputStream<?>> createValueStreams(Map<StreamId, Stream> streams, Map<StreamId, OrcChunkLoader> streamsData, ColumnMetadata<ColumnEncoding> columnEncodings)
     {
         ImmutableMap.Builder<StreamId, ValueInputStream<?>> valueStreams = ImmutableMap.builder();
         for (Entry<StreamId, Stream> entry : streams.entrySet()) {
             StreamId streamId = entry.getKey();
             Stream stream = entry.getValue();
-            ColumnEncodingKind columnEncoding = columnEncodings.get(stream.getColumn()).getColumnEncodingKind();
+            ColumnEncodingKind columnEncoding = columnEncodings.get(stream.getColumnId()).getColumnEncodingKind();
 
             // skip index and empty streams
             if (isIndexStream(stream) || stream.getLength() == 0) {
@@ -284,20 +286,20 @@ public class StripeReader
             }
 
             OrcChunkLoader chunkLoader = streamsData.get(streamId);
-            OrcTypeKind columnType = types.get(stream.getColumn()).getOrcTypeKind();
+            OrcTypeKind columnType = types.get(stream.getColumnId()).getOrcTypeKind();
 
             valueStreams.put(streamId, ValueStreams.createValueStreams(streamId, chunkLoader, columnType, columnEncoding));
         }
         return valueStreams.build();
     }
 
-    private InputStreamSources createDictionaryStreamSources(Map<StreamId, Stream> streams, Map<StreamId, ValueInputStream<?>> valueStreams, List<ColumnEncoding> columnEncodings)
+    private InputStreamSources createDictionaryStreamSources(Map<StreamId, Stream> streams, Map<StreamId, ValueInputStream<?>> valueStreams, ColumnMetadata<ColumnEncoding> columnEncodings)
     {
         ImmutableMap.Builder<StreamId, InputStreamSource<?>> dictionaryStreamBuilder = ImmutableMap.builder();
         for (Entry<StreamId, Stream> entry : streams.entrySet()) {
             StreamId streamId = entry.getKey();
             Stream stream = entry.getValue();
-            int column = stream.getColumn();
+            OrcColumnId column = stream.getColumnId();
 
             // only process dictionary streams
             ColumnEncodingKind columnEncoding = columnEncodings.get(column).getColumnEncodingKind();
@@ -311,7 +313,7 @@ public class StripeReader
                 continue;
             }
 
-            OrcTypeKind columnType = types.get(stream.getColumn()).getOrcTypeKind();
+            OrcTypeKind columnType = types.get(stream.getColumnId()).getOrcTypeKind();
             StreamCheckpoint streamCheckpoint = getDictionaryStreamCheckpoint(streamId, columnType, columnEncoding);
 
             InputStreamSource<?> streamSource = createCheckpointStreamSource(valueStream, streamCheckpoint);
@@ -326,7 +328,7 @@ public class StripeReader
             Map<StreamId, ValueInputStream<?>> valueStreams,
             Map<StreamId, List<RowGroupIndex>> columnIndexes,
             Set<Integer> selectedRowGroups,
-            List<ColumnEncoding> encodings)
+            ColumnMetadata<ColumnEncoding> encodings)
             throws InvalidCheckpointException
     {
         ImmutableList.Builder<RowGroup> rowGroupBuilder = ImmutableList.builder();
@@ -386,28 +388,28 @@ public class StripeReader
         return stream.getStreamKind() == ROW_INDEX || stream.getStreamKind() == DICTIONARY_COUNT || stream.getStreamKind() == BLOOM_FILTER || stream.getStreamKind() == BLOOM_FILTER_UTF8;
     }
 
-    private Map<Integer, List<BloomFilter>> readBloomFilterIndexes(Map<StreamId, Stream> streams, Map<StreamId, OrcChunkLoader> streamsData)
+    private Map<OrcColumnId, List<BloomFilter>> readBloomFilterIndexes(Map<StreamId, Stream> streams, Map<StreamId, OrcChunkLoader> streamsData)
             throws IOException
     {
-        HashMap<Integer, List<BloomFilter>> bloomFilters = new HashMap<>();
+        HashMap<OrcColumnId, List<BloomFilter>> bloomFilters = new HashMap<>();
         for (Entry<StreamId, Stream> entry : streams.entrySet()) {
             Stream stream = entry.getValue();
             if (stream.getStreamKind() == BLOOM_FILTER_UTF8) {
                 OrcInputStream inputStream = new OrcInputStream(streamsData.get(entry.getKey()));
-                bloomFilters.put(stream.getColumn(), metadataReader.readBloomFilterIndexes(inputStream));
+                bloomFilters.put(stream.getColumnId(), metadataReader.readBloomFilterIndexes(inputStream));
             }
         }
         for (Entry<StreamId, Stream> entry : streams.entrySet()) {
             Stream stream = entry.getValue();
-            if (stream.getStreamKind() == BLOOM_FILTER && !bloomFilters.containsKey(stream.getColumn())) {
+            if (stream.getStreamKind() == BLOOM_FILTER && !bloomFilters.containsKey(stream.getColumnId())) {
                 OrcInputStream inputStream = new OrcInputStream(streamsData.get(entry.getKey()));
-                bloomFilters.put(entry.getKey().getColumn(), metadataReader.readBloomFilterIndexes(inputStream));
+                bloomFilters.put(entry.getKey().getColumnId(), metadataReader.readBloomFilterIndexes(inputStream));
             }
         }
         return ImmutableMap.copyOf(bloomFilters);
     }
 
-    private Map<StreamId, List<RowGroupIndex>> readColumnIndexes(Map<StreamId, Stream> streams, Map<StreamId, OrcChunkLoader> streamsData, Map<Integer, List<BloomFilter>> bloomFilterIndexes)
+    private Map<StreamId, List<RowGroupIndex>> readColumnIndexes(Map<StreamId, Stream> streams, Map<StreamId, OrcChunkLoader> streamsData, Map<OrcColumnId, List<BloomFilter>> bloomFilterIndexes)
             throws IOException
     {
         ImmutableMap.Builder<StreamId, List<RowGroupIndex>> columnIndexes = ImmutableMap.builder();
@@ -415,7 +417,7 @@ public class StripeReader
             Stream stream = entry.getValue();
             if (stream.getStreamKind() == ROW_INDEX) {
                 OrcInputStream inputStream = new OrcInputStream(streamsData.get(entry.getKey()));
-                List<BloomFilter> bloomFilters = bloomFilterIndexes.get(entry.getKey().getColumn());
+                List<BloomFilter> bloomFilters = bloomFilterIndexes.get(entry.getKey().getColumnId());
                 List<RowGroupIndex> rowGroupIndexes = metadataReader.readRowIndexes(hiveWriterVersion, inputStream);
                 if (bloomFilters != null && !bloomFilters.isEmpty()) {
                     ImmutableList.Builder<RowGroupIndex> newRowGroupIndexes = ImmutableList.builder();
@@ -442,7 +444,7 @@ public class StripeReader
         int remainingRows = rowsInStripe;
         for (int rowGroup = 0; rowGroup < groupsInStripe; ++rowGroup) {
             int rows = Math.min(remainingRows, rowsInRowGroup);
-            List<ColumnStatistics> statistics = getRowGroupStatistics(types, columnIndexes, rowGroup);
+            ColumnMetadata<ColumnStatistics> statistics = getRowGroupStatistics(types, columnIndexes, rowGroup);
             if (predicate.matches(rows, statistics)) {
                 selectedRowGroups.add(rowGroup);
             }
@@ -451,13 +453,13 @@ public class StripeReader
         return selectedRowGroups.build();
     }
 
-    private static List<ColumnStatistics> getRowGroupStatistics(List<OrcType> types, Map<StreamId, List<RowGroupIndex>> columnIndexes, int rowGroup)
+    private static ColumnMetadata<ColumnStatistics> getRowGroupStatistics(ColumnMetadata<OrcType> types, Map<StreamId, List<RowGroupIndex>> columnIndexes, int rowGroup)
     {
         requireNonNull(columnIndexes, "columnIndexes is null");
         checkArgument(rowGroup >= 0, "rowGroup is negative");
 
         Map<Integer, List<RowGroupIndex>> rowGroupIndexesByColumn = columnIndexes.entrySet().stream()
-                .collect(toImmutableMap(entry -> entry.getKey().getColumn(), Entry::getValue));
+                .collect(toImmutableMap(entry -> entry.getKey().getColumnId().getId(), Entry::getValue));
 
         List<ColumnStatistics> statistics = new ArrayList<>(types.size());
         for (int columnIndex = 0; columnIndex < types.size(); columnIndex++) {
@@ -469,7 +471,7 @@ public class StripeReader
                 statistics.add(null);
             }
         }
-        return statistics;
+        return new ColumnMetadata<>(statistics);
     }
 
     private static boolean isDictionary(Stream stream, ColumnEncodingKind columnEncoding)
@@ -492,17 +494,17 @@ public class StripeReader
         return streamDiskRanges.build();
     }
 
-    private static Set<Integer> getIncludeColumns(Set<StreamDescriptor> includedColumns)
+    private static Set<OrcColumnId> getIncludeColumns(Set<StreamDescriptor> includedColumns)
     {
-        Set<Integer> result = new LinkedHashSet<>();
+        Set<OrcColumnId> result = new LinkedHashSet<>();
         includeColumnsRecursive(result, includedColumns);
         return result;
     }
 
-    private static void includeColumnsRecursive(Set<Integer> result, Collection<StreamDescriptor> readColumns)
+    private static void includeColumnsRecursive(Set<OrcColumnId> result, Collection<StreamDescriptor> readColumns)
     {
         for (StreamDescriptor column : readColumns) {
-            result.add(column.getStreamId());
+            result.add(column.getColumnId());
             includeColumnsRecursive(result, column.getNestedStreams());
         }
     }

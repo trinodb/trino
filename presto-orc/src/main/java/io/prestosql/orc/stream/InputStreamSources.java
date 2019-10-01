@@ -38,7 +38,7 @@ public class InputStreamSources
         requireNonNull(streamDescriptor, "streamDescriptor is null");
         requireNonNull(streamType, "streamType is null");
 
-        InputStreamSource<?> streamSource = streamSources.get(new StreamId(streamDescriptor.getStreamId(), streamKind));
+        InputStreamSource<?> streamSource = streamSources.get(new StreamId(streamDescriptor.getColumnId(), streamKind));
         if (streamSource == null) {
             streamSource = missingStreamSource(streamType);
         }

@@ -17,6 +17,7 @@ import io.prestosql.memory.context.LocalMemoryContext;
 import io.prestosql.orc.OrcCorruptionException;
 import io.prestosql.orc.StreamDescriptor;
 import io.prestosql.orc.metadata.ColumnEncoding;
+import io.prestosql.orc.metadata.ColumnMetadata;
 import io.prestosql.orc.stream.BooleanInputStream;
 import io.prestosql.orc.stream.InputStreamSource;
 import io.prestosql.orc.stream.InputStreamSources;
@@ -33,7 +34,6 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
-import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -201,7 +201,7 @@ public class TimestampStreamReader
     }
 
     @Override
-    public void startStripe(ZoneId timeZone, InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
+    public void startStripe(ZoneId timeZone, InputStreamSources dictionaryStreamSources, ColumnMetadata<ColumnEncoding> encoding)
     {
         baseTimestampInSeconds = ZonedDateTime.of(2015, 1, 1, 0, 0, 0, 0, timeZone).toEpochSecond();
 

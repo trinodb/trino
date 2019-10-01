@@ -31,17 +31,17 @@ public class Footer
     private final long numberOfRows;
     private final int rowsInRowGroup;
     private final List<StripeInformation> stripes;
-    private final List<OrcType> types;
-    private final List<ColumnStatistics> fileStats;
+    private final ColumnMetadata<OrcType> types;
+    private final ColumnMetadata<ColumnStatistics> fileStats;
     private final Map<String, Slice> userMetadata;
 
-    public Footer(long numberOfRows, int rowsInRowGroup, List<StripeInformation> stripes, List<OrcType> types, List<ColumnStatistics> fileStats, Map<String, Slice> userMetadata)
+    public Footer(long numberOfRows, int rowsInRowGroup, List<StripeInformation> stripes, ColumnMetadata<OrcType> types, ColumnMetadata<ColumnStatistics> fileStats, Map<String, Slice> userMetadata)
     {
         this.numberOfRows = numberOfRows;
         this.rowsInRowGroup = rowsInRowGroup;
         this.stripes = ImmutableList.copyOf(requireNonNull(stripes, "stripes is null"));
-        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
-        this.fileStats = ImmutableList.copyOf(requireNonNull(fileStats, "columnStatistics is null"));
+        this.types = requireNonNull(types, "types is null");
+        this.fileStats = requireNonNull(fileStats, "fileStats is null");
         requireNonNull(userMetadata, "userMetadata is null");
         this.userMetadata = ImmutableMap.copyOf(transformValues(userMetadata, Slices::copyOf));
     }
@@ -61,12 +61,12 @@ public class Footer
         return stripes;
     }
 
-    public List<OrcType> getTypes()
+    public ColumnMetadata<OrcType> getTypes()
     {
         return types;
     }
 
-    public List<ColumnStatistics> getFileStats()
+    public ColumnMetadata<ColumnStatistics> getFileStats()
     {
         return fileStats;
     }

@@ -27,6 +27,7 @@ import io.prestosql.orc.OrcWriteValidation.StatisticsValidation;
 import io.prestosql.orc.OrcWriteValidation.WriteChecksum;
 import io.prestosql.orc.OrcWriteValidation.WriteChecksumBuilder;
 import io.prestosql.orc.metadata.ColumnEncoding;
+import io.prestosql.orc.metadata.ColumnMetadata;
 import io.prestosql.orc.metadata.MetadataReader;
 import io.prestosql.orc.metadata.OrcType;
 import io.prestosql.orc.metadata.PostScript.HiveWriterVersion;
@@ -120,12 +121,12 @@ public class OrcRecordReader
             OrcPredicate predicate,
             long numberOfRows,
             List<StripeInformation> fileStripes,
-            List<ColumnStatistics> fileStats,
+            ColumnMetadata<ColumnStatistics> fileStats,
             List<StripeStatistics> stripeStats,
             OrcDataSource orcDataSource,
             long splitOffset,
             long splitLength,
-            List<OrcType> orcTypes,
+            ColumnMetadata<OrcType> orcTypes,
             Optional<OrcDecompressor> decompressor,
             int rowsInRowGroup,
             DateTimeZone hiveStorageTimeZone,
@@ -155,10 +156,10 @@ public class OrcRecordReader
         requireNonNull(exceptionTransform, "exceptionTransform is null");
 
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
-        this.writeChecksumBuilder = writeValidation.map(validation -> createWriteChecksumBuilder(orcTypes.get(0).getFieldCount(), readTypes));
-        this.rowGroupStatisticsValidation = writeValidation.map(validation -> validation.createWriteStatisticsBuilder(orcTypes.get(0).getFieldCount(), readTypes));
-        this.stripeStatisticsValidation = writeValidation.map(validation -> validation.createWriteStatisticsBuilder(orcTypes.get(0).getFieldCount(), readTypes));
-        this.fileStatisticsValidation = writeValidation.map(validation -> validation.createWriteStatisticsBuilder(orcTypes.get(0).getFieldCount(), readTypes));
+        this.writeChecksumBuilder = writeValidation.map(validation -> createWriteChecksumBuilder(orcTypes, readTypes));
+        this.rowGroupStatisticsValidation = writeValidation.map(validation -> validation.createWriteStatisticsBuilder(orcTypes, readTypes));
+        this.stripeStatisticsValidation = writeValidation.map(validation -> validation.createWriteStatisticsBuilder(orcTypes, readTypes));
+        this.fileStatisticsValidation = writeValidation.map(validation -> validation.createWriteStatisticsBuilder(orcTypes, readTypes));
         this.systemMemoryUsage = systemMemoryUsage.newAggregatedMemoryContext();
         this.blockFactory = new OrcBlockFactory(exceptionTransform, options.isNestedLazy());
 
@@ -346,7 +347,7 @@ public class OrcRecordReader
             validateWrite(validation -> validation.getChecksum().getStripeHash() == actualChecksum.getStripeHash(), "Invalid stripes checksum");
         }
         if (fileStatisticsValidation.isPresent()) {
-            List<ColumnStatistics> columnStatistics = fileStatisticsValidation.get().build();
+            ColumnMetadata<ColumnStatistics> columnStatistics = fileStatisticsValidation.get().build();
             writeValidation.get().validateFileStatistics(orcDataSource.getId(), columnStatistics);
         }
     }
@@ -501,7 +502,7 @@ public class OrcRecordReader
         if (stripe != null) {
             // Give readers access to dictionary streams
             InputStreamSources dictionaryStreamSources = stripe.getDictionaryStreamSources();
-            List<ColumnEncoding> columnEncodings = stripe.getColumnEncodings();
+            ColumnMetadata<ColumnEncoding> columnEncodings = stripe.getColumnEncodings();
             ZoneId timeZone = stripe.getTimeZone();
             for (StreamReader column : streamReaders) {
                 if (column != null) {

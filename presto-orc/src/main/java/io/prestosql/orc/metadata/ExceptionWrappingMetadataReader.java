@@ -77,7 +77,7 @@ public class ExceptionWrappingMetadataReader
     }
 
     @Override
-    public StripeFooter readStripeFooter(List<OrcType> types, InputStream inputStream)
+    public StripeFooter readStripeFooter(ColumnMetadata<OrcType> types, InputStream inputStream)
             throws IOException
     {
         try {

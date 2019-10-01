@@ -158,7 +158,7 @@ public class OrcMetadataReader
     }
 
     @Override
-    public StripeFooter readStripeFooter(List<OrcType> types, InputStream inputStream)
+    public StripeFooter readStripeFooter(ColumnMetadata<OrcType> types, InputStream inputStream)
             throws IOException
     {
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
@@ -172,7 +172,7 @@ public class OrcMetadataReader
 
     private static Stream toStream(OrcProto.Stream stream)
     {
-        return new Stream(stream.getColumn(), toStreamKind(stream.getKind()), toIntExact(stream.getLength()), true);
+        return new Stream(new OrcColumnId(stream.getColumn()), toStreamKind(stream.getKind()), toIntExact(stream.getLength()), true);
     }
 
     private static List<Stream> toStream(List<OrcProto.Stream> streams)
@@ -187,11 +187,11 @@ public class OrcMetadataReader
         return new ColumnEncoding(toColumnEncodingKind(columnEncoding.getKind()), columnEncoding.getDictionarySize());
     }
 
-    private static List<ColumnEncoding> toColumnEncoding(List<OrcProto.ColumnEncoding> columnEncodings)
+    private static ColumnMetadata<ColumnEncoding> toColumnEncoding(List<OrcProto.ColumnEncoding> columnEncodings)
     {
-        return columnEncodings.stream()
+        return new ColumnMetadata<>(columnEncodings.stream()
                 .map(OrcMetadataReader::toColumnEncoding)
-                .collect(toImmutableList());
+                .collect(toImmutableList()));
     }
 
     @Override
@@ -293,14 +293,14 @@ public class OrcMetadataReader
                 null);
     }
 
-    private static List<ColumnStatistics> toColumnStatistics(HiveWriterVersion hiveWriterVersion, List<OrcProto.ColumnStatistics> columnStatistics, boolean isRowGroup)
+    private static ColumnMetadata<ColumnStatistics> toColumnStatistics(HiveWriterVersion hiveWriterVersion, List<OrcProto.ColumnStatistics> columnStatistics, boolean isRowGroup)
     {
         if (columnStatistics == null) {
-            return ImmutableList.of();
+            return ColumnMetadata.empty();
         }
-        return columnStatistics.stream()
+        return new ColumnMetadata<>(columnStatistics.stream()
                 .map(statistics -> toColumnStatistics(hiveWriterVersion, statistics, isRowGroup))
-                .collect(toImmutableList());
+                .collect(toImmutableList()));
     }
 
     private static Map<String, Slice> toUserMetadata(List<OrcProto.UserMetadataItem> metadataList)
@@ -491,14 +491,21 @@ public class OrcMetadataReader
             precision = Optional.of(type.getPrecision());
             scale = Optional.of(type.getScale());
         }
-        return new OrcType(toTypeKind(type.getKind()), type.getSubtypesList(), type.getFieldNamesList(), length, precision, scale);
+        return new OrcType(toTypeKind(type.getKind()), toOrcColumnId(type.getSubtypesList()), type.getFieldNamesList(), length, precision, scale);
     }
 
-    private static List<OrcType> toType(List<OrcProto.Type> types)
+    private static List<OrcColumnId> toOrcColumnId(List<Integer> columnIds)
     {
-        return types.stream()
-                .map(OrcMetadataReader::toType)
+        return columnIds.stream()
+                .map(OrcColumnId::new)
                 .collect(toImmutableList());
+    }
+
+    private static ColumnMetadata<OrcType> toType(List<OrcProto.Type> types)
+    {
+        return new ColumnMetadata<>(types.stream()
+                .map(OrcMetadataReader::toType)
+                .collect(toImmutableList()));
     }
 
     private static OrcTypeKind toTypeKind(OrcProto.Type.Kind typeKind)

@@ -24,6 +24,7 @@ import io.prestosql.orc.checkpoint.LongStreamCheckpoint;
 import io.prestosql.orc.metadata.ColumnEncoding;
 import io.prestosql.orc.metadata.CompressedMetadataWriter;
 import io.prestosql.orc.metadata.CompressionKind;
+import io.prestosql.orc.metadata.OrcColumnId;
 import io.prestosql.orc.metadata.RowGroupIndex;
 import io.prestosql.orc.metadata.Stream;
 import io.prestosql.orc.metadata.Stream.StreamKind;
@@ -66,7 +67,7 @@ public class SliceDictionaryColumnWriter
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceDictionaryColumnWriter.class).instanceSize();
     private static final int DIRECT_CONVERSION_CHUNK_MAX_LOGICAL_BYTES = toIntExact(new DataSize(32, MEGABYTE).toBytes());
 
-    private final int column;
+    private final OrcColumnId columnId;
     private final Type type;
     private final CompressionKind compression;
     private final int bufferSize;
@@ -96,10 +97,9 @@ public class SliceDictionaryColumnWriter
     private boolean directEncoded;
     private SliceDirectColumnWriter directColumnWriter;
 
-    public SliceDictionaryColumnWriter(int column, Type type, CompressionKind compression, int bufferSize, DataSize stringStatisticsLimit)
+    public SliceDictionaryColumnWriter(OrcColumnId columnId, Type type, CompressionKind compression, int bufferSize, DataSize stringStatisticsLimit)
     {
-        checkArgument(column >= 0, "column is negative");
-        this.column = column;
+        this.columnId = requireNonNull(columnId, "columnId is null");
         this.type = requireNonNull(type, "type is null");
         this.compression = requireNonNull(compression, "compression is null");
         this.bufferSize = bufferSize;
@@ -160,7 +160,7 @@ public class SliceDictionaryColumnWriter
         checkState(!closed);
         checkState(!directEncoded);
         if (directColumnWriter == null) {
-            directColumnWriter = new SliceDirectColumnWriter(column, type, compression, bufferSize, this::newStringStatisticsBuilder);
+            directColumnWriter = new SliceDirectColumnWriter(columnId, type, compression, bufferSize, this::newStringStatisticsBuilder);
         }
         checkState(directColumnWriter.getBufferedBytes() == 0);
 
@@ -246,13 +246,13 @@ public class SliceDictionaryColumnWriter
     }
 
     @Override
-    public Map<Integer, ColumnEncoding> getColumnEncodings()
+    public Map<OrcColumnId, ColumnEncoding> getColumnEncodings()
     {
         checkState(closed);
         if (directEncoded) {
             return directColumnWriter.getColumnEncodings();
         }
-        return ImmutableMap.of(column, columnEncoding);
+        return ImmutableMap.of(columnId, columnEncoding);
     }
 
     @Override
@@ -296,7 +296,7 @@ public class SliceDictionaryColumnWriter
     }
 
     @Override
-    public Map<Integer, ColumnStatistics> finishRowGroup()
+    public Map<OrcColumnId, ColumnStatistics> finishRowGroup()
     {
         checkState(!closed);
         checkState(inRowGroup);
@@ -311,7 +311,7 @@ public class SliceDictionaryColumnWriter
         rowGroupValueCount = 0;
         statisticsBuilder = newStringStatisticsBuilder();
         values = new IntBigArray();
-        return ImmutableMap.of(column, statistics);
+        return ImmutableMap.of(columnId, statistics);
     }
 
     @Override
@@ -329,14 +329,14 @@ public class SliceDictionaryColumnWriter
     }
 
     @Override
-    public Map<Integer, ColumnStatistics> getColumnStripeStatistics()
+    public Map<OrcColumnId, ColumnStatistics> getColumnStripeStatistics()
     {
         checkState(closed);
         if (directEncoded) {
             return directColumnWriter.getColumnStripeStatistics();
         }
 
-        return ImmutableMap.of(column, ColumnStatistics.mergeColumnStatistics(rowGroups.stream()
+        return ImmutableMap.of(columnId, ColumnStatistics.mergeColumnStatistics(rowGroups.stream()
                 .map(DictionaryRowGroup::getColumnStatistics)
                 .collect(toList())));
     }
@@ -463,7 +463,7 @@ public class SliceDictionaryColumnWriter
         }
 
         Slice slice = metadataWriter.writeRowIndexes(rowGroupIndexes.build());
-        Stream stream = new Stream(column, StreamKind.ROW_INDEX, slice.length(), false);
+        Stream stream = new Stream(columnId, StreamKind.ROW_INDEX, slice.length(), false);
         return ImmutableList.of(new StreamDataOutput(slice, stream));
     }
 
@@ -489,10 +489,10 @@ public class SliceDictionaryColumnWriter
 
         // actually write data
         ImmutableList.Builder<StreamDataOutput> outputDataStreams = ImmutableList.builder();
-        presentStream.getStreamDataOutput(column).ifPresent(outputDataStreams::add);
-        outputDataStreams.add(dataStream.getStreamDataOutput(column));
-        outputDataStreams.add(dictionaryLengthStream.getStreamDataOutput(column));
-        outputDataStreams.add(dictionaryDataStream.getStreamDataOutput(column));
+        presentStream.getStreamDataOutput(columnId).ifPresent(outputDataStreams::add);
+        outputDataStreams.add(dataStream.getStreamDataOutput(columnId));
+        outputDataStreams.add(dictionaryLengthStream.getStreamDataOutput(columnId));
+        outputDataStreams.add(dictionaryDataStream.getStreamDataOutput(columnId));
         return outputDataStreams.build();
     }
 

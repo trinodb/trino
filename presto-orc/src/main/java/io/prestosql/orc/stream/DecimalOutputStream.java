@@ -18,6 +18,7 @@ import io.airlift.slice.Slice;
 import io.prestosql.orc.OrcOutputBuffer;
 import io.prestosql.orc.checkpoint.DecimalStreamCheckpoint;
 import io.prestosql.orc.metadata.CompressionKind;
+import io.prestosql.orc.metadata.OrcColumnId;
 import io.prestosql.orc.metadata.Stream;
 import io.prestosql.spi.type.Decimals;
 import org.openjdk.jol.info.ClassLayout;
@@ -109,9 +110,9 @@ public class DecimalOutputStream
     }
 
     @Override
-    public StreamDataOutput getStreamDataOutput(int column)
+    public StreamDataOutput getStreamDataOutput(OrcColumnId columnId)
     {
-        return new StreamDataOutput(buffer::writeDataTo, new Stream(column, DATA, toIntExact(buffer.getOutputDataSize()), true));
+        return new StreamDataOutput(buffer::writeDataTo, new Stream(columnId, DATA, toIntExact(buffer.getOutputDataSize()), true));
     }
 
     @Override

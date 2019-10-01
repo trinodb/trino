@@ -32,6 +32,8 @@ import io.prestosql.orc.OrcRecordReader;
 import io.prestosql.orc.StreamDescriptor;
 import io.prestosql.orc.TupleDomainOrcPredicate;
 import io.prestosql.orc.TupleDomainOrcPredicate.TupleDomainOrcPredicateBuilder;
+import io.prestosql.orc.metadata.ColumnMetadata;
+import io.prestosql.orc.metadata.OrcColumnId;
 import io.prestosql.orc.metadata.OrcType;
 import io.prestosql.plugin.raptor.legacy.RaptorColumnHandle;
 import io.prestosql.plugin.raptor.legacy.RaptorConnectorId;
@@ -102,6 +104,7 @@ import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.units.DataSize.Unit.PETABYTE;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.orc.OrcReader.INITIAL_BATCH_SIZE;
+import static io.prestosql.orc.metadata.OrcColumnId.ROOT_COLUMN;
 import static io.prestosql.plugin.raptor.legacy.RaptorColumnHandle.isBucketNumberColumn;
 import static io.prestosql.plugin.raptor.legacy.RaptorColumnHandle.isHiddenColumn;
 import static io.prestosql.plugin.raptor.legacy.RaptorColumnHandle.isShardRowIdColumn;
@@ -468,9 +471,9 @@ public class OrcStorageManager
         return getColumnInfoFromOrcColumnTypes(reader.getColumnNames(), reader.getFooter().getTypes());
     }
 
-    private List<ColumnInfo> getColumnInfoFromOrcColumnTypes(List<String> orcColumnNames, List<OrcType> orcColumnTypes)
+    private List<ColumnInfo> getColumnInfoFromOrcColumnTypes(List<String> orcColumnNames, ColumnMetadata<OrcType> orcColumnTypes)
     {
-        Type rowType = getType(orcColumnTypes, 0);
+        Type rowType = getType(orcColumnTypes, ROOT_COLUMN);
         if (orcColumnNames.size() != rowType.getTypeParameters().size()) {
             throw new PrestoException(RAPTOR_ERROR, "Column names and types do not match");
         }
@@ -507,9 +510,9 @@ public class OrcStorageManager
                 .collect(toList());
     }
 
-    private Type getType(List<OrcType> types, int index)
+    private Type getType(ColumnMetadata<OrcType> types, OrcColumnId columnId)
     {
-        OrcType type = types.get(index);
+        OrcType type = types.get(columnId);
         switch (type.getOrcTypeKind()) {
             case BOOLEAN:
                 return BOOLEAN;
@@ -577,7 +580,7 @@ public class OrcStorageManager
         effectivePredicate.getDomains().get().forEach((columnHandle, value) -> {
             StreamDescriptor fileColumn = indexMap.get(columnHandle.getColumnId());
             if (fileColumn != null) {
-                predicateBuilder.addColumn(fileColumn.getStreamId(), value);
+                predicateBuilder.addColumn(fileColumn.getColumnId(), value);
             }
         });
         return predicateBuilder.build();

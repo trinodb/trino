@@ -18,6 +18,7 @@ import io.prestosql.memory.context.LocalMemoryContext;
 import io.prestosql.orc.OrcCorruptionException;
 import io.prestosql.orc.StreamDescriptor;
 import io.prestosql.orc.metadata.ColumnEncoding;
+import io.prestosql.orc.metadata.ColumnMetadata;
 import io.prestosql.orc.stream.BooleanInputStream;
 import io.prestosql.orc.stream.ByteArrayInputStream;
 import io.prestosql.orc.stream.InputStreamSource;
@@ -33,7 +34,6 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.time.ZoneId;
-import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -313,11 +313,11 @@ public class SliceDictionaryStreamReader
     }
 
     @Override
-    public void startStripe(ZoneId timeZone, InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
+    public void startStripe(ZoneId timeZone, InputStreamSources dictionaryStreamSources, ColumnMetadata<ColumnEncoding> encoding)
     {
         dictionaryDataStreamSource = dictionaryStreamSources.getInputStreamSource(streamDescriptor, DICTIONARY_DATA, ByteArrayInputStream.class);
         dictionaryLengthStreamSource = dictionaryStreamSources.getInputStreamSource(streamDescriptor, LENGTH, LongInputStream.class);
-        dictionarySize = encoding.get(streamDescriptor.getStreamId()).getDictionarySize();
+        dictionarySize = encoding.get(streamDescriptor.getColumnId()).getDictionarySize();
         dictionaryOpen = false;
 
         presentStreamSource = missingStreamSource(BooleanInputStream.class);
