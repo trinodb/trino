@@ -95,6 +95,11 @@ public class IcebergTableHandle
         return new SchemaTableName(schemaName, tableName);
     }
 
+    public SchemaTableName getSchemaTableNameWithType()
+    {
+        return new SchemaTableName(schemaName, tableName + "$" + tableType.name());
+    }
+
     @Override
     public String toString()
     {

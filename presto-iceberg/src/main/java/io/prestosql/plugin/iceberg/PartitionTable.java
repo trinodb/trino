@@ -136,7 +136,7 @@ public class PartitionTable
         this.resultTypes = columnMetadata.stream()
                 .map(ColumnMetadata::getType)
                 .collect(toImmutableList());
-        return new ConnectorTableMetadata(tableHandle.getSchemaTableName(), columnMetadata);
+        return new ConnectorTableMetadata(tableHandle.getSchemaTableNameWithType(), columnMetadata);
     }
 
     private List<ColumnMetadata> getPartitionColumnsMetadata(List<PartitionField> fields, Schema schema)
