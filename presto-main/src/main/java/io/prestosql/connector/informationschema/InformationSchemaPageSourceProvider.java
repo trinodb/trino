@@ -14,6 +14,7 @@
 package io.prestosql.connector.informationschema;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.log.Logger;
 import io.prestosql.FullConnectorSession;
 import io.prestosql.Session;
 import io.prestosql.metadata.InternalTable;
@@ -66,6 +67,8 @@ import static java.util.Objects.requireNonNull;
 public class InformationSchemaPageSourceProvider
         implements ConnectorPageSourceProvider
 {
+    private static final Logger log = Logger.get(InformationSchemaPageSourceProvider.class);
+
     private final Metadata metadata;
     private final AccessControl accessControl;
 
@@ -114,6 +117,8 @@ public class InformationSchemaPageSourceProvider
 
     public InternalTable getInformationSchemaTable(Session session, String catalog, InformationSchemaTable table, Set<QualifiedTablePrefix> prefixes, OptionalLong limit)
     {
+        log.debug("Building information schema table (queryId=%s; catalog=%s; table=%s; prefixes=%s, limit=%s)", session.getQueryId(), catalog, table, prefixes, limit);
+
         switch (table) {
             case COLUMNS:
                 return buildColumns(session, prefixes, limit);
