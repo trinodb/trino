@@ -19,6 +19,7 @@ import io.prestosql.memory.context.LocalMemoryContext;
 import io.prestosql.orc.OrcCorruptionException;
 import io.prestosql.orc.StreamDescriptor;
 import io.prestosql.orc.metadata.ColumnEncoding;
+import io.prestosql.orc.metadata.ColumnMetadata;
 import io.prestosql.orc.stream.BooleanInputStream;
 import io.prestosql.orc.stream.DecimalInputStream;
 import io.prestosql.orc.stream.InputStreamSource;
@@ -38,7 +39,6 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.time.ZoneId;
-import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -306,7 +306,7 @@ public class DecimalStreamReader
     }
 
     @Override
-    public void startStripe(ZoneId timeZone, InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
+    public void startStripe(ZoneId timeZone, InputStreamSources dictionaryStreamSources, ColumnMetadata<ColumnEncoding> encoding)
     {
         presentStreamSource = missingStreamSource(BooleanInputStream.class);
         decimalStreamSource = missingStreamSource(DecimalInputStream.class);

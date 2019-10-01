@@ -16,6 +16,8 @@ package io.prestosql.orc;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import io.prestosql.orc.metadata.ColumnMetadata;
+import io.prestosql.orc.metadata.OrcColumnId;
 import io.prestosql.orc.metadata.statistics.BloomFilter;
 import io.prestosql.orc.metadata.statistics.BooleanStatistics;
 import io.prestosql.orc.metadata.statistics.ColumnStatistics;
@@ -36,7 +38,6 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.Chars.isCharType;
@@ -75,10 +76,10 @@ public class TupleDomainOrcPredicate
     }
 
     @Override
-    public boolean matches(long numberOfRows, List<ColumnStatistics> allColumnStatistics)
+    public boolean matches(long numberOfRows, ColumnMetadata<ColumnStatistics> allColumnStatistics)
     {
         for (ColumnDomain column : columnDomains) {
-            ColumnStatistics columnStatistics = allColumnStatistics.get(column.getStreamId());
+            ColumnStatistics columnStatistics = allColumnStatistics.get(column.getColumnId());
             if (columnStatistics == null) {
                 // no statistics for this column, so we can't exclude this section
                 continue;
@@ -259,10 +260,10 @@ public class TupleDomainOrcPredicate
         private final List<ColumnDomain> columns = new ArrayList<>();
         private boolean bloomFiltersEnabled;
 
-        public TupleDomainOrcPredicateBuilder addColumn(int streamId, Domain domain)
+        public TupleDomainOrcPredicateBuilder addColumn(OrcColumnId columnId, Domain domain)
         {
             requireNonNull(domain, "domain is null");
-            columns.add(new ColumnDomain(streamId, domain));
+            columns.add(new ColumnDomain(columnId, domain));
             return this;
         }
 
@@ -280,19 +281,18 @@ public class TupleDomainOrcPredicate
 
     private static class ColumnDomain
     {
-        private final int streamId;
+        private final OrcColumnId columnId;
         private final Domain domain;
 
-        public ColumnDomain(int streamId, Domain domain)
+        public ColumnDomain(OrcColumnId columnId, Domain domain)
         {
-            checkArgument(streamId >= 0, "streamId is negative");
-            this.streamId = streamId;
+            this.columnId = requireNonNull(columnId, "columnId is null");
             this.domain = requireNonNull(domain, "domain is null");
         }
 
-        public int getStreamId()
+        public OrcColumnId getColumnId()
         {
-            return streamId;
+            return columnId;
         }
 
         public Domain getDomain()
@@ -304,7 +304,7 @@ public class TupleDomainOrcPredicate
         public String toString()
         {
             return toStringHelper(this)
-                    .add("streamId", streamId)
+                    .add("columnId", columnId)
                     .add("domain", domain)
                     .toString();
         }

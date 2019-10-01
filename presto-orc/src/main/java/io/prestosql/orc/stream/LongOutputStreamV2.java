@@ -20,6 +20,7 @@ import io.prestosql.orc.OrcOutputBuffer;
 import io.prestosql.orc.checkpoint.LongStreamCheckpoint;
 import io.prestosql.orc.checkpoint.LongStreamV2Checkpoint;
 import io.prestosql.orc.metadata.CompressionKind;
+import io.prestosql.orc.metadata.OrcColumnId;
 import io.prestosql.orc.metadata.Stream;
 import io.prestosql.orc.metadata.Stream.StreamKind;
 import org.openjdk.jol.info.ClassLayout;
@@ -747,9 +748,9 @@ public class LongOutputStreamV2
     }
 
     @Override
-    public StreamDataOutput getStreamDataOutput(int column)
+    public StreamDataOutput getStreamDataOutput(OrcColumnId columnId)
     {
-        return new StreamDataOutput(buffer::writeDataTo, new Stream(column, streamKind, toIntExact(buffer.getOutputDataSize()), true));
+        return new StreamDataOutput(buffer::writeDataTo, new Stream(columnId, streamKind, toIntExact(buffer.getOutputDataSize()), true));
     }
 
     @Override

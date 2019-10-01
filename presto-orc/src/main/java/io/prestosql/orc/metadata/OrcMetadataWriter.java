@@ -144,7 +144,9 @@ public class OrcMetadataWriter
     {
         Builder builder = Type.newBuilder()
                 .setKind(toTypeKind(type.getOrcTypeKind()))
-                .addAllSubtypes(type.getFieldTypeIndexes())
+                .addAllSubtypes(type.getFieldTypeIndexes().stream()
+                        .map(OrcColumnId::getId)
+                        .collect(toList()))
                 .addAllFieldNames(type.getFieldNames());
 
         if (type.getLength().isPresent()) {
@@ -298,7 +300,7 @@ public class OrcMetadataWriter
     private static OrcProto.Stream toStream(Stream stream)
     {
         return OrcProto.Stream.newBuilder()
-                .setColumn(stream.getColumn())
+                .setColumn(stream.getColumnId().getId())
                 .setKind(toStreamKind(stream.getStreamKind()))
                 .setLength(stream.getLength())
                 .build();

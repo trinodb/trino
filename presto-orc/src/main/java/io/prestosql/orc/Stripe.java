@@ -15,6 +15,7 @@ package io.prestosql.orc;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.orc.metadata.ColumnEncoding;
+import io.prestosql.orc.metadata.ColumnMetadata;
 import io.prestosql.orc.stream.InputStreamSources;
 
 import java.time.ZoneId;
@@ -27,11 +28,11 @@ public class Stripe
 {
     private final long rowCount;
     private final ZoneId timeZone;
-    private final List<ColumnEncoding> columnEncodings;
+    private final ColumnMetadata<ColumnEncoding> columnEncodings;
     private final List<RowGroup> rowGroups;
     private final InputStreamSources dictionaryStreamSources;
 
-    public Stripe(long rowCount, ZoneId timeZone, List<ColumnEncoding> columnEncodings, List<RowGroup> rowGroups, InputStreamSources dictionaryStreamSources)
+    public Stripe(long rowCount, ZoneId timeZone, ColumnMetadata<ColumnEncoding> columnEncodings, List<RowGroup> rowGroups, InputStreamSources dictionaryStreamSources)
     {
         this.rowCount = rowCount;
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
@@ -50,7 +51,7 @@ public class Stripe
         return timeZone;
     }
 
-    public List<ColumnEncoding> getColumnEncodings()
+    public ColumnMetadata<ColumnEncoding> getColumnEncodings()
     {
         return columnEncodings;
     }

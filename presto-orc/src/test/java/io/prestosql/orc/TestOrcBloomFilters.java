@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Longs;
 import io.airlift.slice.Slice;
+import io.prestosql.orc.metadata.ColumnMetadata;
 import io.prestosql.orc.metadata.OrcMetadataReader;
 import io.prestosql.orc.metadata.statistics.BloomFilter;
 import io.prestosql.orc.metadata.statistics.ColumnStatistics;
@@ -45,6 +46,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.prestosql.orc.TupleDomainOrcPredicate.checkInBloomFilter;
 import static io.prestosql.orc.TupleDomainOrcPredicate.extractDiscreteValues;
+import static io.prestosql.orc.metadata.OrcColumnId.ROOT_COLUMN;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
@@ -283,7 +285,7 @@ public class TestOrcBloomFilters
     {
         TupleDomainOrcPredicate predicate = TupleDomainOrcPredicate.builder()
                 .setBloomFiltersEnabled(true)
-                .addColumn(0, Domain.singleValue(BIGINT, 1234L))
+                .addColumn(ROOT_COLUMN, Domain.singleValue(BIGINT, 1234L))
                 .build();
         TupleDomainOrcPredicate emptyPredicate = TupleDomainOrcPredicate.builder().build();
 
@@ -293,7 +295,7 @@ public class TestOrcBloomFilters
         bloomFilter.addLong(1234);
         OrcProto.BloomFilter orcBloomFilter = toOrcBloomFilter(bloomFilter);
 
-        List<ColumnStatistics> matchingStatisticsByColumnIndex = ImmutableList.of(new ColumnStatistics(
+        ColumnMetadata<ColumnStatistics> matchingStatisticsByColumnIndex = new ColumnMetadata<>(ImmutableList.of(new ColumnStatistics(
                 null,
                 0,
                 null,
@@ -303,9 +305,9 @@ public class TestOrcBloomFilters
                 null,
                 null,
                 null,
-                toBloomFilter(orcBloomFilter)));
+                toBloomFilter(orcBloomFilter))));
 
-        List<ColumnStatistics> nonMatchingStatisticsByColumnIndex = ImmutableList.of(new ColumnStatistics(
+        ColumnMetadata<ColumnStatistics> nonMatchingStatisticsByColumnIndex = new ColumnMetadata<>(ImmutableList.of(new ColumnStatistics(
                 null,
                 0,
                 null,
@@ -315,9 +317,9 @@ public class TestOrcBloomFilters
                 null,
                 null,
                 null,
-                toBloomFilter(emptyOrcBloomFilter)));
+                toBloomFilter(emptyOrcBloomFilter))));
 
-        List<ColumnStatistics> withoutBloomFilterStatisticsByColumnIndex = ImmutableList.of(new ColumnStatistics(
+        ColumnMetadata<ColumnStatistics> withoutBloomFilterStatisticsByColumnIndex = new ColumnMetadata<>(ImmutableList.of(new ColumnStatistics(
                 null,
                 0,
                 null,
@@ -327,7 +329,7 @@ public class TestOrcBloomFilters
                 null,
                 null,
                 null,
-                null));
+                null)));
 
         assertTrue(predicate.matches(1L, matchingStatisticsByColumnIndex));
         assertTrue(predicate.matches(1L, withoutBloomFilterStatisticsByColumnIndex));

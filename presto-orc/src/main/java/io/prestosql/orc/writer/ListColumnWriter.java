@@ -21,6 +21,7 @@ import io.prestosql.orc.checkpoint.LongStreamCheckpoint;
 import io.prestosql.orc.metadata.ColumnEncoding;
 import io.prestosql.orc.metadata.CompressedMetadataWriter;
 import io.prestosql.orc.metadata.CompressionKind;
+import io.prestosql.orc.metadata.OrcColumnId;
 import io.prestosql.orc.metadata.RowGroupIndex;
 import io.prestosql.orc.metadata.Stream;
 import io.prestosql.orc.metadata.Stream.StreamKind;
@@ -50,7 +51,7 @@ public class ListColumnWriter
         implements ColumnWriter
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(ListColumnWriter.class).instanceSize();
-    private final int column;
+    private final OrcColumnId columnId;
     private final boolean compressed;
     private final ColumnEncoding columnEncoding;
     private final LongOutputStream lengthStream;
@@ -63,10 +64,9 @@ public class ListColumnWriter
 
     private boolean closed;
 
-    public ListColumnWriter(int column, CompressionKind compression, int bufferSize, ColumnWriter elementWriter)
+    public ListColumnWriter(OrcColumnId columnId, CompressionKind compression, int bufferSize, ColumnWriter elementWriter)
     {
-        checkArgument(column >= 0, "column is negative");
-        this.column = column;
+        this.columnId = requireNonNull(columnId, "columnId is null");
         this.compressed = requireNonNull(compression, "compression is null") != NONE;
         this.columnEncoding = new ColumnEncoding(DIRECT_V2, 0);
         this.elementWriter = requireNonNull(elementWriter, "elementWriter is null");
@@ -84,10 +84,10 @@ public class ListColumnWriter
     }
 
     @Override
-    public Map<Integer, ColumnEncoding> getColumnEncodings()
+    public Map<OrcColumnId, ColumnEncoding> getColumnEncodings()
     {
-        ImmutableMap.Builder<Integer, ColumnEncoding> encodings = ImmutableMap.builder();
-        encodings.put(column, columnEncoding);
+        ImmutableMap.Builder<OrcColumnId, ColumnEncoding> encodings = ImmutableMap.builder();
+        encodings.put(columnId, columnEncoding);
         encodings.putAll(elementWriter.getColumnEncodings());
         return encodings.build();
     }
@@ -131,7 +131,7 @@ public class ListColumnWriter
     }
 
     @Override
-    public Map<Integer, ColumnStatistics> finishRowGroup()
+    public Map<OrcColumnId, ColumnStatistics> finishRowGroup()
     {
         checkState(!closed);
 
@@ -139,8 +139,8 @@ public class ListColumnWriter
         rowGroupColumnStatistics.add(statistics);
         nonNullValueCount = 0;
 
-        ImmutableMap.Builder<Integer, ColumnStatistics> columnStatistics = ImmutableMap.builder();
-        columnStatistics.put(column, statistics);
+        ImmutableMap.Builder<OrcColumnId, ColumnStatistics> columnStatistics = ImmutableMap.builder();
+        columnStatistics.put(columnId, statistics);
         columnStatistics.putAll(elementWriter.finishRowGroup());
         return columnStatistics.build();
     }
@@ -155,11 +155,11 @@ public class ListColumnWriter
     }
 
     @Override
-    public Map<Integer, ColumnStatistics> getColumnStripeStatistics()
+    public Map<OrcColumnId, ColumnStatistics> getColumnStripeStatistics()
     {
         checkState(closed);
-        ImmutableMap.Builder<Integer, ColumnStatistics> columnStatistics = ImmutableMap.builder();
-        columnStatistics.put(column, ColumnStatistics.mergeColumnStatistics(rowGroupColumnStatistics));
+        ImmutableMap.Builder<OrcColumnId, ColumnStatistics> columnStatistics = ImmutableMap.builder();
+        columnStatistics.put(columnId, ColumnStatistics.mergeColumnStatistics(rowGroupColumnStatistics));
         columnStatistics.putAll(elementWriter.getColumnStripeStatistics());
         return columnStatistics.build();
     }
@@ -184,7 +184,7 @@ public class ListColumnWriter
         }
 
         Slice slice = metadataWriter.writeRowIndexes(rowGroupIndexes.build());
-        Stream stream = new Stream(column, StreamKind.ROW_INDEX, slice.length(), false);
+        Stream stream = new Stream(columnId, StreamKind.ROW_INDEX, slice.length(), false);
 
         ImmutableList.Builder<StreamDataOutput> indexStreams = ImmutableList.builder();
         indexStreams.add(new StreamDataOutput(slice, stream));
@@ -209,8 +209,8 @@ public class ListColumnWriter
         checkState(closed);
 
         ImmutableList.Builder<StreamDataOutput> outputDataStreams = ImmutableList.builder();
-        presentStream.getStreamDataOutput(column).ifPresent(outputDataStreams::add);
-        outputDataStreams.add(lengthStream.getStreamDataOutput(column));
+        presentStream.getStreamDataOutput(columnId).ifPresent(outputDataStreams::add);
+        outputDataStreams.add(lengthStream.getStreamDataOutput(columnId));
         outputDataStreams.addAll(elementWriter.getDataStreams());
         return outputDataStreams.build();
     }

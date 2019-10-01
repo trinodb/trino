@@ -14,6 +14,7 @@
 package io.prestosql.orc;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.orc.metadata.OrcColumnId;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.type.SqlDate;
 import io.prestosql.spi.type.SqlTimestamp;
@@ -96,7 +97,7 @@ public class TestReadBloomFilter
 
             // predicate for specific value within the min/max range without bloom filter being enabled
             TupleDomainOrcPredicate noBloomFilterPredicate = TupleDomainOrcPredicate.builder()
-                    .addColumn(1, Domain.singleValue(type, notInBloomFilter))
+                    .addColumn(new OrcColumnId(1), Domain.singleValue(type, notInBloomFilter))
                     .build();
 
             try (OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, noBloomFilterPredicate, type, MAX_BATCH_SIZE)) {
@@ -105,7 +106,7 @@ public class TestReadBloomFilter
 
             // predicate for specific value within the min/max range with bloom filter enabled, but a value not in the bloom filter
             TupleDomainOrcPredicate notMatchBloomFilterPredicate = TupleDomainOrcPredicate.builder()
-                    .addColumn(1, Domain.singleValue(type, notInBloomFilter))
+                    .addColumn(new OrcColumnId(1), Domain.singleValue(type, notInBloomFilter))
                     .setBloomFiltersEnabled(true)
                     .build();
 
@@ -115,7 +116,7 @@ public class TestReadBloomFilter
 
             // predicate for specific value within the min/max range with bloom filter enabled, and a value in the bloom filter
             TupleDomainOrcPredicate matchBloomFilterPredicate = TupleDomainOrcPredicate.builder()
-                    .addColumn(1, Domain.singleValue(type, inBloomFilter))
+                    .addColumn(new OrcColumnId(1), Domain.singleValue(type, inBloomFilter))
                     .setBloomFiltersEnabled(true)
                     .build();
 

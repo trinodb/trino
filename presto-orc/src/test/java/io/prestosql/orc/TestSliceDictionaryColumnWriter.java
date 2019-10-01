@@ -26,6 +26,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.orc.OrcWriterOptions.DEFAULT_MAX_COMPRESSION_BUFFER_SIZE;
 import static io.prestosql.orc.OrcWriterOptions.DEFAULT_MAX_STRING_STATISTICS_LIMIT;
+import static io.prestosql.orc.metadata.OrcColumnId.ROOT_COLUMN;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.toIntExact;
 import static org.testng.Assert.assertFalse;
@@ -36,7 +37,7 @@ public class TestSliceDictionaryColumnWriter
     public void testDirectConversion()
     {
         SliceDictionaryColumnWriter writer = new SliceDictionaryColumnWriter(
-                0,
+                ROOT_COLUMN,
                 VARCHAR,
                 CompressionKind.NONE,
                 toIntExact(DEFAULT_MAX_COMPRESSION_BUFFER_SIZE.toBytes()),

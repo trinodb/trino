@@ -20,6 +20,7 @@ import io.prestosql.orc.OrcCorruptionException;
 import io.prestosql.orc.StreamDescriptor;
 import io.prestosql.orc.metadata.ColumnEncoding;
 import io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind;
+import io.prestosql.orc.metadata.ColumnMetadata;
 import io.prestosql.orc.stream.InputStreamSources;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.CharType;
@@ -31,7 +32,6 @@ import org.openjdk.jol.info.ClassLayout;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.time.ZoneId;
-import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
@@ -84,10 +84,10 @@ public class SliceStreamReader
     }
 
     @Override
-    public void startStripe(ZoneId timeZone, InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
+    public void startStripe(ZoneId timeZone, InputStreamSources dictionaryStreamSources, ColumnMetadata<ColumnEncoding> encoding)
             throws IOException
     {
-        ColumnEncodingKind columnEncodingKind = encoding.get(streamDescriptor.getStreamId()).getColumnEncodingKind();
+        ColumnEncodingKind columnEncodingKind = encoding.get(streamDescriptor.getColumnId()).getColumnEncodingKind();
         if (columnEncodingKind == DIRECT || columnEncodingKind == DIRECT_V2) {
             currentReader = directReader;
         }

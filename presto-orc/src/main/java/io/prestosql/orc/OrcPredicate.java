@@ -13,9 +13,8 @@
  */
 package io.prestosql.orc;
 
+import io.prestosql.orc.metadata.ColumnMetadata;
 import io.prestosql.orc.metadata.statistics.ColumnStatistics;
-
-import java.util.List;
 
 public interface OrcPredicate
 {
@@ -26,7 +25,7 @@ public interface OrcPredicate
      *
      * @param numberOfRows the number of rows in the segment; this can be used with
      * {@code ColumnStatistics} to determine if a column is only null
-     * @param allColumnStatistics statistics ordered by stream id
+     * @param allColumnStatistics column statistics
      */
-    boolean matches(long numberOfRows, List<ColumnStatistics> allColumnStatistics);
+    boolean matches(long numberOfRows, ColumnMetadata<ColumnStatistics> allColumnStatistics);
 }

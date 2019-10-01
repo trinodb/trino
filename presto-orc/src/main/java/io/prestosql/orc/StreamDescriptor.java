@@ -14,6 +14,7 @@
 package io.prestosql.orc;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.orc.metadata.OrcColumnId;
 import io.prestosql.orc.metadata.OrcType.OrcTypeKind;
 
 import java.util.List;
@@ -24,7 +25,7 @@ import static java.util.Objects.requireNonNull;
 public final class StreamDescriptor
 {
     private final String streamName;
-    private final int streamId;
+    private final OrcColumnId columnId;
     private final OrcTypeKind streamType;
     private final String fieldName;
     private final OrcDataSourceId orcDataSourceId;
@@ -32,14 +33,14 @@ public final class StreamDescriptor
 
     public StreamDescriptor(
             String streamName,
-            int streamId,
+            OrcColumnId columnId,
             String fieldName,
             OrcTypeKind streamType,
             OrcDataSourceId orcDataSourceId,
             List<StreamDescriptor> nestedStreams)
     {
         this.streamName = requireNonNull(streamName, "streamName is null");
-        this.streamId = streamId;
+        this.columnId = columnId;
         this.fieldName = requireNonNull(fieldName, "fieldName is null");
         this.streamType = requireNonNull(streamType, "type is null");
         this.orcDataSourceId = requireNonNull(orcDataSourceId, "orcDataSourceId is null");
@@ -51,9 +52,9 @@ public final class StreamDescriptor
         return streamName;
     }
 
-    public int getStreamId()
+    public OrcColumnId getColumnId()
     {
-        return streamId;
+        return columnId;
     }
 
     public OrcTypeKind getStreamType()
@@ -81,7 +82,7 @@ public final class StreamDescriptor
     {
         return toStringHelper(this)
                 .add("streamName", streamName)
-                .add("streamId", streamId)
+                .add("streamId", columnId)
                 .add("streamType", streamType)
                 .add("dataSource", orcDataSourceId)
                 .toString();
