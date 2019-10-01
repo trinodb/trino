@@ -847,8 +847,8 @@ public abstract class AbstractTestAggregations
         List<MaterializedRow> actualRows = actual.getMaterializedRows();
         assertEquals(actualRows.size(), 1);
         assertTrue(Double.isNaN(((List<Double>) actualRows.get(0).getField(0)).get(0)));
-        assertEquals(((List<Double>) actualRows.get(0).getField(0)).get(1), 2.0);
-        assertEquals(((List<Double>) actualRows.get(0).getField(0)).get(2), 3.0);
+        assertEquals((double) ((List<Double>) actualRows.get(0).getField(0)).get(1), 2.0);
+        assertEquals((double) ((List<Double>) actualRows.get(0).getField(0)).get(2), 3.0);
     }
 
     @Test
