@@ -91,6 +91,8 @@ import static io.prestosql.sql.planner.optimizations.StreamPropertyDerivations.S
 import static io.prestosql.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.MULTIPLE;
 import static io.prestosql.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.SINGLE;
 import static io.prestosql.sql.planner.plan.ExchangeNode.Scope.REMOTE;
+import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
+import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static java.util.Objects.requireNonNull;
 
 public final class StreamPropertyDerivations
@@ -426,27 +428,18 @@ public final class StreamPropertyDerivations
         @Override
         public StreamProperties visitUnnest(UnnestNode node, List<StreamProperties> inputProperties)
         {
-            StreamProperties properties = Iterables.getOnlyElement(inputProperties);
-
-            // We can describe properties in terms of inputs that are projected unmodified (i.e., not the unnested symbols)
-            Set<Symbol> passThroughInputs = ImmutableSet.copyOf(node.getReplicateSymbols());
-            StreamProperties translatedProperties = properties.translate(column -> {
-                if (passThroughInputs.contains(column)) {
-                    return Optional.of(column);
-                }
-                return Optional.empty();
-            });
-
-            switch (node.getJoinType()) {
-                case INNER:
-                case LEFT:
-                    return translatedProperties;
-                case RIGHT:
-                case FULL:
-                    return translatedProperties.unordered(true);
-                default:
-                    throw new UnsupportedOperationException("Unknown UNNEST join type: " + node.getJoinType());
+            boolean onTrue = node.getFilter().map(expression -> expression.equals(TRUE_LITERAL)).orElse(true);
+            if (onTrue || node.getJoinType() == INNER) {
+                // We can describe properties in terms of inputs that are projected unmodified (i.e., not the unnested symbols)
+                Set<Symbol> passThroughInputs = ImmutableSet.copyOf(node.getReplicateSymbols());
+                return Iterables.getOnlyElement(inputProperties).translate(column -> {
+                    if (passThroughInputs.contains(column)) {
+                        return Optional.of(column);
+                    }
+                    return Optional.empty();
+                });
             }
+            return StreamProperties.singleStream();
         }
 
         @Override

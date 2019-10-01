@@ -1306,7 +1306,8 @@ public class PredicatePushDown
         public PlanNode visitUnnest(UnnestNode node, RewriteContext<Expression> context)
         {
             Expression inheritedPredicate = context.get();
-            if (node.getJoinType() == RIGHT || node.getJoinType() == FULL) {
+            boolean onTrue = node.getFilter().map(expression -> expression.equals(TRUE_LITERAL)).orElse(true);
+            if ((node.getJoinType() == RIGHT || node.getJoinType() == FULL) && !onTrue) {
                 return new FilterNode(idAllocator.getNextId(), node, inheritedPredicate);
             }
 

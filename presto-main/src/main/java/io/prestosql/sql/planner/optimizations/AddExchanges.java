@@ -105,6 +105,9 @@ import static io.prestosql.sql.planner.plan.ExchangeNode.mergingExchange;
 import static io.prestosql.sql.planner.plan.ExchangeNode.partitionedExchange;
 import static io.prestosql.sql.planner.plan.ExchangeNode.replicatedExchange;
 import static io.prestosql.sql.planner.plan.ExchangeNode.roundRobinExchange;
+import static io.prestosql.sql.planner.plan.JoinNode.Type.FULL;
+import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
+import static io.prestosql.sql.planner.plan.JoinNode.Type.RIGHT;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
@@ -801,7 +804,11 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitUnnest(UnnestNode node, PreferredProperties preferredProperties)
         {
-            PreferredProperties translatedPreferred = preferredProperties.translate(symbol -> node.getReplicateSymbols().contains(symbol) ? Optional.of(symbol) : Optional.empty());
+            PreferredProperties translatedPreferred = PreferredProperties.any();
+            boolean onTrue = node.getFilter().map(expression -> expression.equals(TRUE_LITERAL)).orElse(true);
+            if (onTrue || node.getJoinType() == INNER) {
+                translatedPreferred = preferredProperties.translate(symbol -> node.getReplicateSymbols().contains(symbol) ? Optional.of(symbol) : Optional.empty());
+            }
 
             return rebaseAndDeriveProperties(node, planChild(node, translatedPreferred));
         }

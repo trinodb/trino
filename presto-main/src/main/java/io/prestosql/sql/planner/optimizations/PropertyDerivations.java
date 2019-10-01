@@ -102,6 +102,8 @@ import static io.prestosql.sql.planner.optimizations.ActualProperties.Global.sin
 import static io.prestosql.sql.planner.optimizations.ActualProperties.Global.streamPartitionedOn;
 import static io.prestosql.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.prestosql.sql.planner.plan.ExchangeNode.Scope.REMOTE;
+import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
+import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 
@@ -680,27 +682,20 @@ public final class PropertyDerivations
         @Override
         public ActualProperties visitUnnest(UnnestNode node, List<ActualProperties> inputProperties)
         {
-            Set<Symbol> passThroughInputs = ImmutableSet.copyOf(node.getReplicateSymbols());
+            boolean onTrue = node.getFilter().map(expression -> expression.equals(TRUE_LITERAL)).orElse(true);
+            if (onTrue || node.getJoinType() == INNER) {
+                Set<Symbol> passThroughInputs = ImmutableSet.copyOf(node.getReplicateSymbols());
 
-            ActualProperties translatedProperties = Iterables.getOnlyElement(inputProperties).translate(column -> {
-                if (passThroughInputs.contains(column)) {
-                    return Optional.of(column);
-                }
-                return Optional.empty();
-            });
-
-            switch (node.getJoinType()) {
-                case INNER:
-                case LEFT:
-                    return translatedProperties;
-                case RIGHT:
-                case FULL:
-                    return ActualProperties.builderFrom(translatedProperties)
-                            .local(ImmutableList.of())
-                            .build();
-                default:
-                    throw new UnsupportedOperationException("Unknown UNNEST join type: " + node.getJoinType());
+                return Iterables.getOnlyElement(inputProperties).translate(column -> {
+                    if (passThroughInputs.contains(column)) {
+                        return Optional.of(column);
+                    }
+                    return Optional.empty();
+                });
             }
+
+            return ActualProperties.builder()
+                    .build();
         }
 
         @Override

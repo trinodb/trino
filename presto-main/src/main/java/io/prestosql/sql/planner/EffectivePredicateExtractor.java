@@ -64,6 +64,8 @@ import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
 import static io.prestosql.sql.ExpressionUtils.expressionOrNullSymbols;
 import static io.prestosql.sql.ExpressionUtils.extractConjuncts;
 import static io.prestosql.sql.ExpressionUtils.filterDeterministicConjuncts;
+import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
+import static io.prestosql.sql.planner.plan.JoinNode.Type.LEFT;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static java.util.Objects.requireNonNull;
@@ -256,18 +258,13 @@ public class EffectivePredicateExtractor
         {
             Expression sourcePredicate = node.getSource().accept(this, context);
 
-            switch (node.getJoinType()) {
-                case INNER:
-                case LEFT:
-                    return pullExpressionThroughSymbols(
-                            combineConjuncts(metadata, node.getFilter().orElse(TRUE_LITERAL), sourcePredicate),
-                            node.getOutputSymbols());
-                case RIGHT:
-                case FULL:
-                    return TRUE_LITERAL;
-                default:
-                    throw new UnsupportedOperationException("Unknown UNNEST join type: " + node.getJoinType());
+            boolean onTrue = node.getFilter().map(expression -> expression.equals(TRUE_LITERAL)).orElse(true);
+            if (onTrue || node.getJoinType() == INNER || node.getJoinType() == LEFT) {
+                return pullExpressionThroughSymbols(
+                        combineConjuncts(metadata, node.getFilter().orElse(TRUE_LITERAL), sourcePredicate),
+                        node.getOutputSymbols());
             }
+            return TRUE_LITERAL;
         }
 
         @Override

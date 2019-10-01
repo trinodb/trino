@@ -89,6 +89,7 @@ import static io.prestosql.sql.planner.plan.ChildReplacer.replaceChildren;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.LEFT;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.RIGHT;
+import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.prestosql.type.TypeUtils.NULL_HASH_CODE;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Stream.concat;
@@ -646,25 +647,34 @@ public class HashGenerationOptimizer
         @Override
         public PlanWithProperties visitUnnest(UnnestNode node, HashComputationSet parentPreference)
         {
-            PlanWithProperties child = plan(node.getSource(), parentPreference.pruneSymbols(node.getSource().getOutputSymbols()));
+            boolean onTrue = node.getFilter().map(expression -> expression.equals(TRUE_LITERAL)).orElse(true);
+            if (onTrue || node.getJoinType() == INNER || node.getJoinType() == LEFT) {
+                PlanWithProperties child = plan(node.getSource(), parentPreference.pruneSymbols(node.getSource().getOutputSymbols()));
 
-            // only pass through hash symbols requested by the parent
-            Map<HashComputation, Symbol> hashSymbols = new HashMap<>(child.getHashSymbols());
-            hashSymbols.keySet().retainAll(parentPreference.getHashes());
+                // only pass through hash symbols requested by the parent
+                Map<HashComputation, Symbol> hashSymbols = new HashMap<>(child.getHashSymbols());
+                hashSymbols.keySet().retainAll(parentPreference.getHashes());
 
+                return new PlanWithProperties(
+                        new UnnestNode(
+                                node.getId(),
+                                child.getNode(),
+                                ImmutableList.<Symbol>builder()
+                                        .addAll(node.getReplicateSymbols())
+                                        .addAll(hashSymbols.values())
+                                        .build(),
+                                node.getUnnestSymbols(),
+                                node.getOrdinalitySymbol(),
+                                node.getJoinType(),
+                                node.getFilter()),
+                        hashSymbols);
+            }
+
+            PlanWithProperties child = planAndEnforce(node.getSource(), new HashComputationSet(), true, new HashComputationSet());
+            checkState(child.getHashSymbols().isEmpty());
             return new PlanWithProperties(
-                    new UnnestNode(
-                            node.getId(),
-                            child.getNode(),
-                            ImmutableList.<Symbol>builder()
-                                    .addAll(node.getReplicateSymbols())
-                                    .addAll(hashSymbols.values())
-                                    .build(),
-                            node.getUnnestSymbols(),
-                            node.getOrdinalitySymbol(),
-                            node.getJoinType(),
-                            node.getFilter()),
-                    hashSymbols);
+                    replaceChildren(node, ImmutableList.of(child.getNode())),
+                    ImmutableMap.of());
         }
 
         private PlanWithProperties planSimpleNodeWithProperties(PlanNode node, HashComputationSet preferredHashes)
