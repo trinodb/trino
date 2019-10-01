@@ -121,8 +121,8 @@ public class OrcRecordReader
             OrcPredicate predicate,
             long numberOfRows,
             List<StripeInformation> fileStripes,
-            ColumnMetadata<ColumnStatistics> fileStats,
-            List<StripeStatistics> stripeStats,
+            Optional<ColumnMetadata<ColumnStatistics>> fileStats,
+            List<Optional<StripeStatistics>> stripeStats,
             OrcDataSource orcDataSource,
             long splitOffset,
             long splitLength,
@@ -175,7 +175,7 @@ public class OrcRecordReader
             Optional<StripeStatistics> stats = Optional.empty();
             // ignore all stripe stats if too few or too many
             if (stripeStats.size() == fileStripes.size()) {
-                stats = Optional.of(stripeStats.get(i));
+                stats = stripeStats.get(i);
             }
             stripeInfos.add(new StripeInfo(fileStripes.get(i), stats));
         }
@@ -185,7 +185,7 @@ public class OrcRecordReader
         long fileRowCount = 0;
         ImmutableList.Builder<StripeInformation> stripes = ImmutableList.builder();
         ImmutableList.Builder<Long> stripeFilePositions = ImmutableList.builder();
-        if (predicate.matches(numberOfRows, fileStats)) {
+        if (!fileStats.isPresent() || predicate.matches(numberOfRows, fileStats.get())) {
             // select stripes that start within the specified split
             for (StripeInfo info : stripeInfos) {
                 StripeInformation stripe = info.getStripe();
@@ -347,7 +347,7 @@ public class OrcRecordReader
             validateWrite(validation -> validation.getChecksum().getStripeHash() == actualChecksum.getStripeHash(), "Invalid stripes checksum");
         }
         if (fileStatisticsValidation.isPresent()) {
-            ColumnMetadata<ColumnStatistics> columnStatistics = fileStatisticsValidation.get().build();
+            Optional<ColumnMetadata<ColumnStatistics>> columnStatistics = fileStatisticsValidation.get().build();
             writeValidation.get().validateFileStatistics(orcDataSource.getId(), columnStatistics);
         }
     }
@@ -435,7 +435,7 @@ public class OrcRecordReader
             if (rowGroupStatisticsValidation.isPresent()) {
                 StatisticsValidation statisticsValidation = rowGroupStatisticsValidation.get();
                 long offset = stripes.get(currentStripe).getOffset();
-                writeValidation.get().validateRowGroupStatistics(orcDataSource.getId(), offset, currentRowGroup, statisticsValidation.build());
+                writeValidation.get().validateRowGroupStatistics(orcDataSource.getId(), offset, currentRowGroup, statisticsValidation.build().get());
                 statisticsValidation.reset();
             }
         }
@@ -481,7 +481,7 @@ public class OrcRecordReader
             if (stripeStatisticsValidation.isPresent()) {
                 StatisticsValidation statisticsValidation = stripeStatisticsValidation.get();
                 long offset = stripes.get(currentStripe).getOffset();
-                writeValidation.get().validateStripeStatistics(orcDataSource.getId(), offset, statisticsValidation.build());
+                writeValidation.get().validateStripeStatistics(orcDataSource.getId(), offset, statisticsValidation.build().get());
                 statisticsValidation.reset();
             }
         }

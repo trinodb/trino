@@ -460,6 +460,7 @@ public final class OrcWriter
 
         Metadata metadata = new Metadata(closedStripes.stream()
                 .map(ClosedStripe::getStatistics)
+                .map(Optional::of)
                 .collect(toList()));
         Slice metadataSlice = metadataWriter.writeMetadata(metadata);
         outputData.add(createDataOutput(metadataSlice));
@@ -468,7 +469,7 @@ public final class OrcWriter
                 .mapToLong(stripe -> stripe.getStripeInformation().getNumberOfRows())
                 .sum();
 
-        ColumnMetadata<ColumnStatistics> fileStats = toFileStats(closedStripes.stream()
+        Optional<ColumnMetadata<ColumnStatistics>> fileStats = toFileStats(closedStripes.stream()
                 .map(ClosedStripe::getStatistics)
                 .map(StripeStatistics::getColumnStatistics)
                 .collect(toList()));
@@ -524,10 +525,10 @@ public final class OrcWriter
         return new ColumnMetadata<>(ImmutableList.copyOf(list));
     }
 
-    private static ColumnMetadata<ColumnStatistics> toFileStats(List<ColumnMetadata<ColumnStatistics>> stripes)
+    private static Optional<ColumnMetadata<ColumnStatistics>> toFileStats(List<ColumnMetadata<ColumnStatistics>> stripes)
     {
         if (stripes.isEmpty()) {
-            return ColumnMetadata.empty();
+            return Optional.empty();
         }
         int columnCount = stripes.get(0).size();
         checkArgument(stripes.stream().allMatch(stripe -> columnCount == stripe.size()));
@@ -539,7 +540,7 @@ public final class OrcWriter
                     .map(stripe -> stripe.get(columnId))
                     .collect(toList())));
         }
-        return new ColumnMetadata<>(fileStats.build());
+        return Optional.of(new ColumnMetadata<>(fileStats.build()));
     }
 
     private static class ClosedStripe

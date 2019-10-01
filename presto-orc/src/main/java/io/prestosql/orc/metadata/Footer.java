@@ -21,6 +21,7 @@ import io.prestosql.orc.metadata.statistics.ColumnStatistics;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.Maps.transformValues;
@@ -32,10 +33,15 @@ public class Footer
     private final int rowsInRowGroup;
     private final List<StripeInformation> stripes;
     private final ColumnMetadata<OrcType> types;
-    private final ColumnMetadata<ColumnStatistics> fileStats;
+    private final Optional<ColumnMetadata<ColumnStatistics>> fileStats;
     private final Map<String, Slice> userMetadata;
 
-    public Footer(long numberOfRows, int rowsInRowGroup, List<StripeInformation> stripes, ColumnMetadata<OrcType> types, ColumnMetadata<ColumnStatistics> fileStats, Map<String, Slice> userMetadata)
+    public Footer(long numberOfRows,
+            int rowsInRowGroup,
+            List<StripeInformation> stripes,
+            ColumnMetadata<OrcType> types,
+            Optional<ColumnMetadata<ColumnStatistics>> fileStats,
+            Map<String, Slice> userMetadata)
     {
         this.numberOfRows = numberOfRows;
         this.rowsInRowGroup = rowsInRowGroup;
@@ -66,7 +72,7 @@ public class Footer
         return types;
     }
 
-    public ColumnMetadata<ColumnStatistics> getFileStats()
+    public Optional<ColumnMetadata<ColumnStatistics>> getFileStats()
     {
         return fileStats;
     }

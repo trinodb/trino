@@ -35,6 +35,7 @@ import java.io.OutputStream;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.TimeZone;
 
 import static java.lang.Math.toIntExact;
@@ -86,6 +87,7 @@ public class OrcMetadataWriter
     {
         OrcProto.Metadata metadataProtobuf = OrcProto.Metadata.newBuilder()
                 .addAllStripeStats(metadata.getStripeStatsList().stream()
+                        .map(Optional::get)
                         .map(OrcMetadataWriter::toStripeStatistics)
                         .collect(toList()))
                 .build();
@@ -115,7 +117,7 @@ public class OrcMetadataWriter
                 .addAllTypes(footer.getTypes().stream()
                         .map(OrcMetadataWriter::toType)
                         .collect(toList()))
-                .addAllStatistics(footer.getFileStats().stream()
+                .addAllStatistics(footer.getFileStats().map(ColumnMetadata::stream).orElseGet(java.util.stream.Stream::empty)
                         .map(OrcMetadataWriter::toColumnStatistics)
                         .collect(toList()))
                 .addAllMetadata(footer.getUserMetadata().entrySet().stream()
