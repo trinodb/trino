@@ -271,6 +271,7 @@ public class HiveMetadata
     private final String prestoVersion;
     private final HiveStatisticsProvider hiveStatisticsProvider;
     private final AccessControlMetadata accessControlMetadata;
+    private final boolean tableCreatesWithLocationAllowed;
 
     public HiveMetadata(
             SemiTransactionalHiveMetastore metastore,
@@ -280,6 +281,7 @@ public class HiveMetadata
             boolean allowCorruptWritesForTesting,
             boolean writesToNonManagedTablesEnabled,
             boolean createsOfNonManagedTablesEnabled,
+            boolean tableCreatesWithLocationAllowed,
             TypeManager typeManager,
             LocationService locationService,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
@@ -299,6 +301,7 @@ public class HiveMetadata
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
         this.writesToNonManagedTablesEnabled = writesToNonManagedTablesEnabled;
         this.createsOfNonManagedTablesEnabled = createsOfNonManagedTablesEnabled;
+        this.tableCreatesWithLocationAllowed = tableCreatesWithLocationAllowed;
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
         this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
         this.hiveStatisticsProvider = requireNonNull(hiveStatisticsProvider, "hiveStatisticsProvider is null");
@@ -766,6 +769,10 @@ public class HiveMetadata
         boolean external = isExternalTable(tableMetadata.getProperties());
         Optional<String> location = getLocation(tableMetadata.getProperties());
         if (location.isPresent()) {
+            if (!tableCreatesWithLocationAllowed) {
+                throw new PrestoException(NOT_SUPPORTED, format("Setting %s property is not allowed", LOCATION_PROPERTY));
+            }
+
             targetPath = getPath(new HdfsContext(session, schemaName, tableName), location.get());
         }
         else {
@@ -1179,7 +1186,11 @@ public class HiveMetadata
                 .collect(toList());
         checkPartitionTypesSupported(partitionColumns);
 
-        LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName, getLocation(tableMetadata.getProperties()));
+        Optional<String> location = getLocation(tableMetadata.getProperties());
+        if (location.isPresent() && !tableCreatesWithLocationAllowed) {
+            throw new PrestoException(NOT_SUPPORTED, format("Setting %s property is not allowed", LOCATION_PROPERTY));
+        }
+        LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName, location);
         HiveOutputTableHandle result = new HiveOutputTableHandle(
                 schemaName,
                 tableName,

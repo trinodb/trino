@@ -118,6 +118,8 @@ public class HiveConfig
     private long fileStatusCacheMaxSize = 1000 * 1000;
     private List<String> fileStatusCacheTables = ImmutableList.of();
 
+    private boolean tableCreatesWithLocationAllowed = true;
+
     public int getMaxInitialSplits()
     {
         return maxInitialSplits;
@@ -650,6 +652,7 @@ public class HiveConfig
         return writesToNonManagedTablesEnabled;
     }
 
+    @Deprecated
     @Config("hive.non-managed-table-creates-enabled")
     @ConfigDescription("Enable non-managed (external) table creates")
     public HiveConfig setCreatesOfNonManagedTablesEnabled(boolean createsOfNonManagedTablesEnabled)
@@ -658,6 +661,7 @@ public class HiveConfig
         return this;
     }
 
+    @Deprecated
     public boolean getCreatesOfNonManagedTablesEnabled()
     {
         return createsOfNonManagedTablesEnabled;
@@ -804,5 +808,18 @@ public class HiveConfig
     public String getTemporaryStagingDirectoryPath()
     {
         return temporaryStagingDirectoryPath;
+    }
+
+    @Config("hive.table-creates-with-location-allowed")
+    @ConfigDescription("Allow setting table location in CREATE TABLE and CREATE TABLE AS SELECT statements")
+    public HiveConfig setTableCreatesWithLocationAllowed(boolean tableCreatesWithLocationAllowed)
+    {
+        this.tableCreatesWithLocationAllowed = tableCreatesWithLocationAllowed;
+        return this;
+    }
+
+    public boolean getTableCreatesWithLocationAllowed()
+    {
+        return tableCreatesWithLocationAllowed;
     }
 }

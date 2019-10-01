@@ -733,6 +733,7 @@ public abstract class AbstractTestHive
                 false,
                 false,
                 true,
+                true,
                 1000,
                 TYPE_MANAGER,
                 locationService,
