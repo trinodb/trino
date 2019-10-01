@@ -13,13 +13,11 @@
  */
 package io.prestosql.orc.metadata;
 
-import com.google.common.collect.ImmutableList;
-
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.stream.Stream;
 
+import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
 public class ColumnMetadata<T>
@@ -29,12 +27,7 @@ public class ColumnMetadata<T>
     public ColumnMetadata(List<T> metadata)
     {
         // the metadata list may contain nulls
-        this.metadata = Collections.unmodifiableList(new ArrayList<>(requireNonNull(metadata, "metadata is null")));
-    }
-
-    public static <T> ColumnMetadata<T> empty()
-    {
-        return new ColumnMetadata<>(ImmutableList.of());
+        this.metadata = unmodifiableList(new ArrayList<>(requireNonNull(metadata, "metadata is null")));
     }
 
     public T get(OrcColumnId columnId)

@@ -112,16 +112,17 @@ public class OrcMetadataReader
         return new Metadata(toStripeStatistics(hiveWriterVersion, metadata.getStripeStatsList()));
     }
 
-    private static List<StripeStatistics> toStripeStatistics(HiveWriterVersion hiveWriterVersion, List<OrcProto.StripeStatistics> types)
+    private static List<Optional<StripeStatistics>> toStripeStatistics(HiveWriterVersion hiveWriterVersion, List<OrcProto.StripeStatistics> types)
     {
         return types.stream()
                 .map(stripeStatistics -> toStripeStatistics(hiveWriterVersion, stripeStatistics))
                 .collect(toImmutableList());
     }
 
-    private static StripeStatistics toStripeStatistics(HiveWriterVersion hiveWriterVersion, OrcProto.StripeStatistics stripeStatistics)
+    private static Optional<StripeStatistics> toStripeStatistics(HiveWriterVersion hiveWriterVersion, OrcProto.StripeStatistics stripeStatistics)
     {
-        return new StripeStatistics(toColumnStatistics(hiveWriterVersion, stripeStatistics.getColStatsList(), false));
+        return toColumnStatistics(hiveWriterVersion, stripeStatistics.getColStatsList(), false)
+                .map(StripeStatistics::new);
     }
 
     @Override
@@ -293,14 +294,14 @@ public class OrcMetadataReader
                 null);
     }
 
-    private static ColumnMetadata<ColumnStatistics> toColumnStatistics(HiveWriterVersion hiveWriterVersion, List<OrcProto.ColumnStatistics> columnStatistics, boolean isRowGroup)
+    private static Optional<ColumnMetadata<ColumnStatistics>> toColumnStatistics(HiveWriterVersion hiveWriterVersion, List<OrcProto.ColumnStatistics> columnStatistics, boolean isRowGroup)
     {
-        if (columnStatistics == null) {
-            return ColumnMetadata.empty();
+        if (columnStatistics == null || columnStatistics.isEmpty()) {
+            return Optional.empty();
         }
-        return new ColumnMetadata<>(columnStatistics.stream()
+        return Optional.of(new ColumnMetadata<>(columnStatistics.stream()
                 .map(statistics -> toColumnStatistics(hiveWriterVersion, statistics, isRowGroup))
-                .collect(toImmutableList()));
+                .collect(toImmutableList())));
     }
 
     private static Map<String, Slice> toUserMetadata(List<OrcProto.UserMetadataItem> metadataList)

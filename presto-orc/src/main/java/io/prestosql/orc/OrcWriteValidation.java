@@ -63,6 +63,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.function.Function;
@@ -112,7 +113,7 @@ public class OrcWriteValidation
     private final WriteChecksum checksum;
     private final Map<Long, List<RowGroupStatistics>> rowGroupStatistics;
     private final Map<Long, StripeStatistics> stripeStatistics;
-    private final ColumnMetadata<ColumnStatistics> fileStatistics;
+    private final Optional<ColumnMetadata<ColumnStatistics>> fileStatistics;
     private final int stringStatisticsLimitInBytes;
 
     private OrcWriteValidation(
@@ -125,7 +126,7 @@ public class OrcWriteValidation
             WriteChecksum checksum,
             Map<Long, List<RowGroupStatistics>> rowGroupStatistics,
             Map<Long, StripeStatistics> stripeStatistics,
-            ColumnMetadata<ColumnStatistics> fileStatistics,
+            Optional<ColumnMetadata<ColumnStatistics>> fileStatistics,
             int stringStatisticsLimitInBytes)
     {
         this.version = version;
@@ -192,13 +193,24 @@ public class OrcWriteValidation
         return checksum;
     }
 
-    public void validateFileStatistics(OrcDataSourceId orcDataSourceId, ColumnMetadata<ColumnStatistics> actualFileStatistics)
+    public void validateFileStatistics(OrcDataSourceId orcDataSourceId, Optional<ColumnMetadata<ColumnStatistics>> actualFileStatistics)
             throws OrcCorruptionException
     {
-        validateColumnStatisticsEquivalent(orcDataSourceId, "file", actualFileStatistics, fileStatistics);
+        // file stats will be absent when no rows are written
+        if (!fileStatistics.isPresent()) {
+            if (actualFileStatistics.isPresent()) {
+                throw new OrcCorruptionException(orcDataSourceId, "Write validation failed: unexpected file statistics");
+            }
+            return;
+        }
+        if (!actualFileStatistics.isPresent()) {
+            throw new OrcCorruptionException(orcDataSourceId, "Write validation failed: expected file statistics");
+        }
+
+        validateColumnStatisticsEquivalent(orcDataSourceId, "file", actualFileStatistics.get(), fileStatistics.get());
     }
 
-    public void validateStripeStatistics(OrcDataSourceId orcDataSourceId, List<StripeInformation> actualStripes, List<StripeStatistics> actualStripeStatistics)
+    public void validateStripeStatistics(OrcDataSourceId orcDataSourceId, List<StripeInformation> actualStripes, List<Optional<StripeStatistics>> actualStripeStatistics)
             throws OrcCorruptionException
     {
         requireNonNull(actualStripes, "actualStripes is null");
@@ -210,7 +222,7 @@ public class OrcWriteValidation
 
         for (int stripeIndex = 0; stripeIndex < actualStripes.size(); stripeIndex++) {
             long stripeOffset = actualStripes.get(stripeIndex).getOffset();
-            StripeStatistics actual = actualStripeStatistics.get(stripeIndex);
+            StripeStatistics actual = actualStripeStatistics.get(stripeIndex).get();
             validateStripeStatistics(orcDataSourceId, stripeOffset, actual.getColumnStatistics());
         }
     }
@@ -585,15 +597,15 @@ public class OrcWriteValidation
             }
         }
 
-        public ColumnMetadata<ColumnStatistics> build()
+        public Optional<ColumnMetadata<ColumnStatistics>> build()
         {
-            ImmutableList.Builder<ColumnStatistics> statisticsBuilders = ImmutableList.builder();
-            // if there are no rows, there will be no stats
-            if (rowCount > 0) {
-                statisticsBuilders.add(new ColumnStatistics(rowCount, 0, null, null, null, null, null, null, null, null));
-                columnStatisticsValidations.forEach(validation -> validation.build(statisticsBuilders));
+            if (rowCount == 0) {
+                return Optional.empty();
             }
-            return new ColumnMetadata<>(statisticsBuilders.build());
+            ImmutableList.Builder<ColumnStatistics> statisticsBuilders = ImmutableList.builder();
+            statisticsBuilders.add(new ColumnStatistics(rowCount, 0, null, null, null, null, null, null, null, null));
+            columnStatisticsValidations.forEach(validation -> validation.build(statisticsBuilders));
+            return Optional.of(new ColumnMetadata<>(statisticsBuilders.build()));
         }
     }
 
@@ -827,7 +839,7 @@ public class OrcWriteValidation
         private List<RowGroupStatistics> currentRowGroupStatistics = new ArrayList<>();
         private final Map<Long, List<RowGroupStatistics>> rowGroupStatisticsByStripe = new HashMap<>();
         private final Map<Long, StripeStatistics> stripeStatistics = new HashMap<>();
-        private ColumnMetadata<ColumnStatistics> fileStatistics;
+        private Optional<ColumnMetadata<ColumnStatistics>> fileStatistics = Optional.empty();
         private long retainedSize = INSTANCE_SIZE;
 
         public OrcWriteValidationBuilder(OrcWriteValidationMode validationMode, List<Type> types)
@@ -912,7 +924,7 @@ public class OrcWriteValidation
             currentRowGroupStatistics = new ArrayList<>();
         }
 
-        public void setFileStatistics(ColumnMetadata<ColumnStatistics> fileStatistics)
+        public void setFileStatistics(Optional<ColumnMetadata<ColumnStatistics>> fileStatistics)
         {
             this.fileStatistics = fileStatistics;
         }
