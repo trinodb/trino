@@ -11,7 +11,7 @@ presto-product-tests/bin/run_on_docker.sh \
 
 presto-product-tests/bin/run_on_docker.sh \
     singlenode-postgresql \
-    -g postgresql_connector \
+    -g postgresql \
     || exit_code=1
 
 presto-product-tests/bin/run_on_docker.sh \
