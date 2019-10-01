@@ -26,6 +26,12 @@ public interface StreamReader
     Block readBlock()
             throws IOException;
 
+    default Block readBlock(int[] positions, int offset, int length)
+            throws IOException
+    {
+        return readBlock().getPositions(positions, offset, length);
+    }
+
     void prepareNextRead(int batchSize);
 
     void startStripe(ZoneId timeZone, InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)

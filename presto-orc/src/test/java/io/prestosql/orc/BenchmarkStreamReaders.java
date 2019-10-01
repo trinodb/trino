@@ -83,6 +83,7 @@ import static org.joda.time.DateTimeZone.UTC;
 @OperationsPerInvocation(BenchmarkStreamReaders.ROWS)
 public class BenchmarkStreamReaders
 {
+    private static final int SELECTIVENESS = 50;
     private static final DecimalType SHORT_DECIMAL_TYPE = createDecimalType(10, 5);
     private static final DecimalType LONG_DECIMAL_TYPE = createDecimalType(30, 5);
     public static final int ROWS = 10_000_000;
@@ -90,7 +91,7 @@ public class BenchmarkStreamReaders
     private static final int MAX_STRING = 19;
     private static final Collection<?> NULL_VALUES = Collections.nCopies(ROWS, null);
 
-    @Benchmark
+    //@Benchmark
     public Object readBooleanNoNull(BooleanNoNullBenchmarkData data)
             throws Throwable
     {
@@ -104,7 +105,7 @@ public class BenchmarkStreamReaders
         }
     }
 
-    @Benchmark
+    //@Benchmark
     public Object readBooleanWithNull(BooleanWithNullBenchmarkData data)
             throws Throwable
     {
@@ -118,7 +119,7 @@ public class BenchmarkStreamReaders
         }
     }
 
-    @Benchmark
+    //@Benchmark
     public Object readAllNull(AllNullBenchmarkData data)
             throws Throwable
     {
@@ -132,7 +133,7 @@ public class BenchmarkStreamReaders
         }
     }
 
-    @Benchmark
+    //@Benchmark
     public Object readByteNoNull(TinyIntNoNullBenchmarkData data)
             throws Throwable
     {
@@ -146,7 +147,7 @@ public class BenchmarkStreamReaders
         }
     }
 
-    @Benchmark
+    //@Benchmark
     public Object readByteWithNull(TinyIntWithNullBenchmarkData data)
             throws Throwable
     {
@@ -160,7 +161,7 @@ public class BenchmarkStreamReaders
         }
     }
 
-    @Benchmark
+    //@Benchmark
     public Object readShortDecimalNoNull(ShortDecimalNoNullBenchmarkData data)
             throws Throwable
     {
@@ -174,7 +175,7 @@ public class BenchmarkStreamReaders
         }
     }
 
-    @Benchmark
+    //@Benchmark
     public Object readShortDecimalWithNull(ShortDecimalWithNullBenchmarkData data)
             throws Throwable
     {
@@ -188,7 +189,7 @@ public class BenchmarkStreamReaders
         }
     }
 
-    @Benchmark
+    //@Benchmark
     public Object readLongDecimalNoNull(LongDecimalNoNullBenchmarkData data)
             throws Throwable
     {
@@ -202,7 +203,7 @@ public class BenchmarkStreamReaders
         }
     }
 
-    @Benchmark
+    //@Benchmark
     public Object readLongDecimalWithNull(LongDecimalWithNullBenchmarkData data)
             throws Throwable
     {
@@ -216,7 +217,7 @@ public class BenchmarkStreamReaders
         }
     }
 
-    @Benchmark
+    //@Benchmark
     public Object readDoubleNoNull(DoubleNoNullBenchmarkData data)
             throws Throwable
     {
@@ -230,7 +231,7 @@ public class BenchmarkStreamReaders
         }
     }
 
-    @Benchmark
+    //@Benchmark
     public Object readDoubleWithNull(DoubleWithNullBenchmarkData data)
             throws Throwable
     {
@@ -244,7 +245,7 @@ public class BenchmarkStreamReaders
         }
     }
 
-    @Benchmark
+    //@Benchmark
     public Object readFloatNoNull(FloatNoNullBenchmarkData data)
             throws Throwable
     {
@@ -258,7 +259,7 @@ public class BenchmarkStreamReaders
         }
     }
 
-    @Benchmark
+    //@Benchmark
     public Object readFloatWithNull(FloatWithNullBenchmarkData data)
             throws Throwable
     {
@@ -272,7 +273,7 @@ public class BenchmarkStreamReaders
         }
     }
 
-    @Benchmark
+    //@Benchmark
     public Object readLongNoNull(BigintNoNullBenchmarkData data)
             throws Throwable
     {
@@ -287,6 +288,25 @@ public class BenchmarkStreamReaders
     }
 
     @Benchmark
+    public Object readLongNoNullPositions(BigintNoNullBenchmarkData data)
+            throws Throwable
+    {
+        try (OrcRecordReader recordReader = data.createRecordReader()) {
+            List<Block> blocks = new ArrayList<>();
+            while (true) {
+                int nextBatchSize = recordReader.nextBatch();
+                if (nextBatchSize <= 0) {
+                    break;
+                }
+
+                Block block = recordReader.readBlock(0, data.getPositions(), 0, (nextBatchSize + SELECTIVENESS - 1) / SELECTIVENESS);
+                blocks.add(block);
+            }
+            return blocks;
+        }
+    }
+
+    //@Benchmark
     public Object readLongWithNull(BigintWithNullBenchmarkData data)
             throws Throwable
     {
@@ -300,7 +320,7 @@ public class BenchmarkStreamReaders
         }
     }
 
-    @Benchmark
+    //@Benchmark
     public Object readIntNoNull(IntegerNoNullBenchmarkData data)
             throws Throwable
     {
@@ -314,7 +334,7 @@ public class BenchmarkStreamReaders
         }
     }
 
-    @Benchmark
+    //@Benchmark
     public Object readIntWithNull(IntegerWithNullBenchmarkData data)
             throws Throwable
     {
@@ -328,7 +348,7 @@ public class BenchmarkStreamReaders
         }
     }
 
-    @Benchmark
+    //@Benchmark
     public Object readShortNoNull(SmallintNoNullBenchmarkData data)
             throws Throwable
     {
@@ -342,7 +362,7 @@ public class BenchmarkStreamReaders
         }
     }
 
-    @Benchmark
+    //@Benchmark
     public Object readShortWithNull(SmallintWithNullBenchmarkData data)
             throws Throwable
     {
@@ -356,7 +376,7 @@ public class BenchmarkStreamReaders
         }
     }
 
-    @Benchmark
+    //@Benchmark
     public Object readSliceDirectNoNull(VarcharDirectNoNullBenchmarkData data)
             throws Throwable
     {
@@ -370,7 +390,7 @@ public class BenchmarkStreamReaders
         }
     }
 
-    @Benchmark
+    //@Benchmark
     public Object readSliceDirectWithNull(VarcharDirectWithNullBenchmarkData data)
             throws Throwable
     {
@@ -384,7 +404,7 @@ public class BenchmarkStreamReaders
         }
     }
 
-    @Benchmark
+    //@Benchmark
     public Object readSliceDictionaryNoNull(VarcharDictionaryNoNullBenchmarkData data)
             throws Throwable
     {
@@ -398,7 +418,7 @@ public class BenchmarkStreamReaders
         }
     }
 
-    @Benchmark
+    //@Benchmark
     public Object readSliceDictionaryWithNull(VarcharDictionaryWithNullBenchmarkData data)
             throws Throwable
     {
@@ -412,7 +432,7 @@ public class BenchmarkStreamReaders
         }
     }
 
-    @Benchmark
+    //@Benchmark
     public Object readTimestampNoNull(TimestampNoNullBenchmarkData data)
             throws Throwable
     {
@@ -426,7 +446,7 @@ public class BenchmarkStreamReaders
         }
     }
 
-    @Benchmark
+    //@Benchmark
     public Object readTimestampWithNull(TimestampWithNullBenchmarkData data)
             throws Throwable
     {
@@ -447,6 +467,7 @@ public class BenchmarkStreamReaders
         private File temporaryDirectory;
         private File orcFile;
         private OrcDataSource dataSource;
+        private int[] positions = new int[(ROWS + SELECTIVENESS - 1) / SELECTIVENESS];
 
         public void setup(Type type)
                 throws Exception
@@ -458,8 +479,11 @@ public class BenchmarkStreamReaders
 
             OrcDataSource dataSource = new FileOrcDataSource(orcFile, new OrcReaderOptions());
             DiskRange diskRange = new DiskRange(0, toIntExact(dataSource.getSize()));
-            dataSource = new CachingOrcDataSource(dataSource, desiredOffset -> diskRange);
-            this.dataSource = dataSource;
+            this.dataSource = new CachingOrcDataSource(dataSource, desiredOffset -> diskRange);
+
+            for (int i = 0; i < (ROWS + SELECTIVENESS - 1) / SELECTIVENESS; ++i) {
+                positions[i] = i * SELECTIVENESS;
+            }
         }
 
         @TearDown
@@ -472,6 +496,11 @@ public class BenchmarkStreamReaders
         public Type getType()
         {
             return type;
+        }
+
+        public int[] getPositions()
+        {
+            return positions;
         }
 
         protected abstract Iterator<?> createValues();

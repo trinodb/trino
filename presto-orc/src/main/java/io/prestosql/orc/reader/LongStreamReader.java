@@ -104,23 +104,7 @@ public class LongStreamReader
     public Block readBlock()
             throws IOException
     {
-        if (!rowGroupOpen) {
-            openRowGroup();
-        }
-
-        if (readOffset > 0) {
-            if (presentStream != null) {
-                // skip ahead the present bit reader, but count the set bits
-                // and use this as the skip size for the data reader
-                readOffset = presentStream.countBitsSet(readOffset);
-            }
-            if (readOffset > 0) {
-                if (dataStream == null) {
-                    throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is missing");
-                }
-                dataStream.skip(readOffset);
-            }
-        }
+        skipToOffset();
 
         Block block;
         if (dataStream == null) {
@@ -151,6 +135,89 @@ public class LongStreamReader
         nextBatchSize = 0;
 
         return block;
+    }
+
+    @Override
+    public Block readBlock(int[] positions, int offset, int length)
+            throws IOException
+    {
+        skipToOffset();
+
+        Block block;
+        if (dataStream == null) {
+            if (presentStream == null) {
+                throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is null but present stream is missing");
+            }
+            presentStream.skip(nextBatchSize);
+            block = RunLengthEncodedBlock.create(type, null, length);
+        }
+        else if (presentStream == null) {
+            block = readNonNullBlock(positions, offset, length);
+        }
+        else {
+            boolean[] isNull = new boolean[nextBatchSize];
+            int nullCount = presentStream.getUnsetBits(nextBatchSize, isNull);
+            if (nullCount == 0) {
+                block = readNonNullBlock();
+            }
+            else if (nullCount != nextBatchSize) {
+                block = readNullBlock(isNull, nextBatchSize - nullCount);
+            }
+            else {
+                block = RunLengthEncodedBlock.create(type, null, nextBatchSize);
+            }
+            block = block.getPositions(positions, 0, positions.length);
+        }
+
+        readOffset = 0;
+        nextBatchSize = 0;
+
+        return block;
+    }
+
+    private void skipToOffset()
+            throws IOException
+    {
+        if (!rowGroupOpen) {
+            openRowGroup();
+        }
+
+        if (readOffset > 0) {
+            if (presentStream != null) {
+                // skip ahead the present bit reader, but count the set bits
+                // and use this as the skip size for the data reader
+                readOffset = presentStream.countBitsSet(readOffset);
+            }
+            if (readOffset > 0) {
+                if (dataStream == null) {
+                    throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is missing");
+                }
+                dataStream.skip(readOffset);
+            }
+        }
+    }
+
+    private Block readNonNullBlock(int[] positions, int offset, int length)
+            throws IOException
+    {
+        if (length == 0) {
+            return RunLengthEncodedBlock.create(type, null, 0);
+        }
+
+        verify(dataStream != null);
+        if (type instanceof BigintType) {
+            long[] values = new long[length];
+            dataStream.skip(positions[offset]);
+            values[0] = dataStream.next();
+            for (int i = 1; i < length; ++i) {
+                int index = offset + i;
+                dataStream.skip(positions[index] - positions[index - 1] - 1);
+                values[i] = dataStream.next();
+            }
+            dataStream.skip(nextBatchSize - positions[length - 1] - 1);
+            return new LongArrayBlock(length, Optional.empty(), values);
+        }
+        throw new VerifyError("Unsupported type " + type);
     }
 
     private Block readNonNullBlock()
