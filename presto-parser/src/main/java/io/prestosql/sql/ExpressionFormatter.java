@@ -229,11 +229,16 @@ public final class ExpressionFormatter
         @Override
         protected String visitArrayConstructor(ArrayConstructor node, Void context)
         {
-            ImmutableList.Builder<String> valueStrings = ImmutableList.builder();
-            for (Expression value : node.getValues()) {
-                valueStrings.add(formatSql(value));
+            if (node.isSubquery()) {
+                return "ARRAY" + visitSubqueryExpression(node.getSubquery(), context);
             }
-            return "ARRAY[" + Joiner.on(",").join(valueStrings.build()) + "]";
+            else {
+                ImmutableList.Builder<String> valueStrings = ImmutableList.builder();
+                for (Expression value : node.getValues()) {
+                    valueStrings.add(formatSql(value));
+                }
+                return "ARRAY[" + Joiner.on(",").join(valueStrings.build()) + "]";
+            }
         }
 
         @Override

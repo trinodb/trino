@@ -179,6 +179,7 @@ public class ExpressionAnalyzer
 
     private final Map<NodeRef<FunctionCall>, Signature> resolvedFunctions = new LinkedHashMap<>();
     private final Set<NodeRef<SubqueryExpression>> scalarSubqueries = new LinkedHashSet<>();
+    private final Set<NodeRef<ArrayConstructor>> arraySubqueries = new LinkedHashSet<>();
     private final Set<NodeRef<ExistsPredicate>> existsSubqueries = new LinkedHashSet<>();
     private final Map<NodeRef<Expression>, Type> expressionCoercions = new LinkedHashMap<>();
     private final Set<NodeRef<Expression>> typeOnlyCoercions = new LinkedHashSet<>();
@@ -290,6 +291,11 @@ public class ExpressionAnalyzer
     public Set<NodeRef<SubqueryExpression>> getScalarSubqueries()
     {
         return unmodifiableSet(scalarSubqueries);
+    }
+
+    public Set<NodeRef<ArrayConstructor>> getArraySubqueries()
+    {
+        return unmodifiableSet(arraySubqueries);
     }
 
     public Set<NodeRef<ExistsPredicate>> getExistsSubqueries()
@@ -1150,6 +1156,9 @@ public class ExpressionAnalyzer
             else if (previousNode instanceof QuantifiedComparisonExpression) {
                 quantifiedComparisons.add(NodeRef.of((QuantifiedComparisonExpression) previousNode));
             }
+            else if (previousNode instanceof ArrayConstructor) {
+                arraySubqueries.add(NodeRef.of((ArrayConstructor) previousNode));
+            }
             else {
                 scalarSubqueries.add(NodeRef.of(node));
             }
@@ -1514,6 +1523,7 @@ public class ExpressionAnalyzer
                 analyzer.getSubqueryInPredicates(),
                 analyzer.getScalarSubqueries(),
                 analyzer.getExistsSubqueries(),
+                analyzer.getArraySubqueries(),
                 analyzer.getColumnReferences(),
                 analyzer.getTypeOnlyCoercions(),
                 analyzer.getQuantifiedComparisons(),
@@ -1552,6 +1562,7 @@ public class ExpressionAnalyzer
                 analyzer.getSubqueryInPredicates(),
                 analyzer.getScalarSubqueries(),
                 analyzer.getExistsSubqueries(),
+                analyzer.getArraySubqueries(),
                 analyzer.getColumnReferences(),
                 analyzer.getTypeOnlyCoercions(),
                 analyzer.getQuantifiedComparisons(),

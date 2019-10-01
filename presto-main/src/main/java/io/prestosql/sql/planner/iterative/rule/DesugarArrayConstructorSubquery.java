@@ -15,16 +15,18 @@ package io.prestosql.sql.planner.iterative.rule;
 
 import io.prestosql.metadata.Metadata;
 import io.prestosql.sql.planner.FunctionCallBuilder;
+import io.prestosql.sql.tree.ArrayConstructor;
 import io.prestosql.sql.tree.CurrentUser;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.ExpressionTreeRewriter;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.QualifiedName;
+import io.prestosql.sql.tree.SubqueryExpression;
 
-public class DesugarCurrentUser
+public class DesugarArrayConstructorSubquery
         extends ExpressionRewriteRuleSet
 {
-    public DesugarCurrentUser(Metadata metadata)
+    public DesugarArrayConstructorSubquery(Metadata metadata)
     {
         super(createRewrite(metadata));
     }
@@ -34,9 +36,13 @@ public class DesugarCurrentUser
         return (expression, context) -> ExpressionTreeRewriter.rewriteWith(new io.prestosql.sql.tree.ExpressionRewriter<Void>()
         {
             @Override
-            public Expression rewriteCurrentUser(CurrentUser node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            public Expression rewriteArrayConstructor(ArrayConstructor node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                return getCall(node, metadata);
+                if (node.isSubquery()) {
+                    SubqueryExpression subquery = node.getSubquery();
+                    // TODO: wrap single projected node with ARRAY_AGG
+                }
+                return node;
             }
         }, expression);
     }

@@ -27,6 +27,7 @@ import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.type.Type;
+import io.prestosql.sql.tree.ArrayConstructor;
 import io.prestosql.sql.tree.ExistsPredicate;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FunctionCall;
@@ -112,6 +113,7 @@ public class Analysis
     private final ListMultimap<NodeRef<Node>, InPredicate> inPredicatesSubqueries = ArrayListMultimap.create();
     private final ListMultimap<NodeRef<Node>, SubqueryExpression> scalarSubqueries = ArrayListMultimap.create();
     private final ListMultimap<NodeRef<Node>, ExistsPredicate> existsSubqueries = ArrayListMultimap.create();
+    private final ListMultimap<NodeRef<Node>, ArrayConstructor> arraySubqueries = ArrayListMultimap.create();
     private final ListMultimap<NodeRef<Node>, QuantifiedComparisonExpression> quantifiedComparisonSubqueries = ArrayListMultimap.create();
 
     private final Map<NodeRef<Table>, TableHandle> tables = new LinkedHashMap<>();
@@ -355,6 +357,7 @@ public class Analysis
         this.inPredicatesSubqueries.putAll(key, dereference(expressionAnalysis.getSubqueryInPredicates()));
         this.scalarSubqueries.putAll(key, dereference(expressionAnalysis.getScalarSubqueries()));
         this.existsSubqueries.putAll(key, dereference(expressionAnalysis.getExistsSubqueries()));
+        this.arraySubqueries.putAll(key, dereference(expressionAnalysis.getArraySubqueries()));
         this.quantifiedComparisonSubqueries.putAll(key, dereference(expressionAnalysis.getQuantifiedComparisons()));
     }
 
@@ -373,6 +376,11 @@ public class Analysis
     public List<SubqueryExpression> getScalarSubqueries(Node node)
     {
         return ImmutableList.copyOf(scalarSubqueries.get(NodeRef.of(node)));
+    }
+
+    public List<ArrayConstructor> getArraySubqueries(Node node)
+    {
+        return ImmutableList.copyOf(arraySubqueries.get(NodeRef.of(node)));
     }
 
     public List<ExistsPredicate> getExistsSubqueries(Node node)

@@ -753,6 +753,12 @@ class AstBuilder
     }
 
     @Override
+    public Node visitArrayByTableSubquery(SqlBaseParser.ArrayByTableSubqueryContext context)
+    {
+        return new ArrayConstructor(getLocation(context), new SubqueryExpression(getLocation(context), (Query) visit(context.query())));
+    }
+
+    @Override
     public Node visitInlineTable(SqlBaseParser.InlineTableContext context)
     {
         return new Values(getLocation(context), visit(context.expression(), Expression.class));

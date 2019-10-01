@@ -30,6 +30,7 @@ import io.prestosql.sql.planner.iterative.rule.AddExchangesBelowPartialAggregati
 import io.prestosql.sql.planner.iterative.rule.AddIntermediateAggregations;
 import io.prestosql.sql.planner.iterative.rule.CanonicalizeExpressions;
 import io.prestosql.sql.planner.iterative.rule.CreatePartialTopN;
+import io.prestosql.sql.planner.iterative.rule.DesugarArrayConstructorSubquery;
 import io.prestosql.sql.planner.iterative.rule.DesugarAtTimeZone;
 import io.prestosql.sql.planner.iterative.rule.DesugarCurrentPath;
 import io.prestosql.sql.planner.iterative.rule.DesugarCurrentUser;
@@ -289,6 +290,7 @@ public class PlanOptimizers
                                 .addAll(new DesugarCurrentPath(metadata).rules())
                                 .addAll(new DesugarTryExpression(metadata, typeAnalyzer).rules())
                                 .addAll(new DesugarRowSubscript(typeAnalyzer).rules())
+                                .addAll(new DesugarArrayConstructorSubquery(metadata).rules())
                                 .build()),
                 new IterativeOptimizer(
                         ruleStats,
