@@ -18,6 +18,7 @@ import io.prestosql.plugin.hive.authentication.HiveAuthenticationConfig;
 import io.prestosql.plugin.hive.authentication.HiveAuthenticationConfig.HiveMetastoreAuthenticationType;
 import org.apache.thrift.TException;
 
+import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import java.net.URI;
@@ -51,7 +52,7 @@ public class StaticMetastoreLocator
                 hiveAuthenticationConfig.getHiveMetastoreAuthenticationType());
     }
 
-    public StaticMetastoreLocator(List<URI> metastoreUris, String metastoreUsername, ThriftMetastoreClientFactory clientFactory)
+    public StaticMetastoreLocator(List<URI> metastoreUris, @Nullable String metastoreUsername, ThriftMetastoreClientFactory clientFactory)
     {
         requireNonNull(metastoreUris, "metastoreUris is null");
         checkArgument(!metastoreUris.isEmpty(), "metastoreUris must specify at least one URI");
