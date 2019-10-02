@@ -45,8 +45,7 @@ public class CreateAsSelectDataSetup
         Stream<String> columnValuesWithNames = range(0, columnValues.size())
                 .mapToObj(i -> format("%s col_%d", columnValues.get(i), i));
         String selectBody = Joiner.on(",\n").join(columnValuesWithNames.iterator());
-        String ddlTemplate = "CREATE TABLE {TABLE_NAME} AS SELECT\n" + selectBody;
-        return new TestTable(sqlExecutor, tableNamePrefix, ddlTemplate);
+        return new TestTable(sqlExecutor, tableNamePrefix, "AS SELECT " + selectBody);
     }
 
     private String literalInExplicitCast(DataTypeTest.Input<?> input)

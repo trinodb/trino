@@ -15,9 +15,11 @@ package io.prestosql.tests.sql;
 
 import java.security.SecureRandom;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Character.MAX_RADIX;
 import static java.lang.Math.abs;
 import static java.lang.Math.min;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class TestTable
@@ -29,13 +31,14 @@ public class TestTable
     private final SqlExecutor sqlExecutor;
     private final String name;
 
-    public TestTable(SqlExecutor sqlExecutor, String namePrefix, String createDdlTemplate)
+    public TestTable(SqlExecutor sqlExecutor, String namePrefix, String tableDefinition)
     {
+        checkArgument(!tableDefinition.contains("{TABLE_NAME}"), "tableDefinition should not contain '{TABLE_NAME}': %s", tableDefinition);
         this.sqlExecutor = requireNonNull(sqlExecutor, "sqlExecutor is null");
         requireNonNull(namePrefix, "namePrefix is null");
-        requireNonNull(createDdlTemplate, "createDdlTemplate is null");
+        requireNonNull(tableDefinition, "tableDefinition is null");
         this.name = namePrefix + "_" + randomTableSuffix();
-        sqlExecutor.execute(createDdlTemplate.replace("{TABLE_NAME}", this.name));
+        sqlExecutor.execute(format("CREATE TABLE %s %s", name, tableDefinition));
     }
 
     public String getName()
