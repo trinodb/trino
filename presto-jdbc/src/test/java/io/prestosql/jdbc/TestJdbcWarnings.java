@@ -16,9 +16,7 @@ package io.prestosql.jdbc;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterators;
-import com.google.common.util.concurrent.AbstractFuture;
 import io.prestosql.client.Warning;
-import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.warnings.WarningCollectorConfig;
 import io.prestosql.plugin.blackhole.BlackHolePlugin;
 import io.prestosql.server.testing.TestingPrestoServer;
@@ -44,6 +42,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.prestosql.jdbc.TestPrestoDriver.closeQuietly;
@@ -138,15 +137,9 @@ public class TestJdbcWarnings
     public void testLongRunningStatement()
             throws SQLException, InterruptedException
     {
-        QueryCreationFuture queryCreationFuture = new QueryCreationFuture();
-        executor.submit(() -> {
-            try {
-                statement.execute("CREATE TABLE test_long_running AS SELECT * FROM slow_table");
-                queryCreationFuture.set(null);
-            }
-            catch (Throwable e) {
-                queryCreationFuture.setException(e);
-            }
+        Future<?> future = executor.submit(() -> {
+            statement.execute("CREATE TABLE test_long_running AS SELECT * FROM slow_table");
+            return null;
         });
         while (statement.getWarnings() == null) {
             Thread.sleep(100);
@@ -155,7 +148,7 @@ public class TestJdbcWarnings
         SQLWarning warning = statement.getWarnings();
         Set<WarningEntry> currentWarnings = new HashSet<>();
         assertTrue(currentWarnings.add(new WarningEntry(warning)));
-        for (int warnings = 1; !queryCreationFuture.isDone() && warnings < expectedWarnings; warnings++) {
+        for (int warnings = 1; !future.isDone() && warnings < expectedWarnings; warnings++) {
             for (SQLWarning nextWarning = warning.getNextWarning(); nextWarning == null; nextWarning = warning.getNextWarning()) {
                 // Wait for new warnings
             }
@@ -170,22 +163,16 @@ public class TestJdbcWarnings
     public void testLongRunningQuery()
             throws SQLException, InterruptedException
     {
-        QueryCreationFuture queryCreationFuture = new QueryCreationFuture();
-        executor.submit(() -> {
-            try {
-                statement.execute("SELECT * FROM slow_table");
-                queryCreationFuture.set(null);
-            }
-            catch (Throwable e) {
-                queryCreationFuture.setException(e);
-            }
+        Future<?> future = executor.submit(() -> {
+            statement.execute("SELECT * FROM slow_table");
+            return null;
         });
         while (statement.getResultSet() == null) {
             Thread.sleep(100);
         }
         ResultSet resultSet = statement.getResultSet();
         Set<WarningEntry> currentWarnings = new HashSet<>();
-        for (int rows = 0; !queryCreationFuture.isDone() && rows < 10; ) {
+        for (int rows = 0; !future.isDone() && rows < 10; ) {
             if (resultSet.next()) {
                 for (SQLWarning warning = resultSet.getWarnings(); warning.getNextWarning() != null; warning = warning.getNextWarning()) {
                     assertTrue(currentWarnings.add(new WarningEntry(warning.getNextWarning())));
@@ -341,29 +328,6 @@ public class TestJdbcWarnings
         public int hashCode()
         {
             return Objects.hash(vendorCode, sqlState, message);
-        }
-    }
-
-    private static class QueryCreationFuture
-            extends AbstractFuture<QueryInfo>
-    {
-        @Override
-        protected boolean set(QueryInfo value)
-        {
-            return super.set(value);
-        }
-
-        @Override
-        protected boolean setException(Throwable throwable)
-        {
-            return super.setException(throwable);
-        }
-
-        @Override
-        public boolean cancel(boolean mayInterruptIfRunning)
-        {
-            // query submission can not be canceled
-            return false;
         }
     }
 }
