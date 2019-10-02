@@ -15,16 +15,20 @@ package io.prestosql.spi.security;
 
 import java.security.Principal;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static java.util.Collections.emptyMap;
-import static java.util.Collections.unmodifiableMap;
+import static java.util.Collections.emptySet;
+import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
 
 public class ConnectorIdentity
 {
     private final String user;
+    private final Set<String> groups;
     private final Optional<Principal> principal;
     private final Optional<SelectedRole> role;
     private final Map<String, String> extraCredentials;
@@ -38,15 +42,31 @@ public class ConnectorIdentity
     @Deprecated
     public ConnectorIdentity(String user, Optional<Principal> principal, Optional<SelectedRole> role, Map<String, String> extraCredentials)
     {
-        this.user = requireNonNull(user, "user is null");
-        this.principal = requireNonNull(principal, "principal is null");
-        this.role = requireNonNull(role, "role is null");
-        this.extraCredentials = unmodifiableMap(new HashMap<>(requireNonNull(extraCredentials, "extraCredentials is null")));
+        this(user, emptySet(), principal, role, extraCredentials);
+    }
+
+    private ConnectorIdentity(
+            String user,
+            Set<String> groups,
+            Optional<Principal> principal,
+            Optional<SelectedRole> role,
+            Map<String, String> extraCredentials)
+    {
+        this.user = user;
+        this.groups = groups;
+        this.principal = principal;
+        this.role = role;
+        this.extraCredentials = extraCredentials;
     }
 
     public String getUser()
     {
         return user;
+    }
+
+    public Set<String> getGroups()
+    {
+        return groups;
     }
 
     public Optional<Principal> getPrincipal()
@@ -69,6 +89,7 @@ public class ConnectorIdentity
     {
         StringBuilder sb = new StringBuilder("ConnectorIdentity{");
         sb.append("user='").append(user).append('\'');
+        sb.append(", groups=").append(groups);
         principal.ifPresent(principal -> sb.append(", principal=").append(principal));
         role.ifPresent(role -> sb.append(", role=").append(role));
         sb.append(", extraCredentials=").append(extraCredentials.keySet());
@@ -89,6 +110,7 @@ public class ConnectorIdentity
     public static class Builder
     {
         private final String user;
+        private Set<String> groups = emptySet();
         private Optional<Principal> principal = Optional.empty();
         private Optional<SelectedRole> role = Optional.empty();
         private Map<String, String> extraCredentials = new HashMap<>();
@@ -96,6 +118,12 @@ public class ConnectorIdentity
         private Builder(String user)
         {
             this.user = requireNonNull(user, "user is null");
+        }
+
+        public Builder withGroups(Set<String> groups)
+        {
+            this.groups = unmodifiableSet(new HashSet<>(requireNonNull(groups, "groups is null")));
+            return this;
         }
 
         public Builder withPrincipal(Principal principal)
@@ -128,7 +156,7 @@ public class ConnectorIdentity
 
         public ConnectorIdentity build()
         {
-            return new ConnectorIdentity(user, principal, role, extraCredentials);
+            return new ConnectorIdentity(user, groups, principal, role, extraCredentials);
         }
     }
 }

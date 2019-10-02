@@ -26,6 +26,7 @@ import io.prestosql.security.AccessControl;
 import io.prestosql.server.ForWorkerInfo;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.security.AccessDeniedException;
+import io.prestosql.spi.security.GroupProvider;
 
 import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
@@ -61,14 +62,21 @@ public class WorkerResource
     private final InternalNodeManager nodeManager;
     private final AccessControl accessControl;
     private final HttpClient httpClient;
+    private final GroupProvider groupProvider;
 
     @Inject
-    public WorkerResource(DispatchManager dispatchManager, InternalNodeManager nodeManager, AccessControl accessControl, @ForWorkerInfo HttpClient httpClient)
+    public WorkerResource(
+            DispatchManager dispatchManager,
+            InternalNodeManager nodeManager,
+            AccessControl accessControl,
+            @ForWorkerInfo HttpClient httpClient,
+            GroupProvider groupProvider)
     {
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
+        this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
     }
 
     @GET
@@ -97,7 +105,7 @@ public class WorkerResource
         Optional<QueryInfo> queryInfo = dispatchManager.getFullQueryInfo(queryId);
         if (queryInfo.isPresent()) {
             try {
-                checkCanViewQueryOwnedBy(extractAuthorizedIdentity(servletRequest, httpHeaders, accessControl), queryInfo.get().getSession().getUser(), accessControl);
+                checkCanViewQueryOwnedBy(extractAuthorizedIdentity(servletRequest, httpHeaders, accessControl, groupProvider), queryInfo.get().getSession().getUser(), accessControl);
                 return proxyJsonResponse(nodeId, "v1/task/" + task);
             }
             catch (AccessDeniedException e) {
