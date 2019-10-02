@@ -13,6 +13,7 @@
  */
 package io.prestosql.elasticsearch;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Closer;
 import io.airlift.tpch.TpchTable;
@@ -31,6 +32,7 @@ import java.util.Map;
 
 import static io.prestosql.elasticsearch.ElasticsearchQueryRunner.createElasticsearchQueryRunner;
 import static io.prestosql.elasticsearch.EmbeddedElasticsearchNode.createEmbeddedElasticsearchNode;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
@@ -306,6 +308,24 @@ public class TestElasticsearchIntegrationSmokeTest
                 .build();
 
         assertEquals(rows.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testQueryString()
+    {
+        MaterializedResult actual = computeActual("SELECT count(*) FROM \"orders: +packages -slyly\"");
+
+        MaterializedResult expected = resultBuilder(getSession(), ImmutableList.of(BIGINT))
+                .row(1639L)
+                .build();
+
+        assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testQueryStringError()
+    {
+        assertQueryFails("SELECT count(*) FROM \"orders: ++foo AND\"", "\\QFailed to parse query [ ++foo and]\\E");
     }
 
     private void index(String indexName, Map<String, Object> document)

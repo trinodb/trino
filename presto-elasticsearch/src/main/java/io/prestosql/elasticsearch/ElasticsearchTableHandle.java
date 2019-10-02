@@ -20,6 +20,7 @@ import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -29,11 +30,13 @@ public final class ElasticsearchTableHandle
     private final String schema;
     private final String index;
     private final TupleDomain<ColumnHandle> constraint;
+    private final Optional<String> query;
 
-    public ElasticsearchTableHandle(String schema, String index)
+    public ElasticsearchTableHandle(String schema, String index, Optional<String> query)
     {
         this.schema = requireNonNull(schema, "schema is null");
         this.index = requireNonNull(index, "index is null");
+        this.query = requireNonNull(query, "query is null");
 
         constraint = TupleDomain.all();
     }
@@ -42,11 +45,13 @@ public final class ElasticsearchTableHandle
     public ElasticsearchTableHandle(
             @JsonProperty("schema") String schema,
             @JsonProperty("index") String index,
-            @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint)
+            @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
+            @JsonProperty("query") Optional<String> query)
     {
         this.schema = requireNonNull(schema, "schema is null");
         this.index = requireNonNull(index, "index is null");
         this.constraint = requireNonNull(constraint, "constraint is null");
+        this.query = requireNonNull(query, "query is null");
     }
 
     @JsonProperty
@@ -67,6 +72,12 @@ public final class ElasticsearchTableHandle
         return constraint;
     }
 
+    @JsonProperty
+    public Optional<String> getQuery()
+    {
+        return query;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -79,12 +90,13 @@ public final class ElasticsearchTableHandle
         ElasticsearchTableHandle that = (ElasticsearchTableHandle) o;
         return schema.equals(that.schema) &&
                 index.equals(that.index) &&
-                constraint.equals(that.constraint);
+                constraint.equals(that.constraint) &&
+                query.equals(that.query);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(schema, index, constraint);
+        return Objects.hash(schema, index, constraint, query);
     }
 }

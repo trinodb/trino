@@ -27,14 +27,17 @@ import io.prestosql.elasticsearch.client.NodesResponse;
 import io.prestosql.elasticsearch.client.SearchShardsResponse;
 import io.prestosql.elasticsearch.client.Shard;
 import io.prestosql.spi.PrestoException;
+import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.util.EntityUtils;
+import org.elasticsearch.ElasticsearchStatusException;
 import org.elasticsearch.action.search.ClearScrollRequest;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchScrollRequest;
 import org.elasticsearch.client.Response;
+import org.elasticsearch.client.ResponseException;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.client.RestHighLevelClient;
@@ -72,6 +75,7 @@ import java.util.stream.Stream;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.prestosql.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_CONNECTION_ERROR;
 import static io.prestosql.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_INVALID_RESPONSE;
+import static io.prestosql.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_QUERY_FAILURE;
 import static io.prestosql.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_SSL_INITIALIZATION_FAILURE;
 import static java.lang.StrictMath.toIntExact;
 import static java.lang.String.format;
@@ -415,6 +419,30 @@ public class ElasticsearchClient
             return client.search(request);
         }
         catch (IOException e) {
+            throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, e);
+        }
+        catch (ElasticsearchStatusException e) {
+            Throwable[] suppressed = e.getSuppressed();
+            if (suppressed.length > 0) {
+                Throwable cause = suppressed[0];
+                if (cause instanceof ResponseException) {
+                    HttpEntity entity = ((ResponseException) cause).getResponse().getEntity();
+                    try {
+                        JsonNode reason = OBJECT_MAPPER.readTree(entity.getContent()).path("error")
+                                .path("root_cause")
+                                .path(0)
+                                .path("reason");
+
+                        if (!reason.isMissingNode()) {
+                            throw new PrestoException(ELASTICSEARCH_QUERY_FAILURE, reason.asText(), e);
+                        }
+                    }
+                    catch (IOException ex) {
+                        e.addSuppressed(ex);
+                    }
+                }
+            }
+
             throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, e);
         }
     }

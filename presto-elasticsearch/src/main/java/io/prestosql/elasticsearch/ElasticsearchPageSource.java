@@ -124,7 +124,7 @@ public class ElasticsearchPageSource
         SearchResponse searchResponse = client.beginSearch(
                 table.getIndex(),
                 split.getShard(),
-                buildSearchQuery(table.getConstraint(), columns),
+                buildSearchQuery(table.getConstraint(), columns, table.getQuery()),
                 needAllFields ? Optional.empty() : Optional.of(requiredFields),
                 documentFields);
         readTimeNanos += System.nanoTime() - start;
