@@ -29,9 +29,9 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.cli.Console.STATEMENT_DELIMITERS;
 import static io.prestosql.sql.ReservedIdentifiers.sqlKeywords;
 import static java.util.Locale.ENGLISH;
-import static org.jline.utils.AttributedStyle.BLUE;
 import static org.jline.utils.AttributedStyle.BOLD;
 import static org.jline.utils.AttributedStyle.BRIGHT;
+import static org.jline.utils.AttributedStyle.CYAN;
 import static org.jline.utils.AttributedStyle.DEFAULT;
 import static org.jline.utils.AttributedStyle.GREEN;
 import static org.jline.utils.AttributedStyle.RED;
@@ -41,7 +41,7 @@ public class InputHighlighter
 {
     private static final AttributedStyle KEYWORD_STYLE = BOLD;
     private static final AttributedStyle STRING_STYLE = DEFAULT.foreground(GREEN);
-    private static final AttributedStyle NUMBER_STYLE = DEFAULT.foreground(BLUE);
+    private static final AttributedStyle NUMBER_STYLE = DEFAULT.foreground(CYAN);
     private static final AttributedStyle COMMENT_STYLE = DEFAULT.foreground(BRIGHT).italic();
     private static final AttributedStyle ERROR_STYLE = DEFAULT.foreground(RED);
 
