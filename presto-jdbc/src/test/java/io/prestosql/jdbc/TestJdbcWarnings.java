@@ -51,7 +51,7 @@ import static io.prestosql.jdbc.TestPrestoDriver.closeQuietly;
 import static io.prestosql.jdbc.TestPrestoDriver.waitForNodeRefresh;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.Executors.newSingleThreadExecutor;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -67,6 +67,7 @@ public class TestJdbcWarnings
     private TestingPrestoServer server;
     private Connection connection;
     private Statement statement;
+    private ExecutorService executor;
 
     @BeforeClass
     public void setupServer()
@@ -96,6 +97,7 @@ public class TestJdbcWarnings
     {
         connection = createConnection();
         statement = connection.createStatement();
+        executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
     }
 
     @AfterMethod(alwaysRun = true)
@@ -103,6 +105,7 @@ public class TestJdbcWarnings
     {
         closeQuietly(statement);
         closeQuietly(connection);
+        executor.shutdownNow();
     }
 
     @Test
@@ -124,9 +127,8 @@ public class TestJdbcWarnings
     public void testLongRunningStatement()
             throws SQLException, InterruptedException
     {
-        ExecutorService queryExecutor = newSingleThreadExecutor(daemonThreadsNamed("test-%s"));
         QueryCreationFuture queryCreationFuture = new QueryCreationFuture();
-        queryExecutor.submit(() -> {
+        executor.submit(() -> {
             try {
                 statement.execute("CREATE SCHEMA blackhole.blackhole");
                 statement.execute("CREATE TABLE blackhole.blackhole.test_table AS SELECT 1 AS col1 FROM tpch.sf1.lineitem CROSS JOIN tpch.sf1.lineitem");
@@ -151,16 +153,14 @@ public class TestJdbcWarnings
             Thread.sleep(100);
         }
         assertEquals(currentWarnings.size(), 100);
-        queryExecutor.shutdownNow();
     }
 
     @Test
     public void testLongRunningQuery()
             throws SQLException, InterruptedException
     {
-        ExecutorService queryExecutor = newSingleThreadExecutor(daemonThreadsNamed("test-%s"));
         QueryCreationFuture queryCreationFuture = new QueryCreationFuture();
-        queryExecutor.submit(() -> {
+        executor.submit(() -> {
             try {
                 statement.execute("SELECT 1 AS col1 FROM tpch.sf1.lineitem CROSS JOIN tpch.sf1.lineitem");
                 queryCreationFuture.set(null);
@@ -185,7 +185,6 @@ public class TestJdbcWarnings
             }
             Thread.sleep(100);
         }
-        queryExecutor.shutdownNow();
     }
 
     @Test
