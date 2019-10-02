@@ -456,6 +456,7 @@ public final class Session
                 transactionId,
                 clientTransactionSupport,
                 identity.getUser(),
+                identity.getGroups(),
                 identity.getPrincipal().map(Principal::toString),
                 source,
                 catalog,

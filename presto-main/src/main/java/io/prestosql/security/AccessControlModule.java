@@ -20,6 +20,7 @@ import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import io.airlift.log.Logger;
 import io.prestosql.plugin.base.util.LoggingInvocationHandler;
+import io.prestosql.spi.security.GroupProvider;
 
 import static com.google.common.reflect.Reflection.newProxy;
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -33,6 +34,8 @@ public class AccessControlModule
     {
         configBinder(binder).bindConfig(AccessControlConfig.class);
         binder.bind(AccessControlManager.class).in(Scopes.SINGLETON);
+        binder.bind(GroupProviderManager.class).in(Scopes.SINGLETON);
+        binder.bind(GroupProvider.class).to(GroupProviderManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(AccessControlManager.class).withGeneratedName();
     }
 

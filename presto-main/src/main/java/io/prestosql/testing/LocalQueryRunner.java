@@ -101,6 +101,7 @@ import io.prestosql.operator.PagesIndex;
 import io.prestosql.operator.StageExecutionDescriptor;
 import io.prestosql.operator.TaskContext;
 import io.prestosql.operator.index.IndexJoinLookupStats;
+import io.prestosql.security.GroupProviderManager;
 import io.prestosql.server.PluginManager;
 import io.prestosql.server.PluginManagerConfig;
 import io.prestosql.server.ServerConfig;
@@ -363,6 +364,7 @@ public class LocalQueryRunner
                 accessControl,
                 new PasswordAuthenticatorManager(),
                 new EventListenerManager(),
+                new GroupProviderManager(),
                 new SessionPropertyDefaults(nodeInfo));
 
         connectorManager.addConnectorFactory(globalSystemConnectorFactory, globalSystemConnectorFactory.getClass()::getClassLoader);
