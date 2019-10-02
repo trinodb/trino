@@ -75,8 +75,6 @@ public class BenchmarkInformationSchema
         private String schemasCount = "200";
         @Param("200")
         private String tablesCount = "200";
-        @Param("100")
-        private String columnsCount = "100";
 
         private QueryRunner queryRunner;
 
