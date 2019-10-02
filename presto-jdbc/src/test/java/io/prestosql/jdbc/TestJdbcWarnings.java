@@ -135,54 +135,28 @@ public class TestJdbcWarnings
 
     @Test
     public void testLongRunningStatement()
-            throws SQLException, InterruptedException
+            throws Exception
     {
         Future<?> future = executor.submit(() -> {
             statement.execute("CREATE TABLE test_long_running AS SELECT * FROM slow_table");
             return null;
         });
-        while (statement.getWarnings() == null) {
-            Thread.sleep(100);
-        }
-        int expectedWarnings = 10;
-        SQLWarning warning = statement.getWarnings();
-        Set<WarningEntry> currentWarnings = new HashSet<>();
-        assertTrue(currentWarnings.add(new WarningEntry(warning)));
-        for (int warnings = 1; !future.isDone() && warnings < expectedWarnings; warnings++) {
-            for (SQLWarning nextWarning = warning.getNextWarning(); nextWarning == null; nextWarning = warning.getNextWarning()) {
-                // Wait for new warnings
-            }
-            warning = warning.getNextWarning();
-            assertTrue(currentWarnings.add(new WarningEntry(warning)));
-            Thread.sleep(100);
-        }
-        assertThat(currentWarnings).size().isGreaterThanOrEqualTo(expectedWarnings);
+        assertStatementWarnings(statement, future);
+        statement.execute("DROP TABLE test_long_running");
     }
 
     @Test
     public void testLongRunningQuery()
-            throws SQLException, InterruptedException
+            throws Exception
     {
         Future<?> future = executor.submit(() -> {
-            statement.execute("SELECT * FROM slow_table");
+            ResultSet resultSet = statement.executeQuery("SELECT * FROM slow_table");
+            while (resultSet.next()) {
+                // discard results
+            }
             return null;
         });
-        while (statement.getResultSet() == null) {
-            Thread.sleep(100);
-        }
-        ResultSet resultSet = statement.getResultSet();
-        Set<WarningEntry> currentWarnings = new HashSet<>();
-        for (int rows = 0; !future.isDone() && rows < 10; ) {
-            if (resultSet.next()) {
-                for (SQLWarning warning = resultSet.getWarnings(); warning.getNextWarning() != null; warning = warning.getNextWarning()) {
-                    assertTrue(currentWarnings.add(new WarningEntry(warning.getNextWarning())));
-                }
-            }
-            else {
-                break;
-            }
-            Thread.sleep(100);
-        }
+        assertStatementWarnings(statement, future);
     }
 
     @Test
@@ -195,7 +169,7 @@ public class TestJdbcWarnings
             assertNull(rs.getWarnings());
             Set<WarningEntry> currentWarnings = new HashSet<>();
             while (rs.next()) {
-                assertWarnings(rs.getWarnings(), currentWarnings);
+                assertWarnings(statement.getWarnings(), currentWarnings);
             }
 
             TestingWarningCollectorConfig warningCollectorConfig = new TestingWarningCollectorConfig().setPreloadedWarnings(PRELOADED_WARNINGS).setAddWarnings(true);
@@ -220,6 +194,43 @@ public class TestJdbcWarnings
         assertWarningsEqual(warning, toPrestoSqlWarning(warnings.get(0)));
         assertWarningsEqual(warning.getNextWarning(), toPrestoSqlWarning(warnings.get(1)));
         assertWarningsEqual(warning.getNextWarning().getNextWarning(), toPrestoSqlWarning(warnings.get(2)));
+    }
+
+    private static void assertStatementWarnings(Statement statement, Future<?> future)
+            throws Exception
+    {
+        // wait for initial warnings
+        while (!future.isDone() && statement.getWarnings() == null) {
+            Thread.sleep(100);
+        }
+
+        Set<WarningEntry> warnings = new HashSet<>();
+        SQLWarning warning = statement.getWarnings();
+
+        // collect initial set of warnings
+        assertTrue(warnings.add(new WarningEntry(warning)));
+        while (warning.getNextWarning() != null) {
+            warning = warning.getNextWarning();
+            assertTrue(warnings.add(new WarningEntry(warning)));
+        }
+
+        int initialSize = warnings.size();
+        assertThat(initialSize).isGreaterThanOrEqualTo(PRELOADED_WARNINGS + 1);
+
+        // collect additional warnings until query finish
+        while (!future.isDone()) {
+            if (warning.getNextWarning() == null) {
+                Thread.sleep(100);
+                continue;
+            }
+            warning = warning.getNextWarning();
+            assertTrue(warnings.add(new WarningEntry(warning)));
+        }
+
+        int finalSize = warnings.size();
+        assertThat(finalSize).isGreaterThan(initialSize);
+
+        future.get();
     }
 
     private static SQLWarning fromPrestoWarnings(List<PrestoWarning> warnings)
