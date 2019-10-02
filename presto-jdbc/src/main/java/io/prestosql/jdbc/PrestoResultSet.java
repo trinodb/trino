@@ -104,7 +104,6 @@ public class PrestoResultSet
     private final AtomicReference<List<Object>> row = new AtomicReference<>();
     private final AtomicBoolean wasNull = new AtomicBoolean();
     private final AtomicBoolean closed = new AtomicBoolean();
-    private final WarningsManager warningsManager;
 
     PrestoResultSet(StatementClient client, long maxRows, Consumer<QueryStats> progressCallback, WarningsManager warningsManager)
             throws SQLException
@@ -119,7 +118,6 @@ public class PrestoResultSet
         this.fieldMap = getFieldMap(columns);
         this.columnInfoList = getColumnInfo(columns);
         this.resultSetMetaData = new PrestoResultSetMetaData(columnInfoList);
-        this.warningsManager = requireNonNull(warningsManager, "warningsManager is null");
 
         this.results = flatten(new ResultsPageIterator(client, progressCallback, warningsManager), maxRows);
     }
@@ -483,7 +481,7 @@ public class PrestoResultSet
             throws SQLException
     {
         checkOpen();
-        return warningsManager.getWarnings();
+        return null;
     }
 
     @Override
@@ -491,7 +489,6 @@ public class PrestoResultSet
             throws SQLException
     {
         checkOpen();
-        warningsManager.clearWarnings();
     }
 
     @Override
@@ -1761,35 +1758,17 @@ public class PrestoResultSet
         private final StatementClient client;
         private final Consumer<QueryStats> progressCallback;
         private final WarningsManager warningsManager;
-        private final boolean isQuery;
 
         private ResultsPageIterator(StatementClient client, Consumer<QueryStats> progressCallback, WarningsManager warningsManager)
         {
             this.client = requireNonNull(client, "client is null");
             this.progressCallback = requireNonNull(progressCallback, "progressCallback is null");
             this.warningsManager = requireNonNull(warningsManager, "warningsManager is null");
-            this.isQuery = isQuery(client);
-        }
-
-        private static boolean isQuery(StatementClient client)
-        {
-            String updateType;
-            if (client.isRunning()) {
-                updateType = client.currentStatusInfo().getUpdateType();
-            }
-            else {
-                updateType = client.finalStatusInfo().getUpdateType();
-            }
-            return updateType == null;
         }
 
         @Override
         protected Iterable<List<Object>> computeNext()
         {
-            if (isQuery) {
-                // Clear the warnings if this is a query, per ResultSet javadoc
-                warningsManager.clearWarnings();
-            }
             while (client.isRunning()) {
                 checkInterruption(null);
 
