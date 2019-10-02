@@ -24,6 +24,7 @@ import io.prestosql.execution.StateMachine.StateChangeListener;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.memory.VersionedMemoryPoolId;
 import io.prestosql.server.BasicQueryInfo;
+import io.prestosql.server.protocol.Slug;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.Plan;
 
@@ -51,7 +52,7 @@ public interface QueryExecution
 
     QueryInfo getQueryInfo();
 
-    String getSlug();
+    Slug getSlug();
 
     Duration getTotalCpuTime();
 
@@ -80,7 +81,7 @@ public interface QueryExecution
 
     interface QueryExecutionFactory<T extends QueryExecution>
     {
-        T createQueryExecution(PreparedQuery preparedQuery, QueryStateMachine stateMachine, String slug, WarningCollector warningCollector);
+        T createQueryExecution(PreparedQuery preparedQuery, QueryStateMachine stateMachine, Slug slug, WarningCollector warningCollector);
     }
 
     /**

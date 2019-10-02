@@ -89,6 +89,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addTimeout;
 import static io.prestosql.SystemSessionProperties.isExchangeCompressionEnabled;
 import static io.prestosql.execution.QueryState.FAILED;
+import static io.prestosql.server.protocol.Slug.Context.EXECUTING_QUERY;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.util.Failures.toFailure;
 import static io.prestosql.util.MoreLists.mappedCopy;
@@ -103,7 +104,7 @@ class Query
     private final QueryManager queryManager;
     private final QueryId queryId;
     private final Session session;
-    private final String slug;
+    private final Slug slug;
 
     @GuardedBy("this")
     private final ExchangeClient exchangeClient;
@@ -163,7 +164,7 @@ class Query
 
     public static Query create(
             Session session,
-            String slug,
+            Slug slug,
             QueryManager queryManager,
             ExchangeClient exchangeClient,
             Executor dataProcessorExecutor,
@@ -186,7 +187,7 @@ class Query
 
     private Query(
             Session session,
-            String slug,
+            Slug slug,
             QueryManager queryManager,
             ExchangeClient exchangeClient,
             Executor resultsProcessorExecutor,
@@ -240,9 +241,9 @@ class Query
         return queryId;
     }
 
-    public boolean isSlugValid(String slug)
+    public boolean isSlugValid(String slug, long token)
     {
-        return this.slug.equals(slug);
+        return this.slug.isValid(EXECUTING_QUERY, slug, token);
     }
 
     public QueryInfo getQueryInfo()
@@ -455,11 +456,13 @@ class Query
         }
 
         URI nextResultsUri = null;
+        URI partialCancelUri = null;
         if (nextToken.isPresent()) {
             nextResultsUri = createNextResultsUri(scheme, uriInfo, nextToken.getAsLong());
+            partialCancelUri = findCancelableLeafStage(queryInfo)
+                    .map(stage -> this.createPartialCancelUri(stage, scheme, uriInfo, nextToken.getAsLong()))
+                    .orElse(null);
         }
-        Optional<URI> partialCancelUri = findCancelableLeafStage(queryInfo)
-                .map(stage -> this.createPartialCancelUri(stage, scheme, uriInfo));
 
         // update catalog, schema, and path
         setCatalog = queryInfo.getSetCatalog();
@@ -485,7 +488,7 @@ class Query
         QueryResults queryResults = new QueryResults(
                 queryId.toString(),
                 queryHtmlUri,
-                partialCancelUri.orElse(null),
+                partialCancelUri,
                 nextResultsUri,
                 columns,
                 data,
@@ -551,20 +554,21 @@ class Query
                 .scheme(scheme)
                 .replacePath("/v1/statement/executing")
                 .path(queryId.toString())
-                .path(slug)
+                .path(slug.makeSlug(EXECUTING_QUERY, nextToken))
                 .path(String.valueOf(nextToken))
                 .replaceQuery("")
                 .build();
     }
 
-    private URI createPartialCancelUri(int stage, String scheme, UriInfo uriInfo)
+    private URI createPartialCancelUri(int stage, String scheme, UriInfo uriInfo, long nextToken)
     {
         return uriInfo.getBaseUriBuilder()
                 .scheme(scheme)
                 .replacePath("/v1/statement/partialCancel")
                 .path(queryId.toString())
                 .path(String.valueOf(stage))
-                .path(slug)
+                .path(slug.makeSlug(EXECUTING_QUERY, nextToken))
+                .path(String.valueOf(nextToken))
                 .replaceQuery("")
                 .build();
     }

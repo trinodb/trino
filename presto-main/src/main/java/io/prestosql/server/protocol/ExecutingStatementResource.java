@@ -74,6 +74,7 @@ import static io.prestosql.client.PrestoHeaders.PRESTO_SET_SCHEMA;
 import static io.prestosql.client.PrestoHeaders.PRESTO_SET_SESSION;
 import static io.prestosql.client.PrestoHeaders.PRESTO_STARTED_TRANSACTION_ID;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.prestosql.server.protocol.Slug.Context.EXECUTING_QUERY;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -156,7 +157,7 @@ public class ExecutingStatementResource
             @Context UriInfo uriInfo,
             @Suspended AsyncResponse asyncResponse)
     {
-        Query query = getQuery(queryId, slug);
+        Query query = getQuery(queryId, slug, token);
         if (isNullOrEmpty(proto)) {
             proto = uriInfo.getRequestUri().getScheme();
         }
@@ -164,11 +165,11 @@ public class ExecutingStatementResource
         asyncQueryResults(query, token, maxWait, targetResultSize, uriInfo, proto, asyncResponse);
     }
 
-    protected Query getQuery(QueryId queryId, String slug)
+    protected Query getQuery(QueryId queryId, String slug, long token)
     {
         Query query = queries.get(queryId);
         if (query != null) {
-            if (!query.isSlugValid(slug)) {
+            if (!query.isSlugValid(slug, token)) {
                 throw badRequest(NOT_FOUND, "Query not found");
             }
             return query;
@@ -176,11 +177,13 @@ public class ExecutingStatementResource
 
         // this is the first time the query has been accessed on this coordinator
         Session session;
+        Slug querySlug;
         try {
-            if (!queryManager.isQuerySlugValid(queryId, slug)) {
+            session = queryManager.getQuerySession(queryId);
+            querySlug = queryManager.getQuerySlug(queryId);
+            if (!querySlug.isValid(EXECUTING_QUERY, slug, token)) {
                 throw badRequest(NOT_FOUND, "Query not found");
             }
-            session = queryManager.getQuerySession(queryId);
         }
         catch (NoSuchElementException e) {
             throw badRequest(NOT_FOUND, "Query not found");
@@ -190,7 +193,7 @@ public class ExecutingStatementResource
             ExchangeClient exchangeClient = exchangeClientSupplier.get(new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), ExecutingStatementResource.class.getSimpleName()));
             return Query.create(
                     session,
-                    slug,
+                    querySlug,
                     queryManager,
                     exchangeClient,
                     responseExecutor,
@@ -277,7 +280,7 @@ public class ExecutingStatementResource
     {
         Query query = queries.get(queryId);
         if (query != null) {
-            if (!query.isSlugValid(slug)) {
+            if (!query.isSlugValid(slug, token)) {
                 throw badRequest(NOT_FOUND, "Query not found");
             }
             query.cancel();
@@ -286,7 +289,7 @@ public class ExecutingStatementResource
 
         // cancel the query execution directly instead of creating the statement client
         try {
-            if (!queryManager.isQuerySlugValid(queryId, slug)) {
+            if (!queryManager.getQuerySlug(queryId).isValid(EXECUTING_QUERY, slug, token)) {
                 throw badRequest(NOT_FOUND, "Query not found");
             }
             queryManager.cancelQuery(queryId);
@@ -298,13 +301,14 @@ public class ExecutingStatementResource
     }
 
     @DELETE
-    @Path("/v1/statement/partialCancel/{queryId}/{stage}/{slug}")
+    @Path("/v1/statement/partialCancel/{queryId}/{stage}/{slug}/{token}")
     public void partialCancel(
             @PathParam("queryId") QueryId queryId,
             @PathParam("stage") int stage,
-            @PathParam("slug") String slug)
+            @PathParam("slug") String slug,
+            @PathParam("token") long token)
     {
-        Query query = getQuery(queryId, slug);
+        Query query = getQuery(queryId, slug, token);
         query.partialCancel(stage);
     }
 
