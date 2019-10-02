@@ -23,7 +23,7 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestElasticsearchConfig
@@ -36,8 +36,8 @@ public class TestElasticsearchConfig
                 .setPort(9200)
                 .setDefaultSchema("default")
                 .setScrollSize(1000)
-                .setScrollTimeout(new Duration(1, SECONDS))
-                .setRequestTimeout(new Duration(100, MILLISECONDS))
+                .setScrollTimeout(new Duration(1, MINUTES))
+                .setRequestTimeout(new Duration(10, SECONDS))
                 .setConnectTimeout(new Duration(1, SECONDS))
                 .setTlsEnabled(false)
                 .setKeystorePath(null)

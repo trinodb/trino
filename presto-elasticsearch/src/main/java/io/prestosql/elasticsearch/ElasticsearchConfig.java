@@ -25,7 +25,7 @@ import javax.validation.constraints.NotNull;
 import java.io.File;
 import java.util.Optional;
 
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 @DefunctConfig({
@@ -49,8 +49,8 @@ public class ElasticsearchConfig
     private int port = 9200;
     private String defaultSchema = "default";
     private int scrollSize = 1_000;
-    private Duration scrollTimeout = new Duration(1, SECONDS);
-    private Duration requestTimeout = new Duration(100, MILLISECONDS);
+    private Duration scrollTimeout = new Duration(1, MINUTES);
+    private Duration requestTimeout = new Duration(10, SECONDS);
     private Duration connectTimeout = new Duration(1, SECONDS);
 
     private boolean tlsEnabled;
