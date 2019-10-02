@@ -18,6 +18,7 @@ import java.security.SecureRandom;
 import static java.lang.Character.MAX_RADIX;
 import static java.lang.Math.abs;
 import static java.lang.Math.min;
+import static java.util.Objects.requireNonNull;
 
 public class TestTable
         implements AutoCloseable
@@ -30,7 +31,9 @@ public class TestTable
 
     public TestTable(SqlExecutor sqlExecutor, String namePrefix, String createDdlTemplate)
     {
-        this.sqlExecutor = sqlExecutor;
+        this.sqlExecutor = requireNonNull(sqlExecutor, "sqlExecutor is null");
+        requireNonNull(namePrefix, "namePrefix is null");
+        requireNonNull(createDdlTemplate, "createDdlTemplate is null");
         this.name = namePrefix + "_" + randomTableSuffix();
         sqlExecutor.execute(createDdlTemplate.replace("{TABLE_NAME}", this.name));
     }
