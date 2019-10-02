@@ -28,6 +28,7 @@ import io.prestosql.execution.ExecutionFailureInfo;
 import io.prestosql.execution.QueryState;
 import io.prestosql.server.HttpRequestSessionContext;
 import io.prestosql.server.SessionContext;
+import io.prestosql.server.protocol.Slug;
 import io.prestosql.spi.ErrorCode;
 import io.prestosql.spi.QueryId;
 
@@ -70,10 +71,10 @@ import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
 import static io.prestosql.execution.QueryState.FAILED;
 import static io.prestosql.execution.QueryState.QUEUED;
+import static io.prestosql.server.protocol.Slug.Context.EXECUTING_QUERY;
+import static io.prestosql.server.protocol.Slug.Context.QUEUED_QUERY;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static java.util.UUID.randomUUID;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -175,7 +176,7 @@ public class QueuedStatementResource
             @Context UriInfo uriInfo,
             @Suspended AsyncResponse asyncResponse)
     {
-        Query query = getQuery(queryId, slug);
+        Query query = getQuery(queryId, slug, token);
 
         // wait for query to be dispatched, up to the wait timeout
         ListenableFuture<?> futureStateChange = addTimeout(
@@ -206,15 +207,15 @@ public class QueuedStatementResource
             @PathParam("slug") String slug,
             @PathParam("token") long token)
     {
-        getQuery(queryId, slug)
+        getQuery(queryId, slug, token)
                 .cancel();
         return Response.noContent().build();
     }
 
-    private Query getQuery(QueryId queryId, String slug)
+    private Query getQuery(QueryId queryId, String slug, long token)
     {
         Query query = queries.get(queryId);
-        if (query == null || !query.getSlug().equals(slug)) {
+        if (query == null || !query.getSlug().isValid(QUEUED_QUERY, slug, token)) {
             throw badRequest(NOT_FOUND, "Query not found");
         }
         return query;
@@ -229,13 +230,13 @@ public class QueuedStatementResource
                 .build();
     }
 
-    private static URI getQueuedUri(QueryId queryId, String slug, long token, UriInfo uriInfo, String xForwardedProto)
+    private static URI getQueuedUri(QueryId queryId, Slug slug, long token, UriInfo uriInfo, String xForwardedProto)
     {
         return uriInfo.getBaseUriBuilder()
                 .scheme(getScheme(xForwardedProto, uriInfo))
                 .replacePath("/v1/statement/queued/")
                 .path(queryId.toString())
-                .path(slug)
+                .path(slug.makeSlug(QUEUED_QUERY, token))
                 .path(String.valueOf(token))
                 .replaceQuery("")
                 .build();
@@ -290,7 +291,7 @@ public class QueuedStatementResource
         private final SessionContext sessionContext;
         private final DispatchManager dispatchManager;
         private final QueryId queryId;
-        private final String slug = "x" + randomUUID().toString().toLowerCase(ENGLISH).replace("-", "");
+        private final Slug slug = Slug.createNew();
         private final AtomicLong lastToken = new AtomicLong();
 
         @GuardedBy("this")
@@ -309,7 +310,7 @@ public class QueuedStatementResource
             return queryId;
         }
 
-        public String getSlug()
+        public Slug getSlug()
         {
             return slug;
         }
@@ -412,7 +413,7 @@ public class QueuedStatementResource
             return uriBuilderFrom(coordinatorUri)
                     .appendPath("/v1/statement/executing")
                     .appendPath(queryId.toString())
-                    .appendPath(slug)
+                    .appendPath(slug.makeSlug(EXECUTING_QUERY, 0))
                     .appendPath("0")
                     .build();
         }

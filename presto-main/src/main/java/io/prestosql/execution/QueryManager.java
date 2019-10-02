@@ -17,6 +17,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.prestosql.Session;
 import io.prestosql.execution.StateMachine.StateChangeListener;
 import io.prestosql.server.BasicQueryInfo;
+import io.prestosql.server.protocol.Slug;
 import io.prestosql.spi.QueryId;
 
 import java.util.List;
@@ -73,7 +74,7 @@ public interface QueryManager
     /**
      * @throws NoSuchElementException if query does not exist
      */
-    boolean isQuerySlugValid(QueryId queryId, String slug);
+    Slug getQuerySlug(QueryId queryId);
 
     /**
      * @throws NoSuchElementException if query does not exist

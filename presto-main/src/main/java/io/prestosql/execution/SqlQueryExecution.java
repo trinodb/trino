@@ -41,6 +41,7 @@ import io.prestosql.metadata.TableHandle;
 import io.prestosql.operator.ForScheduler;
 import io.prestosql.security.AccessControl;
 import io.prestosql.server.BasicQueryInfo;
+import io.prestosql.server.protocol.Slug;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.ConnectorTableHandle;
@@ -99,7 +100,7 @@ public class SqlQueryExecution
     private static final OutputBufferId OUTPUT_BUFFER_ID = new OutputBufferId(0);
 
     private final QueryStateMachine stateMachine;
-    private final String slug;
+    private final Slug slug;
     private final Metadata metadata;
     private final SqlParser sqlParser;
     private final SplitManager splitManager;
@@ -126,7 +127,7 @@ public class SqlQueryExecution
     private SqlQueryExecution(
             PreparedQuery preparedQuery,
             QueryStateMachine stateMachine,
-            String slug,
+            Slug slug,
             Metadata metadata,
             AccessControl accessControl,
             SqlParser sqlParser,
@@ -225,7 +226,7 @@ public class SqlQueryExecution
     }
 
     @Override
-    public String getSlug()
+    public Slug getSlug()
     {
         return slug;
     }
@@ -703,7 +704,7 @@ public class SqlQueryExecution
         public QueryExecution createQueryExecution(
                 PreparedQuery preparedQuery,
                 QueryStateMachine stateMachine,
-                String slug,
+                Slug slug,
                 WarningCollector warningCollector)
         {
             String executionPolicyName = SystemSessionProperties.getExecutionPolicy(stateMachine.getSession());

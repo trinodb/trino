@@ -28,6 +28,7 @@ import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.execution.warnings.WarningCollectorFactory;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AccessControl;
+import io.prestosql.server.protocol.Slug;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
 import io.prestosql.sql.tree.Statement;
@@ -90,7 +91,7 @@ public class LocalDispatchQueryFactory
             Session session,
             String query,
             PreparedQuery preparedQuery,
-            String slug,
+            Slug slug,
             ResourceGroupId resourceGroup)
     {
         WarningCollector warningCollector = warningCollectorFactory.create();

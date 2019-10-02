@@ -20,6 +20,7 @@ import io.prestosql.dispatcher.DispatchManager;
 import io.prestosql.execution.TestingSessionContext;
 import io.prestosql.metadata.MetadataManager;
 import io.prestosql.server.BasicQueryInfo;
+import io.prestosql.server.protocol.Slug;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.ConnectorFactory;
@@ -114,7 +115,7 @@ public class TestMetadataManager
         QueryId queryId = dispatchManager.createQueryId();
         dispatchManager.createQuery(
                 queryId,
-                "slug",
+                Slug.createNew(),
                 new TestingSessionContext(TEST_SESSION),
                 "SELECT * FROM lineitem")
                 .get();

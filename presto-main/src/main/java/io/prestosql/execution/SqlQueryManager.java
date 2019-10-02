@@ -25,6 +25,7 @@ import io.prestosql.execution.QueryExecution.QueryOutputInfo;
 import io.prestosql.execution.StateMachine.StateChangeListener;
 import io.prestosql.memory.ClusterMemoryManager;
 import io.prestosql.server.BasicQueryInfo;
+import io.prestosql.server.protocol.Slug;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
 import io.prestosql.sql.planner.Plan;
@@ -187,9 +188,9 @@ public class SqlQueryManager
     }
 
     @Override
-    public boolean isQuerySlugValid(QueryId queryId, String slug)
+    public Slug getQuerySlug(QueryId queryId)
     {
-        return queryTracker.getQuery(queryId).getSlug().equals(slug);
+        return queryTracker.getQuery(queryId).getSlug();
     }
 
     public Plan getQueryPlan(QueryId queryId)
