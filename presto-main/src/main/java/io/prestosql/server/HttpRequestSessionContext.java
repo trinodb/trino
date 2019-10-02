@@ -24,6 +24,7 @@ import io.prestosql.Session.ResourceEstimateBuilder;
 import io.prestosql.dispatcher.DispatcherConfig.HeaderSupport;
 import io.prestosql.security.AccessControl;
 import io.prestosql.spi.security.AccessDeniedException;
+import io.prestosql.spi.security.GroupProvider;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.SelectedRole;
 import io.prestosql.spi.session.ResourceEstimates;
@@ -114,7 +115,7 @@ public final class HttpRequestSessionContext
     private final boolean clientTransactionSupport;
     private final String clientInfo;
 
-    public HttpRequestSessionContext(HeaderSupport forwardedHeaderSupport, MultivaluedMap<String, String> headers, String remoteAddress, Optional<Identity> authenticatedIdentity)
+    public HttpRequestSessionContext(HeaderSupport forwardedHeaderSupport, MultivaluedMap<String, String> headers, String remoteAddress, Optional<Identity> authenticatedIdentity, GroupProvider groupProvider)
             throws WebApplicationException
     {
         catalog = trimEmptyToNull(headers.getFirst(PRESTO_CATALOG));
@@ -123,7 +124,7 @@ public final class HttpRequestSessionContext
         assertRequest((catalog != null) || (schema == null), "Schema is set but catalog is not");
 
         this.authenticatedIdentity = requireNonNull(authenticatedIdentity, "authenticatedIdentity is null");
-        identity = buildSessionIdentity(authenticatedIdentity, headers);
+        identity = buildSessionIdentity(authenticatedIdentity, headers, groupProvider);
 
         source = headers.getFirst(PRESTO_SOURCE);
         traceToken = Optional.ofNullable(trimEmptyToNull(headers.getFirst(PRESTO_TRACE_TOKEN)));
@@ -176,18 +177,19 @@ public final class HttpRequestSessionContext
         transactionId = parseTransactionId(transactionIdHeader);
     }
 
-    public static Identity extractAuthorizedIdentity(HttpServletRequest servletRequest, HttpHeaders httpHeaders, AccessControl accessControl)
+    public static Identity extractAuthorizedIdentity(HttpServletRequest servletRequest, HttpHeaders httpHeaders, AccessControl accessControl, GroupProvider groupProvider)
     {
         return extractAuthorizedIdentity(
                 Optional.ofNullable((Identity) servletRequest.getAttribute(AUTHENTICATED_IDENTITY)),
                 httpHeaders.getRequestHeaders(),
-                accessControl);
+                accessControl,
+                groupProvider);
     }
 
-    public static Identity extractAuthorizedIdentity(Optional<Identity> optionalAuthenticatedIdentity, MultivaluedMap<String, String> headers, AccessControl accessControl)
+    public static Identity extractAuthorizedIdentity(Optional<Identity> optionalAuthenticatedIdentity, MultivaluedMap<String, String> headers, AccessControl accessControl, GroupProvider groupProvider)
             throws AccessDeniedException
     {
-        Identity identity = buildSessionIdentity(optionalAuthenticatedIdentity, headers);
+        Identity identity = buildSessionIdentity(optionalAuthenticatedIdentity, headers, groupProvider);
 
         accessControl.checkCanSetUser(identity.getPrincipal(), identity.getUser());
 
@@ -202,7 +204,7 @@ public final class HttpRequestSessionContext
         return identity;
     }
 
-    private static Identity buildSessionIdentity(Optional<Identity> authenticatedIdentity, MultivaluedMap<String, String> headers)
+    private static Identity buildSessionIdentity(Optional<Identity> authenticatedIdentity, MultivaluedMap<String, String> headers, GroupProvider groupProvider)
     {
         String prestoUser = trimEmptyToNull(headers.getFirst(PRESTO_USER));
         String user = prestoUser != null ? prestoUser : authenticatedIdentity.map(Identity::getUser).orElse(null);
@@ -212,6 +214,7 @@ public final class HttpRequestSessionContext
                 .orElseGet(() -> Identity.forUser(user))
                 .withAdditionalRoles(parseRoleHeaders(headers))
                 .withAdditionalExtraCredentials(parseExtraCredentials(headers))
+                .withAdditionalGroups(groupProvider.getGroups(user))
                 .build();
     }
 
