@@ -21,7 +21,6 @@ import io.prestosql.client.Warning;
 import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.warnings.WarningCollectorConfig;
 import io.prestosql.plugin.blackhole.BlackHolePlugin;
-import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.server.testing.TestingPrestoServer;
 import io.prestosql.spi.PrestoWarning;
 import io.prestosql.spi.WarningCode;
@@ -52,6 +51,7 @@ import static io.prestosql.jdbc.TestPrestoDriver.waitForNodeRefresh;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -77,11 +77,22 @@ public class TestJdbcWarnings
                 .put("testing-warning-collector.add-warnings", "true")
                 .put("testing-warning-collector.preloaded-warnings", String.valueOf(PRELOADED_WARNINGS))
                 .build());
-        server.installPlugin(new TpchPlugin());
-        server.createCatalog("tpch", "tpch");
         server.installPlugin(new BlackHolePlugin());
         server.createCatalog("blackhole", "blackhole");
         waitForNodeRefresh(server);
+
+        try (Connection connection = createConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute("CREATE SCHEMA blackhole.blackhole");
+            statement.executeUpdate("" +
+                    "CREATE TABLE slow_table (x int) " +
+                    "WITH (" +
+                    "   split_count = 1, " +
+                    "   pages_per_split = 5, " +
+                    "   rows_per_page = 3, " +
+                    "   page_processing_delay = '1s'" +
+                    ")");
+        }
     }
 
     @AfterClass(alwaysRun = true)
@@ -130,8 +141,7 @@ public class TestJdbcWarnings
         QueryCreationFuture queryCreationFuture = new QueryCreationFuture();
         executor.submit(() -> {
             try {
-                statement.execute("CREATE SCHEMA blackhole.blackhole");
-                statement.execute("CREATE TABLE blackhole.blackhole.test_table AS SELECT 1 AS col1 FROM tpch.sf1.lineitem CROSS JOIN tpch.sf1.lineitem");
+                statement.execute("CREATE TABLE test_long_running AS SELECT * FROM slow_table");
                 queryCreationFuture.set(null);
             }
             catch (Throwable e) {
@@ -141,10 +151,11 @@ public class TestJdbcWarnings
         while (statement.getWarnings() == null) {
             Thread.sleep(100);
         }
+        int expectedWarnings = 10;
         SQLWarning warning = statement.getWarnings();
         Set<WarningEntry> currentWarnings = new HashSet<>();
         assertTrue(currentWarnings.add(new WarningEntry(warning)));
-        for (int warnings = 1; !queryCreationFuture.isDone() && warnings < 100; warnings++) {
+        for (int warnings = 1; !queryCreationFuture.isDone() && warnings < expectedWarnings; warnings++) {
             for (SQLWarning nextWarning = warning.getNextWarning(); nextWarning == null; nextWarning = warning.getNextWarning()) {
                 // Wait for new warnings
             }
@@ -152,7 +163,7 @@ public class TestJdbcWarnings
             assertTrue(currentWarnings.add(new WarningEntry(warning)));
             Thread.sleep(100);
         }
-        assertEquals(currentWarnings.size(), 100);
+        assertThat(currentWarnings).size().isGreaterThanOrEqualTo(expectedWarnings);
     }
 
     @Test
@@ -162,7 +173,7 @@ public class TestJdbcWarnings
         QueryCreationFuture queryCreationFuture = new QueryCreationFuture();
         executor.submit(() -> {
             try {
-                statement.execute("SELECT 1 AS col1 FROM tpch.sf1.lineitem CROSS JOIN tpch.sf1.lineitem");
+                statement.execute("SELECT * FROM slow_table");
                 queryCreationFuture.set(null);
             }
             catch (Throwable e) {
@@ -267,11 +278,10 @@ public class TestJdbcWarnings
         }
     }
 
-    //TODO: this method seems to be copied in multiple test classes in this package, should it be moved to a utility?
     private Connection createConnection()
             throws SQLException
     {
-        String url = format("jdbc:presto://%s", server.getAddress());
+        String url = format("jdbc:presto://%s/blackhole/blackhole", server.getAddress());
         return DriverManager.getConnection(url, "test", null);
     }
 
