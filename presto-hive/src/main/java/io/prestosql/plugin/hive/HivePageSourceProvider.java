@@ -24,6 +24,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.FixedPageSource;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.RecordPageSource;
 import io.prestosql.spi.predicate.TupleDomain;
@@ -148,6 +149,10 @@ public class HivePageSourceProvider
             Optional<BucketConversion> bucketConversion,
             boolean s3SelectPushdownEnabled)
     {
+        if (effectivePredicate.isNone()) {
+            return Optional.of(new FixedPageSource(ImmutableList.of()));
+        }
+
         List<ColumnMapping> columnMappings = ColumnMapping.buildColumnMappings(
                 partitionKeys,
                 hiveColumns,
