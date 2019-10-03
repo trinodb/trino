@@ -31,7 +31,6 @@ import org.testng.annotations.Test;
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.plugin.jmx.JmxMetadata.HISTORY_SCHEMA_NAME;
@@ -54,7 +53,6 @@ public class TestJmxMetadata
     private static final SchemaTableName RUNTIME_HISTORY_TABLE = new SchemaTableName(HISTORY_SCHEMA_NAME, RUNTIME_OBJECT.toLowerCase(ENGLISH));
 
     private final Node localNode = createTestingNode("host1");
-    private final Set<Node> nodes = ImmutableSet.of(localNode, createTestingNode("host2"), createTestingNode("host3"));
     private final JmxMetadata metadata = new JmxMetadata(getPlatformMBeanServer(), new JmxHistoricalData(1000, ImmutableSet.of(RUNTIME_OBJECT.toLowerCase(ENGLISH))));
 
     @Test
