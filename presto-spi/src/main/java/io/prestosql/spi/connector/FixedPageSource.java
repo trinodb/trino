@@ -23,9 +23,9 @@ public class FixedPageSource
         implements ConnectorPageSource
 {
     private final Iterator<Page> pages;
+    private final long memoryUsageBytes;
 
     private long completedBytes;
-    private long memoryUsageBytes;
     private boolean closed;
 
     public FixedPageSource(Iterable<Page> pages)
