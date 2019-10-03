@@ -15,12 +15,19 @@ package io.prestosql.plugin.hive.metastore.cache;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.units.Duration;
+import io.prestosql.plugin.hive.HdfsConfig;
+import io.prestosql.plugin.hive.HdfsConfiguration;
+import io.prestosql.plugin.hive.HdfsConfigurationInitializer;
+import io.prestosql.plugin.hive.HdfsEnvironment;
+import io.prestosql.plugin.hive.HiveHdfsConfiguration;
 import io.prestosql.plugin.hive.PartitionStatistics;
 import io.prestosql.plugin.hive.authentication.HiveAuthenticationConfig;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
+import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
 import io.prestosql.plugin.hive.metastore.Partition;
 import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.plugin.hive.metastore.thrift.BridgingHiveMetastore;
@@ -90,7 +97,10 @@ public class TestCachingHiveMetastore
     private ThriftHiveMetastore createThriftHiveMetastore()
     {
         MetastoreLocator metastoreLocator = new MockMetastoreLocator(mockClient);
-        return new ThriftHiveMetastore(metastoreLocator, new ThriftMetastoreConfig(), new HiveAuthenticationConfig());
+        HdfsConfig hdfsConfig = new HdfsConfig();
+        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
+        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
+        return new ThriftHiveMetastore(metastoreLocator, new ThriftMetastoreConfig(), new HiveAuthenticationConfig(), hdfsEnvironment);
     }
 
     @Test

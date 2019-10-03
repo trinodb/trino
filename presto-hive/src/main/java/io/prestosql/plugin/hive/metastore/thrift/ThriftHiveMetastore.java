@@ -19,6 +19,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.prestosql.plugin.hive.HdfsEnvironment;
+import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.HiveBasicStatistics;
 import io.prestosql.plugin.hive.HivePartition;
 import io.prestosql.plugin.hive.HiveType;
@@ -40,9 +42,12 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.SchemaNotFoundException;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.TableNotFoundException;
+import io.prestosql.spi.security.ConnectorIdentity;
 import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticType;
 import io.prestosql.spi.type.Type;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.LockComponentBuilder;
 import org.apache.hadoop.hive.metastore.LockRequestBuilder;
 import org.apache.hadoop.hive.metastore.TableType;
@@ -94,6 +99,7 @@ import java.util.function.Function;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Throwables.propagateIfPossible;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verify;
@@ -117,6 +123,7 @@ import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.pars
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiPartition;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
 import static io.prestosql.plugin.hive.util.HiveUtil.PRESTO_VIEW_FLAG;
+import static io.prestosql.plugin.hive.util.HiveWriteUtils.isS3FileSystem;
 import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.security.PrincipalType.USER;
@@ -127,6 +134,7 @@ import static java.lang.System.nanoTime;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.hadoop.hive.common.FileUtils.makePartName;
+import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
 import static org.apache.hadoop.hive.metastore.api.HiveObjectType.TABLE;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.HIVE_FILTER_FIELD_PARAMS;
 
@@ -137,8 +145,11 @@ public class ThriftHiveMetastore
     private static final Logger log = Logger.get(ThriftHiveMetastore.class);
 
     private static final int MAX_SET_DATE_STATISTICS_ATTEMPTS = 100;
+    private static final String DEFAULT_METASTORE_USER = "presto";
 
     private final ThriftMetastoreStats stats = new ThriftMetastoreStats();
+    private final HdfsEnvironment hdfsEnvironment;
+    private final HdfsContext hdfsContext;
     private final MetastoreLocator clientProvider;
     private final double backoffScaleFactor;
     private final Duration minBackoffDelay;
@@ -159,9 +170,11 @@ public class ThriftHiveMetastore
     private static final Pattern TABLE_PARAMETER_SAFE_VALUE_PATTERN = Pattern.compile("^[a-zA-Z0-9]*$");
 
     @Inject
-    public ThriftHiveMetastore(MetastoreLocator metastoreLocator, ThriftMetastoreConfig thriftConfig, HiveAuthenticationConfig authenticationConfig)
+    public ThriftHiveMetastore(MetastoreLocator metastoreLocator, ThriftMetastoreConfig thriftConfig, HiveAuthenticationConfig authenticationConfig, HdfsEnvironment hdfsEnvironment)
     {
+        this.hdfsContext = new HdfsContext(new ConnectorIdentity(DEFAULT_METASTORE_USER, Optional.empty(), Optional.empty()));
         this.clientProvider = requireNonNull(metastoreLocator, "metastoreLocator is null");
+        this.hdfsEnvironment = hdfsEnvironment;
         this.backoffScaleFactor = thriftConfig.getBackoffScaleFactor();
         this.minBackoffDelay = thriftConfig.getMinBackoffDelay();
         this.maxBackoffDelay = thriftConfig.getMaxBackoffDelay();
@@ -987,7 +1000,12 @@ public class ThriftHiveMetastore
                     .stopOnIllegalExceptions()
                     .run("dropTable", stats.getDropTable().wrap(() -> {
                         try (ThriftMetastoreClient client = createMetastoreClient(identity)) {
+                            Table table = client.getTable(databaseName, tableName);
                             client.dropTable(databaseName, tableName, deleteData);
+                            String tableLocation = table.getSd().getLocation();
+                            if (deleteData && isManagedTable(table) && !isNullOrEmpty(tableLocation)) {
+                                deleteTableFilesIfNeeded(hdfsContext, hdfsEnvironment, databaseName, tableName, new Path(tableLocation));
+                            }
                         }
                         return null;
                     }));
@@ -1001,6 +1019,29 @@ public class ThriftHiveMetastore
         catch (Exception e) {
             throw propagate(e);
         }
+    }
+
+    private static void deleteTableFilesIfNeeded(HdfsContext context, HdfsEnvironment hdfsEnvironment, String databaseName, String tableName, Path tablePath)
+    {
+        try {
+            if (isS3FileSystem(context, hdfsEnvironment, tablePath)) {
+                FileSystem fs = hdfsEnvironment.getFileSystem(context, tablePath);
+                if (fs.listFiles(tablePath, true).hasNext()) {
+                    log.warn("Table \"%s\".\"%s\" dropped, but files exist in '%s'", databaseName, tableName, tablePath.toUri());
+                    if (fs.delete(tablePath, true)) {
+                        log.warn("Deleted files for table \"%s\".\"%s\" in '%s' (Workaround for issue #1053)", databaseName, tableName, tablePath.toUri());
+                    }
+                }
+            }
+        }
+        catch (IOException | RuntimeException e) {
+            log.error(e, "Failed to delete files for table %s.%s: %s", databaseName, tableName, tablePath.toUri());
+        }
+    }
+
+    private static boolean isManagedTable(Table table)
+    {
+        return table.getTableType().equals(MANAGED_TABLE.name());
     }
 
     @Override
