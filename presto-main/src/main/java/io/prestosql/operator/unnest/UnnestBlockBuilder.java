@@ -136,7 +136,7 @@ class UnnestBlockBuilder
      *
      * Purpose of this method is to avoid repeated range checks for every invocation of {@link #appendElement}.
      */
-    public void appendRange(int startPosition, int length)
+    public void appendRange(int startPosition, int length, boolean doubleRows)
     {
         // check range validity
         checkState(source != null, "source is null");
@@ -145,11 +145,17 @@ class UnnestBlockBuilder
         if (usingCopiedBlock) {
             for (int i = 0; i < length; i++) {
                 type.appendTo(source, startPosition + i, outputBlockBuilder);
+                if (doubleRows) {
+                    type.appendTo(source, startPosition + i, outputBlockBuilder);
+                }
             }
         }
         else {
             for (int i = 0; i < length; i++) {
                 appendId(startPosition + i);
+                if (doubleRows) {
+                    appendId(startPosition + i);
+                }
             }
         }
     }

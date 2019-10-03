@@ -244,7 +244,7 @@ public class UnnestOperator
         replicatedBlockBuilders.forEach(blockBuilder -> blockBuilder.appendRepeated(currentPosition, maxEntries));
 
         // Process this position in unnesters
-        unnesters.forEach(unnester -> unnester.processCurrentAndAdvance(maxEntries));
+        unnesters.forEach(unnester -> unnester.processCurrentAndAdvance(maxEntries, false));
 
         if (withOrdinality) {
             for (long ordinalityCount = 1; ordinalityCount <= maxEntries; ordinalityCount++) {

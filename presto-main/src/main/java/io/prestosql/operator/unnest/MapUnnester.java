@@ -37,16 +37,19 @@ class MapUnnester
     }
 
     @Override
-    protected void processCurrentPosition(int requiredOutputCount)
+    protected void processCurrentPosition(int requiredOutputCount, boolean doubleRows)
     {
         // Translate indices
         int mapLength = columnarMap.getEntryCount(getCurrentPosition());
         int startingOffset = columnarMap.getOffset(getCurrentPosition());
 
         // Append elements and nulls
-        getBlockBuilder(0).appendRange(startingOffset, mapLength);
-        getBlockBuilder(1).appendRange(startingOffset, mapLength);
+        getBlockBuilder(0).appendRange(startingOffset, mapLength, doubleRows);
+        getBlockBuilder(1).appendRange(startingOffset, mapLength, doubleRows);
         appendNulls(requiredOutputCount - mapLength);
+        if (doubleRows) {
+            appendNulls(requiredOutputCount - mapLength);
+        }
     }
 
     @Override

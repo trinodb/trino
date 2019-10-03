@@ -76,7 +76,7 @@ class ArrayOfRowsUnnester
     }
 
     @Override
-    public void processCurrentPosition(int requireCount)
+    public void processCurrentPosition(int requireCount, boolean doubleRows)
     {
         // Translate to row block index
         int rowBlockIndex = columnarArray.getOffset(getCurrentPosition());
@@ -87,18 +87,27 @@ class ArrayOfRowsUnnester
                 // Nulls have to be appended when Row element itself is null
                 for (int field = 0; field < fieldCount; field++) {
                     getBlockBuilder(field).appendNull();
+                    if (doubleRows) {
+                        getBlockBuilder(field).appendNull();
+                    }
                 }
                 nullRowsEncountered++;
             }
             else {
                 for (int field = 0; field < fieldCount; field++) {
                     getBlockBuilder(field).appendElement(rowBlockIndex + i - nullRowsEncountered);
+                    if (doubleRows) {
+                        getBlockBuilder(field).appendElement(rowBlockIndex + i - nullRowsEncountered);
+                    }
                 }
             }
         }
 
         // Append nulls if more output entries are needed
         appendNulls(requireCount - getCurrentUnnestedLength());
+        if (doubleRows) {
+            appendNulls(requireCount - getCurrentUnnestedLength());
+        }
     }
 
     @Override

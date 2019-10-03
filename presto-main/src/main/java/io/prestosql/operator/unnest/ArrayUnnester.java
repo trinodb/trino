@@ -65,15 +65,18 @@ class ArrayUnnester
     }
 
     @Override
-    protected void processCurrentPosition(int requiredOutputCount)
+    protected void processCurrentPosition(int requiredOutputCount, boolean doubleRows)
     {
         // Translate indices
         int startElementIndex = columnarArray.getOffset(getCurrentPosition());
         int length = columnarArray.getLength(getCurrentPosition());
 
         // Append elements and nulls
-        getBlockBuilder(0).appendRange(startElementIndex, length);
+        getBlockBuilder(0).appendRange(startElementIndex, length, doubleRows);
         appendNulls(requiredOutputCount - length);
+        if (doubleRows) {
+            appendNulls(requiredOutputCount - length);
+        }
     }
 
     @Override

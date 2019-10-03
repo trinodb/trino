@@ -116,7 +116,7 @@ public class TestMapUnnester
 
             // Process inputTestCount positions
             for (int i = 0; i < inputTestCount; i++) {
-                mapUnnester.processCurrentAndAdvance(requiredOutputCounts[i]);
+                mapUnnester.processCurrentAndAdvance(requiredOutputCounts[i], false);
                 int elementsSize = (elements[i] != null ? elements[i].length : 0);
 
                 // Check for misalignment, caused by required output count being greater than unnested length
@@ -169,7 +169,7 @@ public class TestMapUnnester
 
         // Process all input entries in the truncated block
         for (int i = 0; i < truncatedBlock.getPositionCount(); i++) {
-            mapUnnester.processCurrentAndAdvance(truncatedUnnestedLengths[i]);
+            mapUnnester.processCurrentAndAdvance(truncatedUnnestedLengths[i], false);
         }
 
         Block[] output = mapUnnester.buildOutputBlocksAndFlush();

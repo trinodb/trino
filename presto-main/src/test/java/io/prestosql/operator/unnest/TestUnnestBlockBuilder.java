@@ -56,7 +56,7 @@ public class TestUnnestBlockBuilder
         unnestBlockBuilder.resetInputBlock(valuesBlock);
 
         unnestBlockBuilder.startNewOutput(new PageBuilderStatus(), 20);
-        unnestBlockBuilder.appendRange(0, values.length);
+        unnestBlockBuilder.appendRange(0, values.length, false);
         assertBlock(unnestBlockBuilder.buildOutputAndFlush(), values);
 
         unnestBlockBuilder.clearCurrentOutput();
@@ -111,7 +111,7 @@ public class TestUnnestBlockBuilder
         assertTrue(values.length >= 3, "test requires at least 3 elements in values");
         int startIndex = 1;
         int length = values.length - 2;
-        unnestBlockBuilder.appendRange(startIndex, length);
+        unnestBlockBuilder.appendRange(startIndex, length, false);
         Block block = unnestBlockBuilder.buildOutputAndFlush();
         assertTrue(block instanceof DictionaryBlock);
         assertBlock(block, Arrays.copyOfRange(values, startIndex, startIndex + length));

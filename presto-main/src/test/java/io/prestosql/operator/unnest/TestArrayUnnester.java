@@ -102,7 +102,7 @@ public class TestArrayUnnester
             for (int i = 0; i < inputTestCount; i++) {
                 int elementsSize = (elements[i] != null ? elements[i].length : 0);
                 assertEquals(arrayUnnester.getCurrentUnnestedLength(), elementsSize);
-                arrayUnnester.processCurrentAndAdvance(requiredOutputCounts[i]);
+                arrayUnnester.processCurrentAndAdvance(requiredOutputCounts[i], false);
 
                 if (requiredOutputCounts[i] > elementsSize) {
                     misAligned = true;
@@ -151,7 +151,7 @@ public class TestArrayUnnester
 
         // Process all input entries in the truncated block
         for (int i = 0; i < truncatedBlock.getPositionCount(); i++) {
-            arrayUnnester.processCurrentAndAdvance(truncatedUnnestedLengths[i]);
+            arrayUnnester.processCurrentAndAdvance(truncatedUnnestedLengths[i], false);
         }
 
         Block[] output = arrayUnnester.buildOutputBlocksAndFlush();

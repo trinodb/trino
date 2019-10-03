@@ -70,10 +70,10 @@ abstract class Unnester
         }
     }
 
-    public final void processCurrentAndAdvance(int requiredOutputCount)
+    public final void processCurrentAndAdvance(int requiredOutputCount, boolean doubleRows)
     {
         checkState(currentPosition >= 0 && currentPosition < getInputEntryCount(), "position out of bounds");
-        processCurrentPosition(requiredOutputCount);
+        processCurrentPosition(requiredOutputCount, doubleRows);
         currentPosition++;
     }
 
@@ -109,7 +109,7 @@ abstract class Unnester
      * (2) invoke {@link UnnestBlockBuilder} methods to produce {@code requiredOutputCount} number of rows
      * for every output block.
      */
-    protected abstract void processCurrentPosition(int requiredOutputCount);
+    protected abstract void processCurrentPosition(int requiredOutputCount, boolean doubleRows);
 
     protected abstract void appendNulls(int count);
 
