@@ -1402,6 +1402,12 @@ public class PrestoDatabaseMetaData
         return iface.isInstance(this);
     }
 
+    public ResultSet getDescribeOutput(String statementName)
+            throws SQLException
+    {
+        return select("DESCRIBE OUTPUT " + statementName);
+    }
+
     private ResultSet selectEmpty(String sql)
             throws SQLException
     {

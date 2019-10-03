@@ -102,6 +102,21 @@ public class TestJdbcPreparedStatement
     }
 
     @Test
+    public void testGetMetadata()
+            throws Exception
+    {
+        try (Connection connection = createConnection();
+                PreparedStatement statement = connection.prepareStatement("SELECT 123")) {
+            PrestoResultSetMetaData rsm = (PrestoResultSetMetaData) statement.getMetaData();
+            assertEquals(rsm.getColumnName(1), "_col0");
+            assertEquals(rsm.getCatalogName(1), "");
+            assertEquals(rsm.getSchemaName(1), "");
+            assertEquals(rsm.getTableName(1), "");
+            assertEquals(rsm.getColumnTypeName(1), "integer");
+        }
+    }
+
+    @Test
     public void testDeallocate()
             throws Exception
     {

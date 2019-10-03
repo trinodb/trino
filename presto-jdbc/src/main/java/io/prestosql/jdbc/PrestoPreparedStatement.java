@@ -14,7 +14,9 @@
 package io.prestosql.jdbc;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
+import io.prestosql.client.ClientTypeSignature;
 
 import java.io.InputStream;
 import java.io.Reader;
@@ -23,6 +25,7 @@ import java.net.URL;
 import java.sql.Array;
 import java.sql.Blob;
 import java.sql.Clob;
+import java.sql.DatabaseMetaData;
 import java.sql.Date;
 import java.sql.NClob;
 import java.sql.ParameterMetaData;
@@ -45,6 +48,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.io.BaseEncoding.base16;
+import static io.prestosql.jdbc.ColumnInfo.setTypeInfo;
 import static io.prestosql.jdbc.ObjectCasts.castToBigDecimal;
 import static io.prestosql.jdbc.ObjectCasts.castToBinary;
 import static io.prestosql.jdbc.ObjectCasts.castToBoolean;
@@ -463,7 +467,10 @@ public class PrestoPreparedStatement
     public ResultSetMetaData getMetaData()
             throws SQLException
     {
-        throw new SQLFeatureNotSupportedException("getMetaData");
+        DatabaseMetaData databaseMetaData = super.getConnection().getMetaData();
+        ResultSet resultSet = ((PrestoDatabaseMetaData) databaseMetaData).getDescribeOutput(statementName);
+        List<ColumnInfo> columnInfoList = getDescribeOutputColumnInfoList(resultSet);
+        return new PrestoResultSetMetaData(columnInfoList);
     }
 
     @Override
@@ -848,5 +855,29 @@ public class PrestoPreparedStatement
     private static String typedNull(String prestoType)
     {
         return format("CAST(NULL AS %s)", prestoType);
+    }
+
+    private static List<ColumnInfo> getDescribeOutputColumnInfoList(ResultSet resultSet)
+            throws SQLException
+    {
+        ImmutableList.Builder<ColumnInfo> list = ImmutableList.builder();
+        while (resultSet.next()) {
+            String columnName = resultSet.getString("Column Name");
+            String catalog = resultSet.getString("Catalog");
+            String schema = resultSet.getString("Schema");
+            String table = resultSet.getString("Table");
+            ClientTypeSignature clientTypeSignature = new ClientTypeSignature(resultSet.getString("Type"));
+            ColumnInfo.Builder builder = new ColumnInfo.Builder()
+                    .setColumnName(columnName)
+                    .setColumnLabel("")
+                    .setCatalogName(catalog)
+                    .setSchemaName(schema)
+                    .setTableName(table)
+                    .setColumnTypeSignature(clientTypeSignature)
+                    .setNullable(ColumnInfo.Nullable.UNKNOWN);
+            setTypeInfo(builder, clientTypeSignature);
+            list.add(builder.build());
+        }
+        return list.build();
     }
 }
