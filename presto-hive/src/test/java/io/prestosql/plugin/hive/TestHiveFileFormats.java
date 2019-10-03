@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import io.airlift.compress.lzo.LzoCodec;
 import io.airlift.compress.lzo.LzopCodec;
-import io.airlift.slice.Slices;
 import io.prestosql.orc.OrcReaderOptions;
 import io.prestosql.orc.OrcWriterOptions;
 import io.prestosql.plugin.hive.orc.OrcFileWriterFactory;
@@ -167,8 +166,8 @@ public class TestHiveFileFormats
     {
         assertThatFileFormat(CSV)
                 .withColumns(ImmutableList.of(
-                        new TestColumn("t_null_string", javaStringObjectInspector, null, Slices.utf8Slice("")), // null was converted to empty string!
-                        new TestColumn("t_string", javaStringObjectInspector, "test", Slices.utf8Slice("test"))))
+                        new TestColumn("t_null_string", javaStringObjectInspector, null, utf8Slice("")), // null was converted to empty string!
+                        new TestColumn("t_string", javaStringObjectInspector, "test", utf8Slice("test"))))
                 .withRowsCount(2)
                 .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
     }

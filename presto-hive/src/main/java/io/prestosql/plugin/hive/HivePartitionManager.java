@@ -71,7 +71,6 @@ import static io.prestosql.plugin.hive.metastore.MetastoreUtil.toPartitionName;
 import static io.prestosql.plugin.hive.util.HiveBucketing.getHiveBucketFilter;
 import static io.prestosql.plugin.hive.util.HiveUtil.parsePartitionValue;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.prestosql.spi.predicate.TupleDomain.all;
 import static io.prestosql.spi.predicate.TupleDomain.none;
 import static io.prestosql.spi.type.Chars.padSpaces;
 import static java.lang.String.format;
@@ -143,7 +142,7 @@ public class HivePartitionManager
                     ImmutableList.of(new HivePartition(tableName)),
                     compactEffectivePredicate,
                     effectivePredicate,
-                    all(),
+                    TupleDomain.all(),
                     hiveBucketHandle,
                     bucketFilter);
         }
@@ -196,7 +195,7 @@ public class HivePartitionManager
                 .map(partition -> partition.orElseThrow(() -> new VerifyException("partition must exist")))
                 .collect(toImmutableList());
 
-        return new HivePartitionResult(partitionColumns, partitionList, all(), all(), all(), bucketHandle, Optional.empty());
+        return new HivePartitionResult(partitionColumns, partitionList, TupleDomain.all(), TupleDomain.all(), TupleDomain.all(), bucketHandle, Optional.empty());
     }
 
     public List<HivePartition> getPartitionsAsList(HivePartitionResult partitionResult)
@@ -396,7 +395,7 @@ public class HivePartitionManager
             }
         }
         checkArgument(!inKey, "Invalid partition spec: %s", partitionName);
-        values.add(FileUtils.unescapePathName(partitionName.substring(valueStart, partitionName.length())));
+        values.add(FileUtils.unescapePathName(partitionName.substring(valueStart)));
 
         return values.build();
     }

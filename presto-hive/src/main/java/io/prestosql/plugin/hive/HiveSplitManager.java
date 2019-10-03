@@ -380,16 +380,13 @@ public class HiveSplitManager
     {
         checkArgument(tableBucketCount > 0 && partitionBucketCount > 0);
         int larger = Math.max(tableBucketCount, partitionBucketCount);
-        int smaller = Math.min(tableBucketCount, partitionBucketCount);
+        int smaller = min(tableBucketCount, partitionBucketCount);
         if (larger % smaller != 0) {
             // must be evenly divisible
             return false;
         }
-        if (Integer.bitCount(larger / smaller) != 1) {
-            // ratio must be power of two
-            return false;
-        }
-        return true;
+        // ratio must be power of two
+        return Integer.bitCount(larger / smaller) == 1;
     }
 
     /**

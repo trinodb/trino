@@ -33,6 +33,7 @@ import org.apache.parquet.schema.Types;
 import java.util.List;
 import java.util.Locale;
 
+import static com.google.common.base.Preconditions.checkState;
 import static org.apache.parquet.schema.OriginalType.MAP_KEY_VALUE;
 
 /**
@@ -45,31 +46,27 @@ public final class SingleLevelArrayMapKeyValuesSchemaConverter
 {
     private SingleLevelArrayMapKeyValuesSchemaConverter() {}
 
-    public static MessageType convert(final List<String> columnNames, final List<TypeInfo> columnTypes)
+    public static MessageType convert(List<String> columnNames, List<TypeInfo> columnTypes)
     {
         return new MessageType("hive_schema", convertTypes(columnNames, columnTypes));
     }
 
-    private static Type[] convertTypes(final List<String> columnNames, final List<TypeInfo> columnTypes)
+    private static Type[] convertTypes(List<String> columnNames, List<TypeInfo> columnTypes)
     {
-        if (columnNames.size() != columnTypes.size()) {
-            throw new IllegalStateException("Mismatched Hive columns and types. Hive columns names" +
-                    " found : " + columnNames + " . And Hive types found : " + columnTypes);
-        }
-        final Type[] types = new Type[columnNames.size()];
+        checkState(columnNames.size() == columnTypes.size(), "Mismatched Hive columns %s and types %s", columnNames, columnTypes);
+        Type[] types = new Type[columnNames.size()];
         for (int i = 0; i < columnNames.size(); ++i) {
             types[i] = convertType(columnNames.get(i), columnTypes.get(i));
         }
         return types;
     }
 
-    private static Type convertType(final String name, final TypeInfo typeInfo)
+    private static Type convertType(String name, TypeInfo typeInfo)
     {
         return convertType(name, typeInfo, Repetition.OPTIONAL);
     }
 
-    private static Type convertType(final String name, final TypeInfo typeInfo,
-            final Repetition repetition)
+    private static Type convertType(String name, TypeInfo typeInfo, Repetition repetition)
     {
         if (typeInfo.getCategory().equals(Category.PRIMITIVE)) {
             if (typeInfo.equals(TypeInfoFactory.stringTypeInfo)) {
@@ -160,27 +157,27 @@ public final class SingleLevelArrayMapKeyValuesSchemaConverter
     }
 
     // 1 anonymous element "array_element"
-    private static GroupType convertArrayType(final String name, final ListTypeInfo typeInfo, final Repetition repetition)
+    private static GroupType convertArrayType(String name, ListTypeInfo typeInfo, Repetition repetition)
     {
-        final TypeInfo subType = typeInfo.getListElementTypeInfo();
+        TypeInfo subType = typeInfo.getListElementTypeInfo();
         return listWrapper(name, OriginalType.LIST, convertType("array_element", subType, Repetition.REPEATED), repetition);
     }
 
     // An optional group containing multiple elements
-    private static GroupType convertStructType(final String name, final StructTypeInfo typeInfo, final Repetition repetition)
+    private static GroupType convertStructType(String name, StructTypeInfo typeInfo, Repetition repetition)
     {
-        final List<String> columnNames = typeInfo.getAllStructFieldNames();
-        final List<TypeInfo> columnTypes = typeInfo.getAllStructFieldTypeInfos();
+        List<String> columnNames = typeInfo.getAllStructFieldNames();
+        List<TypeInfo> columnTypes = typeInfo.getAllStructFieldTypeInfos();
         return new GroupType(repetition, name, convertTypes(columnNames, columnTypes));
     }
 
     // An optional group containing a repeated anonymous group "map", containing
     // 2 elements: "key", "value"
-    private static GroupType convertMapType(final String name, final MapTypeInfo typeInfo, final Repetition repetition)
+    private static GroupType convertMapType(String name, MapTypeInfo typeInfo, Repetition repetition)
     {
-        final Type keyType = convertType(ParquetHiveSerDe.MAP_KEY.toString(),
+        Type keyType = convertType(ParquetHiveSerDe.MAP_KEY.toString(),
                 typeInfo.getMapKeyTypeInfo(), Repetition.REQUIRED);
-        final Type valueType = convertType(ParquetHiveSerDe.MAP_VALUE.toString(),
+        Type valueType = convertType(ParquetHiveSerDe.MAP_VALUE.toString(),
                 typeInfo.getMapValueTypeInfo());
         return mapType(repetition, name, "map", keyType, valueType);
     }
@@ -222,8 +219,7 @@ public final class SingleLevelArrayMapKeyValuesSchemaConverter
         return new GroupType(repetition, alias, originalType, nested);
     }
 
-    private static GroupType listWrapper(final String name, final OriginalType originalType,
-            final Type elementType, final Repetition repetition)
+    private static GroupType listWrapper(String name, OriginalType originalType, Type elementType, Repetition repetition)
     {
         return new GroupType(repetition, name, originalType, elementType);
     }

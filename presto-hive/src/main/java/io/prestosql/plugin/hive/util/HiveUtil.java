@@ -216,7 +216,7 @@ public final class HiveUtil
                 .collect(toImmutableList());
 
         // Tell hive the columns we would like to read, this lets hive optimize reading column oriented files
-        configuration = ConfigurationUtils.copy(configuration);
+        configuration = copy(configuration);
         setReadColumns(configuration, readHiveColumnIndexes);
 
         InputFormat<?, ?> inputFormat = getInputFormat(configuration, schema, true);
@@ -775,7 +775,7 @@ public final class HiveUtil
     public static long timestampPartitionKey(String value, DateTimeZone zone, String name, boolean shouldPackWithTimeZone)
     {
         try {
-            final long millis = parseHiveTimestamp(value, zone);
+            long millis = parseHiveTimestamp(value, zone);
             return shouldPackWithTimeZone ? DateTimeEncoding.packDateTimeWithZone(millis, zone.getID()) : millis;
         }
         catch (IllegalArgumentException e) {
@@ -978,7 +978,7 @@ public final class HiveUtil
     {
         String value = schema.getProperty(key, defaultValue);
         try {
-            int intValue = Integer.parseInt(value);
+            int intValue = parseInt(value);
             if (intValue < 0) {
                 throw new PrestoException(HIVE_INVALID_METADATA, format("Invalid value for %s property: %s", key, value));
             }

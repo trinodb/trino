@@ -249,7 +249,7 @@ public class TestHiveBucketing
                 blockBuilder.closeEntry();
                 return type.getObject(blockBuilder, 0);
             }
-            case StandardTypes.MAP: {
+            case StandardTypes.MAP:
                 BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
                 BlockBuilder subBlockBuilder = blockBuilder.beginBlockEntry();
                 for (Entry<?, ?> entry : ((Map<?, ?>) hiveValue).entrySet()) {
@@ -258,7 +258,6 @@ public class TestHiveBucketing
                 }
                 blockBuilder.closeEntry();
                 return type.getObject(blockBuilder, 0);
-            }
             case StandardTypes.BOOLEAN:
                 return hiveValue;
             case StandardTypes.TINYINT:

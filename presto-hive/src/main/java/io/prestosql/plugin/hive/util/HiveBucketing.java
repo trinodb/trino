@@ -130,7 +130,7 @@ public final class HiveBucketing
         }
 
         switch (type.getCategory()) {
-            case PRIMITIVE: {
+            case PRIMITIVE:
                 PrimitiveTypeInfo typeInfo = (PrimitiveTypeInfo) type;
                 PrimitiveCategory primitiveCategory = typeInfo.getPrimitiveCategory();
                 Type prestoType = requireNonNull(HiveType.getPrimitiveType(typeInfo));
@@ -165,15 +165,12 @@ public final class HiveBucketing
                     default:
                         throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive primitive category: " + primitiveCategory.toString() + ".");
                 }
-            }
-            case LIST: {
-                Block elementsBlock = block.getObject(position, Block.class);
-                return hashOfList((ListTypeInfo) type, elementsBlock);
-            }
-            case MAP: {
-                Block elementsBlock = block.getObject(position, Block.class);
-                return hashOfMap((MapTypeInfo) type, elementsBlock);
-            }
+            case LIST:
+                Block listElements = block.getObject(position, Block.class);
+                return hashOfList((ListTypeInfo) type, listElements);
+            case MAP:
+                Block mapElements = block.getObject(position, Block.class);
+                return hashOfMap((MapTypeInfo) type, mapElements);
             default:
                 // TODO: support more types, e.g. ROW
                 throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive category: " + type.getCategory().toString() + ".");
@@ -187,7 +184,7 @@ public final class HiveBucketing
         }
 
         switch (type.getCategory()) {
-            case PRIMITIVE: {
+            case PRIMITIVE:
                 PrimitiveTypeInfo typeInfo = (PrimitiveTypeInfo) type;
                 PrimitiveCategory primitiveCategory = typeInfo.getPrimitiveCategory();
                 Type prestoType = requireNonNull(HiveType.getPrimitiveType(typeInfo));
@@ -222,13 +219,10 @@ public final class HiveBucketing
                     default:
                         throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive primitive category: " + primitiveCategory.toString() + ".");
                 }
-            }
-            case LIST: {
+            case LIST:
                 return hashOfList((ListTypeInfo) type, (Block) value);
-            }
-            case MAP: {
+            case MAP:
                 return hashOfMap((MapTypeInfo) type, (Block) value);
-            }
             default:
                 // TODO: support more types, e.g. ROW
                 throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive category: " + type.getCategory().toString() + ".");

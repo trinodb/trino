@@ -347,10 +347,10 @@ public class HivePageSource
         if (fromType instanceof VarcharType && (toHiveType.equals(HIVE_BYTE) || toHiveType.equals(HIVE_SHORT) || toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG))) {
             return new VarcharToIntegerNumberCoercer<>((VarcharType) fromType, toType);
         }
-        if (fromHiveType.equals(HIVE_BYTE) && toHiveType.equals(HIVE_SHORT) || toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG)) {
+        if (fromHiveType.equals(HIVE_BYTE) && (toHiveType.equals(HIVE_SHORT) || toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG))) {
             return new IntegerNumberUpscaleCoercer<>(fromType, toType);
         }
-        if (fromHiveType.equals(HIVE_SHORT) && toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG)) {
+        if (fromHiveType.equals(HIVE_SHORT) && (toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG))) {
             return new IntegerNumberUpscaleCoercer<>(fromType, toType);
         }
         if (fromHiveType.equals(HIVE_INT) && toHiveType.equals(HIVE_LONG)) {
@@ -575,10 +575,10 @@ public class HivePageSource
 
     public static class BucketAdapter
     {
-        public final int[] bucketColumns;
-        public final int bucketToKeep;
-        public final int tableBucketCount;
-        public final int partitionBucketCount; // for sanity check only
+        private final int[] bucketColumns;
+        private final int bucketToKeep;
+        private final int tableBucketCount;
+        private final int partitionBucketCount; // for sanity check only
         private final List<TypeInfo> typeInfoList;
 
         public BucketAdapter(BucketAdaptation bucketAdaptation)

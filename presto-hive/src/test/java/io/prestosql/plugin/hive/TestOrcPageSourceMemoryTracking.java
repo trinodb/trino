@@ -729,8 +729,8 @@ public class TestOrcPageSourceMemoryTracking
             extends TestColumn
     {
         private final Supplier<String> writeValue;
+        private final int step;
         private int counter;
-        private int step;
         private int maxSize;
 
         public GrowingTestColumn(String name, ObjectInspector objectInspector, Supplier<String> writeValue, boolean partitionKey, int step)
