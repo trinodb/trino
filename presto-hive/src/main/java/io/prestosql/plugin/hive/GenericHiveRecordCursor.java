@@ -189,6 +189,7 @@ public class GenericHiveRecordCursor<K, V extends Writable>
     private void updateCompletedBytes()
     {
         try {
+            @SuppressWarnings("NumericCastThatLosesPrecision")
             long newCompletedBytes = (long) (totalBytes * recordReader.getProgress());
             completedBytes = min(totalBytes, max(completedBytes, newCompletedBytes));
         }

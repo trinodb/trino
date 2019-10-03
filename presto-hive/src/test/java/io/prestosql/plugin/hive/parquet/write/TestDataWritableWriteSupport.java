@@ -31,7 +31,7 @@ class TestDataWritableWriteSupport
 {
     private TestDataWritableWriter writer;
     private MessageType schema;
-    private boolean singleLevelArray;
+    private final boolean singleLevelArray;
 
     public TestDataWritableWriteSupport(boolean singleLevelArray)
     {
@@ -39,20 +39,20 @@ class TestDataWritableWriteSupport
     }
 
     @Override
-    public WriteContext init(final Configuration configuration)
+    public WriteContext init(Configuration configuration)
     {
         schema = DataWritableWriteSupport.getSchema(configuration);
         return new WriteContext(schema, new HashMap<>());
     }
 
     @Override
-    public void prepareForWrite(final RecordConsumer recordConsumer)
+    public void prepareForWrite(RecordConsumer recordConsumer)
     {
         writer = new TestDataWritableWriter(recordConsumer, schema, singleLevelArray);
     }
 
     @Override
-    public void write(final ParquetHiveRecord record)
+    public void write(ParquetHiveRecord record)
     {
         writer.write(record);
     }

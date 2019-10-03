@@ -19,7 +19,6 @@ import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
@@ -32,7 +31,7 @@ public class TestThriftMetastoreConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(ThriftMetastoreConfig.class)
-                .setMetastoreTimeout(new Duration(10, TimeUnit.SECONDS))
+                .setMetastoreTimeout(new Duration(10, SECONDS))
                 .setSocksProxy(null)
                 .setMaxRetries(9)
                 .setBackoffScaleFactor(2.0)
@@ -57,7 +56,7 @@ public class TestThriftMetastoreConfig
                 .build();
 
         ThriftMetastoreConfig expected = new ThriftMetastoreConfig()
-                .setMetastoreTimeout(new Duration(20, TimeUnit.SECONDS))
+                .setMetastoreTimeout(new Duration(20, SECONDS))
                 .setSocksProxy(HostAndPort.fromParts("localhost", 1234))
                 .setMaxRetries(15)
                 .setBackoffScaleFactor(3.0)

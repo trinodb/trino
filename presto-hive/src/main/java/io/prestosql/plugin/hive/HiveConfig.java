@@ -31,7 +31,6 @@ import javax.validation.constraints.NotNull;
 
 import java.util.List;
 import java.util.TimeZone;
-import java.util.concurrent.TimeUnit;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -114,7 +113,7 @@ public class HiveConfig
     private boolean isTemporaryStagingDirectoryEnabled = true;
     private String temporaryStagingDirectoryPath = "/tmp/presto-${USER}";
 
-    private Duration fileStatusCacheExpireAfterWrite = new Duration(1, TimeUnit.MINUTES);
+    private Duration fileStatusCacheExpireAfterWrite = new Duration(1, MINUTES);
     private long fileStatusCacheMaxSize = 1000 * 1000;
     private List<String> fileStatusCacheTables = ImmutableList.of();
 

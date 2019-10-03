@@ -32,7 +32,6 @@ import io.prestosql.plugin.hive.PartitionStatistics;
 import io.prestosql.plugin.hive.TableAlreadyExistsException;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.StandardErrorCode;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.TableNotFoundException;
@@ -541,7 +540,7 @@ public class SemiTransactionalHiveMetastore
             case CREATED_IN_THIS_TRANSACTION:
                 partitionNames = ImmutableList.of();
                 break;
-            case PRE_EXISTING_TABLE: {
+            case PRE_EXISTING_TABLE:
                 Optional<List<String>> partitionNameResult;
                 if (parts.isPresent()) {
                     partitionNameResult = delegate.getPartitionNamesByParts(identity, databaseName, tableName, parts.get());
@@ -554,7 +553,6 @@ public class SemiTransactionalHiveMetastore
                 }
                 partitionNames = partitionNameResult.get();
                 break;
-            }
             default:
                 throw new UnsupportedOperationException("Unknown table source");
         }
@@ -697,7 +695,7 @@ public class SemiTransactionalHiveMetastore
             return;
         }
         switch (oldPartitionAction.getType()) {
-            case DROP: {
+            case DROP:
                 if (!oldPartitionAction.getHdfsContext().getIdentity().getUser().equals(session.getUser())) {
                     throw new PrestoException(TRANSACTION_CONFLICT, "Operation on the same partition with different user in the same transaction is not supported");
                 }
@@ -705,7 +703,6 @@ public class SemiTransactionalHiveMetastore
                         partition.getValues(),
                         new Action<>(ActionType.ALTER, new PartitionAndMore(identity, partition, currentLocation, Optional.empty(), statistics, statistics), hdfsContext, identity));
                 break;
-            }
             case ADD:
             case ALTER:
             case INSERT_EXISTING:
@@ -848,7 +845,7 @@ public class SemiTransactionalHiveMetastore
         }
         switch (tableAction.getType()) {
             case ADD:
-            case ALTER: {
+            case ALTER:
                 if (principal.getType() == PrincipalType.ROLE) {
                     return ImmutableSet.of();
                 }
@@ -860,7 +857,6 @@ public class SemiTransactionalHiveMetastore
                         .addAll(privileges)
                         .add(new HivePrivilegeInfo(OWNERSHIP, true, new HivePrincipal(USER, principal.getName()), new HivePrincipal(USER, principal.getName())))
                         .build();
-            }
             case INSERT_EXISTING:
                 return delegate.listTablePrivileges(databaseName, tableName, getTableOwner(identity, databaseName, tableName), principal);
             case DROP:
@@ -1582,7 +1578,7 @@ public class SemiTransactionalHiveMetastore
         for (DeclaredIntentionToWrite declaredIntentionToWrite : declaredIntentionsToWrite) {
             switch (declaredIntentionToWrite.getMode()) {
                 case STAGE_AND_MOVE_TO_TARGET_DIRECTORY:
-                case DIRECT_TO_TARGET_NEW_DIRECTORY: {
+                case DIRECT_TO_TARGET_NEW_DIRECTORY:
                     // For STAGE_AND_MOVE_TO_TARGET_DIRECTORY, there is no need to cleanup the target directory as
                     // it will only be written to during the commit call and the commit call cleans up after failures.
                     if ((declaredIntentionToWrite.getMode() == DIRECT_TO_TARGET_NEW_DIRECTORY) && skipTargetCleanupOnRollback) {
@@ -1603,8 +1599,7 @@ public class SemiTransactionalHiveMetastore
                             true,
                             format("staging/target_new directory rollback for table %s", declaredIntentionToWrite.getSchemaTableName()));
                     break;
-                }
-                case DIRECT_TO_TARGET_EXISTING_DIRECTORY: {
+                case DIRECT_TO_TARGET_EXISTING_DIRECTORY:
                     Set<Path> pathsToClean = new HashSet<>();
 
                     // Check the base directory of the declared intention
@@ -1653,7 +1648,6 @@ public class SemiTransactionalHiveMetastore
                     }
 
                     break;
-                }
                 default:
                     throw new UnsupportedOperationException("Unknown write mode");
             }
@@ -1705,7 +1699,7 @@ public class SemiTransactionalHiveMetastore
         checkHoldsLock();
 
         if (state != State.EMPTY) {
-            throw new PrestoException(StandardErrorCode.NOT_SUPPORTED, "Unsupported combination of operations in a single transaction");
+            throw new PrestoException(NOT_SUPPORTED, "Unsupported combination of operations in a single transaction");
         }
         state = State.EXCLUSIVE_OPERATION_BUFFERED;
         bufferedExclusiveOperation = exclusiveOperation;

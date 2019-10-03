@@ -40,7 +40,7 @@ public abstract class AbstractTestHiveLocal
     private static final HiveIdentity HIVE_IDENTITY = new HiveIdentity(SESSION);
 
     private File tempDir;
-    private String testDbName;
+    private final String testDbName;
 
     protected AbstractTestHiveLocal()
     {

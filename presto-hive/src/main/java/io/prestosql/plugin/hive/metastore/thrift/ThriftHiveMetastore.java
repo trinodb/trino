@@ -79,7 +79,6 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.propagateIfPossible;
@@ -87,6 +86,7 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.difference;
 import static io.prestosql.plugin.hive.HiveBasicStatistics.createEmptyStatistics;
@@ -108,7 +108,6 @@ import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.security.PrincipalType.USER;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toSet;
 import static org.apache.hadoop.hive.common.FileUtils.makePartName;
 import static org.apache.hadoop.hive.metastore.api.HiveObjectType.TABLE;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.HIVE_FILTER_FIELD_PARAMS;
@@ -1217,7 +1216,7 @@ public class ThriftHiveMetastore
     {
         Set<PrivilegeGrantInfo> requestedPrivileges = privileges.stream()
                 .map(ThriftMetastoreUtil::toMetastoreApiPrivilegeGrantInfo)
-                .collect(Collectors.toSet());
+                .collect(toImmutableSet());
         checkArgument(!containsAllPrivilege(requestedPrivileges), "\"ALL\" not supported in PrivilegeGrantInfo.privilege");
 
         try {
@@ -1268,7 +1267,7 @@ public class ThriftHiveMetastore
     {
         Set<PrivilegeGrantInfo> requestedPrivileges = privileges.stream()
                 .map(ThriftMetastoreUtil::toMetastoreApiPrivilegeGrantInfo)
-                .collect(Collectors.toSet());
+                .collect(toImmutableSet());
         checkArgument(!containsAllPrivilege(requestedPrivileges), "\"ALL\" not supported in PrivilegeGrantInfo.privilege");
 
         try {
@@ -1278,11 +1277,11 @@ public class ThriftHiveMetastore
                         try (ThriftMetastoreClient metastoreClient = createMetastoreClient()) {
                             Set<HivePrivilege> existingHivePrivileges = listTablePrivileges(databaseName, tableName, tableOwner, grantee).stream()
                                     .map(HivePrivilegeInfo::getHivePrivilege)
-                                    .collect(toSet());
+                                    .collect(toImmutableSet());
 
                             Set<PrivilegeGrantInfo> privilegesToRevoke = requestedPrivileges.stream()
                                     .filter(privilegeGrantInfo -> existingHivePrivileges.contains(getOnlyElement(parsePrivilege(privilegeGrantInfo, Optional.empty())).getHivePrivilege()))
-                                    .collect(toSet());
+                                    .collect(toImmutableSet());
 
                             if (privilegesToRevoke.isEmpty()) {
                                 return null;

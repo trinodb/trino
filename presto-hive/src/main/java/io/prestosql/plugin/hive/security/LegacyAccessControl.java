@@ -132,6 +132,7 @@ public class LegacyAccessControl
         }
     }
 
+    @Override
     public void checkCanShowTablesMetadata(ConnectorSecurityContext context, String schemaName)
     {
     }

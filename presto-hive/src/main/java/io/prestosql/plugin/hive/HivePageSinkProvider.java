@@ -120,7 +120,7 @@ public class HivePageSinkProvider
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorInsertTableHandle tableHandle)
     {
-        HiveInsertTableHandle handle = (HiveInsertTableHandle) tableHandle;
+        HiveWritableTableHandle handle = (HiveInsertTableHandle) tableHandle;
         return createPageSink(handle, false, session, ImmutableMap.of() /* for insert properties are taken from metastore */);
     }
 

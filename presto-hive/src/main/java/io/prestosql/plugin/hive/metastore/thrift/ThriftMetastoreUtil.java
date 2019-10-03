@@ -78,7 +78,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
@@ -206,7 +205,7 @@ public final class ThriftMetastoreUtil
     public static PrivilegeGrantInfo toMetastoreApiPrivilegeGrantInfo(HivePrivilegeInfo privilegeInfo)
     {
         return new PrivilegeGrantInfo(
-                privilegeInfo.getHivePrivilege().name().toLowerCase(Locale.ENGLISH),
+                privilegeInfo.getHivePrivilege().name().toLowerCase(ENGLISH),
                 0,
                 privilegeInfo.getGrantor().getName(),
                 fromPrestoPrincipalType(privilegeInfo.getGrantor().getType()),

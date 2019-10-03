@@ -26,7 +26,6 @@ import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.prestosql.plugin.hive.metastore.SortingColumn.Order;
 import io.prestosql.spi.security.PrestoPrincipal;
-import io.prestosql.spi.security.PrincipalType;
 import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticType;
 import io.prestosql.spi.type.Type;
@@ -100,7 +99,7 @@ public class TestRecordingHiveMetastore
                     OptionalLong.of(1235),
                     OptionalLong.of(1),
                     OptionalLong.of(8))));
-    private static final HivePrivilegeInfo PRIVILEGE_INFO = new HivePrivilegeInfo(HivePrivilege.SELECT, true, new HivePrincipal(PrincipalType.USER, "grantor"), new HivePrincipal(PrincipalType.USER, "grantee"));
+    private static final HivePrivilegeInfo PRIVILEGE_INFO = new HivePrivilegeInfo(HivePrivilege.SELECT, true, new HivePrincipal(USER, "grantor"), new HivePrincipal(USER, "grantee"));
     private static final RoleGrant ROLE_GRANT = new RoleGrant(new PrestoPrincipal(USER, "grantee"), "role", true);
     private static final HiveIdentity HIVE_CONTEXT = new HiveIdentity(SESSION);
 

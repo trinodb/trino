@@ -66,6 +66,7 @@ import static com.google.common.collect.Iterables.limit;
 import static com.google.common.collect.Iterables.transform;
 import static io.prestosql.plugin.hive.parquet.ParquetTester.HIVE_STORAGE_TIME_ZONE;
 import static io.prestosql.plugin.hive.parquet.ParquetTester.insertNullEvery;
+import static io.prestosql.plugin.hive.parquet.ParquetTester.testMaxReadBytes;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
@@ -110,11 +111,12 @@ public abstract class AbstractTestParquetReader
     private static final int MAX_PRECISION_INT32 = toIntExact(maxPrecision(4));
     private static final int MAX_PRECISION_INT64 = toIntExact(maxPrecision(8));
 
+    @SuppressWarnings("FieldCanBeLocal")
     private Logger parquetLogger;
 
     private final ParquetTester tester;
 
-    public AbstractTestParquetReader(ParquetTester tester)
+    protected AbstractTestParquetReader(ParquetTester tester)
     {
         this.tester = tester;
     }
@@ -537,7 +539,7 @@ public abstract class AbstractTestParquetReader
     public void testComplexNestedStructs()
             throws Exception
     {
-        final int n = 30;
+        int n = 30;
         Iterable<Integer> mapKeys = intsBetween(0, n);
         Iterable<Integer> intPrimitives = limit(cycle(asList(1, null, 3, null, 5, null, 7, null, null, null, 11, null, 13)), n);
         Iterable<String> stringPrimitives = limit(cycle(asList(null, "value2", "value3", null, null, "value6", "value7")), n);
@@ -1499,7 +1501,7 @@ public abstract class AbstractTestParquetReader
         List<String> structFieldNames = asList("a", "b");
         Type structType = RowType.from(asList(field("a", VARCHAR), field("b", VARCHAR)));
 
-        tester.testMaxReadBytes(
+        testMaxReadBytes(
                 getStandardStructObjectInspector(structFieldNames, asList(javaStringObjectInspector, javaStringObjectInspector)),
                 structValues,
                 structValues,
@@ -1513,7 +1515,7 @@ public abstract class AbstractTestParquetReader
     {
         DataSize maxReadBlockSize = new DataSize(1_000, DataSize.Unit.BYTE);
         Iterable<List<Integer>> values = createFixedTestArrays(limit(cycle(asList(1, null, 3, 5, null, null, null, 7, 11, null, 13, 17)), 30_000));
-        tester.testMaxReadBytes(getStandardListObjectInspector(javaIntObjectInspector), values, values, new ArrayType(INTEGER), maxReadBlockSize);
+        testMaxReadBytes(getStandardListObjectInspector(javaIntObjectInspector), values, values, new ArrayType(INTEGER), maxReadBlockSize);
     }
 
     @Test
@@ -1522,7 +1524,7 @@ public abstract class AbstractTestParquetReader
     {
         DataSize maxReadBlockSize = new DataSize(1_000, DataSize.Unit.BYTE);
         Iterable<Map<String, Long>> values = createFixedTestMaps(Collections.nCopies(5_000, join("", Collections.nCopies(33, "test"))), longsBetween(0, 5_000));
-        tester.testMaxReadBytes(getStandardMapObjectInspector(javaStringObjectInspector, javaLongObjectInspector), values, values, mapType(VARCHAR, BIGINT), maxReadBlockSize);
+        testMaxReadBytes(getStandardMapObjectInspector(javaStringObjectInspector, javaLongObjectInspector), values, values, mapType(VARCHAR, BIGINT), maxReadBlockSize);
     }
 
     private static <T> Iterable<T> repeatEach(int n, Iterable<T> iterable)

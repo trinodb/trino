@@ -49,6 +49,7 @@ public final class HiveBooleanParser
                 (toUpperCase(bytes[start + 3]) == 'E');
     }
 
+    @SuppressWarnings("NumericCastThatLosesPrecision")
     private static byte toUpperCase(byte b)
     {
         return isLowerCase(b) ? ((byte) (b - 32)) : b;

@@ -463,7 +463,7 @@ public class TestMetastoreHiveStatisticsProvider
         assertConvertPartitionValueToDouble(SMALLINT, "1234", 1234);
         assertConvertPartitionValueToDouble(TINYINT, "123", 123);
         assertConvertPartitionValueToDouble(DOUBLE, "0.1", 0.1);
-        assertConvertPartitionValueToDouble(REAL, "0.2", (double) (float) 0.2);
+        assertConvertPartitionValueToDouble(REAL, "0.2", 0.2f);
         assertConvertPartitionValueToDouble(createDecimalType(5, 2), "123.45", 123.45);
         assertConvertPartitionValueToDouble(createDecimalType(25, 5), "12345678901234567890.12345", 12345678901234567890.12345);
         assertConvertPartitionValueToDouble(DATE, "1970-01-02", 1);

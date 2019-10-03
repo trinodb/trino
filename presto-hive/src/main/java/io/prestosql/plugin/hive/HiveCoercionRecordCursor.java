@@ -53,7 +53,6 @@ public class HiveCoercionRecordCursor
     private final RecordCursor delegate;
     private final List<ColumnMapping> columnMappings;
     private final Coercer[] coercers;
-    private final BridgingRecordCursor bridgingRecordCursor;
 
     public HiveCoercionRecordCursor(
             List<ColumnMapping> columnMappings,
@@ -62,7 +61,6 @@ public class HiveCoercionRecordCursor
     {
         requireNonNull(columnMappings, "columns is null");
         requireNonNull(typeManager, "typeManager is null");
-        this.bridgingRecordCursor = new BridgingRecordCursor();
 
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.columnMappings = ImmutableList.copyOf(columnMappings);
@@ -70,6 +68,8 @@ public class HiveCoercionRecordCursor
         int size = columnMappings.size();
 
         this.coercers = new Coercer[size];
+
+        BridgingRecordCursor bridgingRecordCursor = new BridgingRecordCursor();
 
         for (int columnIndex = 0; columnIndex < size; columnIndex++) {
             ColumnMapping columnMapping = columnMappings.get(columnIndex);

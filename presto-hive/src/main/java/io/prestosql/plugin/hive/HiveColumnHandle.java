@@ -159,7 +159,7 @@ public class HiveColumnHandle
         return Objects.equals(this.name, other.name) &&
                 Objects.equals(this.hiveColumnIndex, other.hiveColumnIndex) &&
                 Objects.equals(this.hiveType, other.hiveType) &&
-                Objects.equals(this.columnType, other.columnType) &&
+                this.columnType == other.columnType &&
                 Objects.equals(this.comment, other.comment);
     }
 

@@ -64,6 +64,7 @@ import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.Executor;
+import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.IntPredicate;
 import java.util.regex.Matcher;
@@ -137,7 +138,7 @@ public class BackgroundHiveSplitLoader
     // Implications:
     // * if you hold a read lock but not a write lock, you can do any of the above three operations, but you may
     //   see a series of operations involving two or more of the operations carried out half way.
-    private final ReentrantReadWriteLock taskExecutionLock = new ReentrantReadWriteLock();
+    private final ReadWriteLock taskExecutionLock = new ReentrantReadWriteLock();
 
     private HiveSplitSource hiveSplitSource;
     private volatile boolean stopped;

@@ -30,19 +30,11 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.SelectedRole;
-import io.prestosql.spi.type.BigintType;
-import io.prestosql.spi.type.BooleanType;
-import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DateType;
-import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.IntegerType;
-import io.prestosql.spi.type.SmallintType;
 import io.prestosql.spi.type.TimestampType;
-import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.planner.Plan;
 import io.prestosql.sql.planner.plan.ExchangeNode;
 import io.prestosql.sql.planner.planprinter.IoPlanPrinter.ColumnConstraint;
@@ -167,7 +159,7 @@ public class TestHiveIntegrationSmokeTest
     {
         Session admin = Session.builder(getQueryRunner().getDefaultSession())
                 .setIdentity(Identity.forUser("hive")
-                        .withRole("hive", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("admin")))
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
                 .build();
 
@@ -258,15 +250,15 @@ public class TestHiveIntegrationSmokeTest
         // Use LinkedHashMap to maintain insertion order for ease of locating
         // map entry if assertion in the loop below fails.
         Map<Object, TypeAndEstimate> data = new LinkedHashMap<>();
-        data.put("foo", new TypeAndEstimate(VarcharType.createUnboundedVarcharType(), new EstimatedStatsAndCost(1.0, 16.0, 16.0, 0.0, 0.0)));
-        data.put(Byte.toString((byte) (Byte.MAX_VALUE / 2)), new TypeAndEstimate(TinyintType.TINYINT, new EstimatedStatsAndCost(1.0, 10.0, 10.0, 0.0, 0.0)));
-        data.put(Short.toString((short) (Short.MAX_VALUE / 2)), new TypeAndEstimate(SmallintType.SMALLINT, new EstimatedStatsAndCost(1.0, 11.0, 11.0, 0.0, 0.0)));
+        data.put("foo", new TypeAndEstimate(createUnboundedVarcharType(), new EstimatedStatsAndCost(1.0, 16.0, 16.0, 0.0, 0.0)));
+        data.put(Byte.toString((byte) (Byte.MAX_VALUE / 2)), new TypeAndEstimate(TINYINT, new EstimatedStatsAndCost(1.0, 10.0, 10.0, 0.0, 0.0)));
+        data.put(Short.toString((short) (Short.MAX_VALUE / 2)), new TypeAndEstimate(SMALLINT, new EstimatedStatsAndCost(1.0, 11.0, 11.0, 0.0, 0.0)));
         data.put(Integer.toString(Integer.MAX_VALUE / 2), new TypeAndEstimate(IntegerType.INTEGER, new EstimatedStatsAndCost(1.0, 13.0, 13.0, 0.0, 0.0)));
-        data.put(Long.toString(Long.MAX_VALUE / 2), new TypeAndEstimate(BigintType.BIGINT, new EstimatedStatsAndCost(1.0, 17.0, 17.0, 0.0, 0.0)));
-        data.put(Boolean.TRUE.toString(), new TypeAndEstimate(BooleanType.BOOLEAN, new EstimatedStatsAndCost(1.0, 10.0, 10.0, 0.0, 0.0)));
-        data.put("bar", new TypeAndEstimate(CharType.createCharType(3), new EstimatedStatsAndCost(1.0, 16.0, 16.0, 0.0, 0.0)));
-        data.put("1.2345678901234578E14", new TypeAndEstimate(DoubleType.DOUBLE, new EstimatedStatsAndCost(1.0, 17.0, 17.0, 0.0, 0.0)));
-        data.put("123456789012345678901234.567", new TypeAndEstimate(DecimalType.createDecimalType(30, 3), new EstimatedStatsAndCost(1.0, 25.0, 25.0, 0.0, 0.0)));
+        data.put(Long.toString(Long.MAX_VALUE / 2), new TypeAndEstimate(BIGINT, new EstimatedStatsAndCost(1.0, 17.0, 17.0, 0.0, 0.0)));
+        data.put(Boolean.TRUE.toString(), new TypeAndEstimate(BOOLEAN, new EstimatedStatsAndCost(1.0, 10.0, 10.0, 0.0, 0.0)));
+        data.put("bar", new TypeAndEstimate(createCharType(3), new EstimatedStatsAndCost(1.0, 16.0, 16.0, 0.0, 0.0)));
+        data.put("1.2345678901234578E14", new TypeAndEstimate(DOUBLE, new EstimatedStatsAndCost(1.0, 17.0, 17.0, 0.0, 0.0)));
+        data.put("123456789012345678901234.567", new TypeAndEstimate(createDecimalType(30, 3), new EstimatedStatsAndCost(1.0, 25.0, 25.0, 0.0, 0.0)));
         data.put("2019-01-01", new TypeAndEstimate(DateType.DATE, new EstimatedStatsAndCost(1.0, 13.0, 13.0, 0.0, 0.0)));
         data.put("2019-01-01 23:22:21.123", new TypeAndEstimate(TimestampType.TIMESTAMP, new EstimatedStatsAndCost(1.0, 17.0, 17.0, 0.0, 0.0)));
         int index = 0;
@@ -274,7 +266,7 @@ public class TestHiveIntegrationSmokeTest
             index++;
             Type type = entry.getValue().type;
             EstimatedStatsAndCost estimate = entry.getValue().estimate;
-            @Language("SQL") String query = String.format(
+            @Language("SQL") String query = format(
                     "CREATE TABLE test_types_table  WITH (partitioned_by = ARRAY['my_col']) AS " +
                             "SELECT 'foo' my_non_partition_col, CAST('%s' AS %s) my_col",
                     entry.getKey(),
@@ -2631,7 +2623,7 @@ public class TestHiveIntegrationSmokeTest
                         "SELECT * FROM (VALUES (CAST (101 AS BIGINT), CAST (1 AS BIGINT)), (201, 2), (202, 2), (401, 4), (402, 4), (403, 4)) t(a, z)",
                 6);
 
-        List<MaterializedRow> expectedBefore = MaterializedResult.resultBuilder(session, BIGINT, BIGINT)
+        List<MaterializedRow> expectedBefore = resultBuilder(session, BIGINT, BIGINT)
                 .row(101L, 1L)
                 .row(201L, 2L)
                 .row(202L, 2L)
@@ -2640,7 +2632,7 @@ public class TestHiveIntegrationSmokeTest
                 .row(403L, 4L)
                 .build()
                 .getMaterializedRows();
-        List<MaterializedRow> expectedAfter = MaterializedResult.resultBuilder(session, BIGINT, BIGINT)
+        List<MaterializedRow> expectedAfter = resultBuilder(session, BIGINT, BIGINT)
                 .row(101L, 1L)
                 .row(203L, 2L)
                 .row(204L, 2L)
@@ -2688,7 +2680,7 @@ public class TestHiveIntegrationSmokeTest
     {
         Session session = getSession();
 
-        List<MaterializedRow> expected = MaterializedResult.resultBuilder(session, BIGINT, BIGINT)
+        List<MaterializedRow> expected = resultBuilder(session, BIGINT, BIGINT)
                 .row(101L, 1L)
                 .row(201L, 2L)
                 .row(202L, 2L)

@@ -131,11 +131,7 @@ public final class HiveType
 
         HiveType hiveType = (HiveType) o;
 
-        if (!hiveTypeName.equals(hiveType.hiveTypeName)) {
-            return false;
-        }
-
-        return true;
+        return hiveTypeName.equals(hiveType.hiveTypeName);
     }
 
     @Override

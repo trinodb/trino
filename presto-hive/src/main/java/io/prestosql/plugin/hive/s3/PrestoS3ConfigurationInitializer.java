@@ -83,7 +83,7 @@ public class PrestoS3ConfigurationInitializer
     private final PrestoS3AclType aclType;
     private final String signerClass;
     private final boolean requesterPaysEnabled;
-    private boolean skipGlacierObjects;
+    private final boolean skipGlacierObjects;
 
     @Inject
     public PrestoS3ConfigurationInitializer(HiveS3Config config)
