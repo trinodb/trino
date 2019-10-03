@@ -114,6 +114,7 @@ import io.prestosql.operator.index.IndexLookupSourceFactory;
 import io.prestosql.operator.index.IndexSourceOperator;
 import io.prestosql.operator.project.CursorProcessor;
 import io.prestosql.operator.project.PageProcessor;
+import io.prestosql.operator.unnest.UnnestingOperator.UnnestingOperatorFactory;
 import io.prestosql.operator.window.FrameInfo;
 import io.prestosql.operator.window.WindowFunctionSupplier;
 import io.prestosql.spi.Page;
@@ -180,6 +181,7 @@ import io.prestosql.sql.planner.plan.TopNNode;
 import io.prestosql.sql.planner.plan.TopNRowNumberNode;
 import io.prestosql.sql.planner.plan.UnionNode;
 import io.prestosql.sql.planner.plan.UnnestNode;
+import io.prestosql.sql.planner.plan.UnnestingNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.planner.plan.WindowNode;
 import io.prestosql.sql.planner.plan.WindowNode.Frame;
@@ -1403,6 +1405,75 @@ public class LocalExecutionPlanner
                     unnestTypes.build(),
                     ordinalityType.isPresent(),
                     outer);
+            return new PhysicalOperation(operatorFactory, outputMappings.build(), context, source);
+        }
+
+        @Override
+        public PhysicalOperation visitUnnesting(UnnestingNode node, LocalExecutionPlanContext context)
+        {
+            PhysicalOperation source = node.getSource().accept(this, context);
+
+            ImmutableList.Builder<Type> replicateTypes = ImmutableList.builder();
+            for (Symbol symbol : node.getReplicateSymbols()) {
+                replicateTypes.add(context.getTypes().get(symbol));
+            }
+            List<Symbol> unnestSymbols = ImmutableList.copyOf(node.getUnnestSymbols().keySet());
+            ImmutableList.Builder<Type> unnestTypes = ImmutableList.builder();
+            for (Symbol symbol : unnestSymbols) {
+                unnestTypes.add(context.getTypes().get(symbol));
+            }
+            Optional<Symbol> ordinalitySymbol = node.getOrdinalitySymbol();
+            Optional<Type> ordinalityType = ordinalitySymbol.map(context.getTypes()::get);
+            ordinalityType.ifPresent(type -> checkState(type.equals(BIGINT), "Type of ordinalitySymbol must always be BIGINT."));
+
+            Optional<Symbol> rightIdSymbol = node.getRightIdSymbol();
+            Optional<Type> rightIdType = rightIdSymbol.map(context.getTypes()::get);
+            rightIdType.ifPresent(type -> checkState(type.equals(BIGINT), "Type of rightIdSymbol must always be BIGINT."));
+
+            Optional<Symbol> markerSymbol = node.getMarkerSymbol();
+            Optional<Type> markerType = markerSymbol.map(context.getTypes()::get);
+            markerType.ifPresent(type -> checkState(type.equals(BIGINT), "Type of markerSymbol must always be BIGINT."));
+
+            List<Integer> replicateChannels = getChannelsForSymbols(node.getReplicateSymbols(), source.getLayout());
+            List<Integer> unnestChannels = getChannelsForSymbols(unnestSymbols, source.getLayout());
+
+            // Source channels are always laid out first, followed by the unnested symbols
+            ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
+            int channel = 0;
+            for (Symbol symbol : node.getReplicateSymbols()) {
+                outputMappings.put(symbol, channel);
+                channel++;
+            }
+            for (Symbol symbol : unnestSymbols) {
+                for (Symbol unnestedSymbol : node.getUnnestSymbols().get(symbol)) {
+                    outputMappings.put(unnestedSymbol, channel);
+                    channel++;
+                }
+            }
+            if (ordinalitySymbol.isPresent()) {
+                outputMappings.put(ordinalitySymbol.get(), channel);
+                channel++;
+            }
+            if (rightIdSymbol.isPresent()) {
+                outputMappings.put(rightIdSymbol.get(), channel);
+                channel++;
+            }
+            if (markerSymbol.isPresent()) {
+                outputMappings.put(markerSymbol.get(), channel);
+                channel++;
+            }
+            OperatorFactory operatorFactory = new UnnestingOperatorFactory(
+                    context.getNextOperatorId(),
+                    node.getId(),
+                    replicateChannels,
+                    replicateTypes.build(),
+                    unnestChannels,
+                    unnestTypes.build(),
+                    ordinalityType.isPresent(),
+                    rightIdType.isPresent(),
+                    markerType.isPresent(),
+                    node.getJoinType(),
+                    node.isOnTrue());
             return new PhysicalOperation(operatorFactory, outputMappings.build(), context, source);
         }
 
