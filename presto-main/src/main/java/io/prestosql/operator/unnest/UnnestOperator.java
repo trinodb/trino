@@ -111,7 +111,7 @@ public class UnnestOperator
     private final List<Unnester> unnesters;
     private final int unnestOutputChannelCount;
 
-    private final List<ReplicatedBlockBuilder> replicatedBlockBuilders;
+    private final List<SimpleReplicatedBlockBuilder> replicatedBlockBuilders;
 
     private BlockBuilder ordinalityBlockBuilder;
 
@@ -125,7 +125,7 @@ public class UnnestOperator
         this.replicateTypes = ImmutableList.copyOf(requireNonNull(replicateTypes, "replicateTypes is null"));
         checkArgument(replicateChannels.size() == replicateTypes.size(), "replicate channels or types has wrong size");
         this.replicatedBlockBuilders = replicateTypes.stream()
-                .map(type -> new ReplicatedBlockBuilder())
+                .map(type -> new SimpleReplicatedBlockBuilder())
                 .collect(toImmutableList());
 
         this.unnestChannels = ImmutableList.copyOf(requireNonNull(unnestChannels, "unnestChannels is null"));
@@ -266,7 +266,7 @@ public class UnnestOperator
     private void prepareForNewOutput(PageBuilderStatus pageBuilderStatus)
     {
         unnesters.forEach(unnester -> unnester.startNewOutput(pageBuilderStatus, estimatedMaxRowsPerBlock));
-        replicatedBlockBuilders.forEach(replicatedBlockBuilder -> replicatedBlockBuilder.startNewOutput(estimatedMaxRowsPerBlock));
+        replicatedBlockBuilders.forEach(replicatedBlockBuilder -> replicatedBlockBuilder.startNewOutput(null, estimatedMaxRowsPerBlock));
 
         if (withOrdinality) {
             ordinalityBlockBuilder = BIGINT.createBlockBuilder(pageBuilderStatus.createBlockBuilderStatus(), estimatedMaxRowsPerBlock);

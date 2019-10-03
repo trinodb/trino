@@ -29,7 +29,7 @@ import static io.prestosql.operator.unnest.UnnestOperatorBlockUtil.calculateNewA
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-public class TestReplicatedBlockBuilder
+public class TestSimpleReplicatedBlockBuilder
 {
     @Test
     public void testReplicateOutput()
@@ -51,10 +51,10 @@ public class TestReplicatedBlockBuilder
     {
         assertEquals(values.length, counts.length);
 
-        ReplicatedBlockBuilder replicateBlockBuilder = new ReplicatedBlockBuilder();
+        SimpleReplicatedBlockBuilder replicateBlockBuilder = new SimpleReplicatedBlockBuilder();
         Block valuesBlock = createSimpleBlock(values);
         replicateBlockBuilder.resetInputBlock(valuesBlock);
-        replicateBlockBuilder.startNewOutput(100);
+        replicateBlockBuilder.startNewOutput(null, 100);
 
         for (int i = 0; i < counts.length; i++) {
             replicateBlockBuilder.appendRepeated(i, counts[i]);
@@ -80,7 +80,7 @@ public class TestReplicatedBlockBuilder
         assertTrue(firstAppendCount <= initialSize);
         assertTrue(firstAppendCount + secondAppendCount > initialSize);
         assertTrue(firstAppendCount + secondAppendCount <= calculateNewArraySize(initialSize));
-        assertCapacityIncrease(initialSize, firstAppendCount, secondAppendCount, new ReplicatedBlockBuilder());
+        assertCapacityIncrease(initialSize, firstAppendCount, secondAppendCount, new SimpleReplicatedBlockBuilder());
     }
 
     /**
@@ -91,17 +91,17 @@ public class TestReplicatedBlockBuilder
         assertTrue(firstAppendCount <= initialSize);
         assertTrue(firstAppendCount + secondAppendCount > initialSize);
         assertTrue(firstAppendCount + secondAppendCount > calculateNewArraySize(initialSize));
-        assertCapacityIncrease(initialSize, firstAppendCount, secondAppendCount, new ReplicatedBlockBuilder());
+        assertCapacityIncrease(initialSize, firstAppendCount, secondAppendCount, new SimpleReplicatedBlockBuilder());
     }
 
-    private static void assertCapacityIncrease(int initialSize, int firstAppendCount, int secondAppendCount, ReplicatedBlockBuilder replicatedBlockBuilder)
+    private static void assertCapacityIncrease(int initialSize, int firstAppendCount, int secondAppendCount, SimpleReplicatedBlockBuilder replicatedBlockBuilder)
     {
         Slice[] values = {null, utf8Slice("a")};
         Block inputBlock = createSimpleBlock(values);
         int repeatingIndex = 1;
 
         replicatedBlockBuilder.resetInputBlock(inputBlock);
-        replicatedBlockBuilder.startNewOutput(initialSize);
+        replicatedBlockBuilder.startNewOutput(null, initialSize);
 
         replicatedBlockBuilder.appendRepeated(repeatingIndex, firstAppendCount);
         replicatedBlockBuilder.appendRepeated(repeatingIndex, secondAppendCount);
