@@ -34,6 +34,11 @@ import static java.lang.String.format;
 @JsonDeserialize(using = ClientTypeSignatureParameter.ClientTypeSignatureParameterDeserializer.class)
 public class ClientTypeSignatureParameter
 {
+    public enum ParameterKind
+    {
+        TYPE, NAMED_TYPE, LONG, VARIABLE
+    }
+
     private final ParameterKind kind;
     private final Object value;
 
