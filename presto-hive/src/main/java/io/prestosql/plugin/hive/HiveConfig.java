@@ -338,12 +338,12 @@ public class HiveConfig
         return this;
     }
 
+    @Min(1)
     public long getPerTransactionMetastoreCacheMaximumSize()
     {
         return perTransactionMetastoreCacheMaximumSize;
     }
 
-    @Min(1)
     @Config("hive.per-transaction-metastore-cache-maximum-size")
     public HiveConfig setPerTransactionMetastoreCacheMaximumSize(long perTransactionMetastoreCacheMaximumSize)
     {

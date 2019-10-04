@@ -36,7 +36,6 @@ public class CachingHiveMetastoreConfig
         return metastoreCacheTtl;
     }
 
-    @MinDuration("0ms")
     @Config("hive.metastore-cache-ttl")
     public CachingHiveMetastoreConfig setMetastoreCacheTtl(Duration metastoreCacheTtl)
     {
@@ -45,12 +44,11 @@ public class CachingHiveMetastoreConfig
     }
 
     @NotNull
-    public Optional<Duration> getMetastoreRefreshInterval()
+    public Optional<@MinDuration("1ms") Duration> getMetastoreRefreshInterval()
     {
         return metastoreRefreshInterval;
     }
 
-    @MinDuration("1ms")
     @Config("hive.metastore-refresh-interval")
     public CachingHiveMetastoreConfig setMetastoreRefreshInterval(Duration metastoreRefreshInterval)
     {
@@ -58,12 +56,12 @@ public class CachingHiveMetastoreConfig
         return this;
     }
 
+    @Min(1)
     public long getMetastoreCacheMaximumSize()
     {
         return metastoreCacheMaximumSize;
     }
 
-    @Min(1)
     @Config("hive.metastore-cache-maximum-size")
     public CachingHiveMetastoreConfig setMetastoreCacheMaximumSize(long metastoreCacheMaximumSize)
     {
