@@ -1031,8 +1031,8 @@ public class FileHiveMetastore
 
             Path permissionsDirectory = getPermissionsDirectory(table);
 
-            metadataFileSystem.mkdirs(permissionsDirectory);
-            if (!metadataFileSystem.isDirectory(permissionsDirectory)) {
+            boolean created = metadataFileSystem.mkdirs(permissionsDirectory);
+            if (!created && !metadataFileSystem.isDirectory(permissionsDirectory)) {
                 throw new PrestoException(HIVE_METASTORE_ERROR, "Could not create permissions directory");
             }
 
