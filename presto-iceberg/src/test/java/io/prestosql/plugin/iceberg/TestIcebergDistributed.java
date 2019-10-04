@@ -35,7 +35,7 @@ public class TestIcebergDistributed
     @Override
     public void testDelete()
     {
-        assertQueryFails("DELETE FROM orders WHERE orderkey % 2 = 0", "This connector only supports delete where one or more partitions are deleted entirely");
+        // Neither row delete nor partition delete is supported yet
     }
 
     @Override

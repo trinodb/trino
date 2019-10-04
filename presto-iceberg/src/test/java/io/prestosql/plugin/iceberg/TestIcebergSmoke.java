@@ -101,6 +101,8 @@ public class TestIcebergSmoke
                 "  '_integer'," +
                 "  '_bigint'," +
                 "  '_boolean'," +
+                "  '_real'," +
+                "  '_double'," +
 //                "  '_decimal_short', " +
 //                "  '_decimal_long'," +
 //                "  '_timestamp'," +
@@ -202,6 +204,18 @@ public class TestIcebergSmoke
         assertQuery(session, "SELECT * from test_create_partitioned_table_as", "SELECT orderkey, shippriority, orderstatus FROM orders");
 
         dropTable(session, "test_create_partitioned_table_as");
+    }
+
+    @Test
+    public void testColumnComments()
+    {
+        Session session = getSession();
+        assertUpdate(session, "CREATE TABLE test_column_comments (_bigint BIGINT COMMENT 'test column comment')");
+
+        assertQuery(session, "SHOW COLUMNS FROM test_column_comments",
+                "VALUES ('_bigint', 'bigint', '', 'test column comment')");
+
+        dropTable(session, "test_column_comments");
     }
 
     @Test

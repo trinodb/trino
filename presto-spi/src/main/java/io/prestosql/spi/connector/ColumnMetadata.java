@@ -40,6 +40,11 @@ public class ColumnMetadata
         this(name, type, true, null, null, false, emptyMap());
     }
 
+    public ColumnMetadata(String name, Type type, String comment)
+    {
+        this(name, type, true, comment, null, false, emptyMap());
+    }
+
     public ColumnMetadata(String name, Type type, String comment, boolean hidden)
     {
         this(name, type, true, comment, null, hidden, emptyMap());

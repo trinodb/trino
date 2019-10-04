@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.iceberg;
 
-import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HiveTransactionHandle;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorHandleResolver;
@@ -35,7 +34,7 @@ public class IcebergHandleResolver
     @Override
     public Class<? extends ColumnHandle> getColumnHandleClass()
     {
-        return HiveColumnHandle.class;
+        return IcebergColumnHandle.class;
     }
 
     @Override
