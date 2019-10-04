@@ -77,13 +77,8 @@ function terminate() {
   exit 130
 }
 
-function usage() {
-  echo "Usage: run_on_docker.sh <`getAvailableEnvironments | tr '\n' '|' | sed 's/|$//'`> <product test args>"
-  exit 1
- }
-
 if [[ $# == 0 ]]; then
-  usage
+  usage "<product test arguments>"
 fi
 
 ENVIRONMENT=$1
