@@ -190,6 +190,18 @@ Property Name                                      Description                  
 
 ``hive.s3select-pushdown.max-connections``         Maximum number of simultaneously open connections to S3 for  500
                                                    :ref:`s3selectpushdown`.
+
+``hive.file-status-cache-tables``                  Cache directory listing for specified tables.
+                                                   Examples: ``schema.table1,schema.table2`` to cache directory
+                                                   listing only for ``table1`` and ``table2``.
+                                                   ``schema1.*,schema2.*`` to cache directory listing for all
+                                                   tables in the schemas ``schema1`` and ``schema2``.
+                                                   ``*`` to cache directory listing for all tables.
+
+``hive.file-status-cache-size``                    Maximum no. of file status entries cached for a path.        10,00,000
+
+``hive.file-status-cache-expire-time``             Duration of time after a directory listing is cached that it ``1m``
+                                                   should be automatically removed from cache.
 ================================================== ============================================================ ============
 
 Hive Thrift Metastore Configuration Properties
