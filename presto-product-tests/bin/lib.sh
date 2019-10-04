@@ -59,3 +59,10 @@ function getAvailableEnvironments() {
      | grep -v files | grep -v common | xargs -n1 basename
 }
 
+function usage() {
+  echo "Usage: $0 <environment> $@"
+  echo
+  echo "Where <environment> is one of following:"
+  getAvailableEnvironments | sort | sed 's/^/    - /'
+  exit 1
+}

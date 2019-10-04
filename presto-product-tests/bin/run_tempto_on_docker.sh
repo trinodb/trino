@@ -4,13 +4,8 @@ set -euo pipefail
 
 source "${BASH_SOURCE%/*}/lib.sh"
 
-function usage() {
-  echo "Usage: $0 <`getAvailableEnvironments | tr '\n' '|' | sed 's/|$//'`> <tempto args>"
-  exit 1
- }
-
 if [[ $# == 0 ]]; then
-  usage
+  usage "<tempto arguments>"
 fi
 
 ENVIRONMENT=$1
