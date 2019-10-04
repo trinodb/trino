@@ -22,8 +22,8 @@ import io.airlift.json.ObjectMapperProvider;
 import io.airlift.log.Logger;
 import io.airlift.security.pem.PemReader;
 import io.airlift.units.Duration;
+import io.prestosql.elasticsearch.client.ElasticsearchNode;
 import io.prestosql.elasticsearch.client.IndexMetadata;
-import io.prestosql.elasticsearch.client.Node;
 import io.prestosql.elasticsearch.client.NodesResponse;
 import io.prestosql.elasticsearch.client.SearchShardsResponse;
 import io.prestosql.elasticsearch.client.Shard;
@@ -106,7 +106,7 @@ public class ElasticsearchClient
     private final int scrollSize;
     private final Duration scrollTimeout;
 
-    private final AtomicReference<Set<Node>> nodes = new AtomicReference<>(ImmutableSet.of());
+    private final AtomicReference<Set<ElasticsearchNode>> nodes = new AtomicReference<>(ImmutableSet.of());
     private final ScheduledExecutorService executor = newSingleThreadScheduledExecutor(daemonThreadsNamed("NodeRefresher"));
     private final AtomicBoolean started = new AtomicBoolean();
     private final Duration refreshInterval;
@@ -148,10 +148,10 @@ public class ElasticsearchClient
     {
         // discover other nodes in the cluster and add them to the client
         try {
-            Set<Node> nodes = fetchNodes();
+            Set<ElasticsearchNode> nodes = fetchNodes();
 
             HttpHost[] hosts = nodes.stream()
-                    .map(Node::getAddress)
+                    .map(ElasticsearchNode::getAddress)
                     .map(address -> HttpHost.create(format("%s://%s", tlsEnabled ? "https" : "http", address)))
                     .toArray(HttpHost[]::new);
 
@@ -303,37 +303,37 @@ public class ElasticsearchClient
         }
     }
 
-    private Set<Node> fetchNodes()
+    private Set<ElasticsearchNode> fetchNodes()
     {
         NodesResponse nodesResponse = doRequest("_nodes/http", NODES_RESPONSE_CODEC::fromJson);
 
-        ImmutableSet.Builder<Node> result = ImmutableSet.builder();
+        ImmutableSet.Builder<ElasticsearchNode> result = ImmutableSet.builder();
         for (Map.Entry<String, NodesResponse.Node> entry : nodesResponse.getNodes().entrySet()) {
             String nodeId = entry.getKey();
             NodesResponse.Node node = entry.getValue();
 
             if (node.getRoles().contains("data")) {
-                result.add(new Node(nodeId, node.getHttp().getAddress()));
+                result.add(new ElasticsearchNode(nodeId, node.getHttp().getAddress()));
             }
         }
 
         return result.build();
     }
 
-    public Set<Node> getNodes()
+    public Set<ElasticsearchNode> getNodes()
     {
         return nodes.get();
     }
 
     public List<Shard> getSearchShards(String index)
     {
-        Map<String, Node> nodeById = getNodes().stream()
-                .collect(toImmutableMap(Node::getId, Function.identity()));
+        Map<String, ElasticsearchNode> nodeById = getNodes().stream()
+                .collect(toImmutableMap(ElasticsearchNode::getId, Function.identity()));
 
         SearchShardsResponse shardsResponse = doRequest(format("%s/_search_shards", index), SEARCH_SHARDS_RESPONSE_CODEC::fromJson);
 
         ImmutableList.Builder<Shard> shards = ImmutableList.builder();
-        List<Node> nodes = ImmutableList.copyOf(nodeById.values());
+        List<ElasticsearchNode> nodes = ImmutableList.copyOf(nodeById.values());
 
         for (List<SearchShardsResponse.Shard> shardGroup : shardsResponse.getShardGroups()) {
             Stream<SearchShardsResponse.Shard> preferred = shardGroup.stream()
@@ -344,7 +344,7 @@ public class ElasticsearchClient
                     .findFirst();
 
             SearchShardsResponse.Shard chosen;
-            Node node;
+            ElasticsearchNode node;
             if (!candidate.isPresent()) {
                 // pick an arbitrary shard with and assign to an arbitrary node
                 chosen = preferred.findFirst().get();
