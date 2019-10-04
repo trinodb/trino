@@ -76,12 +76,12 @@ public class NodeMemoryConfig
         return this;
     }
 
+    @NotNull
     public DataSize getHeapHeadroom()
     {
         return heapHeadroom;
     }
 
-    @NotNull
     @Config("memory.heap-headroom-per-node")
     @ConfigDescription("The amount of heap memory to set aside as headroom/buffer (e.g., for untracked allocations)")
     public NodeMemoryConfig setHeapHeadroom(DataSize heapHeadroom)
