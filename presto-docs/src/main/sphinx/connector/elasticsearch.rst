@@ -198,6 +198,8 @@ _score  The document score returned by the Elasticsearch query
 _source The source of the original document
 ======= =======================================================
 
+.. _elasticsearch-full-text-queries:
+
 Full Text Queries
 -----------------
 
