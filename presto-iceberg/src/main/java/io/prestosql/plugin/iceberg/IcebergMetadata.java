@@ -20,7 +20,6 @@ import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
-import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HiveWrittenPartitions;
 import io.prestosql.plugin.hive.TableAlreadyExistsException;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
@@ -79,7 +78,7 @@ import java.util.OptionalLong;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.plugin.hive.HiveColumnHandle.updateRowIdHandle;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.plugin.hive.HiveSchemaProperties.getLocation;
 import static io.prestosql.plugin.hive.util.HiveWriteUtils.getTableDefaultLocation;
 import static io.prestosql.plugin.iceberg.DomainConverter.convertTupleDomainTypes;
@@ -106,7 +105,6 @@ import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toMap;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
 import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
 import static org.apache.iceberg.TableMetadata.newTableMetadata;
@@ -207,14 +205,17 @@ public class IcebergMetadata
     {
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
         org.apache.iceberg.Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, table.getSchemaTableName());
-        List<HiveColumnHandle> columns = getColumns(icebergTable.schema(), icebergTable.spec(), typeManager);
-        return columns.stream().collect(toMap(HiveColumnHandle::getName, identity()));
+        return getColumns(icebergTable.schema(), typeManager).stream()
+                .collect(toImmutableMap(IcebergColumnHandle::getName, identity()));
     }
 
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
-        HiveColumnHandle column = (HiveColumnHandle) columnHandle;
+        IcebergColumnHandle column = (IcebergColumnHandle) columnHandle;
+        if (column.getComment().isPresent()) {
+            return new ColumnMetadata(column.getName(), column.getType(), column.getComment().get());
+        }
         return new ColumnMetadata(column.getName(), column.getType());
     }
 
@@ -319,7 +320,7 @@ public class IcebergMetadata
                 tableName,
                 SchemaParser.toJson(metadata.schema()),
                 PartitionSpecParser.toJson(metadata.spec()),
-                getColumns(metadata.schema(), metadata.spec(), typeManager),
+                getColumns(metadata.schema(), typeManager),
                 targetPath,
                 getFileFormat(tableMetadata.getProperties()));
     }
@@ -353,7 +354,7 @@ public class IcebergMetadata
                 table.getTableName(),
                 SchemaParser.toJson(icebergTable.schema()),
                 PartitionSpecParser.toJson(icebergTable.spec()),
-                getColumns(icebergTable.schema(), icebergTable.spec(), typeManager),
+                getColumns(icebergTable.schema(), typeManager),
                 getDataPath(icebergTable.location()),
                 getFileFormat(icebergTable));
     }
@@ -433,7 +434,7 @@ public class IcebergMetadata
     public void dropColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)
     {
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
-        HiveColumnHandle handle = (HiveColumnHandle) column;
+        IcebergColumnHandle handle = (IcebergColumnHandle) column;
         org.apache.iceberg.Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, icebergTableHandle.getSchemaTableName());
         icebergTable.updateSchema().deleteColumn(handle.getName()).commit();
     }
@@ -442,7 +443,7 @@ public class IcebergMetadata
     public void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, String target)
     {
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
-        HiveColumnHandle columnHandle = (HiveColumnHandle) source;
+        IcebergColumnHandle columnHandle = (IcebergColumnHandle) source;
         org.apache.iceberg.Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, icebergTableHandle.getSchemaTableName());
         icebergTable.updateSchema().renameColumn(columnHandle.getName(), target).commit();
     }
@@ -469,7 +470,12 @@ public class IcebergMetadata
     private List<ColumnMetadata> getColumnMetadatas(org.apache.iceberg.Table table)
     {
         return table.schema().columns().stream()
-                .map(column -> new ColumnMetadata(column.name(), toPrestoType(column.type(), typeManager)))
+                .map(column -> {
+                    if (column.doc() != null) {
+                        return new ColumnMetadata(column.name(), toPrestoType(column.type(), typeManager), column.doc());
+                    }
+                    return new ColumnMetadata(column.name(), toPrestoType(column.type(), typeManager));
+                })
                 .collect(toImmutableList());
     }
 
@@ -489,12 +495,6 @@ public class IcebergMetadata
         Schema schema = new Schema(icebergColumns);
         AtomicInteger nextFieldId = new AtomicInteger(1);
         return TypeUtil.assignFreshIds(schema, nextFieldId::getAndIncrement);
-    }
-
-    @Override
-    public ColumnHandle getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        return updateRowIdHandle();
     }
 
     @Override
@@ -544,7 +544,7 @@ public class IcebergMetadata
     public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
     {
         IcebergTableHandle table = (IcebergTableHandle) handle;
-        TupleDomain<HiveColumnHandle> newDomain = convertTupleDomainTypes(constraint.getSummary().transform(HiveColumnHandle.class::cast));
+        TupleDomain<IcebergColumnHandle> newDomain = convertTupleDomainTypes(constraint.getSummary().transform(IcebergColumnHandle.class::cast));
 
         if (newDomain.equals(table.getPredicate())) {
             return Optional.empty();

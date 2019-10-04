@@ -15,7 +15,6 @@ package io.prestosql.plugin.iceberg;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.SchemaTableName;
@@ -43,7 +42,7 @@ public class IcebergTableHandle
     private final String tableName;
     private final TableType tableType;
     private final Optional<Long> snapshotId;
-    private final TupleDomain<HiveColumnHandle> predicate;
+    private final TupleDomain<IcebergColumnHandle> predicate;
 
     @JsonCreator
     public IcebergTableHandle(
@@ -51,7 +50,7 @@ public class IcebergTableHandle
             @JsonProperty("tableName") String tableName,
             @JsonProperty("tableType") TableType tableType,
             @JsonProperty("snapshotId") Optional<Long> snapshotId,
-            @JsonProperty("predicate") TupleDomain<HiveColumnHandle> predicate)
+            @JsonProperty("predicate") TupleDomain<IcebergColumnHandle> predicate)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -85,7 +84,7 @@ public class IcebergTableHandle
     }
 
     @JsonProperty
-    public TupleDomain<HiveColumnHandle> getPredicate()
+    public TupleDomain<IcebergColumnHandle> getPredicate()
     {
         return predicate;
     }

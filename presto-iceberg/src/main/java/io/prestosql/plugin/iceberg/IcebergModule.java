@@ -16,22 +16,18 @@ package io.prestosql.plugin.iceberg;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
-import io.prestosql.plugin.hive.CoercionPolicy;
 import io.prestosql.plugin.hive.DynamicConfigurationProvider;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.plugin.hive.HdfsConfig;
 import io.prestosql.plugin.hive.HdfsConfiguration;
 import io.prestosql.plugin.hive.HdfsConfigurationInitializer;
 import io.prestosql.plugin.hive.HdfsEnvironment;
-import io.prestosql.plugin.hive.HiveCoercionPolicy;
 import io.prestosql.plugin.hive.HiveHdfsConfiguration;
 import io.prestosql.plugin.hive.HiveLocationService;
 import io.prestosql.plugin.hive.HiveNodePartitioningProvider;
 import io.prestosql.plugin.hive.HiveTransactionManager;
-import io.prestosql.plugin.hive.HiveTypeTranslator;
 import io.prestosql.plugin.hive.LocationService;
 import io.prestosql.plugin.hive.NamenodeStats;
-import io.prestosql.plugin.hive.TypeTranslator;
 import io.prestosql.plugin.hive.parquet.ParquetReaderConfig;
 import io.prestosql.plugin.hive.parquet.ParquetWriterConfig;
 import io.prestosql.spi.connector.ConnectorNodePartitioningProvider;
@@ -50,8 +46,6 @@ public class IcebergModule
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(TypeTranslator.class).toInstance(new HiveTypeTranslator());
-        binder.bind(CoercionPolicy.class).to(HiveCoercionPolicy.class).in(Scopes.SINGLETON);
         binder.bind(HdfsConfiguration.class).to(HiveHdfsConfiguration.class).in(Scopes.SINGLETON);
         binder.bind(HdfsEnvironment.class).in(Scopes.SINGLETON);
         binder.bind(IcebergTransactionManager.class).in(Scopes.SINGLETON);

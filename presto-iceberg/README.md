@@ -75,9 +75,6 @@ as a time travel feature which lets you query your table's snapshot at a given t
   before announcing the connector as ready for use.
 * Predicate pushdown is currently broken, which means delete is also broken. The code from the
   original `getTableLayouts()` implementation needs to be updated for `applyFilter()`.
-* We should try to remove `HiveColumnHandle`. This will require replacing or abstracting
-  `HivePageSource`, which is currently used to handle schema evolution and prefilled
-  column values (identity partitions).
 * Writing of decimals and timestamps is broken, since their representation in Parquet seems
   to be different for Iceberg and Hive. Reads are probably also broken, but this isn't tested
   yet since writes don't work.

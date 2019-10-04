@@ -18,7 +18,6 @@ import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
-import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HiveFileWriter;
 import io.prestosql.plugin.hive.HiveStorageFormat;
 import io.prestosql.plugin.hive.RecordFileWriter;
@@ -77,6 +76,7 @@ import static io.prestosql.plugin.hive.util.ConfigurationUtils.toJobConf;
 import static io.prestosql.plugin.hive.util.ParquetRecordWriterUtil.setParquetSchema;
 import static io.prestosql.plugin.iceberg.IcebergErrorCode.ICEBERG_TOO_MANY_OPEN_PARTITIONS;
 import static io.prestosql.plugin.iceberg.PartitionTransforms.getColumnTransform;
+import static io.prestosql.plugin.iceberg.TypeConveter.toHiveType;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.Decimals.readBigDecimal;
@@ -102,7 +102,7 @@ public class IcebergPageSink
     private final String outputPath;
     private final HdfsEnvironment hdfsEnvironment;
     private final JobConf jobConf;
-    private final List<HiveColumnHandle> inputColumns;
+    private final List<IcebergColumnHandle> inputColumns;
     private final JsonCodec<CommitTaskData> jsonCodec;
     private final ConnectorSession session;
     private final TypeManager typeManager;
@@ -122,7 +122,7 @@ public class IcebergPageSink
             PageIndexerFactory pageIndexerFactory,
             HdfsEnvironment hdfsEnvironment,
             HdfsContext hdfsContext,
-            List<HiveColumnHandle> inputColumns,
+            List<IcebergColumnHandle> inputColumns,
             TypeManager typeManager,
             JsonCodec<CommitTaskData> jsonCodec,
             ConnectorSession session,
@@ -340,10 +340,10 @@ public class IcebergPageSink
     {
         Properties properties = new Properties();
         properties.setProperty(IOConstants.COLUMNS, inputColumns.stream()
-                .map(HiveColumnHandle::getName)
+                .map(IcebergColumnHandle::getName)
                 .collect(joining(",")));
         properties.setProperty(IOConstants.COLUMNS_TYPES, inputColumns.stream()
-                .map(column -> column.getHiveType().getHiveTypeName().toString())
+                .map(column -> toHiveType(column.getType()).getHiveTypeName().toString())
                 .collect(joining(":")));
 
         setParquetSchema(jobConf, convert(outputSchema, "table"));
@@ -351,7 +351,7 @@ public class IcebergPageSink
         return new RecordFileWriter(
                 outputPath,
                 inputColumns.stream()
-                        .map(HiveColumnHandle::getName)
+                        .map(IcebergColumnHandle::getName)
                         .collect(toImmutableList()),
                 fromHiveStorageFormat(HiveStorageFormat.PARQUET),
                 properties,
@@ -432,17 +432,16 @@ public class IcebergPageSink
         throw new UnsupportedOperationException("Type not supported as partition column: " + type.getDisplayName());
     }
 
-    private static List<PartitionColumn> toPartitionColumns(List<HiveColumnHandle> handles, PartitionSpec partitionSpec)
+    private static List<PartitionColumn> toPartitionColumns(List<IcebergColumnHandle> handles, PartitionSpec partitionSpec)
     {
-        Map<String, Integer> nameChannels = new HashMap<>();
+        Map<Integer, Integer> idChannels = new HashMap<>();
         for (int i = 0; i < handles.size(); i++) {
-            nameChannels.put(handles.get(i).getName(), i);
+            idChannels.put(handles.get(i).getId(), i);
         }
 
         return partitionSpec.fields().stream()
                 .map(field -> {
-                    String name = partitionSpec.schema().findColumnName(field.sourceId());
-                    Integer channel = nameChannels.get(name);
+                    Integer channel = idChannels.get(field.sourceId());
                     checkArgument(channel != null, "partition field not found: %s", field);
                     Type inputType = handles.get(channel).getType();
                     ColumnTransform transform = getColumnTransform(field, inputType);
