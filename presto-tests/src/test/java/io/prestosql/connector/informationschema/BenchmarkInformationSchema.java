@@ -67,9 +67,10 @@ public class BenchmarkInformationSchema
         private final Map<String, String> queries = ImmutableMap.of(
                 "FULL_SCAN", "SELECT count(*) FROM information_schema.columns",
                 "LIKE_PREDICATE", "SELECT count(*) FROM information_schema.columns WHERE table_name LIKE 'table_0' AND table_schema LIKE 'schema_0'",
-                "MIXED_PREDICATE", "SELECT count(*) FROM information_schema.columns WHERE table_name LIKE 'table_0' AND table_schema = 'schema_0'");
+                "MIXED_PREDICATE", "SELECT count(*) FROM information_schema.columns WHERE table_name LIKE 'table_0' AND table_schema = 'schema_0'",
+                "LIMIT_SCAN", "SELECT column_name FROM information_schema.columns LIMIT 100");
 
-        @Param({"FULL_SCAN", "LIKE_PREDICATE", "MIXED_PREDICATE"})
+        @Param({"FULL_SCAN", "LIKE_PREDICATE", "MIXED_PREDICATE", "LIMIT_SCAN"})
         private String queryId = "LIKE_PREDICATE";
         @Param("200")
         private String schemasCount = "200";
