@@ -107,6 +107,15 @@ public class TestInformationSchemaConnector
         assertQuery("SELECT column_name, data_type FROM tpch.information_schema.columns ORDER BY 1 DESC, 2 DESC LIMIT 1", "VALUES ('with_hierarchy', 'varchar')");
     }
 
+
+    @Test
+    public void testLimit()
+    {
+        assertQuery("SELECT count(*) FROM (SELECT * from tpch.information_schema.columns LIMIT 1)", "VALUES 1");
+        assertQuery("SELECT count(*) FROM (SELECT * FROM tpch.information_schema.columns LIMIT 100)", "VALUES 100");
+        assertQuery("SELECT count(*) FROM (SELECT * FROM test_catalog.information_schema.tables LIMIT 10000)", "VALUES 10000");
+    }
+
     @Test(timeOut = 60_000)
     public void testMetadataCalls()
     {
@@ -122,24 +131,24 @@ public class TestInformationSchemaConnector
                         .withListSchemasCount(1));
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.tables",
-                "VALUES 300008",
+                "VALUES 30008",
                 new MetadataCallsCount()
                         .withListSchemasCount(1)
                         .withListTablesCount(2));
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.tables WHERE table_schema = 'test_schema1'",
-                "VALUES 100000",
+                "VALUES 10000",
                 new MetadataCallsCount()
                         .withListTablesCount(1));
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.tables WHERE table_schema LIKE 'test_sch_ma1'",
-                "VALUES 100000",
+                "VALUES 10000",
                 new MetadataCallsCount()
                         .withListSchemasCount(1)
                         .withListTablesCount(1));
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.tables WHERE table_schema LIKE 'test_sch_ma1' AND table_schema IN ('test_schema1', 'test_schema2')",
-                "VALUES 100000",
+                "VALUES 10000",
                 new MetadataCallsCount()
                         .withListTablesCount(2));
         assertMetadataCalls(
@@ -175,6 +184,20 @@ public class TestInformationSchemaConnector
                 "VALUES 0",
                 new MetadataCallsCount()
                         .withListTablesCount(1));
+        assertMetadataCalls(
+                "SELECT count(*) FROM (SELECT * from test_catalog.information_schema.columns LIMIT 1)",
+                "VALUES 1",
+                new MetadataCallsCount()
+                        .withListSchemasCount(1)
+                        .withListTablesCount(2)
+                        .withGetColumnsCount(30000));
+        assertMetadataCalls(
+                "SELECT count(*) FROM (SELECT * from test_catalog.information_schema.columns LIMIT 10000)",
+                "VALUES 10000",
+                new MetadataCallsCount()
+                        .withListSchemasCount(1)
+                        .withListTablesCount(2)
+                        .withGetColumnsCount(30000));
     }
 
     private static DistributedQueryRunner createQueryRunner()
@@ -193,10 +216,10 @@ public class TestInformationSchemaConnector
                 @Override
                 public Iterable<ConnectorFactory> getConnectorFactories()
                 {
-                    List<SchemaTableName> tablesTestSchema1 = IntStream.range(0, 100000)
+                    List<SchemaTableName> tablesTestSchema1 = IntStream.range(0, 10000)
                             .mapToObj(i -> new SchemaTableName("test_schema1", "test_table" + i))
                             .collect(toImmutableList());
-                    List<SchemaTableName> tablesTestSchema2 = IntStream.range(0, 200000)
+                    List<SchemaTableName> tablesTestSchema2 = IntStream.range(0, 20000)
                             .mapToObj(i -> new SchemaTableName("test_schema2", "test_table" + i))
                             .collect(toImmutableList());
                     List<SchemaTableName> tablesInformationSchema = Arrays.stream(InformationSchemaTable.values())
