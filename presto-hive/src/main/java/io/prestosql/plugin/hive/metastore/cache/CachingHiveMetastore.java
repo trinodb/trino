@@ -112,13 +112,16 @@ public class CachingHiveMetastore
                 config.getMetastoreCacheMaximumSize());
     }
 
-    public CachingHiveMetastore(HiveMetastore delegate, Executor executor, Duration cacheTtl, Duration refreshInterval, long maximumSize)
+    public CachingHiveMetastore(HiveMetastore delegate, Executor executor, Duration cacheTtl, Optional<Duration> refreshInterval, long maximumSize)
     {
         this(
                 delegate,
                 executor,
                 OptionalLong.of(cacheTtl.toMillis()),
-                OptionalLong.of(refreshInterval.toMillis()),
+                refreshInterval
+                        .map(Duration::toMillis)
+                        .map(OptionalLong::of)
+                        .orElseGet(OptionalLong::empty),
                 maximumSize);
     }
 

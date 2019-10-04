@@ -20,12 +20,13 @@ import io.airlift.units.MinDuration;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 public class CachingHiveMetastoreConfig
 {
     private Duration metastoreCacheTtl = new Duration(0, TimeUnit.SECONDS);
-    private Duration metastoreRefreshInterval = new Duration(Integer.MAX_VALUE, TimeUnit.DAYS);
+    private Optional<Duration> metastoreRefreshInterval = Optional.empty();
     private long metastoreCacheMaximumSize = 10000;
     private int maxMetastoreRefreshThreads = 100;
 
@@ -44,7 +45,7 @@ public class CachingHiveMetastoreConfig
     }
 
     @NotNull
-    public Duration getMetastoreRefreshInterval()
+    public Optional<Duration> getMetastoreRefreshInterval()
     {
         return metastoreRefreshInterval;
     }
@@ -53,7 +54,7 @@ public class CachingHiveMetastoreConfig
     @Config("hive.metastore-refresh-interval")
     public CachingHiveMetastoreConfig setMetastoreRefreshInterval(Duration metastoreRefreshInterval)
     {
-        this.metastoreRefreshInterval = metastoreRefreshInterval;
+        this.metastoreRefreshInterval = Optional.ofNullable(metastoreRefreshInterval);
         return this;
     }
 
