@@ -87,6 +87,11 @@ public final class Patterns
         return typeOf(CorrelatedJoinNode.class);
     }
 
+    public static Pattern<UnnestNode> unnest()
+    {
+        return typeOf(UnnestNode.class);
+    }
+
     public static Pattern<OffsetNode> offset()
     {
         return typeOf(OffsetNode.class);

@@ -55,6 +55,7 @@ import io.prestosql.sql.planner.plan.TableWriterNode;
 import io.prestosql.sql.planner.plan.TopNNode;
 import io.prestosql.sql.planner.plan.UnionNode;
 import io.prestosql.sql.planner.plan.UnnestNode;
+import io.prestosql.sql.planner.plan.UnnestingNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.planner.plan.WindowNode;
 import io.prestosql.sql.tree.Expression;
@@ -446,6 +447,11 @@ public final class PlanMatchPattern
     public static PlanMatchPattern unnest(PlanMatchPattern source)
     {
         return node(UnnestNode.class, source);
+    }
+
+    public static PlanMatchPattern unnesting(PlanMatchPattern source)
+    {
+        return node(UnnestingNode.class, source);
     }
 
     public static PlanMatchPattern exchange(PlanMatchPattern... sources)

@@ -54,7 +54,7 @@ import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.planner.plan.SpatialJoinNode;
-import io.prestosql.sql.planner.plan.UnnestNode;
+import io.prestosql.sql.planner.plan.UnnestingNode;
 import io.prestosql.sql.tree.Cast;
 import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.Expression;
@@ -600,14 +600,16 @@ public class ExtractSpatialJoins
         Symbol partitionsSymbol = context.getSymbolAllocator().newSymbol(partitioningFunction, new ArrayType(INTEGER));
         projections.put(partitionsSymbol, partitioningFunction);
 
-        return new UnnestNode(
+        return new UnnestingNode(
                 context.getIdAllocator().getNextId(),
                 new ProjectNode(context.getIdAllocator().getNextId(), node, projections.build()),
                 node.getOutputSymbols(),
                 ImmutableMap.of(partitionsSymbol, ImmutableList.of(partitionSymbol)),
                 Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
                 INNER,
-                Optional.empty());
+                true);
     }
 
     private static boolean containsNone(Collection<Symbol> values, Collection<Symbol> testValues)

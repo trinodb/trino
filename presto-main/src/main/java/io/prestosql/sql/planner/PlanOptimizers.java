@@ -48,6 +48,7 @@ import io.prestosql.sql.planner.iterative.rule.ImplementFilteredAggregations;
 import io.prestosql.sql.planner.iterative.rule.ImplementIntersectAsUnion;
 import io.prestosql.sql.planner.iterative.rule.ImplementLimitWithTies;
 import io.prestosql.sql.planner.iterative.rule.ImplementOffset;
+import io.prestosql.sql.planner.iterative.rule.ImplementUnnest;
 import io.prestosql.sql.planner.iterative.rule.InlineProjections;
 import io.prestosql.sql.planner.iterative.rule.MergeFilters;
 import io.prestosql.sql.planner.iterative.rule.MergeLimitOverProjectWithSort;
@@ -338,7 +339,8 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(
                                 new ImplementOffset(),
-                                new ImplementLimitWithTies(metadata))),
+                                new ImplementLimitWithTies(metadata),
+                                new ImplementUnnest(metadata))),
                 simplifyOptimizer,
                 new UnaliasSymbolReferences(metadata),
                 new IterativeOptimizer(

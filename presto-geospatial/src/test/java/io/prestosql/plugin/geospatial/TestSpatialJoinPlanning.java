@@ -46,7 +46,7 @@ import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.spatialJoin;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.spatialLeftJoin;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.tableScan;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.unnest;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.unnesting;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
@@ -115,12 +115,12 @@ public class TestSpatialJoinPlanning
                 anyTree(
                         spatialJoin("st_contains(st_geometryfromtext, st_point)", Optional.of(KDB_TREE_JSON),
                                 anyTree(
-                                        unnest(
+                                        unnesting(
                                                 project(ImmutableMap.of("partitions", expression(format("spatial_partitions(cast('%s' as kdbtree), st_point)", KDB_TREE_JSON))),
                                                         project(ImmutableMap.of("st_point", expression("ST_Point(lng, lat)")),
                                                                 tableScan("points", ImmutableMap.of("lng", "lng", "lat", "lat", "name", "name")))))),
                                 anyTree(
-                                        unnest(
+                                        unnesting(
                                                 project(ImmutableMap.of("partitions", expression(format("spatial_partitions(cast('%s' as kdbtree), st_geometryfromtext)", KDB_TREE_JSON))),
                                                         project(ImmutableMap.of("st_geometryfromtext", expression("ST_GeometryFromText(cast(wkt as varchar))")),
                                                                 tableScan("polygons", ImmutableMap.of("wkt", "wkt", "name_2", "name")))))))));
@@ -162,12 +162,12 @@ public class TestSpatialJoinPlanning
                 anyTree(
                         spatialJoin("st_within(st_geometryfromtext, st_point)", Optional.of(KDB_TREE_JSON),
                                 anyTree(
-                                        unnest(
+                                        unnesting(
                                                 project(ImmutableMap.of("partitions", expression(format("spatial_partitions(cast('%s' as kdbtree), st_point)", KDB_TREE_JSON))),
                                                         project(ImmutableMap.of("st_point", expression("ST_Point(lng, lat)")),
                                                                 tableScan("points", ImmutableMap.of("lng", "lng", "lat", "lat", "name_a", "name")))))),
                                 anyTree(
-                                        unnest(
+                                        unnesting(
                                                 project(ImmutableMap.of("partitions", expression(format("spatial_partitions(cast('%s' as kdbtree), st_geometryfromtext)", KDB_TREE_JSON))),
                                                         project(ImmutableMap.of("st_geometryfromtext", expression("ST_GeometryFromText(cast(wkt as varchar))")),
                                                                 tableScan("polygons", ImmutableMap.of("wkt", "wkt", "name_b", "name")))))))));
@@ -266,7 +266,7 @@ public class TestSpatialJoinPlanning
                 anyTree(
                         spatialJoin("st_intersects(geometry_a, geometry_b)", Optional.of(KDB_TREE_JSON),
                                 anyTree(
-                                        unnest(
+                                        unnesting(
                                                 project(ImmutableMap.of("partitions", expression(format("spatial_partitions(cast('%s' as kdbtree), geometry_a)", KDB_TREE_JSON))),
                                                         project(ImmutableMap.of("geometry_a", expression("ST_GeometryFromText(cast(wkt_a as varchar))")),
                                                                 tableScan("polygons", ImmutableMap.of("wkt_a", "wkt", "name_a", "name")))))),
@@ -314,13 +314,13 @@ public class TestSpatialJoinPlanning
                 anyTree(
                         spatialJoin("st_distance(st_point_a, st_point_b) <= radius", Optional.of(KDB_TREE_JSON),
                                 anyTree(
-                                        unnest(
+                                        unnesting(
                                                 project(ImmutableMap.of("partitions", expression(format("spatial_partitions(cast('%s' as kdbtree), st_point_a)", KDB_TREE_JSON))),
                                                         project(ImmutableMap.of("st_point_a", expression("ST_Point(cast(a_lng as double), cast(a_lat as double))")),
                                                                 anyTree(
                                                                         values(ImmutableMap.of("a_lng", 0, "a_lat", 1))))))),
                                 anyTree(
-                                        unnest(
+                                        unnesting(
                                                 project(ImmutableMap.of("partitions", expression(format("spatial_partitions(cast('%s' as kdbtree), st_point_b, 3.1e0)", KDB_TREE_JSON)), "radius", expression("3.1e0")),
                                                         project(ImmutableMap.of("st_point_b", expression("ST_Point(cast(b_lng as double), cast(b_lat as double))")),
                                                                 anyTree(
@@ -449,7 +449,7 @@ public class TestSpatialJoinPlanning
                 anyTree(
                         spatialJoin("st_contains(g1, g3)", Optional.of(KDB_TREE_JSON),
                                 anyTree(
-                                        unnest(exchange(ExchangeNode.Scope.REMOTE, ExchangeNode.Type.REPARTITION,
+                                        unnesting(exchange(ExchangeNode.Scope.REMOTE, ExchangeNode.Type.REPARTITION,
                                                 project(ImmutableMap.of("p1", expression(format("spatial_partitions(cast('%s' as kdbtree), g1)", KDB_TREE_JSON))),
                                                         project(ImmutableMap.of("g1", expression("ST_GeometryFromText(cast(name_a1 as varchar))")),
                                                                 tableScan("region", ImmutableMap.of("name_a1", "name")))),
@@ -457,7 +457,7 @@ public class TestSpatialJoinPlanning
                                                         project(ImmutableMap.of("g2", expression("ST_GeometryFromText(cast(name_a2 as varchar))")),
                                                                 tableScan("nation", ImmutableMap.of("name_a2", "name"))))))),
                                 anyTree(
-                                        unnest(
+                                        unnesting(
                                                 project(ImmutableMap.of("p3", expression(format("spatial_partitions(cast('%s' as kdbtree), g3)", KDB_TREE_JSON))),
                                                         project(ImmutableMap.of("g3", expression("ST_GeometryFromText(cast(name_b as varchar))")),
                                                                 tableScan("customer", ImmutableMap.of("name_b", "name")))))))));
@@ -470,12 +470,12 @@ public class TestSpatialJoinPlanning
                 anyTree(
                         spatialJoin("st_contains(g1, g2)", Optional.of(KDB_TREE_JSON),
                                 anyTree(
-                                        unnest(
+                                        unnesting(
                                                 project(ImmutableMap.of("p1", expression(format("spatial_partitions(cast('%s' as kdbtree), g1)", KDB_TREE_JSON))),
                                                         project(ImmutableMap.of("g1", expression("ST_GeometryFromText(cast(name_a as varchar))")),
                                                                 tableScan("customer", ImmutableMap.of("name_a", "name")))))),
                                 anyTree(
-                                        unnest(exchange(ExchangeNode.Scope.REMOTE, ExchangeNode.Type.REPARTITION,
+                                        unnesting(exchange(ExchangeNode.Scope.REMOTE, ExchangeNode.Type.REPARTITION,
                                                 project(ImmutableMap.of("p2", expression(format("spatial_partitions(cast('%s' as kdbtree), g2)", KDB_TREE_JSON))),
                                                         project(ImmutableMap.of("g2", expression("ST_GeometryFromText(cast(name_b1 as varchar))")),
                                                                 tableScan("region", ImmutableMap.of("name_b1", "name")))),
