@@ -706,7 +706,7 @@ public abstract class AbstractTestHive
                 new BridgingHiveMetastore(new ThriftHiveMetastore(metastoreLocator, new ThriftMetastoreConfig(), new HiveAuthenticationConfig())),
                 executor,
                 Duration.valueOf("1m"),
-                Duration.valueOf("15s"),
+                Optional.of(Duration.valueOf("15s")),
                 10000);
 
         setup(databaseName, hiveConfig, metastore);
