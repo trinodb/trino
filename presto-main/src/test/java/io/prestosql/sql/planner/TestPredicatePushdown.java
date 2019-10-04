@@ -503,4 +503,22 @@ public class TestPredicatePushdown
                                 anyTree(
                                         values("COL")))));
     }
+
+    @Test
+    public void testTablePredicateIsExtracted()
+    {
+        assertPlan(
+                "SELECT * FROM orders, nation WHERE orderstatus = CAST(nation.name AS varchar(1)) AND orderstatus BETWEEN 'A' AND 'O'",
+                anyTree(
+                        node(JoinNode.class,
+                                anyTree(
+                                        tableScan(
+                                                "orders",
+                                                ImmutableMap.of("ORDERSTATUS", "orderstatus"))),
+                                anyTree(
+                                        filter("CAST(NAME AS varchar(1)) IN ('F', 'O')",
+                                                tableScan(
+                                                        "nation",
+                                                        ImmutableMap.of("NAME", "name")))))));
+    }
 }
