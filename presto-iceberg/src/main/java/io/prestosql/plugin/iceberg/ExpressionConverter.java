@@ -15,7 +15,6 @@ package io.prestosql.plugin.iceberg;
 
 import com.google.common.base.VerifyException;
 import io.airlift.slice.Slice;
-import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.EquatableValueSet;
@@ -59,7 +58,7 @@ public final class ExpressionConverter
 {
     private ExpressionConverter() {}
 
-    public static Expression toIcebergExpression(TupleDomain<HiveColumnHandle> tupleDomain, ConnectorSession session)
+    public static Expression toIcebergExpression(TupleDomain<IcebergColumnHandle> tupleDomain, ConnectorSession session)
     {
         if (tupleDomain.isAll()) {
             return alwaysTrue();
@@ -67,14 +66,12 @@ public final class ExpressionConverter
         if (!tupleDomain.getDomains().isPresent()) {
             return alwaysFalse();
         }
-        Map<HiveColumnHandle, Domain> domainMap = tupleDomain.getDomains().get();
+        Map<IcebergColumnHandle, Domain> domainMap = tupleDomain.getDomains().get();
         Expression expression = alwaysTrue();
-        for (Map.Entry<HiveColumnHandle, Domain> entry : domainMap.entrySet()) {
-            HiveColumnHandle columnHandle = entry.getKey();
+        for (Map.Entry<IcebergColumnHandle, Domain> entry : domainMap.entrySet()) {
+            IcebergColumnHandle columnHandle = entry.getKey();
             Domain domain = entry.getValue();
-            if (!columnHandle.isHidden()) {
-                expression = and(expression, toIcebergExpression(columnHandle.getName(), columnHandle.getType(), domain, session));
-            }
+            expression = and(expression, toIcebergExpression(columnHandle.getName(), columnHandle.getType(), domain, session));
         }
         return expression;
     }
