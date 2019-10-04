@@ -100,11 +100,11 @@ public class PredicatePushDown
     private final EffectivePredicateExtractor effectivePredicateExtractor;
     private final TypeAnalyzer typeAnalyzer;
 
-    public PredicatePushDown(Metadata metadata, TypeAnalyzer typeAnalyzer)
+    public PredicatePushDown(Metadata metadata, TypeAnalyzer typeAnalyzer, boolean useTableProperties)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.literalEncoder = new LiteralEncoder(metadata);
-        this.effectivePredicateExtractor = new EffectivePredicateExtractor(new DomainTranslator(literalEncoder), metadata);
+        this.effectivePredicateExtractor = new EffectivePredicateExtractor(new DomainTranslator(literalEncoder), metadata, useTableProperties);
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }
 
