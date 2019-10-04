@@ -59,6 +59,7 @@ public class TestInformationSchemaConnector
         assertQuery("SELECT * FROM tpch.information_schema.schemata ORDER BY 1 DESC, 2 DESC LIMIT 1", "VALUES ('tpch', 'tiny')");
         assertQuery("SELECT * FROM tpch.information_schema.tables ORDER BY 1 DESC, 2 DESC, 3 DESC, 4 DESC LIMIT 1", "VALUES ('tpch', 'tiny', 'supplier', 'BASE TABLE')");
         assertQuery("SELECT * FROM tpch.information_schema.columns ORDER BY 1 DESC, 2 DESC, 3 DESC, 4 DESC LIMIT 1", "VALUES ('tpch', 'tiny', 'supplier', 'suppkey', 1, NULL, 'YES', 'bigint', NULL, NULL)");
+        assertQuery("SELECT count(*) FROM test_catalog.information_schema.columns", "VALUES 3000800");
     }
 
     @Test
@@ -106,7 +107,6 @@ public class TestInformationSchemaConnector
         assertQuery("SELECT table_name, table_type FROM tpch.information_schema.tables ORDER BY 1 DESC, 2 DESC LIMIT 1", "VALUES ('views', 'BASE TABLE')");
         assertQuery("SELECT column_name, data_type FROM tpch.information_schema.columns ORDER BY 1 DESC, 2 DESC LIMIT 1", "VALUES ('with_hierarchy', 'varchar')");
     }
-
 
     @Test
     public void testLimit()
@@ -189,15 +189,15 @@ public class TestInformationSchemaConnector
                 "VALUES 1",
                 new MetadataCallsCount()
                         .withListSchemasCount(1)
-                        .withListTablesCount(2)
-                        .withGetColumnsCount(30000));
+                        .withListTablesCount(0)
+                        .withGetColumnsCount(8));
         assertMetadataCalls(
                 "SELECT count(*) FROM (SELECT * from test_catalog.information_schema.columns LIMIT 10000)",
                 "VALUES 10000",
                 new MetadataCallsCount()
                         .withListSchemasCount(1)
-                        .withListTablesCount(2)
-                        .withGetColumnsCount(30000));
+                        .withListTablesCount(1)
+                        .withGetColumnsCount(10008));
     }
 
     private static DistributedQueryRunner createQueryRunner()

@@ -100,7 +100,7 @@ public class InformationSchemaMetadata
     {
         Optional<InformationSchemaTable> informationSchemaTable = InformationSchemaTable.of(tableName);
         if (informationSchemaTable.isPresent()) {
-            return new InformationSchemaTableHandle(catalogName, informationSchemaTable.get(), defaultPrefixes(), OptionalLong.empty());
+            return new InformationSchemaTableHandle(catalogName, informationSchemaTable.get(), defaultPrefixes(catalogName), OptionalLong.empty());
         }
         return null;
     }
@@ -189,7 +189,7 @@ public class InformationSchemaMetadata
     {
         InformationSchemaTableHandle table = (InformationSchemaTableHandle) handle;
 
-        if (!isTablesEnumeratingTable(table.getTable()) || !table.getPrefixes().equals(defaultPrefixes())) {
+        if (!isTablesEnumeratingTable(table.getTable()) || !table.getPrefixes().equals(defaultPrefixes(catalogName))) {
             return Optional.empty();
         }
 
@@ -204,7 +204,7 @@ public class InformationSchemaMetadata
         return Optional.of(new ConstraintApplicationResult<>(table, constraint.getSummary()));
     }
 
-    private Set<QualifiedTablePrefix> defaultPrefixes()
+    public static Set<QualifiedTablePrefix> defaultPrefixes(String catalogName)
     {
         return ImmutableSet.of(new QualifiedTablePrefix(catalogName));
     }
@@ -229,13 +229,13 @@ public class InformationSchemaMetadata
         }
         if (prefixes.size() > MAX_PREFIXES_COUNT) {
             // in case of high number of prefixes it is better to populate all data and then filter
-            prefixes = defaultPrefixes();
+            prefixes = defaultPrefixes(catalogName);
         }
 
         return prefixes;
     }
 
-    private boolean isTablesEnumeratingTable(InformationSchemaTable table)
+    public static boolean isTablesEnumeratingTable(InformationSchemaTable table)
     {
         return ImmutableSet.of(COLUMNS, VIEWS, TABLES, TABLE_PRIVILEGES).contains(table);
     }
