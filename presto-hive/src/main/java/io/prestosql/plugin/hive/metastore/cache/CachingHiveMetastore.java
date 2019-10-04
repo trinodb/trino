@@ -884,7 +884,7 @@ public class CachingHiveMetastore
 
     private HiveIdentity updateIdentity(HiveIdentity identity)
     {
-         // remove identity if not doing impersonation
+        // remove identity if not doing impersonation
         return delegate.isImpersonationEnabled() ? identity : HiveIdentity.none();
     }
 }
