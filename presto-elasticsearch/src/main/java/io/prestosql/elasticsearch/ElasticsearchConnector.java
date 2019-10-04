@@ -13,15 +13,19 @@
  */
 package io.prestosql.elasticsearch;
 
+import com.google.common.collect.ImmutableSet;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.SystemTable;
 import io.prestosql.spi.transaction.IsolationLevel;
 
 import javax.inject.Inject;
+
+import java.util.Set;
 
 import static io.prestosql.spi.transaction.IsolationLevel.READ_COMMITTED;
 import static io.prestosql.spi.transaction.IsolationLevel.checkConnectorSupports;
@@ -34,18 +38,21 @@ public class ElasticsearchConnector
     private final ElasticsearchMetadata metadata;
     private final ElasticsearchSplitManager splitManager;
     private final ElasticsearchPageSourceProvider pageSourceProvider;
+    private final NodesSystemTable nodesSystemTable;
 
     @Inject
     public ElasticsearchConnector(
             LifeCycleManager lifeCycleManager,
             ElasticsearchMetadata metadata,
             ElasticsearchSplitManager splitManager,
-            ElasticsearchPageSourceProvider pageSourceProvider)
+            ElasticsearchPageSourceProvider pageSourceProvider,
+            NodesSystemTable nodesSystemTable)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
+        this.nodesSystemTable = requireNonNull(nodesSystemTable, "nodesSystemTable is null");
     }
 
     @Override
@@ -71,6 +78,12 @@ public class ElasticsearchConnector
     public ConnectorPageSourceProvider getPageSourceProvider()
     {
         return pageSourceProvider;
+    }
+
+    @Override
+    public Set<SystemTable> getSystemTables()
+    {
+        return ImmutableSet.of(nodesSystemTable);
     }
 
     @Override
