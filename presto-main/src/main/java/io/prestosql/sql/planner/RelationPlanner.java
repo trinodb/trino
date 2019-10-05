@@ -60,7 +60,6 @@ import io.prestosql.sql.tree.InPredicate;
 import io.prestosql.sql.tree.Intersect;
 import io.prestosql.sql.tree.Join;
 import io.prestosql.sql.tree.JoinCriteria;
-import io.prestosql.sql.tree.JoinOn;
 import io.prestosql.sql.tree.JoinUsing;
 import io.prestosql.sql.tree.LambdaArgumentDeclaration;
 import io.prestosql.sql.tree.Lateral;
@@ -225,13 +224,12 @@ class RelationPlanner
         Optional<Unnest> unnest = getUnnest(node.getRight());
         if (unnest.isPresent()) {
             if (node.getType() == CROSS || node.getType() == IMPLICIT) {
-                return planJoinUnnest(leftPlan, node, unnest.get());
+                checkState(!node.getCriteria().isPresent(), "join criteria in %s join", node.getType().name());
             }
-            checkState(node.getCriteria().isPresent(), "missing Join criteria");
-            if (node.getCriteria().get() instanceof JoinOn && ((JoinOn) node.getCriteria().get()).getExpression().equals(TRUE_LITERAL)) {
-                return planJoinUnnest(leftPlan, node, unnest.get());
+            else {
+                checkState(node.getCriteria().isPresent(), "missing Join criteria in %s join", node.getType().name());
             }
-            throw semanticException(NOT_SUPPORTED, unnest.get(), "UNNEST in conditional JOIN is not supported");
+            return planJoinUnnest(leftPlan, node, unnest.get(), node.getRight());
         }
 
         Optional<Lateral> lateral = getLateral(node.getRight());
@@ -607,7 +605,7 @@ class RelationPlanner
         return conjunct instanceof ComparisonExpression && ((ComparisonExpression) conjunct).getOperator() == ComparisonExpression.Operator.EQUAL;
     }
 
-    private RelationPlan planJoinUnnest(RelationPlan leftPlan, Join joinNode, Unnest node)
+    private RelationPlan planJoinUnnest(RelationPlan leftPlan, Join joinNode, Unnest node, Relation rightRelation)
     {
         RelationType unnestOutputDescriptor = analysis.getOutputDescriptor(node);
         // Create symbols for the result of unnesting
@@ -621,6 +619,7 @@ class RelationPlanner
         // TODO do these need translation
         // Add a projection for all the unnest arguments
         PlanBuilder planBuilder = initializePlanBuilder(leftPlan);
+        List<Symbol> leftOutputs = planBuilder.getRoot().getOutputSymbols();
         planBuilder = planBuilder.appendProjections(node.getExpressions(), symbolAllocator, idAllocator);
         TranslationMap translations = planBuilder.getTranslations();
         ProjectNode projectNode = (ProjectNode) planBuilder.getRoot();
@@ -666,8 +665,20 @@ class RelationPlanner
             if (filter.equals(TRUE_LITERAL)) {
                 filterExpression = Optional.of(filter);
             }
-            else { //TODO rewrite filter to support non-trivial join criteria
-                throw semanticException(NOT_SUPPORTED, joinNode, "JOIN involving UNNEST on condition other than TRUE is not supported");
+            else {
+                if (rightRelation instanceof Unnest) {
+                    // Unnest relation is not aliased
+                    filterExpression = Optional.of(translations.rewrite(filter));
+                }
+                else {
+                    // Unnest relation is aliased
+                    List<Symbol> sourceSymbols = ImmutableList.<Symbol>builder()
+                            .addAll(leftOutputs)
+                            .addAll(unnestedSymbols)
+                            .build();
+                    TranslationMap translationsWithAliases = translationMapFromSourceOutputs(sourceSymbols, joinNode, sourceSymbols);
+                    filterExpression = Optional.of(translationsWithAliases.rewrite(filter));
+                }
             }
         }
 
