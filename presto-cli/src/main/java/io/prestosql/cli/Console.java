@@ -13,6 +13,7 @@
  */
 package io.prestosql.cli;
 
+import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.airline.Command;
 import io.airlift.airline.HelpOption;
@@ -29,6 +30,7 @@ import org.jline.reader.LineReader;
 import org.jline.reader.LineReaderBuilder;
 import org.jline.reader.UserInterruptException;
 import org.jline.terminal.Terminal;
+import org.jline.utils.AttributedStringBuilder;
 
 import javax.inject.Inject;
 
@@ -44,7 +46,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.regex.Pattern;
 
 import static com.google.common.base.CharMatcher.whitespace;
 import static com.google.common.base.Preconditions.checkState;
@@ -60,13 +61,14 @@ import static io.prestosql.cli.QueryPreprocessor.preprocessQuery;
 import static io.prestosql.client.ClientSession.stripTransactionId;
 import static io.prestosql.sql.parser.StatementSplitter.Statement;
 import static io.prestosql.sql.parser.StatementSplitter.isEmptyStatement;
-import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.jline.terminal.TerminalBuilder.terminal;
+import static org.jline.utils.AttributedStyle.CYAN;
+import static org.jline.utils.AttributedStyle.DEFAULT;
 
 @Command(name = "presto", description = "Presto interactive console")
 public class Console
@@ -75,8 +77,6 @@ public class Console
 
     private static final String PROMPT_NAME = "presto";
     private static final Duration EXIT_DELAY = new Duration(3, SECONDS);
-
-    private static final Pattern HISTORY_INDEX_PATTERN = Pattern.compile("!\\d+");
 
     @Inject
     public HelpOption helpOption;
@@ -223,31 +223,21 @@ public class Console
                     return;
                 }
 
-                // check for special commands
-                String command = whitespace().removeFrom(line);
-
-                if (HISTORY_INDEX_PATTERN.matcher(command).matches()) {
-                    int historyIndex = parseInt(command.substring(1));
-                    History history = reader.getHistory();
-                    if ((historyIndex <= 0) || (historyIndex > history.index())) {
-                        System.err.println("Command does not exist");
-                        continue;
-                    }
-                    line = history.get(historyIndex - 1);
-                    System.out.println(commandPrompt + line);
-                }
-
-                if (command.endsWith(";")) {
-                    command = command.substring(0, command.length() - 1).trim();
-                }
-
+                // check for special commands -- must match InputParser
+                String command = CharMatcher.is(';').or(whitespace()).trimTrailingFrom(line);
                 switch (command.toLowerCase(ENGLISH)) {
                     case "exit":
                     case "quit":
                         return;
                     case "history":
                         for (History.Entry entry : reader.getHistory()) {
-                            System.out.printf("%5d  %s%n", entry.index() + 1, entry.line());
+                            System.out.println(new AttributedStringBuilder()
+                                    .style(DEFAULT.foreground(CYAN))
+                                    .append(format("%5d", entry.index() + 1))
+                                    .style(DEFAULT)
+                                    .append("  ")
+                                    .append(entry.line())
+                                    .toAnsi(reader.getTerminal()));
                         }
                         continue;
                     case "help":
