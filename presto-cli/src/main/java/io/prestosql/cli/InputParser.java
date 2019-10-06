@@ -48,4 +48,10 @@ public class InputParser
 
         return new DefaultParser().parse(line, cursor, context);
     }
+
+    @Override
+    public boolean isEscapeChar(char ch)
+    {
+        return false;
+    }
 }
