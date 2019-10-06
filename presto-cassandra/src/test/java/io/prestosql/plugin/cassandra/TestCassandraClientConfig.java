@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
+import java.io.File;
 import java.util.Map;
 
 import static com.datastax.driver.core.ProtocolVersion.V2;
@@ -60,7 +61,12 @@ public class TestCassandraClientConfig
                 .setNoHostAvailableRetryTimeout(new Duration(1, MINUTES))
                 .setSpeculativeExecutionLimit(1)
                 .setSpeculativeExecutionDelay(new Duration(500, MILLISECONDS))
-                .setProtocolVersion(null));
+                .setProtocolVersion(null)
+                .setTlsEnabled(false)
+                .setKeystorePath(null)
+                .setKeystorePassword(null)
+                .setTruststorePath(null)
+                .setTruststorePassword(null));
     }
 
     @Test
@@ -93,6 +99,11 @@ public class TestCassandraClientConfig
                 .put("cassandra.speculative-execution.limit", "10")
                 .put("cassandra.speculative-execution.delay", "101s")
                 .put("cassandra.protocol-version", "V2")
+                .put("cassandra.tls.enabled", "true")
+                .put("cassandra.tls.keystore-path", "/tmp/keystore")
+                .put("cassandra.tls.keystore-password", "keystore-password")
+                .put("cassandra.tls.truststore-path", "/tmp/truststore")
+                .put("cassandra.tls.truststore-password", "truststore-password")
                 .build();
 
         CassandraClientConfig expected = new CassandraClientConfig()
@@ -121,7 +132,12 @@ public class TestCassandraClientConfig
                 .setNoHostAvailableRetryTimeout(new Duration(3, MINUTES))
                 .setSpeculativeExecutionLimit(10)
                 .setSpeculativeExecutionDelay(new Duration(101, SECONDS))
-                .setProtocolVersion(V2);
+                .setProtocolVersion(V2)
+                .setTlsEnabled(true)
+                .setKeystorePath(new File("/tmp/keystore"))
+                .setKeystorePassword("keystore-password")
+                .setTruststorePath(new File("/tmp/truststore"))
+                .setTruststorePassword("truststore-password");
 
         assertFullMapping(properties, expected);
     }
