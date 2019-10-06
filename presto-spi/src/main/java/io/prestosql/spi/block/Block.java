@@ -170,6 +170,14 @@ public interface Block
     long getSizeInBytes();
 
     /**
+     * Returns the current size in bytes of this block, ignoring any unloaded parts.
+     */
+    default long getLoadedSizeInBytes()
+    {
+        return getSizeInBytes();
+    }
+
+    /**
      * Returns the size of the block contents, regardless of internal representation.
      * The same logical data values should always have the same size, no matter
      * what block type is used or how they are represented within a specific block.

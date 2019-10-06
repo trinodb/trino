@@ -17,7 +17,9 @@ import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
+import java.util.Arrays;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLongArray;
 import java.util.function.BiConsumer;
 
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -27,7 +29,7 @@ import static java.util.Objects.requireNonNull;
 public class RowBlock
         extends AbstractRowBlock
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(RowBlock.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(RowBlock.class).instanceSize() + ClassLayout.parseClass(AtomicLongArray.class).instanceSize();
 
     private final int startOffset;
     private final int positionCount;
@@ -36,7 +38,7 @@ public class RowBlock
     private final int[] fieldBlockOffsets;
     private final Block[] fieldBlocks;
 
-    private volatile long sizeInBytes;
+    private final AtomicLongArray fieldSizeInBytes;
     private final long retainedSizeInBytes;
 
     /**
@@ -108,12 +110,11 @@ public class RowBlock
         this.fieldBlockOffsets = fieldBlockOffsets;
         this.fieldBlocks = fieldBlocks;
 
-        this.sizeInBytes = -1;
-        long retainedSizeInBytes = INSTANCE_SIZE + sizeOf(fieldBlockOffsets) + sizeOf(rowIsNull);
-        for (Block fieldBlock : fieldBlocks) {
-            retainedSizeInBytes += fieldBlock.getRetainedSizeInBytes();
-        }
-        this.retainedSizeInBytes = retainedSizeInBytes;
+        long[] fieldSizeInBytes = new long[fieldBlocks.length];
+        Arrays.fill(fieldSizeInBytes, -1);
+        this.fieldSizeInBytes = new AtomicLongArray(fieldSizeInBytes);
+
+        this.retainedSizeInBytes = INSTANCE_SIZE + sizeOf(fieldBlockOffsets) + sizeOf(rowIsNull);
     }
 
     @Override
@@ -150,28 +151,57 @@ public class RowBlock
     @Override
     public long getSizeInBytes()
     {
-        if (sizeInBytes < 0) {
-            calculateSize();
+        long sizeInBytes = getBaseSizeInBytes();
+        for (int fieldId = 0; fieldId < numFields; fieldId++) {
+            long fieldSize = fieldSizeInBytes.get(fieldId);
+            if (fieldSize < 0) {
+                fieldSize = calculateSize(fieldId);
+                fieldSizeInBytes.set(fieldId, fieldSize);
+            }
+            sizeInBytes += fieldSize;
         }
         return sizeInBytes;
     }
 
-    private void calculateSize()
+    @Override
+    public long getLoadedSizeInBytes()
+    {
+        long sizeInBytes = getBaseSizeInBytes();
+        for (int fieldId = 0; fieldId < numFields; fieldId++) {
+            long fieldSize = fieldSizeInBytes.get(fieldId);
+            if (fieldSize < 0) {
+                fieldSize = 0;
+                if (fieldBlocks[fieldId].isLoaded()) {
+                    fieldSize = calculateSize(fieldId);
+                    fieldSizeInBytes.set(fieldId, fieldSize);
+                }
+            }
+            sizeInBytes += fieldSize;
+        }
+        return sizeInBytes;
+    }
+
+    private long calculateSize(int fieldId)
     {
         int startFieldBlockOffset = fieldBlockOffsets[startOffset];
         int endFieldBlockOffset = fieldBlockOffsets[startOffset + positionCount];
         int fieldBlockLength = endFieldBlockOffset - startFieldBlockOffset;
 
-        long sizeInBytes = (Integer.BYTES + Byte.BYTES) * (long) positionCount;
-        for (int i = 0; i < numFields; i++) {
-            sizeInBytes += fieldBlocks[i].getRegionSizeInBytes(startFieldBlockOffset, fieldBlockLength);
-        }
-        this.sizeInBytes = sizeInBytes;
+        return fieldBlocks[fieldId].getRegionSizeInBytes(startFieldBlockOffset, fieldBlockLength);
+    }
+
+    private long getBaseSizeInBytes()
+    {
+        return (Integer.BYTES + Byte.BYTES) * (long) positionCount;
     }
 
     @Override
     public long getRetainedSizeInBytes()
     {
+        long retainedSizeInBytes = this.retainedSizeInBytes;
+        for (Block fieldBlock : fieldBlocks) {
+            retainedSizeInBytes += fieldBlock.getRetainedSizeInBytes();
+        }
         return retainedSizeInBytes;
     }
 

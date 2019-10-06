@@ -33,6 +33,7 @@ import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLongArray;
 import java.util.function.Supplier;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
@@ -144,6 +145,9 @@ public abstract class AbstractTestBlock
                 }
                 else if (type == DictionaryId.class) {
                     retainedSize += ClassLayout.parseClass(DictionaryId.class).instanceSize();
+                }
+                else if (type == AtomicLongArray.class) {
+                    retainedSize += ClassLayout.parseClass(AtomicLongArray.class).instanceSize();
                 }
                 else if (type == MethodHandle.class) {
                     // MethodHandles are only used in MapBlock/MapBlockBuilder,
