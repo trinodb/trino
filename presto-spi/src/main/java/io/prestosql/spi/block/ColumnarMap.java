@@ -27,6 +27,9 @@ public class ColumnarMap
     {
         requireNonNull(block, "block is null");
 
+        if (block instanceof LazyBlock) {
+            block = ((LazyBlock) block).getBlock();
+        }
         if (block instanceof DictionaryBlock) {
             return toColumnarMap((DictionaryBlock) block);
         }

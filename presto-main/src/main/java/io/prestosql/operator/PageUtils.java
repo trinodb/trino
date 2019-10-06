@@ -37,7 +37,6 @@ public final class PageUtils
                 blocks[i] = block;
             }
             else {
-                // TODO: block might be partially loaded
                 blocks[i] = new LazyBlock(page.getPositionCount(), lazyBlock -> {
                     Block loadedBlock = block.getLoadedBlock();
                     sizeInBytesConsumer.accept(loadedBlock.getSizeInBytes());

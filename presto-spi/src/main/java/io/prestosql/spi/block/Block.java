@@ -285,7 +285,7 @@ public interface Block
     boolean isNull(int position);
 
     /**
-     * Returns true if block data is loaded into memory.
+     * Returns true if block data is fully loaded into memory.
      */
     default boolean isLoaded()
     {
@@ -293,8 +293,10 @@ public interface Block
     }
 
     /**
-     * Returns a block that assures all data is in memory.
-     * May return the same block if all block data is already in memory.
+     * Returns a fully loaded block that assures all data is in memory.
+     * Neither the returned block nor any nested block will be a {@link LazyBlock}.
+     * The same block will be returned if neither the current block nor any
+     * nested blocks are {@link LazyBlock},
      * <p>
      * This allows streaming data sources to skip sections that are not
      * accessed in a query.
