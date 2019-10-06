@@ -14,6 +14,7 @@
 package io.prestosql.plugin.cassandra;
 
 import com.datastax.driver.core.Cluster;
+import com.datastax.driver.core.JdkSSLOptions;
 import com.datastax.driver.core.QueryOptions;
 import com.datastax.driver.core.SocketOptions;
 import com.datastax.driver.core.policies.ConstantSpeculativeExecutionPolicy;
@@ -28,17 +29,40 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import io.airlift.json.JsonCodec;
+import io.airlift.security.pem.PemReader;
+import io.prestosql.spi.PrestoException;
 
 import javax.inject.Singleton;
+import javax.net.ssl.KeyManager;
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.TrustManagerFactory;
+import javax.net.ssl.X509TrustManager;
+import javax.security.auth.x500.X500Principal;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.InetSocketAddress;
+import java.security.GeneralSecurityException;
+import java.security.KeyStore;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateExpiredException;
+import java.security.cert.CertificateNotYetValidException;
+import java.security.cert.X509Certificate;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static io.prestosql.plugin.cassandra.CassandraErrorCode.CASSANDRA_SSL_INITIALIZATION_FAILURE;
 import static java.lang.Math.toIntExact;
+import static java.util.Collections.list;
 import static java.util.Objects.requireNonNull;
 
 public class CassandraClientModule
@@ -115,6 +139,10 @@ public class CassandraClientModule
         if (config.getClientSoLinger() != null) {
             socketOptions.setSoLinger(config.getClientSoLinger());
         }
+        if (config.isTlsEnabled()) {
+            buildSslContext(config.getKeystorePath(), config.getKeystorePassword(), config.getTruststorePath(), config.getTruststorePassword())
+                    .ifPresent(context -> clusterBuilder.withSSL(JdkSSLOptions.builder().withSSLContext(context).build()));
+        }
         clusterBuilder.withSocketOptions(socketOptions);
 
         if (config.getUsername() != null && config.getPassword() != null) {
@@ -139,5 +167,117 @@ public class CassandraClientModule
                     return clusterBuilder.build();
                 }),
                 config.getNoHostAvailableRetryTimeout());
+    }
+
+    private static Optional<SSLContext> buildSslContext(
+            Optional<File> keystorePath,
+            Optional<String> keystorePassword,
+            Optional<File> truststorePath,
+            Optional<String> truststorePassword)
+    {
+        if (!keystorePath.isPresent() && !truststorePath.isPresent()) {
+            return Optional.empty();
+        }
+
+        try {
+            // load KeyStore if configured and get KeyManagers
+            KeyStore keystore = null;
+            KeyManager[] keyManagers = null;
+            if (keystorePath.isPresent()) {
+                char[] keyManagerPassword;
+                try {
+                    // attempt to read the key store as a PEM file
+                    keystore = PemReader.loadKeyStore(keystorePath.get(), keystorePath.get(), keystorePassword);
+                    // for PEM encoded keys, the password is used to decrypt the specific key (and does not protect the keystore itself)
+                    keyManagerPassword = new char[0];
+                }
+                catch (IOException | GeneralSecurityException ignored) {
+                    keyManagerPassword = keystorePassword.map(String::toCharArray).orElse(null);
+
+                    keystore = KeyStore.getInstance(KeyStore.getDefaultType());
+                    try (InputStream in = new FileInputStream(keystorePath.get())) {
+                        keystore.load(in, keyManagerPassword);
+                    }
+                }
+                validateCertificates(keystore);
+                KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+                keyManagerFactory.init(keystore, keyManagerPassword);
+                keyManagers = keyManagerFactory.getKeyManagers();
+            }
+
+            // load TrustStore if configured, otherwise use KeyStore
+            KeyStore truststore = keystore;
+            if (truststorePath.isPresent()) {
+                truststore = loadTrustStore(truststorePath.get(), truststorePassword);
+            }
+
+            // create TrustManagerFactory
+            TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+            trustManagerFactory.init(truststore);
+
+            // get X509TrustManager
+            TrustManager[] trustManagers = trustManagerFactory.getTrustManagers();
+            if ((trustManagers.length != 1) || !(trustManagers[0] instanceof X509TrustManager)) {
+                throw new RuntimeException("Unexpected default trust managers:" + Arrays.toString(trustManagers));
+            }
+            X509TrustManager trustManager = (X509TrustManager) trustManagers[0];
+
+            // create SSLContext
+            SSLContext result = SSLContext.getInstance("SSL");
+            result.init(keyManagers, new TrustManager[] {trustManager}, null);
+            return Optional.of(result);
+        }
+        catch (GeneralSecurityException | IOException e) {
+            throw new PrestoException(CASSANDRA_SSL_INITIALIZATION_FAILURE, e);
+        }
+    }
+
+    private static KeyStore loadTrustStore(File trustStorePath, Optional<String> trustStorePassword)
+            throws IOException, GeneralSecurityException
+    {
+        KeyStore trustStore = KeyStore.getInstance(KeyStore.getDefaultType());
+        try {
+            // attempt to read the trust store as a PEM file
+            List<X509Certificate> certificateChain = PemReader.readCertificateChain(trustStorePath);
+            if (!certificateChain.isEmpty()) {
+                trustStore.load(null, null);
+                for (X509Certificate certificate : certificateChain) {
+                    X500Principal principal = certificate.getSubjectX500Principal();
+                    trustStore.setCertificateEntry(principal.getName(), certificate);
+                }
+                return trustStore;
+            }
+        }
+        catch (IOException | GeneralSecurityException ignored) {
+        }
+
+        try (InputStream in = new FileInputStream(trustStorePath)) {
+            trustStore.load(in, trustStorePassword.map(String::toCharArray).orElse(null));
+        }
+        return trustStore;
+    }
+
+    private static void validateCertificates(KeyStore keyStore)
+            throws GeneralSecurityException
+    {
+        for (String alias : list(keyStore.aliases())) {
+            if (!keyStore.isKeyEntry(alias)) {
+                continue;
+            }
+            Certificate certificate = keyStore.getCertificate(alias);
+            if (!(certificate instanceof X509Certificate)) {
+                continue;
+            }
+
+            try {
+                ((X509Certificate) certificate).checkValidity();
+            }
+            catch (CertificateExpiredException e) {
+                throw new CertificateExpiredException("KeyStore certificate is expired: " + e.getMessage());
+            }
+            catch (CertificateNotYetValidException e) {
+                throw new CertificateNotYetValidException("KeyStore certificate is not yet valid: " + e.getMessage());
+            }
+        }
     }
 }
