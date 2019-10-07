@@ -50,16 +50,16 @@ public class TestHiveDistributedJoinQueriesWithDynamicFiltering
     protected Session getSession()
     {
         return Session.builder(super.getSession())
-                      .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "true")
-                      .build();
+                .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "true")
+                .build();
     }
 
     @Test
     public void testJoinWithEmptyBuildSide()
     {
         Session session = Session.builder(getSession())
-                                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.BROADCAST.name())
-                                 .build();
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.BROADCAST.name())
+                .build();
         DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
         ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(
                 session,
@@ -75,8 +75,8 @@ public class TestHiveDistributedJoinQueriesWithDynamicFiltering
     public void testJoinWithSelectiveBuildSide()
     {
         Session session = Session.builder(getSession())
-                                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.BROADCAST.name())
-                                 .build();
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.BROADCAST.name())
+                .build();
         DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
         ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(
                 session,
@@ -93,25 +93,25 @@ public class TestHiveDistributedJoinQueriesWithDynamicFiltering
         DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
         Plan plan = runner.getQueryPlan(queryId);
         PlanNodeId nodeId = PlanNodeSearcher.searchFrom(plan.getRoot())
-                                            .where(node -> {
-                                                if (!(node instanceof ProjectNode)) {
-                                                    return false;
-                                                }
-                                                ProjectNode projectNode = (ProjectNode) node;
-                                                FilterNode filterNode = (FilterNode) projectNode.getSource();
-                                                TableScanNode tableScanNode = (TableScanNode) filterNode.getSource();
-                                                return tableName.equals(tableScanNode.getTable().getConnectorHandle().toString());
-                                            })
-                                            .findOnlyElement()
-                                            .getId();
+                .where(node -> {
+                    if (!(node instanceof ProjectNode)) {
+                        return false;
+                    }
+                    ProjectNode projectNode = (ProjectNode) node;
+                    FilterNode filterNode = (FilterNode) projectNode.getSource();
+                    TableScanNode tableScanNode = (TableScanNode) filterNode.getSource();
+                    return tableName.equals(tableScanNode.getTable().getConnectorHandle().toString());
+                })
+                .findOnlyElement()
+                .getId();
         return runner.getCoordinator()
-                     .getQueryManager()
-                     .getFullQueryInfo(queryId)
-                     .getQueryStats()
-                     .getOperatorSummaries()
-                     .stream()
-                     .filter(summary -> nodeId.equals(summary.getPlanNodeId()))
-                     .collect(MoreCollectors.onlyElement());
+                .getQueryManager()
+                .getFullQueryInfo(queryId)
+                .getQueryStats()
+                .getOperatorSummaries()
+                .stream()
+                .filter(summary -> nodeId.equals(summary.getPlanNodeId()))
+                .collect(MoreCollectors.onlyElement());
     }
 
     private Long countRows(String tableName)

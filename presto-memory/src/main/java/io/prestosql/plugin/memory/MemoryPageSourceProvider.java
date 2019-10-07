@@ -84,8 +84,8 @@ public final class MemoryPageSourceProvider
                 .get();
 
         List<Integer> columnIndexes = columns.stream()
-                                             .map(MemoryColumnHandle.class::cast)
-                                             .map(MemoryColumnHandle::getColumnIndex).collect(toList());
+                .map(MemoryColumnHandle.class::cast)
+                .map(MemoryColumnHandle::getColumnIndex).collect(toList());
         List<Page> pages = pagesStore.getPages(
                 tableId,
                 partNumber,
@@ -95,8 +95,8 @@ public final class MemoryPageSourceProvider
                 memorySplit.getLimit(),
                 sampleRatio);
         return new FixedPageSource(pages.stream()
-                                        .map(page -> applyFilter(page, domains))
-                                        .collect(toList()));
+                .map(page -> applyFilter(page, domains))
+                .collect(toList()));
     }
 
     private Page applyFilter(Page page, Map<Integer, Domain> domains)
