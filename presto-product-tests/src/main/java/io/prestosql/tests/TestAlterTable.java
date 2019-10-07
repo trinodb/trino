@@ -29,7 +29,7 @@ import static io.prestosql.tests.TestGroups.SMOKE;
 import static java.lang.String.format;
 
 @Requires(ImmutableNationTable.class)
-public class AlterTableTests
+public class TestAlterTable
         extends ProductTest
 {
     private static final String TABLE_NAME = "table_name";

@@ -34,8 +34,8 @@ import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
-public class LdapSimbaJdbcTests
-        extends LdapJdbcTests
+public class TestLdapSimbaJdbc
+        extends BaseLdapJdbcTest
 {
     private static final String JDBC_URL_FORMAT = "jdbc:presto://%s;AuthenticationType=LDAP Authentication;" +
             "SSLTrustStorePath=%s;SSLTrustStorePwd=%s;AllowSelfSignedServerCert=1;AllowHostNameCNMismatch=1";

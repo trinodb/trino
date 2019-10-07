@@ -34,8 +34,8 @@ import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
-public class LdapPrestoJdbcTests
-        extends LdapJdbcTests
+public class TestLdapPrestoJdbc
+        extends BaseLdapJdbcTest
 {
     @Override
     protected String getLdapUrlFormat()

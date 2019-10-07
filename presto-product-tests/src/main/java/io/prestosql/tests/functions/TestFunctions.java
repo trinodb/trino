@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.tests.functions.operators;
+package io.prestosql.tests.functions;
 
 import io.prestosql.tempto.ProductTest;
 import org.testng.annotations.Test;
@@ -19,20 +19,20 @@ import org.testng.annotations.Test;
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tempto.query.QueryExecutor.query;
-import static io.prestosql.tests.TestGroups.LOGICAL;
-import static io.prestosql.tests.TestGroups.QUERY_ENGINE;
+import static io.prestosql.tests.TestGroups.JSON_FUNCTIONS;
 
-public class Logical
+public class TestFunctions
         extends ProductTest
 {
-    @Test(groups = {LOGICAL, QUERY_ENGINE})
-    public void testLogicalOperatorsExists()
+    @Test(groups = JSON_FUNCTIONS)
+    public void testScalarFunction()
     {
-        assertThat(query("select true AND true")).containsExactly(row(true));
-        assertThat(query("select true OR false")).containsExactly(row(true));
-        assertThat(query("select 1 in (1, 2, 3)")).containsExactly(row(true));
-        assertThat(query("select 'ala ma kota' like 'ala%'")).containsExactly(row(true));
-        assertThat(query("select NOT true")).containsExactly(row(false));
-        assertThat(query("select null is null")).containsExactly(row(true));
+        assertThat(query("SELECT upper('value')")).containsExactly(row("VALUE"));
+    }
+
+    @Test(groups = JSON_FUNCTIONS)
+    public void testAggregate()
+    {
+        assertThat(query("SELECT min(x) FROM (VALUES 1,2,3,4) t(x)")).containsExactly(row(1));
     }
 }

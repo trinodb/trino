@@ -24,7 +24,7 @@ import static io.prestosql.tests.TestGroups.CREATE_TABLE;
 import static java.lang.String.format;
 
 @Requires(ImmutableNationTable.class)
-public class CreateTableTests
+public class TestCreateTable
         extends ProductTest
 {
     @Test(groups = CREATE_TABLE)

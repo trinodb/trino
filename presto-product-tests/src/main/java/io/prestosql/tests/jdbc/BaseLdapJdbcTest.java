@@ -43,7 +43,7 @@ import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
-public abstract class LdapJdbcTests
+public abstract class BaseLdapJdbcTest
         extends ProductTest
         implements RequirementsProvider
 {

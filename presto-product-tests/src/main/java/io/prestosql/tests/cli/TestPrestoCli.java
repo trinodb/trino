@@ -42,7 +42,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertTrue;
 
-public class PrestoCliTests
+public class TestPrestoCli
         extends PrestoCliLauncher
         implements RequirementsProvider
 {
@@ -82,7 +82,7 @@ public class PrestoCliTests
     @Named("databases.presto.jdbc_user")
     private String jdbcUser;
 
-    public PrestoCliTests()
+    public TestPrestoCli()
             throws IOException
     {}
 
@@ -252,12 +252,12 @@ public class PrestoCliTests
 
         // cause an error that aborts the transaction
         presto.getProcessInput().println("select foo;");
-        assertThat(presto.readLinesUntilPrompt()).extracting(PrestoCliTests::removePrefix)
+        assertThat(presto.readLinesUntilPrompt()).extracting(TestPrestoCli::removePrefix)
                 .contains("line 1:8: Column 'foo' cannot be resolved");
 
         // verify commands are rejected until rollback
         presto.getProcessInput().println("select * from nation;");
-        assertThat(presto.readLinesUntilPrompt()).extracting(PrestoCliTests::removePrefix)
+        assertThat(presto.readLinesUntilPrompt()).extracting(TestPrestoCli::removePrefix)
                 .contains("Current transaction is aborted, commands ignored until end of transaction block");
 
         presto.getProcessInput().println("rollback;");

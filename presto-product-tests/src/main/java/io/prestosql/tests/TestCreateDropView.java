@@ -27,7 +27,7 @@ import static io.prestosql.tests.TestGroups.SMOKE;
 import static java.lang.String.format;
 
 @Requires(ImmutableNationTable.class)
-public class CreateDropViewTests
+public class TestCreateDropView
         extends ProductTest
 {
     @Test(groups = CREATE_DROP_VIEW)

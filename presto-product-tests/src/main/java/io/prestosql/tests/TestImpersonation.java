@@ -28,7 +28,7 @@ import static io.prestosql.tests.utils.QueryExecutors.connectToPresto;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
-public class ImpersonationTests
+public class TestImpersonation
         extends ProductTest
 {
     private QueryExecutor aliceExecutor;

@@ -59,10 +59,10 @@ import static java.sql.JDBCType.TINYINT;
 import static java.sql.JDBCType.VARBINARY;
 import static java.sql.JDBCType.VARCHAR;
 
-public class PreparedStatements
+public class TestPreparedStatements
         extends ProductTest
 {
-    private static final Logger LOGGER = Logger.get(PreparedStatements.class);
+    private static final Logger LOGGER = Logger.get(TestPreparedStatements.class);
     private static final String TABLE_NAME = "textfile_all_types";
     private static final String TABLE_NAME_MUTABLE = "all_types_table_name";
     private static final String INSERT_SQL = "INSERT INTO %s VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";

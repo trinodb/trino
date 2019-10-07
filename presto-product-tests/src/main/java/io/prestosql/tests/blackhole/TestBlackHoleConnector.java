@@ -24,7 +24,7 @@ import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.BLACKHOLE_CONNECTOR;
 import static java.lang.String.format;
 
-public class BlackHoleConnector
+public class TestBlackHoleConnector
 {
     @Test(groups = BLACKHOLE_CONNECTOR)
     public void blackHoleConnector()

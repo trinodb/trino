@@ -26,7 +26,7 @@ import java.sql.SQLException;
 import static io.prestosql.tempto.query.QueryExecutor.query;
 import static java.lang.String.format;
 
-public abstract class HivePartitioningTest
+public abstract class BaseHivePartitioningTest
         extends ProductTest
 {
     private QueryStatsClient queryStatsClient;

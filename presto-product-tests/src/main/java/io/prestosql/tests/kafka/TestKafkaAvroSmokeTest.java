@@ -46,7 +46,7 @@ import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.KAFKA;
 import static java.lang.String.format;
 
-public class KafkaAvroSmokeTest
+public class TestKafkaAvroSmokeTest
         extends ProductTest
 {
     private static final String KAFKA_CATALOG = "kafka";

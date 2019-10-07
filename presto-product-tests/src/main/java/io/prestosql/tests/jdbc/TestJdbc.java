@@ -65,10 +65,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-public class JdbcTests
+public class TestJdbc
         extends ProductTest
 {
-    private static final Logger LOGGER = Logger.get(JdbcTests.class);
+    private static final Logger LOGGER = Logger.get(TestJdbc.class);
     private static final String TABLE_NAME = "nation_table_name";
 
     @Inject

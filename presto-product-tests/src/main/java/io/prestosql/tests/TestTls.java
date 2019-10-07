@@ -37,7 +37,7 @@ import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
 
-public class TlsTests
+public class TestTls
 {
     @Inject(optional = true)
     @Named("databases.presto.http_port")
