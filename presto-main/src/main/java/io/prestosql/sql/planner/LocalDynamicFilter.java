@@ -129,10 +129,7 @@ public class LocalDynamicFilter
 
         Multimap<String, Symbol> probeSymbols = probeSymbolsBuilder.build();
         PlanNode buildNode = planNode.getRight();
-        Map<String, Integer> buildChannels = planNode
-                .getDynamicFilters()
-                .entrySet()
-                .stream()
+        Map<String, Integer> buildChannels = planNode.getDynamicFilters().entrySet().stream()
                 // Skip build channels that don't match local probe dynamic filters.
                 .filter(entry -> probeSymbols.containsKey(entry.getKey()))
                 .collect(toMap(

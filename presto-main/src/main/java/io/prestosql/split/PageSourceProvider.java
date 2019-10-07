@@ -25,9 +25,10 @@ import java.util.function.Supplier;
 
 public interface PageSourceProvider
 {
-    ConnectorPageSource createPageSource(Session session,
-                                         Split split,
-                                         TableHandle table,
-                                         List<ColumnHandle> columns,
-                                         Supplier<TupleDomain<ColumnHandle>> dynamicFilter);
+    ConnectorPageSource createPageSource(
+            Session session,
+            Split split,
+            TableHandle table,
+            List<ColumnHandle> columns,
+            Supplier<TupleDomain<ColumnHandle>> dynamicFilter);
 }

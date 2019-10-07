@@ -125,9 +125,9 @@ public class TestDynamicFilterSourceOperator
 
         Operator op1 = createOperator(operatorFactory); // will finish before noMoreOperators()
         verifyPassthrough(op1,
-                          ImmutableList.of(BIGINT),
-                          new Page(createLongsBlock(1, 2)),
-                          new Page(createLongsBlock(3, 5)));
+                ImmutableList.of(BIGINT),
+                new Page(createLongsBlock(1, 2)),
+                new Page(createLongsBlock(3, 5)));
 
         Operator op2 = createOperator(operatorFactory); // will finish after noMoreOperators()
         operatorFactory.noMoreOperators();
@@ -136,9 +136,9 @@ public class TestDynamicFilterSourceOperator
                         "0", Domain.multipleValues(BIGINT, ImmutableList.of(1L, 2L, 3L, 5L))))));
 
         verifyPassthrough(op2,
-                          ImmutableList.of(BIGINT),
-                          new Page(createLongsBlock(2, 3)),
-                          new Page(createLongsBlock(1, 4)));
+                ImmutableList.of(BIGINT),
+                new Page(createLongsBlock(2, 3)),
+                new Page(createLongsBlock(1, 4)));
 
         assertEquals(partitions.build(), ImmutableList.of(
                 TupleDomain.withColumnDomains(ImmutableMap.of(
@@ -152,9 +152,9 @@ public class TestDynamicFilterSourceOperator
     {
         OperatorFactory operatorFactory = createOperatorFactory(channel(0, BOOLEAN), channel(1, DOUBLE));
         verifyPassthrough(createOperator(operatorFactory),
-                          ImmutableList.of(BOOLEAN, DOUBLE),
-                          new Page(createBooleansBlock(true, 2), createDoublesBlock(1.5, 3.0)),
-                          new Page(createBooleansBlock(false, 1), createDoublesBlock(4.5)));
+                ImmutableList.of(BOOLEAN, DOUBLE),
+                new Page(createBooleansBlock(true, 2), createDoublesBlock(1.5, 3.0)),
+                new Page(createBooleansBlock(false, 1), createDoublesBlock(4.5)));
         operatorFactory.noMoreOperators();
 
         assertEquals(partitions.build(), ImmutableList.of(
@@ -168,9 +168,9 @@ public class TestDynamicFilterSourceOperator
     {
         OperatorFactory operatorFactory = createOperatorFactory(channel(0, BOOLEAN));
         verifyPassthrough(createOperator(operatorFactory),
-                          ImmutableList.of(BOOLEAN, DOUBLE),
-                          new Page(createBooleansBlock(true, 2), createDoublesBlock(1.5, 3.0)),
-                          new Page(createBooleansBlock(false, 1), createDoublesBlock(4.5)));
+                ImmutableList.of(BOOLEAN, DOUBLE),
+                new Page(createBooleansBlock(true, 2), createDoublesBlock(1.5, 3.0)),
+                new Page(createBooleansBlock(false, 1), createDoublesBlock(4.5)));
         operatorFactory.noMoreOperators();
 
         assertEquals(partitions.build(), ImmutableList.of(
@@ -183,9 +183,9 @@ public class TestDynamicFilterSourceOperator
     {
         OperatorFactory operatorFactory = createOperatorFactory(channel(1, DOUBLE));
         verifyPassthrough(createOperator(operatorFactory),
-                          ImmutableList.of(BOOLEAN, DOUBLE),
-                          new Page(createBooleansBlock(true, 2), createDoublesBlock(1.5, 3.0)),
-                          new Page(createBooleansBlock(false, 1), createDoublesBlock(4.5)));
+                ImmutableList.of(BOOLEAN, DOUBLE),
+                new Page(createBooleansBlock(true, 2), createDoublesBlock(1.5, 3.0)),
+                new Page(createBooleansBlock(false, 1), createDoublesBlock(4.5)));
         operatorFactory.noMoreOperators();
 
         assertEquals(partitions.build(), ImmutableList.of(
@@ -205,10 +205,10 @@ public class TestDynamicFilterSourceOperator
 
         OperatorFactory operatorFactory = createOperatorFactory(channel(0, INTEGER));
         verifyPassthrough(createOperator(operatorFactory),
-                          ImmutableList.of(INTEGER),
-                          new Page(createLongsBlock(1, 2, 3)),
-                          new Page(blockWithNulls),
-                          new Page(createLongsBlock(4, 5)));
+                ImmutableList.of(INTEGER),
+                new Page(createLongsBlock(1, 2, 3)),
+                new Page(blockWithNulls),
+                new Page(createLongsBlock(4, 5)));
         operatorFactory.noMoreOperators();
 
         assertEquals(partitions.build(), ImmutableList.of(
@@ -221,8 +221,8 @@ public class TestDynamicFilterSourceOperator
     {
         OperatorFactory operatorFactory = createOperatorFactory();
         verifyPassthrough(createOperator(operatorFactory),
-                          ImmutableList.of(BIGINT),
-                          new Page(createLongsBlock(1, 2, 3)));
+                ImmutableList.of(BIGINT),
+                new Page(createLongsBlock(1, 2, 3)));
         operatorFactory.noMoreOperators();
         assertEquals(partitions.build(), ImmutableList.of(TupleDomain.all()));
     }
@@ -232,7 +232,7 @@ public class TestDynamicFilterSourceOperator
     {
         OperatorFactory operatorFactory = createOperatorFactory(channel(0, BIGINT));
         verifyPassthrough(createOperator(operatorFactory),
-                          ImmutableList.of(BIGINT));
+                ImmutableList.of(BIGINT));
         operatorFactory.noMoreOperators();
         assertEquals(partitions.build(), ImmutableList.of(TupleDomain.none()));
     }
@@ -245,8 +245,8 @@ public class TestDynamicFilterSourceOperator
 
         OperatorFactory operatorFactory = createOperatorFactory(channel(0, BIGINT));
         verifyPassthrough(createOperator(operatorFactory),
-                          ImmutableList.of(BIGINT),
-                          largePage);
+                ImmutableList.of(BIGINT),
+                largePage);
         operatorFactory.noMoreOperators();
         assertEquals(partitions.build(), ImmutableList.of(TupleDomain.all()));
     }
@@ -259,8 +259,8 @@ public class TestDynamicFilterSourceOperator
 
         OperatorFactory operatorFactory = createOperatorFactory(channel(0, VARCHAR));
         verifyPassthrough(createOperator(operatorFactory),
-                          ImmutableList.of(VARCHAR),
-                          largePage);
+                ImmutableList.of(VARCHAR),
+                largePage);
         operatorFactory.noMoreOperators();
         assertEquals(partitions.build(), ImmutableList.of(TupleDomain.all()));
     }
@@ -270,13 +270,13 @@ public class TestDynamicFilterSourceOperator
     {
         final long maxByteSize = getDynamicFilteringMaxPerDriverSize(pipelineContext.getSession()).toBytes();
         Page largePage = new Page(createStringsBlock(repeat("A", (int) (maxByteSize / 2) + 1)),
-                                  createStringsBlock(repeat("B", (int) (maxByteSize / 2) + 1)));
+                createStringsBlock(repeat("B", (int) (maxByteSize / 2) + 1)));
 
         OperatorFactory operatorFactory = createOperatorFactory(channel(0, VARCHAR),
-                                                                channel(1, VARCHAR));
+                channel(1, VARCHAR));
         verifyPassthrough(createOperator(operatorFactory),
-                          ImmutableList.of(VARCHAR, VARCHAR),
-                          largePage);
+                ImmutableList.of(VARCHAR, VARCHAR),
+                largePage);
         operatorFactory.noMoreOperators();
         assertEquals(partitions.build(), ImmutableList.of(TupleDomain.all()));
     }
@@ -290,8 +290,8 @@ public class TestDynamicFilterSourceOperator
 
         OperatorFactory operatorFactory = createOperatorFactory(channel(0, BIGINT));
         verifyPassthrough(createOperator(operatorFactory),
-                          ImmutableList.of(BIGINT),
-                          largePage, nullsPage);
+                ImmutableList.of(BIGINT),
+                largePage, nullsPage);
         operatorFactory.noMoreOperators();
         assertEquals(partitions.build(), ImmutableList.of(
                 TupleDomain.withColumnDomains(ImmutableMap.of(

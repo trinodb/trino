@@ -197,8 +197,8 @@ public class TypedSet
             throw new PrestoException(
                     EXCEEDED_FUNCTION_MEMORY_LIMIT,
                     format("The input to %s is too large. More than %s of memory is needed to hold the intermediate hash set.\n",
-                           functionName,
-                           MAX_FUNCTION_MEMORY));
+                            functionName,
+                            MAX_FUNCTION_MEMORY));
         }
         blockPositionByHash.set(hashPosition, elementBlock.getPositionCount() - 1);
 
