@@ -16,6 +16,13 @@ matrix:
     - env: WEBUI_CHECKS=true
     - env: TEST_SPECIFIC_MODULES=presto-main
     - env: TEST_SPECIFIC_MODULES=presto-tests
+    # Product tests are long. Start them early to reduce overall build latency.
+    - env: PRODUCT_TESTS_SUITE=suite-1
+    - env: PRODUCT_TESTS_SUITE=suite-2
+    - env: PRODUCT_TESTS_SUITE=suite-3
+    - env: PRODUCT_TESTS_SUITE=suite-5
+    - env: PRODUCT_TESTS_SUITE=suite-6-non-generic
+    - env: PRODUCT_TESTS_SUITE=suite-7-non-generic
     - env: TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P ci-only"
     - env: TEST_SPECIFIC_MODULES=presto-raptor-legacy
     - env: TEST_SPECIFIC_MODULES=presto-accumulo
@@ -26,12 +33,6 @@ matrix:
     - env: TEST_SPECIFIC_MODULES=presto-sqlserver,presto-postgresql,presto-mysql
     - env: TEST_SPECIFIC_MODULES=presto-phoenix,presto-iceberg
     - env: TEST_OTHER_MODULES=!presto-main,!presto-tests,!presto-raptor-legacy,!presto-accumulo,!presto-cassandra,!presto-hive,!presto-orc,!presto-parquet,!presto-mongodb,!presto-kafka,!presto-elasticsearch,!presto-redis,!presto-sqlserver,!presto-postgresql,!presto-mysql,!presto-phoenix,!presto-iceberg,!presto-kudu,!presto-docs,!presto-server,!presto-server-rpm
-    - env: PRODUCT_TESTS_SUITE=suite-1
-    - env: PRODUCT_TESTS_SUITE=suite-2
-    - env: PRODUCT_TESTS_SUITE=suite-3
-    - env: PRODUCT_TESTS_SUITE=suite-5
-    - env: PRODUCT_TESTS_SUITE=suite-6-non-generic
-    - env: PRODUCT_TESTS_SUITE=suite-7-non-generic
     - env: HIVE_TESTS=true
     - env: KUDU_TESTS=true
 
