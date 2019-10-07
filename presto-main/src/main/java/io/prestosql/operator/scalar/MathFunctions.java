@@ -13,7 +13,10 @@
  */
 package io.prestosql.operator.scalar;
 
+import com.google.common.math.LongMath;
 import com.google.common.primitives.Doubles;
+import com.google.common.primitives.Shorts;
+import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
@@ -34,6 +37,7 @@ import org.apache.commons.math3.distribution.BetaDistribution;
 import org.apache.commons.math3.special.Erf;
 
 import java.math.BigInteger;
+import java.math.RoundingMode;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static io.airlift.slice.Slices.utf8Slice;
@@ -60,6 +64,7 @@ import static java.lang.Character.MAX_RADIX;
 import static java.lang.Character.MIN_RADIX;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
 public final class MathFunctions
@@ -690,8 +695,13 @@ public final class MathFunctions
     @SqlType(StandardTypes.TINYINT)
     public static long roundTinyint(@SqlType(StandardTypes.TINYINT) long num, @SqlType(StandardTypes.INTEGER) long decimals)
     {
-        // TODO implement support for `decimals < 0`
-        return num;
+        long rounded = roundLong(num, decimals);
+        try {
+            return SignedBytes.checkedCast(rounded);
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for tinyint: " + rounded, e);
+        }
     }
 
     @Description("round to nearest integer")
@@ -699,8 +709,13 @@ public final class MathFunctions
     @SqlType(StandardTypes.SMALLINT)
     public static long roundSmallint(@SqlType(StandardTypes.SMALLINT) long num, @SqlType(StandardTypes.INTEGER) long decimals)
     {
-        // TODO implement support for `decimals < 0`
-        return num;
+        long rounded = roundLong(num, decimals);
+        try {
+            return Shorts.checkedCast(rounded);
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for smallint: " + rounded, e);
+        }
     }
 
     @Description("round to nearest integer")
@@ -708,8 +723,13 @@ public final class MathFunctions
     @SqlType(StandardTypes.INTEGER)
     public static long roundInteger(@SqlType(StandardTypes.INTEGER) long num, @SqlType(StandardTypes.INTEGER) long decimals)
     {
-        // TODO implement support for `decimals < 0`
-        return num;
+        long rounded = roundLong(num, decimals);
+        try {
+            return toIntExact(rounded);
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for integer: " + rounded, e);
+        }
     }
 
     @Description("round to nearest integer")
@@ -717,8 +737,22 @@ public final class MathFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long round(@SqlType(StandardTypes.BIGINT) long num, @SqlType(StandardTypes.INTEGER) long decimals)
     {
-        // TODO implement support for `decimals < 0`
-        return num;
+        return roundLong(num, decimals);
+    }
+
+    private static long roundLong(long num, long decimals)
+    {
+        if (decimals >= 0) {
+            return num;
+        }
+
+        try {
+            long factor = LongMath.checkedPow(10, toIntExact(-decimals));
+            return Math.multiplyExact(LongMath.divide(num, factor, RoundingMode.HALF_UP), factor);
+        }
+        catch (ArithmeticException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "numerical overflow: " + num, e);
+        }
     }
 
     @Description("round to nearest integer")
