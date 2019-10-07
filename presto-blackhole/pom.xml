@@ -27,6 +27,11 @@
             <artifactId>concurrent</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>units-validation</artifactId>
+        </dependency>
+
         <!-- used by tests but also needed transitively -->
         <dependency>
             <groupId>io.airlift</groupId>
@@ -51,11 +56,6 @@
             <groupId>io.airlift</groupId>
             <artifactId>units-units</artifactId>
             <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>units-validation</artifactId>
         </dependency>
 
         <dependency>

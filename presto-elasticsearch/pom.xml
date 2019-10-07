@@ -80,6 +80,11 @@
         </dependency>
 
         <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>units-validation</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>org.elasticsearch.client</groupId>
             <artifactId>elasticsearch-rest-high-level-client</artifactId>
             <version>${dep.elasticsearch.version}</version>
@@ -184,11 +189,6 @@
             <groupId>io.airlift</groupId>
             <artifactId>units-units</artifactId>
             <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>units-validation</artifactId>
         </dependency>
 
         <dependency>

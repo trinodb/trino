@@ -37,6 +37,11 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
+            <artifactId>units-validation</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
             <artifactId>bootstrap</artifactId>
         </dependency>
 
@@ -104,11 +109,6 @@
             <groupId>io.airlift</groupId>
             <artifactId>units-units</artifactId>
             <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>units-validation</artifactId>
         </dependency>
 
         <dependency>

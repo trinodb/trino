@@ -84,6 +84,11 @@
         </dependency>
 
         <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>units-validation</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
         </dependency>
@@ -124,11 +129,6 @@
             <groupId>io.airlift</groupId>
             <artifactId>units-units</artifactId>
             <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>units-validation</artifactId>
         </dependency>
 
         <dependency>

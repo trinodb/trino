@@ -84,6 +84,11 @@
             <artifactId>validation-api</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>units-validation</artifactId>
+        </dependency>
+
         <!-- Presto SPI -->
         <dependency>
             <groupId>io.prestosql</groupId>
@@ -101,11 +106,6 @@
             <groupId>io.airlift</groupId>
             <artifactId>units-units</artifactId>
             <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>units-validation</artifactId>
         </dependency>
 
         <dependency>
