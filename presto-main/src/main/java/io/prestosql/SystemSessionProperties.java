@@ -513,7 +513,7 @@ public final class SystemSessionProperties
                         false),
                 booleanProperty(
                         ENABLE_DYNAMIC_FILTERING,
-                        "Enable dynamic filtering",
+                        "Experimental: Enable dynamic filtering",
                         featuresConfig.isEnableDynamicFiltering(),
                         false),
                 dataSizeProperty(
