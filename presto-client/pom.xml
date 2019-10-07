@@ -49,7 +49,7 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>units-units</artifactId>
+            <artifactId>units</artifactId>
         </dependency>
 
         <dependency>

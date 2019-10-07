@@ -44,7 +44,7 @@
         <air.maven.version>3.3.9</air.maven.version>
 
         <dep.antlr.version>4.7.1</dep.antlr.version>
-        <dep.airlift.version>0.184</dep.airlift.version>
+        <dep.airlift.version>0.185-SNAPSHOT</dep.airlift.version>
         <dep.units.version>1.4-SNAPSHOT</dep.units.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.36</dep.slice.version>
@@ -508,7 +508,7 @@
 
             <dependency>
                 <groupId>io.airlift</groupId>
-                <artifactId>units-units</artifactId>
+                <artifactId>units</artifactId>
                 <version>${dep.units.version}</version>
             </dependency>
 
