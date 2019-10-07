@@ -16,7 +16,7 @@ package io.prestosql.failuredetector;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.Duration;
-import io.airlift.units.MinDuration;
+import io.airlift.unitsvalidation.MinDuration;
 
 import javax.validation.constraints.DecimalMax;
 import javax.validation.constraints.DecimalMin;

@@ -20,8 +20,8 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.airlift.units.MaxDataSize;
-import io.airlift.units.MinDataSize;
+import io.airlift.unitsvalidation.MaxDataSize;
+import io.airlift.unitsvalidation.MinDataSize;
 import org.joda.time.DateTimeZone;
 
 import javax.annotation.Nullable;

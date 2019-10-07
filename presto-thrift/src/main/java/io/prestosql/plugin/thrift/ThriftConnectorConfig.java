@@ -15,8 +15,8 @@ package io.prestosql.plugin.thrift;
 
 import io.airlift.configuration.Config;
 import io.airlift.units.DataSize;
-import io.airlift.units.MaxDataSize;
-import io.airlift.units.MinDataSize;
+import io.airlift.unitsvalidation.MaxDataSize;
+import io.airlift.unitsvalidation.MinDataSize;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;

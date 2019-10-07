@@ -19,8 +19,8 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.airlift.units.MinDataSize;
-import io.airlift.units.MinDuration;
+import io.airlift.unitsvalidation.MinDataSize;
+import io.airlift.unitsvalidation.MinDuration;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;

@@ -23,8 +23,8 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.Duration;
-import io.airlift.units.MaxDuration;
-import io.airlift.units.MinDuration;
+import io.airlift.unitsvalidation.MaxDuration;
+import io.airlift.unitsvalidation.MinDuration;
 
 import javax.annotation.Nullable;
 import javax.validation.constraints.Min;

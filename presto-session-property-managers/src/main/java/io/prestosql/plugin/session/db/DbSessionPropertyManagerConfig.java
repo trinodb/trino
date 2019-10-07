@@ -16,7 +16,7 @@ package io.prestosql.plugin.session.db;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.units.Duration;
-import io.airlift.units.MinDuration;
+import io.airlift.unitsvalidation.MinDuration;
 
 import javax.annotation.Nullable;
 import javax.validation.constraints.NotNull;

@@ -13,7 +13,7 @@
  */
 package io.prestosql.util;
 
-import io.airlift.units.MinDataSize;
+import io.airlift.unitsvalidation.MinDataSize;
 
 import javax.validation.Payload;
 

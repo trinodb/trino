@@ -17,7 +17,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
 import io.airlift.units.Duration;
-import io.airlift.units.MinDuration;
+import io.airlift.unitsvalidation.MinDuration;
 import io.prestosql.plugin.jdbc.credential.CredentialProviderType;
 
 import javax.annotation.Nullable;

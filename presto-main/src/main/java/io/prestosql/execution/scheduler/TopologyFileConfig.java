@@ -15,7 +15,7 @@ package io.prestosql.execution.scheduler;
 
 import io.airlift.configuration.Config;
 import io.airlift.units.Duration;
-import io.airlift.units.MinDuration;
+import io.airlift.unitsvalidation.MinDuration;
 
 import java.io.File;
 

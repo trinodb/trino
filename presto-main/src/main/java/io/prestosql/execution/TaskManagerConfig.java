@@ -20,8 +20,8 @@ import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
-import io.airlift.units.MaxDuration;
-import io.airlift.units.MinDuration;
+import io.airlift.unitsvalidation.MaxDuration;
+import io.airlift.unitsvalidation.MinDuration;
 import io.prestosql.util.PowerOfTwo;
 
 import javax.validation.constraints.Min;

@@ -18,7 +18,7 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.Duration;
-import io.airlift.units.MinDuration;
+import io.airlift.unitsvalidation.MinDuration;
 
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;

@@ -19,7 +19,7 @@ import io.airlift.configuration.Config;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
-import io.airlift.units.MinDuration;
+import io.airlift.unitsvalidation.MinDuration;
 import io.prestosql.spi.HostAddress;
 
 import javax.validation.constraints.NotNull;
