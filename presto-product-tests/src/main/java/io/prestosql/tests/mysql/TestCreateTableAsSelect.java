@@ -30,7 +30,7 @@ import static io.prestosql.tests.TestGroups.MYSQL;
 import static io.prestosql.tests.utils.QueryExecutors.onMySql;
 import static java.lang.String.format;
 
-public class CreateTableAsSelect
+public class TestCreateTableAsSelect
         extends ProductTest
 {
     private static final String TABLE_NAME = "test.nation_tmp";

@@ -29,7 +29,7 @@ import static java.sql.JDBCType.BIGINT;
 import static java.sql.JDBCType.TIMESTAMP;
 import static java.sql.JDBCType.VARCHAR;
 
-public class SystemConnectorTests
+public class TestSystemConnector
         extends ProductTest
 {
     @Test(groups = {SYSTEM_CONNECTOR, JDBC})

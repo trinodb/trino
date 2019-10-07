@@ -21,7 +21,7 @@ import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tests.TestGroups.FUNCTIONS;
 import static io.prestosql.tests.utils.QueryExecutors.onPresto;
 
-public class ProductTestFunctions
+public class TestFunctions
         extends ProductTest
 {
     @Test(groups = FUNCTIONS)

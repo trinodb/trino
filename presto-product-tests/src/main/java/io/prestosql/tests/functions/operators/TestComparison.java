@@ -24,7 +24,7 @@ import static io.prestosql.tests.TestGroups.COMPARISON;
 import static io.prestosql.tests.TestGroups.QUERY_ENGINE;
 import static java.lang.String.format;
 
-public class Comparison
+public class TestComparison
         extends ProductTest
 {
     @DataProvider(name = "operands")

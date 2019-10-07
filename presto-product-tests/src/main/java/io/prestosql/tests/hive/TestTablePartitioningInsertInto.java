@@ -32,7 +32,7 @@ import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTablePartitioningInsertInto
-        extends HivePartitioningTest
+        extends BaseHivePartitioningTest
         implements RequirementsProvider
 {
     private static final String TARGET_NATION_NAME = "target_nation_test";

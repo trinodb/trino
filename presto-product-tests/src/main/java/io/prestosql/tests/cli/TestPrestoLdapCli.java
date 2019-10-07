@@ -51,7 +51,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class PrestoLdapCliTests
+public class TestPrestoLdapCli
         extends PrestoCliLauncher
         implements RequirementsProvider
 {
@@ -75,7 +75,7 @@ public class PrestoLdapCliTests
     @Named("databases.presto.cli_ldap_user_password")
     private String ldapUserPassword;
 
-    public PrestoLdapCliTests()
+    public TestPrestoLdapCli()
             throws IOException
     {}
 

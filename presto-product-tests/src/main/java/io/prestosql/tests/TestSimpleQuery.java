@@ -32,7 +32,7 @@ import static io.prestosql.tests.TestGroups.SIMPLE;
 import static io.prestosql.tests.TestGroups.SMOKE;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class SimpleQueryTest
+public class TestSimpleQuery
         extends ProductTest
 {
     private static class SimpleTestRequirements

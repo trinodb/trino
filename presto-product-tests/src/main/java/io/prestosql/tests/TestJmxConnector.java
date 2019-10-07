@@ -23,7 +23,7 @@ import static io.prestosql.tests.TestGroups.JMX_CONNECTOR;
 import static java.sql.JDBCType.BIGINT;
 import static java.sql.JDBCType.VARCHAR;
 
-public class JmxConnectorTests
+public class TestJmxConnector
         extends ProductTest
 {
     @Test(groups = {JMX_CONNECTOR, JDBC})

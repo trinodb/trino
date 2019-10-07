@@ -42,7 +42,7 @@ import static java.lang.Double.doubleToRawLongBits;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.String.format;
 
-public class KafkaSmokeTest
+public class TestKafkaSmokeTest
         extends ProductTest
 {
     private static final String KAFKA_CATALOG = "kafka";

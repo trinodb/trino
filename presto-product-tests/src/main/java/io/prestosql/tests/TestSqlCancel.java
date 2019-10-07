@@ -54,7 +54,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.fail;
 
-public class SqlCancelTests
+public class TestSqlCancel
         extends ProductTest
 {
     private ExecutorService executor;
