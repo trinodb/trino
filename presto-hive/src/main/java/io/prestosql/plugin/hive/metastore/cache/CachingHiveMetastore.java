@@ -118,7 +118,7 @@ public class CachingHiveMetastore
                 delegate,
                 executor,
                 OptionalLong.of(cacheTtl.toMillis()),
-                refreshInterval.toMillis() >= cacheTtl.toMillis() ? OptionalLong.empty() : OptionalLong.of(refreshInterval.toMillis()),
+                OptionalLong.of(refreshInterval.toMillis()),
                 maximumSize);
     }
 
