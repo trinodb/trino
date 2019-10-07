@@ -139,7 +139,9 @@ public class TestSqlParserErrorHandling
                 {"SHOW CATALOGS LIKE '%$_%' ESCAPE",
                         "line 1:33: mismatched input '<EOF>'. Expecting: <string>"},
                 {"SHOW FUNCTIONS LIKE '%$_%' ESCAPE",
-                        "line 1:34: mismatched input '<EOF>'. Expecting: <string>"}
+                        "line 1:34: mismatched input '<EOF>'. Expecting: <string>"},
+                {"SHOW SESSION LIKE '%$_%' ESCAPE",
+                        "line 1:32: mismatched input '<EOF>'. Expecting: <string>"}
         };
     }
 

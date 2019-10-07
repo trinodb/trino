@@ -127,6 +127,7 @@ import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.prestosql.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.prestosql.sql.tree.LogicalBinaryExpression.and;
 import static io.prestosql.sql.tree.ShowCreate.Type.TABLE;
 import static io.prestosql.sql.tree.ShowCreate.Type.VIEW;
 import static java.lang.String.format;
@@ -615,6 +616,15 @@ final class ShowQueriesRewrite
             // add bogus row so we can support empty sessions
             rows.add(row(new StringLiteral(""), new StringLiteral(""), new StringLiteral(""), new StringLiteral(""), new StringLiteral(""), FALSE_LITERAL));
 
+            Expression predicate = identifier("include");
+            Optional<String> likePattern = node.getLikePattern();
+            if (likePattern.isPresent()) {
+                predicate = and(predicate, new LikePredicate(
+                        identifier("name"),
+                        new StringLiteral(likePattern.get()),
+                        node.getEscape().map(StringLiteral::new)));
+            }
+
             return simpleQuery(
                     selectList(
                             aliasedName("name", "Name"),
@@ -626,7 +636,7 @@ final class ShowQueriesRewrite
                             new Values(rows.build()),
                             "session",
                             ImmutableList.of("name", "value", "default", "type", "description", "include")),
-                    identifier("include"));
+                    predicate);
         }
 
         private Query parseView(String view, QualifiedObjectName name, Node node)
