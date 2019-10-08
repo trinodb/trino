@@ -842,6 +842,8 @@ class AstBuilder
     {
         return new ShowCatalogs(getLocation(context),
                 getTextIfPresent(context.pattern)
+                        .map(AstBuilder::unquote),
+                getTextIfPresent(context.escape)
                         .map(AstBuilder::unquote));
     }
 
