@@ -13,6 +13,7 @@
  */
 package io.prestosql.dispatcher;
 
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
@@ -31,6 +32,7 @@ import io.prestosql.server.SessionContext;
 import io.prestosql.server.protocol.Slug;
 import io.prestosql.spi.ErrorCode;
 import io.prestosql.spi.QueryId;
+import org.assertj.core.util.VisibleForTesting;
 
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
@@ -53,6 +55,7 @@ import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
 
 import java.net.URI;
+import java.util.List;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -241,9 +244,16 @@ public class QueuedStatementResource
                 .build();
     }
 
-    private static String getScheme(String xForwardedProto, @Context UriInfo uriInfo)
+    @VisibleForTesting
+    public static String getScheme(String xForwardedProto, @Context UriInfo uriInfo)
     {
-        return isNullOrEmpty(xForwardedProto) ? uriInfo.getRequestUri().getScheme() : xForwardedProto;
+        if (!isNullOrEmpty(xForwardedProto)) {
+            List<String> protos = Splitter.on(",").trimResults().omitEmptyStrings().splitToList(xForwardedProto);
+            if (!protos.isEmpty()) {
+                return protos.get(0);
+            }
+        }
+        return uriInfo.getRequestUri().getScheme();
     }
 
     private static QueryResults createQueryResults(
