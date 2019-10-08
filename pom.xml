@@ -1304,7 +1304,7 @@
             <plugin>
                 <groupId>io.prestosql</groupId>
                 <artifactId>presto-maven-plugin</artifactId>
-                <version>6</version>
+                <version>8</version>
                 <extensions>true</extensions>
             </plugin>
 
