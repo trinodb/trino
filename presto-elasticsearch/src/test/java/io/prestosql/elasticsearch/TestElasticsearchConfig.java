@@ -23,6 +23,7 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.prestosql.elasticsearch.ElasticsearchConfig.Security.AWS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -46,7 +47,8 @@ public class TestElasticsearchConfig
                 .setKeystorePassword(null)
                 .setTrustStorePath(null)
                 .setTruststorePassword(null)
-                .setVerifyHostnames(true));
+                .setVerifyHostnames(true)
+                .setSecurity(null));
     }
 
     @Test
@@ -68,6 +70,7 @@ public class TestElasticsearchConfig
                 .put("elasticsearch.tls.truststore-path", "/tmp/truststore")
                 .put("elasticsearch.tls.truststore-password", "truststore-password")
                 .put("elasticsearch.tls.verify-hostnames", "false")
+                .put("elasticsearch.security", "AWS")
                 .build();
 
         ElasticsearchConfig expected = new ElasticsearchConfig()
@@ -85,7 +88,8 @@ public class TestElasticsearchConfig
                 .setKeystorePassword("keystore-password")
                 .setTrustStorePath(new File("/tmp/truststore"))
                 .setTruststorePassword("truststore-password")
-                .setVerifyHostnames(false);
+                .setVerifyHostnames(false)
+                .setSecurity(AWS);
 
         assertFullMapping(properties, expected);
     }
