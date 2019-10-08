@@ -712,7 +712,7 @@ public final class SystemSessionProperties
             return OptionalInt.empty();
         }
         else {
-            checkArgument(result > 0, "Concurrent lifespans per node must be positive if set to non-zero");
+            checkArgument(result > 0, "Concurrent lifespans per node is negative: %s", result);
             return OptionalInt.of(result);
         }
     }
