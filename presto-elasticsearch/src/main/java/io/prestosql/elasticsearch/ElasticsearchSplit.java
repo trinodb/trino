@@ -20,6 +20,7 @@ import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.connector.ConnectorSplit;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -28,12 +29,12 @@ public class ElasticsearchSplit
         implements ConnectorSplit
 {
     private final int shard;
-    private final String address;
+    private final Optional<String> address;
 
     @JsonCreator
     public ElasticsearchSplit(
             @JsonProperty("shard") int shard,
-            @JsonProperty("address") String address)
+            @JsonProperty("address") Optional<String> address)
     {
         this.shard = shard;
         this.address = requireNonNull(address, "address is null");
@@ -46,7 +47,7 @@ public class ElasticsearchSplit
     }
 
     @JsonProperty
-    public String getAddress()
+    public Optional<String> getAddress()
     {
         return address;
     }
@@ -60,7 +61,8 @@ public class ElasticsearchSplit
     @Override
     public List<HostAddress> getAddresses()
     {
-        return ImmutableList.of(HostAddress.fromString(address));
+        return address.map(host -> ImmutableList.of(HostAddress.fromString(host)))
+                .orElseGet(ImmutableList::of);
     }
 
     @Override
