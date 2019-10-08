@@ -558,6 +558,13 @@ final class ShowQueriesRewrite
                             .map(entry -> aliasedName(entry.getKey(), entry.getValue()))
                             .collect(toImmutableList())),
                     aliased(new Values(rows), "functions", ImmutableList.copyOf(columns.keySet())),
+                    node.getLikePattern().map(like ->
+                            new LikePredicate(
+                                    identifier("function_name"),
+                                    new StringLiteral(like),
+                                    node.getEscape().map(StringLiteral::new)))
+                            .map(Expression.class::cast)
+                            .orElse(TRUE_LITERAL),
                     ordering(
                             new SortItem(
                                     functionCall("lower", identifier("function_name")),
