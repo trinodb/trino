@@ -17,7 +17,7 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.configuration.ConfigurationFactory;
-import io.prestosql.plugin.jdbc.BaseJdbcConfig;
+import io.prestosql.plugin.jdbc.BaseJdbcAuthenticationConfig;
 import io.prestosql.plugin.jdbc.credential.file.ConfigFileBasedCredentialProviderConfig;
 import io.prestosql.plugin.jdbc.credential.keystore.KeyStoreBasedCredentialProviderConfig;
 
@@ -50,6 +50,7 @@ public class CredentialProviderModule
     @Override
     protected void setup(Binder binder)
     {
+        configBinder(binder).bindConfig(BaseJdbcAuthenticationConfig.class);
         bindCredentialProviderModule(
                 INLINE,
                 internalBinder -> {
@@ -74,7 +75,7 @@ public class CredentialProviderModule
     private void bindCredentialProviderModule(CredentialProviderType name, Module module)
     {
         install(installModuleIf(
-                BaseJdbcConfig.class,
+                BaseJdbcAuthenticationConfig.class,
                 config -> name.equals(config.getCredentialProviderType()),
                 module));
     }

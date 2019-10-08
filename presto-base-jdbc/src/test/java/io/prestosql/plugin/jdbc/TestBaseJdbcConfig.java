@@ -23,8 +23,6 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static io.prestosql.plugin.jdbc.credential.CredentialProviderType.FILE;
-import static io.prestosql.plugin.jdbc.credential.CredentialProviderType.INLINE;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
@@ -36,11 +34,8 @@ public class TestBaseJdbcConfig
     {
         assertRecordedDefaults(recordDefaults(BaseJdbcConfig.class)
                 .setConnectionUrl(null)
-                .setUserCredentialName(null)
-                .setPasswordCredentialName(null)
                 .setCaseInsensitiveNameMatching(false)
                 .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES))
-                .setCredentialProviderType(INLINE)
                 .setJdbcTypesMappedToVarchar(null));
     }
 
@@ -49,21 +44,15 @@ public class TestBaseJdbcConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("connection-url", "jdbc:h2:mem:config")
-                .put("user-credential-name", "foo")
-                .put("password-credential-name", "bar")
                 .put("case-insensitive-name-matching", "true")
                 .put("case-insensitive-name-matching.cache-ttl", "1s")
-                .put("credential-provider.type", "FILE")
                 .put("jdbc-types-mapped-to-varchar", "mytype,struct_type1")
                 .build();
 
         BaseJdbcConfig expected = new BaseJdbcConfig()
                 .setConnectionUrl("jdbc:h2:mem:config")
-                .setUserCredentialName("foo")
-                .setPasswordCredentialName("bar")
                 .setCaseInsensitiveNameMatching(true)
                 .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, SECONDS))
-                .setCredentialProviderType(FILE)
                 .setJdbcTypesMappedToVarchar("mytype, struct_type1");
 
         assertFullMapping(properties, expected);

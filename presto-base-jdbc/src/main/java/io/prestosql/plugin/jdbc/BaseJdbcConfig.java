@@ -18,26 +18,19 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
-import io.prestosql.plugin.jdbc.credential.CredentialProviderType;
 
-import javax.annotation.Nullable;
 import javax.validation.constraints.NotNull;
 
 import java.util.Set;
 
 import static com.google.common.base.Strings.nullToEmpty;
-import static io.prestosql.plugin.jdbc.credential.CredentialProviderType.INLINE;
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class BaseJdbcConfig
 {
     private String connectionUrl;
-    private String userCredentialName;
-    private String passwordCredentialName;
     private boolean caseInsensitiveNameMatching;
     private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
-    private CredentialProviderType credentialProviderType = INLINE;
     private Set<String> jdbcTypesMappedToVarchar = ImmutableSet.of();
 
     @NotNull
@@ -50,32 +43,6 @@ public class BaseJdbcConfig
     public BaseJdbcConfig setConnectionUrl(String connectionUrl)
     {
         this.connectionUrl = connectionUrl;
-        return this;
-    }
-
-    @Nullable
-    public String getUserCredentialName()
-    {
-        return userCredentialName;
-    }
-
-    @Config("user-credential-name")
-    public BaseJdbcConfig setUserCredentialName(String userCredentialName)
-    {
-        this.userCredentialName = userCredentialName;
-        return this;
-    }
-
-    @Nullable
-    public String getPasswordCredentialName()
-    {
-        return passwordCredentialName;
-    }
-
-    @Config("password-credential-name")
-    public BaseJdbcConfig setPasswordCredentialName(String passwordCredentialName)
-    {
-        this.passwordCredentialName = passwordCredentialName;
         return this;
     }
 
@@ -102,19 +69,6 @@ public class BaseJdbcConfig
     public BaseJdbcConfig setCaseInsensitiveNameMatchingCacheTtl(Duration caseInsensitiveNameMatchingCacheTtl)
     {
         this.caseInsensitiveNameMatchingCacheTtl = caseInsensitiveNameMatchingCacheTtl;
-        return this;
-    }
-
-    @NotNull
-    public CredentialProviderType getCredentialProviderType()
-    {
-        return credentialProviderType;
-    }
-
-    @Config("credential-provider.type")
-    public BaseJdbcConfig setCredentialProviderType(CredentialProviderType credentialProviderType)
-    {
-        this.credentialProviderType = requireNonNull(credentialProviderType, "credentialProviderType is null");
         return this;
     }
 
