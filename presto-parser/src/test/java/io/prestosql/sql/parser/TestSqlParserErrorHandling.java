@@ -137,7 +137,9 @@ public class TestSqlParserErrorHandling
                                 "'GROUP', 'HAVING', 'INTERSECT', 'LIMIT', 'OFFSET', 'OR', 'ORDER', 'SELECT', 'TABLE', 'UNION', 'VALUES', 'WHERE', '[', '||', <EOF>, " +
                                 "<identifier>, <predicate>"},
                 {"SHOW CATALOGS LIKE '%$_%' ESCAPE",
-                        "line 1:33: mismatched input '<EOF>'. Expecting: <string>"}
+                        "line 1:33: mismatched input '<EOF>'. Expecting: <string>"},
+                {"SHOW FUNCTIONS LIKE '%$_%' ESCAPE",
+                        "line 1:34: mismatched input '<EOF>'. Expecting: <string>"}
         };
     }
 
