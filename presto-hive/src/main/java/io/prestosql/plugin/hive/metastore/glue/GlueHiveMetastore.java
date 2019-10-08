@@ -915,6 +915,6 @@ public class GlueHiveMetastore
     @Override
     public boolean isImpersonationEnabled()
     {
-        throw new PrestoException(NOT_SUPPORTED, "isImpersonationEnabled is not supported by Glue");
+        return false;
     }
 }
