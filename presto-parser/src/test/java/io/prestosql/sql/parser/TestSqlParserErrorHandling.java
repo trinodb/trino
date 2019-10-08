@@ -139,7 +139,9 @@ public class TestSqlParserErrorHandling
                 {"WITH t AS (SELECT 1 SELECT t.* FROM t",
                         "line 1:21: mismatched input 'SELECT'. Expecting: '%', '(', ')', '*', '+', ',', '-', '.', '/', 'AND', 'AS', 'AT', 'EXCEPT', 'FETCH', 'FROM', " +
                                 "'GROUP', 'HAVING', 'INTERSECT', 'LIMIT', 'OFFSET', 'OR', 'ORDER', 'SELECT', 'TABLE', 'UNION', 'VALUES', 'WHERE', '[', '||', <EOF>, " +
-                                "<identifier>, <predicate>"}
+                                "<identifier>, <predicate>"},
+                {"SHOW CATALOGS LIKE '%$_%' ESCAPE",
+                        "line 1:33: mismatched input '<EOF>'. Expecting: <string>"}
         };
     }
 
