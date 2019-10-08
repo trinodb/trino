@@ -47,7 +47,7 @@ final class TestingDatabase
         jdbcClient = new BaseJdbcClient(
                 new BaseJdbcConfig(),
                 "\"",
-                new DriverConnectionFactory(new Driver(), connectionUrl, new Properties(), new ExtraCredentialProvider(new BaseJdbcConfig(), new ConfigFileBasedCredentialProvider(new CredentialConfig()))));
+                new DriverConnectionFactory(new Driver(), connectionUrl, new Properties(), new ExtraCredentialProvider(new BaseJdbcAuthenticationConfig(), new ConfigFileBasedCredentialProvider(new CredentialConfig()))));
 
         connection = DriverManager.getConnection(connectionUrl);
         connection.createStatement().execute("CREATE SCHEMA example");
