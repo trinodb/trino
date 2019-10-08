@@ -677,13 +677,18 @@ public class LocalQueryRunner
         return createDrivers(session, plan, outputFactory, taskContext);
     }
 
+    public SubPlan createSubPlans(Session session, Plan plan, boolean forceSingleNode)
+    {
+        return planFragmenter.createSubPlans(session, plan, forceSingleNode, WarningCollector.NOOP);
+    }
+
     private List<Driver> createDrivers(Session session, Plan plan, OutputFactory outputFactory, TaskContext taskContext)
     {
         if (printPlan) {
             System.out.println(PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, plan.getStatsAndCosts(), session, 0, false));
         }
 
-        SubPlan subplan = planFragmenter.createSubPlans(session, plan, true, WarningCollector.NOOP);
+        SubPlan subplan = createSubPlans(session, plan, true);
         if (!subplan.getChildren().isEmpty()) {
             throw new AssertionError("Expected subplan to have no children");
         }
