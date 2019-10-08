@@ -55,22 +55,27 @@ public class TestHiveBucketing
         assertBucketEquals("boolean", null, 0);
         assertBucketEquals("boolean", true, 1);
         assertBucketEquals("boolean", false, 0);
+
         assertBucketEquals("tinyint", null, 0);
         assertBucketEquals("tinyint", (byte) 5, 5);
         assertBucketEquals("tinyint", Byte.MIN_VALUE, -128);
         assertBucketEquals("tinyint", Byte.MAX_VALUE, 127);
+
         assertBucketEquals("smallint", null, 0);
         assertBucketEquals("smallint", (short) 300, 300);
         assertBucketEquals("smallint", Short.MIN_VALUE, -32768);
         assertBucketEquals("smallint", Short.MAX_VALUE, 32767);
+
         assertBucketEquals("int", null, 0);
         assertBucketEquals("int", 300_000, 300000);
         assertBucketEquals("int", Integer.MIN_VALUE, -2147483648);
         assertBucketEquals("int", Integer.MAX_VALUE, 2147483647);
+
         assertBucketEquals("bigint", null, 0);
         assertBucketEquals("bigint", 300_000_000_000L, -647710651);
         assertBucketEquals("bigint", Long.MIN_VALUE, -2147483648);
         assertBucketEquals("bigint", Long.MAX_VALUE, -2147483648);
+
         assertBucketEquals("float", null, 0);
         assertBucketEquals("float", 12.34F, 1095069860);
         assertBucketEquals("float", -Float.MAX_VALUE, -8388609);
@@ -82,6 +87,7 @@ public class TestHiveBucketing
         assertBucketEquals("float", intBitsToFloat(0x7fc00000), 2143289344); // also a NaN
         assertBucketEquals("float", intBitsToFloat(0x7fc01234), 2143289344); // also a NaN
         assertBucketEquals("float", intBitsToFloat(0xffc01234), 2143289344); // also a NaN
+
         assertBucketEquals("double", null, 0);
         assertBucketEquals("double", 12.34, 986311098);
         assertBucketEquals("double", -Double.MAX_VALUE, 1048576);
@@ -89,36 +95,43 @@ public class TestHiveBucketing
         assertBucketEquals("double", Double.POSITIVE_INFINITY, 2146435072);
         assertBucketEquals("double", Double.NEGATIVE_INFINITY, -1048576);
         assertBucketEquals("double", Double.NaN, 2146959360);
-        assertBucketEquals("double", longBitsToDouble(0xfff8000000000000L), 2146959360);
-        assertBucketEquals("double", longBitsToDouble(0x7ff8123412341234L), 2146959360);
-        assertBucketEquals("double", longBitsToDouble(0xfff8123412341234L), 2146959360);
+        assertBucketEquals("double", longBitsToDouble(0xfff8000000000000L), 2146959360); // also a NaN
+        assertBucketEquals("double", longBitsToDouble(0x7ff8123412341234L), 2146959360); // also a NaN
+        assertBucketEquals("double", longBitsToDouble(0xfff8123412341234L), 2146959360); // also a NaN
+
         assertBucketEquals("varchar(15)", null, 0);
         assertBucketEquals("varchar(15)", "", 1);
         assertBucketEquals("varchar(15)", "test string", -189841218);
         assertBucketEquals("varchar(15)", "\u5f3a\u5927\u7684Presto\u5f15\u64ce", 2136288313); // 3-byte UTF-8 sequences (in Basic Plane, i.e. Plane 0)
         assertBucketEquals("varchar(15)", "\uD843\uDFFC\uD843\uDFFD\uD843\uDFFE\uD843\uDFFF", -457487557); // 4 code points: 20FFC - 20FFF. 4-byte UTF-8 sequences in Supplementary Plane 2
+
         assertBucketEquals("string", null, 0);
         assertBucketEquals("string", "", 0);
         assertBucketEquals("string", "test string", -318923937);
         assertBucketEquals("string", "\u5f3a\u5927\u7684Presto\u5f15\u64ce", -120622694); // 3-byte UTF-8 sequences (in Basic Plane, i.e. Plane 0)
         assertBucketEquals("string", "\uD843\uDFFC\uD843\uDFFD\uD843\uDFFE\uD843\uDFFF", -1810797254); // 4 code points: 20FFC - 20FFF. 4-byte UTF-8 sequences in Supplementary Plane 2
+
         assertBucketEquals("date", null, 0);
         assertBucketEquals("date", Date.valueOf("1970-01-01"), 0);
         assertBucketEquals("date", Date.valueOf("2015-11-19"), 16758);
         assertBucketEquals("date", Date.valueOf("1950-11-19"), -6983);
+
         assertBucketEquals("timestamp", null, 0);
         assertBucketEquals("timestamp", Timestamp.valueOf("1970-01-01 00:00:00.000"), 7200);
         assertBucketEquals("timestamp", Timestamp.valueOf("1969-12-31 23:59:59.999"), -74736673);
         assertBucketEquals("timestamp", Timestamp.valueOf("1950-11-19 12:34:56.789"), -670699780);
         assertBucketEquals("timestamp", Timestamp.valueOf("2015-11-19 07:06:05.432"), 1278000719);
+
         assertBucketEquals("array<double>", null, 0);
         assertBucketEquals("array<boolean>", ImmutableList.of(), 0);
         assertBucketEquals("array<smallint>", ImmutableList.of((short) 5, (short) 8, (short) 13), 5066);
         assertBucketEquals("array<string>", ImmutableList.of("test1", "test2", "test3", "test4"), 957612994);
+        assertBucketEquals("array<array<bigint>>", ImmutableList.of(ImmutableList.of(10L, 20L), ImmutableList.of(-10L, -20L), asList((Object) null)), 326368);
+
         assertBucketEquals("map<float,date>", null, 0);
         assertBucketEquals("map<double,timestamp>", ImmutableMap.of(), 0);
         assertBucketEquals("map<string,bigint>", ImmutableMap.of("key", 123L, "key2", 123456789L, "key3", -123456L), 127880789);
-        assertBucketEquals("array<array<bigint>>", ImmutableList.of(ImmutableList.of(10L, 20L), ImmutableList.of(-10L, -20L), asList((Object) null)), 326368);
+
         assertBucketEquals("map<array<double>,map<int,string>>", ImmutableMap.of(ImmutableList.of(12.3, 45.7), ImmutableMap.of(123, "test99")), -34001111);
 
         // multiple bucketing columns

@@ -158,22 +158,19 @@ public final class HiveBucketing
                         return hashBytes(1, prestoType.getSlice(block, position));
                     case DATE:
                         // day offset from 1970-01-01
-                        long days = prestoType.getLong(block, position);
-                        return toIntExact(days);
+                        return toIntExact(prestoType.getLong(block, position));
                     case TIMESTAMP:
                         return hashTimestamp(prestoType.getLong(block, position));
                     default:
-                        throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive primitive category: " + primitiveCategory.toString() + ".");
+                        throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive primitive category: " + primitiveCategory);
                 }
             case LIST:
-                Block listElements = block.getObject(position, Block.class);
-                return hashOfList((ListTypeInfo) type, listElements);
+                return hashOfList((ListTypeInfo) type, block.getObject(position, Block.class));
             case MAP:
-                Block mapElements = block.getObject(position, Block.class);
-                return hashOfMap((MapTypeInfo) type, mapElements);
+                return hashOfMap((MapTypeInfo) type, block.getObject(position, Block.class));
             default:
                 // TODO: support more types, e.g. ROW
-                throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive category: " + type.getCategory().toString() + ".");
+                throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive category: " + type.getCategory());
         }
     }
 
@@ -187,7 +184,6 @@ public final class HiveBucketing
             case PRIMITIVE:
                 PrimitiveTypeInfo typeInfo = (PrimitiveTypeInfo) type;
                 PrimitiveCategory primitiveCategory = typeInfo.getPrimitiveCategory();
-                Type prestoType = requireNonNull(HiveType.getPrimitiveType(typeInfo));
                 switch (primitiveCategory) {
                     case BOOLEAN:
                         return (boolean) value ? 1 : 0;
@@ -212,12 +208,11 @@ public final class HiveBucketing
                         return hashBytes(1, (Slice) value);
                     case DATE:
                         // day offset from 1970-01-01
-                        long days = (long) value;
-                        return toIntExact(days);
+                        return toIntExact((long) value);
                     case TIMESTAMP:
                         return hashTimestamp((long) value);
                     default:
-                        throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive primitive category: " + primitiveCategory.toString() + ".");
+                        throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive primitive category: " + primitiveCategory);
                 }
             case LIST:
                 return hashOfList((ListTypeInfo) type, (Block) value);
@@ -225,7 +220,7 @@ public final class HiveBucketing
                 return hashOfMap((MapTypeInfo) type, (Block) value);
             default:
                 // TODO: support more types, e.g. ROW
-                throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive category: " + type.getCategory().toString() + ".");
+                throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive category: " + type.getCategory());
         }
     }
 

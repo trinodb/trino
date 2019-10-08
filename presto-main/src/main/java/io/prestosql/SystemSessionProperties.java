@@ -711,10 +711,8 @@ public final class SystemSessionProperties
         if (result == 0) {
             return OptionalInt.empty();
         }
-        else {
-            checkArgument(result > 0, "Concurrent lifespans per node is negative: %s", result);
-            return OptionalInt.of(result);
-        }
+        checkArgument(result > 0, "Concurrent lifespans per node is negative: %s", result);
+        return OptionalInt.of(result);
     }
 
     public static int getInitialSplitsPerNode(Session session)
