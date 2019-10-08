@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.elasticsearch;
+package io.prestosql.elasticsearch.client;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -22,11 +22,7 @@ import io.airlift.json.ObjectMapperProvider;
 import io.airlift.log.Logger;
 import io.airlift.security.pem.PemReader;
 import io.airlift.units.Duration;
-import io.prestosql.elasticsearch.client.ElasticsearchNode;
-import io.prestosql.elasticsearch.client.IndexMetadata;
-import io.prestosql.elasticsearch.client.NodesResponse;
-import io.prestosql.elasticsearch.client.SearchShardsResponse;
-import io.prestosql.elasticsearch.client.Shard;
+import io.prestosql.elasticsearch.ElasticsearchConfig;
 import io.prestosql.spi.PrestoException;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;

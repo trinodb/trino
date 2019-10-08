@@ -14,6 +14,7 @@
 package io.prestosql.elasticsearch;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.elasticsearch.client.ElasticsearchClient;
 import io.prestosql.elasticsearch.client.ElasticsearchNode;
 import io.prestosql.spi.Node;
 import io.prestosql.spi.NodeManager;

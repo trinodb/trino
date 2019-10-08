@@ -13,6 +13,7 @@
  */
 package io.prestosql.elasticsearch;
 
+import io.prestosql.elasticsearch.client.ElasticsearchClient;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;

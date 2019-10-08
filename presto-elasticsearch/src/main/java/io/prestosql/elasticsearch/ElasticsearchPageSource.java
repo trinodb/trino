@@ -16,6 +16,7 @@ package io.prestosql.elasticsearch;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
+import io.prestosql.elasticsearch.client.ElasticsearchClient;
 import io.prestosql.elasticsearch.decoders.BigintDecoder;
 import io.prestosql.elasticsearch.decoders.BooleanDecoder;
 import io.prestosql.elasticsearch.decoders.Decoder;

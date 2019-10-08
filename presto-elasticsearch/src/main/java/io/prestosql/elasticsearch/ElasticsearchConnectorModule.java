@@ -19,6 +19,7 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.prestosql.decoder.DecoderModule;
+import io.prestosql.elasticsearch.client.ElasticsearchClient;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 

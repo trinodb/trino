@@ -15,6 +15,7 @@ package io.prestosql.elasticsearch;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.elasticsearch.client.ElasticsearchClient;
 import io.prestosql.elasticsearch.client.IndexMetadata;
 import io.prestosql.elasticsearch.client.IndexMetadata.DateTimeType;
 import io.prestosql.elasticsearch.client.IndexMetadata.ObjectType;
