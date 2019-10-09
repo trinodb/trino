@@ -1017,14 +1017,14 @@ public class TestDomainTranslator
         assertPredicateTranslates(
                 expression,
                 withColumnDomains(ImmutableMap.of(
-                        C_BIGINT, Domain.create(ValueSet.ofRanges(Range.greaterThan(BIGINT, 0L)), false),
-                        C_DOUBLE, Domain.create(ValueSet.ofRanges(Range.greaterThan(DOUBLE, .0)), false))));
+                        C_DOUBLE, Domain.create(ValueSet.ofRanges(Range.greaterThan(DOUBLE, .0)), false),
+                        C_BIGINT, Domain.create(ValueSet.ofRanges(Range.greaterThan(BIGINT, 0L)), false))));
 
         assertEquals(
                 toPredicate(fromPredicate(expression).getTupleDomain()),
                 and(
-                        comparison(GREATER_THAN, C_BIGINT.toSymbolReference(), bigintLiteral(0)),
-                        comparison(GREATER_THAN, C_DOUBLE.toSymbolReference(), doubleLiteral(0))));
+                        comparison(GREATER_THAN, C_DOUBLE.toSymbolReference(), doubleLiteral(0)),
+                        comparison(GREATER_THAN, C_BIGINT.toSymbolReference(), bigintLiteral(0))));
     }
 
     @Test
