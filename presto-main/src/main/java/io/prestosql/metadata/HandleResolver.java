@@ -63,6 +63,11 @@ public final class HandleResolver
         checkState(existingResolver == null, "Catalog '%s' is already assigned to resolver: %s", catalogName, existingResolver);
     }
 
+    public void removeCatalogHandleResolver(String catalogName)
+    {
+        handleResolvers.remove(catalogName);
+    }
+
     public String getId(ConnectorTableHandle tableHandle)
     {
         return getId(tableHandle, MaterializedHandleResolver::getTableHandleClass);
