@@ -36,6 +36,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.util.Arrays;
+import java.util.List;
 
 import static com.google.common.base.Strings.repeat;
 import static com.google.common.primitives.Ints.asList;
@@ -105,14 +107,39 @@ public class TestJdbcPreparedStatement
     public void testGetMetadata()
             throws Exception
     {
-        try (Connection connection = createConnection();
-                PreparedStatement statement = connection.prepareStatement("SELECT 123")) {
-            PrestoResultSetMetaData rsm = (PrestoResultSetMetaData) statement.getMetaData();
-            assertEquals(rsm.getColumnName(1), "_col0");
-            assertEquals(rsm.getCatalogName(1), "");
-            assertEquals(rsm.getSchemaName(1), "");
-            assertEquals(rsm.getTableName(1), "");
-            assertEquals(rsm.getColumnTypeName(1), "integer");
+        try (Connection connection = createConnection("blackhole", "blackhole")) {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("CREATE TABLE test_get_metadata (" +
+                        "c_boolean boolean, " +
+                        "c_decimal decimal, " +
+                        "c_decimal_2 decimal(10,3)," +
+                        "c_varchar varchar, " +
+                        "c_varchar_2 varchar(10), " +
+                        "c_row row(x integer, y array(integer)), " +
+                        "c_array array(integer), " +
+                        "c_map map(integer, integer))");
+            }
+
+            List<String> colNames = Arrays.asList("c_boolean", "c_decimal", "c_decimal_2",
+                    "c_varchar", "c_varchar_2", "c_row", "c_array", "c_map");
+            List<String> expectColTypes = Arrays.asList("boolean", "decimal(38,0)", "decimal(10,3)",
+                    String.format("varchar(%s)", Integer.MAX_VALUE), "varchar(10)", "row()", "array", "map");
+
+            try (PreparedStatement statement = connection.prepareStatement(
+                    "SELECT * FROM test_get_metadata")) {
+                PrestoResultSetMetaData rsm = (PrestoResultSetMetaData) statement.getMetaData();
+                for (int i = 0; i < 8; i++) {
+                    assertEquals(rsm.getColumnName(i + 1), colNames.get(i));
+                    assertEquals(rsm.getCatalogName(i + 1), "blackhole");
+                    assertEquals(rsm.getSchemaName(i + 1), "blackhole");
+                    assertEquals(rsm.getTableName(i + 1), "test_get_metadata");
+                    assertEquals(rsm.getColumnTypeName(i + 1), expectColTypes.get(i));
+                }
+            }
+
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("DROP TABLE test_get_metadata");
+            }
         }
     }
 

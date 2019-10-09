@@ -17,6 +17,8 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.prestosql.client.ClientTypeSignature;
+import io.prestosql.client.ClientTypeSignatureParameter;
+import io.prestosql.client.ParameterKind;
 
 import java.io.InputStream;
 import java.io.Reader;
@@ -46,6 +48,8 @@ import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static com.google.common.io.BaseEncoding.base16;
 import static io.prestosql.jdbc.ColumnInfo.setTypeInfo;
@@ -469,8 +473,7 @@ public class PrestoPreparedStatement
     {
         DatabaseMetaData databaseMetaData = super.getConnection().getMetaData();
         ResultSet resultSet = ((PrestoDatabaseMetaData) databaseMetaData).getDescribeOutput(statementName);
-        List<ColumnInfo> columnInfoList = getDescribeOutputColumnInfoList(resultSet);
-        return new PrestoResultSetMetaData(columnInfoList);
+        return new PrestoResultSetMetaData(getDescribeOutputColumnInfoList(resultSet));
     }
 
     @Override
@@ -866,10 +869,10 @@ public class PrestoPreparedStatement
             String catalog = resultSet.getString("Catalog");
             String schema = resultSet.getString("Schema");
             String table = resultSet.getString("Table");
-            ClientTypeSignature clientTypeSignature = new ClientTypeSignature(resultSet.getString("Type"));
+            ClientTypeSignature clientTypeSignature = getClientTypeSignatureFromTypeString(resultSet.getString("Type"));
             ColumnInfo.Builder builder = new ColumnInfo.Builder()
                     .setColumnName(columnName)
-                    .setColumnLabel("")
+                    .setColumnLabel(columnName)
                     .setCatalogName(catalog)
                     .setSchemaName(schema)
                     .setTableName(table)
@@ -879,5 +882,36 @@ public class PrestoPreparedStatement
             list.add(builder.build());
         }
         return list.build();
+    }
+
+    private static ClientTypeSignature getClientTypeSignatureFromTypeString(String type)
+    {
+        String topLevelTypeRegexPattern = "^(.+?)\\((.+)\\)$";
+        Pattern pattern = Pattern.compile(topLevelTypeRegexPattern);
+        Matcher matcher = pattern.matcher(type);
+        String topLevelType;
+        List<ClientTypeSignatureParameter> arguments = new ArrayList<>();
+        if (matcher.find()) {
+            topLevelType = matcher.group(1);
+            String typeParameters = matcher.group(2);
+            if (topLevelType.equals("decimal")) {
+                String[] precisionAndScaleArray = typeParameters.split(",");
+                long precision = Long.parseLong(precisionAndScaleArray[0]);
+                arguments.add(ClientTypeSignatureParameter.ofLong(precision));
+                long scale = Long.parseLong(precisionAndScaleArray[1]);
+                arguments.add(ClientTypeSignatureParameter.ofLong(scale));
+            }
+            else if (topLevelType.equals("char") || topLevelType.equals("varchar")) {
+                long precision = Long.parseLong(typeParameters);
+                arguments.add(new ClientTypeSignatureParameter(ParameterKind.LONG, precision));
+            }
+        }
+        else {
+            topLevelType = type;
+            if (topLevelType.equals("varchar")) {
+                arguments.add(new ClientTypeSignatureParameter(ParameterKind.LONG, (long) Integer.MAX_VALUE));
+            }
+        }
+        return new ClientTypeSignature(topLevelType, arguments);
     }
 }
