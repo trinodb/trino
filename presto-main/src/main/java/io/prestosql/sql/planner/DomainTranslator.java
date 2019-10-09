@@ -79,7 +79,6 @@ import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN_O
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.NOT_EQUAL;
-import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toList;
@@ -101,7 +100,6 @@ public final class DomainTranslator
 
         Map<Symbol, Domain> domains = tupleDomain.getDomains().get();
         return domains.entrySet().stream()
-                .sorted(comparing(entry -> entry.getKey().getName()))
                 .map(entry -> toPredicate(entry.getValue(), entry.getKey().toSymbolReference()))
                 .collect(collectingAndThen(toImmutableList(), ExpressionUtils::combineConjuncts));
     }
