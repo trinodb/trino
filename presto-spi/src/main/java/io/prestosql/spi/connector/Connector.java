@@ -18,6 +18,7 @@ import io.prestosql.spi.session.PropertyMetadata;
 import io.prestosql.spi.transaction.IsolationLevel;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static java.util.Collections.emptyList;
@@ -25,6 +26,15 @@ import static java.util.Collections.emptySet;
 
 public interface Connector
 {
+    /**
+     * Get handle resolver for this connector instance. If {@code Optional.empty()} is returned,
+     * {@link ConnectorFactory#getHandleResolver()} is used instead.
+     */
+    default Optional<ConnectorHandleResolver> getHandleResolver()
+    {
+        return Optional.empty();
+    }
+
     ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly);
 
     /**
