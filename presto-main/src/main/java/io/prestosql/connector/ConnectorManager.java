@@ -165,7 +165,6 @@ public class ConnectorManager
         checkState(!stopped.get(), "ConnectorManager is stopped");
         ConnectorFactory existingConnectorFactory = connectorFactories.putIfAbsent(connectorFactory.getName(), connectorFactory);
         checkArgument(existingConnectorFactory == null, "Connector '%s' is already registered", connectorFactory.getName());
-        handleResolver.addConnectorName(connectorFactory.getName(), connectorFactory.getHandleResolver());
     }
 
     public synchronized CatalogName createCatalog(String catalogName, String connectorName, Map<String, String> properties)
@@ -173,6 +172,7 @@ public class ConnectorManager
         requireNonNull(connectorName, "connectorName is null");
         ConnectorFactory connectorFactory = connectorFactories.get(connectorName);
         checkArgument(connectorFactory != null, "No factory for connector '%s'.  Available factories: %s", connectorName, connectorFactories.keySet());
+        handleResolver.addCatalogHandleResolver(catalogName, connectorFactory.getHandleResolver());
         return createCatalog(catalogName, connectorFactory, properties);
     }
 
