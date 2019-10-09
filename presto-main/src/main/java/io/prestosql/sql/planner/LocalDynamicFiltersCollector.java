@@ -13,34 +13,33 @@
  */
 package io.prestosql.sql.planner;
 
-import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.sql.planner.plan.TableScanNode;
 
-import java.util.Map;
+import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.concurrent.ThreadSafe;
 
-public class LocalDynamicFiltersCollector
+@ThreadSafe
+class LocalDynamicFiltersCollector
 {
     /**
      * May contains domains for dynamic filters for different table scans
      * (e.g. in case of co-located joins).
      */
+    @GuardedBy("this")
     private TupleDomain<Symbol> predicate;
 
-    LocalDynamicFiltersCollector()
+    public LocalDynamicFiltersCollector()
     {
         this.predicate = TupleDomain.all();
     }
 
-    synchronized void intersect(TupleDomain<Symbol> predicate)
+    public synchronized TupleDomain<Symbol> getPredicate()
     {
-        this.predicate = this.predicate.intersect(predicate);
+        return predicate;
     }
 
-    synchronized TupleDomain<ColumnHandle> get(TableScanNode tableScan)
+    public synchronized void intersect(TupleDomain<Symbol> predicate)
     {
-        Map<Symbol, ColumnHandle> assignments = tableScan.getAssignments();
-        // Skips symbols irrelevant to this table scan node.
-        return predicate.transform(assignments::get);
+        this.predicate = this.predicate.intersect(predicate);
     }
 }
