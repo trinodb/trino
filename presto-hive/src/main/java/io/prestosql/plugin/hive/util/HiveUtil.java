@@ -125,7 +125,7 @@ import static io.prestosql.plugin.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PAR
 import static io.prestosql.plugin.hive.HiveType.toHiveTypes;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.copy;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.toJobConf;
-import static io.prestosql.plugin.hive.util.HiveBucketing.isHiveBucketingV1;
+import static io.prestosql.plugin.hive.util.HiveBucketing.containsTimestampBucketedV2;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -860,8 +860,11 @@ public final class HiveUtil
 
         // add hidden columns
         columns.add(pathColumnHandle());
-        if (table.getStorage().getBucketProperty().isPresent() && isHiveBucketingV1(table)) {
-            columns.add(bucketColumnHandle());
+        if (table.getStorage().getBucketProperty().isPresent()) {
+            // TODO (https://github.com/prestosql/presto/issues/1706): support bucketing v2 for timestamp
+            if (!containsTimestampBucketedV2(table.getStorage().getBucketProperty().get(), table)) {
+                columns.add(bucketColumnHandle());
+            }
         }
         columns.add(fileSizeColumnHandle());
         columns.add(fileModifiedTimeColumnHandle());

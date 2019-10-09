@@ -24,20 +24,23 @@ import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
+import org.apache.hive.common.util.Murmur3;
 
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Double.doubleToLongBits;
+import static java.lang.Double.doubleToRawLongBits;
 import static java.lang.Float.floatToIntBits;
+import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector.PrimitiveCategory;
 
-final class HiveBucketingV1
+final class HiveBucketingV2
 {
-    private HiveBucketingV1() {}
+    private HiveBucketingV2() {}
 
     static int getBucketHashCode(List<TypeInfo> types, Page page, int position)
     {
@@ -61,11 +64,11 @@ final class HiveBucketingV1
         return result;
     }
 
-    static int hash(TypeInfo type, Block block, int position)
+    private static int hash(TypeInfo type, Block block, int position)
     {
-        // This function mirrors the behavior of function hashCode in
-        // HIVE-12025 ba83fd7bff serde/src/java/org/apache/hadoop/hive/serde2/objectinspector/ObjectInspectorUtils.java
-        // https://github.com/apache/hive/blob/ba83fd7bff/serde/src/java/org/apache/hadoop/hive/serde2/objectinspector/ObjectInspectorUtils.java
+        // This function mirrors the behavior of function hashCodeMurmur in
+        // HIVE-18910 (and following) 7dc47faddb serde/src/java/org/apache/hadoop/hive/serde2/objectinspector/ObjectInspectorUtils.java
+        // https://github.com/apache/hive/blob/7dc47faddba9f079bbe2698aaa4d8712e7654f87/serde/src/java/org/apache/hadoop/hive/serde2/objectinspector/ObjectInspectorUtils.java
 
         if (block.isNull(position)) {
             return 0;
@@ -82,27 +85,28 @@ final class HiveBucketingV1
                     case BYTE:
                         return SignedBytes.checkedCast(prestoType.getLong(block, position));
                     case SHORT:
-                        return Shorts.checkedCast(prestoType.getLong(block, position));
+                        return Murmur3.hash32(bytes(Shorts.checkedCast(prestoType.getLong(block, position))));
                     case INT:
-                        return toIntExact(prestoType.getLong(block, position));
+                        return Murmur3.hash32(bytes(toIntExact(prestoType.getLong(block, position))));
                     case LONG:
-                        long bigintValue = prestoType.getLong(block, position);
-                        return (int) ((bigintValue >>> 32) ^ bigintValue);
+                        return Murmur3.hash32(bytes(prestoType.getLong(block, position)));
                     case FLOAT:
                         // convert to canonical NaN if necessary
-                        return floatToIntBits(intBitsToFloat(toIntExact(prestoType.getLong(block, position))));
+                        // Sic! we're `floatToIntBits -> cast to float -> floatToRawIntBits` just as it is (implicitly) done in
+                        // https://github.com/apache/hive/blob/7dc47faddba9f079bbe2698aaa4d8712e7654f87/serde/src/java/org/apache/hadoop/hive/serde2/objectinspector/ObjectInspectorUtils.java#L830
+                        return Murmur3.hash32(bytes(floatToRawIntBits(floatToIntBits(intBitsToFloat(toIntExact(prestoType.getLong(block, position)))))));
                     case DOUBLE:
-                        long doubleValue = doubleToLongBits(prestoType.getDouble(block, position));
-                        return (int) ((doubleValue >>> 32) ^ doubleValue);
+                        // Sic! we're `doubleToLongBits -> cast to double -> doubleToRawLongBits` just as it is (implicitly) done in
+                        // https://github.com/apache/hive/blob/7dc47faddba9f079bbe2698aaa4d8712e7654f87/serde/src/java/org/apache/hadoop/hive/serde2/objectinspector/ObjectInspectorUtils.java#L836
+                        return Murmur3.hash32(bytes(doubleToRawLongBits(doubleToLongBits(prestoType.getDouble(block, position)))));
                     case STRING:
-                        return hashBytes(0, prestoType.getSlice(block, position));
+                        return Murmur3.hash32(prestoType.getSlice(block, position).getBytes());
                     case VARCHAR:
-                        return hashBytes(1, prestoType.getSlice(block, position));
+                        return Murmur3.hash32(prestoType.getSlice(block, position).getBytes());
                     case DATE:
                         // day offset from 1970-01-01
-                        return toIntExact(prestoType.getLong(block, position));
-                    case TIMESTAMP:
-                        return hashTimestamp(prestoType.getLong(block, position));
+                        return Murmur3.hash32(bytes(toIntExact(prestoType.getLong(block, position))));
+                    // case TIMESTAMP: // TODO (https://github.com/prestosql/presto/issues/1706): support bucketing v2 for timestamp
                     default:
                         throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive primitive category: " + primitiveCategory);
                 }
@@ -132,27 +136,29 @@ final class HiveBucketingV1
                     case BYTE:
                         return SignedBytes.checkedCast((long) value);
                     case SHORT:
-                        return Shorts.checkedCast((long) value);
+                        return Murmur3.hash32(bytes(Shorts.checkedCast((long) value)));
                     case INT:
-                        return toIntExact((long) value);
+                        return Murmur3.hash32(bytes(toIntExact((long) value)));
                     case LONG:
-                        long bigintValue = (long) value;
-                        return (int) ((bigintValue >>> 32) ^ bigintValue);
+                        return Murmur3.hash32(bytes((long) value));
                     case FLOAT:
                         // convert to canonical NaN if necessary
-                        return floatToIntBits(intBitsToFloat(toIntExact((long) value)));
+                        // Sic! we're `floatToIntBits -> cast to float -> floatToRawIntBits` just as it is (implicitly) done in
+                        // https://github.com/apache/hive/blob/7dc47faddba9f079bbe2698aaa4d8712e7654f87/serde/src/java/org/apache/hadoop/hive/serde2/objectinspector/ObjectInspectorUtils.java#L830
+                        return Murmur3.hash32(bytes(floatToRawIntBits(floatToIntBits(intBitsToFloat(toIntExact((long) value))))));
                     case DOUBLE:
-                        long doubleValue = doubleToLongBits((double) value);
-                        return (int) ((doubleValue >>> 32) ^ doubleValue);
+                        // convert to canonical NaN if necessary
+                        // Sic! we're `doubleToLongBits -> cast to double -> doubleToRawLongBits` just as it is (implicitly) done in
+                        // https://github.com/apache/hive/blob/7dc47faddba9f079bbe2698aaa4d8712e7654f87/serde/src/java/org/apache/hadoop/hive/serde2/objectinspector/ObjectInspectorUtils.java#L836
+                        return Murmur3.hash32(bytes(doubleToRawLongBits(doubleToLongBits((double) value))));
                     case STRING:
-                        return hashBytes(0, (Slice) value);
+                        return Murmur3.hash32(((Slice) value).getBytes());
                     case VARCHAR:
-                        return hashBytes(1, (Slice) value);
+                        return Murmur3.hash32(((Slice) value).getBytes());
                     case DATE:
                         // day offset from 1970-01-01
-                        return toIntExact((long) value);
-                    case TIMESTAMP:
-                        return hashTimestamp((long) value);
+                        return Murmur3.hash32(bytes(toIntExact((long) value)));
+                    // case TIMESTAMP: // TODO (https://github.com/prestosql/presto/issues/1706): support bucketing v2 for timestamp
                     default:
                         throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive primitive category: " + primitiveCategory);
                 }
@@ -166,22 +172,15 @@ final class HiveBucketingV1
         }
     }
 
-    @SuppressWarnings("NumericCastThatLosesPrecision")
-    private static int hashTimestamp(long epochMillis)
-    {
-        long seconds = (Math.floorDiv(epochMillis, 1000L) << 30);
-        long nanos = Math.floorMod(epochMillis, 1000) * 1_000_000L;
-        long secondsAndNanos = seconds | nanos;
-        return (int) ((secondsAndNanos >>> 32) ^ secondsAndNanos);
-    }
-
     private static int hashOfMap(MapTypeInfo type, Block singleMapBlock)
     {
         TypeInfo keyTypeInfo = type.getMapKeyTypeInfo();
         TypeInfo valueTypeInfo = type.getMapValueTypeInfo();
         int result = 0;
         for (int i = 0; i < singleMapBlock.getPositionCount(); i += 2) {
-            result += hash(keyTypeInfo, singleMapBlock, i) ^ hash(valueTypeInfo, singleMapBlock, i + 1);
+            // Sic! we're hashing map keys with v2 but map values with v1 just as in
+            // https://github.com/apache/hive/blob/7dc47faddba9f079bbe2698aaa4d8712e7654f87/serde/src/java/org/apache/hadoop/hive/serde2/objectinspector/ObjectInspectorUtils.java#L903-L904
+            result += hash(keyTypeInfo, singleMapBlock, i) ^ HiveBucketingV1.hash(valueTypeInfo, singleMapBlock, i + 1);
         }
         return result;
     }
@@ -196,12 +195,26 @@ final class HiveBucketingV1
         return result;
     }
 
-    private static int hashBytes(int initialValue, Slice bytes)
+    // big-endian
+    @SuppressWarnings("NumericCastThatLosesPrecision")
+    private static byte[] bytes(short value)
     {
-        int result = initialValue;
-        for (int i = 0; i < bytes.length(); i++) {
-            result = result * 31 + bytes.getByte(i);
-        }
-        return result;
+        return new byte[] {(byte) ((value >> 8) & 0xff), (byte) (value & 0xff)};
+    }
+
+    // big-endian
+    @SuppressWarnings("NumericCastThatLosesPrecision")
+    private static byte[] bytes(int value)
+    {
+        return new byte[] {(byte) ((value >> 24) & 0xff), (byte) ((value >> 16) & 0xff), (byte) ((value >> 8) & 0xff), (byte) (value & 0xff)};
+    }
+
+    // big-endian
+    @SuppressWarnings("NumericCastThatLosesPrecision")
+    private static byte[] bytes(long value)
+    {
+        return new byte[] {
+                (byte) ((value >> 56) & 0xff), (byte) ((value >> 48) & 0xff), (byte) ((value >> 40) & 0xff), (byte) ((value >> 32) & 0xff),
+                (byte) ((value >> 24) & 0xff), (byte) ((value >> 16) & 0xff), (byte) ((value >> 8) & 0xff), (byte) (value & 0xff)};
     }
 }
