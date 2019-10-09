@@ -23,7 +23,6 @@ import io.prestosql.plugin.tpch.util.PredicateUtils;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableLayoutResult;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.SchemaTableName;
@@ -42,7 +41,6 @@ import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.tpch.CustomerColumn.MARKET_SEGMENT;
 import static io.airlift.tpch.CustomerColumn.NAME;
@@ -382,12 +380,6 @@ public class TestTpchMetadata
                 ImmutableMap.of(
                         tpchMetadata.toColumnHandle(column1), new NullableValue(getPrestoType(column1), value1),
                         tpchMetadata.toColumnHandle(column2), new NullableValue(getPrestoType(column2), value2)));
-    }
-
-    private static ConnectorTableLayoutResult getTableOnlyLayout(TpchMetadata tpchMetadata, ConnectorSession session, ConnectorTableHandle tableHandle, Constraint constraint)
-    {
-        List<ConnectorTableLayoutResult> tableLayouts = tpchMetadata.getTableLayouts(session, tableHandle, constraint, Optional.empty());
-        return getOnlyElement(tableLayouts);
     }
 
     private ColumnStatistics noColumnStatistics()
