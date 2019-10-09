@@ -32,6 +32,9 @@ import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.ValueSet;
+import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 
 import java.util.HashMap;
@@ -42,8 +45,6 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.plugin.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
@@ -53,6 +54,7 @@ import static java.lang.String.format;
 import static java.util.Map.Entry;
 import static java.util.function.Function.identity;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.TABLE_BUCKETING_VERSION;
+import static org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector.PrimitiveCategory.TIMESTAMP;
 
 public final class HiveBucketing
 {
@@ -104,15 +106,27 @@ public final class HiveBucketing
     @VisibleForTesting
     static int getBucketHashCode(BucketingVersion bucketingVersion, List<TypeInfo> types, Page page, int position)
     {
-        checkArgument(bucketingVersion == BUCKETING_V1);
-        return HiveBucketingV1.getBucketHashCode(types, page, position);
+        switch (bucketingVersion) {
+            case BUCKETING_V1:
+                return HiveBucketingV1.getBucketHashCode(types, page, position);
+            case BUCKETING_V2:
+                return HiveBucketingV2.getBucketHashCode(types, page, position);
+            default:
+                throw new IllegalArgumentException("Unsupported bucketing version: " + bucketingVersion);
+        }
     }
 
     @VisibleForTesting
     static int getBucketHashCode(BucketingVersion bucketingVersion, List<TypeInfo> types, Object[] values)
     {
-        checkArgument(bucketingVersion == BUCKETING_V1);
-        return HiveBucketingV1.getBucketHashCode(types, values);
+        switch (bucketingVersion) {
+            case BUCKETING_V1:
+                return HiveBucketingV1.getBucketHashCode(types, values);
+            case BUCKETING_V2:
+                return HiveBucketingV2.getBucketHashCode(types, values);
+            default:
+                throw new IllegalArgumentException("Unsupported bucketing version: " + bucketingVersion);
+        }
     }
 
     public static Optional<HiveBucketHandle> getHiveBucketHandle(Table table)
@@ -146,7 +160,9 @@ public final class HiveBucketing
         if (!table.getStorage().getBucketProperty().isPresent()) {
             return Optional.empty();
         }
-        if (!isHiveBucketingV1(table)) {
+
+        // TODO (https://github.com/prestosql/presto/issues/1706): support bucketing v2 for timestamp
+        if (containsTimestampBucketedV2(table.getStorage().getBucketProperty().get(), table)) {
             return Optional.empty();
         }
 
@@ -245,9 +261,40 @@ public final class HiveBucketing
         }
     }
 
-    public static boolean isHiveBucketingV1(Table table)
+    // TODO (https://github.com/prestosql/presto/issues/1706): support bucketing v2 for timestamp and remove this method
+    public static boolean containsTimestampBucketedV2(HiveBucketProperty bucketProperty, Table table)
     {
-        return firstNonNull(table.getParameters().get(TABLE_BUCKETING_VERSION), "1").equals("1");
+        switch (bucketProperty.getBucketingVersion()) {
+            case BUCKETING_V1:
+                return false;
+            case BUCKETING_V2:
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported bucketing version: " + bucketProperty.getBucketingVersion());
+        }
+        return bucketProperty.getBucketedBy().stream()
+                .map(columnName -> table.getColumn(columnName)
+                        .orElseThrow(() -> new IllegalArgumentException(format("Cannot find column '%s' in %s", columnName, table))))
+                .map(Column::getType)
+                .map(HiveType::getTypeInfo)
+                .anyMatch(HiveBucketing::containsTimestampBucketedV2);
+    }
+
+    private static boolean containsTimestampBucketedV2(TypeInfo type)
+    {
+        switch (type.getCategory()) {
+            case PRIMITIVE:
+                return ((PrimitiveTypeInfo) type).getPrimitiveCategory() == TIMESTAMP;
+            case LIST:
+                return containsTimestampBucketedV2(((ListTypeInfo) type).getListElementTypeInfo());
+            case MAP:
+                MapTypeInfo mapTypeInfo = (MapTypeInfo) type;
+                // Note: we do not check map value type because HiveBucketingV2#hashOfMap hashes map values with v1
+                return containsTimestampBucketedV2(mapTypeInfo.getMapKeyTypeInfo());
+            default:
+                // TODO: support more types, e.g. ROW
+                throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive category: " + type.getCategory());
+        }
     }
 
     public static class HiveBucketFilter

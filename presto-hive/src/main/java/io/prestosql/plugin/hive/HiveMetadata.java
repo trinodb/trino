@@ -191,8 +191,7 @@ import static io.prestosql.plugin.hive.metastore.StorageFormat.VIEW_STORAGE_FORM
 import static io.prestosql.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.prestosql.plugin.hive.util.CompressionConfigUtil.configureCompression;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.toJobConf;
-import static io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
-import static io.prestosql.plugin.hive.util.HiveBucketing.getBucketingVersion;
+import static io.prestosql.plugin.hive.util.HiveBucketing.containsTimestampBucketedV2;
 import static io.prestosql.plugin.hive.util.HiveBucketing.getHiveBucketHandle;
 import static io.prestosql.plugin.hive.util.HiveUtil.PRESTO_VIEW_FLAG;
 import static io.prestosql.plugin.hive.util.HiveUtil.columnExtraInfo;
@@ -1952,8 +1951,11 @@ public class HiveMetadata
         Table table = metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
 
-        if (table.getStorage().getBucketProperty().isPresent() && getBucketingVersion(table) != BUCKETING_V1) {
-            throw new PrestoException(NOT_SUPPORTED, "Table bucketing version not supported for writing");
+        if (table.getStorage().getBucketProperty().isPresent()) {
+            // TODO (https://github.com/prestosql/presto/issues/1706): support bucketing v2 for timestamp
+            if (containsTimestampBucketedV2(table.getStorage().getBucketProperty().get(), table)) {
+                throw new PrestoException(NOT_SUPPORTED, "Table bucketing version not supported for writing when bucketing on timestamp type");
+            }
         }
 
         Optional<HiveBucketHandle> hiveBucketHandle = getHiveBucketHandle(table);
