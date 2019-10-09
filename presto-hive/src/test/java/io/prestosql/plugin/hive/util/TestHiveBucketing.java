@@ -52,6 +52,7 @@ import java.util.Map;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.hive.HiveTestUtils.TYPE_MANAGER;
+import static io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.Double.longBitsToDouble;
 import static java.lang.Float.intBitsToFloat;
@@ -214,8 +215,8 @@ public class TestHiveBucketing
             nativeContainerValues[i] = toNativeContainerValue(type, hiveValue);
         }
         ImmutableList<Block> blockList = blockListBuilder.build();
-        int result1 = HiveBucketing.getBucketHashCode(hiveTypeInfos, new Page(blockList.toArray(new Block[blockList.size()])), 2);
-        int result2 = HiveBucketing.getBucketHashCode(hiveTypeInfos, nativeContainerValues);
+        int result1 = HiveBucketing.getBucketHashCode(BUCKETING_V1, hiveTypeInfos, new Page(blockList.toArray(new Block[blockList.size()])), 2);
+        int result2 = HiveBucketing.getBucketHashCode(BUCKETING_V1, hiveTypeInfos, nativeContainerValues);
         assertEquals(result1, result2, "overloads of getBucketHashCode produced different result");
         return result1;
     }

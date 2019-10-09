@@ -21,6 +21,7 @@ import io.prestosql.plugin.hive.coercions.FloatToDoubleCoercer;
 import io.prestosql.plugin.hive.coercions.IntegerNumberToVarcharCoercer;
 import io.prestosql.plugin.hive.coercions.IntegerNumberUpscaleCoercer;
 import io.prestosql.plugin.hive.coercions.VarcharToIntegerNumberCoercer;
+import io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.ArrayBlock;
@@ -576,6 +577,7 @@ public class HivePageSource
     public static class BucketAdapter
     {
         private final int[] bucketColumns;
+        private final BucketingVersion bucketingVersion;
         private final int bucketToKeep;
         private final int tableBucketCount;
         private final int partitionBucketCount; // for sanity check only
@@ -584,6 +586,7 @@ public class HivePageSource
         public BucketAdapter(BucketAdaptation bucketAdaptation)
         {
             this.bucketColumns = bucketAdaptation.getBucketColumnIndices();
+            this.bucketingVersion = bucketAdaptation.getBucketingVersion();
             this.bucketToKeep = bucketAdaptation.getBucketToKeep();
             this.typeInfoList = bucketAdaptation.getBucketColumnHiveTypes().stream()
                     .map(HiveType::getTypeInfo)
@@ -597,7 +600,7 @@ public class HivePageSource
             IntArrayList ids = new IntArrayList(page.getPositionCount());
             Page bucketColumnsPage = extractColumns(page, bucketColumns);
             for (int position = 0; position < page.getPositionCount(); position++) {
-                int bucket = getHiveBucket(tableBucketCount, typeInfoList, bucketColumnsPage, position);
+                int bucket = getHiveBucket(bucketingVersion, tableBucketCount, typeInfoList, bucketColumnsPage, position);
                 if ((bucket - bucketToKeep) % partitionBucketCount != 0) {
                     throw new PrestoException(HIVE_INVALID_BUCKET_FILES, format(
                             "A row that is supposed to be in bucket %s is encountered. Only rows in bucket %s (modulo %s) are expected",

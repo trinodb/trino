@@ -16,6 +16,7 @@ package io.prestosql.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.plugin.hive.metastore.SortingColumn;
 import io.prestosql.plugin.hive.orc.OrcWriterConfig;
+import io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.session.PropertyMetadata;
 import io.prestosql.spi.type.ArrayType;
@@ -31,6 +32,8 @@ import java.util.stream.Collectors;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.hive.metastore.SortingColumn.Order.ASCENDING;
 import static io.prestosql.plugin.hive.metastore.SortingColumn.Order.DESCENDING;
+import static io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
+import static io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V2;
 import static io.prestosql.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.prestosql.spi.session.PropertyMetadata.doubleProperty;
 import static io.prestosql.spi.session.PropertyMetadata.enumProperty;
@@ -46,6 +49,7 @@ public class HiveTableProperties
     public static final String STORAGE_FORMAT_PROPERTY = "format";
     public static final String PARTITIONED_BY_PROPERTY = "partitioned_by";
     public static final String BUCKETED_BY_PROPERTY = "bucketed_by";
+    public static final String BUCKETING_VERSION = "bucketing_version";
     public static final String BUCKET_COUNT_PROPERTY = "bucket_count";
     public static final String SORTED_BY_PROPERTY = "sorted_by";
     public static final String ORC_BLOOM_FILTER_COLUMNS = "orc_bloom_filter_columns";
@@ -132,6 +136,7 @@ public class HiveTableProperties
                         "ORC Bloom filter false positive probability",
                         orcWriterConfig.getDefaultBloomFilterFpp(),
                         false),
+                integerProperty(BUCKETING_VERSION, "Bucketing version", null, false),
                 integerProperty(BUCKET_COUNT_PROPERTY, "Number of buckets", 0, false),
                 stringProperty(AVRO_SCHEMA_URL, "URI pointing to Avro schema for the table", null, false),
                 integerProperty(SKIP_HEADER_LINE_COUNT, "Number of header lines", null, false),
@@ -197,7 +202,20 @@ public class HiveTableProperties
         if (bucketedBy.isEmpty() || bucketCount == 0) {
             throw new PrestoException(INVALID_TABLE_PROPERTY, format("%s and %s must be specified together", BUCKETED_BY_PROPERTY, BUCKET_COUNT_PROPERTY));
         }
-        return Optional.of(new HiveBucketProperty(bucketedBy, bucketCount, sortedBy));
+        BucketingVersion bucketingVersion = getBucketingVersion(tableProperties);
+        return Optional.of(new HiveBucketProperty(bucketedBy, bucketingVersion, bucketCount, sortedBy));
+    }
+
+    public static BucketingVersion getBucketingVersion(Map<String, Object> tableProperties)
+    {
+        Integer property = (Integer) tableProperties.get(BUCKETING_VERSION);
+        if (property == null || property == 1) {
+            return BUCKETING_V1;
+        }
+        if (property == 2) {
+            return BUCKETING_V2;
+        }
+        throw new PrestoException(INVALID_TABLE_PROPERTY, format("%s must be between 1 and 2 (inclusive): %s", BUCKETING_VERSION, property));
     }
 
     @SuppressWarnings("unchecked")

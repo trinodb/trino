@@ -41,6 +41,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static io.prestosql.plugin.hive.HiveBasicStatistics.createEmptyStatistics;
+import static io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.prestosql.spi.security.PrincipalType.USER;
 import static io.prestosql.spi.statistics.ColumnStatisticType.MAX_VALUE;
 import static io.prestosql.spi.statistics.ColumnStatisticType.MIN_VALUE;
@@ -64,7 +65,7 @@ public class TestRecordingHiveMetastore
     private static final Storage TABLE_STORAGE = new Storage(
             StorageFormat.create("serde", "input", "output"),
             "location",
-            Optional.of(new HiveBucketProperty(ImmutableList.of("column"), 10, ImmutableList.of(new SortingColumn("column", Order.ASCENDING)))),
+            Optional.of(new HiveBucketProperty(ImmutableList.of("column"), BUCKETING_V1, 10, ImmutableList.of(new SortingColumn("column", Order.ASCENDING)))),
             true,
             ImmutableMap.of("param", "value2"));
     private static final Table TABLE = new Table(

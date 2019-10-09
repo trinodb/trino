@@ -16,6 +16,7 @@ package io.prestosql.plugin.hive;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion;
 
 import java.util.List;
 
@@ -25,6 +26,7 @@ import static java.util.stream.Collectors.toList;
 public class HiveBucketHandle
 {
     private final List<HiveColumnHandle> columns;
+    private final BucketingVersion bucketingVersion;
     // Number of buckets in the table, as specified in table metadata
     private final int tableBucketCount;
     // Number of buckets the table will appear to have when the Hive connector
@@ -34,10 +36,12 @@ public class HiveBucketHandle
     @JsonCreator
     public HiveBucketHandle(
             @JsonProperty("columns") List<HiveColumnHandle> columns,
+            @JsonProperty("bucketingVersion") BucketingVersion bucketingVersion,
             @JsonProperty("tableBucketCount") int tableBucketCount,
             @JsonProperty("readBucketCount") int readBucketCount)
     {
         this.columns = requireNonNull(columns, "columns is null");
+        this.bucketingVersion = requireNonNull(bucketingVersion, "bucketingVersion is null");
         this.tableBucketCount = tableBucketCount;
         this.readBucketCount = readBucketCount;
     }
@@ -46,6 +50,12 @@ public class HiveBucketHandle
     public List<HiveColumnHandle> getColumns()
     {
         return columns;
+    }
+
+    @JsonProperty
+    public BucketingVersion getBucketingVersion()
+    {
+        return bucketingVersion;
     }
 
     @JsonProperty
@@ -66,6 +76,7 @@ public class HiveBucketHandle
                 columns.stream()
                         .map(HiveColumnHandle::getName)
                         .collect(toList()),
+                bucketingVersion,
                 tableBucketCount,
                 ImmutableList.of());
     }

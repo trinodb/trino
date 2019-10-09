@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.HiveSplit.BucketConversion;
+import io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
@@ -172,7 +173,13 @@ public class HivePageSourceProvider
             List<HiveType> bucketColumnHiveTypes = conversion.getBucketColumnHandles().stream()
                     .map(columnHandle -> hiveIndexToBlockIndex.get(columnHandle.getHiveColumnIndex()).getHiveColumnHandle().getHiveType())
                     .collect(toImmutableList());
-            return new BucketAdaptation(bucketColumnIndices, bucketColumnHiveTypes, conversion.getTableBucketCount(), conversion.getPartitionBucketCount(), bucketNumber.getAsInt());
+            return new BucketAdaptation(
+                    bucketColumnIndices,
+                    bucketColumnHiveTypes,
+                    conversion.getBucketingVersion(),
+                    conversion.getTableBucketCount(),
+                    conversion.getPartitionBucketCount(),
+                    bucketNumber.getAsInt());
         });
 
         for (HivePageSourceFactory pageSourceFactory : pageSourceFactories) {
@@ -223,6 +230,7 @@ public class HivePageSourceProvider
                     delegate = new HiveBucketAdapterRecordCursor(
                             bucketAdaptation.get().getBucketColumnIndices(),
                             bucketAdaptation.get().getBucketColumnHiveTypes(),
+                            bucketAdaptation.get().getBucketingVersion(),
                             bucketAdaptation.get().getTableBucketCount(),
                             bucketAdaptation.get().getPartitionBucketCount(),
                             bucketAdaptation.get().getBucketToKeep(),
@@ -402,14 +410,22 @@ public class HivePageSourceProvider
     {
         private final int[] bucketColumnIndices;
         private final List<HiveType> bucketColumnHiveTypes;
+        private final BucketingVersion bucketingVersion;
         private final int tableBucketCount;
         private final int partitionBucketCount;
         private final int bucketToKeep;
 
-        public BucketAdaptation(int[] bucketColumnIndices, List<HiveType> bucketColumnHiveTypes, int tableBucketCount, int partitionBucketCount, int bucketToKeep)
+        public BucketAdaptation(
+                int[] bucketColumnIndices,
+                List<HiveType> bucketColumnHiveTypes,
+                BucketingVersion bucketingVersion,
+                int tableBucketCount,
+                int partitionBucketCount,
+                int bucketToKeep)
         {
             this.bucketColumnIndices = bucketColumnIndices;
             this.bucketColumnHiveTypes = bucketColumnHiveTypes;
+            this.bucketingVersion = bucketingVersion;
             this.tableBucketCount = tableBucketCount;
             this.partitionBucketCount = partitionBucketCount;
             this.bucketToKeep = bucketToKeep;
@@ -423,6 +439,11 @@ public class HivePageSourceProvider
         public List<HiveType> getBucketColumnHiveTypes()
         {
             return bucketColumnHiveTypes;
+        }
+
+        public BucketingVersion getBucketingVersion()
+        {
+            return bucketingVersion;
         }
 
         public int getTableBucketCount()

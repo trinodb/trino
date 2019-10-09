@@ -27,6 +27,7 @@ import java.util.Properties;
 
 import static io.prestosql.plugin.hive.HiveType.HIVE_LONG;
 import static io.prestosql.plugin.hive.HiveType.HIVE_STRING;
+import static io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static org.testng.Assert.assertEquals;
 
@@ -59,6 +60,7 @@ public class TestHiveSplit
                 true,
                 ImmutableMap.of(1, HIVE_STRING),
                 Optional.of(new HiveSplit.BucketConversion(
+                        BUCKETING_V1,
                         32,
                         16,
                         ImmutableList.of(new HiveColumnHandle("col", HIVE_LONG, BIGINT.getTypeSignature(), 5, ColumnType.REGULAR, Optional.of("comment"))))),

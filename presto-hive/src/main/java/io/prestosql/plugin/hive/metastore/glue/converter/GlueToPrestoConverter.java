@@ -27,6 +27,8 @@ import io.prestosql.plugin.hive.metastore.SortingColumn.Order;
 import io.prestosql.plugin.hive.metastore.Storage;
 import io.prestosql.plugin.hive.metastore.StorageFormat;
 import io.prestosql.plugin.hive.metastore.Table;
+import io.prestosql.plugin.hive.util.HiveBucketing;
+import io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.security.PrincipalType;
 
@@ -110,7 +112,8 @@ public final class GlueToPrestoConverter
                                 Order.fromMetastoreApiOrder(column.getSortOrder(), "unknown")))
                         .collect(toImmutableList());
             }
-            bucketProperty = Optional.of(new HiveBucketProperty(sd.getBucketColumns(), sd.getNumberOfBuckets(), sortedBy));
+            BucketingVersion bucketingVersion = HiveBucketing.getBucketingVersion(sd.getParameters()); // TODO is it correct?
+            bucketProperty = Optional.of(new HiveBucketProperty(sd.getBucketColumns(), bucketingVersion, sd.getNumberOfBuckets(), sortedBy));
         }
 
         storageBuilder.setStorageFormat(StorageFormat.createNullable(serdeInfo.getSerializationLibrary(), sd.getInputFormat(), sd.getOutputFormat()))
