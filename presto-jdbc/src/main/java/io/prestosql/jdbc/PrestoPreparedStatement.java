@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.prestosql.client.ClientTypeSignature;
 import io.prestosql.client.ClientTypeSignatureParameter;
-import io.prestosql.client.ParameterKind;
 
 import java.io.InputStream;
 import java.io.Reader;
@@ -75,6 +74,8 @@ public class PrestoPreparedStatement
         extends PrestoStatement
         implements PreparedStatement
 {
+    private static final Pattern topLevelTypeRegexPattern = Pattern.compile("^(.+?)\\((.+)\\)$");
+
     private final Map<Integer, String> parameters = new HashMap<>();
     private final String statementName;
     private final String originalSql;
@@ -886,30 +887,28 @@ public class PrestoPreparedStatement
 
     private static ClientTypeSignature getClientTypeSignatureFromTypeString(String type)
     {
-        String topLevelTypeRegexPattern = "^(.+?)\\((.+)\\)$";
-        Pattern pattern = Pattern.compile(topLevelTypeRegexPattern);
-        Matcher matcher = pattern.matcher(type);
+        Matcher matcher = topLevelTypeRegexPattern.matcher(type);
         String topLevelType;
         List<ClientTypeSignatureParameter> arguments = new ArrayList<>();
         if (matcher.find()) {
             topLevelType = matcher.group(1);
             String typeParameters = matcher.group(2);
             if (topLevelType.equals("decimal")) {
-                String[] precisionAndScaleArray = typeParameters.split(",");
-                long precision = Long.parseLong(precisionAndScaleArray[0]);
+                String[] precisionAndScale = typeParameters.split(",");
+                long precision = Long.parseLong(precisionAndScale[0]);
                 arguments.add(ClientTypeSignatureParameter.ofLong(precision));
-                long scale = Long.parseLong(precisionAndScaleArray[1]);
+                long scale = Long.parseLong(precisionAndScale[1]);
                 arguments.add(ClientTypeSignatureParameter.ofLong(scale));
             }
             else if (topLevelType.equals("char") || topLevelType.equals("varchar")) {
                 long precision = Long.parseLong(typeParameters);
-                arguments.add(new ClientTypeSignatureParameter(ParameterKind.LONG, precision));
+                arguments.add(ClientTypeSignatureParameter.ofLong(precision));
             }
         }
         else {
             topLevelType = type;
             if (topLevelType.equals("varchar")) {
-                arguments.add(new ClientTypeSignatureParameter(ParameterKind.LONG, (long) Integer.MAX_VALUE));
+                arguments.add(ClientTypeSignatureParameter.ofLong(Integer.MAX_VALUE));
             }
         }
         return new ClientTypeSignature(topLevelType, arguments);

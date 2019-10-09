@@ -27,6 +27,7 @@ import java.sql.Date;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Time;
@@ -36,8 +37,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
-import java.util.Arrays;
-import java.util.List;
 
 import static com.google.common.base.Strings.repeat;
 import static com.google.common.primitives.Ints.asList;
@@ -120,21 +119,39 @@ public class TestJdbcPreparedStatement
                         "c_map map(integer, integer))");
             }
 
-            List<String> colNames = Arrays.asList("c_boolean", "c_decimal", "c_decimal_2",
-                    "c_varchar", "c_varchar_2", "c_row", "c_array", "c_map");
-            List<String> expectColTypes = Arrays.asList("boolean", "decimal(38,0)", "decimal(10,3)",
-                    String.format("varchar(%s)", Integer.MAX_VALUE), "varchar(10)", "row()", "array", "map");
-
             try (PreparedStatement statement = connection.prepareStatement(
                     "SELECT * FROM test_get_metadata")) {
-                PrestoResultSetMetaData rsm = (PrestoResultSetMetaData) statement.getMetaData();
-                for (int i = 0; i < 8; i++) {
-                    assertEquals(rsm.getColumnName(i + 1), colNames.get(i));
-                    assertEquals(rsm.getCatalogName(i + 1), "blackhole");
-                    assertEquals(rsm.getSchemaName(i + 1), "blackhole");
-                    assertEquals(rsm.getTableName(i + 1), "test_get_metadata");
-                    assertEquals(rsm.getColumnTypeName(i + 1), expectColTypes.get(i));
+                ResultSetMetaData metadata = statement.getMetaData();
+                assertEquals(metadata.getColumnCount(), 8);
+                for (int i = 1; i <= metadata.getColumnCount(); i++) {
+                    assertEquals(metadata.getCatalogName(i), "blackhole");
+                    assertEquals(metadata.getSchemaName(i), "blackhole");
+                    assertEquals(metadata.getTableName(i), "test_get_metadata");
                 }
+
+                assertEquals(metadata.getColumnName(1), "c_boolean");
+                assertEquals(metadata.getColumnTypeName(1), "boolean");
+
+                assertEquals(metadata.getColumnName(2), "c_decimal");
+                assertEquals(metadata.getColumnTypeName(2), "decimal(38,0)");
+
+                assertEquals(metadata.getColumnName(3), "c_decimal_2");
+                assertEquals(metadata.getColumnTypeName(3), "decimal(10,3)");
+
+                assertEquals(metadata.getColumnName(4), "c_varchar");
+                assertEquals(metadata.getColumnTypeName(4), format("varchar(%s)", Integer.MAX_VALUE));
+
+                assertEquals(metadata.getColumnName(5), "c_varchar_2");
+                assertEquals(metadata.getColumnTypeName(5), "varchar(10)");
+
+                assertEquals(metadata.getColumnName(6), "c_row");
+                assertEquals(metadata.getColumnTypeName(6), "row()");
+
+                assertEquals(metadata.getColumnName(7), "c_array");
+                assertEquals(metadata.getColumnTypeName(7), "array");
+
+                assertEquals(metadata.getColumnName(8), "c_map");
+                assertEquals(metadata.getColumnTypeName(8), "map");
             }
 
             try (Statement statement = connection.createStatement()) {
