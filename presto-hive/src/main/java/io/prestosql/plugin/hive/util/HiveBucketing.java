@@ -29,6 +29,7 @@ import io.prestosql.plugin.hive.metastore.Column;
 import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.StandardErrorCode;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.predicate.Domain;
@@ -53,6 +54,8 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.plugin.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
+import static io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
+import static io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V2;
 import static io.prestosql.plugin.hive.util.HiveUtil.getRegularColumnHandles;
 import static java.lang.Double.doubleToLongBits;
 import static java.lang.Float.floatToIntBits;
@@ -67,6 +70,25 @@ import static org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspe
 
 public final class HiveBucketing
 {
+    public enum BucketingVersion
+    {
+        BUCKETING_V1(1),
+        BUCKETING_V2(2),
+        /**/;
+
+        private final int version;
+
+        BucketingVersion(int version)
+        {
+            this.version = version;
+        }
+
+        public int getVersion()
+        {
+            return version;
+        }
+    }
+
     private static final Set<HiveType> SUPPORTED_TYPES_FOR_BUCKET_FILTER = ImmutableSet.of(
             HiveType.HIVE_BYTE,
             HiveType.HIVE_SHORT,
@@ -77,14 +99,14 @@ public final class HiveBucketing
 
     private HiveBucketing() {}
 
-    public static int getHiveBucket(int bucketCount, List<TypeInfo> types, Page page, int position)
+    public static int getHiveBucket(BucketingVersion bucketingVersion, int bucketCount, List<TypeInfo> types, Page page, int position)
     {
-        return getBucketNumber(getBucketHashCode(types, page, position), bucketCount);
+        return getBucketNumber(getBucketHashCode(bucketingVersion, types, page, position), bucketCount);
     }
 
-    public static int getHiveBucket(int bucketCount, List<TypeInfo> types, Object[] values)
+    public static int getHiveBucket(BucketingVersion bucketingVersion, int bucketCount, List<TypeInfo> types, Object[] values)
     {
-        return getBucketNumber(getBucketHashCode(types, values), bucketCount);
+        return getBucketNumber(getBucketHashCode(bucketingVersion, types, values), bucketCount);
     }
 
     @VisibleForTesting
@@ -94,8 +116,9 @@ public final class HiveBucketing
     }
 
     @VisibleForTesting
-    static int getBucketHashCode(List<TypeInfo> types, Page page, int position)
+    static int getBucketHashCode(BucketingVersion bucketingVersion, List<TypeInfo> types, Page page, int position)
     {
+        checkArgument(bucketingVersion == BUCKETING_V1);
         checkArgument(types.size() == page.getChannelCount());
         int result = 0;
         for (int i = 0; i < page.getChannelCount(); i++) {
@@ -106,8 +129,9 @@ public final class HiveBucketing
     }
 
     @VisibleForTesting
-    static int getBucketHashCode(List<TypeInfo> types, Object[] values)
+    static int getBucketHashCode(BucketingVersion bucketingVersion, List<TypeInfo> types, Object[] values)
     {
+        checkArgument(bucketingVersion == BUCKETING_V1);
         checkArgument(types.size() == values.length);
         int result = 0;
         for (int i = 0; i < values.length; i++) {
@@ -269,9 +293,6 @@ public final class HiveBucketing
         if (!hiveBucketProperty.isPresent()) {
             return Optional.empty();
         }
-        if (!isHiveBucketingV1(table)) {
-            return Optional.empty();
-        }
 
         Map<String, HiveColumnHandle> map = getRegularColumnHandles(table).stream()
                 .collect(Collectors.toMap(HiveColumnHandle::getName, identity()));
@@ -287,8 +308,9 @@ public final class HiveBucketing
             bucketColumns.add(bucketColumnHandle);
         }
 
+        BucketingVersion bucketingVersion = hiveBucketProperty.get().getBucketingVersion();
         int bucketCount = hiveBucketProperty.get().getBucketCount();
-        return Optional.of(new HiveBucketHandle(bucketColumns.build(), bucketCount, bucketCount));
+        return Optional.of(new HiveBucketHandle(bucketColumns.build(), bucketingVersion, bucketCount, bucketCount));
     }
 
     public static Optional<HiveBucketFilter> getHiveBucketFilter(Table table, TupleDomain<ColumnHandle> effectivePredicate)
@@ -372,7 +394,27 @@ public final class HiveBucketing
             values[i] = bucketBindings.get(column);
         }
 
-        return OptionalInt.of(getHiveBucket(table.getStorage().getBucketProperty().get().getBucketCount(), typeInfos.build(), values));
+        BucketingVersion bucketingVersion = getBucketingVersion(table);
+        return OptionalInt.of(getHiveBucket(bucketingVersion, table.getStorage().getBucketProperty().get().getBucketCount(), typeInfos.build(), values));
+    }
+
+    public static BucketingVersion getBucketingVersion(Table table)
+    {
+        return getBucketingVersion(table.getParameters());
+    }
+
+    public static BucketingVersion getBucketingVersion(Map<String, String> tableProperties)
+    {
+        String bucketingVersion = tableProperties.getOrDefault(TABLE_BUCKETING_VERSION, "1");
+        switch (bucketingVersion) {
+            case "1":
+                return BUCKETING_V1;
+            case "2":
+                return BUCKETING_V2;
+            default:
+                // org.apache.hadoop.hive.ql.exec.Utilities.getBucketingVersion is more permissive and treats any non-number as "1"
+                throw new PrestoException(StandardErrorCode.NOT_SUPPORTED, format("Unsupported bucketing version: '%s'", bucketingVersion));
+        }
     }
 
     public static boolean isHiveBucketingV1(Table table)
