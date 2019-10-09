@@ -212,6 +212,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table, boolean onlyInheritable)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getTableMetadata(session, table, onlyInheritable);
+        }
+    }
+
+    @Override
     public Optional<Object> getInfo(ConnectorTableLayoutHandle table)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

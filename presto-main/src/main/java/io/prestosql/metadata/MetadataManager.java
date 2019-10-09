@@ -443,11 +443,11 @@ public final class MetadataManager
     }
 
     @Override
-    public TableMetadata getTableMetadata(Session session, TableHandle tableHandle)
+    public TableMetadata getTableMetadata(Session session, TableHandle tableHandle, boolean onlyInheritable)
     {
         CatalogName catalogName = tableHandle.getCatalogName();
         ConnectorMetadata metadata = getMetadata(session, catalogName);
-        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle());
+        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), onlyInheritable);
         if (tableMetadata.getColumns().isEmpty()) {
             throw new PrestoException(NOT_SUPPORTED, "Table has no columns: " + tableHandle);
         }

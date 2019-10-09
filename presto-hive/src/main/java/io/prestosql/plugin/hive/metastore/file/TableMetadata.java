@@ -24,7 +24,6 @@ import io.prestosql.plugin.hive.metastore.HiveColumnStatistics;
 import io.prestosql.plugin.hive.metastore.Storage;
 import io.prestosql.plugin.hive.metastore.StorageFormat;
 import io.prestosql.plugin.hive.metastore.Table;
-import org.apache.hadoop.hive.metastore.TableType;
 
 import java.util.Arrays;
 import java.util.List;
@@ -47,7 +46,7 @@ public class TableMetadata
     private final Optional<HiveBucketProperty> bucketProperty;
     private final Map<String, String> serdeParameters;
 
-    private final Optional<String> externalLocation;
+    private final Optional<String> location;
 
     private final Optional<String> viewOriginalText;
     private final Optional<String> viewExpandedText;
@@ -64,7 +63,7 @@ public class TableMetadata
             @JsonProperty("storageFormat") Optional<HiveStorageFormat> storageFormat,
             @JsonProperty("bucketProperty") Optional<HiveBucketProperty> bucketProperty,
             @JsonProperty("serdeParameters") Map<String, String> serdeParameters,
-            @JsonProperty("externalLocation") Optional<String> externalLocation,
+            @JsonProperty("location") Optional<String> location,
             @JsonProperty("viewOriginalText") Optional<String> viewOriginalText,
             @JsonProperty("viewExpandedText") Optional<String> viewExpandedText,
             @JsonProperty("columnStatistics") Map<String, HiveColumnStatistics> columnStatistics)
@@ -78,13 +77,8 @@ public class TableMetadata
         this.storageFormat = requireNonNull(storageFormat, "storageFormat is null");
         this.bucketProperty = requireNonNull(bucketProperty, "bucketProperty is null");
         this.serdeParameters = requireNonNull(serdeParameters, "serdeParameters is null");
-        this.externalLocation = requireNonNull(externalLocation, "externalLocation is null");
-        if (tableType.equals(TableType.EXTERNAL_TABLE.name())) {
-            checkArgument(externalLocation.isPresent(), "External location is required for external tables");
-        }
-        else {
-            checkArgument(!externalLocation.isPresent(), "External location is only allowed for external tables");
-        }
+        this.location = requireNonNull(location, "location is null");
+        checkArgument(location.isPresent(), "Table location is required");
 
         this.viewOriginalText = requireNonNull(viewOriginalText, "viewOriginalText is null");
         this.viewExpandedText = requireNonNull(viewExpandedText, "viewExpandedText is null");
@@ -112,12 +106,7 @@ public class TableMetadata
         bucketProperty = table.getStorage().getBucketProperty();
         serdeParameters = table.getStorage().getSerdeParameters();
 
-        if (tableType.equals(TableType.EXTERNAL_TABLE.name())) {
-            externalLocation = Optional.of(table.getStorage().getLocation());
-        }
-        else {
-            externalLocation = Optional.empty();
-        }
+        location = Optional.of(table.getStorage().getLocation());
 
         viewOriginalText = table.getViewOriginalText();
         viewExpandedText = table.getViewExpandedText();
@@ -188,9 +177,9 @@ public class TableMetadata
     }
 
     @JsonProperty
-    public Optional<String> getExternalLocation()
+    public Optional<String> getLocation()
     {
-        return externalLocation;
+        return location;
     }
 
     @JsonProperty
@@ -222,7 +211,7 @@ public class TableMetadata
                 storageFormat,
                 bucketProperty,
                 serdeParameters,
-                externalLocation,
+                location,
                 viewOriginalText,
                 viewExpandedText,
                 columnStatistics);
@@ -239,7 +228,7 @@ public class TableMetadata
                 storageFormat,
                 bucketProperty,
                 serdeParameters,
-                externalLocation,
+                location,
                 viewOriginalText,
                 viewExpandedText,
                 columnStatistics);
@@ -256,7 +245,7 @@ public class TableMetadata
                 storageFormat,
                 bucketProperty,
                 serdeParameters,
-                externalLocation,
+                location,
                 viewOriginalText,
                 viewExpandedText,
                 columnStatistics);
@@ -270,7 +259,7 @@ public class TableMetadata
                 owner,
                 tableType,
                 Storage.builder()
-                        .setLocation(externalLocation.orElse(location))
+                        .setLocation(this.location.orElse(location))
                         .setStorageFormat(storageFormat.map(StorageFormat::fromHiveStorageFormat).orElse(VIEW_STORAGE_FORMAT))
                         .setBucketProperty(bucketProperty)
                         .setSerdeParameters(serdeParameters)

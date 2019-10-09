@@ -156,7 +156,8 @@ import static io.prestosql.plugin.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY
 import static io.prestosql.plugin.hive.HiveTableProperties.CSV_ESCAPE;
 import static io.prestosql.plugin.hive.HiveTableProperties.CSV_QUOTE;
 import static io.prestosql.plugin.hive.HiveTableProperties.CSV_SEPARATOR;
-import static io.prestosql.plugin.hive.HiveTableProperties.EXTERNAL_LOCATION_PROPERTY;
+import static io.prestosql.plugin.hive.HiveTableProperties.IS_EXTERNAL_TABLE;
+import static io.prestosql.plugin.hive.HiveTableProperties.LOCATION_PROPERTY;
 import static io.prestosql.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_COLUMNS;
 import static io.prestosql.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_FPP;
 import static io.prestosql.plugin.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
@@ -166,16 +167,19 @@ import static io.prestosql.plugin.hive.HiveTableProperties.TEXTFILE_FIELD_SEPARA
 import static io.prestosql.plugin.hive.HiveTableProperties.TEXTFILE_FIELD_SEPARATOR_ESCAPE;
 import static io.prestosql.plugin.hive.HiveTableProperties.TEXTFILE_SKIP_FOOTER_LINE_COUNT;
 import static io.prestosql.plugin.hive.HiveTableProperties.TEXTFILE_SKIP_HEADER_LINE_COUNT;
+import static io.prestosql.plugin.hive.HiveTableProperties.filterInheritableProperties;
 import static io.prestosql.plugin.hive.HiveTableProperties.getAvroSchemaUrl;
 import static io.prestosql.plugin.hive.HiveTableProperties.getBucketProperty;
 import static io.prestosql.plugin.hive.HiveTableProperties.getExternalLocation;
 import static io.prestosql.plugin.hive.HiveTableProperties.getHiveStorageFormat;
+import static io.prestosql.plugin.hive.HiveTableProperties.getLocation;
 import static io.prestosql.plugin.hive.HiveTableProperties.getOrcBloomFilterColumns;
 import static io.prestosql.plugin.hive.HiveTableProperties.getOrcBloomFilterFpp;
 import static io.prestosql.plugin.hive.HiveTableProperties.getPartitionedBy;
 import static io.prestosql.plugin.hive.HiveTableProperties.getSingleCharacterProperty;
 import static io.prestosql.plugin.hive.HiveTableProperties.getTextFooterSkipCount;
 import static io.prestosql.plugin.hive.HiveTableProperties.getTextHeaderSkipCount;
+import static io.prestosql.plugin.hive.HiveTableProperties.isExternalTable;
 import static io.prestosql.plugin.hive.HiveType.HIVE_STRING;
 import static io.prestosql.plugin.hive.HiveType.toHiveType;
 import static io.prestosql.plugin.hive.HiveWriterFactory.computeBucketedFileName;
@@ -267,6 +271,7 @@ public class HiveMetadata
     private final String prestoVersion;
     private final HiveStatisticsProvider hiveStatisticsProvider;
     private final AccessControlMetadata accessControlMetadata;
+    private final boolean tableCreatesWithLocationAllowed;
 
     public HiveMetadata(
             SemiTransactionalHiveMetastore metastore,
@@ -276,6 +281,7 @@ public class HiveMetadata
             boolean allowCorruptWritesForTesting,
             boolean writesToNonManagedTablesEnabled,
             boolean createsOfNonManagedTablesEnabled,
+            boolean tableCreatesWithLocationAllowed,
             TypeManager typeManager,
             LocationService locationService,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
@@ -295,6 +301,7 @@ public class HiveMetadata
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
         this.writesToNonManagedTablesEnabled = writesToNonManagedTablesEnabled;
         this.createsOfNonManagedTablesEnabled = createsOfNonManagedTablesEnabled;
+        this.tableCreatesWithLocationAllowed = tableCreatesWithLocationAllowed;
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
         this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
         this.hiveStatisticsProvider = requireNonNull(hiveStatisticsProvider, "hiveStatisticsProvider is null");
@@ -349,7 +356,7 @@ public class HiveMetadata
             return null;
         }
         Optional<List<List<String>>> partitionValuesList = getPartitionList(analyzeProperties);
-        ConnectorTableMetadata tableMetadata = getTableMetadata(session, handle.getSchemaTableName());
+        ConnectorTableMetadata tableMetadata = getTableMetadata(session, handle.getSchemaTableName(), false);
         handle = handle.withAnalyzePartitionValues(partitionValuesList);
 
         List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
@@ -455,13 +462,19 @@ public class HiveMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return getTableMetadata(session, ((HiveTableHandle) tableHandle).getSchemaTableName());
+        return getTableMetadata(session, tableHandle, false);
     }
 
-    private ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName tableName)
+    @Override
+    public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, boolean onlyInheritable)
+    {
+        return getTableMetadata(session, ((HiveTableHandle) tableHandle).getSchemaTableName(), onlyInheritable);
+    }
+
+    private ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName tableName, boolean onlyInheritable)
     {
         try {
-            return doGetTableMetadata(session, tableName);
+            return doGetTableMetadata(session, tableName, onlyInheritable);
         }
         catch (PrestoException e) {
             throw e;
@@ -473,7 +486,7 @@ public class HiveMetadata
         }
     }
 
-    private ConnectorTableMetadata doGetTableMetadata(ConnectorSession session, SchemaTableName tableName)
+    private ConnectorTableMetadata doGetTableMetadata(ConnectorSession session, SchemaTableName tableName, boolean onlyInheritable)
     {
         Optional<Table> table = metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName());
         if (!table.isPresent() || table.get().getTableType().equals(TableType.VIRTUAL_VIEW.name())) {
@@ -488,9 +501,8 @@ public class HiveMetadata
 
         // External location property
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
-        if (table.get().getTableType().equals(EXTERNAL_TABLE.name())) {
-            properties.put(EXTERNAL_LOCATION_PROPERTY, table.get().getStorage().getLocation());
-        }
+        properties.put(LOCATION_PROPERTY, table.get().getStorage().getLocation());
+        properties.put(IS_EXTERNAL_TABLE, table.get().getTableType().equals(EXTERNAL_TABLE.name()));
 
         // Storage format property
         try {
@@ -552,7 +564,12 @@ public class HiveMetadata
 
         Optional<String> comment = Optional.ofNullable(table.get().getParameters().get(TABLE_COMMENT));
 
-        return new ConnectorTableMetadata(tableName, columns.build(), properties.build(), comment);
+        Map<String, Object> allProperties = properties.build();
+        if (onlyInheritable) {
+            allProperties = filterInheritableProperties(allProperties);
+        }
+
+        return new ConnectorTableMetadata(tableName, columns.build(), allProperties, comment);
     }
 
     private static Optional<String> getCsvSerdeProperty(Table table, String key)
@@ -627,7 +644,7 @@ public class HiveMetadata
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
         for (SchemaTableName tableName : listTables(session, prefix)) {
             try {
-                columns.put(tableName, getTableMetadata(session, tableName).getColumns());
+                columns.put(tableName, getTableMetadata(session, tableName, false).getColumns());
             }
             catch (HiveViewNotSupportedException e) {
                 // view is not supported
@@ -749,20 +766,34 @@ public class HiveMetadata
         checkPartitionTypesSupported(partitionColumns);
 
         Path targetPath;
-        boolean external;
-        String externalLocation = getExternalLocation(tableMetadata.getProperties());
-        if (externalLocation != null) {
-            if (!createsOfNonManagedTablesEnabled) {
-                throw new PrestoException(NOT_SUPPORTED, "Cannot create non-managed Hive table");
+        boolean external = isExternalTable(tableMetadata.getProperties());
+        Optional<String> location = getLocation(tableMetadata.getProperties());
+        if (location.isPresent()) {
+            if (!tableCreatesWithLocationAllowed) {
+                throw new PrestoException(NOT_SUPPORTED, format("Setting %s property is not allowed", LOCATION_PROPERTY));
             }
 
-            external = true;
-            targetPath = getExternalPath(new HdfsContext(session, schemaName, tableName), externalLocation);
+            targetPath = getPath(new HdfsContext(session, schemaName, tableName), location.get());
         }
         else {
-            external = false;
-            LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName);
-            targetPath = locationService.getQueryWriteInfo(locationHandle).getTargetPath();
+            if (external) {
+                throw new PrestoException(NOT_SUPPORTED, format("Cannot create external Hive table without location. Set it through '%s' property", LOCATION_PROPERTY));
+            }
+
+            String externalLocation = getExternalLocation(tableMetadata.getProperties());
+            if (externalLocation != null) {
+                external = true;
+                targetPath = getPath(new HdfsContext(session, schemaName, tableName), externalLocation);
+            }
+            else {
+                external = false;
+                LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName, Optional.empty());
+                targetPath = locationService.getQueryWriteInfo(locationHandle).getTargetPath();
+            }
+        }
+
+        if (external && !createsOfNonManagedTablesEnabled) {
+            throw new PrestoException(NOT_SUPPORTED, "Cannot create non-managed Hive table");
         }
 
         Table table = buildTableObject(
@@ -900,12 +931,12 @@ public class HiveMetadata
         }
     }
 
-    private Path getExternalPath(HdfsContext context, String location)
+    private Path getPath(HdfsContext context, String location)
     {
         try {
             Path path = new Path(location);
             if (!isS3FileSystem(context, hdfsEnvironment, path)) {
-                if (!hdfsEnvironment.getFileSystem(context, path).isDirectory(path)) {
+                if (hdfsEnvironment.getFileSystem(context, path).isFile(path)) {
                     throw new PrestoException(INVALID_TABLE_PROPERTY, "External location must be a directory");
                 }
             }
@@ -1123,7 +1154,7 @@ public class HiveMetadata
     {
         verifyJvmTimeZone();
 
-        if (getExternalLocation(tableMetadata.getProperties()) != null) {
+        if (getExternalLocation(tableMetadata.getProperties()) != null || isExternalTable(tableMetadata.getProperties())) {
             throw new PrestoException(NOT_SUPPORTED, "External tables cannot be created using CREATE TABLE AS");
         }
 
@@ -1155,7 +1186,11 @@ public class HiveMetadata
                 .collect(toList());
         checkPartitionTypesSupported(partitionColumns);
 
-        LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName);
+        Optional<String> location = getLocation(tableMetadata.getProperties());
+        if (location.isPresent() && !tableCreatesWithLocationAllowed) {
+            throw new PrestoException(NOT_SUPPORTED, format("Setting %s property is not allowed", LOCATION_PROPERTY));
+        }
+        LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName, location);
         HiveOutputTableHandle result = new HiveOutputTableHandle(
                 schemaName,
                 tableName,

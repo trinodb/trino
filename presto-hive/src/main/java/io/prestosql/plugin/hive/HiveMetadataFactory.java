@@ -41,6 +41,7 @@ public class HiveMetadataFactory
     private final boolean skipTargetCleanupOnRollback;
     private final boolean writesToNonManagedTablesEnabled;
     private final boolean createsOfNonManagedTablesEnabled;
+    private final boolean tableCreatesWithLocationAllowed;
     private final long perTransactionCacheMaximumSize;
     private final HiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
@@ -80,6 +81,7 @@ public class HiveMetadataFactory
                 hiveConfig.isSkipTargetCleanupOnRollback(),
                 hiveConfig.getWritesToNonManagedTablesEnabled(),
                 hiveConfig.getCreatesOfNonManagedTablesEnabled(),
+                hiveConfig.getTableCreatesWithLocationAllowed(),
                 hiveConfig.getPerTransactionMetastoreCacheMaximumSize(),
                 typeManager,
                 locationService,
@@ -101,6 +103,7 @@ public class HiveMetadataFactory
             boolean skipTargetCleanupOnRollback,
             boolean writesToNonManagedTablesEnabled,
             boolean createsOfNonManagedTablesEnabled,
+            boolean tableCreatesWithLocationAllowed,
             long perTransactionCacheMaximumSize,
             TypeManager typeManager,
             LocationService locationService,
@@ -115,6 +118,7 @@ public class HiveMetadataFactory
         this.skipTargetCleanupOnRollback = skipTargetCleanupOnRollback;
         this.writesToNonManagedTablesEnabled = writesToNonManagedTablesEnabled;
         this.createsOfNonManagedTablesEnabled = createsOfNonManagedTablesEnabled;
+        this.tableCreatesWithLocationAllowed = tableCreatesWithLocationAllowed;
         this.perTransactionCacheMaximumSize = perTransactionCacheMaximumSize;
 
         this.metastore = requireNonNull(metastore, "metastore is null");
@@ -156,6 +160,7 @@ public class HiveMetadataFactory
                 allowCorruptWritesForTesting,
                 writesToNonManagedTablesEnabled,
                 createsOfNonManagedTablesEnabled,
+                tableCreatesWithLocationAllowed,
                 typeManager,
                 locationService,
                 partitionUpdateCodec,

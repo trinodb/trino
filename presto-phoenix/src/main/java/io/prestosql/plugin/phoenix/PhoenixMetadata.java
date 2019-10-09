@@ -134,10 +134,10 @@ public class PhoenixMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
-        return getTableMetadata(session, table, false);
+        return getRequiredTableMetadata(session, table, false);
     }
 
-    public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table, boolean rowkeyRequired)
+    public ConnectorTableMetadata getRequiredTableMetadata(ConnectorSession session, ConnectorTableHandle table, boolean rowkeyRequired)
     {
         JdbcTableHandle handle = (JdbcTableHandle) table;
         List<ColumnMetadata> columnMetadata = phoenixClient.getColumns(session, handle).stream()

@@ -52,10 +52,10 @@ public class HiveLocationService
     }
 
     @Override
-    public LocationHandle forNewTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, String schemaName, String tableName)
+    public LocationHandle forNewTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, String schemaName, String tableName, Optional<String> location)
     {
         HdfsContext context = new HdfsContext(session, schemaName, tableName);
-        Path targetPath = getTableDefaultLocation(context, metastore, hdfsEnvironment, schemaName, tableName);
+        Path targetPath = location.map(Path::new).orElse(getTableDefaultLocation(context, metastore, hdfsEnvironment, schemaName, tableName));
 
         // verify the target directory for the table
         if (pathExists(context, hdfsEnvironment, targetPath)) {

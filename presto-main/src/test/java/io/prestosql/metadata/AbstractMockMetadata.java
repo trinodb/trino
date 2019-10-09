@@ -147,7 +147,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public TableMetadata getTableMetadata(Session session, TableHandle tableHandle)
+    public TableMetadata getTableMetadata(Session session, TableHandle tableHandle, boolean onlyInheritable)
     {
         throw new UnsupportedOperationException();
     }

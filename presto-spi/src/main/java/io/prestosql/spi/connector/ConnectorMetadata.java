@@ -169,6 +169,11 @@ public interface ConnectorMetadata
         throw new PrestoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getTableHandle() is implemented without getTableMetadata()");
     }
 
+    default ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table, boolean onlyInheritable)
+    {
+        return getTableMetadata(session, table);
+    }
+
     /**
      * Return the connector-specific metadata for the specified table layout. This is the object that is passed to the event listener framework.
      *
