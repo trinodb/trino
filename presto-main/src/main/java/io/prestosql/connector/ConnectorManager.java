@@ -38,6 +38,7 @@ import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorContext;
 import io.prestosql.spi.connector.ConnectorFactory;
+import io.prestosql.spi.connector.ConnectorHandleResolver;
 import io.prestosql.spi.connector.ConnectorIndexProvider;
 import io.prestosql.spi.connector.ConnectorNodePartitioningProvider;
 import io.prestosql.spi.connector.ConnectorPageSinkProvider;
@@ -172,7 +173,6 @@ public class ConnectorManager
         requireNonNull(connectorName, "connectorName is null");
         ConnectorFactory connectorFactory = connectorFactories.get(connectorName);
         checkArgument(connectorFactory != null, "No factory for connector '%s'.  Available factories: %s", connectorName, connectorFactories.keySet());
-        handleResolver.addCatalogHandleResolver(catalogName, connectorFactory.getHandleResolver());
         return createCatalog(catalogName, connectorFactory, properties);
     }
 
@@ -196,6 +196,10 @@ public class ConnectorManager
     {
         // create all connectors before adding, so a broken connector does not leave the system half updated
         MaterializedConnector connector = new MaterializedConnector(catalogName, createConnector(catalogName, factory, properties));
+
+        ConnectorHandleResolver connectorHandleResolver = connector.getConnector().getHandleResolver()
+                .orElseGet(factory::getHandleResolver);
+        checkArgument(connectorHandleResolver != null, "Connector %s does not have a handle resolver", factory.getName());
 
         MaterializedConnector informationSchemaConnector = new MaterializedConnector(
                 createInformationSchemaCatalogName(catalogName),
@@ -232,8 +236,10 @@ public class ConnectorManager
             addConnectorInternal(informationSchemaConnector);
             addConnectorInternal(systemConnector);
             catalogManager.registerCatalog(catalog);
+            handleResolver.addCatalogHandleResolver(catalogName.getCatalogName(), connectorHandleResolver);
         }
         catch (Throwable e) {
+            handleResolver.removeCatalogHandleResolver(catalogName.getCatalogName());
             catalogManager.removeCatalog(catalog.getCatalogName());
             removeConnectorInternal(systemConnector.getCatalogName());
             removeConnectorInternal(informationSchemaConnector.getCatalogName());
@@ -285,6 +291,7 @@ public class ConnectorManager
             removeConnectorInternal(catalog);
             removeConnectorInternal(createInformationSchemaCatalogName(catalog));
             removeConnectorInternal(createSystemTablesCatalogName(catalog));
+            handleResolver.removeCatalogHandleResolver(catalogName);
         });
     }
 
