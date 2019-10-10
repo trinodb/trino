@@ -69,6 +69,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -101,7 +102,7 @@ public class ConnectorManager
     private final TransactionManager transactionManager;
 
     @GuardedBy("this")
-    private final ConcurrentMap<String, ConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, InternalConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
 
     @GuardedBy("this")
     private final ConcurrentMap<CatalogName, MaterializedConnector> connectors = new ConcurrentHashMap<>();
@@ -161,22 +162,26 @@ public class ConnectorManager
         }
     }
 
-    public synchronized void addConnectorFactory(ConnectorFactory connectorFactory)
+    public synchronized void addConnectorFactory(ConnectorFactory connectorFactory, Supplier<ClassLoader> duplicatePluginClassLoaderFactory)
     {
+        requireNonNull(connectorFactory, "connectorFactory is null");
+        requireNonNull(duplicatePluginClassLoaderFactory, "duplicatePluginClassLoaderFactory is null");
         checkState(!stopped.get(), "ConnectorManager is stopped");
-        ConnectorFactory existingConnectorFactory = connectorFactories.putIfAbsent(connectorFactory.getName(), connectorFactory);
+        InternalConnectorFactory existingConnectorFactory = connectorFactories.putIfAbsent(
+                connectorFactory.getName(),
+                new InternalConnectorFactory(connectorFactory, duplicatePluginClassLoaderFactory));
         checkArgument(existingConnectorFactory == null, "Connector '%s' is already registered", connectorFactory.getName());
     }
 
     public synchronized CatalogName createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
         requireNonNull(connectorName, "connectorName is null");
-        ConnectorFactory connectorFactory = connectorFactories.get(connectorName);
+        InternalConnectorFactory connectorFactory = connectorFactories.get(connectorName);
         checkArgument(connectorFactory != null, "No factory for connector '%s'.  Available factories: %s", connectorName, connectorFactories.keySet());
         return createCatalog(catalogName, connectorFactory, properties);
     }
 
-    private synchronized CatalogName createCatalog(String catalogName, ConnectorFactory connectorFactory, Map<String, String> properties)
+    private synchronized CatalogName createCatalog(String catalogName, InternalConnectorFactory connectorFactory, Map<String, String> properties)
     {
         checkState(!stopped.get(), "ConnectorManager is stopped");
         requireNonNull(catalogName, "catalogName is null");
@@ -192,14 +197,14 @@ public class ConnectorManager
         return catalog;
     }
 
-    private synchronized void createCatalog(CatalogName catalogName, ConnectorFactory factory, Map<String, String> properties)
+    private synchronized void createCatalog(CatalogName catalogName, InternalConnectorFactory factory, Map<String, String> properties)
     {
         // create all connectors before adding, so a broken connector does not leave the system half updated
         MaterializedConnector connector = new MaterializedConnector(catalogName, createConnector(catalogName, factory, properties));
 
         ConnectorHandleResolver connectorHandleResolver = connector.getConnector().getHandleResolver()
-                .orElseGet(factory::getHandleResolver);
-        checkArgument(connectorHandleResolver != null, "Connector %s does not have a handle resolver", factory.getName());
+                .orElseGet(factory.getConnectorFactory()::getHandleResolver);
+        checkArgument(connectorHandleResolver != null, "Connector %s does not have a handle resolver", factory);
 
         MaterializedConnector informationSchemaConnector = new MaterializedConnector(
                 createInformationSchemaCatalogName(catalogName),
@@ -322,17 +327,46 @@ public class ConnectorManager
         }
     }
 
-    private Connector createConnector(CatalogName catalogName, ConnectorFactory factory, Map<String, String> properties)
+    private Connector createConnector(CatalogName catalogName, InternalConnectorFactory factory, Map<String, String> properties)
     {
         ConnectorContext context = new ConnectorContextInstance(
                 new ConnectorAwareNodeManager(nodeManager, nodeInfo.getEnvironment(), catalogName),
                 versionEmbedder,
                 new InternalTypeManager(metadataManager),
                 pageSorter,
-                pageIndexerFactory);
+                pageIndexerFactory,
+                factory.getDuplicatePluginClassLoaderFactory());
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
-            return factory.create(catalogName.getCatalogName(), properties, context);
+            return factory.getConnectorFactory().create(catalogName.getCatalogName(), properties, context);
+        }
+    }
+
+    private static class InternalConnectorFactory
+    {
+        private final ConnectorFactory connectorFactory;
+        private final Supplier<ClassLoader> duplicatePluginClassLoaderFactory;
+
+        public InternalConnectorFactory(ConnectorFactory connectorFactory, Supplier<ClassLoader> duplicatePluginClassLoaderFactory)
+        {
+            this.connectorFactory = connectorFactory;
+            this.duplicatePluginClassLoaderFactory = duplicatePluginClassLoaderFactory;
+        }
+
+        public ConnectorFactory getConnectorFactory()
+        {
+            return connectorFactory;
+        }
+
+        public Supplier<ClassLoader> getDuplicatePluginClassLoaderFactory()
+        {
+            return duplicatePluginClassLoaderFactory;
+        }
+
+        @Override
+        public String toString()
+        {
+            return connectorFactory.getName();
         }
     }
 

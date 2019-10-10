@@ -45,4 +45,9 @@ public interface ConnectorContext
     {
         throw new UnsupportedOperationException();
     }
+
+    default ClassLoader duplicatePluginClassLoader()
+    {
+        throw new UnsupportedOperationException();
+    }
 }
