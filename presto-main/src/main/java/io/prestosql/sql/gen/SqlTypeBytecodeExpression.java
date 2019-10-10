@@ -45,7 +45,7 @@ public class SqlTypeBytecodeExpression
         String name = type.getTypeSignature().toString();
         if (name.length() > 20) {
             // Use type base to reduce the identifier size in generated code
-            name = type.getTypeSignature().getBase();
+            name = type.getBaseName();
         }
         return name.replaceAll("\\W+", "_");
     }

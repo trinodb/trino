@@ -298,10 +298,10 @@ public final class PrestoThriftBlock
                 throw new IllegalArgumentException("Unsupported array block type: " + type);
             }
         }
-        if (type.getTypeSignature().getBase().equals(JSON)) {
+        if (type.getBaseName().equals(JSON)) {
             return PrestoThriftJson.fromBlock(block, type);
         }
-        if (type.getTypeSignature().getBase().equals(HYPER_LOG_LOG)) {
+        if (type.getBaseName().equals(HYPER_LOG_LOG)) {
             return PrestoThriftHyperLogLog.fromBlock(block);
         }
 

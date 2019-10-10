@@ -217,7 +217,7 @@ public final class VarcharType
     public String getDisplayName()
     {
         if (length == UNBOUNDED_LENGTH) {
-            return getTypeSignature().getBase();
+            return getBaseName();
         }
 
         return getTypeSignature().toString();

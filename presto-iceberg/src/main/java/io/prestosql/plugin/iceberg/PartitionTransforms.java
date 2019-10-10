@@ -152,7 +152,7 @@ public final class PartitionTransforms
             if (type.equals(VARBINARY)) {
                 return new ColumnTransform(INTEGER, block -> bucketVarbinary(block, count));
             }
-            if (type.getTypeSignature().getBase().equals(StandardTypes.UUID)) {
+            if (type.getBaseName().equals(StandardTypes.UUID)) {
                 return new ColumnTransform(INTEGER, block -> bucketUuid(block, count));
             }
             throw new UnsupportedOperationException("Unsupported type for 'bucket': " + field);

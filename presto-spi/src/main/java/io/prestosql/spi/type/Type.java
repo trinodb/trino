@@ -35,6 +35,15 @@ public interface Type
     TypeSignature getTypeSignature();
 
     /**
+     * Returns the base name of this type. For simple types, it is the type name.
+     * For complex types (row, array, etc), it is the type name without any parameters.
+     */
+    default String getBaseName()
+    {
+        return getTypeSignature().getBase();
+    }
+
+    /**
      * Returns the name of this type that should be displayed to end-users.
      */
     String getDisplayName();

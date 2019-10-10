@@ -254,7 +254,7 @@ public class TestingPrestoClient
         else if (type instanceof DecimalType) {
             return new BigDecimal((String) value);
         }
-        else if (type.getTypeSignature().getBase().equals("ObjectId")) {
+        else if (type.getBaseName().equals("ObjectId")) {
             return value;
         }
         else if (JSON.equals(type)) {

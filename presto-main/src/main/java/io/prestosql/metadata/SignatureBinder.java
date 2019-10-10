@@ -614,7 +614,7 @@ public class SignatureBinder
             if (orderableRequired && !type.isOrderable()) {
                 return false;
             }
-            if (requiredBaseName.isPresent() && !UNKNOWN.equals(type) && !requiredBaseName.get().equals(type.getTypeSignature().getBase())) {
+            if (requiredBaseName.isPresent() && !UNKNOWN.equals(type) && !requiredBaseName.get().equals(type.getBaseName())) {
                 // TODO: the case below should be properly handled:
                 // * `type` does not have the `requiredBaseName` but can be coerced to some type that has the `requiredBaseName`.
                 return false;

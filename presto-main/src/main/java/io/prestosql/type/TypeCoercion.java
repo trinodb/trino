@@ -86,8 +86,8 @@ public final class TypeCoercion
             return sameDecimalSubtype && sameScale && sourcePrecisionIsLessOrEqualToResultPrecision;
         }
 
-        String sourceTypeBase = source.getTypeSignature().getBase();
-        String resultTypeBase = result.getTypeSignature().getBase();
+        String sourceTypeBase = source.getBaseName();
+        String resultTypeBase = result.getBaseName();
 
         if (sourceTypeBase.equals(resultTypeBase) && isCovariantParametrizedType(source)) {
             List<Type> sourceTypeParameters = source.getTypeParameters();
@@ -132,8 +132,8 @@ public final class TypeCoercion
             return TypeCompatibility.compatible(fromType, false);
         }
 
-        String fromTypeBaseName = fromType.getTypeSignature().getBase();
-        String toTypeBaseName = toType.getTypeSignature().getBase();
+        String fromTypeBaseName = fromType.getBaseName();
+        String toTypeBaseName = toType.getBaseName();
         if (fromTypeBaseName.equals(toTypeBaseName)) {
             if (fromTypeBaseName.equals(StandardTypes.DECIMAL)) {
                 Type commonSuperType = getCommonSuperTypeForDecimal((DecimalType) fromType, (DecimalType) toType);
@@ -157,12 +157,12 @@ public final class TypeCoercion
             return TypeCompatibility.incompatible();
         }
 
-        Optional<Type> coercedType = coerceTypeBase(fromType, toType.getTypeSignature().getBase());
+        Optional<Type> coercedType = coerceTypeBase(fromType, toType.getBaseName());
         if (coercedType.isPresent()) {
             return compatibility(coercedType.get(), toType);
         }
 
-        coercedType = coerceTypeBase(toType, fromType.getTypeSignature().getBase());
+        coercedType = coerceTypeBase(toType, fromType.getBaseName());
         if (coercedType.isPresent()) {
             TypeCompatibility typeCompatibility = compatibility(fromType, coercedType.get());
             if (!typeCompatibility.isCompatible()) {
@@ -248,7 +248,7 @@ public final class TypeCoercion
             coercible &= compatibility.isCoercible();
             commonParameterTypes.add(TypeSignatureParameter.of(compatibility.getCommonSuperType().getTypeSignature()));
         }
-        String typeBase = fromType.getTypeSignature().getBase();
+        String typeBase = fromType.getBaseName();
         return TypeCompatibility.compatible(lookupType.apply(new TypeSignature(typeBase, commonParameterTypes.build())), coercible);
     }
 
@@ -259,7 +259,7 @@ public final class TypeCoercion
     @SuppressWarnings("SwitchStatementWithTooFewBranches")
     public Optional<Type> coerceTypeBase(Type sourceType, String resultTypeBase)
     {
-        String sourceTypeName = sourceType.getTypeSignature().getBase();
+        String sourceTypeName = sourceType.getBaseName();
         if (sourceTypeName.equals(resultTypeBase)) {
             return Optional.of(sourceType);
         }

@@ -147,7 +147,7 @@ final class DescribeInputRewrite
 
             return row(
                     new LongLiteral(Integer.toString(parameter.getPosition())),
-                    new StringLiteral(type.getTypeSignature().getBase()));
+                    new StringLiteral(type.getBaseName()));
         }
 
         @Override
