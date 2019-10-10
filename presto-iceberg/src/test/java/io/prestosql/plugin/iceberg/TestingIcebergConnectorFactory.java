@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.iceberg;
 
+import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorContext;
 import io.prestosql.spi.connector.ConnectorFactory;
@@ -21,10 +22,18 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.prestosql.plugin.iceberg.InternalIcebergConnectorFactory.createConnector;
+import static java.util.Objects.requireNonNull;
 
-public class IcebergConnectorFactory
+public class TestingIcebergConnectorFactory
         implements ConnectorFactory
 {
+    private final Optional<HiveMetastore> metastore;
+
+    public TestingIcebergConnectorFactory(Optional<HiveMetastore> metastore)
+    {
+        this.metastore = requireNonNull(metastore, "metastore is null");
+    }
+
     @Override
     public String getName()
     {
@@ -34,6 +43,6 @@ public class IcebergConnectorFactory
     @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        return createConnector(catalogName, config, context, Optional.empty());
+        return createConnector(catalogName, config, context, metastore);
     }
 }
