@@ -104,7 +104,7 @@ public final class HiveQueryRunner
             File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
 
             FileHiveMetastore metastore = new FileHiveMetastore(HDFS_ENVIRONMENT, baseDir.toURI().toString(), "test");
-            queryRunner.installPlugin(new HivePlugin(HIVE_CATALOG, Optional.of(metastore)));
+            queryRunner.installPlugin(new TestingHivePlugin(metastore));
 
             Map<String, String> hiveProperties = ImmutableMap.<String, String>builder()
                     .putAll(extraHiveProperties)
