@@ -13,15 +13,14 @@
  */
 package io.prestosql.tests;
 
-import com.google.common.reflect.TypeToken;
 import org.testng.IClassListener;
 import org.testng.ITestClass;
 
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
@@ -84,9 +83,7 @@ public class ReportUnannotatedMethods
     private static boolean isTestAnnotated(Method method)
     {
         return Arrays.stream(method.getAnnotations())
-                .map(Object::getClass)
-                .flatMap(ReportUnannotatedMethods::allInterfaces)
-                .filter(Class::isAnnotation)
+                .map(Annotation::annotationType)
                 .anyMatch(annotationClass -> {
                     if ("org.openjdk.jmh.annotations.Benchmark".equals(annotationClass.getName())) {
                         return true;
@@ -97,11 +94,5 @@ public class ReportUnannotatedMethods
                     }
                     return false;
                 });
-    }
-
-    private static Stream<Class<?>> allInterfaces(Class<?> clazz)
-    {
-        return TypeToken.of(clazz).getTypes().interfaces().stream()
-                .map(TypeToken::getRawType);
     }
 }
