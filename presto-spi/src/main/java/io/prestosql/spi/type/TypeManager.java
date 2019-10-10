@@ -32,6 +32,14 @@ public interface TypeManager
     Type getType(TypeSignature signature);
 
     /**
+     * Gets a type given it's SQL representation
+     */
+    default Type fromSqlType(String type)
+    {
+        return getType(parseTypeSignature(type)); // TODO: use SQL parser
+    }
+
+    /**
      * Gets the type with the give (opaque) id
      */
     default Type getType(TypeId id)

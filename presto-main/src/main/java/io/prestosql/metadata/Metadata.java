@@ -402,6 +402,11 @@ public interface Metadata
 
     Type getType(TypeSignature signature);
 
+    default Type fromSqlType(String sqlType)
+    {
+        return getType(TypeSignature.parseTypeSignature(sqlType)); // TODO: use SQL parser
+    }
+
     default Type getType(TypeId id)
     {
         return getType(TypeSignature.parseTypeSignature(id.getId()));

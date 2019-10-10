@@ -42,7 +42,6 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.prestosql.spi.StandardErrorCode.TYPE_NOT_FOUND;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static io.prestosql.type.JsonType.JSON;
@@ -128,7 +127,7 @@ public final class LiteralInterpreter
         {
             Type type;
             try {
-                type = metadata.getType(parseTypeSignature(node.getType()));
+                type = metadata.fromSqlType(node.getType());
             }
             catch (TypeNotFoundException e) {
                 throw semanticException(TYPE_NOT_FOUND, node, "Unknown type: " + node.getType());

@@ -26,7 +26,6 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.drift.annotations.ThriftField.Requiredness.OPTIONAL;
 import static io.prestosql.plugin.thrift.api.NameValidationUtils.checkValidName;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static java.util.Objects.requireNonNull;
 
 @ThriftStruct
@@ -75,7 +74,7 @@ public final class PrestoThriftColumnMetadata
     {
         return new ColumnMetadata(
                 name,
-                typeManager.getType(parseTypeSignature(type)),
+                typeManager.fromSqlType(type),
                 comment,
                 hidden);
     }

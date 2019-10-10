@@ -141,7 +141,6 @@ import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
@@ -736,7 +735,7 @@ public class ExpressionAnalyzer
         {
             Type type;
             try {
-                type = metadata.getType(parseTypeSignature(node.getType()));
+                type = metadata.fromSqlType(node.getType());
             }
             catch (TypeNotFoundException e) {
                 throw semanticException(TYPE_NOT_FOUND, node, "Unknown type: " + node.getType());
@@ -1068,7 +1067,7 @@ public class ExpressionAnalyzer
         {
             Type type;
             try {
-                type = metadata.getType(parseTypeSignature(node.getType()));
+                type = metadata.fromSqlType(node.getType());
             }
             catch (TypeNotFoundException e) {
                 throw semanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());

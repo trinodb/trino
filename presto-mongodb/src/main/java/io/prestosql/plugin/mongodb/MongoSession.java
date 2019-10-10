@@ -195,7 +195,7 @@ public class MongoSession
         String typeString = columnMeta.getString(FIELDS_TYPE_KEY);
         boolean hidden = columnMeta.getBoolean(FIELDS_HIDDEN_KEY, false);
 
-        Type type = typeManager.getType(TypeSignature.parseTypeSignature(typeString));
+        Type type = typeManager.fromSqlType(typeString);
 
         return new MongoColumnHandle(name, type, hidden);
     }

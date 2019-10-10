@@ -29,7 +29,6 @@ import io.prestosql.server.testing.TestingPrestoServer;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.session.ResourceEstimates;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeSignature;
 import okhttp3.OkHttpClient;
 import org.intellij.lang.annotations.Language;
 
@@ -196,8 +195,7 @@ public abstract class AbstractTestingPrestoClient<T>
     {
         return columns.stream()
                 .map(Column::getType)
-                .map(TypeSignature::parseTypeSignature)
-                .map(type -> prestoServer.getMetadata().getType(type))
+                .map(prestoServer.getMetadata()::fromSqlType)
                 .collect(toImmutableList());
     }
 }
