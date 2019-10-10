@@ -17,7 +17,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.type.Type;
+import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.JoinNode.EquiJoinClause;
@@ -87,7 +89,7 @@ public class TestJoinStatsRule
     private static final Metadata METADATA = createTestMetadataManager();
     private static final StatsNormalizer NORMALIZER = new StatsNormalizer();
     private static final JoinStatsRule JOIN_STATS_RULE = new JoinStatsRule(
-            new FilterStatsCalculator(METADATA, new ScalarStatsCalculator(METADATA), NORMALIZER),
+            new FilterStatsCalculator(METADATA, new ScalarStatsCalculator(METADATA, new TypeAnalyzer(new SqlParser(), METADATA)), NORMALIZER),
             NORMALIZER,
             1.0);
     private static final TypeProvider TYPES = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()

@@ -38,7 +38,6 @@ import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.RowType.Field;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.InterpretedFunctionInvoker;
@@ -1322,7 +1321,7 @@ public class ExpressionInterpreter
 
     private static boolean isArray(Type type)
     {
-        return type.getTypeSignature().getBase().equals(StandardTypes.ARRAY);
+        return type instanceof ArrayType;
     }
 
     private static class LambdaSymbolResolver

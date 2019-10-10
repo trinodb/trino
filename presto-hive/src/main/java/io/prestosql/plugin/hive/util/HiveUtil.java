@@ -37,11 +37,13 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.predicate.NullableValue;
+import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DateTimeEncoding;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
-import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarbinaryType;
 import io.prestosql.spi.type.VarcharType;
@@ -667,23 +669,22 @@ public final class HiveUtil
 
     public static boolean isArrayType(Type type)
     {
-        return type.getTypeSignature().getBase().equals(StandardTypes.ARRAY);
+        return type instanceof ArrayType;
     }
 
     public static boolean isMapType(Type type)
     {
-        return type.getTypeSignature().getBase().equals(StandardTypes.MAP);
+        return type instanceof MapType;
     }
 
     public static boolean isRowType(Type type)
     {
-        return type.getTypeSignature().getBase().equals(StandardTypes.ROW);
+        return type instanceof RowType;
     }
 
     public static boolean isStructuralType(Type type)
     {
-        String baseName = type.getTypeSignature().getBase();
-        return baseName.equals(StandardTypes.MAP) || baseName.equals(StandardTypes.ARRAY) || baseName.equals(StandardTypes.ROW);
+        return isArrayType(type) || isMapType(type) || isRowType(type);
     }
 
     public static boolean isStructuralType(HiveType hiveType)

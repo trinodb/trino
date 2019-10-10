@@ -43,9 +43,12 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.ColumnarMap;
 import io.prestosql.spi.block.ColumnarRow;
 import io.prestosql.spi.type.AbstractLongType;
+import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.RowType;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 import org.openjdk.jol.info.ClassLayout;
@@ -82,9 +85,6 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.StandardTypes.ARRAY;
-import static io.prestosql.spi.type.StandardTypes.MAP;
-import static io.prestosql.spi.type.StandardTypes.ROW;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
@@ -513,7 +513,7 @@ public class OrcWriteValidation
                 return NULL_HASH_CODE;
             }
 
-            if (type.getTypeSignature().getBase().equals(MAP)) {
+            if (type instanceof MapType) {
                 Type keyType = type.getTypeParameters().get(0);
                 Type valueType = type.getTypeParameters().get(1);
                 Block mapBlock = (Block) type.getObject(block, position);
@@ -527,7 +527,7 @@ public class OrcWriteValidation
                 return hash;
             }
 
-            if (type.getTypeSignature().getBase().equals(ARRAY)) {
+            if (type instanceof ArrayType) {
                 Type elementType = type.getTypeParameters().get(0);
                 Block array = (Block) type.getObject(block, position);
                 long hash = 0;
@@ -537,7 +537,7 @@ public class OrcWriteValidation
                 return hash;
             }
 
-            if (type.getTypeSignature().getBase().equals(ROW)) {
+            if (type instanceof RowType) {
                 Block row = (Block) type.getObject(block, position);
                 long hash = 0;
                 for (int i = 0; i < row.getPositionCount(); i++) {
@@ -547,7 +547,7 @@ public class OrcWriteValidation
                 return hash;
             }
 
-            if (type.getTypeSignature().getBase().equals(StandardTypes.TIMESTAMP)) {
+            if (type instanceof TimestampType) {
                 // A flaw in ORC encoding makes it impossible to represent timestamp
                 // between 1969-12-31 23:59:59.000, exclusive, and 1970-01-01 00:00:00.000, exclusive.
                 // Therefore, such data won't round trip. The data read back is expected to be 1 second later than the original value.
@@ -695,12 +695,12 @@ public class OrcWriteValidation
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }
-            else if (type.getTypeSignature().getBase().equals(ARRAY)) {
+            else if (type instanceof ArrayType) {
                 statisticsBuilder = new CountStatisticsBuilder();
                 fieldExtractor = block -> ImmutableList.of(toColumnarArray(block).getElementsBlock());
                 fieldBuilders = ImmutableList.of(new ColumnStatisticsValidation(Iterables.getOnlyElement(type.getTypeParameters())));
             }
-            else if (type.getTypeSignature().getBase().equals(MAP)) {
+            else if (type instanceof MapType) {
                 statisticsBuilder = new CountStatisticsBuilder();
                 fieldExtractor = block -> {
                     ColumnarMap columnarMap = toColumnarMap(block);
@@ -710,7 +710,7 @@ public class OrcWriteValidation
                         .map(ColumnStatisticsValidation::new)
                         .collect(toImmutableList());
             }
-            else if (type.getTypeSignature().getBase().equals(ROW)) {
+            else if (type instanceof RowType) {
                 statisticsBuilder = new CountStatisticsBuilder();
                 fieldExtractor = block -> {
                     ColumnarRow columnarRow = ColumnarRow.toColumnarRow(block);

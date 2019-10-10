@@ -20,7 +20,10 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.RowType;
+import io.prestosql.spi.type.Type;
 import io.prestosql.sql.relational.CallExpression;
 import io.prestosql.sql.relational.ConstantExpression;
 import io.prestosql.sql.relational.InputReferenceExpression;
@@ -44,9 +47,6 @@ import static io.prestosql.operator.scalar.JsonStringToMapCast.JSON_STRING_TO_MA
 import static io.prestosql.operator.scalar.JsonStringToRowCast.JSON_STRING_TO_ROW_NAME;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.StandardTypes.ARRAY;
-import static io.prestosql.spi.type.StandardTypes.MAP;
-import static io.prestosql.spi.type.StandardTypes.ROW;
 import static io.prestosql.spi.type.StandardTypes.VARCHAR;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.sql.relational.Expressions.call;
@@ -218,30 +218,30 @@ public class ExpressionOptimizer
                 if (innerCall.getSignature().getName().equals("json_parse")) {
                     checkArgument(innerCall.getType().equals(JSON));
                     checkArgument(innerCall.getArguments().size() == 1);
-                    TypeSignature returnType = call.getSignature().getReturnType();
-                    if (returnType.getBase().equals(ARRAY)) {
+                    Type returnType = call.getType();
+                    if (returnType instanceof ArrayType) {
                         return call(
                                 internalScalarFunction(
                                         JSON_STRING_TO_ARRAY_NAME,
-                                        returnType,
+                                        returnType.getTypeSignature(),
                                         ImmutableList.of(parseTypeSignature(VARCHAR))),
                                 call.getType(),
                                 innerCall.getArguments());
                     }
-                    if (returnType.getBase().equals(MAP)) {
+                    if (returnType instanceof MapType) {
                         return call(
                                 internalScalarFunction(
                                         JSON_STRING_TO_MAP_NAME,
-                                        returnType,
+                                        returnType.getTypeSignature(),
                                         ImmutableList.of(parseTypeSignature(VARCHAR))),
                                 call.getType(),
                                 innerCall.getArguments());
                     }
-                    if (returnType.getBase().equals(ROW)) {
+                    if (returnType instanceof RowType) {
                         return call(
                                 internalScalarFunction(
                                         JSON_STRING_TO_ROW_NAME,
-                                        returnType,
+                                        returnType.getTypeSignature(),
                                         ImmutableList.of(parseTypeSignature(VARCHAR))),
                                 call.getType(),
                                 innerCall.getArguments());

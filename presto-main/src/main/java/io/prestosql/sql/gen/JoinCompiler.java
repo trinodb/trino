@@ -46,9 +46,13 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.BigintType;
-import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.CharType;
+import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarbinaryType;
+import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
+import io.prestosql.type.JsonType;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.openjdk.jol.info.ClassLayout;
 import org.weakref.jmx.Managed;
@@ -676,18 +680,16 @@ public class JoinCompiler
             //
             // The plan is to allow scalar function to optionally provide an additional implementation using Block+position calling convention.
             // At that point, we'll be able to fully deprecate Type.equalTo (and friends) and remove this hack.
-            if (type.getJavaType().equals(Slice.class)) {
-                switch (type.getTypeSignature().getBase()) {
-                    case StandardTypes.CHAR:
-                    case StandardTypes.JSON:
-                    case StandardTypes.DECIMAL:
-                    case StandardTypes.VARBINARY:
-                    case StandardTypes.VARCHAR:
-                        body.append(new IfStatement()
-                                .condition(typeEquals(constantType(callSiteBinder, type), leftBlock, leftBlockPosition, rightBlock, rightPosition))
-                                .ifFalse(constantFalse().ret()));
-                        continue;
-                }
+            if (type.getJavaType().equals(Slice.class) && (
+                    type instanceof CharType ||
+                    type instanceof JsonType ||
+                    type instanceof DecimalType ||
+                    type instanceof VarbinaryType ||
+                    type instanceof VarcharType)) {
+                body.append(new IfStatement()
+                        .condition(typeEquals(constantType(callSiteBinder, type), leftBlock, leftBlockPosition, rightBlock, rightPosition))
+                        .ifFalse(constantFalse().ret()));
+                continue;
             }
             ScalarFunctionImplementation operator = metadata.getScalarFunctionImplementation(metadata.resolveOperator(OperatorType.IS_DISTINCT_FROM, ImmutableList.of(type, type)));
             Binding binding = callSiteBinder.bind(operator.getMethodHandle());

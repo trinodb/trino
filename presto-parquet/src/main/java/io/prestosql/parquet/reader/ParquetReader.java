@@ -26,7 +26,9 @@ import io.prestosql.spi.block.ArrayBlock;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.RowBlock;
 import io.prestosql.spi.block.RunLengthEncodedBlock;
+import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignatureParameter;
 import it.unimi.dsi.fastutil.booleans.BooleanArrayList;
@@ -49,9 +51,6 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.parquet.ParquetValidationUtils.validateParquet;
 import static io.prestosql.parquet.reader.ListColumnReader.calculateCollectionOffsets;
-import static io.prestosql.spi.type.StandardTypes.ARRAY;
-import static io.prestosql.spi.type.StandardTypes.MAP;
-import static io.prestosql.spi.type.StandardTypes.ROW;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
@@ -271,13 +270,13 @@ public class ParquetReader
             throws IOException
     {
         ColumnChunk columnChunk;
-        if (ROW.equals(field.getType().getTypeSignature().getBase())) {
+        if (field.getType() instanceof RowType) {
             columnChunk = readStruct((GroupField) field);
         }
-        else if (MAP.equals(field.getType().getTypeSignature().getBase())) {
+        else if (field.getType() instanceof MapType) {
             columnChunk = readMap((GroupField) field);
         }
-        else if (ARRAY.equals(field.getType().getTypeSignature().getBase())) {
+        else if (field.getType() instanceof ArrayType) {
             columnChunk = readArray((GroupField) field);
         }
         else {

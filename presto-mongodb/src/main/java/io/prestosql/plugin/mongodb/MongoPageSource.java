@@ -21,9 +21,10 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorPageSource;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignatureParameter;
+import io.prestosql.spi.type.VarbinaryType;
+import io.prestosql.spi.type.VarcharType;
 import org.bson.Document;
 import org.bson.types.Binary;
 import org.bson.types.ObjectId;
@@ -50,7 +51,6 @@ import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
-import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.String.join;
 import static java.util.stream.Collectors.toList;
 
@@ -196,14 +196,13 @@ public class MongoPageSource
 
     private void writeSlice(BlockBuilder output, Type type, Object value)
     {
-        String base = type.getTypeSignature().getBase();
-        if (base.equals(StandardTypes.VARCHAR)) {
+        if (type instanceof VarcharType) {
             type.writeSlice(output, utf8Slice(toVarcharValue(value)));
         }
         else if (type.equals(OBJECT_ID)) {
             type.writeSlice(output, wrappedBuffer(((ObjectId) value).toByteArray()));
         }
-        else if (type.equals(VARBINARY)) {
+        else if (type instanceof VarbinaryType) {
             if (value instanceof Binary) {
                 type.writeSlice(output, wrappedBuffer(((Binary) value).getData()));
             }

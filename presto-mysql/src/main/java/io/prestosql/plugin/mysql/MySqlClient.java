@@ -207,7 +207,7 @@ public class MySqlClient
             }
             return WriteMapping.sliceMapping(dataType, varcharWriteFunction());
         }
-        if (type.getTypeSignature().getBase().equals(StandardTypes.JSON)) {
+        if (type.equals(jsonType)) {
             return WriteMapping.sliceMapping("json", varcharWriteFunction());
         }
 

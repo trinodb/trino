@@ -21,8 +21,20 @@ import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.BigintType;
+import io.prestosql.spi.type.BooleanType;
+import io.prestosql.spi.type.DateType;
+import io.prestosql.spi.type.DoubleType;
+import io.prestosql.spi.type.IntegerType;
+import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.RealType;
+import io.prestosql.spi.type.RowType;
+import io.prestosql.spi.type.SmallintType;
+import io.prestosql.spi.type.TimestampType;
+import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarcharType;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.apache.hadoop.hive.serde2.io.DateWritable;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
@@ -237,69 +249,78 @@ public class TestHiveBucketing
 
     private static Object toNativeContainerValue(Type type, Object hiveValue)
     {
-        String typeBase = type.getTypeSignature().getBase();
         if (hiveValue == null) {
             return null;
         }
-        switch (typeBase) {
-            case StandardTypes.ARRAY: {
-                BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
-                BlockBuilder subBlockBuilder = blockBuilder.beginBlockEntry();
-                for (Object subElement : (Iterable<?>) hiveValue) {
-                    appendToBlockBuilder(type.getTypeParameters().get(0), subElement, subBlockBuilder);
-                }
-                blockBuilder.closeEntry();
-                return type.getObject(blockBuilder, 0);
+
+        if (type instanceof ArrayType) {
+            BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
+            BlockBuilder subBlockBuilder = blockBuilder.beginBlockEntry();
+            for (Object subElement : (Iterable<?>) hiveValue) {
+                appendToBlockBuilder(type.getTypeParameters().get(0), subElement, subBlockBuilder);
             }
-            case StandardTypes.ROW: {
-                BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
-                BlockBuilder subBlockBuilder = blockBuilder.beginBlockEntry();
-                int field = 0;
-                for (Object subElement : (Iterable<?>) hiveValue) {
-                    appendToBlockBuilder(type.getTypeParameters().get(field), subElement, subBlockBuilder);
-                    field++;
-                }
-                blockBuilder.closeEntry();
-                return type.getObject(blockBuilder, 0);
-            }
-            case StandardTypes.MAP:
-                BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
-                BlockBuilder subBlockBuilder = blockBuilder.beginBlockEntry();
-                for (Entry<?, ?> entry : ((Map<?, ?>) hiveValue).entrySet()) {
-                    appendToBlockBuilder(type.getTypeParameters().get(0), entry.getKey(), subBlockBuilder);
-                    appendToBlockBuilder(type.getTypeParameters().get(1), entry.getValue(), subBlockBuilder);
-                }
-                blockBuilder.closeEntry();
-                return type.getObject(blockBuilder, 0);
-            case StandardTypes.BOOLEAN:
-                return hiveValue;
-            case StandardTypes.TINYINT:
-                return (long) (byte) hiveValue;
-            case StandardTypes.SMALLINT:
-                return (long) (short) hiveValue;
-            case StandardTypes.INTEGER:
-                return (long) (int) hiveValue;
-            case StandardTypes.BIGINT:
-                return hiveValue;
-            case StandardTypes.REAL:
-                return (long) Float.floatToRawIntBits((float) hiveValue);
-            case StandardTypes.DOUBLE:
-                return hiveValue;
-            case StandardTypes.VARCHAR:
-                return Slices.utf8Slice(hiveValue.toString());
-            case StandardTypes.DATE:
-                long daysSinceEpochInLocalZone = ((Date) hiveValue).toLocalDate().toEpochDay();
-                assertEquals(daysSinceEpochInLocalZone, DateWritable.dateToDays((Date) hiveValue));
-                return daysSinceEpochInLocalZone;
-            case StandardTypes.TIMESTAMP:
-                Instant instant = ((Timestamp) hiveValue).toInstant();
-                long epochSecond = instant.getEpochSecond();
-                int nano = instant.getNano();
-                assertEquals(nano % 1_000_000, 0);
-                return epochSecond * 1000 + nano / 1_000_000;
-            default:
-                throw new UnsupportedOperationException("unknown type");
+            blockBuilder.closeEntry();
+            return type.getObject(blockBuilder, 0);
         }
+        if (type instanceof RowType) {
+            BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
+            BlockBuilder subBlockBuilder = blockBuilder.beginBlockEntry();
+            int field = 0;
+            for (Object subElement : (Iterable<?>) hiveValue) {
+                appendToBlockBuilder(type.getTypeParameters().get(field), subElement, subBlockBuilder);
+                field++;
+            }
+            blockBuilder.closeEntry();
+            return type.getObject(blockBuilder, 0);
+        }
+        if (type instanceof MapType) {
+            BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
+            BlockBuilder subBlockBuilder = blockBuilder.beginBlockEntry();
+            for (Entry<?, ?> entry : ((Map<?, ?>) hiveValue).entrySet()) {
+                appendToBlockBuilder(type.getTypeParameters().get(0), entry.getKey(), subBlockBuilder);
+                appendToBlockBuilder(type.getTypeParameters().get(1), entry.getValue(), subBlockBuilder);
+            }
+            blockBuilder.closeEntry();
+            return type.getObject(blockBuilder, 0);
+        }
+        if (type instanceof BooleanType) {
+            return hiveValue;
+        }
+        if (type instanceof TinyintType) {
+            return (long) (byte) hiveValue;
+        }
+        if (type instanceof SmallintType) {
+            return (long) (short) hiveValue;
+        }
+        if (type instanceof IntegerType) {
+            return (long) (int) hiveValue;
+        }
+        if (type instanceof BigintType) {
+            return hiveValue;
+        }
+        if (type instanceof RealType) {
+            return (long) Float.floatToRawIntBits((float) hiveValue);
+        }
+        if (type instanceof DoubleType) {
+            return hiveValue;
+        }
+        if (type instanceof VarcharType) {
+            return Slices.utf8Slice(hiveValue.toString());
+        }
+        if (type instanceof DateType) {
+            long daysSinceEpochInLocalZone = ((Date) hiveValue).toLocalDate().toEpochDay();
+            assertEquals(daysSinceEpochInLocalZone, DateWritable.dateToDays((Date) hiveValue));
+            return daysSinceEpochInLocalZone;
+        }
+        if (type instanceof TimestampType) {
+            Instant instant = ((Timestamp) hiveValue).toInstant();
+            long epochSecond = instant.getEpochSecond();
+            int nano = instant.getNano();
+            assertEquals(nano % 1_000_000, 0);
+            return epochSecond * 1000 + nano / 1_000_000;
+        }
+
+        throw new UnsupportedOperationException("unknown type");
     }
 
     private static void appendToBlockBuilder(Type type, Object hiveValue, BlockBuilder blockBuilder)

@@ -20,7 +20,9 @@ import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
 
 import java.util.HashMap;
@@ -182,7 +184,7 @@ public class RcFileWriteValidation
                 return NULL_HASH_CODE;
             }
 
-            if (type.getTypeSignature().getBase().equals(StandardTypes.MAP)) {
+            if (type instanceof MapType) {
                 Type keyType = type.getTypeParameters().get(0);
                 Type valueType = type.getTypeParameters().get(1);
                 Block mapBlock = (Block) type.getObject(block, position);
@@ -196,7 +198,7 @@ public class RcFileWriteValidation
                 return hash;
             }
 
-            if (type.getTypeSignature().getBase().equals(StandardTypes.ARRAY)) {
+            if (type instanceof ArrayType) {
                 Type elementType = type.getTypeParameters().get(0);
                 Block array = (Block) type.getObject(block, position);
                 long hash = 0;
@@ -206,7 +208,7 @@ public class RcFileWriteValidation
                 return hash;
             }
 
-            if (type.getTypeSignature().getBase().equals(StandardTypes.ROW)) {
+            if (type instanceof RowType) {
                 Block row = (Block) type.getObject(block, position);
                 long hash = 0;
                 for (int i = 0; i < row.getPositionCount(); i++) {

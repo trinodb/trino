@@ -30,10 +30,21 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorPageSink;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.type.BigintType;
+import io.prestosql.spi.type.BooleanType;
+import io.prestosql.spi.type.DateType;
 import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.DoubleType;
+import io.prestosql.spi.type.IntegerType;
+import io.prestosql.spi.type.RealType;
+import io.prestosql.spi.type.SmallintType;
+import io.prestosql.spi.type.TimestampType;
+import io.prestosql.spi.type.TimestampWithTimeZoneType;
+import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.VarbinaryType;
+import io.prestosql.spi.type.VarcharType;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.IOConstants;
 import org.apache.hadoop.mapred.JobConf;
@@ -388,30 +399,35 @@ public class IcebergPageSink
         if (block.isNull(position)) {
             return null;
         }
-        switch (type.getTypeSignature().getBase()) {
-            case StandardTypes.BIGINT:
-                return type.getLong(block, position);
-            case StandardTypes.INTEGER:
-            case StandardTypes.SMALLINT:
-            case StandardTypes.TINYINT:
-            case StandardTypes.DATE:
-                return toIntExact(type.getLong(block, position));
-            case StandardTypes.BOOLEAN:
-                return type.getBoolean(block, position);
-            case StandardTypes.DECIMAL:
-                return readBigDecimal((DecimalType) type, block, position);
-            case StandardTypes.REAL:
-                return intBitsToFloat(toIntExact(type.getLong(block, position)));
-            case StandardTypes.DOUBLE:
-                return type.getDouble(block, position);
-            case StandardTypes.TIMESTAMP:
-                return MILLISECONDS.toMicros(type.getLong(block, position));
-            case StandardTypes.TIMESTAMP_WITH_TIME_ZONE:
-                return MILLISECONDS.toMicros(unpackMillisUtc(type.getLong(block, position)));
-            case StandardTypes.VARBINARY:
-                return type.getSlice(block, position).getBytes();
-            case StandardTypes.VARCHAR:
-                return type.getSlice(block, position).toStringUtf8();
+        if (type instanceof BigintType) {
+            return type.getLong(block, position);
+        }
+        if (type instanceof IntegerType || type instanceof SmallintType || type instanceof TinyintType || type instanceof DateType) {
+            return toIntExact(type.getLong(block, position));
+        }
+        if (type instanceof BooleanType) {
+            return type.getBoolean(block, position);
+        }
+        if (type instanceof DecimalType) {
+            return readBigDecimal((DecimalType) type, block, position);
+        }
+        if (type instanceof RealType) {
+            return intBitsToFloat(toIntExact(type.getLong(block, position)));
+        }
+        if (type instanceof DoubleType) {
+            return type.getDouble(block, position);
+        }
+        if (type instanceof TimestampType) {
+            return MILLISECONDS.toMicros(type.getLong(block, position));
+        }
+        if (type instanceof TimestampWithTimeZoneType) {
+            return MILLISECONDS.toMicros(unpackMillisUtc(type.getLong(block, position)));
+        }
+        if (type instanceof VarbinaryType) {
+            return type.getSlice(block, position).getBytes();
+        }
+        if (type instanceof VarcharType) {
+            return type.getSlice(block, position).toStringUtf8();
         }
         throw new UnsupportedOperationException("Type not supported as partition column: " + type.getDisplayName());
     }

@@ -14,8 +14,11 @@
 package io.prestosql.rcfile;
 
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 
@@ -29,9 +32,6 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.StandardTypes.ARRAY;
-import static io.prestosql.spi.type.StandardTypes.MAP;
-import static io.prestosql.spi.type.StandardTypes.ROW;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
@@ -107,17 +107,16 @@ public interface RcFileEncoding
         if (TIMESTAMP.equals(type)) {
             return timestampEncoding(type);
         }
-        String baseType = type.getTypeSignature().getBase();
-        if (ARRAY.equals(baseType)) {
+        if (type instanceof ArrayType) {
             ColumnEncoding elementType = getEncoding(type.getTypeParameters().get(0));
             return listEncoding(type, elementType);
         }
-        if (MAP.equals(baseType)) {
+        if (type instanceof MapType) {
             ColumnEncoding keyType = getEncoding(type.getTypeParameters().get(0));
             ColumnEncoding valueType = getEncoding(type.getTypeParameters().get(1));
             return mapEncoding(type, keyType, valueType);
         }
-        if (ROW.equals(baseType)) {
+        if (type instanceof RowType) {
             return structEncoding(
                     type,
                     type.getTypeParameters().stream()

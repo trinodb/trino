@@ -354,10 +354,10 @@ public class PostgreSqlClient
         if (TinyintType.TINYINT.equals(type)) {
             return WriteMapping.longMapping("smallint", tinyintWriteFunction());
         }
-        if (type.getTypeSignature().getBase().equals(StandardTypes.JSON)) {
+        if (type.equals(jsonType)) {
             return WriteMapping.sliceMapping("jsonb", typedVarcharWriteFunction("json"));
         }
-        if (type.getTypeSignature().getBase().equals(StandardTypes.UUID)) {
+        if (type.equals(uuidType)) {
             return WriteMapping.sliceMapping("uuid", uuidWriteFunction());
         }
         if (type instanceof ArrayType && supportArrays) {

@@ -15,8 +15,11 @@ package io.prestosql.orc.metadata;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignatureParameter;
 import io.prestosql.spi.type.VarcharType;
@@ -35,9 +38,6 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.StandardTypes.ARRAY;
-import static io.prestosql.spi.type.StandardTypes.MAP;
-import static io.prestosql.spi.type.StandardTypes.ROW;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
@@ -218,13 +218,13 @@ public class OrcType
             DecimalType decimalType = (DecimalType) type;
             return ImmutableList.of(new OrcType(OrcTypeKind.DECIMAL, decimalType.getPrecision(), decimalType.getScale()));
         }
-        if (type.getTypeSignature().getBase().equals(ARRAY)) {
+        if (type instanceof ArrayType) {
             return createOrcArrayType(nextFieldTypeIndex, type.getTypeParameters().get(0));
         }
-        if (type.getTypeSignature().getBase().equals(MAP)) {
+        if (type instanceof MapType) {
             return createOrcMapType(nextFieldTypeIndex, type.getTypeParameters().get(0), type.getTypeParameters().get(1));
         }
-        if (type.getTypeSignature().getBase().equals(ROW)) {
+        if (type instanceof RowType) {
             List<String> fieldNames = new ArrayList<>();
             for (int i = 0; i < type.getTypeSignature().getParameters().size(); i++) {
                 TypeSignatureParameter parameter = type.getTypeSignature().getParameters().get(i);

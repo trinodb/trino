@@ -18,8 +18,11 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.prestosql.orc.metadata.statistics.BloomFilter;
 import io.prestosql.orc.metadata.statistics.ColumnStatistics;
+import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.SqlDate;
 import io.prestosql.spi.type.SqlDecimal;
 import io.prestosql.spi.type.SqlTimestamp;
@@ -42,9 +45,6 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.StandardTypes.ARRAY;
-import static io.prestosql.spi.type.StandardTypes.MAP;
-import static io.prestosql.spi.type.StandardTypes.ROW;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static java.util.stream.Collectors.toList;
@@ -105,8 +105,7 @@ public final class TestingOrcPredicate
             return new DecimalOrcPredicate(expectedValues);
         }
 
-        String baseType = type.getTypeSignature().getBase();
-        if (ARRAY.equals(baseType) || MAP.equals(baseType) || ROW.equals(baseType)) {
+        if (type instanceof ArrayType || type instanceof MapType || type instanceof RowType) {
             return new BasicOrcPredicate<>(expectedValues, Object.class);
         }
         throw new IllegalArgumentException("Unsupported type " + type);

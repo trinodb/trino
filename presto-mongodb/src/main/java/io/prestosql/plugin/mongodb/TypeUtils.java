@@ -13,7 +13,9 @@
  */
 package io.prestosql.plugin.mongodb;
 
-import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
 
 import java.util.function.Predicate;
@@ -29,17 +31,17 @@ public final class TypeUtils
 
     public static boolean isArrayType(Type type)
     {
-        return type.getTypeSignature().getBase().equals(StandardTypes.ARRAY);
+        return type instanceof ArrayType;
     }
 
     public static boolean isMapType(Type type)
     {
-        return type.getTypeSignature().getBase().equals(StandardTypes.MAP);
+        return type instanceof MapType;
     }
 
     public static boolean isRowType(Type type)
     {
-        return type.getTypeSignature().getBase().equals(StandardTypes.ROW);
+        return type instanceof RowType;
     }
 
     public static boolean isDateType(Type type)

@@ -72,8 +72,6 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.StandardTypes.ARRAY;
-import static io.prestosql.spi.type.StandardTypes.MAP;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
@@ -310,7 +308,7 @@ public class MaterializedResult
             TimeZoneKey timeZoneKey = ((SqlTimestampWithTimeZone) value).getTimeZoneKey();
             type.writeLong(blockBuilder, packDateTimeWithZone(millisUtc, timeZoneKey));
         }
-        else if (ARRAY.equals(type.getTypeSignature().getBase())) {
+        else if (type instanceof ArrayType) {
             List<Object> list = (List<Object>) value;
             Type elementType = ((ArrayType) type).getElementType();
             BlockBuilder arrayBlockBuilder = blockBuilder.beginBlockEntry();
@@ -319,7 +317,7 @@ public class MaterializedResult
             }
             blockBuilder.closeEntry();
         }
-        else if (MAP.equals(type.getTypeSignature().getBase())) {
+        else if (type instanceof MapType) {
             Map<Object, Object> map = (Map<Object, Object>) value;
             Type keyType = ((MapType) type).getKeyType();
             Type valueType = ((MapType) type).getValueType();
