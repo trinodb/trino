@@ -352,24 +352,22 @@ public class Field
         if (type.equals(BIGINT) || type.equals(BOOLEAN) || type.equals(DOUBLE) || type.equals(INTEGER) || type.equals(REAL) || type.equals(TINYINT) || type.equals(SMALLINT)) {
             return value.toString();
         }
-        else if (type.equals(DATE)) {
+        if (type.equals(DATE)) {
             return "DATE '" + value.toString() + "'";
         }
-        else if (type.equals(TIME)) {
+        if (type.equals(TIME)) {
             return "TIME '" + value.toString() + "'";
         }
-        else if (type.equals(TIMESTAMP)) {
+        if (type.equals(TIMESTAMP)) {
             return "TIMESTAMP '" + value.toString() + "'";
         }
-        else if (type.equals(VARBINARY)) {
+        if (type.equals(VARBINARY)) {
             return "CAST('" + new String((byte[]) value, UTF_8).replaceAll("'", "''") + "' AS VARBINARY)";
         }
-        else if (type instanceof VarcharType) {
+        if (type instanceof VarcharType) {
             return "'" + value.toString().replaceAll("'", "''") + "'";
         }
-        else {
-            throw new PrestoException(NOT_SUPPORTED, "Unsupported PrestoType " + type);
-        }
+        throw new PrestoException(NOT_SUPPORTED, "Unsupported PrestoType " + type);
     }
 
     /**
@@ -407,8 +405,10 @@ public class Field
             if (!(value instanceof Long)) {
                 throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Object is not a Long, but " + value.getClass());
             }
+            return value;
         }
-        else if (type.equals(INTEGER)) {
+
+        if (type.equals(INTEGER)) {
             if (value instanceof Long) {
                 return ((Long) value).intValue();
             }
@@ -416,14 +416,17 @@ public class Field
             if (!(value instanceof Integer)) {
                 throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Object is not a Long or Integer, but " + value.getClass());
             }
+            return value;
         }
-        else if (type.equals(BOOLEAN)) {
+
+        if (type.equals(BOOLEAN)) {
             if (!(value instanceof Boolean)) {
                 throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Object is not a Boolean, but " + value.getClass());
             }
             return value;
         }
-        else if (type.equals(DATE)) {
+
+        if (type.equals(DATE)) {
             if (value instanceof Long) {
                 return new Date(DAYS.toMillis((Long) value));
             }
@@ -435,13 +438,17 @@ public class Field
             if (!(value instanceof Date)) {
                 throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Object is not a Calendar, Date, or Long, but " + value.getClass());
             }
+            return value;
         }
-        else if (type.equals(DOUBLE)) {
+
+        if (type.equals(DOUBLE)) {
             if (!(value instanceof Double)) {
                 throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Object is not a Double, but " + value.getClass());
             }
+            return value;
         }
-        else if (type.equals(REAL)) {
+
+        if (type.equals(REAL)) {
             if (value instanceof Long) {
                 return Float.intBitsToFloat(((Long) value).intValue());
             }
@@ -453,8 +460,10 @@ public class Field
             if (!(value instanceof Float)) {
                 throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Object is not a Float, but " + value.getClass());
             }
+            return value;
         }
-        else if (type.equals(SMALLINT)) {
+
+        if (type.equals(SMALLINT)) {
             if (value instanceof Long) {
                 return ((Long) value).shortValue();
             }
@@ -466,8 +475,10 @@ public class Field
             if (!(value instanceof Short)) {
                 throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Object is not a Short, but " + value.getClass());
             }
+            return value;
         }
-        else if (type.equals(TIME)) {
+
+        if (type.equals(TIME)) {
             if (value instanceof Long) {
                 return new Time((Long) value);
             }
@@ -475,8 +486,10 @@ public class Field
             if (!(value instanceof Time)) {
                 throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Object is not a Long or Time, but " + value.getClass());
             }
+            return value;
         }
-        else if (type.equals(TIMESTAMP)) {
+
+        if (type.equals(TIMESTAMP)) {
             if (value instanceof Long) {
                 return new Timestamp((Long) value);
             }
@@ -484,8 +497,10 @@ public class Field
             if (!(value instanceof Timestamp)) {
                 throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Object is not a Long or Timestamp, but " + value.getClass());
             }
+            return value;
         }
-        else if (type.equals(TINYINT)) {
+
+        if (type.equals(TINYINT)) {
             if (value instanceof Long) {
                 return ((Long) value).byteValue();
             }
@@ -501,8 +516,10 @@ public class Field
             if (!(value instanceof Byte)) {
                 throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Object is not a Byte, but " + value.getClass());
             }
+            return value;
         }
-        else if (type.equals(VARBINARY)) {
+
+        if (type.equals(VARBINARY)) {
             if (value instanceof Slice) {
                 return ((Slice) value).getBytes();
             }
@@ -510,8 +527,10 @@ public class Field
             if (!(value instanceof byte[])) {
                 throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Object is not a Slice byte[], but " + value.getClass());
             }
+            return value;
         }
-        else if (type instanceof VarcharType) {
+
+        if (type instanceof VarcharType) {
             if (value instanceof Slice) {
                 return new String(((Slice) value).getBytes(), UTF_8);
             }
@@ -519,11 +538,9 @@ public class Field
             if (!(value instanceof String)) {
                 throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Object is not a Slice or String, but " + value.getClass());
             }
-        }
-        else {
-            throw new PrestoException(NOT_SUPPORTED, "Unsupported PrestoType " + type);
+            return value;
         }
 
-        return value;
+        throw new PrestoException(NOT_SUPPORTED, "Unsupported PrestoType " + type);
     }
 }
