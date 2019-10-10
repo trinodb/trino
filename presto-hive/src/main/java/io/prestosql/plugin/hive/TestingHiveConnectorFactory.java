@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.hive;
 
+import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorContext;
 import io.prestosql.spi.connector.ConnectorFactory;
@@ -20,30 +21,33 @@ import io.prestosql.spi.connector.ConnectorFactory;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.prestosql.plugin.hive.InternalHiveConnectorFactory.createConnector;
+import static java.util.Objects.requireNonNull;
 
-public class HiveConnectorFactory
+public class TestingHiveConnectorFactory
         implements ConnectorFactory
 {
-    private final String name;
+    private final Optional<HiveMetastore> metastore;
 
-    public HiveConnectorFactory(String name)
+    public TestingHiveConnectorFactory()
     {
-        checkArgument(!isNullOrEmpty(name), "name is null or empty");
-        this.name = name;
+        this.metastore = Optional.empty();
+    }
+
+    public TestingHiveConnectorFactory(HiveMetastore metastore)
+    {
+        this.metastore = Optional.of(requireNonNull(metastore, "metastore is null"));
     }
 
     @Override
     public String getName()
     {
-        return name;
+        return "hive";
     }
 
     @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        return createConnector(catalogName, config, context, Optional.empty());
+        return createConnector(catalogName, config, context, metastore);
     }
 }

@@ -14,26 +14,25 @@
 package io.prestosql.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.ConnectorFactory;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Strings.isNullOrEmpty;
+import static java.util.Objects.requireNonNull;
 
-public class HivePlugin
+public class TestingHivePlugin
         implements Plugin
 {
-    private final String name;
+    private final HiveMetastore metastore;
 
-    public HivePlugin(String name)
+    public TestingHivePlugin(HiveMetastore metastore)
     {
-        checkArgument(!isNullOrEmpty(name), "name is null or empty");
-        this.name = name;
+        this.metastore = requireNonNull(metastore, "metastore is null");
     }
 
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new HiveConnectorFactory(name));
+        return ImmutableList.of(new TestingHiveConnectorFactory(metastore));
     }
 }

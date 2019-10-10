@@ -21,7 +21,7 @@ import io.prestosql.plugin.hive.HdfsConfiguration;
 import io.prestosql.plugin.hive.HdfsConfigurationInitializer;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveHdfsConfiguration;
-import io.prestosql.plugin.hive.HivePlugin;
+import io.prestosql.plugin.hive.TestingHivePlugin;
 import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.file.FileHiveMetastore;
@@ -70,7 +70,7 @@ public class TestIcebergMetadataListing
 
         queryRunner.installPlugin(new IcebergPlugin(Optional.of(metastore)));
         queryRunner.createCatalog("iceberg", "iceberg");
-        queryRunner.installPlugin(new HivePlugin("hive", Optional.of(metastore)));
+        queryRunner.installPlugin(new TestingHivePlugin(metastore));
         queryRunner.createCatalog("hive", "hive", ImmutableMap.of("hive.security", "sql-standard"));
 
         return queryRunner;
