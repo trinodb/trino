@@ -576,7 +576,7 @@ class Query
     private static Column createColumn(String name, Type type)
     {
         TypeSignature signature = type.getTypeSignature();
-        return new Column(name, signature.toString(), toClientTypeSignature(signature));
+        return new Column(name, type.getDisplayName(), toClientTypeSignature(signature));
     }
 
     private static ClientTypeSignature toClientTypeSignature(TypeSignature signature)
