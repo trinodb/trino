@@ -16,10 +16,8 @@ package io.prestosql.plugin.kudu;
 import io.prestosql.spi.type.VarcharType;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
-import io.prestosql.testing.QueryRunner;
 import io.prestosql.tests.AbstractTestIntegrationSmokeTest;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.regex.Pattern;
@@ -32,19 +30,9 @@ import static org.testng.Assert.assertTrue;
 public class TestKuduIntegrationSmoke
         extends AbstractTestIntegrationSmokeTest
 {
-    public static final String SCHEMA = "tpch";
-
-    private QueryRunner queryRunner;
-
     public TestKuduIntegrationSmoke()
     {
         super(() -> KuduQueryRunnerFactory.createKuduQueryRunnerTpch(ORDERS));
-    }
-
-    @BeforeClass
-    public void setUp()
-    {
-        queryRunner = getQueryRunner();
     }
 
     /**
@@ -54,7 +42,7 @@ public class TestKuduIntegrationSmoke
     @Override
     public void testDescribeTable()
     {
-        MaterializedResult actualColumns = this.computeActual("DESC orders").toTestTypes();
+        MaterializedResult actualColumns = computeActual("DESC orders").toTestTypes();
         MaterializedResult.Builder builder = MaterializedResult.resultBuilder(this.getQueryRunner().getDefaultSession(), VarcharType.VARCHAR, VarcharType.VARCHAR, VarcharType.VARCHAR, VarcharType.VARCHAR);
         for (MaterializedRow row : actualColumns.getMaterializedRows()) {
             builder.row(row.getField(0), row.getField(1), "", "");
@@ -77,7 +65,7 @@ public class TestKuduIntegrationSmoke
     @Test
     public void testShowCreateTable()
     {
-        queryRunner.execute("CREATE TABLE IF NOT EXISTS test_show_create_table (\n" +
+        assertUpdate("CREATE TABLE IF NOT EXISTS test_show_create_table (\n" +
                 "id INT WITH (primary_key=true),\n" +
                 "user_name VARCHAR\n" +
                 ") WITH (\n" +
@@ -86,12 +74,14 @@ public class TestKuduIntegrationSmoke
                 " number_of_replicas = 1\n" +
                 ")");
 
-        MaterializedResult result = queryRunner.execute("SHOW CREATE TABLE test_show_create_table");
+        MaterializedResult result = computeActual("SHOW CREATE TABLE test_show_create_table");
         String sqlStatement = (String) result.getOnlyValue();
         String tableProperties = sqlStatement.split("\\)\\s*WITH\\s*\\(")[1];
         assertTableProperty(tableProperties, "number_of_replicas", "1");
         assertTableProperty(tableProperties, "partition_by_hash_columns", Pattern.quote("ARRAY['id']"));
         assertTableProperty(tableProperties, "partition_by_hash_buckets", "2");
+
+        assertUpdate("DROP TABLE test_show_create_table");
     }
 
     private void assertTableProperty(String tableProperties, String key, String regexValue)
@@ -103,7 +93,7 @@ public class TestKuduIntegrationSmoke
     @AfterClass(alwaysRun = true)
     public final void destroy()
     {
-        queryRunner.close();
-        queryRunner = null;
+        assertUpdate("DROP TABLE " + ORDERS.getTableName());
+        getQueryRunner().close();
     }
 }
