@@ -18,7 +18,6 @@ import io.prestosql.plugin.accumulo.Types;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.VarcharType;
 import org.apache.accumulo.core.client.lexicoder.BytesLexicoder;
 import org.apache.accumulo.core.client.lexicoder.DoubleLexicoder;
@@ -62,8 +61,8 @@ public class LexicoderRowSerializer
         implements AccumuloRowSerializer
 {
     private static final Map<Type, Lexicoder> LEXICODER_MAP = new HashMap<>();
-    private static final Map<TypeSignature, ListLexicoder<?>> LIST_LEXICODERS = new HashMap<>();
-    private static final Map<TypeSignature, MapLexicoder<?, ?>> MAP_LEXICODERS = new HashMap<>();
+    private static final Map<Type, ListLexicoder<?>> LIST_LEXICODERS = new HashMap<>();
+    private static final Map<Type, MapLexicoder<?, ?>> MAP_LEXICODERS = new HashMap<>();
 
     private final Map<String, Map<String, String>> familyQualifierColumnMap = new HashMap<>();
     private final Map<String, byte[]> columnValues = new HashMap<>();
@@ -401,22 +400,22 @@ public class LexicoderRowSerializer
 
     private static ListLexicoder getListLexicoder(Type elementType)
     {
-        ListLexicoder<?> listLexicoder = LIST_LEXICODERS.get(elementType.getTypeSignature());
+        ListLexicoder<?> listLexicoder = LIST_LEXICODERS.get(elementType);
         if (listLexicoder == null) {
             listLexicoder = new ListLexicoder(getLexicoder(Types.getElementType(elementType)));
-            LIST_LEXICODERS.put(elementType.getTypeSignature(), listLexicoder);
+            LIST_LEXICODERS.put(elementType, listLexicoder);
         }
         return listLexicoder;
     }
 
     private static MapLexicoder getMapLexicoder(Type type)
     {
-        MapLexicoder<?, ?> mapLexicoder = MAP_LEXICODERS.get(type.getTypeSignature());
+        MapLexicoder<?, ?> mapLexicoder = MAP_LEXICODERS.get(type);
         if (mapLexicoder == null) {
             mapLexicoder = new MapLexicoder(
                     getLexicoder(Types.getKeyType(type)),
                     getLexicoder(Types.getValueType(type)));
-            MAP_LEXICODERS.put(type.getTypeSignature(), mapLexicoder);
+            MAP_LEXICODERS.put(type, mapLexicoder);
         }
         return mapLexicoder;
     }
