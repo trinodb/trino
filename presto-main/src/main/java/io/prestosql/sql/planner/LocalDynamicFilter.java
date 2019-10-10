@@ -35,6 +35,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
 import static io.prestosql.sql.DynamicFilters.Descriptor;
 import static io.prestosql.sql.DynamicFilters.extractDynamicFilters;
@@ -172,5 +173,16 @@ public class LocalDynamicFilter
     public Consumer<TupleDomain<String>> getTupleDomainConsumer()
     {
         return this::addPartition;
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("probeSymbols", probeSymbols)
+                .add("buildChannels", buildChannels)
+                .add("result", result)
+                .add("partitionsLeft", partitionsLeft)
+                .toString();
     }
 }
