@@ -24,7 +24,7 @@ import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.spi.type.TypeId;
 import io.prestosql.spi.type.TypeSignatureParameter;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -172,15 +172,15 @@ public class TestShardWriter
             assertEquals(reader.getFilePosition(), reader.getFilePosition());
 
             OrcFileMetadata orcFileMetadata = METADATA_CODEC.fromJson(reader.getUserMetadata().get(OrcFileMetadata.KEY).getBytes());
-            assertEquals(orcFileMetadata, new OrcFileMetadata(ImmutableMap.<Long, TypeSignature>builder()
-                    .put(1L, BIGINT.getTypeSignature())
-                    .put(2L, createVarcharType(10).getTypeSignature())
-                    .put(4L, VARBINARY.getTypeSignature())
-                    .put(6L, DOUBLE.getTypeSignature())
-                    .put(7L, BOOLEAN.getTypeSignature())
-                    .put(8L, arrayType.getTypeSignature())
-                    .put(9L, mapType.getTypeSignature())
-                    .put(10L, arrayOfArrayType.getTypeSignature())
+            assertEquals(orcFileMetadata, new OrcFileMetadata(ImmutableMap.<Long, TypeId>builder()
+                    .put(1L, BIGINT.getTypeId())
+                    .put(2L, createVarcharType(10).getTypeId())
+                    .put(4L, VARBINARY.getTypeId())
+                    .put(6L, DOUBLE.getTypeId())
+                    .put(7L, BOOLEAN.getTypeId())
+                    .put(8L, arrayType.getTypeId())
+                    .put(9L, mapType.getTypeId())
+                    .put(10L, arrayOfArrayType.getTypeId())
                     .build()));
         }
 

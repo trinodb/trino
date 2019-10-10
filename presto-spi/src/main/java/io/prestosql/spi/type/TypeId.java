@@ -11,34 +11,38 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.raptor.legacy.storage;
+package io.prestosql.spi.type;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.type.TypeId;
+import com.fasterxml.jackson.annotation.JsonValue;
 
-import java.util.Map;
 import java.util.Objects;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
-public class OrcFileMetadata
+/**
+ * Represents an opaque identifier for a Type than can be used
+ * for serialization or storage in external systems.
+ */
+public class TypeId
 {
-    static final String KEY = "metadata";
+    private final String id;
 
-    private final Map<Long, TypeId> columnTypes;
-
-    @JsonCreator
-    public OrcFileMetadata(@JsonProperty("columnTypes") Map<Long, TypeId> columnTypes)
+    private TypeId(String id)
     {
-        this.columnTypes = ImmutableMap.copyOf(columnTypes);
+        this.id = requireNonNull(id, "id is null");
     }
 
-    @JsonProperty
-    public Map<Long, TypeId> getColumnTypes()
+    @JsonCreator
+    public static TypeId of(String id)
     {
-        return columnTypes;
+        return new TypeId(id);
+    }
+
+    @JsonValue
+    public String getId()
+    {
+        return id;
     }
 
     @Override
@@ -50,21 +54,19 @@ public class OrcFileMetadata
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        OrcFileMetadata that = (OrcFileMetadata) o;
-        return Objects.equals(columnTypes, that.columnTypes);
+        TypeId typeId = (TypeId) o;
+        return id.equals(typeId.id);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(columnTypes);
+        return Objects.hash(id);
     }
 
     @Override
     public String toString()
     {
-        return toStringHelper(this)
-                .add("columnTypes", columnTypes)
-                .toString();
+        return "type:[" + getId() + "]";
     }
 }

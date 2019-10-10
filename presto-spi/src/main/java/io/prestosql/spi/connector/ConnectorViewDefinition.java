@@ -15,7 +15,7 @@ package io.prestosql.spi.connector;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.spi.type.TypeId;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -112,12 +112,12 @@ public class ConnectorViewDefinition
     public static final class ViewColumn
     {
         private final String name;
-        private final TypeSignature type;
+        private final TypeId type;
 
         @JsonCreator
         public ViewColumn(
                 @JsonProperty("name") String name,
-                @JsonProperty("type") TypeSignature type)
+                @JsonProperty("type") TypeId type)
         {
             this.name = requireNonNull(name, "name is null");
             this.type = requireNonNull(type, "type is null");
@@ -130,7 +130,7 @@ public class ConnectorViewDefinition
         }
 
         @JsonProperty
-        public TypeSignature getType()
+        public TypeId getType()
         {
             return type;
         }

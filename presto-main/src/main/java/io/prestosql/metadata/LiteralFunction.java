@@ -107,7 +107,7 @@ public class LiteralFunction
         TypeSignature argumentType = typeForLiteralFunctionArgument(type).getTypeSignature();
 
         return new Signature(
-                LITERAL_FUNCTION_NAME + type.getTypeSignature(),
+                LITERAL_FUNCTION_NAME + type.getTypeId().getId(),
                 SCALAR,
                 type.getTypeSignature(),
                 argumentType);

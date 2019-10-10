@@ -2968,7 +2968,7 @@ public abstract class AbstractTestHive
                 viewData,
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableList.of(new ViewColumn("test", BIGINT.getTypeSignature())),
+                ImmutableList.of(new ViewColumn("test", BIGINT.getTypeId())),
                 Optional.empty(),
                 true);
 

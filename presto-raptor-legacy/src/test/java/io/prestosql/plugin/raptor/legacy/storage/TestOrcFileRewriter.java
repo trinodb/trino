@@ -25,7 +25,7 @@ import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.spi.type.TypeId;
 import io.prestosql.spi.type.TypeSignatureParameter;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -173,13 +173,13 @@ public class TestOrcFileRewriter
             assertEquals(reader.nextBatch(), -1);
 
             OrcFileMetadata orcFileMetadata = METADATA_CODEC.fromJson(reader.getUserMetadata().get(OrcFileMetadata.KEY).getBytes());
-            assertEquals(orcFileMetadata, new OrcFileMetadata(ImmutableMap.<Long, TypeSignature>builder()
-                    .put(3L, BIGINT.getTypeSignature())
-                    .put(7L, createVarcharType(20).getTypeSignature())
-                    .put(9L, arrayType.getTypeSignature())
-                    .put(10L, mapType.getTypeSignature())
-                    .put(11L, arrayOfArrayType.getTypeSignature())
-                    .put(12L, decimalType.getTypeSignature())
+            assertEquals(orcFileMetadata, new OrcFileMetadata(ImmutableMap.<Long, TypeId>builder()
+                    .put(3L, BIGINT.getTypeId())
+                    .put(7L, createVarcharType(20).getTypeId())
+                    .put(9L, arrayType.getTypeId())
+                    .put(10L, mapType.getTypeId())
+                    .put(11L, arrayOfArrayType.getTypeId())
+                    .put(12L, decimalType.getTypeId())
                     .build()));
         }
 
@@ -245,13 +245,13 @@ public class TestOrcFileRewriter
             assertEquals(reader.nextBatch(), -1);
 
             OrcFileMetadata orcFileMetadata = METADATA_CODEC.fromJson(reader.getUserMetadata().get(OrcFileMetadata.KEY).getBytes());
-            assertEquals(orcFileMetadata, new OrcFileMetadata(ImmutableMap.<Long, TypeSignature>builder()
-                    .put(3L, BIGINT.getTypeSignature())
-                    .put(7L, createVarcharType(20).getTypeSignature())
-                    .put(9L, arrayType.getTypeSignature())
-                    .put(10L, mapType.getTypeSignature())
-                    .put(11L, arrayOfArrayType.getTypeSignature())
-                    .put(12L, decimalType.getTypeSignature())
+            assertEquals(orcFileMetadata, new OrcFileMetadata(ImmutableMap.<Long, TypeId>builder()
+                    .put(3L, BIGINT.getTypeId())
+                    .put(7L, createVarcharType(20).getTypeId())
+                    .put(9L, arrayType.getTypeId())
+                    .put(10L, mapType.getTypeId())
+                    .put(11L, arrayOfArrayType.getTypeId())
+                    .put(12L, decimalType.getTypeId())
                     .build()));
         }
     }

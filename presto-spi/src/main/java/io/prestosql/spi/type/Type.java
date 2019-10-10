@@ -31,8 +31,13 @@ public interface Type
      * Gets the name of this type which must be case insensitive globally unique.
      * The name of a user defined type must be a legal identifier in Presto.
      */
-    @JsonValue
     TypeSignature getTypeSignature();
+
+    @JsonValue
+    default TypeId getTypeId()
+    {
+        return TypeId.of(getTypeSignature().toString());
+    }
 
     /**
      * Returns the base name of this type. For simple types, it is the type name.

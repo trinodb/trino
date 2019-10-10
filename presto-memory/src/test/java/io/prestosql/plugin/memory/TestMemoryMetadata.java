@@ -336,7 +336,7 @@ public class TestMemoryMetadata
                 sql,
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableList.of(new ViewColumn("test", BIGINT.getTypeSignature())),
+                ImmutableList.of(new ViewColumn("test", BIGINT.getTypeId())),
                 Optional.empty(),
                 true);
     }

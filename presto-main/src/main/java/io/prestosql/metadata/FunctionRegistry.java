@@ -159,6 +159,7 @@ import io.prestosql.operator.window.WindowFunctionSupplier;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeId;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.DynamicFilters;
 import io.prestosql.sql.analyzer.FeaturesConfig;
@@ -297,7 +298,6 @@ import static io.prestosql.operator.window.AggregateWindowFunction.supplier;
 import static io.prestosql.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
 import static io.prestosql.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static io.prestosql.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.type.DecimalCasts.BIGINT_TO_DECIMAL_CAST;
@@ -720,7 +720,7 @@ public class FunctionRegistry
             String typeName = name.getSuffix().substring(LITERAL_FUNCTION_NAME.length());
 
             // lookup the type
-            Type type = metadata.getType(parseTypeSignature(typeName));
+            Type type = metadata.getType(TypeId.of(typeName));
 
             // verify we have one parameter of the proper type
             checkArgument(parameterTypes.size() == 1, "Expected one argument to literal function, but got %s", parameterTypes);
@@ -1018,7 +1018,7 @@ public class FunctionRegistry
             String typeName = signature.getName().substring(LITERAL_FUNCTION_NAME.length());
 
             // lookup the type
-            Type type = metadata.getType(parseTypeSignature(typeName));
+            Type type = metadata.getType(TypeId.of(typeName));
 
             // verify we have one parameter of the proper type
             checkArgument(parameterTypes.size() == 1, "Expected one argument to literal function, but got %s", parameterTypes);

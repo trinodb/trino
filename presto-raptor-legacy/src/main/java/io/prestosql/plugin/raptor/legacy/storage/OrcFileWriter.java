@@ -25,7 +25,7 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.spi.type.TypeId;
 import io.prestosql.spi.type.VarbinaryType;
 import io.prestosql.spi.type.VarcharType;
 import org.apache.hadoop.conf.Configuration;
@@ -236,9 +236,9 @@ public class OrcFileWriter
             @Override
             public void preFooterWrite(OrcFile.WriterContext context)
             {
-                ImmutableMap.Builder<Long, TypeSignature> columnTypesMap = ImmutableMap.builder();
+                ImmutableMap.Builder<Long, TypeId> columnTypesMap = ImmutableMap.builder();
                 for (int i = 0; i < columnIds.size(); i++) {
-                    columnTypesMap.put(columnIds.get(i), columnTypes.get(i).getTypeSignature());
+                    columnTypesMap.put(columnIds.get(i), columnTypes.get(i).getTypeId());
                 }
                 byte[] bytes = METADATA_CODEC.toJsonBytes(new OrcFileMetadata(columnTypesMap.build()));
                 context.getWriter().addUserMetadata(OrcFileMetadata.KEY, ByteBuffer.wrap(bytes));

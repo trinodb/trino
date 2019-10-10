@@ -20,6 +20,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
+import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+
 public interface TypeManager
 {
     /**
@@ -28,6 +30,14 @@ public interface TypeManager
      * @throws TypeNotFoundException if not found
      */
     Type getType(TypeSignature signature);
+
+    /**
+     * Gets the type with the give (opaque) id
+     */
+    default Type getType(TypeId id)
+    {
+        return getType(parseTypeSignature(id.getId()));
+    }
 
     /**
      * Gets the type with the specified base type and the given parameters.

@@ -483,7 +483,7 @@ public class RaptorMetadata
         long columnId = lastColumn.getColumnId() + 1;
         int ordinalPosition = lastColumn.getOrdinalPosition() + 1;
 
-        String type = column.getType().getTypeSignature().toString();
+        String type = column.getType().getTypeId().getId();
         daoTransaction(dbi, MetadataDao.class, dao -> {
             dao.insertColumn(table.getTableId(), columnId, column.getName(), ordinalPosition, type, null, null);
             dao.updateTableVersion(table.getTableId(), session.getStartTime());
@@ -672,7 +672,7 @@ public class RaptorMetadata
                 RaptorColumnHandle column = table.getColumnHandles().get(i);
 
                 int columnId = i + 1;
-                String type = table.getColumnTypes().get(i).getTypeSignature().toString();
+                String type = table.getColumnTypes().get(i).getTypeId().getId();
                 Integer sortPosition = sortColumnHandles.contains(column) ? sortColumnHandles.indexOf(column) : null;
                 Integer bucketPosition = bucketColumnHandles.contains(column) ? bucketColumnHandles.indexOf(column) : null;
 
