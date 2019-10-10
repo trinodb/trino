@@ -13,34 +13,33 @@
  */
 package io.prestosql.plugin.iceberg;
 
-import io.prestosql.spi.connector.Connector;
-import io.prestosql.spi.connector.ConnectorContext;
+import com.google.common.collect.ImmutableList;
+import io.prestosql.plugin.hive.metastore.HiveMetastore;
+import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.ConnectorFactory;
-import io.prestosql.spi.connector.ConnectorHandleResolver;
 
-import java.util.Map;
 import java.util.Optional;
 
-import static io.prestosql.plugin.iceberg.InternalIcebergConnectorFactory.createConnector;
+import static java.util.Objects.requireNonNull;
 
-public class IcebergConnectorFactory
-        implements ConnectorFactory
+public class TestingIcebergPlugin
+        implements Plugin
 {
-    @Override
-    public String getName()
+    private final Optional<HiveMetastore> metastore;
+
+    public TestingIcebergPlugin()
     {
-        return "iceberg";
+        this.metastore = Optional.empty();
+    }
+
+    public TestingIcebergPlugin(HiveMetastore metastore)
+    {
+        this.metastore = Optional.of(requireNonNull(metastore, "metastore is null"));
     }
 
     @Override
-    public ConnectorHandleResolver getHandleResolver()
+    public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return new IcebergHandleResolver();
-    }
-
-    @Override
-    public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
-    {
-        return createConnector(catalogName, config, context, Optional.empty());
+        return ImmutableList.of(new TestingIcebergConnectorFactory(metastore));
     }
 }

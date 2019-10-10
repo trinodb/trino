@@ -68,7 +68,7 @@ public class TestIcebergMetadataListing
 
         metastore = new FileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test");
 
-        queryRunner.installPlugin(new IcebergPlugin(Optional.of(metastore)));
+        queryRunner.installPlugin(new TestingIcebergPlugin(metastore));
         queryRunner.createCatalog("iceberg", "iceberg");
         queryRunner.installPlugin(new TestingHivePlugin(metastore));
         queryRunner.createCatalog("hive", "hive", ImmutableMap.of("hive.security", "sql-standard"));

@@ -14,32 +14,15 @@
 package io.prestosql.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.ConnectorFactory;
-
-import java.util.Optional;
-
-import static java.util.Objects.requireNonNull;
 
 public class IcebergPlugin
         implements Plugin
 {
-    private final Optional<HiveMetastore> metastore;
-
-    public IcebergPlugin()
-    {
-        this(Optional.empty());
-    }
-
-    public IcebergPlugin(Optional<HiveMetastore> metastore)
-    {
-        this.metastore = requireNonNull(metastore, "metastore is null");
-    }
-
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new IcebergConnectorFactory(metastore));
+        return ImmutableList.of(new IcebergConnectorFactory());
     }
 }
