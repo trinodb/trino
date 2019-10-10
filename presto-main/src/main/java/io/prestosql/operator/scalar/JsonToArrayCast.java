@@ -42,6 +42,7 @@ import static io.prestosql.operator.scalar.ScalarFunctionImplementation.Argument
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.util.Failures.checkCondition;
 import static io.prestosql.util.JsonUtil.JSON_FACTORY;
 import static io.prestosql.util.JsonUtil.canCastFromJson;
@@ -62,7 +63,7 @@ public class JsonToArrayCast
                 ImmutableList.of(typeVariable("T")),
                 ImmutableList.of(),
                 parseTypeSignature("array(T)"),
-                ImmutableList.of(parseTypeSignature(StandardTypes.JSON)));
+                ImmutableList.of(JSON.getTypeSignature()));
     }
 
     @Override

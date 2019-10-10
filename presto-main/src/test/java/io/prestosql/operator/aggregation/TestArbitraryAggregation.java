@@ -16,7 +16,6 @@ package io.prestosql.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import org.testng.annotations.Test;
 
@@ -31,7 +30,12 @@ import static io.prestosql.block.BlockAssertions.createStringsBlock;
 import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertNotNull;
 
 public class TestArbitraryAggregation
@@ -50,7 +54,7 @@ public class TestArbitraryAggregation
     public void testNullBoolean()
     {
         InternalAggregationFunction booleanAgg = metadata.getAggregateFunctionImplementation(
-                new Signature("arbitrary", AGGREGATE, parseTypeSignature(StandardTypes.BOOLEAN), parseTypeSignature(StandardTypes.BOOLEAN)));
+                new Signature("arbitrary", AGGREGATE, BOOLEAN.getTypeSignature(), BOOLEAN.getTypeSignature()));
         assertAggregation(
                 booleanAgg,
                 null,
@@ -61,7 +65,7 @@ public class TestArbitraryAggregation
     public void testValidBoolean()
     {
         InternalAggregationFunction booleanAgg = metadata.getAggregateFunctionImplementation(
-                new Signature("arbitrary", AGGREGATE, parseTypeSignature(StandardTypes.BOOLEAN), parseTypeSignature(StandardTypes.BOOLEAN)));
+                new Signature("arbitrary", AGGREGATE, BOOLEAN.getTypeSignature(), BOOLEAN.getTypeSignature()));
         assertAggregation(
                 booleanAgg,
                 true,
@@ -72,7 +76,7 @@ public class TestArbitraryAggregation
     public void testNullLong()
     {
         InternalAggregationFunction longAgg = metadata.getAggregateFunctionImplementation(
-                new Signature("arbitrary", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.BIGINT)));
+                new Signature("arbitrary", AGGREGATE, BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
         assertAggregation(
                 longAgg,
                 null,
@@ -83,7 +87,7 @@ public class TestArbitraryAggregation
     public void testValidLong()
     {
         InternalAggregationFunction longAgg = metadata.getAggregateFunctionImplementation(
-                new Signature("arbitrary", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.BIGINT)));
+                new Signature("arbitrary", AGGREGATE, BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
         assertAggregation(
                 longAgg,
                 1L,
@@ -94,7 +98,7 @@ public class TestArbitraryAggregation
     public void testNullDouble()
     {
         InternalAggregationFunction doubleAgg = metadata.getAggregateFunctionImplementation(
-                new Signature("arbitrary", AGGREGATE, parseTypeSignature(StandardTypes.DOUBLE), parseTypeSignature(StandardTypes.DOUBLE)));
+                new Signature("arbitrary", AGGREGATE, DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()));
         assertAggregation(
                 doubleAgg,
                 null,
@@ -105,7 +109,7 @@ public class TestArbitraryAggregation
     public void testValidDouble()
     {
         InternalAggregationFunction doubleAgg = metadata.getAggregateFunctionImplementation(
-                new Signature("arbitrary", AGGREGATE, parseTypeSignature(StandardTypes.DOUBLE), parseTypeSignature(StandardTypes.DOUBLE)));
+                new Signature("arbitrary", AGGREGATE, DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()));
         assertAggregation(
                 doubleAgg,
                 2.0,
@@ -116,7 +120,7 @@ public class TestArbitraryAggregation
     public void testNullString()
     {
         InternalAggregationFunction stringAgg = metadata.getAggregateFunctionImplementation(
-                new Signature("arbitrary", AGGREGATE, parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.VARCHAR)));
+                new Signature("arbitrary", AGGREGATE, VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
         assertAggregation(
                 stringAgg,
                 null,
@@ -127,7 +131,7 @@ public class TestArbitraryAggregation
     public void testValidString()
     {
         InternalAggregationFunction stringAgg = metadata.getAggregateFunctionImplementation(
-                new Signature("arbitrary", AGGREGATE, parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.VARCHAR)));
+                new Signature("arbitrary", AGGREGATE, VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
         assertAggregation(
                 stringAgg,
                 "a",
@@ -160,7 +164,7 @@ public class TestArbitraryAggregation
     public void testValidInt()
     {
         InternalAggregationFunction arrayAgg = metadata.getAggregateFunctionImplementation(
-                new Signature("arbitrary", AGGREGATE, parseTypeSignature("integer"), parseTypeSignature("integer")));
+                new Signature("arbitrary", AGGREGATE, INTEGER.getTypeSignature(), INTEGER.getTypeSignature()));
         assertAggregation(
                 arrayAgg,
                 3,

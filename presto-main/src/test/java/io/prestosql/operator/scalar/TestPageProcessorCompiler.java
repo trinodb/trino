@@ -25,7 +25,6 @@ import io.prestosql.spi.Page;
 import io.prestosql.spi.block.DictionaryBlock;
 import io.prestosql.spi.block.RunLengthEncodedBlock;
 import io.prestosql.spi.type.ArrayType;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.sql.gen.ExpressionCompiler;
 import io.prestosql.sql.gen.PageFunctionCompiler;
 import io.prestosql.sql.relational.CallExpression;
@@ -50,7 +49,6 @@ import static io.prestosql.operator.project.PageProcessor.MAX_BATCH_SIZE;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.relational.Expressions.constant;
 import static io.prestosql.sql.relational.Expressions.field;
@@ -122,7 +120,7 @@ public class TestPageProcessorCompiler
     public void testSanityFilterOnDictionary()
     {
         CallExpression lengthVarchar = new CallExpression(
-                new Signature("length", SCALAR, parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.VARCHAR)), BIGINT, ImmutableList.of(field(0, VARCHAR)));
+                new Signature("length", SCALAR, BIGINT.getTypeSignature(), VARCHAR.getTypeSignature()), BIGINT, ImmutableList.of(field(0, VARCHAR)));
         Signature lessThan = internalOperator(LESS_THAN, BOOLEAN, ImmutableList.of(BIGINT, BIGINT));
         CallExpression filter = new CallExpression(lessThan, BOOLEAN, ImmutableList.of(lengthVarchar, constant(10L, BIGINT)));
 
@@ -208,7 +206,7 @@ public class TestPageProcessorCompiler
     {
         Signature lessThan = internalOperator(LESS_THAN, BOOLEAN, ImmutableList.of(BIGINT, BIGINT));
         CallExpression random = new CallExpression(
-                new Signature("random", SCALAR, parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.BIGINT)), BIGINT, singletonList(constant(10L, BIGINT)));
+                new Signature("random", SCALAR, BIGINT.getTypeSignature(), BIGINT.getTypeSignature()), BIGINT, singletonList(constant(10L, BIGINT)));
         InputReferenceExpression col0 = field(0, BIGINT);
         CallExpression lessThanRandomExpression = new CallExpression(lessThan, BOOLEAN, ImmutableList.of(col0, random));
 

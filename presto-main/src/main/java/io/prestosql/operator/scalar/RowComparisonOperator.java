@@ -27,6 +27,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 
 import static io.prestosql.metadata.Signature.orderableWithVariadicBound;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
 import static io.prestosql.type.TypeUtils.checkElementNotNull;
@@ -40,7 +41,7 @@ public abstract class RowComparisonOperator
         super(operatorType,
                 ImmutableList.of(orderableWithVariadicBound("T", StandardTypes.ROW)),
                 ImmutableList.of(),
-                parseTypeSignature(StandardTypes.BOOLEAN),
+                BOOLEAN.getTypeSignature(),
                 ImmutableList.of(parseTypeSignature("T"), parseTypeSignature("T")));
     }
 

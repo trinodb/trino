@@ -16,8 +16,6 @@ package io.prestosql.spi.type;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
 
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
-
 public class TestingIdType
         extends AbstractLongType
 {
@@ -26,7 +24,7 @@ public class TestingIdType
 
     private TestingIdType()
     {
-        super(parseTypeSignature(NAME));
+        super(new TypeSignature(NAME));
     }
 
     @Override

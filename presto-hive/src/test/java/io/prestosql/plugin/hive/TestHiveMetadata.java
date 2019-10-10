@@ -18,20 +18,19 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.predicate.NullableValue;
-import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.spi.type.VarcharType;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
 import static io.prestosql.plugin.hive.HiveMetadata.createPredicate;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 
 public class TestHiveMetadata
 {
     private static final HiveColumnHandle TEST_COLUMN_HANDLE = new HiveColumnHandle(
             "test",
             HiveType.HIVE_STRING,
-            TypeSignature.parseTypeSignature("varchar"),
+            VARCHAR.getTypeSignature(),
             0,
             HiveColumnHandle.ColumnType.PARTITION_KEY,
             Optional.empty());
@@ -45,7 +44,7 @@ public class TestHiveMetadata
             partitions.add(new HivePartition(
                     new SchemaTableName("test", "test"),
                     Integer.toString(i),
-                    ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.of(VarcharType.VARCHAR, Slices.utf8Slice(Integer.toString(i))))));
+                    ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.of(VARCHAR, Slices.utf8Slice(Integer.toString(i))))));
         }
 
         createPredicate(ImmutableList.of(TEST_COLUMN_HANDLE), partitions.build());
@@ -60,7 +59,7 @@ public class TestHiveMetadata
             partitions.add(new HivePartition(
                     new SchemaTableName("test", "test"),
                     Integer.toString(i),
-                    ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.asNull(VarcharType.VARCHAR))));
+                    ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.asNull(VARCHAR))));
         }
 
         createPredicate(ImmutableList.of(TEST_COLUMN_HANDLE), partitions.build());
@@ -75,13 +74,13 @@ public class TestHiveMetadata
             partitions.add(new HivePartition(
                     new SchemaTableName("test", "test"),
                     Integer.toString(i),
-                    ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.of(VarcharType.VARCHAR, Slices.utf8Slice(Integer.toString(i))))));
+                    ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.of(VARCHAR, Slices.utf8Slice(Integer.toString(i))))));
         }
 
         partitions.add(new HivePartition(
                 new SchemaTableName("test", "test"),
                 "null",
-                ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.asNull(VarcharType.VARCHAR))));
+                ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.asNull(VARCHAR))));
 
         createPredicate(ImmutableList.of(TEST_COLUMN_HANDLE), partitions.build());
     }

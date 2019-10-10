@@ -22,7 +22,6 @@ import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.ValueSet;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.sql.ExpressionUtils;
 import io.prestosql.sql.planner.DomainTranslator;
 import io.prestosql.sql.planner.LiteralEncoder;
@@ -51,7 +50,6 @@ import static io.prestosql.SystemSessionProperties.isOptimizeTopNRowNumber;
 import static io.prestosql.metadata.FunctionKind.WINDOW;
 import static io.prestosql.spi.predicate.Marker.Bound.BELOW;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.sql.planner.DomainTranslator.ExtractionResult;
 import static io.prestosql.sql.planner.DomainTranslator.fromPredicate;
 import static io.prestosql.sql.planner.plan.ChildReplacer.replaceChildren;
@@ -62,7 +60,7 @@ import static java.util.stream.Collectors.toMap;
 public class WindowFilterPushDown
         implements PlanOptimizer
 {
-    private static final Signature ROW_NUMBER_SIGNATURE = new Signature("row_number", WINDOW, parseTypeSignature(StandardTypes.BIGINT), ImmutableList.of());
+    private static final Signature ROW_NUMBER_SIGNATURE = new Signature("row_number", WINDOW, BIGINT.getTypeSignature(), ImmutableList.of());
 
     private final Metadata metadata;
     private final DomainTranslator domainTranslator;

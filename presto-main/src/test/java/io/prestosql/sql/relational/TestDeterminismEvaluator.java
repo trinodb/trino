@@ -15,7 +15,6 @@ package io.prestosql.sql.relational;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.Signature;
-import io.prestosql.spi.type.StandardTypes;
 import org.testng.annotations.Test;
 
 import static io.prestosql.metadata.FunctionKind.SCALAR;
@@ -24,7 +23,6 @@ import static io.prestosql.metadata.Signature.internalOperator;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.sql.relational.Expressions.constant;
 import static io.prestosql.sql.relational.Expressions.field;
 import static java.util.Collections.singletonList;
@@ -42,8 +40,8 @@ public class TestDeterminismEvaluator
                 new Signature(
                         "random",
                         SCALAR,
-                        parseTypeSignature(StandardTypes.BIGINT),
-                        parseTypeSignature(StandardTypes.BIGINT)),
+                        BIGINT.getTypeSignature(),
+                        BIGINT.getTypeSignature()),
                 BIGINT,
                 singletonList(constant(10L, BIGINT)));
         assertFalse(determinismEvaluator.isDeterministic(random));

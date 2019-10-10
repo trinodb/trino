@@ -21,7 +21,6 @@ import io.airlift.slice.Slices;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.LongArrayBlock;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.TypeSignature;
 import org.testng.annotations.Test;
 
@@ -38,8 +37,9 @@ import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConv
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
 import static io.prestosql.spi.function.OperatorType.ADD;
 import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.Decimals.MAX_SHORT_PRECISION;
-import static io.prestosql.spi.type.StandardTypes.BOOLEAN;
 import static io.prestosql.spi.type.StandardTypes.VARCHAR;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static java.lang.Math.toIntExact;
@@ -54,7 +54,7 @@ public class TestPolymorphicScalarFunction
     private static final Signature SIGNATURE = Signature.builder()
             .name("foo")
             .kind(SCALAR)
-            .returnType(parseTypeSignature(StandardTypes.BIGINT))
+            .returnType(BIGINT.getTypeSignature())
             .argumentTypes(parseTypeSignature("varchar(x)", ImmutableSet.of("x")))
             .build();
     private static final long INPUT_VARCHAR_LENGTH = 10;
@@ -81,7 +81,7 @@ public class TestPolymorphicScalarFunction
                 .kind(SCALAR)
                 .operatorType(IS_DISTINCT_FROM)
                 .argumentTypes(DECIMAL_SIGNATURE, DECIMAL_SIGNATURE)
-                .returnType(parseTypeSignature(BOOLEAN))
+                .returnType(BOOLEAN.getTypeSignature())
                 .build();
 
         SqlScalarFunction function = SqlScalarFunction.builder(TestMethods.class)

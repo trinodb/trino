@@ -21,8 +21,6 @@ import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
 import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.Signature;
-import io.prestosql.spi.type.StandardTypes;
-import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.plan.Assignments;
@@ -80,7 +78,7 @@ public class ImplementLimitWithTies
         Signature signature = new Signature(
                 "rank",
                 FunctionKind.WINDOW,
-                TypeSignature.parseTypeSignature(StandardTypes.BIGINT),
+                BIGINT.getTypeSignature(),
                 ImmutableList.of());
 
         WindowNode.Frame frame = new WindowNode.Frame(

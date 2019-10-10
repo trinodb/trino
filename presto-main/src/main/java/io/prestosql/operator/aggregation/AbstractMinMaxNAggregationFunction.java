@@ -26,7 +26,6 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.ArrayType;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
@@ -66,7 +65,7 @@ public abstract class AbstractMinMaxNAggregationFunction
                 ImmutableList.of(orderableTypeParameter("E")),
                 ImmutableList.of(),
                 parseTypeSignature("array(E)"),
-                ImmutableList.of(parseTypeSignature("E"), parseTypeSignature(StandardTypes.BIGINT)));
+                ImmutableList.of(parseTypeSignature("E"), BIGINT.getTypeSignature()));
         requireNonNull(typeToComparator);
         this.typeToComparator = typeToComparator;
     }

@@ -22,7 +22,6 @@ import io.prestosql.metadata.Signature;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
 import io.prestosql.operator.scalar.AbstractTestFunctions;
 import io.prestosql.plugin.geospatial.GeoPlugin;
-import io.prestosql.plugin.geospatial.GeometryType;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.type.Type;
 import org.testng.annotations.BeforeClass;
@@ -35,7 +34,7 @@ import java.util.stream.Collectors;
 
 import static io.prestosql.metadata.FunctionExtractor.extractFunctions;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.plugin.geospatial.GeometryType.GEOMETRY;
 
 public abstract class AbstractTestGeoAggregationFunctions
         extends AbstractTestFunctions
@@ -53,8 +52,8 @@ public abstract class AbstractTestGeoAggregationFunctions
         function = functionAssertions.getMetadata().getAggregateFunctionImplementation(new Signature(
                 getFunctionName(),
                 FunctionKind.AGGREGATE,
-                parseTypeSignature(GeometryType.GEOMETRY_TYPE_NAME),
-                parseTypeSignature(GeometryType.GEOMETRY_TYPE_NAME)));
+                GEOMETRY.getTypeSignature(),
+                GEOMETRY.getTypeSignature()));
     }
 
     protected void assertAggregatedGeometries(String testDescription, String expectedWkt, String... wkts)

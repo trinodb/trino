@@ -17,8 +17,7 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.AbstractLongType;
 import io.prestosql.spi.type.StandardTypes;
-
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import io.prestosql.spi.type.TypeSignature;
 
 public final class IntervalDayTimeType
         extends AbstractLongType
@@ -27,7 +26,7 @@ public final class IntervalDayTimeType
 
     private IntervalDayTimeType()
     {
-        super(parseTypeSignature(StandardTypes.INTERVAL_DAY_TO_SECOND));
+        super(new TypeSignature(StandardTypes.INTERVAL_DAY_TO_SECOND));
     }
 
     @Override

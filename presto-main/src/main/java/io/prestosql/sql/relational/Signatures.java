@@ -18,13 +18,11 @@ import com.google.common.collect.Lists;
 import io.prestosql.metadata.Signature;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.CharType;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.tree.ArithmeticBinaryExpression;
 import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.LogicalBinaryExpression;
-import io.prestosql.type.LikePatternType;
 
 import java.util.List;
 
@@ -41,8 +39,10 @@ import static io.prestosql.spi.function.OperatorType.MULTIPLY;
 import static io.prestosql.spi.function.OperatorType.NEGATION;
 import static io.prestosql.spi.function.OperatorType.SUBSCRIPT;
 import static io.prestosql.spi.function.OperatorType.SUBTRACT;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.tree.ArrayConstructor.ARRAY_CONSTRUCTOR;
+import static io.prestosql.type.LikePatternType.LIKE_PATTERN;
 
 public final class Signatures
 {
@@ -55,28 +55,28 @@ public final class Signatures
     // **************** sql operators ****************
     public static Signature notSignature()
     {
-        return new Signature("not", SCALAR, parseTypeSignature(StandardTypes.BOOLEAN), ImmutableList.of(parseTypeSignature(StandardTypes.BOOLEAN)));
+        return new Signature("not", SCALAR, BOOLEAN.getTypeSignature(), ImmutableList.of(BOOLEAN.getTypeSignature()));
     }
 
     public static Signature betweenSignature(Type valueType, Type minType, Type maxType)
     {
-        return internalOperator(BETWEEN, parseTypeSignature(StandardTypes.BOOLEAN), valueType.getTypeSignature(), minType.getTypeSignature(), maxType.getTypeSignature());
+        return internalOperator(BETWEEN, BOOLEAN.getTypeSignature(), valueType.getTypeSignature(), minType.getTypeSignature(), maxType.getTypeSignature());
     }
 
     public static Signature likeVarcharSignature()
     {
-        return internalScalarFunction("LIKE", parseTypeSignature(StandardTypes.BOOLEAN), parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(LikePatternType.NAME));
+        return internalScalarFunction("LIKE", BOOLEAN.getTypeSignature(), VARCHAR.getTypeSignature(), LIKE_PATTERN.getTypeSignature());
     }
 
     public static Signature likeCharSignature(Type valueType)
     {
         checkArgument(valueType instanceof CharType, "Expected CHAR value type");
-        return internalScalarFunction("LIKE", parseTypeSignature(StandardTypes.BOOLEAN), valueType.getTypeSignature(), parseTypeSignature(LikePatternType.NAME));
+        return internalScalarFunction("LIKE", BOOLEAN.getTypeSignature(), valueType.getTypeSignature(), LIKE_PATTERN.getTypeSignature());
     }
 
     public static Signature likePatternSignature()
     {
-        return internalScalarFunction("LIKE_PATTERN", parseTypeSignature(LikePatternType.NAME), parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.VARCHAR));
+        return internalScalarFunction("LIKE_PATTERN", LIKE_PATTERN.getTypeSignature(), VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature());
     }
 
     public static Signature castSignature(Type returnType, Type valueType)
@@ -92,7 +92,7 @@ public final class Signatures
 
     public static Signature logicalExpressionSignature(LogicalBinaryExpression.Operator operator)
     {
-        return internalScalarFunction(operator.name(), parseTypeSignature(StandardTypes.BOOLEAN), parseTypeSignature(StandardTypes.BOOLEAN), parseTypeSignature(StandardTypes.BOOLEAN));
+        return internalScalarFunction(operator.name(), BOOLEAN.getTypeSignature(), BOOLEAN.getTypeSignature(), BOOLEAN.getTypeSignature());
     }
 
     public static Signature arithmeticNegationSignature(Type returnType, Type valueType)
@@ -144,10 +144,10 @@ public final class Signatures
     {
         for (OperatorType operatorType : OperatorType.values()) {
             if (operatorType.name().equals(operator.name())) {
-                return internalOperator(operatorType, parseTypeSignature(StandardTypes.BOOLEAN), leftType.getTypeSignature(), rightType.getTypeSignature());
+                return internalOperator(operatorType, BOOLEAN.getTypeSignature(), leftType.getTypeSignature(), rightType.getTypeSignature());
             }
         }
-        return internalScalarFunction(operator.name(), parseTypeSignature(StandardTypes.BOOLEAN), leftType.getTypeSignature(), rightType.getTypeSignature());
+        return internalScalarFunction(operator.name(), BOOLEAN.getTypeSignature(), leftType.getTypeSignature(), rightType.getTypeSignature());
     }
 
     public static Signature trySignature(Type returnType)

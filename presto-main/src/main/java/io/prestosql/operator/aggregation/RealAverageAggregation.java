@@ -25,7 +25,6 @@ import io.prestosql.operator.aggregation.state.StateCompiler;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.function.AccumulatorState;
 import io.prestosql.spi.function.AccumulatorStateSerializer;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
@@ -39,7 +38,6 @@ import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMet
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static io.prestosql.operator.aggregation.AggregationUtils.generateAggregationName;
 import static io.prestosql.spi.type.RealType.REAL;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.util.Reflection.methodHandle;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.Float.intBitsToFloat;
@@ -60,8 +58,8 @@ public class RealAverageAggregation
         super(NAME,
                 ImmutableList.of(),
                 ImmutableList.of(),
-                parseTypeSignature(StandardTypes.REAL),
-                ImmutableList.of(parseTypeSignature(StandardTypes.REAL)));
+                REAL.getTypeSignature(),
+                ImmutableList.of(REAL.getTypeSignature()));
     }
 
     @Override
@@ -80,7 +78,7 @@ public class RealAverageAggregation
         AccumulatorStateSerializer<?> doubleStateSerializer = StateCompiler.generateStateSerializer(doubleStateInterface, classLoader);
 
         AggregationMetadata aggregationMetadata = new AggregationMetadata(
-                generateAggregationName(NAME, parseTypeSignature(StandardTypes.REAL), ImmutableList.of(parseTypeSignature(StandardTypes.REAL))),
+                generateAggregationName(NAME, REAL.getTypeSignature(), ImmutableList.of(REAL.getTypeSignature())),
                 ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(STATE), new ParameterMetadata(INPUT_CHANNEL, REAL)),
                 INPUT_FUNCTION,
                 Optional.of(REMOVE_INPUT_FUNCTION),

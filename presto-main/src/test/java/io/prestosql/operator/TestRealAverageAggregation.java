@@ -30,7 +30,6 @@ import static io.prestosql.block.BlockAssertions.createBlockOfReals;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.prestosql.spi.type.RealType.REAL;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static java.lang.Float.floatToRawIntBits;
 
 @Test(singleThreaded = true)
@@ -43,7 +42,7 @@ public class TestRealAverageAggregation
     public void setUp()
     {
         avgFunction = createTestMetadataManager().getAggregateFunctionImplementation(
-                new Signature("avg", FunctionKind.AGGREGATE, parseTypeSignature(StandardTypes.REAL), parseTypeSignature(StandardTypes.REAL)));
+                new Signature("avg", FunctionKind.AGGREGATE, REAL.getTypeSignature(), REAL.getTypeSignature()));
     }
 
     @Test

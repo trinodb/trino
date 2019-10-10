@@ -25,7 +25,6 @@ import io.prestosql.metadata.SqlOperator;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.OperatorType;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import io.prestosql.util.JsonUtil.JsonGeneratorWriter;
 
@@ -42,6 +41,7 @@ import static io.prestosql.operator.scalar.ScalarFunctionImplementation.Argument
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.util.Failures.checkCondition;
 import static io.prestosql.util.JsonUtil.JsonGeneratorWriter.createJsonGeneratorWriter;
 import static io.prestosql.util.JsonUtil.canCastToJson;
@@ -59,7 +59,7 @@ public class RowToJsonCast
         super(OperatorType.CAST,
                 ImmutableList.of(withVariadicBound("T", "row")),
                 ImmutableList.of(),
-                parseTypeSignature(StandardTypes.JSON),
+                JSON.getTypeSignature(),
                 ImmutableList.of(parseTypeSignature("T")));
     }
 

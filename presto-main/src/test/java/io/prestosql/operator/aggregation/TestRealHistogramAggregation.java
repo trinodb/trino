@@ -21,7 +21,6 @@ import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.MapType;
-import io.prestosql.spi.type.StandardTypes;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -50,9 +49,9 @@ public class TestRealHistogramAggregation
                 new Signature("numeric_histogram",
                         AGGREGATE,
                         parseTypeSignature("map(real, real)"),
-                        parseTypeSignature(StandardTypes.BIGINT),
-                        parseTypeSignature(StandardTypes.REAL),
-                        parseTypeSignature(StandardTypes.DOUBLE)));
+                        BIGINT.getTypeSignature(),
+                        REAL.getTypeSignature(),
+                        DOUBLE.getTypeSignature()));
         factory = function.bind(ImmutableList.of(0, 1, 2), Optional.empty());
 
         input = makeInput(10);

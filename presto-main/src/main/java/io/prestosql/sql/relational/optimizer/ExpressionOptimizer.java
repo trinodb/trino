@@ -47,8 +47,7 @@ import static io.prestosql.operator.scalar.JsonStringToMapCast.JSON_STRING_TO_MA
 import static io.prestosql.operator.scalar.JsonStringToRowCast.JSON_STRING_TO_ROW_NAME;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.StandardTypes.VARCHAR;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.relational.Expressions.call;
 import static io.prestosql.sql.relational.Expressions.constant;
 import static io.prestosql.sql.relational.Expressions.constantNull;
@@ -224,7 +223,7 @@ public class ExpressionOptimizer
                                 internalScalarFunction(
                                         JSON_STRING_TO_ARRAY_NAME,
                                         returnType.getTypeSignature(),
-                                        ImmutableList.of(parseTypeSignature(VARCHAR))),
+                                        ImmutableList.of(VARCHAR.getTypeSignature())),
                                 call.getType(),
                                 innerCall.getArguments());
                     }
@@ -233,7 +232,7 @@ public class ExpressionOptimizer
                                 internalScalarFunction(
                                         JSON_STRING_TO_MAP_NAME,
                                         returnType.getTypeSignature(),
-                                        ImmutableList.of(parseTypeSignature(VARCHAR))),
+                                        ImmutableList.of(VARCHAR.getTypeSignature())),
                                 call.getType(),
                                 innerCall.getArguments());
                     }
@@ -242,7 +241,7 @@ public class ExpressionOptimizer
                                 internalScalarFunction(
                                         JSON_STRING_TO_ROW_NAME,
                                         returnType.getTypeSignature(),
-                                        ImmutableList.of(parseTypeSignature(VARCHAR))),
+                                        ImmutableList.of(VARCHAR.getTypeSignature())),
                                 call.getType(),
                                 innerCall.getArguments());
                     }

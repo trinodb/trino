@@ -53,7 +53,6 @@ import static com.google.common.collect.Iterables.concat;
 import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.sql.planner.plan.AggregationNode.Step;
 import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -136,7 +135,7 @@ public class ImplementIntersectAndExceptAsUnion
             extends SimplePlanRewriter<Void>
     {
         private static final String MARKER = "marker";
-        private static final Signature COUNT_AGGREGATION = new Signature("count", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.BOOLEAN));
+        private static final Signature COUNT_AGGREGATION = new Signature("count", AGGREGATE, BIGINT.getTypeSignature(), BOOLEAN.getTypeSignature());
         private final PlanNodeIdAllocator idAllocator;
         private final SymbolAllocator symbolAllocator;
 

@@ -27,7 +27,6 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.type.UnknownType;
@@ -97,8 +96,8 @@ public final class ArrayJoin
                     FunctionKind.SCALAR,
                     ImmutableList.of(typeVariable("T")),
                     ImmutableList.of(),
-                    parseTypeSignature(StandardTypes.VARCHAR),
-                    ImmutableList.of(parseTypeSignature("array(T)"), parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.VARCHAR)),
+                    VARCHAR.getTypeSignature(),
+                    ImmutableList.of(parseTypeSignature("array(T)"), VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()),
                     false));
         }
 
@@ -133,8 +132,8 @@ public final class ArrayJoin
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("T")),
                 ImmutableList.of(),
-                parseTypeSignature(StandardTypes.VARCHAR),
-                ImmutableList.of(parseTypeSignature("array(T)"), parseTypeSignature(StandardTypes.VARCHAR)),
+                VARCHAR.getTypeSignature(),
+                ImmutableList.of(parseTypeSignature("array(T)"), VARCHAR.getTypeSignature()),
                 false));
     }
 

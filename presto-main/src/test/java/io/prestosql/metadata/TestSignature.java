@@ -18,14 +18,16 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import io.prestosql.type.TypeDeserializer;
 import org.testng.annotations.Test;
 
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 
 public class TestSignature
@@ -40,8 +42,8 @@ public class TestSignature
         Signature expected = new Signature(
                 "function",
                 SCALAR,
-                parseTypeSignature(StandardTypes.BIGINT),
-                ImmutableList.of(parseTypeSignature(StandardTypes.BOOLEAN), parseTypeSignature(StandardTypes.DOUBLE), parseTypeSignature(StandardTypes.VARCHAR)));
+                BIGINT.getTypeSignature(),
+                ImmutableList.of(BOOLEAN.getTypeSignature(), DOUBLE.getTypeSignature(), VARCHAR.getTypeSignature()));
 
         String json = codec.toJson(expected);
         Signature actual = codec.fromJson(json);

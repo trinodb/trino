@@ -73,7 +73,6 @@ import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.testing.TestingMetadata.TestingColumnHandle;
 import io.prestosql.testing.TestingSession;
 import io.prestosql.testing.TestingTransactionHandle;
-import io.prestosql.type.UnknownType;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -100,6 +99,7 @@ import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.prestosql.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.EQUAL;
+import static io.prestosql.type.UnknownType.UNKNOWN;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
@@ -958,7 +958,7 @@ public class TestEffectivePredicateExtractor
 
     private static Signature fakeFunctionHandle(String name, FunctionKind kind)
     {
-        return new Signature(name, kind, TypeSignature.parseTypeSignature(UnknownType.NAME), ImmutableList.of());
+        return new Signature(name, kind, UNKNOWN.getTypeSignature(), ImmutableList.of());
     }
 
     private Set<Expression> normalizeConjuncts(Expression... conjuncts)

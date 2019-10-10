@@ -29,7 +29,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.util.Reflection.constructorMethodHandle;
 import static io.prestosql.util.Reflection.methodHandle;
 import static java.util.Collections.nCopies;
@@ -46,8 +47,8 @@ public class StatefulSleepingSum
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("bigint")),
                 ImmutableList.of(),
-                parseTypeSignature("bigint"),
-                ImmutableList.of(parseTypeSignature("double"), parseTypeSignature("bigint"), parseTypeSignature("bigint"), parseTypeSignature("bigint")),
+                BIGINT.getTypeSignature(),
+                ImmutableList.of(DOUBLE.getTypeSignature(), BIGINT.getTypeSignature(), BIGINT.getTypeSignature(), BIGINT.getTypeSignature()),
                 false));
     }
 

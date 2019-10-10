@@ -25,8 +25,7 @@ import java.util.function.LongUnaryOperator;
 import static io.prestosql.metadata.Signature.internalScalarFunction;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
-import static io.prestosql.spi.type.StandardTypes.BIGINT;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.util.Reflection.methodHandle;
 import static java.util.Objects.requireNonNull;
 
@@ -39,7 +38,7 @@ public final class GenericLongFunction
 
     GenericLongFunction(String suffix, LongUnaryOperator longUnaryOperator)
     {
-        super(internalScalarFunction("generic_long_" + requireNonNull(suffix, "suffix is null"), parseTypeSignature(BIGINT), parseTypeSignature(BIGINT)));
+        super(internalScalarFunction("generic_long_" + requireNonNull(suffix, "suffix is null"), BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
         this.longUnaryOperator = longUnaryOperator;
     }
 

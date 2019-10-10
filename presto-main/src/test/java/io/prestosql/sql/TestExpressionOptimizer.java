@@ -19,7 +19,6 @@ import io.prestosql.spi.block.IntArrayBlock;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.RowType;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.sql.relational.CallExpression;
 import io.prestosql.sql.relational.ConstantExpression;
 import io.prestosql.sql.relational.RowExpression;
@@ -75,7 +74,7 @@ public class TestExpressionOptimizer
     {
         RowExpression expression = constant(1L, BIGINT);
         for (int i = 0; i < 100; i++) {
-            Signature signature = internalOperator(OperatorType.ADD, parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.BIGINT));
+            Signature signature = internalOperator(OperatorType.ADD, BIGINT.getTypeSignature(), BIGINT.getTypeSignature(), BIGINT.getTypeSignature());
             expression = new CallExpression(signature, BIGINT, ImmutableList.of(expression, constant(1L, BIGINT)));
         }
         optimizer.optimize(expression);
@@ -113,7 +112,7 @@ public class TestExpressionOptimizer
         resultExpression = optimizer.optimize(jsonCastExpression);
         assertEquals(
                 resultExpression,
-                call(internalScalarFunction(JSON_STRING_TO_ARRAY_NAME, parseTypeSignature("array(varchar)"), parseTypeSignature(StandardTypes.VARCHAR)), new ArrayType(VARCHAR), field(1, VARCHAR)));
+                call(internalScalarFunction(JSON_STRING_TO_ARRAY_NAME, parseTypeSignature("array(varchar)"), VARCHAR.getTypeSignature()), new ArrayType(VARCHAR), field(1, VARCHAR)));
 
         // varchar to map
         jsonCastSignature = new Signature(CAST, SCALAR, parseTypeSignature("map(integer,varchar)"), ImmutableList.of(JSON.getTypeSignature()));
@@ -121,7 +120,7 @@ public class TestExpressionOptimizer
         resultExpression = optimizer.optimize(jsonCastExpression);
         assertEquals(
                 resultExpression,
-                call(internalScalarFunction(JSON_STRING_TO_MAP_NAME, parseTypeSignature("map(integer,varchar)"), parseTypeSignature(StandardTypes.VARCHAR)), mapType(INTEGER, VARCHAR), field(1, VARCHAR)));
+                call(internalScalarFunction(JSON_STRING_TO_MAP_NAME, parseTypeSignature("map(integer,varchar)"), VARCHAR.getTypeSignature()), mapType(INTEGER, VARCHAR), field(1, VARCHAR)));
 
         // varchar to row
         jsonCastSignature = new Signature(CAST, SCALAR, parseTypeSignature("row(varchar,bigint)"), ImmutableList.of(JSON.getTypeSignature()));
@@ -129,7 +128,7 @@ public class TestExpressionOptimizer
         resultExpression = optimizer.optimize(jsonCastExpression);
         assertEquals(
                 resultExpression,
-                call(internalScalarFunction(JSON_STRING_TO_ROW_NAME, parseTypeSignature("row(varchar,bigint)"), parseTypeSignature(StandardTypes.VARCHAR)), RowType.anonymous(ImmutableList.of(VARCHAR, BIGINT)), field(1, VARCHAR)));
+                call(internalScalarFunction(JSON_STRING_TO_ROW_NAME, parseTypeSignature("row(varchar,bigint)"), VARCHAR.getTypeSignature()), RowType.anonymous(ImmutableList.of(VARCHAR, BIGINT)), field(1, VARCHAR)));
     }
 
     private static RowExpression ifExpression(RowExpression condition, long trueValue, long falseValue)

@@ -18,7 +18,6 @@ import io.prestosql.matching.Capture;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
 import io.prestosql.metadata.Signature;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.plan.AggregationNode;
@@ -36,7 +35,7 @@ import java.util.Optional;
 
 import static io.prestosql.matching.Capture.newCapture;
 import static io.prestosql.metadata.FunctionKind.AGGREGATE;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.sql.planner.plan.Patterns.aggregation;
 import static io.prestosql.sql.planner.plan.Patterns.project;
 import static io.prestosql.sql.planner.plan.Patterns.source;
@@ -70,7 +69,7 @@ public class SimplifyCountOverConstant
             if (isCountOverConstant(aggregation, child.getAssignments())) {
                 changed = true;
                 aggregations.put(symbol, new AggregationNode.Aggregation(
-                        new Signature("count", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT)),
+                        new Signature("count", AGGREGATE, BIGINT.getTypeSignature()),
                         ImmutableList.of(),
                         false,
                         Optional.empty(),

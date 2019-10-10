@@ -19,7 +19,6 @@ import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
@@ -45,7 +44,7 @@ public class MapHashCodeOperator
         super(HASH_CODE,
                 ImmutableList.of(comparableTypeParameter("K"), comparableTypeParameter("V")),
                 ImmutableList.of(),
-                parseTypeSignature(StandardTypes.BIGINT),
+                BIGINT.getTypeSignature(),
                 ImmutableList.of(parseTypeSignature("map(K,V)")));
     }
 

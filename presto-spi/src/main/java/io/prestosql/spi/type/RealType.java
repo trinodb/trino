@@ -21,7 +21,6 @@ import io.prestosql.spi.connector.ConnectorSession;
 import java.util.Optional;
 
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
@@ -34,7 +33,7 @@ public final class RealType
 
     private RealType()
     {
-        super(parseTypeSignature(StandardTypes.REAL));
+        super(new TypeSignature(StandardTypes.REAL));
     }
 
     @Override

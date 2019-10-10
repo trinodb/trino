@@ -19,7 +19,6 @@ import io.prestosql.metadata.Signature;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.type.StandardTypes;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
@@ -33,7 +32,10 @@ import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.groupedAggregation;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 
 public class TestMinMaxByNAggregation
@@ -47,9 +49,9 @@ public class TestMinMaxByNAggregation
                 new Signature("max_by",
                         AGGREGATE,
                         parseTypeSignature("array(double)"),
-                        parseTypeSignature(StandardTypes.DOUBLE),
-                        parseTypeSignature(StandardTypes.DOUBLE),
-                        parseTypeSignature(StandardTypes.BIGINT)));
+                        DOUBLE.getTypeSignature(),
+                        DOUBLE.getTypeSignature(),
+                        BIGINT.getTypeSignature()));
         assertAggregation(
                 function,
                 Arrays.asList((Double) null),
@@ -107,9 +109,9 @@ public class TestMinMaxByNAggregation
                 new Signature("min_by",
                         AGGREGATE,
                         parseTypeSignature("array(double)"),
-                        parseTypeSignature(StandardTypes.DOUBLE),
-                        parseTypeSignature(StandardTypes.DOUBLE),
-                        parseTypeSignature(StandardTypes.BIGINT)));
+                        DOUBLE.getTypeSignature(),
+                        DOUBLE.getTypeSignature(),
+                        BIGINT.getTypeSignature()));
         assertAggregation(
                 function,
                 Arrays.asList((Double) null),
@@ -146,9 +148,9 @@ public class TestMinMaxByNAggregation
                 new Signature("min_by",
                         AGGREGATE,
                         parseTypeSignature("array(varchar)"),
-                        parseTypeSignature(StandardTypes.VARCHAR),
-                        parseTypeSignature(StandardTypes.DOUBLE),
-                        parseTypeSignature(StandardTypes.BIGINT)));
+                        VARCHAR.getTypeSignature(),
+                        DOUBLE.getTypeSignature(),
+                        BIGINT.getTypeSignature()));
         assertAggregation(
                 function,
                 ImmutableList.of("z", "a"),
@@ -178,9 +180,9 @@ public class TestMinMaxByNAggregation
                 new Signature("max_by",
                         AGGREGATE,
                         parseTypeSignature("array(varchar)"),
-                        parseTypeSignature(StandardTypes.VARCHAR),
-                        parseTypeSignature(StandardTypes.DOUBLE),
-                        parseTypeSignature(StandardTypes.BIGINT)));
+                        VARCHAR.getTypeSignature(),
+                        DOUBLE.getTypeSignature(),
+                        BIGINT.getTypeSignature()));
         assertAggregation(
                 function,
                 ImmutableList.of("a", "z"),
@@ -210,9 +212,9 @@ public class TestMinMaxByNAggregation
                 new Signature("min_by",
                         AGGREGATE,
                         parseTypeSignature("array(double)"),
-                        parseTypeSignature(StandardTypes.DOUBLE),
-                        parseTypeSignature(StandardTypes.VARCHAR),
-                        parseTypeSignature(StandardTypes.BIGINT)));
+                        DOUBLE.getTypeSignature(),
+                        VARCHAR.getTypeSignature(),
+                        BIGINT.getTypeSignature()));
         assertAggregation(
                 function,
                 ImmutableList.of(2.0, 3.0),
@@ -242,9 +244,9 @@ public class TestMinMaxByNAggregation
                 new Signature("max_by",
                         AGGREGATE,
                         parseTypeSignature("array(double)"),
-                        parseTypeSignature(StandardTypes.DOUBLE),
-                        parseTypeSignature(StandardTypes.VARCHAR),
-                        parseTypeSignature(StandardTypes.BIGINT)));
+                        DOUBLE.getTypeSignature(),
+                        VARCHAR.getTypeSignature(),
+                        BIGINT.getTypeSignature()));
         assertAggregation(
                 function,
                 ImmutableList.of(1.0, 2.0),
@@ -275,8 +277,8 @@ public class TestMinMaxByNAggregation
                         AGGREGATE,
                         parseTypeSignature("array(array(bigint))"),
                         parseTypeSignature("array(bigint)"),
-                        parseTypeSignature(StandardTypes.VARCHAR),
-                        parseTypeSignature(StandardTypes.BIGINT)));
+                        VARCHAR.getTypeSignature(),
+                        BIGINT.getTypeSignature()));
         assertAggregation(
                 function,
                 ImmutableList.of(ImmutableList.of(2L, 3L), ImmutableList.of(4L, 5L)),
@@ -293,8 +295,8 @@ public class TestMinMaxByNAggregation
                         AGGREGATE,
                         parseTypeSignature("array(array(bigint))"),
                         parseTypeSignature("array(bigint)"),
-                        parseTypeSignature(StandardTypes.VARCHAR),
-                        parseTypeSignature(StandardTypes.BIGINT)));
+                        VARCHAR.getTypeSignature(),
+                        BIGINT.getTypeSignature()));
         assertAggregation(
                 function,
                 ImmutableList.of(ImmutableList.of(1L, 2L), ImmutableList.of(3L, 4L)),
@@ -310,9 +312,9 @@ public class TestMinMaxByNAggregation
                 new Signature("min_by",
                         AGGREGATE,
                         parseTypeSignature("array(varchar)"),
-                        parseTypeSignature(StandardTypes.VARCHAR),
+                        VARCHAR.getTypeSignature(),
                         parseTypeSignature("array(bigint)"),
-                        parseTypeSignature(StandardTypes.BIGINT)));
+                        BIGINT.getTypeSignature()));
         assertAggregation(
                 function,
                 ImmutableList.of("b", "x", "z"),
@@ -328,9 +330,9 @@ public class TestMinMaxByNAggregation
                 new Signature("max_by",
                         AGGREGATE,
                         parseTypeSignature("array(varchar)"),
-                        parseTypeSignature(StandardTypes.VARCHAR),
+                        VARCHAR.getTypeSignature(),
                         parseTypeSignature("array(bigint)"),
-                        parseTypeSignature(StandardTypes.BIGINT)));
+                        BIGINT.getTypeSignature()));
         assertAggregation(
                 function,
                 ImmutableList.of("a", "z", "x"),
@@ -346,9 +348,9 @@ public class TestMinMaxByNAggregation
                 new Signature("max_by",
                         AGGREGATE,
                         parseTypeSignature("array(varchar)"),
-                        parseTypeSignature(StandardTypes.VARCHAR),
-                        parseTypeSignature(StandardTypes.BIGINT),
-                        parseTypeSignature(StandardTypes.BIGINT)));
+                        VARCHAR.getTypeSignature(),
+                        BIGINT.getTypeSignature(),
+                        BIGINT.getTypeSignature()));
         try {
             groupedAggregation(function, new Page(createStringsBlock("z"), createLongsBlock(0), createLongsBlock(10001)));
         }

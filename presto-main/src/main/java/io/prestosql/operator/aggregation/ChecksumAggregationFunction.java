@@ -24,7 +24,6 @@ import io.prestosql.operator.aggregation.state.NullableLongState;
 import io.prestosql.operator.aggregation.state.StateCompiler;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
@@ -60,7 +59,7 @@ public class ChecksumAggregationFunction
         super(NAME,
                 ImmutableList.of(comparableTypeParameter("T")),
                 ImmutableList.of(),
-                parseTypeSignature(StandardTypes.VARBINARY),
+                VARBINARY.getTypeSignature(),
                 ImmutableList.of(parseTypeSignature("T")));
     }
 

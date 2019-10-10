@@ -20,7 +20,6 @@ import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.RowType;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
@@ -31,6 +30,7 @@ import static io.prestosql.metadata.Signature.comparableWithVariadicBound;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
 import static io.prestosql.util.Failures.internalError;
@@ -47,7 +47,7 @@ public class RowEqualOperator
         super(EQUAL,
                 ImmutableList.of(comparableWithVariadicBound("T", "row")),
                 ImmutableList.of(),
-                parseTypeSignature(StandardTypes.BOOLEAN),
+                BOOLEAN.getTypeSignature(),
                 ImmutableList.of(parseTypeSignature("T"), parseTypeSignature("T")));
     }
 

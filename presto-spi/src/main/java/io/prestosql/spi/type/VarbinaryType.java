@@ -18,8 +18,6 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
 
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
-
 public final class VarbinaryType
         extends AbstractVariableWidthType
 {
@@ -27,7 +25,7 @@ public final class VarbinaryType
 
     private VarbinaryType()
     {
-        super(parseTypeSignature(StandardTypes.VARBINARY), Slice.class);
+        super(new TypeSignature(StandardTypes.VARBINARY), Slice.class);
     }
 
     public static boolean isVarbinaryType(Type type)

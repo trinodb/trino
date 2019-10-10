@@ -44,7 +44,7 @@ import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
-import static io.prestosql.spi.type.StandardTypes.BOOLEAN;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.compare;
 import static io.prestosql.util.Reflection.methodHandle;
@@ -114,7 +114,7 @@ public final class DecimalInequalityOperators
                 .kind(SCALAR)
                 .operatorType(operatorType)
                 .argumentTypes(DECIMAL_SIGNATURE, DECIMAL_SIGNATURE)
-                .returnType(parseTypeSignature(BOOLEAN))
+                .returnType(BOOLEAN.getTypeSignature())
                 .build();
         return SqlScalarFunction.builder(DecimalInequalityOperators.class)
                 .signature(signature)
@@ -263,7 +263,7 @@ public final class DecimalInequalityOperators
                 .kind(SCALAR)
                 .operatorType(BETWEEN)
                 .argumentTypes(DECIMAL_SIGNATURE, DECIMAL_SIGNATURE, DECIMAL_SIGNATURE)
-                .returnType(parseTypeSignature(BOOLEAN))
+                .returnType(BOOLEAN.getTypeSignature())
                 .build();
         return SqlScalarFunction.builder(DecimalInequalityOperators.class)
                 .signature(signature)

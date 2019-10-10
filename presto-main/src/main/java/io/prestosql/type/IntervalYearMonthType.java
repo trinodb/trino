@@ -17,8 +17,7 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.AbstractIntType;
 import io.prestosql.spi.type.StandardTypes;
-
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import io.prestosql.spi.type.TypeSignature;
 
 public final class IntervalYearMonthType
         extends AbstractIntType
@@ -27,7 +26,7 @@ public final class IntervalYearMonthType
 
     private IntervalYearMonthType()
     {
-        super(parseTypeSignature(StandardTypes.INTERVAL_YEAR_TO_MONTH));
+        super(new TypeSignature(StandardTypes.INTERVAL_YEAR_TO_MONTH));
     }
 
     @Override

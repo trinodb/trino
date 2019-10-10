@@ -21,7 +21,6 @@ import io.prestosql.spi.connector.ConnectorSession;
 import java.util.Optional;
 
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static java.lang.String.format;
 
 public final class IntegerType
@@ -31,7 +30,7 @@ public final class IntegerType
 
     private IntegerType()
     {
-        super(parseTypeSignature(StandardTypes.INTEGER));
+        super(new TypeSignature(StandardTypes.INTEGER));
     }
 
     @Override

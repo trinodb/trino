@@ -19,7 +19,6 @@ import io.prestosql.metadata.Signature;
 import io.prestosql.operator.AggregationOperator.AggregationOperatorFactory;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
 import io.prestosql.spi.Page;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.sql.planner.plan.AggregationNode.Step;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.testing.MaterializedResult;
@@ -43,7 +42,6 @@ import static io.prestosql.operator.OperatorAssertion.toPages;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.RealType.REAL;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.TestingTaskContext.createTaskContext;
@@ -91,9 +89,9 @@ public class TestAggregationOperator
     public void testAggregation()
     {
         InternalAggregationFunction countVarcharColumn = metadata.getAggregateFunctionImplementation(
-                new Signature("count", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.VARCHAR)));
+                new Signature("count", AGGREGATE, BIGINT.getTypeSignature(), VARCHAR.getTypeSignature()));
         InternalAggregationFunction maxVarcharColumn = metadata.getAggregateFunctionImplementation(
-                new Signature("max", AGGREGATE, parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.VARCHAR)));
+                new Signature("max", AGGREGATE, VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
         List<Page> input = rowPagesBuilder(VARCHAR, BIGINT, VARCHAR, BIGINT, REAL, DOUBLE, VARCHAR)
                 .addSequencePage(100, 0, 0, 300, 500, 400, 500, 500)
                 .build();

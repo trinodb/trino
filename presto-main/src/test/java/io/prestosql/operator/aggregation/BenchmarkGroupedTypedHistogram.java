@@ -21,7 +21,6 @@ import io.prestosql.operator.aggregation.histogram.HistogramGroupImplementation;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.MapType;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.sql.analyzer.FeaturesConfig;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
@@ -53,7 +52,6 @@ import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.aggregation.histogram.Histogram.NAME;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.util.StructuralTestUtil.mapType;
 
@@ -166,7 +164,7 @@ public class BenchmarkGroupedTypedHistogram
                 NAME,
                 AGGREGATE,
                 mapType.getTypeSignature(),
-                parseTypeSignature(StandardTypes.VARCHAR)));
+                VARCHAR.getTypeSignature()));
     }
 
     private static Metadata getMetadata(HistogramGroupImplementation groupMode)

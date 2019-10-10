@@ -42,6 +42,7 @@ import static io.prestosql.operator.scalar.ScalarFunctionImplementation.Argument
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.util.Failures.checkCondition;
 import static io.prestosql.util.JsonUtil.JsonGeneratorWriter;
 import static io.prestosql.util.JsonUtil.ObjectKeyProvider;
@@ -60,7 +61,7 @@ public class MapToJsonCast
         super(OperatorType.CAST,
                 ImmutableList.of(typeVariable("K"), typeVariable("V")),
                 ImmutableList.of(),
-                parseTypeSignature(StandardTypes.JSON),
+                JSON.getTypeSignature(),
                 ImmutableList.of(parseTypeSignature("map(K,V)")));
     }
 

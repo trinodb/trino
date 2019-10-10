@@ -82,7 +82,6 @@ import static io.prestosql.spi.connector.ConnectorSplitManager.SplitSchedulingSt
 import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.planner.ExpressionNodeInliner.replaceExpression;
 import static io.prestosql.sql.planner.SymbolsExtractor.extractUnique;
@@ -148,8 +147,8 @@ import static java.util.Objects.requireNonNull;
  */
 public class ExtractSpatialJoins
 {
-    private static final TypeSignature GEOMETRY_TYPE_SIGNATURE = parseTypeSignature("Geometry");
-    private static final TypeSignature SPHERICAL_GEOGRAPHY_TYPE_SIGNATURE = parseTypeSignature("SphericalGeography");
+    private static final TypeSignature GEOMETRY_TYPE_SIGNATURE = new TypeSignature("Geometry");
+    private static final TypeSignature SPHERICAL_GEOGRAPHY_TYPE_SIGNATURE = new TypeSignature("SphericalGeography");
     private static final String KDB_TREE_TYPENAME = "KdbTree";
 
     private final Metadata metadata;
@@ -591,7 +590,7 @@ public class ExtractSpatialJoins
 
         FunctionCallBuilder spatialPartitionsCall = new FunctionCallBuilder(metadata)
                 .setName(QualifiedName.of("spatial_partitions"))
-                .addArgument(parseTypeSignature(KDB_TREE_TYPENAME), new Cast(new StringLiteral(KdbTreeUtils.toJson(kdbTree)), KDB_TREE_TYPENAME))
+                .addArgument(new TypeSignature(KDB_TREE_TYPENAME), new Cast(new StringLiteral(KdbTreeUtils.toJson(kdbTree)), KDB_TREE_TYPENAME))
                 .addArgument(GEOMETRY_TYPE_SIGNATURE, geometry);
         radius.map(value -> spatialPartitionsCall.addArgument(DOUBLE, value));
         FunctionCall partitioningFunction = spatialPartitionsCall.build();

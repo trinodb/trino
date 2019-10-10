@@ -20,8 +20,8 @@ import org.testng.annotations.Test;
 
 import static io.prestosql.metadata.LiteralFunction.getLiteralFunctionSignature;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static org.testng.Assert.assertEquals;
 
@@ -32,11 +32,11 @@ public class TestLiteralFunction
     {
         Signature signature = getLiteralFunctionSignature(TIMESTAMP_WITH_TIME_ZONE);
         assertEquals(signature.getName(), "$literal$timestamp with time zone");
-        assertEquals(signature.getArgumentTypes(), ImmutableList.of(parseTypeSignature(StandardTypes.BIGINT)));
+        assertEquals(signature.getArgumentTypes(), ImmutableList.of(BIGINT.getTypeSignature()));
         assertEquals(signature.getReturnType().getBase(), StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
 
         Signature function = createTestMetadataManager().resolveFunction(QualifiedName.of(signature.getName()), fromTypeSignatures(signature.getArgumentTypes()));
-        assertEquals(function.getArgumentTypes(), ImmutableList.of(parseTypeSignature(StandardTypes.BIGINT)));
+        assertEquals(function.getArgumentTypes(), ImmutableList.of(BIGINT.getTypeSignature()));
         assertEquals(signature.getReturnType().getBase(), StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
     }
 }

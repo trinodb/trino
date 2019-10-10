@@ -25,7 +25,6 @@ import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.function.OperatorType;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.sql.relational.RowExpression;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
@@ -55,7 +54,6 @@ import static io.prestosql.metadata.Signature.internalOperator;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.relational.Expressions.call;
 import static io.prestosql.sql.relational.Expressions.constant;
@@ -184,25 +182,25 @@ public class BenchmarkPageProcessor
     //    and discount >= 0.05
     //    and discount <= 0.07
     //    and quantity < 24;
-    private static final RowExpression FILTER = call(new Signature("AND", SCALAR, parseTypeSignature(StandardTypes.BOOLEAN)),
+    private static final RowExpression FILTER = call(new Signature("AND", SCALAR, BOOLEAN.getTypeSignature()),
             BOOLEAN,
             call(internalOperator(OperatorType.GREATER_THAN_OR_EQUAL, BOOLEAN.getTypeSignature(), VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()),
                     BOOLEAN,
                     field(SHIP_DATE, VARCHAR),
                     constant(MIN_SHIP_DATE, VARCHAR)),
-            call(new Signature("AND", SCALAR, parseTypeSignature(StandardTypes.BOOLEAN)),
+            call(new Signature("AND", SCALAR, BOOLEAN.getTypeSignature()),
                     BOOLEAN,
                     call(internalOperator(OperatorType.LESS_THAN, BOOLEAN.getTypeSignature(), VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()),
                             BOOLEAN,
                             field(SHIP_DATE, VARCHAR),
                             constant(MAX_SHIP_DATE, VARCHAR)),
-                    call(new Signature("AND", SCALAR, parseTypeSignature(StandardTypes.BOOLEAN)),
+                    call(new Signature("AND", SCALAR, BOOLEAN.getTypeSignature()),
                             BOOLEAN,
                             call(internalOperator(OperatorType.GREATER_THAN_OR_EQUAL, BOOLEAN.getTypeSignature(), DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()),
                                     BOOLEAN,
                                     field(DISCOUNT, DOUBLE),
                                     constant(0.05, DOUBLE)),
-                            call(new Signature("AND", SCALAR, parseTypeSignature(StandardTypes.BOOLEAN)),
+                            call(new Signature("AND", SCALAR, BOOLEAN.getTypeSignature()),
                                     BOOLEAN,
                                     call(internalOperator(OperatorType.LESS_THAN_OR_EQUAL, BOOLEAN.getTypeSignature(), DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()),
                                             BOOLEAN,

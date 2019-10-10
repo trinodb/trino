@@ -30,7 +30,6 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.ArrayType;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
@@ -72,7 +71,7 @@ public abstract class AbstractMinMaxByNAggregationFunction
                 ImmutableList.of(typeVariable("V"), orderableTypeParameter("K")),
                 ImmutableList.of(),
                 parseTypeSignature("array(V)"),
-                ImmutableList.of(parseTypeSignature("V"), parseTypeSignature("K"), parseTypeSignature(StandardTypes.BIGINT)));
+                ImmutableList.of(parseTypeSignature("V"), parseTypeSignature("K"), BIGINT.getTypeSignature()));
         this.name = requireNonNull(name, "name is null");
         this.typeToComparator = requireNonNull(typeToComparator, "typeToComparator is null");
     }

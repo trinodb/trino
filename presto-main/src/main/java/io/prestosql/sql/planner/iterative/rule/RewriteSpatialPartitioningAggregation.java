@@ -39,7 +39,6 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.SystemSessionProperties.getHashPartitionCount;
 import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.planner.plan.Patterns.aggregation;
 import static java.util.Objects.requireNonNull;
@@ -62,7 +61,7 @@ import static java.util.Objects.requireNonNull;
 public class RewriteSpatialPartitioningAggregation
         implements Rule<AggregationNode>
 {
-    private static final TypeSignature GEOMETRY_TYPE_SIGNATURE = parseTypeSignature("Geometry");
+    private static final TypeSignature GEOMETRY_TYPE_SIGNATURE = new TypeSignature("Geometry");
     private static final String NAME = "spatial_partitioning";
     private static final Signature INTERNAL_SIGNATURE = new Signature(NAME, AGGREGATE, VARCHAR.getTypeSignature(), GEOMETRY_TYPE_SIGNATURE, INTEGER.getTypeSignature());
     private static final Pattern<AggregationNode> PATTERN = aggregation()

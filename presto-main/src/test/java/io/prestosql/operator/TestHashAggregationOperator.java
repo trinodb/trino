@@ -31,7 +31,6 @@ import io.prestosql.operator.aggregation.builder.InMemoryHashAggregationBuilder;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.PageBuilderStatus;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spiller.Spiller;
 import io.prestosql.spiller.SpillerFactory;
@@ -163,11 +162,11 @@ public class TestHashAggregationOperator
         int numberOfRows = 40_000;
         Metadata metadata = createTestMetadataManager();
         InternalAggregationFunction countVarcharColumn = metadata.getAggregateFunctionImplementation(
-                new Signature("count", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.VARCHAR)));
+                new Signature("count", AGGREGATE, BIGINT.getTypeSignature(), VARCHAR.getTypeSignature()));
         InternalAggregationFunction countBooleanColumn = metadata.getAggregateFunctionImplementation(
-                new Signature("count", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.BOOLEAN)));
+                new Signature("count", AGGREGATE, BIGINT.getTypeSignature(), BOOLEAN.getTypeSignature()));
         InternalAggregationFunction maxVarcharColumn = metadata.getAggregateFunctionImplementation(
-                new Signature("max", AGGREGATE, parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.VARCHAR)));
+                new Signature("max", AGGREGATE, VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
         List<Integer> hashChannels = Ints.asList(1);
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, hashChannels, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN);
         List<Page> input = rowPagesBuilder
@@ -221,11 +220,11 @@ public class TestHashAggregationOperator
     {
         Metadata metadata = createTestMetadataManager();
         InternalAggregationFunction countVarcharColumn = metadata.getAggregateFunctionImplementation(
-                new Signature("count", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.VARCHAR)));
+                new Signature("count", AGGREGATE, BIGINT.getTypeSignature(), VARCHAR.getTypeSignature()));
         InternalAggregationFunction countBooleanColumn = metadata.getAggregateFunctionImplementation(
-                new Signature("count", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.BOOLEAN)));
+                new Signature("count", AGGREGATE, BIGINT.getTypeSignature(), BOOLEAN.getTypeSignature()));
         InternalAggregationFunction maxVarcharColumn = metadata.getAggregateFunctionImplementation(
-                new Signature("max", AGGREGATE, parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.VARCHAR)));
+                new Signature("max", AGGREGATE, VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
 
         Optional<Integer> groupIdChannel = Optional.of(1);
         List<Integer> groupByChannels = Ints.asList(1, 2);
@@ -272,7 +271,7 @@ public class TestHashAggregationOperator
     {
         Metadata metadata = createTestMetadataManager();
         InternalAggregationFunction arrayAggColumn = metadata.getAggregateFunctionImplementation(
-                new Signature("array_agg", AGGREGATE, parseTypeSignature("array(bigint)"), parseTypeSignature(StandardTypes.BIGINT)));
+                new Signature("array_agg", AGGREGATE, parseTypeSignature("array(bigint)"), BIGINT.getTypeSignature()));
 
         List<Integer> hashChannels = Ints.asList(1);
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, hashChannels, BIGINT, BIGINT);
@@ -316,7 +315,7 @@ public class TestHashAggregationOperator
     {
         Metadata metadata = createTestMetadataManager();
         InternalAggregationFunction maxVarcharColumn = metadata.getAggregateFunctionImplementation(
-                new Signature("max", AGGREGATE, parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.VARCHAR)));
+                new Signature("max", AGGREGATE, VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
 
         List<Integer> hashChannels = Ints.asList(1);
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, hashChannels, VARCHAR, BIGINT, VARCHAR, BIGINT);
@@ -628,7 +627,7 @@ public class TestHashAggregationOperator
     {
         Metadata metadata = createTestMetadataManager();
         InternalAggregationFunction maxVarcharColumn = metadata.getAggregateFunctionImplementation(
-                new Signature("max", AGGREGATE, parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.VARCHAR)));
+                new Signature("max", AGGREGATE, VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
 
         List<Integer> hashChannels = Ints.asList(1);
         ImmutableList<Type> types = ImmutableList.of(VARCHAR, BIGINT, VARCHAR, BIGINT);

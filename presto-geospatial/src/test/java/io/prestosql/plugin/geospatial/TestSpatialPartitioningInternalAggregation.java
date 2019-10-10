@@ -32,7 +32,6 @@ import io.prestosql.operator.scalar.AbstractTestFunctions;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.TypeSignature;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -47,9 +46,8 @@ import static io.prestosql.operator.aggregation.AggregationTestUtils.createGroup
 import static io.prestosql.operator.aggregation.AggregationTestUtils.getFinalBlock;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.getGroupValue;
 import static io.prestosql.plugin.geospatial.GeometryType.GEOMETRY;
-import static io.prestosql.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
-import static io.prestosql.spi.type.StandardTypes.INTEGER;
-import static io.prestosql.spi.type.StandardTypes.VARCHAR;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.math.RoundingMode.CEILING;
 import static org.testng.Assert.assertEquals;
 
@@ -101,9 +99,9 @@ public class TestSpatialPartitioningInternalAggregation
         return functionAssertions.getMetadata().getAggregateFunctionImplementation(new Signature(
                 "spatial_partitioning",
                 FunctionKind.AGGREGATE,
-                TypeSignature.parseTypeSignature(VARCHAR),
-                TypeSignature.parseTypeSignature(GEOMETRY_TYPE_NAME),
-                TypeSignature.parseTypeSignature(INTEGER)));
+                VARCHAR.getTypeSignature(),
+                GEOMETRY.getTypeSignature(),
+                INTEGER.getTypeSignature()));
     }
 
     private List<OGCGeometry> makeGeometries()

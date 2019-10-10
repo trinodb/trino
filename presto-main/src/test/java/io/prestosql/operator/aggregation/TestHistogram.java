@@ -29,7 +29,6 @@ import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.SqlTimestampWithTimeZone;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.analyzer.FeaturesConfig;
@@ -65,7 +64,6 @@ import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.util.DateTimeZoneIndex.getDateTimeZone;
 import static io.prestosql.util.StructuralTestUtil.mapBlockOf;
@@ -81,7 +79,7 @@ public class TestHistogram
     public void testSimpleHistograms()
     {
         MapType mapType = mapType(VARCHAR, BIGINT);
-        InternalAggregationFunction aggregationFunction = getAggregation(mapType.getTypeSignature(), parseTypeSignature(StandardTypes.VARCHAR));
+        InternalAggregationFunction aggregationFunction = getAggregation(mapType.getTypeSignature(), VARCHAR.getTypeSignature());
         assertAggregation(
                 aggregationFunction,
                 ImmutableMap.of("a", 1L, "b", 1L, "c", 1L),
@@ -92,7 +90,7 @@ public class TestHistogram
                 new Signature(NAME,
                         AGGREGATE,
                         mapType.getTypeSignature(),
-                        parseTypeSignature(StandardTypes.BIGINT)));
+                        BIGINT.getTypeSignature()));
         assertAggregation(
                 aggregationFunction,
                 ImmutableMap.of(100L, 1L, 200L, 1L, 300L, 1L),
@@ -103,7 +101,7 @@ public class TestHistogram
                 new Signature(NAME,
                         AGGREGATE,
                         mapType.getTypeSignature(),
-                        parseTypeSignature(StandardTypes.DOUBLE)));
+                        DOUBLE.getTypeSignature()));
         assertAggregation(
                 aggregationFunction,
                 ImmutableMap.of(0.1, 1L, 0.3, 1L, 0.2, 1L),
@@ -114,7 +112,7 @@ public class TestHistogram
                 new Signature(NAME,
                         AGGREGATE,
                         mapType.getTypeSignature(),
-                        parseTypeSignature(StandardTypes.BOOLEAN)));
+                        BOOLEAN.getTypeSignature()));
         assertAggregation(
                 aggregationFunction,
                 ImmutableMap.of(true, 1L, false, 1L),
@@ -125,28 +123,28 @@ public class TestHistogram
     public void testSharedGroupBy()
     {
         MapType mapType = mapType(VARCHAR, BIGINT);
-        InternalAggregationFunction aggregationFunction = getAggregation(mapType.getTypeSignature(), parseTypeSignature(StandardTypes.VARCHAR));
+        InternalAggregationFunction aggregationFunction = getAggregation(mapType.getTypeSignature(), VARCHAR.getTypeSignature());
         assertAggregation(
                 aggregationFunction,
                 ImmutableMap.of("a", 1L, "b", 1L, "c", 1L),
                 createStringsBlock("a", "b", "c"));
 
         mapType = mapType(BIGINT, BIGINT);
-        aggregationFunction = getAggregation(mapType.getTypeSignature(), parseTypeSignature(StandardTypes.BIGINT));
+        aggregationFunction = getAggregation(mapType.getTypeSignature(), BIGINT.getTypeSignature());
         assertAggregation(
                 aggregationFunction,
                 ImmutableMap.of(100L, 1L, 200L, 1L, 300L, 1L),
                 createLongsBlock(100L, 200L, 300L));
 
         mapType = mapType(DOUBLE, BIGINT);
-        aggregationFunction = getAggregation(mapType.getTypeSignature(), parseTypeSignature(StandardTypes.DOUBLE));
+        aggregationFunction = getAggregation(mapType.getTypeSignature(), DOUBLE.getTypeSignature());
         assertAggregation(
                 aggregationFunction,
                 ImmutableMap.of(0.1, 1L, 0.3, 1L, 0.2, 1L),
                 createDoublesBlock(0.1, 0.3, 0.2));
 
         mapType = mapType(BOOLEAN, BIGINT);
-        aggregationFunction = getAggregation(mapType.getTypeSignature(), parseTypeSignature(StandardTypes.BOOLEAN));
+        aggregationFunction = getAggregation(mapType.getTypeSignature(), BOOLEAN.getTypeSignature());
         assertAggregation(
                 aggregationFunction,
                 ImmutableMap.of(true, 1L, false, 1L),
@@ -157,7 +155,7 @@ public class TestHistogram
     public void testDuplicateKeysValues()
     {
         MapType mapType = mapType(VARCHAR, BIGINT);
-        InternalAggregationFunction aggregationFunction = getAggregation(mapType.getTypeSignature(), parseTypeSignature(StandardTypes.VARCHAR));
+        InternalAggregationFunction aggregationFunction = getAggregation(mapType.getTypeSignature(), VARCHAR.getTypeSignature());
         assertAggregation(
                 aggregationFunction,
                 ImmutableMap.of("a", 2L, "b", 1L),
@@ -168,7 +166,7 @@ public class TestHistogram
                 new Signature(NAME,
                         AGGREGATE,
                         mapType.getTypeSignature(),
-                        parseTypeSignature(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)));
+                        TIMESTAMP_WITH_TIME_ZONE.getTypeSignature()));
         long timestampWithTimeZone1 = packDateTimeWithZone(new DateTime(1970, 1, 1, 0, 0, 0, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY);
         long timestampWithTimeZone2 = packDateTimeWithZone(new DateTime(2015, 1, 1, 0, 0, 0, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY);
         assertAggregation(
@@ -181,7 +179,7 @@ public class TestHistogram
     public void testWithNulls()
     {
         MapType mapType = mapType(BIGINT, BIGINT);
-        InternalAggregationFunction aggregationFunction = getAggregation(mapType.getTypeSignature(), parseTypeSignature(StandardTypes.BIGINT));
+        InternalAggregationFunction aggregationFunction = getAggregation(mapType.getTypeSignature(), BIGINT.getTypeSignature());
         assertAggregation(
                 aggregationFunction,
                 ImmutableMap.of(1L, 1L, 2L, 1L),
@@ -192,7 +190,7 @@ public class TestHistogram
                 new Signature(NAME,
                         AGGREGATE,
                         mapType.getTypeSignature(),
-                        parseTypeSignature(StandardTypes.BIGINT)));
+                        BIGINT.getTypeSignature()));
         assertAggregation(
                 aggregationFunction,
                 null,
@@ -252,7 +250,7 @@ public class TestHistogram
     public void testLargerHistograms()
     {
         MapType mapType = mapType(VARCHAR, BIGINT);
-        InternalAggregationFunction aggregationFunction = getAggregation(mapType.getTypeSignature(), parseTypeSignature(StandardTypes.VARCHAR));
+        InternalAggregationFunction aggregationFunction = getAggregation(mapType.getTypeSignature(), VARCHAR.getTypeSignature());
         assertAggregation(
                 aggregationFunction,
                 ImmutableMap.of("a", 25L, "b", 10L, "c", 12L, "d", 1L, "e", 2L),
@@ -426,7 +424,7 @@ public class TestHistogram
     private InternalAggregationFunction getInternalDefaultVarCharAggregationn()
     {
         TypeSignature returnType = mapType(VARCHAR, BIGINT).getTypeSignature();
-        TypeSignature argumentType = parseTypeSignature(StandardTypes.VARCHAR);
+        TypeSignature argumentType = VARCHAR.getTypeSignature();
 
         return getAggregation(returnType, argumentType);
     }

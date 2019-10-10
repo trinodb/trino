@@ -25,7 +25,6 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.function.AccumulatorStateFactory;
 import io.prestosql.spi.function.AccumulatorStateSerializer;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
@@ -58,7 +57,7 @@ public class CountColumn
         super(NAME,
                 ImmutableList.of(typeVariable("T")),
                 ImmutableList.of(),
-                parseTypeSignature(StandardTypes.BIGINT),
+                BIGINT.getTypeSignature(),
                 ImmutableList.of(parseTypeSignature("T")));
     }
 
