@@ -33,7 +33,6 @@ import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorContext;
 import io.prestosql.spi.connector.ConnectorFactory;
-import io.prestosql.spi.connector.ConnectorHandleResolver;
 import io.prestosql.spi.connector.ConnectorNodePartitioningProvider;
 import io.prestosql.spi.connector.ConnectorPageSinkProvider;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
@@ -64,12 +63,6 @@ public class IcebergConnectorFactory
     public String getName()
     {
         return "iceberg";
-    }
-
-    @Override
-    public ConnectorHandleResolver getHandleResolver()
-    {
-        return new IcebergHandleResolver();
     }
 
     @Override
