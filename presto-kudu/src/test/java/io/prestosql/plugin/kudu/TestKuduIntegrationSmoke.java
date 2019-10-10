@@ -84,6 +84,47 @@ public class TestKuduIntegrationSmoke
         assertUpdate("DROP TABLE test_show_create_table");
     }
 
+    @Test
+    public void testRowDelete()
+    {
+        assertUpdate("CREATE TABLE IF NOT EXISTS test_row_delete (" +
+                "id INT WITH (primary_key=true), " +
+                "user_name VARCHAR" +
+                ") WITH (" +
+                " partition_by_hash_columns = ARRAY['id'], " +
+                " partition_by_hash_buckets = 2" +
+                ")");
+
+        assertUpdate("INSERT INTO test_row_delete VALUES (0, 'user0'), (2, 'user2'), (1, 'user1')", 3);
+        assertQuery("SELECT count(*) FROM test_row_delete", "VALUES 3");
+
+        assertUpdate("DELETE FROM test_row_delete WHERE user_name = 'user1'", 1);
+        assertQuery("SELECT count(*) FROM test_row_delete", "VALUES 2");
+
+        assertUpdate("DELETE FROM test_row_delete WHERE id = 0", 1);
+        assertQuery("SELECT * FROM test_row_delete", "VALUES (2, 'user2')");
+
+        assertUpdate("DROP TABLE test_row_delete");
+    }
+
+    @Test
+    public void testProjection()
+    {
+        assertUpdate("CREATE TABLE IF NOT EXISTS test_projection (" +
+                "id INT WITH (primary_key=true), " +
+                "user_name VARCHAR " +
+                ") WITH (" +
+                " partition_by_hash_columns = ARRAY['id'], " +
+                " partition_by_hash_buckets = 2" +
+                ")");
+
+        assertUpdate("INSERT INTO test_projection VALUES (0, 'user0'), (2, 'user2'), (1, 'user1')", 3);
+
+        assertQuery("SELECT id, 'test' FROM test_projection ORDER BY id", "VALUES (0, 'test'), (1, 'test'), (2, 'test')");
+
+        assertUpdate("DROP TABLE test_projection");
+    }
+
     private void assertTableProperty(String tableProperties, String key, String regexValue)
     {
         assertTrue(Pattern.compile(key + "\\s*=\\s*" + regexValue + ",?\\s+").matcher(tableProperties).find(),
