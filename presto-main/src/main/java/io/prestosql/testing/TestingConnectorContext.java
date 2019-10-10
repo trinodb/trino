@@ -33,7 +33,7 @@ import io.prestosql.version.EmbedVersion;
 
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 
-public class TestingConnectorContext
+public final class TestingConnectorContext
         implements ConnectorContext
 {
     private final NodeManager nodeManager = new ConnectorAwareNodeManager(new InMemoryNodeManager(), "testenv", new CatalogName("test"));
