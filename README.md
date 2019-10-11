@@ -95,6 +95,7 @@ with some modifications.
 Enable the following inspections:
 
 - ``Java | Class structure | Utility class is not 'final'``,
+- ``Java | Class structure | Utility class with 'public' constructor``,
 - ``Java | Class structure | Utility class without 'private' constructor``.
 
 Disable the following inspections:
