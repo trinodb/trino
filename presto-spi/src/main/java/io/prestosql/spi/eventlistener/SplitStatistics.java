@@ -81,11 +81,13 @@ public class SplitStatistics
         return completedDataSizeBytes;
     }
 
+    @Deprecated
     public Optional<Duration> getTimeToFirstByte()
     {
         return timeToFirstByte;
     }
 
+    @Deprecated
     public Optional<Duration> getTimeToLastByte()
     {
         return timeToLastByte;
