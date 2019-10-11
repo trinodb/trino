@@ -30,8 +30,6 @@ import io.prestosql.tests.DistributedQueryRunner;
 import io.prestosql.tests.ResultWithQueryId;
 import org.testng.annotations.Test;
 
-import static io.airlift.testing.Assertions.assertGreaterThan;
-import static io.airlift.testing.Assertions.assertLessThanOrEqual;
 import static io.airlift.tpch.TpchTable.getTables;
 import static io.prestosql.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
@@ -69,23 +67,6 @@ public class TestHiveDistributedJoinQueriesWithDynamicFiltering
         OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), "tpch:lineitem");
         // Probe-side is not scanned at all, due to dynamic filtering:
         assertEquals(probeStats.getInputPositions(), 0L);
-    }
-
-    @Test
-    public void testJoinWithSelectiveBuildSide()
-    {
-        Session session = Session.builder(getSession())
-                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.BROADCAST.name())
-                .build();
-        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
-        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(
-                session,
-                "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.custkey = 1");
-        assertGreaterThan(result.getResult().getRowCount(), 0);
-
-        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), "tpch:lineitem");
-        // Probe side may be partially scanned, depending on the drivers' scheduling:
-        assertLessThanOrEqual(probeStats.getInputPositions(), countRows("lineitem"));
     }
 
     private OperatorStats searchScanFilterAndProjectOperatorStats(QueryId queryId, String tableName)
