@@ -14,6 +14,8 @@
 package io.prestosql.jdbc;
 
 import io.airlift.log.Logging;
+import io.prestosql.client.ClientTypeSignature;
+import io.prestosql.client.ClientTypeSignatureParameter;
 import io.prestosql.plugin.blackhole.BlackHolePlugin;
 import io.prestosql.server.testing.TestingPrestoServer;
 import org.testng.annotations.AfterClass;
@@ -37,6 +39,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 
 import static com.google.common.base.Strings.repeat;
 import static com.google.common.primitives.Ints.asList;
@@ -158,6 +163,47 @@ public class TestJdbcPreparedStatement
                 statement.execute("DROP TABLE test_get_metadata");
             }
         }
+    }
+
+    @Test
+    public void testGetClientTypeSignatureFromTypeString()
+    {
+        ClientTypeSignature actualClientTypeSignature = PrestoPreparedStatement.getClientTypeSignatureFromTypeString("boolean");
+        ClientTypeSignature expectedClientTypeSignature = new ClientTypeSignature("boolean", new ArrayList<>());
+        assertEquals(actualClientTypeSignature, expectedClientTypeSignature);
+
+        actualClientTypeSignature = PrestoPreparedStatement.getClientTypeSignatureFromTypeString("decimal(10,3)");
+        expectedClientTypeSignature = new ClientTypeSignature("decimal", new ArrayList<>(Arrays.asList(
+                ClientTypeSignatureParameter.ofLong(10),
+                ClientTypeSignatureParameter.ofLong(3))));
+        assertEquals(actualClientTypeSignature, expectedClientTypeSignature);
+
+        actualClientTypeSignature = PrestoPreparedStatement.getClientTypeSignatureFromTypeString("varchar");
+        expectedClientTypeSignature = new ClientTypeSignature("varchar", new ArrayList<>(Collections.singletonList(
+                ClientTypeSignatureParameter.ofLong(Integer.MAX_VALUE))));
+        assertEquals(actualClientTypeSignature, expectedClientTypeSignature);
+
+        actualClientTypeSignature = PrestoPreparedStatement.getClientTypeSignatureFromTypeString("varchar(10)");
+        expectedClientTypeSignature = new ClientTypeSignature("varchar", new ArrayList<>(Collections.singletonList(
+                ClientTypeSignatureParameter.ofLong(10))));
+        assertEquals(actualClientTypeSignature, expectedClientTypeSignature);
+
+        actualClientTypeSignature = PrestoPreparedStatement.getClientTypeSignatureFromTypeString("row(x integer, y array(integer))");
+        expectedClientTypeSignature = new ClientTypeSignature("row", new ArrayList<>());
+        assertEquals(actualClientTypeSignature, expectedClientTypeSignature);
+
+        actualClientTypeSignature = PrestoPreparedStatement.getClientTypeSignatureFromTypeString("array(integer)");
+        expectedClientTypeSignature = new ClientTypeSignature("array", new ArrayList<>());
+        assertEquals(actualClientTypeSignature, expectedClientTypeSignature);
+
+        actualClientTypeSignature = PrestoPreparedStatement.getClientTypeSignatureFromTypeString("map(integer, integer)");
+        expectedClientTypeSignature = new ClientTypeSignature("map", new ArrayList<>());
+        assertEquals(actualClientTypeSignature, expectedClientTypeSignature);
+
+        actualClientTypeSignature = PrestoPreparedStatement.getClientTypeSignatureFromTypeString("timestamp(12) with time zone");
+        expectedClientTypeSignature = new ClientTypeSignature("timestamp with time zone", new ArrayList<>(Collections.singletonList(
+                ClientTypeSignatureParameter.ofLong(12))));
+        assertEquals(actualClientTypeSignature, expectedClientTypeSignature);
     }
 
     @Test

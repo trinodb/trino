@@ -13,6 +13,7 @@
  */
 package io.prestosql.jdbc;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -75,6 +76,7 @@ public class PrestoPreparedStatement
         implements PreparedStatement
 {
     private static final Pattern topLevelTypeRegexPattern = Pattern.compile("^(.+?)\\((.+)\\)$");
+    private static final Pattern timestampTimeZonePrecisionRegexPattern = Pattern.compile("^timestamp\\((\\d+)\\) with time zone$");
 
     private final Map<Integer, String> parameters = new HashMap<>();
     private final String statementName;
@@ -885,14 +887,15 @@ public class PrestoPreparedStatement
         return list.build();
     }
 
-    private static ClientTypeSignature getClientTypeSignatureFromTypeString(String type)
+    @VisibleForTesting
+    static ClientTypeSignature getClientTypeSignatureFromTypeString(String type)
     {
-        Matcher matcher = topLevelTypeRegexPattern.matcher(type);
+        Matcher topLevelMatcher = topLevelTypeRegexPattern.matcher(type);
         String topLevelType;
         List<ClientTypeSignatureParameter> arguments = new ArrayList<>();
-        if (matcher.find()) {
-            topLevelType = matcher.group(1);
-            String typeParameters = matcher.group(2);
+        if (topLevelMatcher.find()) {
+            topLevelType = topLevelMatcher.group(1);
+            String typeParameters = topLevelMatcher.group(2);
             if (topLevelType.equals("decimal")) {
                 String[] precisionAndScale = typeParameters.split(",");
                 long precision = Long.parseLong(precisionAndScale[0]);
@@ -906,9 +909,16 @@ public class PrestoPreparedStatement
             }
         }
         else {
-            topLevelType = type;
-            if (topLevelType.equals("varchar")) {
-                arguments.add(ClientTypeSignatureParameter.ofLong(Integer.MAX_VALUE));
+            Matcher timestampTimeZonePrecisionMatcher = timestampTimeZonePrecisionRegexPattern.matcher(type);
+            if (timestampTimeZonePrecisionMatcher.find()) {
+                topLevelType = "timestamp with time zone";
+                arguments.add(ClientTypeSignatureParameter.ofLong(Long.parseLong(timestampTimeZonePrecisionMatcher.group(1))));
+            }
+            else {
+                topLevelType = type;
+                if (topLevelType.equals("varchar")) {
+                    arguments.add(ClientTypeSignatureParameter.ofLong(Integer.MAX_VALUE));
+                }
             }
         }
         return new ClientTypeSignature(topLevelType, arguments);
