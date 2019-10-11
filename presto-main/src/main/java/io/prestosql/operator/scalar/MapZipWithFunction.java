@@ -90,8 +90,8 @@ public final class MapZipWithFunction
         Type outputMapType = metadata.getParameterizedType(
                 StandardTypes.MAP,
                 ImmutableList.of(
-                        TypeSignatureParameter.of(keyType.getTypeSignature()),
-                        TypeSignatureParameter.of(outputValueType.getTypeSignature())));
+                        TypeSignatureParameter.typeParameter(keyType.getTypeSignature()),
+                        TypeSignatureParameter.typeParameter(outputValueType.getTypeSignature())));
         return new ScalarFunctionImplementation(
                 false,
                 ImmutableList.of(

@@ -24,22 +24,22 @@ public class TypeSignatureParameter
     private final ParameterKind kind;
     private final Object value;
 
-    public static TypeSignatureParameter of(TypeSignature typeSignature)
+    public static TypeSignatureParameter typeParameter(TypeSignature typeSignature)
     {
         return new TypeSignatureParameter(ParameterKind.TYPE, typeSignature);
     }
 
-    public static TypeSignatureParameter of(long longLiteral)
+    public static TypeSignatureParameter numericParameter(long longLiteral)
     {
         return new TypeSignatureParameter(ParameterKind.LONG, longLiteral);
     }
 
-    public static TypeSignatureParameter of(NamedTypeSignature namedTypeSignature)
+    public static TypeSignatureParameter namedTypeParameter(NamedTypeSignature namedTypeSignature)
     {
         return new TypeSignatureParameter(ParameterKind.NAMED_TYPE, namedTypeSignature);
     }
 
-    public static TypeSignatureParameter of(String variable)
+    public static TypeSignatureParameter typeVariable(String variable)
     {
         return new TypeSignatureParameter(ParameterKind.VARIABLE, variable);
     }

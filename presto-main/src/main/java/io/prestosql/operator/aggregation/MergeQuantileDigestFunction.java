@@ -79,7 +79,7 @@ public final class MergeQuantileDigestFunction
     {
         Type valueType = boundVariables.getTypeVariable("T");
         QuantileDigestType outputType = (QuantileDigestType) metadata.getParameterizedType(StandardTypes.QDIGEST,
-                ImmutableList.of(TypeSignatureParameter.of(valueType.getTypeSignature())));
+                ImmutableList.of(TypeSignatureParameter.typeParameter(valueType.getTypeSignature())));
         return generateAggregation(valueType, outputType);
     }
 

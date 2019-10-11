@@ -87,8 +87,8 @@ public class TestOrcFileRewriter
         ArrayType arrayType = new ArrayType(BIGINT);
         ArrayType arrayOfArrayType = new ArrayType(arrayType);
         Type mapType = createTestMetadataManager().getParameterizedType(StandardTypes.MAP, ImmutableList.of(
-                TypeSignatureParameter.of(createVarcharType(5).getTypeSignature()),
-                TypeSignatureParameter.of(BOOLEAN.getTypeSignature())));
+                TypeSignatureParameter.typeParameter(createVarcharType(5).getTypeSignature()),
+                TypeSignatureParameter.typeParameter(BOOLEAN.getTypeSignature())));
         List<Long> columnIds = ImmutableList.of(3L, 7L, 9L, 10L, 11L, 12L);
         DecimalType decimalType = DecimalType.createDecimalType(4, 4);
 

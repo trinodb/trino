@@ -58,7 +58,7 @@ public class TestLearnAggregations
     @Test
     public void testLearn()
     {
-        Type mapType = METADATA.getParameterizedType("map", ImmutableList.of(TypeSignatureParameter.of(BIGINT.getTypeSignature()), TypeSignatureParameter.of(DOUBLE.getTypeSignature())));
+        Type mapType = METADATA.getParameterizedType("map", ImmutableList.of(TypeSignatureParameter.typeParameter(BIGINT.getTypeSignature()), TypeSignatureParameter.typeParameter(DOUBLE.getTypeSignature())));
         List<TypeSignature> inputTypes = ImmutableList.of(BIGINT.getTypeSignature(), mapType.getTypeSignature());
         InternalAggregationFunction aggregation = parseFunctionDefinitionWithTypesConstraint(LearnClassifierAggregation.class, BIGINT_CLASSIFIER.getTypeSignature(), inputTypes)
                 .specialize(BoundVariables.builder().build(), inputTypes.size(), METADATA);
@@ -68,7 +68,7 @@ public class TestLearnAggregations
     @Test
     public void testLearnLibSvm()
     {
-        Type mapType = METADATA.getParameterizedType("map", ImmutableList.of(TypeSignatureParameter.of(BIGINT.getTypeSignature()), TypeSignatureParameter.of(DOUBLE.getTypeSignature())));
+        Type mapType = METADATA.getParameterizedType("map", ImmutableList.of(TypeSignatureParameter.typeParameter(BIGINT.getTypeSignature()), TypeSignatureParameter.typeParameter(DOUBLE.getTypeSignature())));
         InternalAggregationFunction aggregation = parseFunctionDefinitionWithTypesConstraint(
                 LearnLibSvmClassifierAggregation.class,
                 BIGINT_CLASSIFIER.getTypeSignature(),
@@ -91,7 +91,7 @@ public class TestLearnAggregations
 
     private static Page getPage()
     {
-        Type mapType = METADATA.getParameterizedType("map", ImmutableList.of(TypeSignatureParameter.of(BIGINT.getTypeSignature()), TypeSignatureParameter.of(DOUBLE.getTypeSignature())));
+        Type mapType = METADATA.getParameterizedType("map", ImmutableList.of(TypeSignatureParameter.typeParameter(BIGINT.getTypeSignature()), TypeSignatureParameter.typeParameter(DOUBLE.getTypeSignature())));
         int datapoints = 100;
         RowPageBuilder builder = RowPageBuilder.rowPageBuilder(BIGINT, mapType, VarcharType.VARCHAR);
         Random rand = new Random(0);

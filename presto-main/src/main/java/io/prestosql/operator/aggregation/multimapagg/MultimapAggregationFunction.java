@@ -82,8 +82,8 @@ public class MultimapAggregationFunction
         Type keyType = boundVariables.getTypeVariable("K");
         Type valueType = boundVariables.getTypeVariable("V");
         Type outputType = metadata.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
-                TypeSignatureParameter.of(keyType.getTypeSignature()),
-                TypeSignatureParameter.of(new ArrayType(valueType).getTypeSignature())));
+                TypeSignatureParameter.typeParameter(keyType.getTypeSignature()),
+                TypeSignatureParameter.typeParameter(new ArrayType(valueType).getTypeSignature())));
         return generateAggregation(keyType, valueType, outputType);
     }
 

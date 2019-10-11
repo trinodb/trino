@@ -147,7 +147,7 @@ public class TestOrcReaderMemoryUsage
     public void testMapTypeWithNulls()
             throws Exception
     {
-        Type mapType = METADATA.getType(new TypeSignature(StandardTypes.MAP, TypeSignatureParameter.of(BIGINT.getTypeSignature()), TypeSignatureParameter.of(BIGINT.getTypeSignature())));
+        Type mapType = METADATA.getType(new TypeSignature(StandardTypes.MAP, TypeSignatureParameter.typeParameter(BIGINT.getTypeSignature()), TypeSignatureParameter.typeParameter(BIGINT.getTypeSignature())));
 
         int rows = 10000;
         OrcRecordReader reader = null;

@@ -243,7 +243,7 @@ public class TypeSignature
                     else if (c == ')') {
                         verify(tokenStart >= 0, "Expect tokenStart to be non-negative");
                         verify(delimitedColumnName != null, "Expect delimitedColumnName to be non-null");
-                        fields.add(TypeSignatureParameter.of(new NamedTypeSignature(
+                        fields.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(
                                 Optional.of(new RowFieldName(delimitedColumnName, true)),
                                 parseTypeSignature(signature.substring(tokenStart, i).trim(), literalParameters))));
                         delimitedColumnName = null;
@@ -253,7 +253,7 @@ public class TypeSignature
                     else if (c == ',' && bracketLevel == 1) {
                         verify(tokenStart >= 0, "Expect tokenStart to be non-negative");
                         verify(delimitedColumnName != null, "Expect delimitedColumnName to be non-null");
-                        fields.add(TypeSignatureParameter.of(new NamedTypeSignature(
+                        fields.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(
                                 Optional.of(new RowFieldName(delimitedColumnName, true)),
                                 parseTypeSignature(signature.substring(tokenStart, i).trim(), literalParameters))));
                         delimitedColumnName = null;
@@ -280,20 +280,20 @@ public class TypeSignature
 
         // Type without space or simple type with spaces
         if (split == -1 || SIMPLE_TYPE_WITH_SPACES.contains(typeOrNamedType)) {
-            return TypeSignatureParameter.of(new NamedTypeSignature(Optional.empty(), parseTypeSignature(typeOrNamedType, literalParameters)));
+            return TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.empty(), parseTypeSignature(typeOrNamedType, literalParameters)));
         }
 
         // Assume the first part of a structured type always has non-alphabetical character.
         // If the first part is a valid identifier, parameter is a named field.
         String firstPart = typeOrNamedType.substring(0, split);
         if (IDENTIFIER_PATTERN.matcher(firstPart).matches()) {
-            return TypeSignatureParameter.of(new NamedTypeSignature(
+            return TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(
                     Optional.of(new RowFieldName(firstPart, false)),
                     parseTypeSignature(typeOrNamedType.substring(split + 1).trim(), literalParameters)));
         }
 
         // Structured type composed from types with spaces. i.e. array(timestamp with time zone)
-        return TypeSignatureParameter.of(new NamedTypeSignature(Optional.empty(), parseTypeSignature(typeOrNamedType, literalParameters)));
+        return TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.empty(), parseTypeSignature(typeOrNamedType, literalParameters)));
     }
 
     private static TypeSignatureParameter parseTypeSignatureParameter(
@@ -304,13 +304,13 @@ public class TypeSignature
     {
         String parameterName = signature.substring(begin, end).trim();
         if (isDigit(signature.charAt(begin))) {
-            return TypeSignatureParameter.of(Long.parseLong(parameterName));
+            return TypeSignatureParameter.numericParameter(Long.parseLong(parameterName));
         }
         else if (literalCalculationParameters.contains(parameterName)) {
-            return TypeSignatureParameter.of(parameterName);
+            return TypeSignatureParameter.typeVariable(parameterName);
         }
         else {
-            return TypeSignatureParameter.of(parseTypeSignature(parameterName, literalCalculationParameters));
+            return TypeSignatureParameter.typeParameter(parseTypeSignature(parameterName, literalCalculationParameters));
         }
     }
 

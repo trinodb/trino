@@ -88,8 +88,8 @@ public final class MapToMapCast
         Type toMapType = metadata.getParameterizedType(
                 "map",
                 ImmutableList.of(
-                        TypeSignatureParameter.of(toKeyType.getTypeSignature()),
-                        TypeSignatureParameter.of(toValueType.getTypeSignature())));
+                        TypeSignatureParameter.typeParameter(toKeyType.getTypeSignature()),
+                        TypeSignatureParameter.typeParameter(toValueType.getTypeSignature())));
 
         MethodHandle keyProcessor = buildProcessor(metadata, fromKeyType, toKeyType, true);
         MethodHandle valueProcessor = buildProcessor(metadata, fromValueType, toValueType, false);

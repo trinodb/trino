@@ -453,12 +453,12 @@ public class SignatureBinder
         switch (parameterKind) {
             case TYPE: {
                 TypeSignature typeSignature = parameter.getTypeSignature();
-                return TypeSignatureParameter.of(applyBoundVariables(typeSignature, boundVariables));
+                return TypeSignatureParameter.typeParameter(applyBoundVariables(typeSignature, boundVariables));
             }
             case NAMED_TYPE: {
                 NamedTypeSignature namedTypeSignature = parameter.getNamedTypeSignature();
                 TypeSignature typeSignature = namedTypeSignature.getTypeSignature();
-                return TypeSignatureParameter.of(new NamedTypeSignature(
+                return TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(
                         namedTypeSignature.getFieldName(),
                         applyBoundVariables(typeSignature, boundVariables)));
             }
@@ -467,7 +467,7 @@ public class SignatureBinder
                 checkState(boundVariables.containsLongVariable(variableName),
                         "Variable is not bound: %s", variableName);
                 Long variableValue = boundVariables.getLongVariable(variableName);
-                return TypeSignatureParameter.of(variableValue);
+                return TypeSignatureParameter.numericParameter(variableValue);
             }
             case LONG: {
                 return parameter;
@@ -644,7 +644,7 @@ public class SignatureBinder
                 TypeSignatureParameter typeSignatureParameter = parameters.get(i);
                 if (typeSignatureParameter.getKind() == ParameterKind.VARIABLE) {
                     if (bindings.containsLongVariable(typeSignatureParameter.getVariable())) {
-                        originalTypeTypeParametersBuilder.add(TypeSignatureParameter.of(bindings.getLongVariable(typeSignatureParameter.getVariable())));
+                        originalTypeTypeParametersBuilder.add(TypeSignatureParameter.numericParameter(bindings.getLongVariable(typeSignatureParameter.getVariable())));
                     }
                     else {
                         // if an existing value doesn't exist for the given variable name, use the value that comes from the actual type.
@@ -653,7 +653,7 @@ public class SignatureBinder
                             return SolverReturnStatus.UNSOLVABLE;
                         }
                         TypeSignature typeSignature = type.get().getTypeSignature();
-                        originalTypeTypeParametersBuilder.add(TypeSignatureParameter.of(typeSignature.getParameters().get(i).getLongLiteral()));
+                        originalTypeTypeParametersBuilder.add(TypeSignatureParameter.numericParameter(typeSignature.getParameters().get(i).getLongLiteral()));
                     }
                 }
                 else {

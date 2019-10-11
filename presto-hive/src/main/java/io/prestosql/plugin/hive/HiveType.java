@@ -214,13 +214,13 @@ public final class HiveType
                 TypeSignature valueType = getTypeSignature(mapTypeInfo.getMapValueTypeInfo());
                 return new TypeSignature(
                         StandardTypes.MAP,
-                        ImmutableList.of(TypeSignatureParameter.of(keyType), TypeSignatureParameter.of(valueType)));
+                        ImmutableList.of(TypeSignatureParameter.typeParameter(keyType), TypeSignatureParameter.typeParameter(valueType)));
             case LIST:
                 ListTypeInfo listTypeInfo = (ListTypeInfo) typeInfo;
                 TypeSignature elementType = getTypeSignature(listTypeInfo.getListElementTypeInfo());
                 return new TypeSignature(
                         StandardTypes.ARRAY,
-                        ImmutableList.of(TypeSignatureParameter.of(elementType)));
+                        ImmutableList.of(TypeSignatureParameter.typeParameter(elementType)));
             case STRUCT:
                 StructTypeInfo structTypeInfo = (StructTypeInfo) typeInfo;
                 List<TypeInfo> structFieldTypeInfos = structTypeInfo.getAllStructFieldTypeInfos();
@@ -236,7 +236,7 @@ public final class HiveType
                     // Users can't work around this by casting in their queries because Presto parser always lower case types.
                     // TODO: This is a hack. Presto engine should be able to handle identifiers in a case insensitive way where necessary.
                     String rowFieldName = structFieldNames.get(i).toLowerCase(Locale.US);
-                    typeSignatureBuilder.add(TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName(rowFieldName, false)), typeSignature)));
+                    typeSignatureBuilder.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(rowFieldName, false)), typeSignature)));
                 }
                 return new TypeSignature(StandardTypes.ROW, typeSignatureBuilder.build());
         }

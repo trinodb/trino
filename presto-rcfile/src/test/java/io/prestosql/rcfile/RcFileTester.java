@@ -1175,8 +1175,8 @@ public class RcFileTester
     private static MapType createMapType(Type type)
     {
         return (MapType) METADATA.getParameterizedType(MAP, ImmutableList.of(
-                TypeSignatureParameter.of(type.getTypeSignature()),
-                TypeSignatureParameter.of(type.getTypeSignature())));
+                TypeSignatureParameter.typeParameter(type.getTypeSignature()),
+                TypeSignatureParameter.typeParameter(type.getTypeSignature())));
     }
 
     private static Object toHiveMap(Object nullKeyValue, Object input)

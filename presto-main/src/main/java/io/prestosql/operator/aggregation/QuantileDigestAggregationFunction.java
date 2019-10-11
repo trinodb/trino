@@ -91,7 +91,7 @@ public final class QuantileDigestAggregationFunction
         Type valueType = boundVariables.getTypeVariable("V");
         QuantileDigestType outputType = (QuantileDigestType) metadata.getParameterizedType(
                 StandardTypes.QDIGEST,
-                ImmutableList.of(TypeSignatureParameter.of(valueType.getTypeSignature())));
+                ImmutableList.of(TypeSignatureParameter.typeParameter(valueType.getTypeSignature())));
         return generateAggregation(valueType, outputType, arity);
     }
 

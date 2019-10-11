@@ -128,7 +128,7 @@ public class RaptorTableProperties
         return new PropertyMetadata<>(
                 name,
                 description,
-                typeManager.getParameterizedType(ARRAY, ImmutableList.of(TypeSignatureParameter.of(createUnboundedVarcharType().getTypeSignature()))),
+                typeManager.getParameterizedType(ARRAY, ImmutableList.of(TypeSignatureParameter.typeParameter(createUnboundedVarcharType().getTypeSignature()))),
                 List.class,
                 ImmutableList.of(),
                 false,

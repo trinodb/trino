@@ -83,8 +83,8 @@ public class TestShardWriter
         ArrayType arrayType = new ArrayType(BIGINT);
         ArrayType arrayOfArrayType = new ArrayType(arrayType);
         Type mapType = createTestMetadataManager().getParameterizedType(StandardTypes.MAP, ImmutableList.of(
-                TypeSignatureParameter.of(createVarcharType(10).getTypeSignature()),
-                TypeSignatureParameter.of(BOOLEAN.getTypeSignature())));
+                TypeSignatureParameter.typeParameter(createVarcharType(10).getTypeSignature()),
+                TypeSignatureParameter.typeParameter(BOOLEAN.getTypeSignature())));
         List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(10), VARBINARY, DOUBLE, BOOLEAN, arrayType, mapType, arrayOfArrayType);
         File file = new File(directory, System.nanoTime() + ".orc");
 

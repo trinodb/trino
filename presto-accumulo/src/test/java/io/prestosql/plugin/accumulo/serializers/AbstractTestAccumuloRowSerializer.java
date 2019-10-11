@@ -186,8 +186,8 @@ public abstract class AbstractTestAccumuloRowSerializer
     {
         AccumuloRowSerializer serializer = serializerClass.getConstructor().newInstance();
         Type type = createTestMetadataManager().getParameterizedType(StandardTypes.MAP, ImmutableList.of(
-                TypeSignatureParameter.of(VARCHAR.getTypeSignature()),
-                TypeSignatureParameter.of(BIGINT.getTypeSignature())));
+                TypeSignatureParameter.typeParameter(VARCHAR.getTypeSignature()),
+                TypeSignatureParameter.typeParameter(BIGINT.getTypeSignature())));
         Map<Object, Object> expected = ImmutableMap.of("a", 1L, "b", 2L, "3", 3L);
         byte[] data = serializer.encode(type, AccumuloRowSerializer.getBlockFromMap(type, expected));
         Map<Object, Object> actual = serializer.decode(type, data);

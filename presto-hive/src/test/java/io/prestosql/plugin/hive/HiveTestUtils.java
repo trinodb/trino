@@ -154,15 +154,15 @@ public final class HiveTestUtils
     public static MapType mapType(Type keyType, Type valueType)
     {
         return (MapType) METADATA.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
-                TypeSignatureParameter.of(keyType.getTypeSignature()),
-                TypeSignatureParameter.of(valueType.getTypeSignature())));
+                TypeSignatureParameter.typeParameter(keyType.getTypeSignature()),
+                TypeSignatureParameter.typeParameter(valueType.getTypeSignature())));
     }
 
     public static ArrayType arrayType(Type elementType)
     {
         return (ArrayType) METADATA.getParameterizedType(
                 StandardTypes.ARRAY,
-                ImmutableList.of(TypeSignatureParameter.of(elementType.getTypeSignature())));
+                ImmutableList.of(TypeSignatureParameter.typeParameter(elementType.getTypeSignature())));
     }
 
     public static RowType rowType(List<NamedTypeSignature> elementTypeSignatures)
@@ -170,7 +170,7 @@ public final class HiveTestUtils
         return (RowType) METADATA.getParameterizedType(
                 StandardTypes.ROW,
                 ImmutableList.copyOf(elementTypeSignatures.stream()
-                        .map(TypeSignatureParameter::of)
+                        .map(TypeSignatureParameter::namedTypeParameter)
                         .collect(toList())));
     }
 

@@ -74,7 +74,7 @@ public class ArrayFlattenFunction
     public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
     {
         Type elementType = boundVariables.getTypeVariable("E");
-        Type arrayType = metadata.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(TypeSignatureParameter.of(elementType.getTypeSignature())));
+        Type arrayType = metadata.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(TypeSignatureParameter.typeParameter(elementType.getTypeSignature())));
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(elementType).bindTo(arrayType);
         return new ScalarFunctionImplementation(
                 false,

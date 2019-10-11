@@ -80,7 +80,7 @@ public class BenchmarkDictionaryBlockGetSizeInBytes
 
         private static Block createMapBlock(int positionCount)
         {
-            MapType mapType = (MapType) createTestMetadataManager().getType(new TypeSignature(StandardTypes.MAP, TypeSignatureParameter.of(VARCHAR.getTypeSignature()), TypeSignatureParameter.of(VARCHAR.getTypeSignature())));
+            MapType mapType = (MapType) createTestMetadataManager().getType(new TypeSignature(StandardTypes.MAP, TypeSignatureParameter.typeParameter(VARCHAR.getTypeSignature()), TypeSignatureParameter.typeParameter(VARCHAR.getTypeSignature())));
             Block keyBlock = createDictionaryBlock(generateList("key", positionCount));
             Block valueBlock = createDictionaryBlock(generateList("value", positionCount));
             int[] offsets = new int[positionCount + 1];

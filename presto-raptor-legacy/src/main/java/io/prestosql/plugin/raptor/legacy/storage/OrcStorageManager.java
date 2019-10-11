@@ -519,16 +519,16 @@ public class OrcStorageManager
                 return DecimalType.createDecimalType(type.getPrecision().get(), type.getScale().get());
             case LIST:
                 TypeSignature elementType = getType(types, type.getFieldTypeIndex(0)).getTypeSignature();
-                return typeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(TypeSignatureParameter.of(elementType)));
+                return typeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(TypeSignatureParameter.typeParameter(elementType)));
             case MAP:
                 TypeSignature keyType = getType(types, type.getFieldTypeIndex(0)).getTypeSignature();
                 TypeSignature valueType = getType(types, type.getFieldTypeIndex(1)).getTypeSignature();
-                return typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(TypeSignatureParameter.of(keyType), TypeSignatureParameter.of(valueType)));
+                return typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(TypeSignatureParameter.typeParameter(keyType), TypeSignatureParameter.typeParameter(valueType)));
             case STRUCT:
                 List<String> fieldNames = type.getFieldNames();
                 ImmutableList.Builder<TypeSignatureParameter> fieldTypes = ImmutableList.builder();
                 for (int i = 0; i < type.getFieldCount(); i++) {
-                    fieldTypes.add(TypeSignatureParameter.of(new NamedTypeSignature(
+                    fieldTypes.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(
                             Optional.of(new RowFieldName(fieldNames.get(i), false)),
                             getType(types, type.getFieldTypeIndex(i)).getTypeSignature())));
                 }
@@ -550,7 +550,7 @@ public class OrcStorageManager
         if (raptorType instanceof MapType) {
             TypeSignature keyType = toOrcFileType(((MapType) raptorType).getKeyType(), typeManager).getTypeSignature();
             TypeSignature valueType = toOrcFileType(((MapType) raptorType).getValueType(), typeManager).getTypeSignature();
-            return typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(TypeSignatureParameter.of(keyType), TypeSignatureParameter.of(valueType)));
+            return typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(TypeSignatureParameter.typeParameter(keyType), TypeSignatureParameter.typeParameter(valueType)));
         }
         if (raptorType instanceof RowType) {
             List<Field> fields = ((RowType) raptorType).getFields().stream()

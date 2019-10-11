@@ -176,23 +176,23 @@ public class TestTypeSignature
 
     private TypeSignature varchar()
     {
-        return new TypeSignature(StandardTypes.VARCHAR, TypeSignatureParameter.of(VarcharType.UNBOUNDED_LENGTH));
+        return new TypeSignature(StandardTypes.VARCHAR, TypeSignatureParameter.numericParameter(VarcharType.UNBOUNDED_LENGTH));
     }
 
     private TypeSignature varchar(long length)
     {
-        return new TypeSignature(StandardTypes.VARCHAR, TypeSignatureParameter.of(length));
+        return new TypeSignature(StandardTypes.VARCHAR, TypeSignatureParameter.numericParameter(length));
     }
 
     private TypeSignature decimal(String precisionVariable, String scaleVariable)
     {
         return new TypeSignature(StandardTypes.DECIMAL, ImmutableList.of(
-                TypeSignatureParameter.of(precisionVariable), TypeSignatureParameter.of(scaleVariable)));
+                TypeSignatureParameter.typeVariable(precisionVariable), TypeSignatureParameter.typeVariable(scaleVariable)));
     }
 
     private static TypeSignature rowSignature(NamedTypeSignature... columns)
     {
-        return new TypeSignature("row", transform(asList(columns), TypeSignatureParameter::of));
+        return new TypeSignature("row", transform(asList(columns), TypeSignatureParameter::namedTypeParameter));
     }
 
     private static NamedTypeSignature namedParameter(String name, boolean delimited, TypeSignature value)
@@ -207,12 +207,12 @@ public class TestTypeSignature
 
     private static TypeSignature array(TypeSignature type)
     {
-        return new TypeSignature(StandardTypes.ARRAY, TypeSignatureParameter.of(type));
+        return new TypeSignature(StandardTypes.ARRAY, TypeSignatureParameter.typeParameter(type));
     }
 
     private static TypeSignature map(TypeSignature keyType, TypeSignature valueType)
     {
-        return new TypeSignature(StandardTypes.MAP, TypeSignatureParameter.of(keyType), TypeSignatureParameter.of(valueType));
+        return new TypeSignature(StandardTypes.MAP, TypeSignatureParameter.typeParameter(keyType), TypeSignatureParameter.typeParameter(valueType));
     }
 
     private TypeSignature signature(String name)
