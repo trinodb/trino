@@ -33,6 +33,7 @@ import io.prestosql.spi.function.AccumulatorStateFactory;
 import io.prestosql.spi.function.AccumulatorStateSerializer;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -50,7 +51,6 @@ import static io.prestosql.operator.aggregation.AggregationUtils.generateAggrega
 import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.util.Failures.internalError;
 import static io.prestosql.util.Reflection.methodHandle;
 
@@ -82,8 +82,8 @@ public abstract class AbstractMinMaxAggregationFunction
         super(name,
                 ImmutableList.of(orderableTypeParameter("E")),
                 ImmutableList.of(),
-                parseTypeSignature("E"),
-                ImmutableList.of(parseTypeSignature("E")));
+                new TypeSignature("E"),
+                ImmutableList.of(new TypeSignature("E")));
         this.min = min;
         this.operatorType = min ? LESS_THAN : GREATER_THAN;
     }

@@ -21,6 +21,7 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.gen.lambda.LambdaFunctionInterface;
 
 import java.lang.invoke.MethodHandle;
@@ -48,7 +49,7 @@ public final class InvokeFunction
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("T")),
                 ImmutableList.of(),
-                parseTypeSignature("T"),
+                new TypeSignature("T"),
                 ImmutableList.of(parseTypeSignature("function(T)")),
                 false));
     }

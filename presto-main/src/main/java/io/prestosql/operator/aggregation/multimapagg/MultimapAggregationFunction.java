@@ -30,6 +30,7 @@ import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.TypeSignatureParameter;
 
 import java.lang.invoke.MethodHandle;
@@ -65,7 +66,7 @@ public class MultimapAggregationFunction
                 ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")),
                 ImmutableList.of(),
                 parseTypeSignature("map(K,array(V))"),
-                ImmutableList.of(parseTypeSignature("K"), parseTypeSignature("V")));
+                ImmutableList.of(new TypeSignature("K"), new TypeSignature("V")));
         this.groupMode = groupMode;
     }
 

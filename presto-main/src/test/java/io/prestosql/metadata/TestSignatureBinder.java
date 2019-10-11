@@ -355,8 +355,8 @@ public class TestSignatureBinder
     public void testBindTypeVariablesBasedOnTheSecondArgument()
     {
         Signature function = functionSignature()
-                .returnType(parseTypeSignature("T"))
-                .argumentTypes(parseTypeSignature("array(T)"), parseTypeSignature("T"))
+                .returnType(new TypeSignature("T"))
+                .argumentTypes(parseTypeSignature("array(T)"), new TypeSignature("T"))
                 .typeVariableConstraints(ImmutableList.of(typeVariable("T")))
                 .build();
 
@@ -372,7 +372,7 @@ public class TestSignatureBinder
     public void testBindParametricTypeParameterToUnknown()
     {
         Signature function = functionSignature()
-                .returnType(parseTypeSignature("T"))
+                .returnType(new TypeSignature("T"))
                 .argumentTypes(parseTypeSignature("array(T)"))
                 .typeVariableConstraints(ImmutableList.of(typeVariable("T")))
                 .build();
@@ -391,8 +391,8 @@ public class TestSignatureBinder
     public void testBindUnknownToTypeParameter()
     {
         Signature function = functionSignature()
-                .returnType(parseTypeSignature("T"))
-                .argumentTypes(parseTypeSignature("T"))
+                .returnType(new TypeSignature("T"))
+                .argumentTypes(new TypeSignature("T"))
                 .typeVariableConstraints(ImmutableList.of(typeVariable("T")))
                 .build();
 
@@ -505,8 +505,8 @@ public class TestSignatureBinder
     {
         Signature function = functionSignature()
                 .typeVariableConstraints(ImmutableList.of(typeVariable("T")))
-                .returnType(parseTypeSignature("T"))
-                .argumentTypes(parseTypeSignature("T"))
+                .returnType(new TypeSignature("T"))
+                .argumentTypes(new TypeSignature("T"))
                 .build();
 
         assertThat(function)
@@ -581,7 +581,7 @@ public class TestSignatureBinder
     public void testArray()
     {
         Signature getFunction = functionSignature()
-                .returnType(parseTypeSignature("T"))
+                .returnType(new TypeSignature("T"))
                 .argumentTypes(parseTypeSignature("array(T)"))
                 .typeVariableConstraints(ImmutableList.of(typeVariable("T")))
                 .build();
@@ -603,8 +603,8 @@ public class TestSignatureBinder
                 .fails();
 
         Signature containsFunction = functionSignature()
-                .returnType(parseTypeSignature("T"))
-                .argumentTypes(parseTypeSignature("array(T)"), parseTypeSignature("T"))
+                .returnType(new TypeSignature("T"))
+                .argumentTypes(parseTypeSignature("array(T)"), new TypeSignature("T"))
                 .typeVariableConstraints(ImmutableList.of(comparableTypeParameter("T")))
                 .build();
 
@@ -640,7 +640,7 @@ public class TestSignatureBinder
                         ImmutableMap.of()));
 
         Signature fooFunction = functionSignature()
-                .returnType(parseTypeSignature("T"))
+                .returnType(new TypeSignature("T"))
                 .argumentTypes(parseTypeSignature("array(T)"), parseTypeSignature("array(T)"))
                 .typeVariableConstraints(ImmutableList.of(typeVariable("T")))
                 .build();
@@ -661,8 +661,8 @@ public class TestSignatureBinder
     public void testMap()
     {
         Signature getValueFunction = functionSignature()
-                .returnType(parseTypeSignature("V"))
-                .argumentTypes(parseTypeSignature("map(K,V)"), parseTypeSignature("K"))
+                .returnType(new TypeSignature("V"))
+                .argumentTypes(parseTypeSignature("map(K,V)"), new TypeSignature("K"))
                 .typeVariableConstraints(ImmutableList.of(typeVariable("K"), typeVariable("V")))
                 .build();
 
@@ -730,7 +730,7 @@ public class TestSignatureBinder
     {
         Signature mapVariadicBoundFunction = functionSignature()
                 .returnType(BIGINT.getTypeSignature())
-                .argumentTypes(parseTypeSignature("T"))
+                .argumentTypes(new TypeSignature("T"))
                 .typeVariableConstraints(ImmutableList.of(withVariadicBound("T", "map")))
                 .build();
 
@@ -751,7 +751,7 @@ public class TestSignatureBinder
 
         Signature decimalVariadicBoundFunction = functionSignature()
                 .returnType(BIGINT.getTypeSignature())
-                .argumentTypes(parseTypeSignature("T"))
+                .argumentTypes(new TypeSignature("T"))
                 .typeVariableConstraints(ImmutableList.of(withVariadicBound("T", "decimal")))
                 .build();
 
@@ -771,7 +771,7 @@ public class TestSignatureBinder
     {
         Signature rowFunction = functionSignature()
                 .returnType(BOOLEAN.getTypeSignature())
-                .argumentTypes(parseTypeSignature("T"), parseTypeSignature("T"))
+                .argumentTypes(new TypeSignature("T"), new TypeSignature("T"))
                 .typeVariableConstraints(ImmutableList.of(withVariadicBound("T", "row")))
                 .build();
 
@@ -784,7 +784,7 @@ public class TestSignatureBinder
 
         Signature arrayFunction = functionSignature()
                 .returnType(BOOLEAN.getTypeSignature())
-                .argumentTypes(parseTypeSignature("T"), parseTypeSignature("T"))
+                .argumentTypes(new TypeSignature("T"), new TypeSignature("T"))
                 .typeVariableConstraints(ImmutableList.of(withVariadicBound("T", "array")))
                 .build();
 
@@ -801,7 +801,7 @@ public class TestSignatureBinder
     {
         Signature variableArityFunction = functionSignature()
                 .returnType(BOOLEAN.getTypeSignature())
-                .argumentTypes(parseTypeSignature("T"))
+                .argumentTypes(new TypeSignature("T"))
                 .typeVariableConstraints(ImmutableList.of(typeVariable("T")))
                 .setVariableArity(true)
                 .build();
@@ -835,7 +835,7 @@ public class TestSignatureBinder
     {
         Signature function = functionSignature()
                 .returnType(BOOLEAN.getTypeSignature())
-                .argumentTypes(parseTypeSignature("T"), DOUBLE.getTypeSignature())
+                .argumentTypes(new TypeSignature("T"), DOUBLE.getTypeSignature())
                 .typeVariableConstraints(ImmutableList.of(typeVariable("T")))
                 .build();
 
@@ -871,7 +871,7 @@ public class TestSignatureBinder
     {
         Signature foo = functionSignature()
                 .returnType(BOOLEAN.getTypeSignature())
-                .argumentTypes(parseTypeSignature("T"), parseTypeSignature("T"))
+                .argumentTypes(new TypeSignature("T"), new TypeSignature("T"))
                 .typeVariableConstraints(ImmutableList.of(typeVariable("T")))
                 .build();
 
@@ -895,7 +895,7 @@ public class TestSignatureBinder
 
         Signature bar = functionSignature()
                 .returnType(BOOLEAN.getTypeSignature())
-                .argumentTypes(parseTypeSignature("T"), parseTypeSignature("T"))
+                .argumentTypes(new TypeSignature("T"), new TypeSignature("T"))
                 .typeVariableConstraints(ImmutableList.of(comparableTypeParameter("T")))
                 .build();
 
@@ -942,8 +942,8 @@ public class TestSignatureBinder
                 .fails();
 
         Signature applyTwice = functionSignature()
-                .returnType(parseTypeSignature("V"))
-                .argumentTypes(parseTypeSignature("T"), parseTypeSignature("function(T,U)"), parseTypeSignature("function(U,V)"))
+                .returnType(new TypeSignature("V"))
+                .argumentTypes(new TypeSignature("T"), parseTypeSignature("function(T,U)"), parseTypeSignature("function(U,V)"))
                 .typeVariableConstraints(typeVariable("T"), typeVariable("U"), typeVariable("V"))
                 .build();
         assertThat(applyTwice)
@@ -993,8 +993,8 @@ public class TestSignatureBinder
                         .build());
 
         Signature varargApply = functionSignature()
-                .returnType(parseTypeSignature("T"))
-                .argumentTypes(parseTypeSignature("T"), parseTypeSignature("function(T, T)"))
+                .returnType(new TypeSignature("T"))
+                .argumentTypes(new TypeSignature("T"), parseTypeSignature("function(T, T)"))
                 .typeVariableConstraints(typeVariable("T"))
                 .setVariableArity(true)
                 .build();
@@ -1008,8 +1008,8 @@ public class TestSignatureBinder
                 .fails();
 
         Signature loop = functionSignature()
-                .returnType(parseTypeSignature("T"))
-                .argumentTypes(parseTypeSignature("T"), parseTypeSignature("function(T, T)"))
+                .returnType(new TypeSignature("T"))
+                .argumentTypes(new TypeSignature("T"), parseTypeSignature("function(T, T)"))
                 .typeVariableConstraints(typeVariable("T"))
                 .build();
         assertThat(loop)

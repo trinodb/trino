@@ -22,6 +22,7 @@ import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 
@@ -50,7 +51,7 @@ public class ArrayToElementConcatFunction
                 ImmutableList.of(typeVariable("E")),
                 ImmutableList.of(),
                 parseTypeSignature("array(E)"),
-                ImmutableList.of(parseTypeSignature("array(E)"), parseTypeSignature("E")),
+                ImmutableList.of(parseTypeSignature("array(E)"), new TypeSignature("E")),
                 false));
     }
 

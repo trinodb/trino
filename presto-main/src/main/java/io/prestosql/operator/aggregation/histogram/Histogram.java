@@ -27,6 +27,7 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.TypeSignatureParameter;
 
 import java.lang.invoke.MethodHandle;
@@ -62,7 +63,7 @@ public class Histogram
                 ImmutableList.of(comparableTypeParameter("K")),
                 ImmutableList.of(),
                 parseTypeSignature("map(K,bigint)"),
-                ImmutableList.of(parseTypeSignature("K")));
+                ImmutableList.of(new TypeSignature("K")));
         this.groupMode = groupMode;
     }
 

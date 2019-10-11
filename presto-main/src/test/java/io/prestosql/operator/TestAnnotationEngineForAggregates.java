@@ -383,8 +383,8 @@ public class TestAnnotationEngineForAggregates
                 FunctionKind.AGGREGATE,
                 ImmutableList.of(typeVariable("T")),
                 ImmutableList.of(),
-                parseTypeSignature("T"),
-                ImmutableList.of(parseTypeSignature("T")),
+                new TypeSignature("T"),
+                ImmutableList.of(new TypeSignature("T")),
                 false);
 
         ParametricAggregation aggregation = parseFunctionDefinition(GenericAggregationFunction.class);
@@ -542,8 +542,8 @@ public class TestAnnotationEngineForAggregates
                 FunctionKind.AGGREGATE,
                 ImmutableList.of(typeVariable("T")),
                 ImmutableList.of(),
-                parseTypeSignature("T"),
-                ImmutableList.of(new TypeSignature(ARRAY, TypeSignatureParameter.of(parseTypeSignature("T"))), parseTypeSignature("T")),
+                new TypeSignature("T"),
+                ImmutableList.of(new TypeSignature(ARRAY, TypeSignatureParameter.of(new TypeSignature("T"))), new TypeSignature("T")),
                 false);
 
         ParametricAggregation aggregation = parseFunctionDefinition(ImplicitSpecializedAggregationFunction.class);
@@ -634,8 +634,8 @@ public class TestAnnotationEngineForAggregates
                 FunctionKind.AGGREGATE,
                 ImmutableList.of(typeVariable("T")),
                 ImmutableList.of(),
-                parseTypeSignature("T"),
-                ImmutableList.of(new TypeSignature(ARRAY, TypeSignatureParameter.of(parseTypeSignature("T")))),
+                new TypeSignature("T"),
+                ImmutableList.of(new TypeSignature(ARRAY, TypeSignatureParameter.of(new TypeSignature("T")))),
                 false);
 
         ParametricAggregation aggregation = parseFunctionDefinition(ExplicitSpecializedAggregationFunction.class);
@@ -873,8 +873,8 @@ public class TestAnnotationEngineForAggregates
                 FunctionKind.AGGREGATE,
                 ImmutableList.of(typeVariable("T")),
                 ImmutableList.of(),
-                parseTypeSignature("T"),
-                ImmutableList.of(parseTypeSignature("T")),
+                new TypeSignature("T"),
+                ImmutableList.of(new TypeSignature("T")),
                 false);
 
         ParametricAggregation aggregation = parseFunctionDefinition(InjectTypeAggregateFunction.class);

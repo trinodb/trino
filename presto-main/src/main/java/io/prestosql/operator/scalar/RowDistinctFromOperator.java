@@ -23,6 +23,7 @@ import io.prestosql.operator.scalar.ScalarFunctionImplementation.ScalarImplement
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -36,7 +37,6 @@ import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConv
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
 import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
 import static io.prestosql.util.Failures.internalError;
 import static io.prestosql.util.Reflection.methodHandle;
@@ -54,7 +54,7 @@ public class RowDistinctFromOperator
                 ImmutableList.of(comparableWithVariadicBound("T", "row")),
                 ImmutableList.of(),
                 BOOLEAN.getTypeSignature(),
-                ImmutableList.of(parseTypeSignature("T"), parseTypeSignature("T")));
+                ImmutableList.of(new TypeSignature("T"), new TypeSignature("T")));
     }
 
     @Override

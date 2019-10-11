@@ -21,6 +21,7 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.gen.lambda.UnaryFunctionInterface;
 
 import java.lang.invoke.MethodHandle;
@@ -50,8 +51,8 @@ public final class ApplyFunction
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("T"), typeVariable("U")),
                 ImmutableList.of(),
-                parseTypeSignature("U"),
-                ImmutableList.of(parseTypeSignature("T"), parseTypeSignature("function(T,U)")),
+                new TypeSignature("U"),
+                ImmutableList.of(new TypeSignature("T"), parseTypeSignature("function(T,U)")),
                 false));
     }
 

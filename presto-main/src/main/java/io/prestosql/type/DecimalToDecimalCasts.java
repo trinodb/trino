@@ -18,13 +18,13 @@ import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.spi.type.DecimalConversions;
 import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.TypeSignature;
 
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.Signature.withVariadicBound;
 import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.type.Decimals.longTenToNth;
 import static io.prestosql.spi.type.StandardTypes.DECIMAL;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 
 public final class DecimalToDecimalCasts
 {
@@ -32,8 +32,8 @@ public final class DecimalToDecimalCasts
             .kind(SCALAR)
             .operatorType(CAST)
             .typeVariableConstraints(withVariadicBound("F", DECIMAL), withVariadicBound("T", DECIMAL))
-            .argumentTypes(parseTypeSignature("F"))
-            .returnType(parseTypeSignature("T"))
+            .argumentTypes(new TypeSignature("F"))
+            .returnType(new TypeSignature("T"))
             .build();
 
     // TODO: filtering mechanism could be used to return NoOp method when only precision is increased

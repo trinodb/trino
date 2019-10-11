@@ -26,6 +26,7 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 import java.math.BigDecimal;
@@ -67,7 +68,6 @@ import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static io.prestosql.type.JsonType.JSON;
@@ -93,7 +93,7 @@ public final class FormatFunction
                 .kind(SCALAR)
                 .name(NAME)
                 .typeVariableConstraints(withVariadicBound("T", "row"))
-                .argumentTypes(VARCHAR.getTypeSignature(), parseTypeSignature("T"))
+                .argumentTypes(VARCHAR.getTypeSignature(), new TypeSignature("T"))
                 .returnType(VARCHAR.getTypeSignature())
                 .build());
     }

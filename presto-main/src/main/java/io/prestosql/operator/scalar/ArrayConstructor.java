@@ -34,6 +34,7 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.BlockBuilderStatus;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.gen.CallSiteBinder;
 
 import java.lang.invoke.MethodHandle;
@@ -77,7 +78,7 @@ public final class ArrayConstructor
                 ImmutableList.of(typeVariable("E")),
                 ImmutableList.of(),
                 parseTypeSignature("array(E)"),
-                ImmutableList.of(parseTypeSignature("E"), parseTypeSignature("E")),
+                ImmutableList.of(new TypeSignature("E"), new TypeSignature("E")),
                 true));
     }
 

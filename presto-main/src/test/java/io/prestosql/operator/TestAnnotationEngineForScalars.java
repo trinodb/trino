@@ -39,6 +39,7 @@ import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.function.TypeParameter;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -332,8 +333,8 @@ public class TestAnnotationEngineForScalars
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("T")),
                 ImmutableList.of(),
-                parseTypeSignature("T"),
-                ImmutableList.of(parseTypeSignature("T")),
+                new TypeSignature("T"),
+                ImmutableList.of(new TypeSignature("T")),
                 false);
 
         List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinition(ParametricScalarFunction.class);

@@ -27,6 +27,7 @@ import io.prestosql.operator.aggregation.state.StateCompiler;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.gen.lambda.BinaryFunctionInterface;
 
 import java.lang.invoke.MethodHandle;
@@ -65,10 +66,10 @@ public class ReduceAggregationFunction
         super(NAME,
                 ImmutableList.of(typeVariable("T"), typeVariable("S")),
                 ImmutableList.of(),
-                parseTypeSignature("S"),
+                new TypeSignature("S"),
                 ImmutableList.of(
-                        parseTypeSignature("T"),
-                        parseTypeSignature("S"),
+                        new TypeSignature("T"),
+                        new TypeSignature("S"),
                         parseTypeSignature("function(S,T,S)"),
                         parseTypeSignature("function(S,S,S)")));
     }

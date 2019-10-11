@@ -27,6 +27,7 @@ import io.prestosql.spi.block.SingleMapBlock;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.BooleanType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 
@@ -56,8 +57,8 @@ public class MapElementAtFunction
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("K"), typeVariable("V")),
                 ImmutableList.of(),
-                parseTypeSignature("V"),
-                ImmutableList.of(parseTypeSignature("map(K,V)"), parseTypeSignature("K")),
+                new TypeSignature("V"),
+                ImmutableList.of(parseTypeSignature("map(K,V)"), new TypeSignature("K")),
                 false));
     }
 

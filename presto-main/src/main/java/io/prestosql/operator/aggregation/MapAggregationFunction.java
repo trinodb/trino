@@ -27,6 +27,7 @@ import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.TypeSignatureParameter;
 
 import java.lang.invoke.MethodHandle;
@@ -60,7 +61,7 @@ public class MapAggregationFunction
                 ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")),
                 ImmutableList.of(),
                 parseTypeSignature("map(K,V)"),
-                ImmutableList.of(parseTypeSignature("K"), parseTypeSignature("V")));
+                ImmutableList.of(new TypeSignature("K"), new TypeSignature("V")));
     }
 
     @Override

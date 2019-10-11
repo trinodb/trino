@@ -184,8 +184,8 @@ public class TestPolymorphicScalarFunction
                 .name("foo")
                 .kind(SCALAR)
                 .typeVariableConstraints(comparableWithVariadicBound("V", VARCHAR))
-                .returnType(parseTypeSignature("V"))
-                .argumentTypes(parseTypeSignature("V"))
+                .returnType(new TypeSignature("V"))
+                .argumentTypes(new TypeSignature("V"))
                 .build();
 
         SqlScalarFunction function = SqlScalarFunction.builder(TestMethods.class)

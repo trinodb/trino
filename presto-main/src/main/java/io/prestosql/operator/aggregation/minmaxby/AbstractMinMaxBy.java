@@ -39,6 +39,7 @@ import io.prestosql.spi.function.AccumulatorStateSerializer;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.gen.CallSiteBinder;
 import io.prestosql.sql.gen.SqlTypeBytecodeExpression;
 
@@ -71,7 +72,6 @@ import static io.prestosql.operator.aggregation.minmaxby.TwoNullableValueStateMa
 import static io.prestosql.operator.aggregation.minmaxby.TwoNullableValueStateMapping.getStateSerializer;
 import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.sql.gen.BytecodeUtils.loadConstant;
 import static io.prestosql.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.prestosql.util.CompilerUtils.defineClass;
@@ -88,8 +88,8 @@ public abstract class AbstractMinMaxBy
         super((min ? "min" : "max") + "_by",
                 ImmutableList.of(orderableTypeParameter("K"), typeVariable("V")),
                 ImmutableList.of(),
-                parseTypeSignature("V"),
-                ImmutableList.of(parseTypeSignature("V"), parseTypeSignature("K")));
+                new TypeSignature("V"),
+                ImmutableList.of(new TypeSignature("V"), new TypeSignature("K")));
         this.min = min;
     }
 

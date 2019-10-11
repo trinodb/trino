@@ -22,13 +22,13 @@ import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 
 import static io.prestosql.metadata.Signature.orderableWithVariadicBound;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
 import static io.prestosql.type.TypeUtils.checkElementNotNull;
 import static io.prestosql.util.Failures.internalError;
@@ -42,7 +42,7 @@ public abstract class RowComparisonOperator
                 ImmutableList.of(orderableWithVariadicBound("T", StandardTypes.ROW)),
                 ImmutableList.of(),
                 BOOLEAN.getTypeSignature(),
-                ImmutableList.of(parseTypeSignature("T"), parseTypeSignature("T")));
+                ImmutableList.of(new TypeSignature("T"), new TypeSignature("T")));
     }
 
     protected List<MethodHandle> getMethodHandles(RowType type, Metadata metadata, OperatorType operatorType)

@@ -19,6 +19,7 @@ import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 
@@ -40,7 +41,7 @@ public final class CastFromUnknownOperator
         super(CAST,
                 ImmutableList.of(typeVariable("E")),
                 ImmutableList.of(),
-                parseTypeSignature("E"),
+                new TypeSignature("E"),
                 ImmutableList.of(parseTypeSignature("unknown")));
     }
 

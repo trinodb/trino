@@ -31,6 +31,7 @@ import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.gen.CallSiteBinder;
 
 import java.lang.invoke.MethodHandle;
@@ -54,7 +55,6 @@ import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.sql.gen.BytecodeUtils.invoke;
 import static io.prestosql.util.CompilerUtils.defineClass;
 import static io.prestosql.util.CompilerUtils.makeClassName;
@@ -79,8 +79,8 @@ public abstract class AbstractGreatestLeast
                 FunctionKind.SCALAR,
                 ImmutableList.of(orderableTypeParameter("E")),
                 ImmutableList.of(),
-                parseTypeSignature("E"),
-                ImmutableList.of(parseTypeSignature("E")),
+                new TypeSignature("E"),
+                ImmutableList.of(new TypeSignature("E")),
                 true));
         this.operatorType = requireNonNull(operatorType, "operatorType is null");
     }

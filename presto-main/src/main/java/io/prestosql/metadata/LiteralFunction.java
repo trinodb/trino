@@ -35,7 +35,6 @@ import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConv
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 
 public class LiteralFunction
@@ -46,7 +45,7 @@ public class LiteralFunction
 
     public LiteralFunction()
     {
-        super(new Signature(LITERAL_FUNCTION_NAME, SCALAR, parseTypeSignature("R"), parseTypeSignature("T")));
+        super(new Signature(LITERAL_FUNCTION_NAME, SCALAR, new TypeSignature("R"), new TypeSignature("T")));
     }
 
     @Override

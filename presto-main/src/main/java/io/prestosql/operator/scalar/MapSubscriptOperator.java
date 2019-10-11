@@ -25,6 +25,7 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.SingleMapBlock;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.InterpretedFunctionInvoker;
 
@@ -55,8 +56,8 @@ public class MapSubscriptOperator
         super(SUBSCRIPT,
                 ImmutableList.of(typeVariable("K"), typeVariable("V")),
                 ImmutableList.of(),
-                parseTypeSignature("V"),
-                ImmutableList.of(parseTypeSignature("map(K,V)"), parseTypeSignature("K")));
+                new TypeSignature("V"),
+                ImmutableList.of(parseTypeSignature("map(K,V)"), new TypeSignature("K")));
     }
 
     @Override

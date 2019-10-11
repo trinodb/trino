@@ -22,6 +22,7 @@ import io.prestosql.metadata.SqlOperator;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 
@@ -54,7 +55,7 @@ public class ArraySubscriptOperator
         super(SUBSCRIPT,
                 ImmutableList.of(typeVariable("E")),
                 ImmutableList.of(),
-                parseTypeSignature("E"),
+                new TypeSignature("E"),
                 ImmutableList.of(parseTypeSignature("array(E)"), BIGINT.getTypeSignature()));
     }
 

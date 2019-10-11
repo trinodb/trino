@@ -31,6 +31,7 @@ import io.prestosql.spi.function.AccumulatorStateFactory;
 import io.prestosql.spi.function.AccumulatorStateSerializer;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -62,7 +63,7 @@ public class ArrayAggregationFunction
                 ImmutableList.of(typeVariable("T")),
                 ImmutableList.of(),
                 parseTypeSignature("array(T)"),
-                ImmutableList.of(parseTypeSignature("T")));
+                ImmutableList.of(new TypeSignature("T")));
         this.groupMode = requireNonNull(groupMode, "groupMode is null");
     }
 

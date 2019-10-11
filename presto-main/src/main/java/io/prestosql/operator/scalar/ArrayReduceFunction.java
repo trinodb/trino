@@ -22,6 +22,7 @@ import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.gen.lambda.BinaryFunctionInterface;
 import io.prestosql.sql.gen.lambda.UnaryFunctionInterface;
 
@@ -50,8 +51,8 @@ public final class ArrayReduceFunction
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("T"), typeVariable("S"), typeVariable("R")),
                 ImmutableList.of(),
-                parseTypeSignature("R"),
-                ImmutableList.of(parseTypeSignature("array(T)"), parseTypeSignature("S"), parseTypeSignature("function(S,T,S)"), parseTypeSignature("function(S,R)")),
+                new TypeSignature("R"),
+                ImmutableList.of(parseTypeSignature("array(T)"), new TypeSignature("S"), parseTypeSignature("function(S,T,S)"), parseTypeSignature("function(S,R)")),
                 false));
     }
 
