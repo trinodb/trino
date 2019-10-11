@@ -117,6 +117,7 @@ public final class SystemSessionProperties
     public static final String DEFAULT_FILTER_FACTOR_ENABLED = "default_filter_factor_enabled";
     public static final String UNWRAP_CASTS = "unwrap_casts";
     public static final String SKIP_REDUNDANT_SORT = "skip_redundant_sort";
+    public static final String PREDICATE_PUSHDOWN_USE_TABLE_PROPERTIES = "predicate_pushdown_use_table_properties";
     public static final String WORK_PROCESSOR_PIPELINES = "work_processor_pipelines";
     public static final String ENABLE_DYNAMIC_FILTERING = "enable_dynamic_filtering";
     public static final String QUERY_MAX_MEMORY_PER_NODE = "query_max_memory_per_node";
@@ -505,6 +506,11 @@ public final class SystemSessionProperties
                         SKIP_REDUNDANT_SORT,
                         "Skip redundant sort operations",
                         featuresConfig.isSkipRedundantSort(),
+                        false),
+                booleanProperty(
+                        PREDICATE_PUSHDOWN_USE_TABLE_PROPERTIES,
+                        "Use table properties in predicate pushdown",
+                        featuresConfig.isPredicatePushdownUseTableProperties(),
                         false),
                 booleanProperty(
                         WORK_PROCESSOR_PIPELINES,
@@ -919,6 +925,11 @@ public final class SystemSessionProperties
     public static boolean isSkipRedundantSort(Session session)
     {
         return session.getSystemProperty(SKIP_REDUNDANT_SORT, Boolean.class);
+    }
+
+    public static boolean isPredicatePushdownUseTableProperties(Session session)
+    {
+        return session.getSystemProperty(PREDICATE_PUSHDOWN_USE_TABLE_PROPERTIES, Boolean.class);
     }
 
     public static boolean isWorkProcessorPipelines(Session session)
