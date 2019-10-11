@@ -16,7 +16,7 @@ package io.prestosql.plugin.kudu;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
+import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.FixedSplitSource;
 
@@ -39,14 +39,14 @@ public class KuduSplitManager
 
     @Override
     public ConnectorSplitSource getSplits(
-            ConnectorTransactionHandle transactionHandle,
+            ConnectorTransactionHandle transaction,
             ConnectorSession session,
-            ConnectorTableLayoutHandle layout,
+            ConnectorTableHandle table,
             SplitSchedulingStrategy splitSchedulingStrategy)
     {
-        KuduTableLayoutHandle layoutHandle = (KuduTableLayoutHandle) layout;
+        KuduTableHandle handle = (KuduTableHandle) table;
 
-        List<KuduSplit> splits = clientSession.buildKuduSplits(layoutHandle);
+        List<KuduSplit> splits = clientSession.buildKuduSplits(handle);
 
         return new FixedSplitSource(splits);
     }

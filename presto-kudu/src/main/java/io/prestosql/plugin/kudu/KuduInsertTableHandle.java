@@ -23,11 +23,14 @@ import org.apache.kudu.client.KuduTable;
 
 import java.util.List;
 
+import static java.util.Objects.requireNonNull;
+
 public class KuduInsertTableHandle
-        extends KuduTableHandle
         implements ConnectorInsertTableHandle, KuduTableMapping
 {
+    private final SchemaTableName schemaTableName;
     private final List<Type> columnTypes;
+    private transient KuduTable table;
 
     @JsonCreator
     public KuduInsertTableHandle(
@@ -42,8 +45,15 @@ public class KuduInsertTableHandle
             List<Type> columnTypes,
             KuduTable table)
     {
-        super(schemaTableName, table);
-        this.columnTypes = ImmutableList.copyOf(columnTypes);
+        this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
+        this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
+        this.table = table;
+    }
+
+    @JsonProperty
+    public SchemaTableName getSchemaTableName()
+    {
+        return schemaTableName;
     }
 
     @Override
