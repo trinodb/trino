@@ -60,13 +60,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.StandardErrorCode.QUERY_REJECTED;
+import static java.util.stream.Collectors.toList;
 
 public class KuduClientSession
 {
@@ -138,42 +137,61 @@ public class KuduClientSession
         return KuduTableProperties.toMap(table);
     }
 
-    public List<KuduSplit> buildKuduSplits(KuduTableLayoutHandle layoutHandle)
+    public List<KuduSplit> buildKuduSplits(KuduTableHandle tableHandle)
     {
-        KuduTableHandle tableHandle = layoutHandle.getTableHandle();
         KuduTable table = tableHandle.getTable(this);
         final int primaryKeyColumnCount = table.getSchema().getPrimaryKeyColumnCount();
         KuduScanToken.KuduScanTokenBuilder builder = client.newScanTokenBuilder(table);
 
-        TupleDomain<ColumnHandle> constraintSummary = layoutHandle.getConstraintSummary();
-        if (!addConstraintPredicates(table, builder, constraintSummary)) {
+        TupleDomain<ColumnHandle> constraint = tableHandle.getConstraint();
+        if (!addConstraintPredicates(table, builder, constraint)) {
             return ImmutableList.of();
         }
 
-        Optional<Set<ColumnHandle>> desiredColumns = layoutHandle.getDesiredColumns();
-        if (desiredColumns.isPresent()) {
-            if (desiredColumns.get().contains(KuduColumnHandle.ROW_ID_HANDLE)) {
-                List<Integer> columnIndexes = IntStream
+        Optional<List<ColumnHandle>> desiredColumns = tableHandle.getDesiredColumns();
+
+        List<Integer> columnIndexes;
+        if (tableHandle.isDeleteHandle()) {
+            if (desiredColumns.isPresent()) {
+                columnIndexes = IntStream
                         .range(0, primaryKeyColumnCount)
-                        .boxed().collect(Collectors.toList());
-                for (ColumnHandle columnHandle : desiredColumns.get()) {
-                    if (columnHandle instanceof KuduColumnHandle) {
-                        KuduColumnHandle k = (KuduColumnHandle) columnHandle;
-                        int index = k.getOrdinalPosition();
-                        if (index >= primaryKeyColumnCount) {
-                            columnIndexes.add(index);
-                        }
+                        .boxed().collect(toList());
+                for (ColumnHandle column : desiredColumns.get()) {
+                    KuduColumnHandle k = (KuduColumnHandle) column;
+                    int index = k.getOrdinalPosition();
+                    if (index >= primaryKeyColumnCount) {
+                        columnIndexes.add(index);
                     }
                 }
-                builder.setProjectedColumnIndexes(columnIndexes);
+                columnIndexes = ImmutableList.copyOf(columnIndexes);
             }
             else {
-                List<Integer> columnIndexes = desiredColumns.get().stream()
-                        .map(handle -> ((KuduColumnHandle) handle).getOrdinalPosition())
-                        .collect(toImmutableList());
-                builder.setProjectedColumnIndexes(columnIndexes);
+                columnIndexes = IntStream
+                        .range(0, table.getSchema().getColumnCount())
+                        .boxed().collect(toImmutableList());
             }
         }
+        else {
+            if (desiredColumns.isPresent()) {
+                columnIndexes = desiredColumns.get().stream()
+                        .map(handle -> ((KuduColumnHandle) handle).getOrdinalPosition())
+                        .collect(toImmutableList());
+            }
+            else {
+                ImmutableList.Builder<Integer> columnIndexesBuilder = ImmutableList.builder();
+                Schema schema = table.getSchema();
+                for (int ordinal = 0; ordinal < schema.getColumnCount(); ordinal++) {
+                    ColumnSchema column = schema.getColumnByIndex(ordinal);
+                    // Skip hidden "row_uuid" column
+                    if (!column.isKey() || !column.getName().equals(KuduColumnHandle.ROW_ID)) {
+                        columnIndexesBuilder.add(ordinal);
+                    }
+                }
+                columnIndexes = columnIndexesBuilder.build();
+            }
+        }
+
+        builder.setProjectedColumnIndexes(columnIndexes);
 
         List<KuduScanToken> tokens = builder.build();
         return tokens.stream()

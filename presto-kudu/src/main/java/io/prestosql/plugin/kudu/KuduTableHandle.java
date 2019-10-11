@@ -15,11 +15,15 @@ package io.prestosql.plugin.kudu;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.predicate.TupleDomain;
 import org.apache.kudu.client.KuduTable;
 
+import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -28,17 +32,32 @@ public class KuduTableHandle
 {
     private final SchemaTableName schemaTableName;
     private transient KuduTable table;
+    private final TupleDomain<ColumnHandle> constraint;
+    private final Optional<List<ColumnHandle>> desiredColumns;
+    private final boolean isDeleteHandle;
 
     @JsonCreator
-    public KuduTableHandle(@JsonProperty("schemaTableName") SchemaTableName schemaTableName)
+    public KuduTableHandle(
+            @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
+            @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
+            @JsonProperty("desiredColumns") Optional<List<ColumnHandle>> desiredColumns,
+            @JsonProperty("isDeleteHandle") boolean isDeleteHandle)
     {
-        this(schemaTableName, null);
+        this(schemaTableName, null, constraint, desiredColumns, isDeleteHandle);
     }
 
-    public KuduTableHandle(SchemaTableName schemaTableName, KuduTable table)
+    public KuduTableHandle(
+            SchemaTableName schemaTableName,
+            KuduTable table,
+            TupleDomain<ColumnHandle> constraint,
+            Optional<List<ColumnHandle>> desiredColumns,
+            boolean isDeleteHandle)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         this.table = table;
+        this.constraint = requireNonNull(constraint, "constraint is null");
+        this.desiredColumns = requireNonNull(desiredColumns, "desiredColumns is null");
+        this.isDeleteHandle = isDeleteHandle;
     }
 
     public KuduTable getTable(KuduClientSession session)
@@ -53,6 +72,24 @@ public class KuduTableHandle
     public SchemaTableName getSchemaTableName()
     {
         return schemaTableName;
+    }
+
+    @JsonProperty
+    public TupleDomain<ColumnHandle> getConstraint()
+    {
+        return constraint;
+    }
+
+    @JsonProperty
+    public Optional<List<ColumnHandle>> getDesiredColumns()
+    {
+        return desiredColumns;
+    }
+
+    @JsonProperty
+    public boolean isDeleteHandle()
+    {
+        return isDeleteHandle;
     }
 
     @Override
@@ -72,7 +109,10 @@ public class KuduTableHandle
         }
 
         KuduTableHandle other = (KuduTableHandle) obj;
-        return this.schemaTableName.equals(other.getSchemaTableName());
+        return Objects.equals(this.schemaTableName, other.schemaTableName) &&
+                Objects.equals(this.constraint, other.constraint) &&
+                Objects.equals(this.desiredColumns, other.desiredColumns) &&
+                Objects.equals(this.isDeleteHandle, other.isDeleteHandle);
     }
 
     @Override
