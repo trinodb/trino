@@ -58,6 +58,7 @@ services:
       - /tmp/presto_history_docker:/root/.presto_history
     environment:
       - PRESTO_JDBC_DRIVER_CLASS
+      - TESTS_HIVE_VERSION_MAJOR
       - TEMPTO_ENVIRONMENT_CONFIG_FILE
       - TEMPTO_EXTRA_CONFIG_FILE
       - CLI_ARGUMENTS=--server presto-master:8080
