@@ -558,6 +558,22 @@ Property Name                                Description
                                              This is mutually exclusive with a global JSON key file.
 ============================================ =================================================================
 
+Transactional and ORC ACID Tables
+---------------------------------
+
+When connecting to a Hive metastore version 3+, the Hive connector supports reading
+from the following types of transactional tables:
+
+- insert-only and ACID,
+- partitioned and not partitioned,
+- bucketed and not bucketed.
+
+Materialized Views
+------------------
+
+The Hive connector supports reading from Hive materialized views. In Presto, these
+views are presented as regular, read-only tables.
+
 Alluxio Configuration
 ---------------------
 
@@ -778,6 +794,11 @@ Procedures
     Unregisters given, existing partition in the metastore for the specified table.
     The partition data is not deleted.
 
+HDFS Erasure Coding
+-------------------
+
+The Hive connector supports Hadoop 3's `HDFS Erasure Coding <https://hadoop.apache.org/docs/r3.0.0/hadoop-project-dist/hadoop-hdfs/HDFSErasureCoding.html>`_.
+
 Examples
 --------
 
@@ -876,4 +897,18 @@ Hive Connector Limitations
 
 * :doc:`/sql/delete` is only supported if the ``WHERE`` clause matches entire partitions.
 * :doc:`/sql/alter-schema` usage fails, since the Hive metastore does not support renaming schemas.
+* Writing to and creation of transactional tables is not supported.
+* Reading ORC ACID tables created with `Hive Streaming Ingest <https://cwiki.apache.org/confluence/display/Hive/Streaming+Data+Ingest>`_ are not supported.
 
+Hive 3 Related Limitations
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* For security reasons, the ``sys`` system catalog is not accessible.
+* Hive's ``timestamp with local zone`` data type is not supported.
+  It is possible to read from a table with a column of this type, but the column
+  data is not accessible. Writing to such a table is not supported.
+* Due to Hive issues `HIVE-21002 <https://issues.apache.org/jira/browse/HIVE-21002>`_,
+  `HIVE-22167 <https://issues.apache.org/jira/browse/HIVE-22167>`_, Presto does
+  not correctly read ``timestamp`` values from Parquet, RCFile with the binary serde and
+  Avro file formats created by Hive 3.1 or later. When reading from these file formats,
+  Presto returns different results.
