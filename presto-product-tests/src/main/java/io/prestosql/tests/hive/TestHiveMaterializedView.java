@@ -91,4 +91,15 @@ public class TestHiveMaterializedView
         assertThat(onPresto().executeQuery("SELECT x, c FROM test_materialized_view_view WHERE x = 'a'"))
                 .containsOnly(row("a", 2));
     }
+
+    @Test(groups = STORAGE_FORMATS)
+    public void testWrite()
+    {
+        if (!isTestEnabled()) {
+            return;
+        }
+
+        assertThat(() -> onPresto().executeQuery("INSERT INTO test_materialized_view_view(x, c) VALUES ('x', 42)"))
+                .failsWithMessage("Cannot write to Hive materialized view");
+    }
 }
