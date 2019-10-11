@@ -14,7 +14,6 @@
 package io.prestosql.tests.hive;
 
 import com.google.common.primitives.Longs;
-import io.prestosql.tempto.ProductTest;
 import io.prestosql.tempto.Requires;
 import io.prestosql.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
 import io.prestosql.tempto.query.QueryExecutor;
@@ -35,7 +34,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @Requires(ImmutableNationTable.class)
 public class TestHiveBasicTableStatistics
-        extends ProductTest
+        extends HiveProductTest
 {
     @Test(groups = {HIVE_TABLE_STATISTICS})
     public void testCreateUnpartitioned()
@@ -127,8 +126,10 @@ public class TestHiveBasicTableStatistics
                 "WHERE n_nationkey <> 23", tableName));
 
         try {
-            BasicStatistics tableStatistics = getBasicStatisticsForTable(onHive(), tableName);
-            assertThatStatisticsAreNotPresent(tableStatistics);
+            if (getHiveVersionMajor() < 3) {
+                BasicStatistics tableStatistics = getBasicStatisticsForTable(onHive(), tableName);
+                assertThatStatisticsAreNotPresent(tableStatistics);
+            }
 
             BasicStatistics firstPartitionStatistics = getBasicStatisticsForPartition(onHive(), tableName, "n_regionkey=1");
             assertThatStatisticsAreNonZero(firstPartitionStatistics);
@@ -162,8 +163,10 @@ public class TestHiveBasicTableStatistics
                 "WHERE n_regionkey = 1", tableName));
 
         try {
-            BasicStatistics tableStatistics = getBasicStatisticsForTable(onHive(), tableName);
-            assertThatStatisticsAreNotPresent(tableStatistics);
+            if (getHiveVersionMajor() < 3) {
+                BasicStatistics tableStatistics = getBasicStatisticsForTable(onHive(), tableName);
+                assertThatStatisticsAreNotPresent(tableStatistics);
+            }
 
             BasicStatistics partitionStatisticsBefore = getBasicStatisticsForPartition(onHive(), tableName, "n_regionkey=1");
             assertThatStatisticsArePresent(partitionStatisticsBefore);
@@ -235,8 +238,10 @@ public class TestHiveBasicTableStatistics
                 ") ", tableName));
 
         try {
-            BasicStatistics tableStatisticsAfterCreate = getBasicStatisticsForTable(onHive(), tableName);
-            assertThatStatisticsAreNotPresent(tableStatisticsAfterCreate);
+            if (getHiveVersionMajor() < 3) {
+                BasicStatistics tableStatisticsAfterCreate = getBasicStatisticsForTable(onHive(), tableName);
+                assertThatStatisticsAreNotPresent(tableStatisticsAfterCreate);
+            }
 
             insertNationData(onPresto(), tableName);
 
@@ -313,8 +318,10 @@ public class TestHiveBasicTableStatistics
                 "WHERE n_regionkey = 1", tableName));
 
         try {
-            BasicStatistics tableStatistics = getBasicStatisticsForTable(onHive(), tableName);
-            assertThatStatisticsAreNotPresent(tableStatistics);
+            if (getHiveVersionMajor() < 3) {
+                BasicStatistics tableStatistics = getBasicStatisticsForTable(onHive(), tableName);
+                assertThatStatisticsAreNotPresent(tableStatistics);
+            }
 
             BasicStatistics firstPartitionStatistics = getBasicStatisticsForPartition(onHive(), tableName, "n_regionkey=1");
             assertThatStatisticsAreNonZero(firstPartitionStatistics);
