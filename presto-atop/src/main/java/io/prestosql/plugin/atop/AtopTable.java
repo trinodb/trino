@@ -31,20 +31,19 @@ import static io.prestosql.plugin.atop.AtopTable.AtopColumn.HOST_IP;
 import static io.prestosql.plugin.atop.AtopTable.AtopColumn.START_TIME;
 import static io.prestosql.plugin.atop.AtopTable.AtopColumnParser.bigintParser;
 import static io.prestosql.plugin.atop.AtopTable.AtopColumnParser.varcharParser;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
-import static io.prestosql.spi.type.StandardTypes.BIGINT;
-import static io.prestosql.spi.type.StandardTypes.DOUBLE;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.StandardTypes.INTERVAL_DAY_TO_SECOND;
-import static io.prestosql.spi.type.StandardTypes.TIMESTAMP_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.StandardTypes.VARCHAR;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
 public enum AtopTable
 {
     DISKS("disks", "DSK", baseColumnsAnd(
-            new AtopColumn("device_name", VARCHAR, varcharParser(6)),
-            new AtopColumn("utilization_percent", DOUBLE, (fields, type, builder, session) -> {
+            new AtopColumn("device_name", VARCHAR.getTypeSignature(), varcharParser(6)),
+            new AtopColumn("utilization_percent", DOUBLE.getTypeSignature(), (fields, type, builder, session) -> {
                 long durationMillis = Long.valueOf(fields.get(5)) * 1000;
                 long ioMillis = Long.valueOf(fields.get(7));
                 double utilization = Math.round(100.0 * ioMillis / (double) durationMillis);
@@ -53,16 +52,16 @@ public enum AtopTable
                 }
                 type.writeDouble(builder, utilization);
             }),
-            new AtopColumn("io_time", INTERVAL_DAY_TO_SECOND, (fields, type, builder, session) -> {
+            new AtopColumn("io_time", new TypeSignature(INTERVAL_DAY_TO_SECOND), (fields, type, builder, session) -> {
                 long millis = Long.valueOf(fields.get(7));
                 type.writeLong(builder, millis);
             }),
-            new AtopColumn("read_requests", BIGINT, bigintParser(8)),
-            new AtopColumn("sectors_read", BIGINT, bigintParser(9)),
-            new AtopColumn("write_requests", BIGINT, bigintParser(10)),
-            new AtopColumn("sectors_written", BIGINT, bigintParser(11)))),
+            new AtopColumn("read_requests", BIGINT.getTypeSignature(), bigintParser(8)),
+            new AtopColumn("sectors_read", BIGINT.getTypeSignature(), bigintParser(9)),
+            new AtopColumn("write_requests", BIGINT.getTypeSignature(), bigintParser(10)),
+            new AtopColumn("sectors_written", BIGINT.getTypeSignature(), bigintParser(11)))),
 
-    REBOOTS("reboots", "DSK", ImmutableList.of(HOST_IP, new AtopColumn("power_on_time", TIMESTAMP_WITH_TIME_ZONE, (fields, type, builder, session) -> {
+    REBOOTS("reboots", "DSK", ImmutableList.of(HOST_IP, new AtopColumn("power_on_time", TIMESTAMP_WITH_TIME_ZONE.getTypeSignature(), (fields, type, builder, session) -> {
         long millisUtc = Long.valueOf(fields.get(2)) * 1000;
         long durationMillis = Long.valueOf(fields.get(5)) * 1000;
         long value = packDateTimeWithZone(millisUtc - durationMillis, session.getTimeZoneKey());
@@ -120,16 +119,16 @@ public enum AtopTable
 
     public static class AtopColumn
     {
-        public static final AtopColumn HOST_IP = new AtopColumn("host_ip", VARCHAR, (fields, type, builder, session) -> { throw new UnsupportedOperationException(); });
+        public static final AtopColumn HOST_IP = new AtopColumn("host_ip", VARCHAR.getTypeSignature(), (fields, type, builder, session) -> { throw new UnsupportedOperationException(); });
 
-        public static final AtopColumn START_TIME = new AtopColumn("start_time", TIMESTAMP_WITH_TIME_ZONE, ((fields, type, builder, session) -> {
+        public static final AtopColumn START_TIME = new AtopColumn("start_time", TIMESTAMP_WITH_TIME_ZONE.getTypeSignature(), ((fields, type, builder, session) -> {
             long millisUtc = Long.valueOf(fields.get(2)) * 1000;
             long durationMillis = Long.valueOf(fields.get(5)) * 1000;
             long value = packDateTimeWithZone(millisUtc - durationMillis, session.getTimeZoneKey());
             type.writeLong(builder, value);
         }));
 
-        public static final AtopColumn END_TIME = new AtopColumn("end_time", TIMESTAMP_WITH_TIME_ZONE, ((fields, type, builder, session) -> {
+        public static final AtopColumn END_TIME = new AtopColumn("end_time", TIMESTAMP_WITH_TIME_ZONE.getTypeSignature(), ((fields, type, builder, session) -> {
             long millisUtc = Long.valueOf(fields.get(2)) * 1000;
             type.writeLong(builder, packDateTimeWithZone(millisUtc, session.getTimeZoneKey()));
         }));
@@ -138,10 +137,10 @@ public enum AtopTable
         private final TypeSignature type;
         private final AtopColumnParser parser;
 
-        private AtopColumn(String name, String type, AtopColumnParser parser)
+        private AtopColumn(String name, TypeSignature type, AtopColumnParser parser)
         {
             this.name = requireNonNull(name, "name is null");
-            this.type = parseTypeSignature(type);
+            this.type = requireNonNull(type, "type is null");
             this.parser = requireNonNull(parser, "parser is null");
         }
 
