@@ -20,6 +20,7 @@ matrix:
     - env: PRODUCT_TESTS_SUITE=suite-1
     - env: PRODUCT_TESTS_SUITE=suite-2
     - env: PRODUCT_TESTS_SUITE=suite-3
+    # suite-4 does not exist
     - env: PRODUCT_TESTS_SUITE=suite-5
     - env: PRODUCT_TESTS_SUITE=suite-6-non-generic
     - env: PRODUCT_TESTS_SUITE=suite-7-non-generic
@@ -36,17 +37,18 @@ matrix:
     - env: HIVE_TESTS=true
     - env: KUDU_TESTS=true
 
+    # HDP 3
+    - if: type != pull_request
+      env: PRODUCT_TESTS_SUITE=suite-1 PRODUCT_TESTS_CONFIG=config-hdp3
+    - if: type != pull_request
+      env: PRODUCT_TESTS_SUITE=suite-2 PRODUCT_TESTS_CONFIG=config-hdp3
+    - if: type != pull_request
+      env: PRODUCT_TESTS_SUITE=suite-3 PRODUCT_TESTS_CONFIG=config-hdp3
+    # suite-4 does not exist
+    - if: type != pull_request
+      env: PRODUCT_TESTS_SUITE=suite-5 PRODUCT_TESTS_CONFIG=config-hdp3
 # TODO
-#    # HDP 3
-#    - if: type IN (push, cron)
-#      env: PRODUCT_TESTS_SUITE=suite-1 PRODUCT_TESTS_CONFIG=config-hdp3
-#    - if: type IN (push, cron)
-#      env: PRODUCT_TESTS_SUITE=suite-2 PRODUCT_TESTS_CONFIG=config-hdp3
-#    - if: type IN (push, cron)
-#      env: PRODUCT_TESTS_SUITE=suite-3 PRODUCT_TESTS_CONFIG=config-hdp3
-#    - if: type IN (push, cron)
-#      env: PRODUCT_TESTS_SUITE=suite-5 PRODUCT_TESTS_CONFIG=config-hdp3
-#    - if: type IN (push, cron)
+#    - if: type != pull_request
 #      env: HIVE_TESTS=true PRODUCT_TESTS_CONFIG=config-hdp3
 
 dist: xenial
