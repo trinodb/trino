@@ -77,7 +77,7 @@ public class TestAvroDecoder
     private static final AvroRowDecoderFactory DECODER_FACTORY = new AvroRowDecoderFactory();
 
     private static final Metadata METADATA = createTestMetadataManager();
-    private static final Type VACHAR_MAP_TYPE = METADATA.getType(parseTypeSignature("map(varchar,varchar)"));
+    private static final Type VARCHAR_MAP_TYPE = METADATA.getType(parseTypeSignature("map(varchar,varchar)"));
     private static final Type DOUBLE_MAP_TYPE = METADATA.getType(parseTypeSignature("map(varchar,double)"));
     private static final Type REAL_MAP_TYPE = METADATA.getType(parseTypeSignature("map(varchar,real)"));
 
@@ -464,7 +464,7 @@ public class TestAvroDecoder
     public void testMapDecodedAsMap()
             throws Exception
     {
-        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", VACHAR_MAP_TYPE, "map_field", null, null, false, false, false);
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", VARCHAR_MAP_TYPE, "map_field", null, null, false, false, false);
 
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "map_field", "{\"type\": \"map\", \"values\": \"string\"}", ImmutableMap.of(
                 "key1", "abc",
@@ -480,7 +480,7 @@ public class TestAvroDecoder
     public void testMapWithNull()
             throws Exception
     {
-        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", VACHAR_MAP_TYPE, "map_field", null, null, false, false, false);
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", VARCHAR_MAP_TYPE, "map_field", null, null, false, false, false);
 
         Map<String, String> expectedValues = new HashMap<>();
         expectedValues.put("key1", null);
@@ -560,7 +560,7 @@ public class TestAvroDecoder
         singleColumnDecoder(createUnboundedVarcharType());
         singleColumnDecoder(createVarcharType(100));
         singleColumnDecoder(new ArrayType(BigintType.BIGINT));
-        singleColumnDecoder(VACHAR_MAP_TYPE);
+        singleColumnDecoder(VARCHAR_MAP_TYPE);
         singleColumnDecoder(DOUBLE_MAP_TYPE);
 
         // some unsupported types
