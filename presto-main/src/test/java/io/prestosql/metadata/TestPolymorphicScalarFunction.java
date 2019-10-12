@@ -42,7 +42,7 @@ import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.Decimals.MAX_SHORT_PRECISION;
 import static io.prestosql.spi.type.StandardTypes.VARCHAR;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
-import static java.lang.Math.toIntExact;
+import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static java.util.Arrays.asList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -57,13 +57,12 @@ public class TestPolymorphicScalarFunction
             .returnType(BIGINT.getTypeSignature())
             .argumentTypes(parseTypeSignature("varchar(x)", ImmutableSet.of("x")))
             .build();
-    private static final long INPUT_VARCHAR_LENGTH = 10;
-    private static final String INPUT_VARCHAR_SIGNATURE = "varchar(" + INPUT_VARCHAR_LENGTH + ")";
-    private static final TypeSignature INPUT_VARCHAR_TYPE = parseTypeSignature(INPUT_VARCHAR_SIGNATURE);
-    private static final Slice INPUT_SLICE = Slices.allocate(toIntExact(INPUT_VARCHAR_LENGTH));
+    private static final int INPUT_VARCHAR_LENGTH = 10;
+    private static final TypeSignature INPUT_VARCHAR_TYPE = createVarcharType(INPUT_VARCHAR_LENGTH).getTypeSignature();
+    private static final Slice INPUT_SLICE = Slices.allocate(INPUT_VARCHAR_LENGTH);
     private static final BoundVariables BOUND_VARIABLES = new BoundVariables(
             ImmutableMap.of("V", METADATA.getType(INPUT_VARCHAR_TYPE)),
-            ImmutableMap.of("x", INPUT_VARCHAR_LENGTH));
+            ImmutableMap.of("x", (long) INPUT_VARCHAR_LENGTH));
 
     private static final TypeSignature DECIMAL_SIGNATURE = parseTypeSignature("decimal(a_precision, a_scale)", ImmutableSet.of("a_precision", "a_scale"));
     private static final BoundVariables LONG_DECIMAL_BOUND_VARIABLES = new BoundVariables(
@@ -131,7 +130,7 @@ public class TestPolymorphicScalarFunction
                 .build();
 
         ScalarFunctionImplementation functionImplementation = function.specialize(BOUND_VARIABLES, 1, METADATA);
-        assertEquals(functionImplementation.getMethodHandle().invoke(INPUT_SLICE), INPUT_VARCHAR_LENGTH);
+        assertEquals(functionImplementation.getMethodHandle().invoke(INPUT_SLICE), (long) INPUT_VARCHAR_LENGTH);
     }
 
     @Test
