@@ -78,7 +78,7 @@ import static io.prestosql.operator.OperatorAssertion.toPages;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.arrayType;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.TestingTaskContext.createTaskContext;
@@ -271,7 +271,7 @@ public class TestHashAggregationOperator
     {
         Metadata metadata = createTestMetadataManager();
         InternalAggregationFunction arrayAggColumn = metadata.getAggregateFunctionImplementation(
-                new Signature("array_agg", AGGREGATE, parseTypeSignature("array(bigint)"), BIGINT.getTypeSignature()));
+                new Signature("array_agg", AGGREGATE, arrayType(BIGINT.getTypeSignature()), BIGINT.getTypeSignature()));
 
         List<Integer> hashChannels = Ints.asList(1);
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, hashChannels, BIGINT, BIGINT);

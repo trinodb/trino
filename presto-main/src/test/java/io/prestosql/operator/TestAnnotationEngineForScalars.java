@@ -55,7 +55,9 @@ import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConv
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.TypeSignature.arrayType;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -384,7 +386,7 @@ public class TestAnnotationEngineForScalars
                 ImmutableList.of(),
                 ImmutableList.of(),
                 BOOLEAN.getTypeSignature(),
-                ImmutableList.of(parseTypeSignature("array(varchar(17))")),
+                ImmutableList.of(arrayType(createVarcharType(17).getTypeSignature())),
                 false);
 
         List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinition(ComplexParametricScalarFunction.class);
@@ -482,7 +484,7 @@ public class TestAnnotationEngineForScalars
                 ImmutableList.of(typeVariable("T")),
                 ImmutableList.of(),
                 BIGINT.getTypeSignature(),
-                ImmutableList.of(parseTypeSignature("array(T)")),
+                ImmutableList.of(arrayType(new TypeSignature("T"))),
                 false);
 
         List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinition(ConstructorInjectionScalarFunction.class);
