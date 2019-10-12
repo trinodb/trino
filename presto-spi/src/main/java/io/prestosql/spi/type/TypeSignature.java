@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -25,7 +26,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
+import static io.prestosql.spi.type.TypeSignatureParameter.typeParameter;
 import static java.lang.Character.isDigit;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
@@ -94,7 +97,11 @@ public class TypeSignature
         return calculated;
     }
 
+    /**
+     * @deprecated Build TypeSignature programmatically instead
+     */
     @JsonCreator
+    @Deprecated
     public static TypeSignature parseTypeSignature(String signature)
     {
         return parseTypeSignature(signature, new HashSet<>());
@@ -310,7 +317,7 @@ public class TypeSignature
             return TypeSignatureParameter.typeVariable(parameterName);
         }
         else {
-            return TypeSignatureParameter.typeParameter(parseTypeSignature(parameterName, literalCalculationParameters));
+            return typeParameter(parseTypeSignature(parameterName, literalCalculationParameters));
         }
     }
 
@@ -384,5 +391,55 @@ public class TypeSignature
     public int hashCode()
     {
         return Objects.hash(base.toLowerCase(Locale.ENGLISH), parameters);
+    }
+
+    // Type signature constructors for common types
+
+    public static TypeSignature arrayType(TypeSignature elementType)
+    {
+        return new TypeSignature(StandardTypes.ARRAY, typeParameter(elementType));
+    }
+
+    public static TypeSignature arrayType(TypeSignatureParameter elementType)
+    {
+        return new TypeSignature(StandardTypes.ARRAY, elementType);
+    }
+
+    public static TypeSignature mapType(TypeSignature keyType, TypeSignature valueType)
+    {
+        return new TypeSignature(StandardTypes.MAP, typeParameter(keyType), typeParameter(valueType));
+    }
+
+    public static TypeSignature parametricType(String name, TypeSignature... parameters)
+    {
+        return new TypeSignature(
+                name,
+                Arrays.asList(parameters).stream()
+                        .map(TypeSignatureParameter::typeParameter)
+                        .collect(Collectors.toList()));
+    }
+
+    public static TypeSignature functionType(TypeSignature first, TypeSignature... rest)
+    {
+        List<TypeSignatureParameter> parameters = new ArrayList<>();
+        parameters.add(typeParameter(first));
+
+        Arrays.asList(rest).stream()
+                .map(TypeSignatureParameter::typeParameter)
+                .forEach(parameters::add);
+
+        return new TypeSignature("function", parameters);
+    }
+
+    public static TypeSignature rowType(TypeSignatureParameter... fields)
+    {
+        return rowType(Arrays.asList(fields));
+    }
+
+    public static TypeSignature rowType(List<TypeSignatureParameter> fields)
+    {
+        checkArgument(fields.stream().allMatch(parameter -> parameter.getKind() == ParameterKind.NAMED_TYPE), "Parameters for ROW type must be NAMED_TYPE parameters");
+
+        return new TypeSignature(StandardTypes.ROW, fields);
     }
 }

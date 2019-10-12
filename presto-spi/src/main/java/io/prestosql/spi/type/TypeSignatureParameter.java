@@ -39,6 +39,16 @@ public class TypeSignatureParameter
         return new TypeSignatureParameter(ParameterKind.NAMED_TYPE, namedTypeSignature);
     }
 
+    public static TypeSignatureParameter namedField(String name, TypeSignature type)
+    {
+        return new TypeSignatureParameter(ParameterKind.NAMED_TYPE, new NamedTypeSignature(Optional.of(new RowFieldName(name, false)), type));
+    }
+
+    public static TypeSignatureParameter anonymousField(TypeSignature type)
+    {
+        return new TypeSignatureParameter(ParameterKind.NAMED_TYPE, new NamedTypeSignature(Optional.empty(), type));
+    }
+
     public static TypeSignatureParameter typeVariable(String variable)
     {
         return new TypeSignatureParameter(ParameterKind.VARIABLE, variable);
