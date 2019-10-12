@@ -30,6 +30,7 @@ import io.prestosql.spi.function.InputFunction;
 import io.prestosql.spi.type.QuantileDigestType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.TypeSignatureParameter;
 
 import java.lang.invoke.MethodHandle;
@@ -44,7 +45,7 @@ import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMet
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static io.prestosql.operator.aggregation.AggregationUtils.generateAggregationName;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.parametricType;
 import static io.prestosql.util.MoreMath.nearlyEqual;
 import static io.prestosql.util.Reflection.methodHandle;
 
@@ -64,8 +65,8 @@ public final class MergeQuantileDigestFunction
         super(NAME,
                 ImmutableList.of(comparableTypeParameter("T")),
                 ImmutableList.of(),
-                parseTypeSignature("qdigest(T)"),
-                ImmutableList.of(parseTypeSignature("qdigest(T)")));
+                parametricType("qdigest", new TypeSignature("T")),
+                ImmutableList.of(parametricType("qdigest", new TypeSignature("T"))));
     }
 
     @Override

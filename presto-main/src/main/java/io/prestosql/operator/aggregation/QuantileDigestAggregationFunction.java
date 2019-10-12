@@ -49,7 +49,7 @@ import static io.prestosql.operator.scalar.QuantileDigestFunctions.verifyAccurac
 import static io.prestosql.operator.scalar.QuantileDigestFunctions.verifyWeight;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.parametricType;
 import static io.prestosql.util.Reflection.methodHandle;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.String.format;
@@ -75,7 +75,7 @@ public final class QuantileDigestAggregationFunction
                 NAME,
                 ImmutableList.of(comparableTypeParameter("V")),
                 ImmutableList.of(),
-                parseTypeSignature("qdigest(V)"),
+                parametricType("qdigest", new TypeSignature("V")),
                 ImmutableList.copyOf(typeSignatures));
     }
 

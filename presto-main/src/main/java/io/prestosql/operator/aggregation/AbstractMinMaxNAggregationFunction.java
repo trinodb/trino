@@ -44,7 +44,7 @@ import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMet
 import static io.prestosql.operator.aggregation.AggregationUtils.generateAggregationName;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.arrayType;
 import static io.prestosql.util.Failures.checkCondition;
 import static io.prestosql.util.Reflection.methodHandle;
 import static java.lang.Math.toIntExact;
@@ -65,7 +65,7 @@ public abstract class AbstractMinMaxNAggregationFunction
         super(name,
                 ImmutableList.of(orderableTypeParameter("E")),
                 ImmutableList.of(),
-                parseTypeSignature("array(E)"),
+                arrayType(new TypeSignature("E")),
                 ImmutableList.of(new TypeSignature("E"), BIGINT.getTypeSignature()));
         requireNonNull(typeToComparator);
         this.typeToComparator = typeToComparator;

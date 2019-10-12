@@ -46,7 +46,8 @@ import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMet
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static io.prestosql.operator.aggregation.AggregationUtils.generateAggregationName;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.arrayType;
+import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.type.TypeUtils.expectedValueSize;
 import static io.prestosql.util.Reflection.methodHandle;
 
@@ -65,7 +66,7 @@ public class MultimapAggregationFunction
         super(NAME,
                 ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")),
                 ImmutableList.of(),
-                parseTypeSignature("map(K,array(V))"),
+                mapType(new TypeSignature("K"), arrayType(new TypeSignature("V"))),
                 ImmutableList.of(new TypeSignature("K"), new TypeSignature("V")));
         this.groupMode = groupMode;
     }

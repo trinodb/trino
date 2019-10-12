@@ -39,7 +39,7 @@ import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMet
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static io.prestosql.operator.aggregation.AggregationUtils.generateAggregationName;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.functionType;
 import static io.prestosql.util.Reflection.methodHandle;
 import static java.lang.String.format;
 
@@ -70,8 +70,8 @@ public class ReduceAggregationFunction
                 ImmutableList.of(
                         new TypeSignature("T"),
                         new TypeSignature("S"),
-                        parseTypeSignature("function(S,T,S)"),
-                        parseTypeSignature("function(S,S,S)")));
+                        functionType(new TypeSignature("S"), new TypeSignature("T"), new TypeSignature("S")),
+                        functionType(new TypeSignature("S"), new TypeSignature("S"), new TypeSignature("S"))));
     }
 
     @Override
