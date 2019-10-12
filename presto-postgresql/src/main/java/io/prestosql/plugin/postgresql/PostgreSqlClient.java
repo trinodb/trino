@@ -56,7 +56,6 @@ import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.spi.type.VarcharType;
 import org.postgresql.core.TypeInfo;
 import org.postgresql.jdbc.PgConnection;
 import org.postgresql.util.PGobject;
@@ -107,7 +106,9 @@ import static io.prestosql.spi.type.StandardTypes.JSON;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.sql.DatabaseMetaData.columnNoNulls;
@@ -140,7 +141,7 @@ public class PostgreSqlClient
         super(config, "\"", connectionFactory);
         this.jsonType = typeManager.getType(new TypeSignature(JSON));
         this.uuidType = typeManager.getType(new TypeSignature(StandardTypes.UUID));
-        this.varcharMapType = (MapType) typeManager.getType(TypeSignature.parseTypeSignature("map(varchar, varchar)"));
+        this.varcharMapType = (MapType) typeManager.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
 
         switch (postgreSqlConfig.getArrayMapping()) {
             case DISABLED:
@@ -533,7 +534,7 @@ public class PostgreSqlClient
     private ColumnMapping typedVarcharColumnMapping(String jdbcTypeName)
     {
         return ColumnMapping.sliceMapping(
-                VarcharType.VARCHAR,
+                VARCHAR,
                 (resultSet, columnIndex) -> utf8Slice(resultSet.getString(columnIndex)),
                 typedVarcharWriteFunction(jdbcTypeName));
     }

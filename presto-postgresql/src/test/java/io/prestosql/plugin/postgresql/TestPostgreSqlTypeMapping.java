@@ -52,8 +52,9 @@ import static io.prestosql.plugin.postgresql.PostgreSqlQueryRunner.createPostgre
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.tests.datatype.DataType.bigintDataType;
 import static io.prestosql.tests.datatype.DataType.booleanDataType;
 import static io.prestosql.tests.datatype.DataType.dataType;
@@ -835,7 +836,7 @@ public class TestPostgreSqlTypeMapping
     {
         return dataType(
                 "hstore",
-                getQueryRunner().getMetadata().getType(parseTypeSignature("map(varchar, varchar)")),
+                getQueryRunner().getMetadata().getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature())),
                 value -> value.entrySet().stream()
                         .flatMap(entry -> Stream.of(entry.getKey(), entry.getValue()))
                         .map(string -> {
