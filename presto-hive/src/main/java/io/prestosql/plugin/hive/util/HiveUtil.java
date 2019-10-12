@@ -409,6 +409,14 @@ public final class HiveUtil
     {
         String name = getDeserializerClassName(schema);
 
+        // fix compat issue: colelction.delim in Hive 2.x, but collection.delim in Hive 3.x
+        // see also https://issues.apache.org/jira/browse/HIVE-16922
+        if (name.equals("org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe")) {
+            if (schema.containsKey("colelction.delim") && !schema.containsKey(COLLECTION_DELIM)) {
+                schema.put(COLLECTION_DELIM, schema.getProperty("colelction.delim"));
+            }
+        }
+
         Deserializer deserializer = createDeserializer(getDeserializerClass(name));
         initializeDeserializer(configuration, deserializer, schema);
         return deserializer;
