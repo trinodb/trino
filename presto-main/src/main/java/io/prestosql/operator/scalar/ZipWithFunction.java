@@ -24,6 +24,7 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.gen.lambda.BinaryFunctionInterface;
 
 import java.lang.invoke.MethodHandle;
@@ -34,7 +35,8 @@ import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.functionTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.arrayType;
+import static io.prestosql.spi.type.TypeSignature.functionType;
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
 import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
 import static io.prestosql.util.Reflection.methodHandle;
@@ -55,8 +57,11 @@ public final class ZipWithFunction
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("T"), typeVariable("U"), typeVariable("R")),
                 ImmutableList.of(),
-                parseTypeSignature("array(R)"),
-                ImmutableList.of(parseTypeSignature("array(T)"), parseTypeSignature("array(U)"), parseTypeSignature("function(T,U,R)")),
+                arrayType(new TypeSignature("R")),
+                ImmutableList.of(
+                        arrayType(new TypeSignature("T")),
+                        arrayType(new TypeSignature("U")),
+                        functionType(new TypeSignature("T"), new TypeSignature("U"), new TypeSignature("R"))),
                 false));
     }
 

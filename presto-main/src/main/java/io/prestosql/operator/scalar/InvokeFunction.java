@@ -29,7 +29,7 @@ import java.lang.invoke.MethodHandle;
 import static com.google.common.primitives.Primitives.wrap;
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.functionTypeArgumentProperty;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.functionType;
 import static io.prestosql.util.Reflection.methodHandle;
 
 /**
@@ -50,7 +50,7 @@ public final class InvokeFunction
                 ImmutableList.of(typeVariable("T")),
                 ImmutableList.of(),
                 new TypeSignature("T"),
-                ImmutableList.of(parseTypeSignature("function(T)")),
+                ImmutableList.of(functionType(new TypeSignature("T"))),
                 false));
     }
 

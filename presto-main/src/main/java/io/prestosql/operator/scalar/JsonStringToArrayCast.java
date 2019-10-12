@@ -18,11 +18,12 @@ import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
+import io.prestosql.spi.type.TypeSignature;
 
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.scalar.JsonToArrayCast.JSON_TO_ARRAY;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.arrayType;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 
 public final class JsonStringToArrayCast
@@ -38,7 +39,7 @@ public final class JsonStringToArrayCast
                 SCALAR,
                 ImmutableList.of(typeVariable("T")),
                 ImmutableList.of(),
-                parseTypeSignature("array(T)"),
+                arrayType(new TypeSignature("T")),
                 ImmutableList.of(VARCHAR.getTypeSignature()),
                 false));
     }

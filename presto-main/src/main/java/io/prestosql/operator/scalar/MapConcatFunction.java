@@ -28,6 +28,7 @@ import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.TypeSignatureParameter;
 import io.prestosql.sql.gen.VarArgsToArrayAdapterGenerator.MethodHandleAndConstructor;
 
@@ -38,7 +39,7 @@ import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.sql.gen.VarArgsToArrayAdapterGenerator.generateVarArgsToArrayAdapter;
 import static io.prestosql.util.Reflection.methodHandle;
 import static java.lang.Math.min;
@@ -61,8 +62,8 @@ public final class MapConcatFunction
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("K"), typeVariable("V")),
                 ImmutableList.of(),
-                parseTypeSignature("map(K,V)"),
-                ImmutableList.of(parseTypeSignature("map(K,V)")),
+                mapType(new TypeSignature("K"), new TypeSignature("V")),
+                ImmutableList.of(mapType(new TypeSignature("K"), new TypeSignature("V"))),
                 true));
     }
 

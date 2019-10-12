@@ -26,6 +26,7 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.TypeSignatureParameter;
 
 import java.lang.invoke.MethodHandle;
@@ -42,7 +43,7 @@ import static io.prestosql.spi.block.MethodHandleUtil.compose;
 import static io.prestosql.spi.block.MethodHandleUtil.nativeValueGetter;
 import static io.prestosql.spi.block.MethodHandleUtil.nativeValueWriter;
 import static io.prestosql.spi.function.OperatorType.CAST;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.util.Failures.internalError;
 import static io.prestosql.util.Reflection.methodHandle;
 import static java.lang.invoke.MethodHandles.permuteArguments;
@@ -73,8 +74,8 @@ public final class MapToMapCast
         super(CAST,
                 ImmutableList.of(typeVariable("FK"), typeVariable("FV"), typeVariable("TK"), typeVariable("TV")),
                 ImmutableList.of(),
-                parseTypeSignature("map(TK,TV)"),
-                ImmutableList.of(parseTypeSignature("map(FK,FV)")));
+                mapType(new TypeSignature("TK"), new TypeSignature("TV")),
+                ImmutableList.of(mapType(new TypeSignature("FK"), new TypeSignature("FV"))));
     }
 
     @Override

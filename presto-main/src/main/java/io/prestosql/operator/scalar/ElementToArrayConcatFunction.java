@@ -29,7 +29,7 @@ import java.lang.invoke.MethodHandle;
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.arrayType;
 import static io.prestosql.util.Reflection.methodHandle;
 
 public class ElementToArrayConcatFunction
@@ -51,8 +51,8 @@ public class ElementToArrayConcatFunction
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("E")),
                 ImmutableList.of(),
-                parseTypeSignature("array(E)"),
-                ImmutableList.of(new TypeSignature("E"), parseTypeSignature("array(E)")),
+                arrayType(new TypeSignature("E")),
+                ImmutableList.of(new TypeSignature("E"), arrayType(new TypeSignature("E"))),
                 false));
     }
 

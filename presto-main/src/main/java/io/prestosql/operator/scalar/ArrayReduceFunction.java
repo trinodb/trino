@@ -33,7 +33,8 @@ import static io.prestosql.operator.scalar.ScalarFunctionImplementation.Argument
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.arrayType;
+import static io.prestosql.spi.type.TypeSignature.functionType;
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
 import static io.prestosql.util.Reflection.methodHandle;
 
@@ -52,7 +53,11 @@ public final class ArrayReduceFunction
                 ImmutableList.of(typeVariable("T"), typeVariable("S"), typeVariable("R")),
                 ImmutableList.of(),
                 new TypeSignature("R"),
-                ImmutableList.of(parseTypeSignature("array(T)"), new TypeSignature("S"), parseTypeSignature("function(S,T,S)"), parseTypeSignature("function(S,R)")),
+                ImmutableList.of(
+                        arrayType(new TypeSignature("T")),
+                        new TypeSignature("S"),
+                        functionType(new TypeSignature("S"), new TypeSignature("T"), new TypeSignature("S")),
+                        functionType(new TypeSignature("S"), new TypeSignature("R"))),
                 false));
     }
 

@@ -47,7 +47,7 @@ import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConv
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.function.OperatorType.CAST;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.arrayType;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.util.Reflection.methodHandle;
 import static java.lang.String.format;
@@ -97,7 +97,7 @@ public final class ArrayJoin
                     ImmutableList.of(typeVariable("T")),
                     ImmutableList.of(),
                     VARCHAR.getTypeSignature(),
-                    ImmutableList.of(parseTypeSignature("array(T)"), VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()),
+                    ImmutableList.of(arrayType(new TypeSignature("T")), VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()),
                     false));
         }
 
@@ -133,7 +133,7 @@ public final class ArrayJoin
                 ImmutableList.of(typeVariable("T")),
                 ImmutableList.of(),
                 VARCHAR.getTypeSignature(),
-                ImmutableList.of(parseTypeSignature("array(T)"), VARCHAR.getTypeSignature()),
+                ImmutableList.of(arrayType(new TypeSignature("T")), VARCHAR.getTypeSignature()),
                 false));
     }
 

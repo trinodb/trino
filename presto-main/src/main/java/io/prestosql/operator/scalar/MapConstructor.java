@@ -45,6 +45,7 @@ import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.StandardTypes.MAP;
+import static io.prestosql.spi.type.TypeSignature.arrayType;
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
 import static io.prestosql.util.Failures.checkCondition;
 import static io.prestosql.util.Failures.internalError;
@@ -77,8 +78,8 @@ public final class MapConstructor
                 FunctionKind.SCALAR,
                 ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")),
                 ImmutableList.of(),
-                TypeSignature.parseTypeSignature("map(K,V)"),
-                ImmutableList.of(TypeSignature.parseTypeSignature("array(K)"), TypeSignature.parseTypeSignature("array(V)")),
+                TypeSignature.mapType(new TypeSignature("K"), new TypeSignature("V")),
+                ImmutableList.of(arrayType(new TypeSignature("K")), arrayType(new TypeSignature("V"))),
                 false));
     }
 

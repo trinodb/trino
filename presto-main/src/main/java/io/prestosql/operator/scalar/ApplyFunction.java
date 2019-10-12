@@ -31,7 +31,7 @@ import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.functionTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.functionType;
 import static io.prestosql.util.Reflection.methodHandle;
 
 /**
@@ -52,7 +52,9 @@ public final class ApplyFunction
                 ImmutableList.of(typeVariable("T"), typeVariable("U")),
                 ImmutableList.of(),
                 new TypeSignature("U"),
-                ImmutableList.of(new TypeSignature("T"), parseTypeSignature("function(T,U)")),
+                ImmutableList.of(
+                        new TypeSignature("T"),
+                        functionType(new TypeSignature("T"), new TypeSignature("U"))),
                 false));
     }
 

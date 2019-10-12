@@ -36,7 +36,7 @@ import static io.prestosql.operator.scalar.ScalarFunctionImplementation.Argument
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.function.OperatorType.SUBSCRIPT;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
 import static io.prestosql.sql.relational.Signatures.castSignature;
 import static io.prestosql.util.Reflection.methodHandle;
@@ -57,7 +57,7 @@ public class MapSubscriptOperator
                 ImmutableList.of(typeVariable("K"), typeVariable("V")),
                 ImmutableList.of(),
                 new TypeSignature("V"),
-                ImmutableList.of(parseTypeSignature("map(K,V)"), new TypeSignature("K")));
+                ImmutableList.of(mapType(new TypeSignature("K"), new TypeSignature("V")), new TypeSignature("K")));
     }
 
     @Override
