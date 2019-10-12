@@ -25,7 +25,6 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.procedure.Procedure;
 import io.prestosql.spi.procedure.Procedure.Argument;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeNotFoundException;
 import io.prestosql.sql.planner.ParameterRewriter;
 import io.prestosql.sql.tree.Call;
 import io.prestosql.sql.tree.CallArgument;
@@ -51,7 +50,6 @@ import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.prestosql.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.prestosql.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
-import static io.prestosql.spi.StandardErrorCode.INVALID_PROCEDURE_DEFINITION;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.PROCEDURE_CALL_FAILED;
 import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
@@ -132,13 +130,7 @@ public class CallTask
 
             Expression expression = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameterLookup), callArgument.getValue());
 
-            Type type;
-            try {
-                type = metadata.getType(argument.getType());
-            }
-            catch (TypeNotFoundException e) {
-                throw new PrestoException(INVALID_PROCEDURE_DEFINITION, "Unknown procedure argument type: " + argument.getType());
-            }
+            Type type = argument.getType();
             Object value = evaluateConstantExpression(expression, type, metadata, session, parameterLookup);
 
             values[index] = toTypeObjectValue(session, type, value);
