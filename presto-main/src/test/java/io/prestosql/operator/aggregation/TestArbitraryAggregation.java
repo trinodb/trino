@@ -34,7 +34,7 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.arrayType;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertNotNull;
 
@@ -142,7 +142,7 @@ public class TestArbitraryAggregation
     public void testNullArray()
     {
         InternalAggregationFunction arrayAgg = metadata.getAggregateFunctionImplementation(
-                new Signature("arbitrary", AGGREGATE, parseTypeSignature("array(bigint)"), parseTypeSignature("array(bigint)")));
+                new Signature("arbitrary", AGGREGATE, arrayType(BIGINT.getTypeSignature()), arrayType(BIGINT.getTypeSignature())));
         assertAggregation(
                 arrayAgg,
                 null,
@@ -153,7 +153,7 @@ public class TestArbitraryAggregation
     public void testValidArray()
     {
         InternalAggregationFunction arrayAgg = metadata.getAggregateFunctionImplementation(
-                new Signature("arbitrary", AGGREGATE, parseTypeSignature("array(bigint)"), parseTypeSignature("array(bigint)")));
+                new Signature("arbitrary", AGGREGATE, arrayType(BIGINT.getTypeSignature()), arrayType(BIGINT.getTypeSignature())));
         assertAggregation(
                 arrayAgg,
                 ImmutableList.of(23L, 45L),

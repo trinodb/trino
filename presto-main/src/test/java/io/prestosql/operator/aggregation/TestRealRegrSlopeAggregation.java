@@ -15,7 +15,7 @@ package io.prestosql.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.Type;
 import org.apache.commons.math3.stat.regression.SimpleRegression;
 import org.testng.annotations.Test;
 
@@ -24,6 +24,7 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.block.BlockAssertions.createBlockOfReals;
 import static io.prestosql.block.BlockAssertions.createSequenceBlockOfReal;
+import static io.prestosql.spi.type.RealType.REAL;
 
 public class TestRealRegrSlopeAggregation
         extends AbstractTestAggregationFunction
@@ -41,9 +42,9 @@ public class TestRealRegrSlopeAggregation
     }
 
     @Override
-    protected List<String> getFunctionParameterTypes()
+    protected List<Type> getFunctionParameterTypes()
     {
-        return ImmutableList.of(StandardTypes.REAL, StandardTypes.REAL);
+        return ImmutableList.of(REAL, REAL);
     }
 
     @Override

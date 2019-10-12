@@ -18,7 +18,7 @@ import com.google.common.collect.Lists;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.ArrayType;
-import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.Type;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
@@ -67,9 +67,9 @@ public class TestArrayMaxNAggregation
     }
 
     @Override
-    protected List<String> getFunctionParameterTypes()
+    protected List<Type> getFunctionParameterTypes()
     {
-        return ImmutableList.of("array(bigint)", StandardTypes.BIGINT);
+        return ImmutableList.of(new ArrayType(BIGINT), BIGINT);
     }
 
     @Override

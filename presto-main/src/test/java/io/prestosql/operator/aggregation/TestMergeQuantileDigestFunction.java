@@ -18,6 +18,7 @@ import io.airlift.stats.QuantileDigest;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.QuantileDigestType;
 import io.prestosql.spi.type.SqlVarbinary;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
@@ -72,9 +73,9 @@ public class TestMergeQuantileDigestFunction
     }
 
     @Override
-    protected List<String> getFunctionParameterTypes()
+    protected List<Type> getFunctionParameterTypes()
     {
-        return ImmutableList.of("qdigest(double)");
+        return ImmutableList.of(new QuantileDigestType(DOUBLE));
     }
 
     @Override

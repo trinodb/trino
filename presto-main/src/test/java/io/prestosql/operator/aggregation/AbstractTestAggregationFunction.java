@@ -25,7 +25,6 @@ import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.RunLengthEncodedBlock;
 import io.prestosql.spi.function.WindowIndex;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.analyzer.TypeSignatureProvider;
 import io.prestosql.sql.tree.QualifiedName;
 import org.testng.annotations.AfterClass;
@@ -64,8 +63,10 @@ public abstract class AbstractTestAggregationFunction
 
     protected final InternalAggregationFunction getFunction()
     {
-        Signature signature = metadata.resolveFunction(QualifiedName.of(getFunctionName()), getFunctionParameterTypes().stream()
-                        .map(TypeSignature::parseTypeSignature)
+        Signature signature = metadata.resolveFunction(
+                QualifiedName.of(getFunctionName()),
+                getFunctionParameterTypes().stream()
+                        .map(Type::getTypeSignature)
                         .map(TypeSignatureProvider::new)
                         .collect(toImmutableList()));
         return metadata.getAggregateFunctionImplementation(signature);
@@ -73,7 +74,7 @@ public abstract class AbstractTestAggregationFunction
 
     protected abstract String getFunctionName();
 
-    protected abstract List<String> getFunctionParameterTypes();
+    protected abstract List<Type> getFunctionParameterTypes();
 
     protected abstract Object getExpectedValue(int start, int length);
 
