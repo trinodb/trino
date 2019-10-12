@@ -18,7 +18,7 @@ import io.prestosql.plugin.hive.metastore.SortingColumn;
 import io.prestosql.plugin.hive.orc.OrcWriterConfig;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.session.PropertyMetadata;
-import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.ArrayType;
 
 import javax.inject.Inject;
 
@@ -36,7 +36,7 @@ import static io.prestosql.spi.session.PropertyMetadata.doubleProperty;
 import static io.prestosql.spi.session.PropertyMetadata.enumProperty;
 import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
 import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
@@ -63,7 +63,6 @@ public class HiveTableProperties
 
     @Inject
     public HiveTableProperties(
-            TypeManager typeManager,
             HiveConfig config,
             OrcWriterConfig orcWriterConfig)
     {
@@ -82,7 +81,7 @@ public class HiveTableProperties
                 new PropertyMetadata<>(
                         PARTITIONED_BY_PROPERTY,
                         "Partition columns",
-                        typeManager.getType(parseTypeSignature("array(varchar)")),
+                        new ArrayType(VARCHAR),
                         List.class,
                         ImmutableList.of(),
                         false,
@@ -93,7 +92,7 @@ public class HiveTableProperties
                 new PropertyMetadata<>(
                         BUCKETED_BY_PROPERTY,
                         "Bucketing columns",
-                        typeManager.getType(parseTypeSignature("array(varchar)")),
+                        new ArrayType(VARCHAR),
                         List.class,
                         ImmutableList.of(),
                         false,
@@ -104,7 +103,7 @@ public class HiveTableProperties
                 new PropertyMetadata<>(
                         SORTED_BY_PROPERTY,
                         "Bucket sorting columns",
-                        typeManager.getType(parseTypeSignature("array(varchar)")),
+                        new ArrayType(VARCHAR),
                         List.class,
                         ImmutableList.of(),
                         false,
@@ -119,7 +118,7 @@ public class HiveTableProperties
                 new PropertyMetadata<>(
                         ORC_BLOOM_FILTER_COLUMNS,
                         "ORC Bloom filter index columns",
-                        typeManager.getType(parseTypeSignature("array(varchar)")),
+                        new ArrayType(VARCHAR),
                         List.class,
                         ImmutableList.of(),
                         false,

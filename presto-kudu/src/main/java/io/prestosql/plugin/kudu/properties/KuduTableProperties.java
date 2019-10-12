@@ -17,7 +17,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.session.PropertyMetadata;
-import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.ArrayType;
 import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.Schema;
 import org.apache.kudu.Type;
@@ -52,7 +52,7 @@ import static io.prestosql.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
 import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
 import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -79,13 +79,13 @@ public final class KuduTableProperties
     private final List<PropertyMetadata<?>> columnProperties;
 
     @Inject
-    public KuduTableProperties(TypeManager typeManager)
+    public KuduTableProperties()
     {
         tableProperties = ImmutableList.of(
                 new PropertyMetadata<>(
                         PARTITION_BY_HASH_COLUMNS,
                         "Columns for optional first hash partition level",
-                        typeManager.getType(parseTypeSignature("array(varchar)")),
+                        new ArrayType(VARCHAR),
                         List.class,
                         ImmutableList.of(),
                         false,
@@ -101,7 +101,7 @@ public final class KuduTableProperties
                 new PropertyMetadata<>(
                         PARTITION_BY_HASH_COLUMNS_2,
                         "Columns for optional second hash partition level",
-                        typeManager.getType(parseTypeSignature("array(varchar)")),
+                        new ArrayType(VARCHAR),
                         List.class,
                         ImmutableList.of(),
                         false,
@@ -117,7 +117,7 @@ public final class KuduTableProperties
                 new PropertyMetadata<>(
                         PARTITION_BY_RANGE_COLUMNS,
                         "Columns for optional range partition level",
-                        typeManager.getType(parseTypeSignature("array(varchar)")),
+                        new ArrayType(VARCHAR),
                         List.class,
                         ImmutableList.of(),
                         false,
