@@ -146,12 +146,9 @@ public class TestAvroDecoder
     {
         GenericData.Record record = new GenericData.Record(schema);
         values.forEach(record::put);
-        try {
-            DataFileWriter<GenericRecord> dataFileWriter = new DataFileWriter<>(new GenericDatumWriter<>(schema));
-
+        try (DataFileWriter<GenericRecord> dataFileWriter = new DataFileWriter<>(new GenericDatumWriter<>(schema))) {
             dataFileWriter.create(schema, outputStream);
             dataFileWriter.append(record);
-            dataFileWriter.close();
         }
         catch (IOException e) {
             throw new RuntimeException("Failed to convert to Avro.", e);

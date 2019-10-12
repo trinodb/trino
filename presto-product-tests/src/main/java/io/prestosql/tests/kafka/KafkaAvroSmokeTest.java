@@ -110,7 +110,6 @@ public class KafkaAvroSmokeTest
         try (DataFileWriter<GenericRecord> dataFileWriter = new DataFileWriter<>(new GenericDatumWriter<>(schema))) {
             dataFileWriter.create(schema, outputStream);
             dataFileWriter.append(record);
-            dataFileWriter.close();
         }
         catch (IOException e) {
             throw new UncheckedIOException("Failed to convert to Avro.", e);
