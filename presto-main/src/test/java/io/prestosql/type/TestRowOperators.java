@@ -28,6 +28,7 @@ import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -47,9 +48,9 @@ import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
+import static io.prestosql.spi.type.RowType.field;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
@@ -83,8 +84,8 @@ public class TestRowOperators
     @Test
     public void testRowTypeLookup()
     {
-        functionAssertions.getMetadata().getType(parseTypeSignature("row(a bigint)"));
-        Type type = functionAssertions.getMetadata().getType(parseTypeSignature("row(b bigint)"));
+        TypeSignature signature = RowType.from(ImmutableList.of(field("b", BIGINT))).getTypeSignature();
+        Type type = functionAssertions.getMetadata().getType(signature);
         assertEquals(type.getTypeSignature().getParameters().size(), 1);
         assertEquals(type.getTypeSignature().getParameters().get(0).getNamedTypeSignature().getName().get(), "b");
     }

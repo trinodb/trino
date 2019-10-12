@@ -15,7 +15,9 @@ package io.prestosql.type;
 
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -29,13 +31,15 @@ import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
+import static io.prestosql.spi.type.RowType.anonymousRow;
+import static io.prestosql.spi.type.RowType.field;
+import static io.prestosql.spi.type.RowType.rowType;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
@@ -61,30 +65,49 @@ public class TestTypeCoercion
     public void testIsTypeOnlyCoercion()
     {
         assertTrue(typeCoercion.isTypeOnlyCoercion(BIGINT, BIGINT));
-        assertTrue(typeCoercion.isTypeOnlyCoercion(createType("varchar(42)"), createType("varchar(44)")));
-        assertFalse(typeCoercion.isTypeOnlyCoercion(createType("varchar(44)"), createType("varchar(42)")));
+        assertTrue(typeCoercion.isTypeOnlyCoercion(createVarcharType(42), createVarcharType(44)));
+        assertFalse(typeCoercion.isTypeOnlyCoercion(createVarcharType(44), createVarcharType(42)));
 
-        assertFalse(typeCoercion.isTypeOnlyCoercion(createType("char(42)"), createType("varchar(42)")));
+        assertFalse(typeCoercion.isTypeOnlyCoercion(createCharType(42), createVarcharType(42)));
 
-        assertTrue(typeCoercion.isTypeOnlyCoercion(createType("array(varchar(42))"), createType("array(varchar(44))")));
-        assertFalse(typeCoercion.isTypeOnlyCoercion(createType("array(varchar(44))"), createType("array(varchar(42))")));
+        assertTrue(typeCoercion.isTypeOnlyCoercion(new ArrayType(createVarcharType(42)), new ArrayType(createVarcharType(44))));
+        assertFalse(typeCoercion.isTypeOnlyCoercion(new ArrayType(createVarcharType(44)), new ArrayType(createVarcharType(42))));
 
-        assertTrue(typeCoercion.isTypeOnlyCoercion(createType("decimal(22,1)"), createType("decimal(23,1)")));
-        assertTrue(typeCoercion.isTypeOnlyCoercion(createType("decimal(2,1)"), createType("decimal(3,1)")));
-        assertFalse(typeCoercion.isTypeOnlyCoercion(createType("decimal(23,1)"), createType("decimal(22,1)")));
-        assertFalse(typeCoercion.isTypeOnlyCoercion(createType("decimal(3,1)"), createType("decimal(2,1)")));
-        assertFalse(typeCoercion.isTypeOnlyCoercion(createType("decimal(3,1)"), createType("decimal(22,1)")));
+        assertTrue(typeCoercion.isTypeOnlyCoercion(createDecimalType(22, 1), createDecimalType(23, 1)));
+        assertTrue(typeCoercion.isTypeOnlyCoercion(createDecimalType(2, 1), createDecimalType(3, 1)));
+        assertFalse(typeCoercion.isTypeOnlyCoercion(createDecimalType(23, 1), createDecimalType(22, 1)));
+        assertFalse(typeCoercion.isTypeOnlyCoercion(createDecimalType(3, 1), createDecimalType(2, 1)));
+        assertFalse(typeCoercion.isTypeOnlyCoercion(createDecimalType(3, 1), createDecimalType(22, 1)));
 
-        assertTrue(typeCoercion.isTypeOnlyCoercion(createType("array(decimal(22,1))"), createType("array(decimal(23,1))")));
-        assertTrue(typeCoercion.isTypeOnlyCoercion(createType("array(decimal(2,1))"), createType("array(decimal(3,1))")));
-        assertFalse(typeCoercion.isTypeOnlyCoercion(createType("array(decimal(23,1))"), createType("array(decimal(22,1))")));
-        assertFalse(typeCoercion.isTypeOnlyCoercion(createType("array(decimal(3,1))"), createType("array(decimal(2,1))")));
+        assertTrue(typeCoercion.isTypeOnlyCoercion(new ArrayType(createDecimalType(22, 1)), new ArrayType(createDecimalType(23, 1))));
+        assertTrue(typeCoercion.isTypeOnlyCoercion(new ArrayType(createDecimalType(2, 1)), new ArrayType(createDecimalType(3, 1))));
+        assertFalse(typeCoercion.isTypeOnlyCoercion(new ArrayType(createDecimalType(23, 1)), new ArrayType(createDecimalType(22, 1))));
+        assertFalse(typeCoercion.isTypeOnlyCoercion(new ArrayType(createDecimalType(3, 1)), new ArrayType(createDecimalType(2, 1))));
 
-        assertTrue(typeCoercion.isTypeOnlyCoercion(createType("map(decimal(2,1), decimal(2,1))"), createType("map(decimal(2,1), decimal(3,1))")));
-        assertFalse(typeCoercion.isTypeOnlyCoercion(createType("map(decimal(2,1), decimal(2,1))"), createType("map(decimal(2,1), decimal(23,1))")));
-        assertFalse(typeCoercion.isTypeOnlyCoercion(createType("map(decimal(2,1), decimal(2,1))"), createType("map(decimal(2,1), decimal(3,2))")));
-        assertTrue(typeCoercion.isTypeOnlyCoercion(createType("map(decimal(22,1), decimal(2,1))"), createType("map(decimal(23,1), decimal(3,1))")));
-        assertFalse(typeCoercion.isTypeOnlyCoercion(createType("map(decimal(23,1), decimal(3,1))"), createType("map(decimal(22,1), decimal(2,1))")));
+        assertTrue(typeCoercion.isTypeOnlyCoercion(
+                mapType(createDecimalType(2, 1), createDecimalType(2, 1)),
+                mapType(createDecimalType(2, 1), createDecimalType(3, 1))));
+
+        assertFalse(typeCoercion.isTypeOnlyCoercion(
+                mapType(createDecimalType(2, 1), createDecimalType(2, 1)),
+                mapType(createDecimalType(2, 1), createDecimalType(23, 1))));
+
+        assertFalse(typeCoercion.isTypeOnlyCoercion(
+                mapType(createDecimalType(2, 1), createDecimalType(2, 1)),
+                mapType(createDecimalType(2, 1), createDecimalType(3, 2))));
+
+        assertTrue(typeCoercion.isTypeOnlyCoercion(
+                mapType(createDecimalType(2, 1), createDecimalType(2, 1)),
+                mapType(createDecimalType(3, 1), createDecimalType(3, 1))));
+
+        assertFalse(typeCoercion.isTypeOnlyCoercion(
+                mapType(createDecimalType(3, 1), createDecimalType(3, 1)),
+                mapType(createDecimalType(2, 1), createDecimalType(2, 1))));
+    }
+
+    private Type mapType(Type keyType, Type valueType)
+    {
+        return metadata.getType(TypeSignature.mapType(keyType.getTypeSignature(), valueType.getTypeSignature()));
     }
 
     @Test
@@ -113,76 +136,129 @@ public class TestTypeCoercion
         assertThat(TIMESTAMP, TIME_WITH_TIME_ZONE).isIncompatible();
         assertThat(VARBINARY, VARCHAR).isIncompatible();
 
-        assertThat("unknown", "array(bigint)").hasCommonSuperType("array(bigint)").canCoerceFirstToSecondOnly();
-        assertThat("array(bigint)", "array(double)").hasCommonSuperType("array(double)").canCoerceFirstToSecondOnly();
-        assertThat("array(bigint)", "array(unknown)").hasCommonSuperType("array(bigint)").canCoerceSecondToFirstOnly();
-        assertThat("map(bigint,double)", "map(bigint,double)").hasCommonSuperType("map(bigint,double)").canCoerceToEachOther();
-        assertThat("map(bigint,double)", "map(double,double)").hasCommonSuperType("map(double,double)").canCoerceFirstToSecondOnly();
-        assertThat("row(a bigint,b double,c varchar)", "row(a bigint,b double,c varchar)").hasCommonSuperType("row(a bigint,b double,c varchar)").canCoerceToEachOther();
+        assertThat(UNKNOWN, new ArrayType(BIGINT)).hasCommonSuperType(new ArrayType(BIGINT)).canCoerceFirstToSecondOnly();
+        assertThat(new ArrayType(BIGINT), new ArrayType(DOUBLE)).hasCommonSuperType(new ArrayType(DOUBLE)).canCoerceFirstToSecondOnly();
+        assertThat(new ArrayType(BIGINT), new ArrayType(UNKNOWN)).hasCommonSuperType(new ArrayType(BIGINT)).canCoerceSecondToFirstOnly();
+        assertThat(mapType(BIGINT, DOUBLE), mapType(BIGINT, DOUBLE)).hasCommonSuperType(mapType(BIGINT, DOUBLE)).canCoerceToEachOther();
+        assertThat(mapType(BIGINT, DOUBLE), mapType(DOUBLE, DOUBLE)).hasCommonSuperType(mapType(DOUBLE, DOUBLE)).canCoerceFirstToSecondOnly();
 
-        assertThat("decimal(22,1)", "decimal(23,1)").hasCommonSuperType("decimal(23,1)").canCoerceFirstToSecondOnly();
-        assertThat("bigint", "decimal(23,1)").hasCommonSuperType("decimal(23,1)").canCoerceFirstToSecondOnly();
-        assertThat("bigint", "decimal(18,0)").hasCommonSuperType("decimal(19,0)").cannotCoerceToEachOther();
-        assertThat("bigint", "decimal(19,0)").hasCommonSuperType("decimal(19,0)").canCoerceFirstToSecondOnly();
-        assertThat("bigint", "decimal(37,1)").hasCommonSuperType("decimal(37,1)").canCoerceFirstToSecondOnly();
-        assertThat("real", "decimal(37,1)").hasCommonSuperType("real").canCoerceSecondToFirstOnly();
-        assertThat("array(decimal(23,1))", "array(decimal(22,1))").hasCommonSuperType("array(decimal(23,1))").canCoerceSecondToFirstOnly();
-        assertThat("array(bigint)", "array(decimal(2,1))").hasCommonSuperType("array(decimal(20,1))").cannotCoerceToEachOther();
-        assertThat("array(bigint)", "array(decimal(20,1))").hasCommonSuperType("array(decimal(20,1))").canCoerceFirstToSecondOnly();
+        assertThat(
+                rowType(field("a", BIGINT), field("b", DOUBLE), field("c", VARCHAR)),
+                rowType(field("a", BIGINT), field("b", DOUBLE), field("c", VARCHAR)))
+                .hasCommonSuperType(rowType(field("a", BIGINT), field("b", DOUBLE), field("c", VARCHAR)))
+                .canCoerceToEachOther();
 
-        assertThat("decimal(3,2)", "double").hasCommonSuperType("double").canCoerceFirstToSecondOnly();
-        assertThat("decimal(22,1)", "double").hasCommonSuperType("double").canCoerceFirstToSecondOnly();
-        assertThat("decimal(37,1)", "double").hasCommonSuperType("double").canCoerceFirstToSecondOnly();
-        assertThat("decimal(37,37)", "double").hasCommonSuperType("double").canCoerceFirstToSecondOnly();
+        assertThat(createDecimalType(22, 1), createDecimalType(23, 1)).hasCommonSuperType(createDecimalType(23, 1)).canCoerceFirstToSecondOnly();
+        assertThat(BIGINT, createDecimalType(23, 1)).hasCommonSuperType(createDecimalType(23, 1)).canCoerceFirstToSecondOnly();
+        assertThat(BIGINT, createDecimalType(18, 0)).hasCommonSuperType(createDecimalType(19, 0)).cannotCoerceToEachOther();
+        assertThat(BIGINT, createDecimalType(19, 0)).hasCommonSuperType(createDecimalType(19, 0)).canCoerceFirstToSecondOnly();
+        assertThat(BIGINT, createDecimalType(37, 1)).hasCommonSuperType(createDecimalType(37, 1)).canCoerceFirstToSecondOnly();
+        assertThat(REAL, createDecimalType(37, 1)).hasCommonSuperType(REAL).canCoerceSecondToFirstOnly();
+        assertThat(new ArrayType(createDecimalType(23, 1)), new ArrayType(createDecimalType(22, 1))).hasCommonSuperType(new ArrayType(createDecimalType(23, 1))).canCoerceSecondToFirstOnly();
+        assertThat(new ArrayType(BIGINT), new ArrayType(createDecimalType(2, 1))).hasCommonSuperType(new ArrayType(createDecimalType(20, 1))).cannotCoerceToEachOther();
+        assertThat(new ArrayType(BIGINT), new ArrayType(createDecimalType(20, 1))).hasCommonSuperType(new ArrayType(createDecimalType(20, 1))).canCoerceFirstToSecondOnly();
 
-        assertThat("decimal(22,1)", "real").hasCommonSuperType("real").canCoerceFirstToSecondOnly();
-        assertThat("decimal(3,2)", "real").hasCommonSuperType("real").canCoerceFirstToSecondOnly();
-        assertThat("decimal(37,37)", "real").hasCommonSuperType("real").canCoerceFirstToSecondOnly();
+        assertThat(createDecimalType(3, 2), DOUBLE).hasCommonSuperType(DOUBLE).canCoerceFirstToSecondOnly();
+        assertThat(createDecimalType(22, 1), DOUBLE).hasCommonSuperType(DOUBLE).canCoerceFirstToSecondOnly();
+        assertThat(createDecimalType(37, 1), DOUBLE).hasCommonSuperType(DOUBLE).canCoerceFirstToSecondOnly();
+        assertThat(createDecimalType(37, 37), DOUBLE).hasCommonSuperType(DOUBLE).canCoerceFirstToSecondOnly();
 
-        assertThat("integer", "decimal(23,1)").hasCommonSuperType("decimal(23,1)").canCoerceFirstToSecondOnly();
-        assertThat("integer", "decimal(9,0)").hasCommonSuperType("decimal(10,0)").cannotCoerceToEachOther();
-        assertThat("integer", "decimal(10,0)").hasCommonSuperType("decimal(10,0)").canCoerceFirstToSecondOnly();
-        assertThat("integer", "decimal(37,1)").hasCommonSuperType("decimal(37,1)").canCoerceFirstToSecondOnly();
+        assertThat(createDecimalType(22, 1), REAL).hasCommonSuperType(REAL).canCoerceFirstToSecondOnly();
+        assertThat(createDecimalType(3, 2), REAL).hasCommonSuperType(REAL).canCoerceFirstToSecondOnly();
+        assertThat(createDecimalType(37, 37), REAL).hasCommonSuperType(REAL).canCoerceFirstToSecondOnly();
 
-        assertThat("tinyint", "decimal(2,0)").hasCommonSuperType("decimal(3,0)").cannotCoerceToEachOther();
-        assertThat("tinyint", "decimal(9,0)").hasCommonSuperType("decimal(9,0)").canCoerceFirstToSecondOnly();
-        assertThat("tinyint", "decimal(2,1)").hasCommonSuperType("decimal(4,1)").cannotCoerceToEachOther();
-        assertThat("tinyint", "decimal(3,0)").hasCommonSuperType("decimal(3,0)").canCoerceFirstToSecondOnly();
-        assertThat("tinyint", "decimal(37,1)").hasCommonSuperType("decimal(37,1)").canCoerceFirstToSecondOnly();
+        assertThat(INTEGER, createDecimalType(23, 1)).hasCommonSuperType(createDecimalType(23, 1)).canCoerceFirstToSecondOnly();
+        assertThat(INTEGER, createDecimalType(9, 0)).hasCommonSuperType(createDecimalType(10, 0)).cannotCoerceToEachOther();
+        assertThat(INTEGER, createDecimalType(10, 0)).hasCommonSuperType(createDecimalType(10, 0)).canCoerceFirstToSecondOnly();
+        assertThat(INTEGER, createDecimalType(37, 1)).hasCommonSuperType(createDecimalType(37, 1)).canCoerceFirstToSecondOnly();
 
-        assertThat("smallint", "decimal(37,1)").hasCommonSuperType("decimal(37,1)").canCoerceFirstToSecondOnly();
-        assertThat("smallint", "decimal(4,0)").hasCommonSuperType("decimal(5,0)").cannotCoerceToEachOther();
-        assertThat("smallint", "decimal(5,0)").hasCommonSuperType("decimal(5,0)").canCoerceFirstToSecondOnly();
-        assertThat("smallint", "decimal(2,0)").hasCommonSuperType("decimal(5,0)").cannotCoerceToEachOther();
-        assertThat("smallint", "decimal(9,0)").hasCommonSuperType("decimal(9,0)").canCoerceFirstToSecondOnly();
-        assertThat("smallint", "decimal(2,1)").hasCommonSuperType("decimal(6,1)").cannotCoerceToEachOther();
+        assertThat(TINYINT, createDecimalType(2, 0)).hasCommonSuperType(createDecimalType(3, 0)).cannotCoerceToEachOther();
+        assertThat(TINYINT, createDecimalType(9, 0)).hasCommonSuperType(createDecimalType(9, 0)).canCoerceFirstToSecondOnly();
+        assertThat(TINYINT, createDecimalType(2, 1)).hasCommonSuperType(createDecimalType(4, 1)).cannotCoerceToEachOther();
+        assertThat(TINYINT, createDecimalType(3, 0)).hasCommonSuperType(createDecimalType(3, 0)).canCoerceFirstToSecondOnly();
+        assertThat(TINYINT, createDecimalType(37, 1)).hasCommonSuperType(createDecimalType(37, 1)).canCoerceFirstToSecondOnly();
 
-        assertThat("char(42)", "char(40)").hasCommonSuperType("char(42)").canCoerceSecondToFirstOnly();
-        assertThat("char(42)", "char(44)").hasCommonSuperType("char(44)").canCoerceFirstToSecondOnly();
-        assertThat("varchar(42)", "varchar(42)").hasCommonSuperType("varchar(42)").canCoerceToEachOther();
-        assertThat("varchar(42)", "varchar(44)").hasCommonSuperType("varchar(44)").canCoerceFirstToSecondOnly();
-        assertThat("char(40)", "varchar(42)").hasCommonSuperType("char(42)").cannotCoerceToEachOther();
-        assertThat("char(42)", "varchar(42)").hasCommonSuperType("char(42)").canCoerceSecondToFirstOnly();
-        assertThat("char(44)", "varchar(42)").hasCommonSuperType("char(44)").canCoerceSecondToFirstOnly();
+        assertThat(SMALLINT, createDecimalType(37, 1)).hasCommonSuperType(createDecimalType(37, 1)).canCoerceFirstToSecondOnly();
+        assertThat(SMALLINT, createDecimalType(4, 0)).hasCommonSuperType(createDecimalType(5, 0)).cannotCoerceToEachOther();
+        assertThat(SMALLINT, createDecimalType(5, 0)).hasCommonSuperType(createDecimalType(5, 0)).canCoerceFirstToSecondOnly();
+        assertThat(SMALLINT, createDecimalType(2, 0)).hasCommonSuperType(createDecimalType(5, 0)).cannotCoerceToEachOther();
+        assertThat(SMALLINT, createDecimalType(9, 0)).hasCommonSuperType(createDecimalType(9, 0)).canCoerceFirstToSecondOnly();
+        assertThat(SMALLINT, createDecimalType(2, 1)).hasCommonSuperType(createDecimalType(6, 1)).cannotCoerceToEachOther();
 
-        assertThat(createType("char(42)"), JONI_REGEXP).hasCommonSuperType(JONI_REGEXP).canCoerceFirstToSecondOnly();
-        assertThat(createType("char(42)"), JSON_PATH).hasCommonSuperType(JSON_PATH).canCoerceFirstToSecondOnly();
-        assertThat(createType("char(42)"), LIKE_PATTERN).hasCommonSuperType(LIKE_PATTERN).canCoerceFirstToSecondOnly();
-        assertThat(createType("char(42)"), RE2J_REGEXP).hasCommonSuperType(RE2J_REGEXP).canCoerceFirstToSecondOnly();
+        assertThat(createCharType(42), createCharType(40)).hasCommonSuperType(createCharType(42)).canCoerceSecondToFirstOnly();
+        assertThat(createCharType(42), createCharType(44)).hasCommonSuperType(createCharType(44)).canCoerceFirstToSecondOnly();
+        assertThat(createVarcharType(42), createVarcharType(42)).hasCommonSuperType(createVarcharType(42)).canCoerceToEachOther();
+        assertThat(createVarcharType(42), createVarcharType(44)).hasCommonSuperType(createVarcharType(44)).canCoerceFirstToSecondOnly();
+        assertThat(createCharType(40), createVarcharType(42)).hasCommonSuperType(createCharType(42)).cannotCoerceToEachOther();
+        assertThat(createCharType(42), createVarcharType(42)).hasCommonSuperType(createCharType(42)).canCoerceSecondToFirstOnly();
+        assertThat(createCharType(44), createVarcharType(42)).hasCommonSuperType(createCharType(44)).canCoerceSecondToFirstOnly();
 
-        assertThat("row(varchar(2))", "row(varchar(5))").hasCommonSuperType("row(varchar(5))").canCoerceFirstToSecondOnly();
+        assertThat(createCharType(42), JONI_REGEXP).hasCommonSuperType(JONI_REGEXP).canCoerceFirstToSecondOnly();
+        assertThat(createCharType(42), JSON_PATH).hasCommonSuperType(JSON_PATH).canCoerceFirstToSecondOnly();
+        assertThat(createCharType(42), LIKE_PATTERN).hasCommonSuperType(LIKE_PATTERN).canCoerceFirstToSecondOnly();
+        assertThat(createCharType(42), RE2J_REGEXP).hasCommonSuperType(RE2J_REGEXP).canCoerceFirstToSecondOnly();
 
-        assertThat("row(a integer)", "row(a bigint)").hasCommonSuperType("row(a bigint)").canCoerceFirstToSecondOnly();
-        assertThat("row(a integer)", "row(b bigint)").hasCommonSuperType("row(bigint)").canCoerceFirstToSecondOnly();
-        assertThat("row(integer)", "row(b bigint)").hasCommonSuperType("row(bigint)").canCoerceFirstToSecondOnly();
-        assertThat("row(a integer)", "row(a varchar(2))").isIncompatible();
-        assertThat("row(a integer)", "row(a integer,b varchar(2))").isIncompatible();
-        assertThat("row(a integer,b varchar(2))", "row(a bigint,c varchar(5))").hasCommonSuperType("row(a bigint,varchar(5))").canCoerceFirstToSecondOnly();
-        assertThat("row(a integer,b varchar(2))", "row(bigint,varchar(5))").hasCommonSuperType("row(bigint,varchar(5))").canCoerceFirstToSecondOnly();
-        assertThat("row(a integer,b varchar(5))", "row(c bigint,d varchar(2))").hasCommonSuperType("row(bigint,varchar(5))").cannotCoerceToEachOther();
-        assertThat("row(a row(c integer),b varchar(2))", "row(row(c integer),varchar(5))").hasCommonSuperType("row(row(c integer),varchar(5))").canCoerceFirstToSecondOnly();
-        assertThat("row(a row(c integer),b varchar(2))", "row(a row(c integer),d varchar(5))").hasCommonSuperType("row(a row(c integer),varchar(5))").canCoerceFirstToSecondOnly();
-        assertThat("row(a row(c integer),b varchar(5))", "row(d row(e integer),b varchar(5))").hasCommonSuperType("row(row(integer),b varchar(5))").canCoerceToEachOther();
+        assertThat(anonymousRow(createVarcharType(2)), anonymousRow(createVarcharType(5)))
+                .hasCommonSuperType(anonymousRow(createVarcharType(5)))
+                .canCoerceFirstToSecondOnly();
+
+        assertThat(rowType(field("a", INTEGER)), rowType(field("a", BIGINT)))
+                .hasCommonSuperType(rowType(field("a", BIGINT)))
+                .canCoerceFirstToSecondOnly();
+
+        assertThat(rowType(field("a", INTEGER)), rowType(field("b", BIGINT)))
+                .hasCommonSuperType(anonymousRow(BIGINT))
+                .canCoerceFirstToSecondOnly();
+
+        assertThat(anonymousRow(INTEGER), rowType(field("b", BIGINT)))
+                .hasCommonSuperType(anonymousRow(BIGINT))
+                .canCoerceFirstToSecondOnly();
+
+        assertThat(
+                rowType(field("a", INTEGER)),
+                rowType(field("a", createVarcharType(2))))
+                .isIncompatible();
+
+        assertThat(
+                rowType(field("a", INTEGER)),
+                rowType(field("a", INTEGER), field("b", createVarcharType(2))))
+                .isIncompatible();
+
+        assertThat(
+                rowType(field("a", INTEGER), field("b", createVarcharType(2))),
+                rowType(field("a", BIGINT), field("b", createVarcharType(5))))
+                .hasCommonSuperType(rowType(field("a", BIGINT), field("b", createVarcharType(5))))
+                .canCoerceFirstToSecondOnly();
+
+        assertThat(
+                rowType(field("a", INTEGER), field("b", createVarcharType(2))),
+                rowType(field(BIGINT), field("b", createVarcharType(5))))
+                .hasCommonSuperType(rowType(field(BIGINT), field("b", createVarcharType(5))))
+                .canCoerceFirstToSecondOnly();
+
+        assertThat(
+                rowType(field("a", INTEGER), field("b", createVarcharType(5))),
+                rowType(field("c", BIGINT), field("d", createVarcharType(2))))
+                .hasCommonSuperType(anonymousRow(BIGINT, createVarcharType(5)))
+                .cannotCoerceToEachOther();
+
+        assertThat(
+                rowType(field("a", rowType(field("c", INTEGER), field("b", createVarcharType(2))))),
+                rowType(field(rowType(field("c", INTEGER), field(createVarcharType(5))))))
+                .hasCommonSuperType(rowType(field(rowType(field("c", INTEGER), field(createVarcharType(5))))))
+                .canCoerceFirstToSecondOnly();
+
+        assertThat(
+                rowType(field("a", rowType(field("c", INTEGER), field("b", createVarcharType(2))))),
+                rowType(field("a", rowType(field("c", INTEGER), field("b", createVarcharType(5))))))
+                .hasCommonSuperType(rowType(field("a", rowType(field("c", INTEGER), field("b", createVarcharType(5))))))
+                .canCoerceFirstToSecondOnly();
+
+        assertThat(
+                rowType(field("a", rowType(field("c", INTEGER), field("b", createVarcharType(5))))),
+                rowType(field("d", rowType(field("e", INTEGER), field("b", createVarcharType(5))))))
+                .hasCommonSuperType(rowType(field(rowType(field(INTEGER), field("b", createVarcharType(5))))))
+                .canCoerceToEachOther();
     }
 
     @Test
@@ -233,16 +309,6 @@ public class TestTypeCoercion
         }
     }
 
-    @Test
-    public void testRowTypeCreation()
-    {
-        createType("row(time with time zone,time time with time zone)");
-        createType("row(timestamp with time zone,\"timestamp\" timestamp with time zone)");
-        createType("row(interval day to second,interval interval day to second)");
-        createType("row(interval year to month,\"interval\" interval year to month)");
-        createType("row(array(time with time zone),    \"a\" array(map(timestamp with time zone, interval day to second)))");
-    }
-
     private Set<Type> getStandardPrimitiveTypes()
     {
         ImmutableSet.Builder<Type> builder = ImmutableSet.builder();
@@ -271,16 +337,6 @@ public class TestTypeCoercion
         return new CompatibilityAssertion(commonSuperType1, canCoerceFirstToSecond, canCoerceSecondToFirst);
     }
 
-    private CompatibilityAssertion assertThat(String firstType, String secondType)
-    {
-        return assertThat(createType(firstType), createType(secondType));
-    }
-
-    private Type createType(String signature)
-    {
-        return metadata.getType(parseTypeSignature(signature));
-    }
-
     private class CompatibilityAssertion
     {
         private final Optional<Type> commonSuperType;
@@ -307,11 +363,6 @@ public class TestTypeCoercion
             assertTrue(commonSuperType.isPresent(), "Expected commonSuperType to be present");
             assertEquals(commonSuperType.get(), expected, "commonSuperType");
             return this;
-        }
-
-        public CompatibilityAssertion hasCommonSuperType(String expected)
-        {
-            return hasCommonSuperType(createType(expected));
         }
 
         public CompatibilityAssertion canCoerceToEachOther()

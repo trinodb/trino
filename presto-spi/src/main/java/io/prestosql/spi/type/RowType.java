@@ -22,6 +22,7 @@ import io.prestosql.spi.block.RowBlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -61,6 +62,16 @@ public class RowType
                 .collect(Collectors.toList());
 
         return new RowType(makeSignature(fields), fields);
+    }
+
+    public static RowType rowType(Field... field)
+    {
+        return from(Arrays.asList(field));
+    }
+
+    public static RowType anonymousRow(Type... types)
+    {
+        return anonymous(Arrays.asList(types));
     }
 
     // Only RowParametricType.createType should call this method
