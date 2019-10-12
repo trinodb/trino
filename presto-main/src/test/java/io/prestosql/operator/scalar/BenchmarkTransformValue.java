@@ -60,7 +60,7 @@ import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.functionType;
 import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.relational.Expressions.call;
@@ -68,7 +68,6 @@ import static io.prestosql.sql.relational.Expressions.constant;
 import static io.prestosql.sql.relational.Expressions.field;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static io.prestosql.util.StructuralTestUtil.mapType;
-import static java.lang.String.format;
 
 @SuppressWarnings("MethodMayBeStatic")
 @State(Scope.Thread)
@@ -136,7 +135,7 @@ public class BenchmarkTransformValue
                     FunctionKind.SCALAR,
                     returnType.getTypeSignature(),
                     mapType.getTypeSignature(),
-                    parseTypeSignature(format("function(%s, %s, boolean)", type, type)));
+                    functionType(elementType.getTypeSignature(), elementType.getTypeSignature()));
             Signature greaterThan = new Signature(
                     "$operator$" + GREATER_THAN.name(),
                     FunctionKind.SCALAR,

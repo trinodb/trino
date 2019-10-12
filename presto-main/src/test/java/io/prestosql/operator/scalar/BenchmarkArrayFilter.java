@@ -28,6 +28,7 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.gen.ExpressionCompiler;
 import io.prestosql.sql.gen.PageFunctionCompiler;
 import io.prestosql.sql.relational.CallExpression;
@@ -67,7 +68,8 @@ import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConv
 import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.arrayType;
+import static io.prestosql.spi.type.TypeSignature.functionType;
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
 import static io.prestosql.sql.relational.Expressions.constant;
 import static io.prestosql.sql.relational.Expressions.field;
@@ -126,7 +128,12 @@ public class BenchmarkArrayFilter
             for (int i = 0; i < TYPES.size(); i++) {
                 Type elementType = TYPES.get(i);
                 ArrayType arrayType = new ArrayType(elementType);
-                Signature signature = new Signature(name, FunctionKind.SCALAR, arrayType.getTypeSignature(), arrayType.getTypeSignature(), parseTypeSignature("function(bigint,boolean)"));
+                Signature signature = new Signature(
+                        name,
+                        FunctionKind.SCALAR,
+                        arrayType.getTypeSignature(),
+                        arrayType.getTypeSignature(),
+                        functionType(BIGINT.getTypeSignature(), BOOLEAN.getTypeSignature()));
                 Signature greaterThan = new Signature("$operator$" + GREATER_THAN.name(), FunctionKind.SCALAR, BOOLEAN.getTypeSignature(), BIGINT.getTypeSignature(), BIGINT.getTypeSignature());
                 projectionsBuilder.add(new CallExpression(signature, arrayType, ImmutableList.of(
                         field(0, arrayType),
@@ -200,8 +207,10 @@ public class BenchmarkArrayFilter
                     FunctionKind.SCALAR,
                     ImmutableList.of(typeVariable("T")),
                     ImmutableList.of(),
-                    parseTypeSignature("array(T)"),
-                    ImmutableList.of(parseTypeSignature("array(T)"), parseTypeSignature("function(T,boolean)")),
+                    arrayType(new TypeSignature("T")),
+                    ImmutableList.of(
+                            arrayType(new TypeSignature("T")),
+                            functionType(new TypeSignature("T"), BOOLEAN.getTypeSignature())),
                     false));
         }
 
