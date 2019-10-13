@@ -44,6 +44,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.metadata.SignatureBinder.applyBoundVariables;
+import static io.prestosql.operator.TypeSignatureParser.parseTypeSignature;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
@@ -51,7 +52,6 @@ import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMet
 import static io.prestosql.operator.aggregation.AggregationUtils.generateAggregationName;
 import static io.prestosql.spi.type.Decimals.writeBigDecimal;
 import static io.prestosql.spi.type.Decimals.writeShortDecimal;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.UNSCALED_DECIMAL_128_SLICE_LENGTH;
 import static io.prestosql.util.Reflection.methodHandle;
 import static java.math.BigDecimal.ROUND_HALF_UP;

@@ -13,6 +13,7 @@
  */
 package io.prestosql.operator.annotations;
 
+import com.google.common.collect.ImmutableSet;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.function.Convention;
@@ -37,8 +38,8 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.operator.TypeSignatureParser.parseTypeSignature;
 import static io.prestosql.operator.annotations.FunctionsParserHelper.containsImplementationDependencyAnnotation;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 
 public interface ImplementationDependency
 {
@@ -65,7 +66,7 @@ public interface ImplementationDependency
     static void validateImplementationDependencyAnnotation(AnnotatedElement element, Annotation annotation, Set<String> typeParametersNames, Collection<String> literalParameters)
     {
         if (annotation instanceof TypeParameter) {
-            checkTypeParameters(parseTypeSignature(((TypeParameter) annotation).value()), typeParametersNames, element);
+            checkTypeParameters(parseTypeSignature(((TypeParameter) annotation).value(), ImmutableSet.of()), typeParametersNames, element);
         }
         if (annotation instanceof LiteralParameter) {
             checkArgument(literalParameters.contains(((LiteralParameter) annotation).value()), "Parameter injected by @LiteralParameter must be declared with @LiteralParameters on the method [%s]", element);

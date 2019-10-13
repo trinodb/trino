@@ -17,6 +17,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableSet;
+import io.prestosql.operator.TypeSignatureParser;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.tree.QualifiedName;
 
@@ -94,9 +96,9 @@ public class ResolvedFunction
         checkArgument(parts.size() >= 3, "Expected encoded signature to contain at least 3 parts: %s", encodedSignature);
         String name = parts.get(0);
         FunctionKind kind = FunctionKind.valueOf(parts.get(1).toUpperCase(Locale.US));
-        TypeSignature returnType = TypeSignature.parseTypeSignature(parts.get(2));
+        TypeSignature returnType = TypeSignatureParser.parseTypeSignature(parts.get(2), ImmutableSet.of());
         List<TypeSignature> argumentTypes = parts.subList(3, parts.size()).stream()
-                .map(TypeSignature::parseTypeSignature)
+                .map(part -> TypeSignatureParser.parseTypeSignature(part, ImmutableSet.of()))
                 .collect(toImmutableList());
         return new Signature(name, kind, returnType, argumentTypes);
     }

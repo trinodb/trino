@@ -39,6 +39,7 @@ import java.util.List;
 
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.Signature.longVariableExpression;
+import static io.prestosql.operator.TypeSignatureParser.parseTypeSignature;
 import static io.prestosql.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static io.prestosql.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.prestosql.spi.function.OperatorType.ADD;
@@ -52,7 +53,6 @@ import static io.prestosql.spi.function.OperatorType.SUBTRACT;
 import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
 import static io.prestosql.spi.type.Decimals.encodeUnscaledValue;
 import static io.prestosql.spi.type.Decimals.longTenToNth;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.divideRoundUp;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.isZero;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.remainder;

@@ -94,6 +94,7 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spiller.FileSingleStreamSpillerFactory;
 import io.prestosql.spiller.GenericPartitioningSpillerFactory;
 import io.prestosql.spiller.GenericSpillerFactory;
@@ -128,6 +129,7 @@ import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.transaction.TransactionManagerConfig;
 import io.prestosql.type.TypeDeserializer;
+import io.prestosql.type.TypeSignatureDeserializer;
 import io.prestosql.util.FinalizerService;
 import io.prestosql.version.EmbedVersion;
 
@@ -349,6 +351,7 @@ public class ServerMainModule
         // type
         binder.bind(TypeAnalyzer.class).in(Scopes.SINGLETON);
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
+        jsonBinder(binder).addDeserializerBinding(TypeSignature.class).to(TypeSignatureDeserializer.class);
         newSetBinder(binder, Type.class);
 
         // split manager

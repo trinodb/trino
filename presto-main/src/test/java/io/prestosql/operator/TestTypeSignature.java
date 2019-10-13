@@ -11,10 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.spi.type;
+package io.prestosql.operator;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.spi.type.NamedTypeSignature;
+import io.prestosql.spi.type.RowFieldName;
+import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.spi.type.TypeSignatureParameter;
+import io.prestosql.spi.type.VarcharType;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -22,11 +28,11 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.Lists.transform;
+import static io.prestosql.operator.TypeSignatureParser.parseTypeSignature;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.TypeSignature.arrayType;
 import static io.prestosql.spi.type.TypeSignature.mapType;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
@@ -167,10 +173,6 @@ public class TestTypeSignature
                 "RoW(a bigint,b varchar)",
                 rowSignature(namedParameter("a", false, signature("bigint")), namedParameter("b", false, varchar())));
 
-        // field type canonicalization
-        assertEquals(parseTypeSignature("row(col Integer)"), parseTypeSignature("row(col integer)"));
-        assertEquals(parseTypeSignature("row(a Integer(p1))"), parseTypeSignature("row(a integer(p1))"));
-
         // signature with invalid type
         assertRowSignature(
                 "row(\"time\" with time zone)",
@@ -287,7 +289,6 @@ public class TestTypeSignature
         assertTrue(parseTypeSignature("map(decimal(p1, s1),decimal(p2, s2))", ImmutableSet.of("p1", "s1", "p2", "s2")).isCalculated());
         assertFalse(mapType(createDecimalType(2, 1).getTypeSignature(), createDecimalType(3, 1).getTypeSignature()).isCalculated());
         assertTrue(parseTypeSignature("row(a decimal(p1,s1),b decimal(p2,s2))", ImmutableSet.of("p1", "s1", "p2", "s2")).isCalculated());
-        assertFalse(parseTypeSignature("row(a decimal(2,1),b decimal(3,2))").isCalculated());
     }
 
     private static void assertRowSignature(
@@ -318,7 +319,7 @@ public class TestTypeSignature
             List<String> parameters,
             String expectedTypeName)
     {
-        TypeSignature signature = parseTypeSignature(typeName);
+        TypeSignature signature = parseTypeSignature(typeName, ImmutableSet.of());
         assertEquals(signature.getBase(), base);
         assertEquals(signature.getParameters().size(), parameters.size());
         for (int i = 0; i < signature.getParameters().size(); i++) {
@@ -330,7 +331,7 @@ public class TestTypeSignature
     private void assertSignatureFail(String typeName)
     {
         try {
-            parseTypeSignature(typeName);
+            parseTypeSignature(typeName, ImmutableSet.of());
             fail("Type signatures with zero parameters should fail to parse");
         }
         catch (RuntimeException e) {

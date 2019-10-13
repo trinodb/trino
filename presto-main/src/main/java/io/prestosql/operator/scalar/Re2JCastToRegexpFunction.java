@@ -24,12 +24,12 @@ import io.prestosql.type.Re2JRegexp;
 
 import java.lang.invoke.MethodHandle;
 
+import static io.prestosql.operator.TypeSignatureParser.parseTypeSignature;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.type.Chars.padSpaces;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.type.Re2JRegexpType.RE2J_REGEXP;
 import static io.prestosql.util.Reflection.methodHandle;
 import static java.lang.invoke.MethodHandles.insertArguments;

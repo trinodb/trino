@@ -25,6 +25,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 
 import static io.prestosql.metadata.FunctionKind.SCALAR;
+import static io.prestosql.operator.TypeSignatureParser.parseTypeSignature;
 import static io.prestosql.spi.function.OperatorType.SATURATED_FLOOR_CAST;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.Decimals.bigIntegerTenToNth;
@@ -33,7 +34,6 @@ import static io.prestosql.spi.type.Decimals.encodeUnscaledValue;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static java.lang.Math.toIntExact;
 import static java.math.BigInteger.ONE;
 import static java.math.RoundingMode.FLOOR;

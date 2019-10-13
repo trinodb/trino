@@ -40,6 +40,7 @@ import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.metadata.Signature.mangleOperatorName;
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.metadata.Signature.unmangleOperator;
+import static io.prestosql.operator.TypeSignatureParser.parseTypeSignature;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -286,10 +287,10 @@ public class TestFunctionRegistry
     {
         ImmutableSet<String> literalParameters = ImmutableSet.of("p", "s", "p1", "s1", "p2", "s2", "p3", "s3");
         List<TypeSignature> argumentSignatures = arguments.stream()
-                .map((signature) -> TypeSignature.parseTypeSignature(signature, literalParameters))
+                .map((signature) -> parseTypeSignature(signature, literalParameters))
                 .collect(toImmutableList());
         return new SignatureBuilder()
-                .returnType(TypeSignature.parseTypeSignature(returnType, literalParameters))
+                .returnType(parseTypeSignature(returnType, literalParameters))
                 .argumentTypes(argumentSignatures)
                 .typeVariableConstraints(typeVariableConstraints)
                 .kind(SCALAR);

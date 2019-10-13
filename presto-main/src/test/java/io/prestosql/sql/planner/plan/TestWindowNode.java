@@ -24,6 +24,7 @@ import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.server.SliceDeserializer;
 import io.prestosql.server.SliceSerializer;
 import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.Serialization;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.OrderingScheme;
@@ -34,6 +35,7 @@ import io.prestosql.sql.tree.FrameBound;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.WindowFrame;
+import io.prestosql.type.TypeSignatureDeserializer;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -69,7 +71,8 @@ public class TestWindowNode
         provider.setJsonDeserializers(ImmutableMap.of(
                 Slice.class, new SliceDeserializer(),
                 Expression.class, new Serialization.ExpressionDeserializer(sqlParser),
-                FunctionCall.class, new Serialization.FunctionCallDeserializer(sqlParser)));
+                FunctionCall.class, new Serialization.FunctionCallDeserializer(sqlParser),
+                TypeSignature.class, new TypeSignatureDeserializer()));
         objectMapper = provider.get();
     }
 
