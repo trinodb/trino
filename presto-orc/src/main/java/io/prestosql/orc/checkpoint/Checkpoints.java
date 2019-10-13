@@ -401,9 +401,7 @@ public final class Checkpoints
         public int nextPosition()
         {
             if (!hasNextPosition()) {
-                throw new InvalidCheckpointException("Not enough positions for column %s and sequence %s, of type %s, checkpoints",
-                        columnId,
-                        columnType);
+                throw new InvalidCheckpointException("Not enough positions for column %s:%s checkpoints", columnId, columnType);
             }
 
             return positionsList.get(index++);
