@@ -90,7 +90,7 @@ public class TestMetadataManager
         @Language("SQL") String sql = "SELECT * FROM nation";
         queryRunner.execute(sql);
 
-        assertEquals(metadataManager.getCatalogsByQueryId().size(), 0);
+        assertEquals(metadataManager.getActiveQueryIds().size(), 0);
     }
 
     @Test
@@ -105,7 +105,7 @@ public class TestMetadataManager
             // query should fail
         }
 
-        assertEquals(metadataManager.getCatalogsByQueryId().size(), 0);
+        assertEquals(metadataManager.getActiveQueryIds().size(), 0);
     }
 
     @Test
@@ -136,7 +136,7 @@ public class TestMetadataManager
 
         // cancel query
         dispatchManager.cancelQuery(queryId);
-        assertEquals(metadataManager.getCatalogsByQueryId().size(), 0);
+        assertEquals(metadataManager.getActiveQueryIds().size(), 0);
     }
 
     @Test

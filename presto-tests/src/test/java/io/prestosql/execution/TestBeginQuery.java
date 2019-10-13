@@ -106,20 +106,20 @@ public class TestBeginQuery
     @Test
     public void testCreateTableAsSelect()
     {
-        assertNoBeginQuery("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
+        assertBeginQuery("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
     }
 
     @Test
     public void testCreateTableAsSelectSameConnector()
     {
-        assertNoBeginQuery("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
+        assertBeginQuery("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
         assertBeginQuery("CREATE TABLE nation_copy AS SELECT * FROM nation");
     }
 
     @Test
     public void testInsert()
     {
-        assertNoBeginQuery("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
+        assertBeginQuery("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
         assertBeginQuery("INSERT INTO nation SELECT * FROM tpch.tiny.nation");
         assertBeginQuery("INSERT INTO nation VALUES (12345, 'name', 54321, 'comment')");
     }
@@ -127,14 +127,14 @@ public class TestBeginQuery
     @Test
     public void testInsertSelectSameConnector()
     {
-        assertNoBeginQuery("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
+        assertBeginQuery("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
         assertBeginQuery("INSERT INTO nation SELECT * FROM nation");
     }
 
     @Test
     public void testSelect()
     {
-        assertNoBeginQuery("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
+        assertBeginQuery("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
         assertBeginQuery("SELECT * FROM nation");
     }
 
@@ -144,15 +144,6 @@ public class TestBeginQuery
         computeActual(query);
         assertEquals(metadata.begin.get(), 1);
         assertEquals(metadata.end.get(), 1);
-        metadata.resetCounters();
-    }
-
-    private void assertNoBeginQuery(String query)
-    {
-        metadata.resetCounters();
-        computeActual(query);
-        assertEquals(metadata.begin.get(), 0);
-        assertEquals(metadata.end.get(), 0);
         metadata.resetCounters();
     }
 
