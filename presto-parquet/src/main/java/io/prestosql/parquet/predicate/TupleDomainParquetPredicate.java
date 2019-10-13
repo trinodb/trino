@@ -147,8 +147,8 @@ public class TupleDomainParquetPredicate
         if (type.equals(BOOLEAN) && statistics instanceof BooleanStatistics) {
             BooleanStatistics booleanStatistics = (BooleanStatistics) statistics;
 
-            boolean hasTrueValues = !(booleanStatistics.getMax() == false && booleanStatistics.getMin() == false);
-            boolean hasFalseValues = !(booleanStatistics.getMax() == true && booleanStatistics.getMin() == true);
+            boolean hasTrueValues = booleanStatistics.getMin() || booleanStatistics.getMax();
+            boolean hasFalseValues = !booleanStatistics.getMin() || !booleanStatistics.getMax();
             if (hasTrueValues && hasFalseValues) {
                 return Domain.all(type);
             }
