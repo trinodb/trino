@@ -51,6 +51,7 @@ import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.spi.statistics.TableStatisticsMetadata;
 import io.prestosql.spi.type.ParametricType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeId;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.analyzer.TypeSignatureProvider;
 import io.prestosql.sql.planner.PartitioningHandle;
@@ -499,6 +500,18 @@ public abstract class AbstractMockMetadata
 
     @Override
     public Type getType(TypeSignature signature)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Type fromSqlType(String sqlType)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Type getType(TypeId id)
     {
         throw new UnsupportedOperationException();
     }

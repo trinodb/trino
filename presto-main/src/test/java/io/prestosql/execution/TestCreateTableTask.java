@@ -21,6 +21,7 @@ import io.prestosql.metadata.AbstractMockMetadata;
 import io.prestosql.metadata.Catalog;
 import io.prestosql.metadata.CatalogManager;
 import io.prestosql.metadata.ColumnPropertyManager;
+import io.prestosql.metadata.MetadataManager;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.metadata.TablePropertyManager;
@@ -31,6 +32,7 @@ import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorCapabilities;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeId;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.tree.ColumnDefinition;
 import io.prestosql.sql.tree.CreateTable;
@@ -44,7 +46,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.function.Function;
 
 import static com.google.common.collect.Sets.immutableEnumSet;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
@@ -183,7 +184,7 @@ public class TestCreateTableTask
     private static class MockMetadata
             extends AbstractMockMetadata
     {
-        private final Function<TypeSignature, Type> typeLookup;
+        private final MetadataManager metadata;
         private final TablePropertyManager tablePropertyManager;
         private final ColumnPropertyManager columnPropertyManager;
         private final CatalogName catalogHandle;
@@ -200,7 +201,7 @@ public class TestCreateTableTask
             this.columnPropertyManager = requireNonNull(columnPropertyManager, "columnPropertyManager is null");
             this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
             this.connectorCapabilities = requireNonNull(immutableEnumSet(connectorCapabilities), "connectorCapabilities is null");
-            this.typeLookup = createTestMetadataManager()::getType;
+            this.metadata = createTestMetadataManager();
         }
 
         @Override
@@ -227,7 +228,19 @@ public class TestCreateTableTask
         @Override
         public Type getType(TypeSignature signature)
         {
-            return typeLookup.apply(signature);
+            return metadata.getType(signature);
+        }
+
+        @Override
+        public Type getType(TypeId id)
+        {
+            return metadata.getType(id);
+        }
+
+        @Override
+        public Type fromSqlType(String sqlType)
+        {
+            return metadata.fromSqlType(sqlType);
         }
 
         @Override

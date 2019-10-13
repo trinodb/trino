@@ -46,6 +46,23 @@ public class TestingTypeManager
     }
 
     @Override
+    public Type fromSqlType(String type)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Type getType(TypeId id)
+    {
+        for (Type type : getTypes()) {
+            if (type.getTypeId().equals(id)) {
+                return type;
+            }
+        }
+        throw new IllegalArgumentException("Type not found: " + id);
+    }
+
+    @Override
     public Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters)
     {
         return getType(new TypeSignature(baseTypeName, typeParameters));
