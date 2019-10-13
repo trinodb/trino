@@ -65,7 +65,6 @@ import static io.prestosql.plugin.hive.HiveTestUtils.TYPE_MANAGER;
 import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHiveFileWriterFactories;
 import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHivePageSourceFactories;
 import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHiveRecordCursorProvider;
-import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultOrcFileWriterFactory;
 import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSessionProperties;
 import static io.prestosql.plugin.hive.HiveType.HIVE_DATE;
@@ -276,8 +275,7 @@ public class TestHivePageSink
                 new TestingNodeManager("fake-environment"),
                 new HiveEventClient(),
                 getHiveSessionProperties(config),
-                stats,
-                getDefaultOrcFileWriterFactory(config, HDFS_ENVIRONMENT));
+                stats);
         return provider.createPageSink(transaction, getHiveSession(config), handle);
     }
 
