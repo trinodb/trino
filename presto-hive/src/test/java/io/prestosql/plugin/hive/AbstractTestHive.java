@@ -202,7 +202,6 @@ import static io.prestosql.plugin.hive.HiveTestUtils.arrayType;
 import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHiveFileWriterFactories;
 import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHivePageSourceFactories;
 import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHiveRecordCursorProvider;
-import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultOrcFileWriterFactory;
 import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSessionProperties;
 import static io.prestosql.plugin.hive.HiveTestUtils.getTypes;
@@ -771,8 +770,7 @@ public abstract class AbstractTestHive
                 new TestingNodeManager("fake-environment"),
                 new HiveEventClient(),
                 getHiveSessionProperties(hiveConfig),
-                new HiveWriterStats(),
-                getDefaultOrcFileWriterFactory(hiveConfig, hdfsEnvironment));
+                new HiveWriterStats());
         pageSourceProvider = new HivePageSourceProvider(
                 hiveConfig,
                 hdfsEnvironment,
