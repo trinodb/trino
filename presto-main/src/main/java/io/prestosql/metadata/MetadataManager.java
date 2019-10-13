@@ -92,6 +92,7 @@ import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.transaction.TransactionManager;
 import io.prestosql.type.InternalTypeManager;
 
+import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
 
 import java.util.ArrayList;
@@ -148,7 +149,7 @@ public final class MetadataManager
     private final TypeRegistry typeRegistry = new TypeRegistry(ImmutableSet.of());
 
     private final ConcurrentMap<String, BlockEncoding> blockEncodings = new ConcurrentHashMap<>();
-    private final ConcurrentMap<String, Collection<ConnectorMetadata>> catalogsByQueryId = new ConcurrentHashMap<>();
+    private final ConcurrentMap<QueryId, QueryCatalogs> catalogsByQueryId = new ConcurrentHashMap<>();
 
     @Inject
     public MetadataManager(FeaturesConfig featuresConfig,
@@ -711,37 +712,16 @@ public final class MetadataManager
     }
 
     @Override
-    public void beginQuery(Session session, Multimap<CatalogName, ConnectorTableHandle> tableHandles)
-    {
-        for (Entry<CatalogName, Collection<ConnectorTableHandle>> entry : tableHandles.asMap().entrySet()) {
-            ConnectorMetadata metadata = getMetadata(session, entry.getKey());
-            ConnectorSession connectorSession = session.toConnectorSession(entry.getKey());
-            metadata.beginQuery(connectorSession, entry.getValue());
-            registerCatalogForQueryId(session.getQueryId(), metadata);
-        }
-    }
-
-    private void registerCatalogForQueryId(QueryId queryId, ConnectorMetadata metadata)
-    {
-        catalogsByQueryId.putIfAbsent(queryId.getId(), new ArrayList<>());
-        catalogsByQueryId.get(queryId.getId()).add(metadata);
-    }
-
-    @Override
     public void cleanupQuery(Session session)
     {
         try {
-            Collection<ConnectorMetadata> catalogs = catalogsByQueryId.get(session.getQueryId().getId());
-            if (catalogs == null) {
-                return;
-            }
-
-            for (ConnectorMetadata metadata : catalogs) {
-                metadata.cleanupQuery(session.toConnectorSession());
+            QueryCatalogs queryCatalogs = catalogsByQueryId.get(session.getQueryId());
+            if (queryCatalogs != null) {
+                queryCatalogs.finish();
             }
         }
         finally {
-            catalogsByQueryId.remove(session.getQueryId().getId());
+            catalogsByQueryId.remove(session.getQueryId());
         }
     }
 
@@ -1406,22 +1386,30 @@ public final class MetadataManager
 
     private Optional<CatalogMetadata> getOptionalCatalogMetadata(Session session, String catalogName)
     {
-        return transactionManager.getOptionalCatalogMetadata(session.getRequiredTransactionId(), catalogName);
+        Optional<CatalogMetadata> optionalCatalogMetadata = transactionManager.getOptionalCatalogMetadata(session.getRequiredTransactionId(), catalogName);
+        optionalCatalogMetadata.ifPresent(catalogMetadata -> registerCatalogForQuery(session, catalogMetadata));
+        return optionalCatalogMetadata;
     }
 
     private CatalogMetadata getCatalogMetadata(Session session, CatalogName catalogName)
     {
-        return transactionManager.getCatalogMetadata(session.getRequiredTransactionId(), catalogName);
+        CatalogMetadata catalogMetadata = transactionManager.getCatalogMetadata(session.getRequiredTransactionId(), catalogName);
+        registerCatalogForQuery(session, catalogMetadata);
+        return catalogMetadata;
     }
 
     private CatalogMetadata getCatalogMetadataForWrite(Session session, String catalogName)
     {
-        return transactionManager.getCatalogMetadataForWrite(session.getRequiredTransactionId(), catalogName);
+        CatalogMetadata catalogMetadata = transactionManager.getCatalogMetadataForWrite(session.getRequiredTransactionId(), catalogName);
+        registerCatalogForQuery(session, catalogMetadata);
+        return catalogMetadata;
     }
 
     private CatalogMetadata getCatalogMetadataForWrite(Session session, CatalogName catalogName)
     {
-        return transactionManager.getCatalogMetadataForWrite(session.getRequiredTransactionId(), catalogName);
+        CatalogMetadata catalogMetadata = transactionManager.getCatalogMetadataForWrite(session.getRequiredTransactionId(), catalogName);
+        registerCatalogForQuery(session, catalogMetadata);
+        return catalogMetadata;
     }
 
     private ConnectorMetadata getMetadata(Session session, CatalogName catalogName)
@@ -1434,9 +1422,53 @@ public final class MetadataManager
         return getCatalogMetadataForWrite(session, catalogName).getMetadata();
     }
 
-    @VisibleForTesting
-    public Map<String, Collection<ConnectorMetadata>> getCatalogsByQueryId()
+    private void registerCatalogForQuery(Session session, CatalogMetadata catalogMetadata)
     {
-        return ImmutableMap.copyOf(catalogsByQueryId);
+        catalogsByQueryId.computeIfAbsent(session.getQueryId(), queryId -> new QueryCatalogs(session))
+                .registerCatalog(catalogMetadata);
+    }
+
+    @VisibleForTesting
+    public Set<QueryId> getActiveQueryIds()
+    {
+        return ImmutableSet.copyOf(catalogsByQueryId.keySet());
+    }
+
+    private static class QueryCatalogs
+    {
+        private final Session session;
+        @GuardedBy("this")
+        private final Map<CatalogName, CatalogMetadata> catalogs = new HashMap<>();
+        @GuardedBy("this")
+        private boolean finished;
+
+        public QueryCatalogs(Session session)
+        {
+            this.session = session;
+        }
+
+        private synchronized void registerCatalog(CatalogMetadata catalogMetadata)
+        {
+            checkState(!finished, "Query is already finished");
+            if (catalogs.putIfAbsent(catalogMetadata.getCatalogName(), catalogMetadata) == null) {
+                ConnectorSession connectorSession = session.toConnectorSession(catalogMetadata.getCatalogName());
+                catalogMetadata.getMetadata().beginQuery(connectorSession);
+            }
+        }
+
+        private synchronized void finish()
+        {
+            Collection<CatalogMetadata> catalogs;
+            synchronized (this) {
+                checkState(!finished, "Query is already finished");
+                finished = true;
+                catalogs = this.catalogs.values();
+            }
+
+            for (CatalogMetadata catalogMetadata : catalogs) {
+                ConnectorSession connectorSession = session.toConnectorSession(catalogMetadata.getCatalogName());
+                catalogMetadata.getMetadata().cleanupQuery(connectorSession);
+            }
+        }
     }
 }

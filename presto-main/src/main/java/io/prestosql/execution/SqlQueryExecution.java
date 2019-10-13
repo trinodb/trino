@@ -334,9 +334,6 @@ public class SqlQueryExecution
                 }
 
                 PlanRoot plan = planQuery();
-
-                metadata.beginQuery(getSession(), plan.getTableHandles());
-
                 planDistribution(plan);
 
                 if (!stateMachine.transitionToStarting()) {
