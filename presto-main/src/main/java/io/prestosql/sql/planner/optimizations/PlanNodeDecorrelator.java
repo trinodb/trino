@@ -404,15 +404,12 @@ public class PlanNodeDecorrelator
                     decorrelatedAggregation.getHashSymbol(),
                     decorrelatedAggregation.getGroupIdSymbol());
 
-            boolean atMostSingleRow = newAggregation.getGroupingSetCount() == 1
-                    && constantSymbols.containsAll(newAggregation.getGroupingKeys());
-
             return Optional.of(new DecorrelationResult(
                     newAggregation,
                     childDecorrelationResult.symbolsToPropagate,
                     childDecorrelationResult.correlatedPredicates,
                     childDecorrelationResult.correlatedSymbolsMapping,
-                    atMostSingleRow));
+                    constantSymbols.containsAll(newAggregation.getGroupingKeys())));
         }
 
         @Override
