@@ -37,6 +37,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
 import static io.prestosql.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static org.testng.internal.EclipseInterface.ASSERT_LEFT;
 import static org.testng.internal.EclipseInterface.ASSERT_MIDDLE;
 import static org.testng.internal.EclipseInterface.ASSERT_RIGHT;
@@ -127,7 +128,7 @@ public final class ExpressionTestUtils
                 if (coercion != null) {
                     rewrittenExpression = new Cast(
                             rewrittenExpression,
-                            coercion.getTypeSignature().toString(),
+                            toSqlType(coercion),
                             false,
                             analyzer.getTypeOnlyCoercions().contains(NodeRef.of(originalExpression)));
                 }

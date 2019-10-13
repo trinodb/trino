@@ -150,6 +150,7 @@ import static io.prestosql.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupi
 import static io.prestosql.sql.analyzer.ExpressionTreeUtils.extractLocation;
 import static io.prestosql.sql.analyzer.SemanticExceptions.missingAttributeException;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.prestosql.sql.tree.ArrayConstructor.ARRAY_CONSTRUCTOR;
 import static io.prestosql.sql.tree.Extract.Field.TIMEZONE_HOUR;
 import static io.prestosql.sql.tree.Extract.Field.TIMEZONE_MINUTE;
@@ -1069,7 +1070,7 @@ public class ExpressionAnalyzer
         {
             Type type;
             try {
-                type = metadata.fromSqlType(node.getType());
+                type = metadata.getType(toTypeSignature(node.getType()));
             }
             catch (TypeNotFoundException e) {
                 throw semanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());

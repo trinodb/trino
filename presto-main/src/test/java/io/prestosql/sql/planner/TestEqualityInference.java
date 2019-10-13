@@ -54,8 +54,10 @@ import java.util.Set;
 
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.QueryUtil.identifier;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static org.testng.Assert.assertEquals;
@@ -301,7 +303,7 @@ public class TestEqualityInference
     public void testExpressionsThatMayReturnNullOnNonNullInput()
     {
         List<Expression> candidates = ImmutableList.of(
-                new Cast(nameReference("b"), "BIGINT", true), // try_cast
+                new Cast(nameReference("b"), toSqlType(BIGINT), true), // try_cast
                 new FunctionCallBuilder(metadata)
                         .setName(QualifiedName.of(TryFunction.NAME))
                         .addArgument(new FunctionType(ImmutableList.of(), VARCHAR), new LambdaExpression(ImmutableList.of(), nameReference("b")))

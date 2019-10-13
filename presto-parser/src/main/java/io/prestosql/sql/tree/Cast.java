@@ -19,50 +19,48 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public final class Cast
         extends Expression
 {
     private final Expression expression;
-    private final String type;
+    private final DataType type;
     private final boolean safe;
     private final boolean typeOnly;
 
-    public Cast(Expression expression, String type)
+    public Cast(Expression expression, DataType type)
     {
         this(Optional.empty(), expression, type, false, false);
     }
 
-    public Cast(Expression expression, String type, boolean safe)
+    public Cast(Expression expression, DataType type, boolean safe)
     {
         this(Optional.empty(), expression, type, safe, false);
     }
 
-    public Cast(Expression expression, String type, boolean safe, boolean typeOnly)
+    public Cast(Expression expression, DataType type, boolean safe, boolean typeOnly)
     {
         this(Optional.empty(), expression, type, safe, typeOnly);
     }
 
-    public Cast(NodeLocation location, Expression expression, String type)
+    public Cast(NodeLocation location, Expression expression, DataType type)
     {
         this(Optional.of(location), expression, type, false, false);
     }
 
-    public Cast(NodeLocation location, Expression expression, String type, boolean safe)
+    public Cast(NodeLocation location, Expression expression, DataType type, boolean safe)
     {
         this(Optional.of(location), expression, type, safe, false);
     }
 
-    private Cast(Optional<NodeLocation> location, Expression expression, String type, boolean safe, boolean typeOnly)
+    private Cast(Optional<NodeLocation> location, Expression expression, DataType type, boolean safe, boolean typeOnly)
     {
         super(location);
         requireNonNull(expression, "expression is null");
-        requireNonNull(type, "type is null");
 
         this.expression = expression;
-        this.type = type.toLowerCase(ENGLISH);
+        this.type = type;
         this.safe = safe;
         this.typeOnly = typeOnly;
     }
@@ -72,7 +70,7 @@ public final class Cast
         return expression;
     }
 
-    public String getType()
+    public DataType getType()
     {
         return type;
     }
@@ -100,19 +98,19 @@ public final class Cast
     }
 
     @Override
-    public boolean equals(Object obj)
+    public boolean equals(Object o)
     {
-        if (this == obj) {
+        if (this == o) {
             return true;
         }
-        if (obj == null || getClass() != obj.getClass()) {
+        if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        Cast o = (Cast) obj;
-        return Objects.equals(this.expression, o.expression) &&
-                Objects.equals(this.type, o.type) &&
-                Objects.equals(this.safe, o.safe) &&
-                Objects.equals(this.typeOnly, o.typeOnly);
+        Cast cast = (Cast) o;
+        return safe == cast.safe &&
+                typeOnly == cast.typeOnly &&
+                expression.equals(cast.expression) &&
+                type.equals(cast.type);
     }
 
     @Override

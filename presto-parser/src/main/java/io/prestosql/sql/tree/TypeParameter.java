@@ -13,33 +13,46 @@
  */
 package io.prestosql.sql.tree;
 
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
-public final class NodeLocation
+import static java.util.Objects.requireNonNull;
+
+public class TypeParameter
+        extends DataTypeParameter
 {
-    private final int line;
-    private final int charPositionInLine;
+    private final DataType type;
 
-    public NodeLocation(int line, int charPositionInLine)
+    public TypeParameter(DataType type)
     {
-        this.line = line;
-        this.charPositionInLine = charPositionInLine;
+        super(Optional.empty());
+        this.type = requireNonNull(type, "value is null");
     }
 
-    public int getLineNumber()
+    public DataType getValue()
     {
-        return line;
-    }
-
-    public int getColumnNumber()
-    {
-        return charPositionInLine + 1;
+        return type;
     }
 
     @Override
     public String toString()
     {
-        return line + ":" + charPositionInLine;
+        return type.toString();
+    }
+
+    @Override
+    public List<? extends Node> getChildren()
+    {
+        return ImmutableList.of(type);
+    }
+
+    @Override
+    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
+    {
+        return visitor.visitTypeParameter(this, context);
     }
 
     @Override
@@ -51,14 +64,13 @@ public final class NodeLocation
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        NodeLocation that = (NodeLocation) o;
-        return line == that.line &&
-                charPositionInLine == that.charPositionInLine;
+        TypeParameter that = (TypeParameter) o;
+        return type.equals(that.type);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(line, charPositionInLine);
+        return Objects.hash(type);
     }
 }

@@ -221,7 +221,11 @@ public final class ExpressionVerifier
 
         Cast expected = (Cast) expectedExpression;
 
-        if (!actual.getType().equals(expected.getType())) {
+        // TODO: hack!! The type in Cast is an AST structure, subject to case-sensitivity and quoting rules
+        // Here we're trying to verify its IR counterpart, but the plan testing framework goes directly
+        // from SQL text -> IR-like expressions without doing all the proper canonicalizations. So we cheat
+        // here and normalize everything to the same case before comparing
+        if (!actual.getType().toString().equalsIgnoreCase(expected.getType().toString())) {
             return false;
         }
 

@@ -16,7 +16,6 @@ package io.prestosql.metadata;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.prestosql.spi.type.ParametricType;
 import io.prestosql.spi.type.Type;
@@ -26,6 +25,7 @@ import io.prestosql.spi.type.TypeNotFoundException;
 import io.prestosql.spi.type.TypeParameter;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.TypeSignatureParameter;
+import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.type.CharParametricType;
 import io.prestosql.type.DecimalParametricType;
 import io.prestosql.type.VarcharParametricType;
@@ -45,7 +45,6 @@ import java.util.concurrent.ExecutionException;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static io.prestosql.operator.TypeSignatureParser.parseTypeSignature;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
@@ -62,6 +61,7 @@ import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.prestosql.type.ArrayParametricType.ARRAY;
 import static io.prestosql.type.CodePointsType.CODE_POINTS;
 import static io.prestosql.type.ColorType.COLOR;
@@ -84,6 +84,8 @@ import static java.util.Objects.requireNonNull;
 @ThreadSafe
 final class TypeRegistry
 {
+    private static final SqlParser SQL_PARSER = new SqlParser();
+
     private final ConcurrentMap<TypeSignature, Type> types = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, ParametricType> parametricTypes = new ConcurrentHashMap<>();
 
@@ -166,7 +168,7 @@ final class TypeRegistry
 
     public Type fromSqlType(TypeManager typeManager, String sqlType)
     {
-        return getType(typeManager, parseTypeSignature(sqlType, ImmutableSet.of())); // TODO: use SQL parser
+        return getType(typeManager, toTypeSignature(SQL_PARSER.createType(sqlType)));
     }
 
     private Type instantiateParametricType(TypeManager typeManager, TypeSignature signature)

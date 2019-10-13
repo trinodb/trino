@@ -63,6 +63,7 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.sql.ExpressionUtils.and;
 import static io.prestosql.sql.ExpressionUtils.or;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.prestosql.sql.planner.plan.Patterns.Apply.correlation;
 import static io.prestosql.sql.planner.plan.Patterns.applyNode;
@@ -291,13 +292,13 @@ public class TransformCorrelatedInPredicateToJoin
 
     private static Expression bigint(long value)
     {
-        return new Cast(new LongLiteral(String.valueOf(value)), BIGINT.toString());
+        return new Cast(new LongLiteral(String.valueOf(value)), toSqlType(BIGINT));
     }
 
     private static Expression booleanConstant(@Nullable Boolean value)
     {
         if (value == null) {
-            return new Cast(new NullLiteral(), BOOLEAN.toString());
+            return new Cast(new NullLiteral(), toSqlType(BOOLEAN));
         }
         return new BooleanLiteral(value.toString());
     }

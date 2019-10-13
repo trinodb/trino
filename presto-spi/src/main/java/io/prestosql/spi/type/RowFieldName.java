@@ -33,6 +33,7 @@ public class RowFieldName
         return name;
     }
 
+    @Deprecated
     public boolean isDelimited()
     {
         return delimited;

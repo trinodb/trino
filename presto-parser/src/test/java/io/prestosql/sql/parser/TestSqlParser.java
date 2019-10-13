@@ -169,17 +169,29 @@ import static io.prestosql.sql.QueryUtil.values;
 import static io.prestosql.sql.SqlFormatter.formatSql;
 import static io.prestosql.sql.parser.IdentifierSymbol.AT_SIGN;
 import static io.prestosql.sql.parser.IdentifierSymbol.COLON;
+import static io.prestosql.sql.parser.ParserAssert.expression;
+import static io.prestosql.sql.parser.ParserAssert.statement;
 import static io.prestosql.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
+import static io.prestosql.sql.parser.TreeNodes.columnDefinition;
+import static io.prestosql.sql.parser.TreeNodes.dateTimeType;
+import static io.prestosql.sql.parser.TreeNodes.field;
+import static io.prestosql.sql.parser.TreeNodes.location;
+import static io.prestosql.sql.parser.TreeNodes.property;
+import static io.prestosql.sql.parser.TreeNodes.qualifiedName;
+import static io.prestosql.sql.parser.TreeNodes.rowType;
+import static io.prestosql.sql.parser.TreeNodes.simpleType;
 import static io.prestosql.sql.testing.TreeAssertions.assertFormattedSql;
 import static io.prestosql.sql.tree.ArithmeticUnaryExpression.negative;
 import static io.prestosql.sql.tree.ArithmeticUnaryExpression.positive;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN;
+import static io.prestosql.sql.tree.DateTimeDataType.Type.TIMESTAMP;
 import static io.prestosql.sql.tree.SortItem.NullOrdering.UNDEFINED;
 import static io.prestosql.sql.tree.SortItem.Ordering.ASCENDING;
 import static io.prestosql.sql.tree.SortItem.Ordering.DESCENDING;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -192,15 +204,15 @@ public class TestSqlParser
     @Test
     public void testPosition()
     {
-        assertExpression("position('a' in 'b')",
-                new FunctionCall(QualifiedName.of("strpos"), ImmutableList.of(
-                        new StringLiteral("b"),
-                        new StringLiteral("a"))));
+        assertThat(expression("position('a' in 'b')"))
+                .isEqualTo(new FunctionCall(location(1, 0), QualifiedName.of("strpos"), ImmutableList.of(
+                        new StringLiteral(location(1, 16), "b"),
+                        new StringLiteral(location(1, 9), "a"))));
 
-        assertExpression("position('a' in ('b'))",
-                new FunctionCall(QualifiedName.of("strpos"), ImmutableList.of(
-                        new StringLiteral("b"),
-                        new StringLiteral("a"))));
+        assertThat(expression("position('a' in ('b'))"))
+                .isEqualTo(new FunctionCall(location(1, 0), QualifiedName.of("strpos"), ImmutableList.of(
+                        new StringLiteral(location(1, 17), "b"),
+                        new StringLiteral(location(1, 9), "a"))));
     }
 
     @Test
@@ -397,66 +409,6 @@ public class TestSqlParser
         assertExpression(".4E42", new DoubleLiteral(".4E42"));
         assertExpression(".4E+42", new DoubleLiteral(".4E42"));
         assertExpression(".4E-42", new DoubleLiteral(".4E-42"));
-    }
-
-    @Test
-    public void testCast()
-    {
-        assertCast("foo(42, 55) ARRAY", "ARRAY(foo(42,55))");
-        assertCast("varchar");
-        assertCast("bigint");
-        assertCast("BIGINT");
-        assertCast("double");
-        assertCast("DOUBLE");
-        assertCast("DOUBLE PRECISION", "DOUBLE");
-        assertCast("DOUBLE   PRECISION", "DOUBLE");
-        assertCast("double precision", "DOUBLE");
-        assertCast("boolean");
-        assertCast("date");
-        assertCast("time");
-        assertCast("timestamp");
-        assertCast("time with time zone");
-        assertCast("timestamp with time zone");
-        assertCast("foo");
-        assertCast("FOO");
-
-        assertCast("ARRAY<bigint>", "ARRAY(bigint)");
-        assertCast("ARRAY<BIGINT>", "ARRAY(BIGINT)");
-        assertCast("array<bigint>", "array(bigint)");
-        assertCast("array < bigint  >", "ARRAY(bigint)");
-
-        assertCast("ARRAY(bigint)");
-        assertCast("ARRAY(BIGINT)");
-        assertCast("array(bigint)");
-        assertCast("array ( bigint  )", "ARRAY(bigint)");
-
-        assertCast("array<array<bigint>>", "array(array(bigint))");
-        assertCast("array(array(bigint))");
-
-        assertCast("foo ARRAY", "ARRAY(foo)");
-        assertCast("boolean array  array ARRAY", "ARRAY(ARRAY(ARRAY(boolean)))");
-        assertCast("boolean ARRAY ARRAY ARRAY", "ARRAY(ARRAY(ARRAY(boolean)))");
-        assertCast("ARRAY<boolean> ARRAY ARRAY", "ARRAY(ARRAY(ARRAY(boolean)))");
-
-        assertCast("map(BIGINT,array(VARCHAR))");
-        assertCast("map<BIGINT,array<VARCHAR>>", "map(BIGINT,array(VARCHAR))");
-
-        assertCast("varchar(42)");
-        assertCast("foo(42,55)");
-        assertCast("foo(BIGINT,array(VARCHAR))");
-        assertCast("ARRAY<varchar(42)>", "ARRAY(varchar(42))");
-        assertCast("ARRAY<foo(42,55)>", "ARRAY(foo(42,55))");
-        assertCast("varchar(42) ARRAY", "ARRAY(varchar(42))");
-        assertCast("foo(42, 55) ARRAY", "ARRAY(foo(42,55))");
-
-        assertCast("ROW(m DOUBLE)", "ROW(m DOUBLE)");
-        assertCast("ROW(m DOUBLE)");
-        assertCast("ROW(x BIGINT,y DOUBLE)");
-        assertCast("ROW(x BIGINT, y DOUBLE)", "ROW(x bigint,y double)");
-        assertCast("ROW(x BIGINT, y DOUBLE, z ROW(m array<bigint>,n map<double,timestamp>))", "ROW(x BIGINT,y DOUBLE,z ROW(m array(bigint),n map(double,timestamp)))");
-        assertCast("array<ROW(x BIGINT, y TIMESTAMP)>", "ARRAY(ROW(x BIGINT,y TIMESTAMP))");
-
-        assertCast("interval year to month", "INTERVAL YEAR TO MONTH");
     }
 
     @Test
@@ -997,7 +949,13 @@ public class TestSqlParser
                         Optional.empty(),
                         new QuerySpecification(
                                 selectList(
-                                        new DereferenceExpression(new Cast(new Row(Lists.newArrayList(new LongLiteral("11"), new LongLiteral("12"))), "ROW(COL0 INTEGER,COL1 INTEGER)"), identifier("col0"))),
+                                        new DereferenceExpression(
+                                                new Cast(
+                                                        new Row(Lists.newArrayList(new LongLiteral("11"), new LongLiteral("12"))),
+                                                        rowType(location(1, 26),
+                                                                field(location(1, 30), "COL0", simpleType(location(1, 35), "INTEGER")),
+                                                                field(location(1, 44), "COL1", simpleType(location(1, 49), "INTEGER")))),
+                                                identifier("col0"))),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
@@ -1410,32 +1368,46 @@ public class TestSqlParser
     @Test
     public void testCreateTable()
     {
-        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c IPADDRESS)",
-                new CreateTable(QualifiedName.of("foo"),
+        assertThat(statement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c IPADDRESS)"))
+                .isEqualTo(new CreateTable(
+                        location(1, 0),
+                        qualifiedName(location(1, 13), "foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
-                                new ColumnDefinition(identifier("c"), "IPADDRESS", true, emptyList(), Optional.empty())),
+                                columnDefinition(location(1, 18), "a", simpleType(location(1, 20), "VARCHAR")),
+                                columnDefinition(location(1, 29), "b", simpleType(location(1, 31), "BIGINT"), true, "hello world"),
+                                columnDefinition(location(1, 61), "c", simpleType(location(1, 63), "IPADDRESS"))),
                         false,
                         ImmutableList.of(),
                         Optional.empty()));
-        assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP)",
-                new CreateTable(QualifiedName.of("bar"),
-                        ImmutableList.of(new ColumnDefinition(identifier("c"), "TIMESTAMP", true, emptyList(), Optional.empty())),
+
+        assertThat(statement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP)"))
+                .isEqualTo(new CreateTable(
+                        location(1, 0),
+                        qualifiedName(location(1, 27), "bar"),
+                        ImmutableList.of(
+                                columnDefinition(location(1, 32), "c", dateTimeType(location(1, 34), TIMESTAMP, false), true)),
                         true,
                         ImmutableList.of(),
                         Optional.empty()));
 
-        // with properties
-        assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP WITH (nullable = true, compression = 'LZ4'))",
-                new CreateTable(QualifiedName.of("bar"),
-                        ImmutableList.of(new ColumnDefinition(identifier("c"), "TIMESTAMP", true, ImmutableList.of(
-                                new Property(new Identifier("nullable"), BooleanLiteral.TRUE_LITERAL),
-                                new Property(new Identifier("compression"), new StringLiteral("LZ4"))
-                        ), Optional.empty())),
-                        true,
-                        ImmutableList.of(),
-                        Optional.empty()));
+        assertThat(statement("CREATE TABLE IF NOT EXISTS bar (c VARCHAR WITH (nullable = true, compression = 'LZ4'))"))
+                .describedAs("CREATE TABLE with column properties")
+                .isEqualTo(
+                        new CreateTable(
+                                location(1, 0),
+                                qualifiedName(location(1, 27), "bar"),
+                                ImmutableList.of(
+                                        columnDefinition(
+                                                location(1, 32),
+                                                "c",
+                                                simpleType(location(1, 34), "VARCHAR"),
+                                                true,
+                                                ImmutableList.of(
+                                                        property(location(1, 48), "nullable", new BooleanLiteral(location(1, 59), "true")),
+                                                        property(location(1, 65), "compression", new StringLiteral(location(1, 79), "LZ4"))))),
+                                true,
+                                ImmutableList.of(),
+                                Optional.empty()));
 
         // with LIKE
         assertStatement("CREATE TABLE IF NOT EXISTS bar (LIKE like_table)",
@@ -1446,25 +1418,30 @@ public class TestSqlParser
                         true,
                         ImmutableList.of(),
                         Optional.empty()));
-        assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP, LIKE like_table)",
-                new CreateTable(QualifiedName.of("bar"),
+
+        assertThat(statement("CREATE TABLE IF NOT EXISTS bar (c VARCHAR, LIKE like_table)"))
+                .ignoringLocation()
+                .isEqualTo(new CreateTable(QualifiedName.of("bar"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("c"), "TIMESTAMP", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(identifier("c"), simpleType(location(1, 34), "VARCHAR"), true, emptyList(), Optional.empty()),
                                 new LikeClause(QualifiedName.of("like_table"),
                                         Optional.empty())),
                         true,
                         ImmutableList.of(),
                         Optional.empty()));
-        assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP, LIKE like_table, d DATE)",
-                new CreateTable(QualifiedName.of("bar"),
+
+        assertThat(statement("CREATE TABLE IF NOT EXISTS bar (c VARCHAR, LIKE like_table, d BIGINT)"))
+                .ignoringLocation()
+                .isEqualTo(new CreateTable(QualifiedName.of("bar"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("c"), "TIMESTAMP", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(identifier("c"), simpleType(location(1, 34), "VARCHAR"), true, emptyList(), Optional.empty()),
                                 new LikeClause(QualifiedName.of("like_table"),
                                         Optional.empty()),
-                                new ColumnDefinition(identifier("d"), "DATE", true, emptyList(), Optional.empty())),
+                                new ColumnDefinition(identifier("d"), simpleType(location(1, 62), "BIGINT"), true, emptyList(), Optional.empty())),
                         true,
                         ImmutableList.of(),
                         Optional.empty()));
+
         assertStatement("CREATE TABLE IF NOT EXISTS bar (LIKE like_table INCLUDING PROPERTIES)",
                 new CreateTable(QualifiedName.of("bar"),
                         ImmutableList.of(
@@ -1473,19 +1450,23 @@ public class TestSqlParser
                         true,
                         ImmutableList.of(),
                         Optional.empty()));
-        assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP, LIKE like_table EXCLUDING PROPERTIES)",
-                new CreateTable(QualifiedName.of("bar"),
+
+        assertThat(statement("CREATE TABLE IF NOT EXISTS bar (c VARCHAR, LIKE like_table EXCLUDING PROPERTIES)"))
+                .ignoringLocation()
+                .isEqualTo(new CreateTable(QualifiedName.of("bar"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("c"), "TIMESTAMP", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(identifier("c"), simpleType(location(1, 34), "VARCHAR"), true, emptyList(), Optional.empty()),
                                 new LikeClause(QualifiedName.of("like_table"),
                                         Optional.of(LikeClause.PropertiesOption.EXCLUDING))),
                         true,
                         ImmutableList.of(),
                         Optional.empty()));
-        assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP, LIKE like_table EXCLUDING PROPERTIES) COMMENT 'test'",
-                new CreateTable(QualifiedName.of("bar"),
+
+        assertThat(statement("CREATE TABLE IF NOT EXISTS bar (c VARCHAR, LIKE like_table EXCLUDING PROPERTIES) COMMENT 'test'"))
+                .ignoringLocation()
+                .isEqualTo(new CreateTable(QualifiedName.of("bar"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("c"), "TIMESTAMP", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(identifier("c"), simpleType(location(1, 34), "VARCHAR"), true, emptyList(), Optional.empty()),
                                 new LikeClause(QualifiedName.of("like_table"),
                                         Optional.of(LikeClause.PropertiesOption.EXCLUDING))),
                         true,
@@ -1496,19 +1477,20 @@ public class TestSqlParser
     @Test
     public void testCreateTableWithNotNull()
     {
-        assertStatement(
+        assertThat(statement(
                 "CREATE TABLE foo (" +
                         "a VARCHAR NOT NULL COMMENT 'column a', " +
                         "b BIGINT COMMENT 'hello world', " +
                         "c IPADDRESS, " +
-                        "d DATE NOT NULL)",
-                new CreateTable(
+                        "d INTEGER NOT NULL)"))
+                .ignoringLocation()
+                .isEqualTo(new CreateTable(
                         QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("a"), "VARCHAR", false, emptyList(), Optional.of("column a")),
-                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
-                                new ColumnDefinition(identifier("c"), "IPADDRESS", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("d"), "DATE", false, emptyList(), Optional.empty())),
+                                new ColumnDefinition(identifier("a"), simpleType(location(1, 20), "VARCHAR"), false, emptyList(), Optional.of("column a")),
+                                new ColumnDefinition(identifier("b"), simpleType(location(1, 59), "BIGINT"), true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(identifier("c"), simpleType(location(1, 91), "IPADDRESS"), true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(identifier("d"), simpleType(location(1, 104), "INTEGER"), false, emptyList(), Optional.empty())),
                         false,
                         ImmutableList.of(),
                         Optional.empty()));
@@ -1743,10 +1725,17 @@ public class TestSqlParser
     @Test
     public void testAddColumn()
     {
-        assertStatement("ALTER TABLE foo.t ADD COLUMN c bigint", new AddColumn(QualifiedName.of("foo", "t"),
-                new ColumnDefinition(identifier("c"), "bigint", true, emptyList(), Optional.empty())));
-        assertStatement("ALTER TABLE foo.t ADD COLUMN d double NOT NULL", new AddColumn(QualifiedName.of("foo", "t"),
-                new ColumnDefinition(identifier("d"), "double", false, emptyList(), Optional.empty())));
+        assertThat(statement("ALTER TABLE foo.t ADD COLUMN c bigint"))
+                .ignoringLocation()
+                .isEqualTo(new AddColumn(
+                        QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(identifier("c"), simpleType(location(1, 31), "bigint"), true, emptyList(), Optional.empty())));
+
+        assertThat(statement("ALTER TABLE foo.t ADD COLUMN d double NOT NULL"))
+                .ignoringLocation()
+                .isEqualTo(new AddColumn(
+                        QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(identifier("d"), simpleType(location(1, 31), "double"), false, emptyList(), Optional.empty())));
     }
 
     @Test
@@ -2690,16 +2679,6 @@ public class TestSqlParser
                 .map(Identifier::new)
                 .collect(Collectors.toList());
         return QualifiedName.of(parts);
-    }
-
-    private static void assertCast(String type)
-    {
-        assertCast(type, type);
-    }
-
-    private static void assertCast(String type, String expected)
-    {
-        assertExpression("CAST(null AS " + type + ")", new Cast(new NullLiteral(), expected));
     }
 
     private static void assertStatement(String query, Statement expected)

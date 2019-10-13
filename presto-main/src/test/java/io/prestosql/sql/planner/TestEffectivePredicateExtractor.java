@@ -97,6 +97,7 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.sql.ExpressionUtils.and;
 import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
 import static io.prestosql.sql.ExpressionUtils.or;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.prestosql.sql.planner.plan.AggregationNode.globalAggregation;
 import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.prestosql.sql.tree.BooleanLiteral.FALSE_LITERAL;
@@ -509,7 +510,7 @@ public class TestEffectivePredicateExtractor
                         ImmutableList.of(
                                 ImmutableList.of(bigintLiteral(1)),
                                 ImmutableList.of(bigintLiteral(2)),
-                                ImmutableList.of(new Cast(new NullLiteral(), BIGINT.toString())))),
+                                ImmutableList.of(new Cast(new NullLiteral(), toSqlType(BIGINT))))),
                 types,
                 typeAnalyzer),
                 or(
@@ -523,7 +524,7 @@ public class TestEffectivePredicateExtractor
                         newId(),
                         ImmutableList.of(A),
                         ImmutableList.of(
-                                ImmutableList.of(new Cast(new NullLiteral(), BIGINT.toString())))),
+                                ImmutableList.of(new Cast(new NullLiteral(), toSqlType(BIGINT))))),
                 types,
                 typeAnalyzer),
                 new IsNullPredicate(AE));
@@ -565,8 +566,8 @@ public class TestEffectivePredicateExtractor
                         newId(),
                         ImmutableList.of(A, B),
                         ImmutableList.of(
-                                ImmutableList.of(bigintLiteral(1), new Cast(new NullLiteral(), BIGINT.toString())),
-                                ImmutableList.of(new Cast(new NullLiteral(), BIGINT.toString()), bigintLiteral(200)))),
+                                ImmutableList.of(bigintLiteral(1), new Cast(new NullLiteral(), toSqlType(BIGINT))),
+                                ImmutableList.of(new Cast(new NullLiteral(), toSqlType(BIGINT)), bigintLiteral(200)))),
                 types,
                 typeAnalyzer),
                 and(

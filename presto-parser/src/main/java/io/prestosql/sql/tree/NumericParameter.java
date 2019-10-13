@@ -13,33 +13,46 @@
  */
 package io.prestosql.sql.tree;
 
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
-public final class NodeLocation
+import static java.util.Objects.requireNonNull;
+
+public class NumericParameter
+        extends DataTypeParameter
 {
-    private final int line;
-    private final int charPositionInLine;
+    private final String value;
 
-    public NodeLocation(int line, int charPositionInLine)
+    public NumericParameter(NodeLocation location, String value)
     {
-        this.line = line;
-        this.charPositionInLine = charPositionInLine;
+        super(Optional.of(location));
+        this.value = requireNonNull(value, "value is null");
     }
 
-    public int getLineNumber()
+    public String getValue()
     {
-        return line;
-    }
-
-    public int getColumnNumber()
-    {
-        return charPositionInLine + 1;
+        return value;
     }
 
     @Override
     public String toString()
     {
-        return line + ":" + charPositionInLine;
+        return value;
+    }
+
+    @Override
+    public List<? extends Node> getChildren()
+    {
+        return ImmutableList.of();
+    }
+
+    @Override
+    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
+    {
+        return visitor.visitNumericTypeParameter(this, context);
     }
 
     @Override
@@ -51,14 +64,13 @@ public final class NodeLocation
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        NodeLocation that = (NodeLocation) o;
-        return line == that.line &&
-                charPositionInLine == that.charPositionInLine;
+        NumericParameter that = (NumericParameter) o;
+        return value.equals(that.value);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(line, charPositionInLine);
+        return Objects.hash(value);
     }
 }

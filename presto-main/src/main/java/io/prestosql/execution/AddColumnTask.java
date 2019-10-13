@@ -46,6 +46,7 @@ import static io.prestosql.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_C
 import static io.prestosql.sql.NodeUtils.mapFromProperties;
 import static io.prestosql.sql.ParameterUtils.parameterExtractor;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static java.util.Locale.ENGLISH;
 
@@ -78,7 +79,7 @@ public class AddColumnTask
         ColumnDefinition element = statement.getColumn();
         Type type;
         try {
-            type = metadata.fromSqlType(element.getType());
+            type = metadata.getType(toTypeSignature(element.getType()));
         }
         catch (TypeNotFoundException e) {
             throw semanticException(TYPE_NOT_FOUND, element, "Unknown type '%s' for column '%s'", element.getType(), element.getName());

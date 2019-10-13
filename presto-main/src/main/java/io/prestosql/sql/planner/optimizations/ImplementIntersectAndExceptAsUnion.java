@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.ExpressionUtils;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
@@ -54,6 +53,7 @@ import static com.google.common.collect.Iterables.concat;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.prestosql.sql.planner.plan.AggregationNode.Step;
 import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -233,7 +233,7 @@ public class ImplementIntersectAndExceptAsUnion
 
             // add extra marker fields to the projection
             for (int i = 0; i < markers.size(); ++i) {
-                Expression expression = (i == markerIndex) ? TRUE_LITERAL : new Cast(new NullLiteral(), StandardTypes.BOOLEAN);
+                Expression expression = (i == markerIndex) ? TRUE_LITERAL : new Cast(new NullLiteral(), toSqlType(BOOLEAN));
                 assignments.put(symbolAllocator.newSymbol(markers.get(i).getName(), BOOLEAN), expression);
             }
 

@@ -87,6 +87,7 @@ import static io.prestosql.SystemSessionProperties.isSkipRedundantSort;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.sql.NodeUtils.getSortItemsFromOrderBy;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.prestosql.sql.planner.OrderingScheme.sortItemToSortOrder;
 import static io.prestosql.sql.planner.plan.AggregationNode.groupingSets;
 import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
@@ -372,7 +373,7 @@ class QueryPlanner
             if (coercion != null) {
                 rewritten = new Cast(
                         rewritten,
-                        coercion.getTypeSignature().toString(),
+                        toSqlType(coercion),
                         false,
                         typeCoercion.isTypeOnlyCoercion(type, coercion));
             }
@@ -689,7 +690,7 @@ class QueryPlanner
             if (coercion != null) {
                 rewritten = new Cast(
                         rewritten,
-                        coercion.getTypeSignature().toString(),
+                        toSqlType(coercion),
                         false,
                         typeCoercion.isTypeOnlyCoercion(analysis.getType(groupingOperation), coercion));
             }

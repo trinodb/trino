@@ -19,7 +19,6 @@ import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.type.BigintType;
-import io.prestosql.spi.type.BooleanType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.ExpressionUtils;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
@@ -53,8 +52,10 @@ import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.prestosql.sql.planner.plan.AggregationNode.globalAggregation;
 import static io.prestosql.sql.planner.plan.SimplePlanRewriter.rewriteWith;
 import static io.prestosql.sql.tree.BooleanLiteral.FALSE_LITERAL;
@@ -209,7 +210,7 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
                                     ImmutableList.of(
                                             new WhenClause(
                                                     new ComparisonExpression(NOT_EQUAL, countAllValue.toSymbolReference(), countNonNullValue.toSymbolReference()),
-                                                    new Cast(new NullLiteral(), BooleanType.BOOLEAN.toString()))),
+                                                    new Cast(new NullLiteral(), toSqlType(BOOLEAN)))),
                                     Optional.of(emptySetResult))))));
         }
 
