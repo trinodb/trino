@@ -404,15 +404,9 @@ public interface Metadata
 
     Type getType(TypeSignature signature);
 
-    default Type fromSqlType(String sqlType)
-    {
-        return getType(TypeSignature.parseTypeSignature(sqlType)); // TODO: use SQL parser
-    }
+    Type fromSqlType(String sqlType);
 
-    default Type getType(TypeId id)
-    {
-        return getType(TypeSignature.parseTypeSignature(id.getId()));
-    }
+    Type getType(TypeId id);
 
     default Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters)
     {

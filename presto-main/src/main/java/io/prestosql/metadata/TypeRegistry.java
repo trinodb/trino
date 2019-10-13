@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.prestosql.spi.type.ParametricType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeId;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeNotFoundException;
 import io.prestosql.spi.type.TypeParameter;
@@ -58,6 +59,7 @@ import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
+import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.type.ArrayParametricType.ARRAY;
 import static io.prestosql.type.CodePointsType.CODE_POINTS;
@@ -153,6 +155,17 @@ final class TypeRegistry
             }
         }
         return type;
+    }
+
+    public Type getType(TypeManager typeManager, TypeId id)
+    {
+        // TODO: ID should be encoded in a more canonical form than SQL
+        return fromSqlType(typeManager, id.getId());
+    }
+
+    public Type fromSqlType(TypeManager typeManager, String sqlType)
+    {
+        return getType(typeManager, parseTypeSignature(sqlType)); // TODO: use SQL parser
     }
 
     private Type instantiateParametricType(TypeManager typeManager, TypeSignature signature)

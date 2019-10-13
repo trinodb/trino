@@ -20,8 +20,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
-
 public interface TypeManager
 {
     /**
@@ -34,18 +32,12 @@ public interface TypeManager
     /**
      * Gets a type given it's SQL representation
      */
-    default Type fromSqlType(String type)
-    {
-        return getType(parseTypeSignature(type)); // TODO: use SQL parser
-    }
+    Type fromSqlType(String type);
 
     /**
      * Gets the type with the give (opaque) id
      */
-    default Type getType(TypeId id)
-    {
-        return getType(parseTypeSignature(id.getId()));
-    }
+    Type getType(TypeId id);
 
     /**
      * Gets the type with the specified base type and the given parameters.

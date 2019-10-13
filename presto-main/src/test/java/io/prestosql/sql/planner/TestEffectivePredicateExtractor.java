@@ -38,6 +38,7 @@ import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeId;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.analyzer.TypeSignatureProvider;
 import io.prestosql.sql.parser.SqlParser;
@@ -137,6 +138,17 @@ public class TestEffectivePredicateExtractor
         public Type getType(TypeSignature signature)
         {
             return delegate.getType(signature);
+        }
+
+        public Type fromSqlType(String sqlType)
+        {
+            return delegate.fromSqlType(sqlType);
+        }
+
+        @Override
+        public Type getType(TypeId id)
+        {
+            return delegate.getType(id);
         }
 
         @Override

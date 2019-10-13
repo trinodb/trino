@@ -19,6 +19,7 @@ import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.ParametricType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeId;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.TypeSignatureParameter;
@@ -49,6 +50,18 @@ public final class InternalTypeManager
     public Type getType(TypeSignature signature)
     {
         return metadata.getType(signature);
+    }
+
+    @Override
+    public Type fromSqlType(String type)
+    {
+        return metadata.fromSqlType(type);
+    }
+
+    @Override
+    public Type getType(TypeId id)
+    {
+        return metadata.getType(id);
     }
 
     @Override

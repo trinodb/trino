@@ -83,6 +83,7 @@ import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.spi.statistics.TableStatisticsMetadata;
 import io.prestosql.spi.type.ParametricType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeId;
 import io.prestosql.spi.type.TypeNotFoundException;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.analyzer.FeaturesConfig;
@@ -1209,6 +1210,18 @@ public final class MetadataManager
     public Type getType(TypeSignature signature)
     {
         return typeRegistry.getType(new InternalTypeManager(this), signature);
+    }
+
+    @Override
+    public Type fromSqlType(String sqlType)
+    {
+        return typeRegistry.fromSqlType(new InternalTypeManager(this), sqlType);
+    }
+
+    @Override
+    public Type getType(TypeId id)
+    {
+        return typeRegistry.getType(new InternalTypeManager(this), id);
     }
 
     @Override
