@@ -139,7 +139,7 @@ public class ParquetPageSourceFactory
                 stats));
     }
 
-    public static ParquetPageSource createParquetPageSource(
+    private static ParquetPageSource createParquetPageSource(
             HdfsEnvironment hdfsEnvironment,
             String user,
             Configuration configuration,
