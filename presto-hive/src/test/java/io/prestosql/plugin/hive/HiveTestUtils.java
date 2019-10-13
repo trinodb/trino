@@ -93,7 +93,7 @@ public final class HiveTestUtils
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
         return ImmutableSet.<HivePageSourceFactory>builder()
                 .add(new RcFilePageSourceFactory(TYPE_MANAGER, hdfsEnvironment, stats))
-                .add(new OrcPageSourceFactory(TYPE_MANAGER, new OrcReaderConfig(), hdfsEnvironment, stats))
+                .add(new OrcPageSourceFactory(new OrcReaderConfig(), hdfsEnvironment, stats))
                 .add(new ParquetPageSourceFactory(TYPE_MANAGER, hdfsEnvironment, stats))
                 .build();
     }
@@ -129,7 +129,7 @@ public final class HiveTestUtils
     {
         ImmutableList.Builder<Type> types = ImmutableList.builder();
         for (ColumnHandle columnHandle : columnHandles) {
-            types.add(METADATA.getType(((HiveColumnHandle) columnHandle).getTypeSignature()));
+            types.add(((HiveColumnHandle) columnHandle).getType());
         }
         return types.build();
     }

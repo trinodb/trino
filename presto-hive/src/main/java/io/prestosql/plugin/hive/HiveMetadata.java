@@ -339,8 +339,8 @@ public class HiveMetadata
                 tableName.getSchemaName(),
                 tableName.getTableName(),
                 table.get().getParameters(),
-                getPartitionKeyColumnHandles(table.get()),
-                getHiveBucketHandle(table.get()));
+                getPartitionKeyColumnHandles(table.get(), typeManager),
+                getHiveBucketHandle(table.get(), typeManager));
     }
 
     @Override
@@ -418,14 +418,13 @@ public class HiveMetadata
         }
 
         List<Type> partitionColumnTypes = partitionColumns.stream()
-                .map(HiveColumnHandle::getTypeSignature)
-                .map(typeManager::getType)
+                .map(HiveColumnHandle::getType)
                 .collect(toImmutableList());
 
         List<ColumnMetadata> partitionSystemTableColumns = partitionColumns.stream()
                 .map(column -> new ColumnMetadata(
                         column.getName(),
-                        typeManager.getType(column.getTypeSignature()),
+                        column.getType(),
                         column.getComment().orElse(null),
                         column.isHidden()))
                 .collect(toImmutableList());
@@ -482,9 +481,9 @@ public class HiveMetadata
             throw new TableNotFoundException(tableName);
         }
 
-        Function<HiveColumnHandle, ColumnMetadata> metadataGetter = columnMetadataGetter(table.get(), typeManager);
+        Function<HiveColumnHandle, ColumnMetadata> metadataGetter = columnMetadataGetter(table.get());
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
-        for (HiveColumnHandle columnHandle : hiveColumnHandles(table.get())) {
+        for (HiveColumnHandle columnHandle : hiveColumnHandles(table.get(), typeManager)) {
             columns.add(metadataGetter.apply(columnHandle));
         }
 
@@ -620,7 +619,7 @@ public class HiveMetadata
         SchemaTableName tableName = ((HiveTableHandle) tableHandle).getSchemaTableName();
         Table table = metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
-        return hiveColumnHandles(table).stream()
+        return hiveColumnHandles(table, typeManager).stream()
                 .collect(toImmutableMap(HiveColumnHandle::getName, identity()));
     }
 
@@ -684,7 +683,7 @@ public class HiveMetadata
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
-        return ((HiveColumnHandle) columnHandle).getColumnMetadata(typeManager);
+        return ((HiveColumnHandle) columnHandle).getColumnMetadata();
     }
 
     @Override
@@ -1087,7 +1086,7 @@ public class HiveMetadata
         List<String> partitionColumnNames = partitionColumns.stream()
                 .map(Column::getName)
                 .collect(toImmutableList());
-        List<HiveColumnHandle> hiveColumnHandles = hiveColumnHandles(table);
+        List<HiveColumnHandle> hiveColumnHandles = hiveColumnHandles(table, typeManager);
         Map<String, Type> columnTypes = hiveColumnHandles.stream()
                 .filter(columnHandle -> !columnHandle.isHidden())
                 .collect(toImmutableMap(HiveColumnHandle::getName, column -> column.getHiveType().getType(typeManager)));
@@ -1115,7 +1114,7 @@ public class HiveMetadata
             Map<String, Set<ColumnStatisticType>> columnStatisticTypes = hiveColumnHandles.stream()
                     .filter(columnHandle -> !partitionColumnNames.contains(columnHandle.getName()))
                     .filter(column -> !column.isHidden())
-                    .collect(toImmutableMap(HiveColumnHandle::getName, column -> ImmutableSet.copyOf(metastore.getSupportedColumnStatistics(typeManager.getType(column.getTypeSignature())))));
+                    .collect(toImmutableMap(HiveColumnHandle::getName, column -> ImmutableSet.copyOf(metastore.getSupportedColumnStatistics(column.getType()))));
             Supplier<PartitionStatistics> emptyPartitionStatistics = Suppliers.memoize(() -> createEmptyPartitionStatistics(columnTypes, columnStatisticTypes));
 
             int usedComputedStatistics = 0;
@@ -1389,7 +1388,7 @@ public class HiveMetadata
             }
         }
 
-        List<HiveColumnHandle> handles = hiveColumnHandles(table).stream()
+        List<HiveColumnHandle> handles = hiveColumnHandles(table, typeManager).stream()
                 .filter(columnHandle -> !columnHandle.isHidden())
                 .collect(toList());
 
@@ -1958,7 +1957,7 @@ public class HiveMetadata
             }
         }
 
-        Optional<HiveBucketHandle> hiveBucketHandle = getHiveBucketHandle(table);
+        Optional<HiveBucketHandle> hiveBucketHandle = getHiveBucketHandle(table, typeManager);
         if (!hiveBucketHandle.isPresent()) {
             return Optional.empty();
         }
@@ -2206,7 +2205,7 @@ public class HiveMetadata
             columnHandles.add(new HiveColumnHandle(
                     column.getName(),
                     toHiveType(typeTranslator, column.getType()),
-                    column.getType().getTypeSignature(),
+                    column.getType(),
                     ordinal,
                     columnType,
                     Optional.ofNullable(column.getComment())));
@@ -2236,7 +2235,7 @@ public class HiveMetadata
         }
     }
 
-    private static Function<HiveColumnHandle, ColumnMetadata> columnMetadataGetter(Table table, TypeManager typeManager)
+    private static Function<HiveColumnHandle, ColumnMetadata> columnMetadataGetter(Table table)
     {
         ImmutableList.Builder<String> columnNames = ImmutableList.builder();
         table.getPartitionColumns().stream().map(Column::getName).forEach(columnNames::add);
@@ -2269,7 +2268,7 @@ public class HiveMetadata
 
         return handle -> new ColumnMetadata(
                 handle.getName(),
-                typeManager.getType(handle.getTypeSignature()),
+                handle.getType(),
                 columnComment.get(handle.getName()).orElse(null),
                 columnExtraInfo(handle.isPartitionKey()),
                 handle.isHidden());

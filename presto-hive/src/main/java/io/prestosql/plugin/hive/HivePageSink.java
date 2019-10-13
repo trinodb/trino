@@ -32,7 +32,6 @@ import io.prestosql.spi.block.IntArrayBlockBuilder;
 import io.prestosql.spi.connector.ConnectorPageSink;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 
@@ -93,7 +92,6 @@ public class HivePageSink
             List<HiveColumnHandle> inputColumns,
             Optional<HiveBucketProperty> bucketProperty,
             PageIndexerFactory pageIndexerFactory,
-            TypeManager typeManager,
             HdfsEnvironment hdfsEnvironment,
             int maxOpenWriters,
             ListeningExecutorService writeVerificationExecutor,
@@ -115,8 +113,7 @@ public class HivePageSink
         this.pagePartitioner = new HiveWriterPagePartitioner(
                 inputColumns,
                 bucketProperty.isPresent(),
-                pageIndexerFactory,
-                typeManager);
+                pageIndexerFactory);
 
         // determine the input index of the partition columns and data columns
         // and determine the input index and type of bucketing columns
@@ -401,15 +398,14 @@ public class HivePageSink
         public HiveWriterPagePartitioner(
                 List<HiveColumnHandle> inputColumns,
                 boolean bucketed,
-                PageIndexerFactory pageIndexerFactory,
-                TypeManager typeManager)
+                PageIndexerFactory pageIndexerFactory)
         {
             requireNonNull(inputColumns, "inputColumns is null");
             requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
 
             List<Type> partitionColumnTypes = inputColumns.stream()
                     .filter(HiveColumnHandle::isPartitionKey)
-                    .map(column -> typeManager.getType(column.getTypeSignature()))
+                    .map(HiveColumnHandle::getType)
                     .collect(toList());
 
             if (bucketed) {

@@ -140,7 +140,7 @@ public class IcebergPageSink
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
         this.inputColumns = ImmutableList.copyOf(inputColumns);
-        this.pagePartitioner = new PagePartitioner(pageIndexerFactory, toPartitionColumns(typeManager, inputColumns, partitionSpec));
+        this.pagePartitioner = new PagePartitioner(pageIndexerFactory, toPartitionColumns(inputColumns, partitionSpec));
     }
 
     @Override
@@ -432,7 +432,7 @@ public class IcebergPageSink
         throw new UnsupportedOperationException("Type not supported as partition column: " + type.getDisplayName());
     }
 
-    private static List<PartitionColumn> toPartitionColumns(TypeManager typeManager, List<HiveColumnHandle> handles, PartitionSpec partitionSpec)
+    private static List<PartitionColumn> toPartitionColumns(List<HiveColumnHandle> handles, PartitionSpec partitionSpec)
     {
         Map<String, Integer> nameChannels = new HashMap<>();
         for (int i = 0; i < handles.size(); i++) {
@@ -444,7 +444,7 @@ public class IcebergPageSink
                     String name = partitionSpec.schema().findColumnName(field.sourceId());
                     Integer channel = nameChannels.get(name);
                     checkArgument(channel != null, "partition field not found: %s", field);
-                    Type inputType = typeManager.getType(handles.get(channel).getTypeSignature());
+                    Type inputType = handles.get(channel).getType();
                     ColumnTransform transform = getColumnTransform(field, inputType);
                     return new PartitionColumn(field, channel, inputType, transform.getType(), transform.getTransform());
                 })

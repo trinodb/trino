@@ -233,7 +233,7 @@ public class IcebergPageSourceProvider
                 HiveColumnHandle column = regularColumns.get(columnIndex);
                 org.apache.parquet.schema.Type parquetField = parquetFields.get(columnIndex);
 
-                Type prestoType = typeManager.getType(column.getTypeSignature());
+                Type prestoType = column.getType();
 
                 prestoTypes.add(prestoType);
 

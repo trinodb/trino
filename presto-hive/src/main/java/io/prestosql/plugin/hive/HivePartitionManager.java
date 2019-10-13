@@ -148,7 +148,7 @@ public class HivePartitionManager
         }
 
         List<Type> partitionTypes = partitionColumns.stream()
-                .map(column -> typeManager.getType(column.getTypeSignature()))
+                .map(HiveColumnHandle::getType)
                 .collect(toList());
 
         Iterable<HivePartition> partitionsIterable;
@@ -186,7 +186,7 @@ public class HivePartitionManager
                 .collect(toImmutableList());
 
         List<Type> partitionColumnTypes = partitionColumns.stream()
-                .map(column -> typeManager.getType(column.getTypeSignature()))
+                .map(HiveColumnHandle::getType)
                 .collect(toImmutableList());
 
         List<HivePartition> partitionList = partitionValuesList.stream()

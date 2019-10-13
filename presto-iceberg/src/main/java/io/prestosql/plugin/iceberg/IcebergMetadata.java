@@ -211,7 +211,7 @@ public class IcebergMetadata
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         HiveColumnHandle column = (HiveColumnHandle) columnHandle;
-        return new ColumnMetadata(column.getName(), typeManager.getType(column.getTypeSignature()));
+        return new ColumnMetadata(column.getName(), column.getType());
     }
 
     @Override

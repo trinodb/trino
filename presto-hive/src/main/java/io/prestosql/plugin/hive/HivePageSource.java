@@ -149,7 +149,7 @@ public class HivePageSource
             HiveColumnHandle column = columnMapping.getHiveColumnHandle();
 
             String name = column.getName();
-            Type type = typeManager.getType(column.getTypeSignature());
+            Type type = column.getType();
             types[columnIndex] = type;
 
             if (columnMapping.getCoercionFrom().isPresent()) {
@@ -340,8 +340,8 @@ public class HivePageSource
 
     private static Function<Block, Block> createCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType)
     {
-        Type fromType = typeManager.getType(fromHiveType.getTypeSignature());
-        Type toType = typeManager.getType(toHiveType.getTypeSignature());
+        Type fromType = fromHiveType.getType(typeManager);
+        Type toType = toHiveType.getType(typeManager);
         if (toType instanceof VarcharType && (fromHiveType.equals(HIVE_BYTE) || fromHiveType.equals(HIVE_SHORT) || fromHiveType.equals(HIVE_INT) || fromHiveType.equals(HIVE_LONG))) {
             return new IntegerNumberToVarcharCoercer<>(fromType, (VarcharType) toType);
         }
