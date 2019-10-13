@@ -20,7 +20,6 @@ import com.google.common.collect.Iterables;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
@@ -53,7 +52,9 @@ import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.SystemSessionProperties.isOptimizeDistinctAggregationEnabled;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.prestosql.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static java.util.Objects.requireNonNull;
@@ -205,7 +206,7 @@ public class OptimizeMixedDistinctAggregations
             Assignments.Builder outputSymbols = Assignments.builder();
             for (Symbol symbol : aggregationNode.getOutputSymbols()) {
                 if (coalesceSymbols.containsKey(symbol)) {
-                    Expression expression = new CoalesceExpression(symbol.toSymbolReference(), new Cast(new LongLiteral("0"), "bigint"));
+                    Expression expression = new CoalesceExpression(symbol.toSymbolReference(), new Cast(new LongLiteral("0"), toSqlType(BIGINT)));
                     outputSymbols.put(coalesceSymbols.get(symbol), expression);
                 }
                 else {
@@ -250,7 +251,7 @@ public class OptimizeMixedDistinctAggregations
             allSymbols.add(distinctSymbol);
 
             // 1. Add GroupIdNode
-            Symbol groupSymbol = symbolAllocator.newSymbol("group", BigintType.BIGINT); // g
+            Symbol groupSymbol = symbolAllocator.newSymbol("group", BIGINT); // g
             GroupIdNode groupIdNode = createGroupIdNode(
                     groupBySymbols,
                     nonDistinctAggregateSymbols,
@@ -332,7 +333,7 @@ public class OptimizeMixedDistinctAggregations
 
                     Expression expression = createIfExpression(
                             groupSymbol.toSymbolReference(),
-                            new Cast(new LongLiteral("1"), "bigint"), // TODO: this should use GROUPING() when that's available instead of relying on specific group numbering
+                            new Cast(new LongLiteral("1"), toSqlType(BIGINT)), // TODO: this should use GROUPING() when that's available instead of relying on specific group numbering
                             ComparisonExpression.Operator.EQUAL,
                             symbol.toSymbolReference(),
                             symbolAllocator.getTypes().get(symbol));
@@ -344,7 +345,7 @@ public class OptimizeMixedDistinctAggregations
                     outputNonDistinctAggregateSymbols.put(aggregationOutputSymbolsMap.get(symbol), newSymbol);
                     Expression expression = createIfExpression(
                             groupSymbol.toSymbolReference(),
-                            new Cast(new LongLiteral("0"), "bigint"), // TODO: this should use GROUPING() when that's available instead of relying on specific group numbering
+                            new Cast(new LongLiteral("0"), toSqlType(BIGINT)), // TODO: this should use GROUPING() when that's available instead of relying on specific group numbering
                             ComparisonExpression.Operator.EQUAL,
                             symbol.toSymbolReference(),
                             symbolAllocator.getTypes().get(symbol));
@@ -470,7 +471,7 @@ public class OptimizeMixedDistinctAggregations
             return new IfExpression(
                     new ComparisonExpression(operator, left, right),
                     result,
-                    new Cast(new NullLiteral(), trueValueType.getTypeSignature().toString()));
+                    new Cast(new NullLiteral(), toSqlType(trueValueType)));
         }
     }
 

@@ -40,7 +40,8 @@ import java.util.Objects;
 import java.util.function.Consumer;
 
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.spi.type.StandardTypes.BIGINT;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN;
@@ -683,14 +684,14 @@ public class TestComparisonStatsCalculator
     public void symbolToCastExpressionNotEqual()
     {
         double rowCount = 807.3;
-        assertCalculate(new ComparisonExpression(NOT_EQUAL, new SymbolReference("u"), new Cast(new SymbolReference("w"), BIGINT)))
+        assertCalculate(new ComparisonExpression(NOT_EQUAL, new SymbolReference("u"), new Cast(new SymbolReference("w"), toSqlType(BIGINT))))
                 .outputRowsCount(rowCount)
                 .symbolStats("u", equalTo(capNDV(zeroNullsFraction(uStats), rowCount)))
                 .symbolStats("w", equalTo(capNDV(wStats, rowCount)))
                 .symbolStats("z", equalTo(capNDV(zStats, rowCount)));
 
         rowCount = 897.0;
-        assertCalculate(new ComparisonExpression(NOT_EQUAL, new SymbolReference("u"), new Cast(new LongLiteral("10"), BIGINT)))
+        assertCalculate(new ComparisonExpression(NOT_EQUAL, new SymbolReference("u"), new Cast(new LongLiteral("10"), toSqlType(BIGINT))))
                 .outputRowsCount(rowCount)
                 .symbolStats("u", equalTo(capNDV(updateNDV(zeroNullsFraction(uStats), -1), rowCount)))
                 .symbolStats("z", equalTo(capNDV(zStats, rowCount)));

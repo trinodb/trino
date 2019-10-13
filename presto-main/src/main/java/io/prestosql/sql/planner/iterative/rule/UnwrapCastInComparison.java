@@ -20,7 +20,6 @@ import io.prestosql.metadata.OperatorNotFoundException;
 import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.predicate.Utils;
-import io.prestosql.spi.type.BooleanType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.InterpretedFunctionInvoker;
@@ -41,11 +40,13 @@ import io.prestosql.type.TypeCoercion;
 import java.util.Optional;
 
 import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.sql.ExpressionUtils.and;
 import static io.prestosql.sql.ExpressionUtils.or;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
@@ -159,7 +160,7 @@ public class UnwrapCastInComparison
                     case LESS_THAN_OR_EQUAL:
                     case GREATER_THAN:
                     case GREATER_THAN_OR_EQUAL:
-                        return new Cast(new NullLiteral(), BooleanType.BOOLEAN.toString());
+                        return new Cast(new NullLiteral(), toSqlType(BOOLEAN));
                     case IS_DISTINCT_FROM:
                         return new IsNotNullPredicate(cast);
                     default:

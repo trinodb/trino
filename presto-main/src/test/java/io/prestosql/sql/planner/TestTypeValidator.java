@@ -23,7 +23,6 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.plan.AggregationNode;
@@ -57,6 +56,7 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.prestosql.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.prestosql.testing.TestingHandles.TEST_TABLE_HANDLE;
@@ -105,8 +105,8 @@ public class TestTypeValidator
     @Test
     public void testValidProject()
     {
-        Expression expression1 = new Cast(columnB.toSymbolReference(), StandardTypes.BIGINT);
-        Expression expression2 = new Cast(columnC.toSymbolReference(), StandardTypes.BIGINT);
+        Expression expression1 = new Cast(columnB.toSymbolReference(), toSqlType(BIGINT));
+        Expression expression2 = new Cast(columnC.toSymbolReference(), toSqlType(BIGINT));
         Assignments assignments = Assignments.builder()
                 .put(symbolAllocator.newSymbol(expression1, BIGINT), expression1)
                 .put(symbolAllocator.newSymbol(expression2, BIGINT), expression2)
@@ -195,7 +195,7 @@ public class TestTypeValidator
     @Test
     public void testValidTypeOnlyCoercion()
     {
-        Expression expression = new Cast(columnB.toSymbolReference(), StandardTypes.BIGINT);
+        Expression expression = new Cast(columnB.toSymbolReference(), toSqlType(BIGINT));
         Assignments assignments = Assignments.builder()
                 .put(symbolAllocator.newSymbol(expression, BIGINT), expression)
                 .put(symbolAllocator.newSymbol(columnE.toSymbolReference(), VARCHAR), columnE.toSymbolReference()) // implicit coercion from varchar(3) to varchar
@@ -208,8 +208,8 @@ public class TestTypeValidator
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "type of symbol 'expr(_[0-9]+)?' is expected to be bigint, but the actual type is integer")
     public void testInvalidProject()
     {
-        Expression expression1 = new Cast(columnB.toSymbolReference(), StandardTypes.INTEGER);
-        Expression expression2 = new Cast(columnA.toSymbolReference(), StandardTypes.INTEGER);
+        Expression expression1 = new Cast(columnB.toSymbolReference(), toSqlType(INTEGER));
+        Expression expression2 = new Cast(columnA.toSymbolReference(), toSqlType(INTEGER));
         Assignments assignments = Assignments.builder()
                 .put(symbolAllocator.newSymbol(expression1, BIGINT), expression1) // should be INTEGER
                 .put(symbolAllocator.newSymbol(expression1, INTEGER), expression2)

@@ -28,7 +28,6 @@ import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.SqlDate;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.tree.ArithmeticUnaryExpression;
@@ -58,6 +57,7 @@ import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
@@ -99,7 +99,7 @@ public final class LiteralEncoder
             if (type.equals(UNKNOWN)) {
                 return new NullLiteral();
             }
-            return new Cast(new NullLiteral(), type.getTypeSignature().toString(), false, true);
+            return new Cast(new NullLiteral(), toSqlType(type), false, true);
         }
 
         checkArgument(Primitives.wrap(type.getJavaType()).isInstance(object), "object.getClass (%s) and type.getJavaType (%s) do not agree", object.getClass(), type.getJavaType());
@@ -155,21 +155,21 @@ public final class LiteralEncoder
                         new FunctionCallBuilder(metadata)
                                 .setName(QualifiedName.of("nan"))
                                 .build(),
-                        StandardTypes.REAL);
+                        toSqlType(REAL));
             }
             if (value.equals(Float.NEGATIVE_INFINITY)) {
                 return ArithmeticUnaryExpression.negative(new Cast(
                         new FunctionCallBuilder(metadata)
                                 .setName(QualifiedName.of("infinity"))
                                 .build(),
-                        StandardTypes.REAL));
+                        toSqlType(REAL)));
             }
             if (value.equals(Float.POSITIVE_INFINITY)) {
                 return new Cast(
                         new FunctionCallBuilder(metadata)
                                 .setName(QualifiedName.of("infinity"))
                                 .build(),
-                        StandardTypes.REAL);
+                        toSqlType(REAL));
             }
             return new GenericLiteral("REAL", value.toString());
         }
@@ -182,7 +182,7 @@ public final class LiteralEncoder
             else {
                 string = Decimals.toString((Slice) object, ((DecimalType) type).getScale());
             }
-            return new Cast(new DecimalLiteral(string), type.getDisplayName());
+            return new Cast(new DecimalLiteral(string), toSqlType(type));
         }
 
         if (type instanceof VarcharType) {
@@ -193,12 +193,12 @@ public final class LiteralEncoder
             if (!varcharType.isUnbounded() && varcharType.getBoundedLength() == SliceUtf8.countCodePoints(value)) {
                 return stringLiteral;
             }
-            return new Cast(stringLiteral, type.getDisplayName(), false, true);
+            return new Cast(stringLiteral, toSqlType(type), false, true);
         }
 
         if (type instanceof CharType) {
             StringLiteral stringLiteral = new StringLiteral(((Slice) object).toStringUtf8());
-            return new Cast(stringLiteral, type.getDisplayName(), false, true);
+            return new Cast(stringLiteral, toSqlType(type), false, true);
         }
 
         if (type.equals(BOOLEAN)) {

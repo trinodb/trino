@@ -333,7 +333,7 @@ public class TestLogicalPlanner
                 anyTree(
                         join(LEFT, ImmutableList.of(equiJoinClause("NATION_NAME", "REGION_NAME"), equiJoinClause("NATION_REGIONKEY", "REGION_REGIONKEY")),
                                 anyTree(
-                                        filter("NATION_NAME = CAST ('blah' AS VARCHAR(25))",
+                                        filter("NATION_NAME = CAST ('blah' AS varchar(25))",
                                                 constrainedTableScan(
                                                         "nation",
                                                         ImmutableMap.of(),
@@ -341,7 +341,7 @@ public class TestLogicalPlanner
                                                                 "NATION_NAME", "name",
                                                                 "NATION_REGIONKEY", "regionkey")))),
                                 anyTree(
-                                        filter("REGION_NAME = CAST ('blah' AS VARCHAR(25))",
+                                        filter("REGION_NAME = CAST ('blah' AS varchar(25))",
                                                 constrainedTableScan(
                                                         "region",
                                                         ImmutableMap.of(),

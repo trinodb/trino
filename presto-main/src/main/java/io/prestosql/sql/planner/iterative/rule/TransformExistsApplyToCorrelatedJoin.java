@@ -45,6 +45,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.prestosql.sql.planner.plan.AggregationNode.globalAggregation;
 import static io.prestosql.sql.planner.plan.CorrelatedJoinNode.Type.INNER;
 import static io.prestosql.sql.planner.plan.CorrelatedJoinNode.Type.LEFT;
@@ -173,7 +174,7 @@ public class TransformExistsApplyToCorrelatedJoin
                                 AggregationNode.Step.SINGLE,
                                 Optional.empty(),
                                 Optional.empty()),
-                        Assignments.of(exists, new ComparisonExpression(GREATER_THAN, count.toSymbolReference(), new Cast(new LongLiteral("0"), BIGINT.toString())))),
+                        Assignments.of(exists, new ComparisonExpression(GREATER_THAN, count.toSymbolReference(), new Cast(new LongLiteral("0"), toSqlType(BIGINT))))),
                 parent.getCorrelation(),
                 INNER,
                 TRUE_LITERAL,

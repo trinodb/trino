@@ -34,6 +34,7 @@ import io.prestosql.sql.tree.Cube;
 import io.prestosql.sql.tree.CurrentPath;
 import io.prestosql.sql.tree.CurrentTime;
 import io.prestosql.sql.tree.CurrentUser;
+import io.prestosql.sql.tree.DateTimeDataType;
 import io.prestosql.sql.tree.DecimalLiteral;
 import io.prestosql.sql.tree.DereferenceExpression;
 import io.prestosql.sql.tree.DoubleLiteral;
@@ -44,6 +45,7 @@ import io.prestosql.sql.tree.FieldReference;
 import io.prestosql.sql.tree.Format;
 import io.prestosql.sql.tree.FrameBound;
 import io.prestosql.sql.tree.FunctionCall;
+import io.prestosql.sql.tree.GenericDataType;
 import io.prestosql.sql.tree.GenericLiteral;
 import io.prestosql.sql.tree.GroupingElement;
 import io.prestosql.sql.tree.GroupingOperation;
@@ -52,6 +54,7 @@ import io.prestosql.sql.tree.Identifier;
 import io.prestosql.sql.tree.IfExpression;
 import io.prestosql.sql.tree.InListExpression;
 import io.prestosql.sql.tree.InPredicate;
+import io.prestosql.sql.tree.IntervalDayTimeDataType;
 import io.prestosql.sql.tree.IntervalLiteral;
 import io.prestosql.sql.tree.IsNotNullPredicate;
 import io.prestosql.sql.tree.IsNullPredicate;
@@ -64,11 +67,13 @@ import io.prestosql.sql.tree.Node;
 import io.prestosql.sql.tree.NotExpression;
 import io.prestosql.sql.tree.NullIfExpression;
 import io.prestosql.sql.tree.NullLiteral;
+import io.prestosql.sql.tree.NumericParameter;
 import io.prestosql.sql.tree.OrderBy;
 import io.prestosql.sql.tree.Parameter;
 import io.prestosql.sql.tree.QuantifiedComparisonExpression;
 import io.prestosql.sql.tree.Rollup;
 import io.prestosql.sql.tree.Row;
+import io.prestosql.sql.tree.RowDataType;
 import io.prestosql.sql.tree.SearchedCaseExpression;
 import io.prestosql.sql.tree.SimpleCaseExpression;
 import io.prestosql.sql.tree.SimpleGroupBy;
@@ -80,6 +85,7 @@ import io.prestosql.sql.tree.SymbolReference;
 import io.prestosql.sql.tree.TimeLiteral;
 import io.prestosql.sql.tree.TimestampLiteral;
 import io.prestosql.sql.tree.TryExpression;
+import io.prestosql.sql.tree.TypeParameter;
 import io.prestosql.sql.tree.WhenClause;
 import io.prestosql.sql.tree.Window;
 import io.prestosql.sql.tree.WindowFrame;
@@ -546,7 +552,7 @@ public final class ExpressionFormatter
         public String visitCast(Cast node, Void context)
         {
             return (node.isSafe() ? "TRY_CAST" : "CAST") +
-                    "(" + process(node.getExpression(), context) + " AS " + node.getType() + ")";
+                    "(" + process(node.getExpression(), context) + " AS " + process(node.getType(), context) + ")";
         }
 
         @Override
@@ -691,6 +697,90 @@ public final class ExpressionFormatter
         public String visitGroupingOperation(GroupingOperation node, Void context)
         {
             return "GROUPING (" + joinExpressions(node.getGroupingColumns()) + ")";
+        }
+
+        @Override
+        protected String visitRowDataType(RowDataType node, Void context)
+        {
+            return node.getFields().stream()
+                    .map(this::process)
+                    .collect(Collectors.joining(", ", "ROW(", ")"));
+        }
+
+        @Override
+        protected String visitRowField(RowDataType.Field node, Void context)
+        {
+            StringBuilder result = new StringBuilder();
+
+            if (node.getName().isPresent()) {
+                result.append(process(node.getName().get(), context));
+                result.append(" ");
+            }
+
+            result.append(process(node.getType(), context));
+
+            return result.toString();
+        }
+
+        @Override
+        protected String visitGenericDataType(GenericDataType node, Void context)
+        {
+            StringBuilder result = new StringBuilder();
+            result.append(node.getName());
+
+            if (!node.getArguments().isEmpty()) {
+                result.append(node.getArguments().stream()
+                        .map(this::process)
+                        .collect(Collectors.joining(", ", "(", ")")));
+            }
+
+            return result.toString();
+        }
+
+        @Override
+        protected String visitTypeParameter(TypeParameter node, Void context)
+        {
+            return process(node.getValue(), context);
+        }
+
+        @Override
+        protected String visitNumericTypeParameter(NumericParameter node, Void context)
+        {
+            return node.getValue();
+        }
+
+        @Override
+        protected String visitIntervalDataType(IntervalDayTimeDataType node, Void context)
+        {
+            StringBuilder builder = new StringBuilder();
+
+            builder.append("INTERVAL ");
+            builder.append(node.getFrom());
+            if (node.getFrom() != node.getTo()) {
+                builder.append(" TO ")
+                        .append(node.getTo());
+            }
+
+            return builder.toString();
+        }
+
+        @Override
+        protected String visitDateTimeType(DateTimeDataType node, Void context)
+        {
+            StringBuilder builder = new StringBuilder();
+
+            builder.append(node.getType().toString().toLowerCase(Locale.ENGLISH)); // TODO: normalize to upper case according to standard SQL semantics
+            if (node.getPrecision().isPresent()) {
+                builder.append("(")
+                        .append(node.getPrecision().get())
+                        .append(")");
+            }
+
+            if (node.isWithTimeZone()) {
+                builder.append(" with time zone"); // TODO: normalize to upper case according to standard SQL semantics
+            }
+
+            return builder.toString();
         }
 
         private String formatBinaryExpression(String operator, Expression left, Expression right)

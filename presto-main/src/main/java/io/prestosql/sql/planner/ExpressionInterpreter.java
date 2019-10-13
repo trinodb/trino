@@ -130,6 +130,8 @@ import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.sql.analyzer.ConstantExpressionVerifier.verifyExpressionIsConstant;
 import static io.prestosql.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.prestosql.sql.gen.VarArgsToMapAdapterGenerator.generateVarArgsToMapAdapter;
 import static io.prestosql.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.prestosql.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
@@ -1058,10 +1060,10 @@ public class ExpressionInterpreter
                 Expression patternExpression = toExpression(unescapedPattern, patternType);
                 Type superType = commonSuperType.get();
                 if (!valueType.equals(superType)) {
-                    valueExpression = new Cast(valueExpression, superType.getTypeSignature().toString(), false, typeCoercion.isTypeOnlyCoercion(valueType, superType));
+                    valueExpression = new Cast(valueExpression, toSqlType(superType), false, typeCoercion.isTypeOnlyCoercion(valueType, superType));
                 }
                 if (!patternType.equals(superType)) {
-                    patternExpression = new Cast(patternExpression, superType.getTypeSignature().toString(), false, typeCoercion.isTypeOnlyCoercion(patternType, superType));
+                    patternExpression = new Cast(patternExpression, toSqlType(superType), false, typeCoercion.isTypeOnlyCoercion(patternType, superType));
                 }
                 return new ComparisonExpression(ComparisonExpression.Operator.EQUAL, valueExpression, patternExpression);
             }
@@ -1113,7 +1115,7 @@ public class ExpressionInterpreter
         public Object visitCast(Cast node, Object context)
         {
             Object value = process(node.getExpression(), context);
-            Type targetType = metadata.fromSqlType(node.getType());
+            Type targetType = metadata.getType(toTypeSignature(node.getType()));
             Type sourceType = type(node.getExpression());
             if (value instanceof Expression) {
                 if (targetType.equals(sourceType)) {
@@ -1346,7 +1348,7 @@ public class ExpressionInterpreter
                 .addArgument(JSON, jsonParse)
                 .build();
 
-        return new Cast(failureFunction, type.getTypeSignature().toString());
+        return new Cast(failureFunction, toSqlType(type));
     }
 
     private static boolean isArray(Type type)

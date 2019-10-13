@@ -30,7 +30,6 @@ import io.prestosql.spi.statistics.Estimate;
 import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.IntegerType;
 import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.SmallintType;
@@ -74,12 +73,13 @@ import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.prestosql.spi.type.DateType.DATE;
-import static io.prestosql.spi.type.StandardTypes.DOUBLE;
-import static io.prestosql.spi.type.StandardTypes.VARCHAR;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.QueryUtil.aliased;
 import static io.prestosql.sql.QueryUtil.selectAll;
 import static io.prestosql.sql.QueryUtil.simpleQuery;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static java.lang.Math.round;
 import static java.util.Objects.requireNonNull;
@@ -87,8 +87,8 @@ import static java.util.Objects.requireNonNull;
 public class ShowStatsRewrite
         implements StatementRewrite.Rewrite
 {
-    private static final Expression NULL_DOUBLE = new Cast(new NullLiteral(), DOUBLE);
-    private static final Expression NULL_VARCHAR = new Cast(new NullLiteral(), VARCHAR);
+    private static final Expression NULL_DOUBLE = new Cast(new NullLiteral(), toSqlType(DOUBLE));
+    private static final Expression NULL_VARCHAR = new Cast(new NullLiteral(), toSqlType(VARCHAR));
 
     @Override
     public Statement rewrite(Session session, Metadata metadata, SqlParser parser, Optional<QueryExplainer> queryExplainer, Statement node, List<Expression> parameters, Map<NodeRef<Parameter>, Expression> parameterLookup, AccessControl accessControl, WarningCollector warningCollector)
@@ -313,7 +313,7 @@ public class ShowStatsRewrite
             if (type.equals(BigintType.BIGINT) || type.equals(IntegerType.INTEGER) || type.equals(SmallintType.SMALLINT) || type.equals(TinyintType.TINYINT)) {
                 return new StringLiteral(Long.toString(round(value)));
             }
-            if (type.equals(DoubleType.DOUBLE) || type instanceof DecimalType) {
+            if (type.equals(DOUBLE) || type instanceof DecimalType) {
                 return new StringLiteral(Double.toString(value));
             }
             if (type.equals(RealType.REAL)) {

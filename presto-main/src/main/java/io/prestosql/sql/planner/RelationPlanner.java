@@ -96,6 +96,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.sql.analyzer.SemanticExceptions.notSupportedException;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.prestosql.sql.tree.Join.Type.CROSS;
@@ -459,7 +460,7 @@ class RelationPlanner
             int leftField = joinAnalysis.getLeftJoinFields().get(i);
             leftCoercions.put(leftOutput, new Cast(
                     left.getSymbol(leftField).toSymbolReference(),
-                    type.getTypeSignature().toString(),
+                    toSqlType(type),
                     false,
                     typeCoercion.isTypeOnlyCoercion(left.getDescriptor().getFieldByIndex(leftField).getType(), type)));
             leftJoinColumns.put(identifier, leftOutput);
@@ -469,7 +470,7 @@ class RelationPlanner
             int rightField = joinAnalysis.getRightJoinFields().get(i);
             rightCoercions.put(rightOutput, new Cast(
                     right.getSymbol(rightField).toSymbolReference(),
-                    type.getTypeSignature().toString(),
+                    toSqlType(type),
                     false,
                     typeCoercion.isTypeOnlyCoercion(right.getDescriptor().getFieldByIndex(rightField).getType(), type)));
             rightJoinColumns.put(identifier, rightOutput);
@@ -823,7 +824,7 @@ class RelationPlanner
             Type inputType = symbolAllocator.getTypes().get(inputSymbol);
             Type outputType = targetColumnTypes[i];
             if (!outputType.equals(inputType)) {
-                Expression cast = new Cast(inputSymbol.toSymbolReference(), outputType.getTypeSignature().toString());
+                Expression cast = new Cast(inputSymbol.toSymbolReference(), toSqlType(outputType));
                 Symbol outputSymbol = symbolAllocator.newSymbol(cast, outputType);
                 assignments.put(outputSymbol, cast);
                 newSymbols.add(outputSymbol);
