@@ -17,8 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
-import io.prestosql.spi.type.TypeManager;
-import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.spi.type.Type;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -30,6 +29,8 @@ import static io.prestosql.plugin.hive.HiveType.HIVE_INT;
 import static io.prestosql.plugin.hive.HiveType.HIVE_LONG;
 import static io.prestosql.plugin.hive.HiveType.HIVE_STRING;
 import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
 public class HiveColumnHandle
@@ -38,22 +39,22 @@ public class HiveColumnHandle
     public static final int PATH_COLUMN_INDEX = -11;
     public static final String PATH_COLUMN_NAME = "$path";
     public static final HiveType PATH_HIVE_TYPE = HIVE_STRING;
-    public static final TypeSignature PATH_TYPE_SIGNATURE = PATH_HIVE_TYPE.getTypeSignature();
+    public static final Type PATH_TYPE = VARCHAR;
 
     public static final int BUCKET_COLUMN_INDEX = -12;
     public static final String BUCKET_COLUMN_NAME = "$bucket";
     public static final HiveType BUCKET_HIVE_TYPE = HIVE_INT;
-    public static final TypeSignature BUCKET_TYPE_SIGNATURE = BUCKET_HIVE_TYPE.getTypeSignature();
+    public static final Type BUCKET_TYPE_SIGNATURE = INTEGER;
 
     public static final int FILE_SIZE_COLUMN_INDEX = -13;
     public static final String FILE_SIZE_COLUMN_NAME = "$file_size";
     public static final HiveType FILE_SIZE_TYPE = HIVE_LONG;
-    public static final TypeSignature FILE_SIZE_TYPE_SIGNATURE = FILE_SIZE_TYPE.getTypeSignature();
+    public static final Type FILE_SIZE_TYPE_SIGNATURE = BIGINT;
 
     public static final int FILE_MODIFIED_TIME_COLUMN_INDEX = -14;
     public static final String FILE_MODIFIED_TIME_COLUMN_NAME = "$file_modified_time";
     public static final HiveType FILE_MODIFIED_TIME_TYPE = HIVE_LONG;
-    public static final TypeSignature FILE_MODIFIED_TIME_TYPE_SIGNATURE = FILE_SIZE_TYPE.getTypeSignature();
+    public static final Type FILE_MODIFIED_TIME_TYPE_SIGNATURE = BIGINT;
 
     private static final String UPDATE_ROW_ID_COLUMN_NAME = "$shard_row_id";
 
@@ -66,7 +67,7 @@ public class HiveColumnHandle
 
     private final String name;
     private final HiveType hiveType;
-    private final TypeSignature typeName;
+    private final Type type;
     private final int hiveColumnIndex;
     private final ColumnType columnType;
     private final Optional<String> comment;
@@ -75,7 +76,7 @@ public class HiveColumnHandle
     public HiveColumnHandle(
             @JsonProperty("name") String name,
             @JsonProperty("hiveType") HiveType hiveType,
-            @JsonProperty("typeSignature") TypeSignature typeSignature,
+            @JsonProperty("type") Type type,
             @JsonProperty("hiveColumnIndex") int hiveColumnIndex,
             @JsonProperty("columnType") ColumnType columnType,
             @JsonProperty("comment") Optional<String> comment)
@@ -84,7 +85,7 @@ public class HiveColumnHandle
         checkArgument(hiveColumnIndex >= 0 || columnType == PARTITION_KEY || columnType == SYNTHESIZED, "hiveColumnIndex is negative");
         this.hiveColumnIndex = hiveColumnIndex;
         this.hiveType = requireNonNull(hiveType, "hiveType is null");
-        this.typeName = requireNonNull(typeSignature, "type is null");
+        this.type = requireNonNull(type, "type is null");
         this.columnType = requireNonNull(columnType, "columnType is null");
         this.comment = requireNonNull(comment, "comment is null");
     }
@@ -117,9 +118,9 @@ public class HiveColumnHandle
         return columnType == SYNTHESIZED;
     }
 
-    public ColumnMetadata getColumnMetadata(TypeManager typeManager)
+    public ColumnMetadata getColumnMetadata()
     {
-        return new ColumnMetadata(name, typeManager.getType(typeName), null, isHidden());
+        return new ColumnMetadata(name, type, null, isHidden());
     }
 
     @JsonProperty
@@ -129,9 +130,9 @@ public class HiveColumnHandle
     }
 
     @JsonProperty
-    public TypeSignature getTypeSignature()
+    public Type getType()
     {
-        return typeName;
+        return type;
     }
 
     @JsonProperty
@@ -177,12 +178,12 @@ public class HiveColumnHandle
         // plan-time support for row-by-row delete so that planning doesn't fail. This is why we need
         // rowid handle. Note that in Hive connector, rowid handle is not implemented beyond plan-time.
 
-        return new HiveColumnHandle(UPDATE_ROW_ID_COLUMN_NAME, HIVE_LONG, BIGINT.getTypeSignature(), -1, SYNTHESIZED, Optional.empty());
+        return new HiveColumnHandle(UPDATE_ROW_ID_COLUMN_NAME, HIVE_LONG, BIGINT, -1, SYNTHESIZED, Optional.empty());
     }
 
     public static HiveColumnHandle pathColumnHandle()
     {
-        return new HiveColumnHandle(PATH_COLUMN_NAME, PATH_HIVE_TYPE, PATH_TYPE_SIGNATURE, PATH_COLUMN_INDEX, SYNTHESIZED, Optional.empty());
+        return new HiveColumnHandle(PATH_COLUMN_NAME, PATH_HIVE_TYPE, PATH_TYPE, PATH_COLUMN_INDEX, SYNTHESIZED, Optional.empty());
     }
 
     /**

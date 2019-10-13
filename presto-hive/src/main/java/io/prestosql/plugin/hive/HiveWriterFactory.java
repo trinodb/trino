@@ -206,7 +206,7 @@ public class HiveWriterFactory
             HiveType hiveType = column.getHiveType();
             if (column.isPartitionKey()) {
                 partitionColumnNames.add(column.getName());
-                partitionColumnTypes.add(typeManager.getType(column.getTypeSignature()));
+                partitionColumnTypes.add(column.getType());
             }
             else {
                 dataColumns.add(new DataColumn(column.getName(), hiveType));

@@ -93,8 +93,7 @@ public class GenericHiveRecordCursorProvider
                     length,
                     schema,
                     columns,
-                    hiveStorageTimeZone,
-                    typeManager));
+                    hiveStorageTimeZone));
         });
     }
 

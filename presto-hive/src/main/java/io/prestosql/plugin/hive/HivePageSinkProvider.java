@@ -167,7 +167,6 @@ public class HivePageSinkProvider
                 handle.getInputColumns(),
                 handle.getBucketProperty(),
                 pageIndexerFactory,
-                typeManager,
                 hdfsEnvironment,
                 maxOpenPartitions,
                 writeVerificationExecutor,

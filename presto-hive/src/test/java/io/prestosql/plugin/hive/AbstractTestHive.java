@@ -625,11 +625,11 @@ public abstract class AbstractTestHive
 
         invalidTableHandle = new HiveTableHandle(database, INVALID_TABLE, ImmutableMap.of(), ImmutableList.of(), Optional.empty());
 
-        dsColumn = new HiveColumnHandle("ds", HIVE_STRING, VARCHAR.getTypeSignature(), -1, PARTITION_KEY, Optional.empty());
-        fileFormatColumn = new HiveColumnHandle("file_format", HIVE_STRING, VARCHAR.getTypeSignature(), -1, PARTITION_KEY, Optional.empty());
-        dummyColumn = new HiveColumnHandle("dummy", HIVE_INT, INTEGER.getTypeSignature(), -1, PARTITION_KEY, Optional.empty());
-        intColumn = new HiveColumnHandle("t_int", HIVE_INT, INTEGER.getTypeSignature(), -1, PARTITION_KEY, Optional.empty());
-        invalidColumnHandle = new HiveColumnHandle(INVALID_COLUMN, HIVE_STRING, VARCHAR.getTypeSignature(), 0, REGULAR, Optional.empty());
+        dsColumn = new HiveColumnHandle("ds", HIVE_STRING, VARCHAR, -1, PARTITION_KEY, Optional.empty());
+        fileFormatColumn = new HiveColumnHandle("file_format", HIVE_STRING, VARCHAR, -1, PARTITION_KEY, Optional.empty());
+        dummyColumn = new HiveColumnHandle("dummy", HIVE_INT, INTEGER, -1, PARTITION_KEY, Optional.empty());
+        intColumn = new HiveColumnHandle("t_int", HIVE_INT, INTEGER, -1, PARTITION_KEY, Optional.empty());
+        invalidColumnHandle = new HiveColumnHandle(INVALID_COLUMN, HIVE_STRING, VARCHAR, 0, REGULAR, Optional.empty());
 
         List<ColumnHandle> partitionColumns = ImmutableList.of(dsColumn, fileFormatColumn, dummyColumn);
         tablePartitionFormatPartitions = ImmutableList.<HivePartition>builder()

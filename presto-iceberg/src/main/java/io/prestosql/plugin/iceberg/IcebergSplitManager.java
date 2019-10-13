@@ -21,6 +21,7 @@ import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.classloader.ClassLoaderSafeConnectorSplitSource;
+import io.prestosql.spi.type.TypeManager;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
 
@@ -35,12 +36,14 @@ public class IcebergSplitManager
 {
     private final IcebergTransactionManager transactionManager;
     private final HdfsEnvironment hdfsEnvironment;
+    private final TypeManager typeManager;
 
     @Inject
-    public IcebergSplitManager(IcebergTransactionManager transactionManager, HdfsEnvironment hdfsEnvironment)
+    public IcebergSplitManager(IcebergTransactionManager transactionManager, HdfsEnvironment hdfsEnvironment, TypeManager typeManager)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     @Override

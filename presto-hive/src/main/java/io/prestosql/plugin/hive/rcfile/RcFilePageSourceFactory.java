@@ -147,7 +147,7 @@ public class RcFilePageSourceFactory
                     length,
                     new DataSize(8, Unit.MEGABYTE));
 
-            return Optional.of(new RcFilePageSource(rcFileReader, columns, typeManager));
+            return Optional.of(new RcFilePageSource(rcFileReader, columns));
         }
         catch (Throwable e) {
             try {

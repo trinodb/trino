@@ -45,6 +45,7 @@ import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.VarbinaryType;
 import io.prestosql.spi.type.VarcharType;
 import org.apache.hadoop.conf.Configuration;
@@ -848,15 +849,15 @@ public final class HiveUtil
         return partitionKey;
     }
 
-    public static List<HiveColumnHandle> hiveColumnHandles(Table table)
+    public static List<HiveColumnHandle> hiveColumnHandles(Table table, TypeManager typeManager)
     {
         ImmutableList.Builder<HiveColumnHandle> columns = ImmutableList.builder();
 
         // add the data fields first
-        columns.addAll(getRegularColumnHandles(table));
+        columns.addAll(getRegularColumnHandles(table, typeManager));
 
         // add the partition keys last (like Hive does)
-        columns.addAll(getPartitionKeyColumnHandles(table));
+        columns.addAll(getPartitionKeyColumnHandles(table, typeManager));
 
         // add hidden columns
         columns.add(pathColumnHandle());
@@ -872,7 +873,7 @@ public final class HiveUtil
         return columns.build();
     }
 
-    public static List<HiveColumnHandle> getRegularColumnHandles(Table table)
+    public static List<HiveColumnHandle> getRegularColumnHandles(Table table, TypeManager typeManager)
     {
         ImmutableList.Builder<HiveColumnHandle> columns = ImmutableList.builder();
 
@@ -881,7 +882,7 @@ public final class HiveUtil
             // ignore unsupported types rather than failing
             HiveType hiveType = field.getType();
             if (hiveType.isSupportedType()) {
-                columns.add(new HiveColumnHandle(field.getName(), hiveType, hiveType.getTypeSignature(), hiveColumnIndex, REGULAR, field.getComment()));
+                columns.add(new HiveColumnHandle(field.getName(), hiveType, hiveType.getType(typeManager), hiveColumnIndex, REGULAR, field.getComment()));
             }
             hiveColumnIndex++;
         }
@@ -889,7 +890,7 @@ public final class HiveUtil
         return columns.build();
     }
 
-    public static List<HiveColumnHandle> getPartitionKeyColumnHandles(Table table)
+    public static List<HiveColumnHandle> getPartitionKeyColumnHandles(Table table, TypeManager typeManager)
     {
         ImmutableList.Builder<HiveColumnHandle> columns = ImmutableList.builder();
 
@@ -899,7 +900,7 @@ public final class HiveUtil
             if (!hiveType.isSupportedType()) {
                 throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type %s found in partition keys of table %s.%s", hiveType, table.getDatabaseName(), table.getTableName()));
             }
-            columns.add(new HiveColumnHandle(field.getName(), hiveType, hiveType.getTypeSignature(), -1, PARTITION_KEY, field.getComment()));
+            columns.add(new HiveColumnHandle(field.getName(), hiveType, hiveType.getType(typeManager), -1, PARTITION_KEY, field.getComment()));
         }
 
         return columns.build();

@@ -34,7 +34,6 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.FixedPageSource;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
@@ -76,26 +75,23 @@ public class OrcPageSourceFactory
         implements HivePageSourceFactory
 {
     private static final Pattern DEFAULT_HIVE_COLUMN_NAME_PATTERN = Pattern.compile("_col\\d+");
-    private final TypeManager typeManager;
     private final boolean useOrcColumnNames;
     private final OrcReaderOptions orcReaderOptions;
     private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats stats;
 
     @Inject
-    public OrcPageSourceFactory(TypeManager typeManager, OrcReaderConfig config, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats)
+    public OrcPageSourceFactory(OrcReaderConfig config, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats)
     {
-        this(typeManager, requireNonNull(config, "config is null").isUseColumnNames(), config.toOrcReaderOptions(), hdfsEnvironment, stats);
+        this(requireNonNull(config, "config is null").isUseColumnNames(), config.toOrcReaderOptions(), hdfsEnvironment, stats);
     }
 
     public OrcPageSourceFactory(
-            TypeManager typeManager,
             boolean useOrcColumnNames,
             OrcReaderOptions orcReaderOptions,
             HdfsEnvironment hdfsEnvironment,
             FileFormatDataSourceStats stats)
     {
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.useOrcColumnNames = useOrcColumnNames;
         this.orcReaderOptions = requireNonNull(orcReaderOptions, "orcReaderOptions is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -136,7 +132,6 @@ public class OrcPageSourceFactory
                 useOrcColumnNames,
                 effectivePredicate,
                 hiveStorageTimeZone,
-                typeManager,
                 orcReaderOptions
                         .withMaxMergeDistance(getOrcMaxMergeDistance(session))
                         .withMaxBufferSize(getOrcMaxBufferSize(session))
@@ -160,7 +155,6 @@ public class OrcPageSourceFactory
             boolean useOrcColumnNames,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone,
-            TypeManager typeManager,
             OrcReaderOptions options,
             FileFormatDataSourceStats stats)
     {
@@ -192,7 +186,7 @@ public class OrcPageSourceFactory
             ImmutableList.Builder<ColumnReference<HiveColumnHandle>> columnReferences = ImmutableList.builder();
             for (HiveColumnHandle column : physicalColumns) {
                 if (column.getColumnType() == REGULAR) {
-                    Type type = typeManager.getType(column.getTypeSignature());
+                    Type type = column.getType();
                     includedColumnsBuilder.put(column.getHiveColumnIndex(), type);
                     columnReferences.add(new ColumnReference<>(column, column.getHiveColumnIndex(), type));
                 }
@@ -260,7 +254,7 @@ public class OrcPageSourceFactory
                 physicalOrdinal = nextMissingColumnIndex;
                 nextMissingColumnIndex++;
             }
-            physicalColumns.add(new HiveColumnHandle(column.getName(), column.getHiveType(), column.getTypeSignature(), physicalOrdinal, column.getColumnType(), column.getComment()));
+            physicalColumns.add(new HiveColumnHandle(column.getName(), column.getHiveType(), column.getType(), physicalOrdinal, column.getColumnType(), column.getComment()));
         }
         return physicalColumns.build();
     }

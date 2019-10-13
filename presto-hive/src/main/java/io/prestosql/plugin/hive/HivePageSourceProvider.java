@@ -191,7 +191,7 @@ public class HivePageSourceProvider
                     length,
                     fileSize,
                     schema,
-                    toColumnHandles(regularAndInterimColumnMappings, true),
+                    toColumnHandles(regularAndInterimColumnMappings, true, typeManager),
                     effectivePredicate,
                     hiveStorageTimeZone);
             if (pageSource.isPresent()) {
@@ -217,7 +217,7 @@ public class HivePageSourceProvider
                     length,
                     fileSize,
                     schema,
-                    toColumnHandles(regularAndInterimColumnMappings, doCoercion),
+                    toColumnHandles(regularAndInterimColumnMappings, doCoercion, typeManager),
                     effectivePredicate,
                     hiveStorageTimeZone,
                     typeManager,
@@ -246,10 +246,9 @@ public class HivePageSourceProvider
                 HiveRecordCursor hiveRecordCursor = new HiveRecordCursor(
                         columnMappings,
                         hiveStorageTimeZone,
-                        typeManager,
                         delegate);
                 List<Type> columnTypes = hiveColumns.stream()
-                        .map(input -> typeManager.getType(input.getTypeSignature()))
+                        .map(HiveColumnHandle::getType)
                         .collect(toList());
 
                 return Optional.of(new RecordPageSource(columnTypes, hiveRecordCursor));
@@ -379,7 +378,7 @@ public class HivePageSourceProvider
                     .collect(toImmutableList());
         }
 
-        public static List<HiveColumnHandle> toColumnHandles(List<ColumnMapping> regularColumnMappings, boolean doCoercion)
+        public static List<HiveColumnHandle> toColumnHandles(List<ColumnMapping> regularColumnMappings, boolean doCoercion, TypeManager typeManager)
         {
             return regularColumnMappings.stream()
                     .map(columnMapping -> {
@@ -390,7 +389,7 @@ public class HivePageSourceProvider
                         return new HiveColumnHandle(
                                 columnHandle.getName(),
                                 columnMapping.getCoercionFrom().get(),
-                                columnMapping.getCoercionFrom().get().getTypeSignature(),
+                                columnMapping.getCoercionFrom().get().getType(typeManager),
                                 columnHandle.getHiveColumnIndex(),
                                 columnHandle.getColumnType(),
                                 Optional.empty());

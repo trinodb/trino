@@ -16,8 +16,12 @@ package io.prestosql.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodecFactory;
+import io.airlift.json.ObjectMapperProvider;
 import io.prestosql.plugin.hive.HiveColumnHandle.ColumnType;
 import io.prestosql.spi.HostAddress;
+import io.prestosql.spi.type.TestingTypeManager;
+import io.prestosql.spi.type.Type;
 import org.testng.annotations.Test;
 
 import java.time.Instant;
@@ -33,11 +37,13 @@ import static org.testng.Assert.assertEquals;
 
 public class TestHiveSplit
 {
-    private final JsonCodec<HiveSplit> codec = JsonCodec.jsonCodec(HiveSplit.class);
-
     @Test
     public void testJsonRoundTrip()
     {
+        ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
+        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new HiveModule.TypeDeserializer(new TestingTypeManager())));
+        JsonCodec<HiveSplit> codec = new JsonCodecFactory(objectMapperProvider).jsonCodec(HiveSplit.class);
+
         Properties schema = new Properties();
         schema.setProperty("foo", "bar");
         schema.setProperty("bar", "baz");
@@ -63,7 +69,7 @@ public class TestHiveSplit
                         BUCKETING_V1,
                         32,
                         16,
-                        ImmutableList.of(new HiveColumnHandle("col", HIVE_LONG, BIGINT.getTypeSignature(), 5, ColumnType.REGULAR, Optional.of("comment"))))),
+                        ImmutableList.of(new HiveColumnHandle("col", HIVE_LONG, BIGINT, 5, ColumnType.REGULAR, Optional.of("comment"))))),
                 false);
 
         String json = codec.toJson(expected);
