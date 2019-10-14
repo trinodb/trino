@@ -37,10 +37,10 @@ public final class PageUtils
                 blocks[i] = block;
             }
             else {
-                blocks[i] = new LazyBlock(page.getPositionCount(), lazyBlock -> {
+                blocks[i] = new LazyBlock(page.getPositionCount(), () -> {
                     Block loadedBlock = block.getLoadedBlock();
                     sizeInBytesConsumer.accept(loadedBlock.getSizeInBytes());
-                    lazyBlock.setBlock(loadedBlock);
+                    return loadedBlock;
                 });
                 allBlocksLoaded = false;
             }

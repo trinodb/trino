@@ -181,7 +181,7 @@ public class TestScanFilterAndProjectOperator
     {
         Block inputBlock = BlockAssertions.createLongSequenceBlock(0, 100);
         // If column 1 is loaded, test will fail
-        Page input = new Page(100, inputBlock, new LazyBlock(100, lazyBlock -> {
+        Page input = new Page(100, inputBlock, new LazyBlock(100, () -> {
             throw new AssertionError("Lazy block should not be loaded");
         }));
         DriverContext driverContext = newDriverContext();

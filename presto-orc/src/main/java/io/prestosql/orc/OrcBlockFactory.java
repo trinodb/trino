@@ -86,7 +86,7 @@ public class OrcBlockFactory
     }
 
     private final class OrcBlockLoader
-            implements LazyBlockLoader<LazyBlock>
+            implements LazyBlockLoader
     {
         private final int expectedPageId = currentPageId;
         private final OrcBlockReader blockReader;
@@ -100,14 +100,14 @@ public class OrcBlockFactory
         }
 
         @Override
-        public final void load(LazyBlock lazyBlock)
+        public final Block load()
         {
             checkState(!loaded, "Already loaded");
             checkState(currentPageId == expectedPageId, "ORC reader has been advanced beyond block");
 
+            Block block;
             try {
-                Block block = blockReader.readBlock();
-                lazyBlock.setBlock(block);
+                block = blockReader.readBlock();
                 onBlockLoaded.accept(block);
             }
             catch (IOException | RuntimeException e) {
@@ -115,6 +115,7 @@ public class OrcBlockFactory
             }
 
             loaded = true;
+            return block;
         }
     }
 }

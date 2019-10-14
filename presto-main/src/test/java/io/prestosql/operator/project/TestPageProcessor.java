@@ -220,7 +220,7 @@ public class TestPageProcessor
         PageProcessor pageProcessor = new PageProcessor(Optional.of(new SelectNoneFilter()), ImmutableList.of(new InputPageProjection(1, BIGINT)));
 
         // if channel 1 is loaded, test will fail
-        Page inputPage = new Page(createLongSequenceBlock(0, 100), new LazyBlock(100, lazyBlock -> {
+        Page inputPage = new Page(createLongSequenceBlock(0, 100), new LazyBlock(100, () -> {
             throw new AssertionError("Lazy block should not be loaded");
         }));
 
@@ -237,7 +237,7 @@ public class TestPageProcessor
         PageProcessor pageProcessor = new PageProcessor(Optional.of(new SelectAllFilter()), ImmutableList.of(new LazyPagePageProjection()), OptionalInt.of(MAX_BATCH_SIZE));
 
         // if channel 1 is loaded, test will fail
-        Page inputPage = new Page(createLongSequenceBlock(0, 100), new LazyBlock(100, lazyBlock -> {
+        Page inputPage = new Page(createLongSequenceBlock(0, 100), new LazyBlock(100, () -> {
             throw new AssertionError("Lazy block should not be loaded");
         }));
 
@@ -554,7 +554,7 @@ public class TestPageProcessor
 
     private static LazyBlock lazyWrapper(Block block)
     {
-        return new LazyBlock(block.getPositionCount(), lazyBlock -> lazyBlock.setBlock(block.getLoadedBlock()));
+        return new LazyBlock(block.getPositionCount(), block::getLoadedBlock);
     }
 
     private static class InvocationCountPageProjection

@@ -517,7 +517,7 @@ public class HivePageSource
     }
 
     private static final class CoercionLazyBlockLoader
-            implements LazyBlockLoader<LazyBlock>
+            implements LazyBlockLoader
     {
         private final Function<Block, Block> coercer;
         private Block block;
@@ -529,19 +529,20 @@ public class HivePageSource
         }
 
         @Override
-        public void load(LazyBlock lazyBlock)
+        public Block load()
         {
             checkState(block != null, "Already loaded");
 
-            lazyBlock.setBlock(coercer.apply(block.getLoadedBlock()));
-
+            Block loaded = coercer.apply(block.getLoadedBlock());
             // clear reference to loader to free resources, since load was successful
             block = null;
+
+            return loaded;
         }
     }
 
     private static final class RowFilterLazyBlockLoader
-            implements LazyBlockLoader<LazyBlock>
+            implements LazyBlockLoader
     {
         private Block block;
         private final IntArrayList rowsToKeep;
@@ -553,14 +554,15 @@ public class HivePageSource
         }
 
         @Override
-        public void load(LazyBlock lazyBlock)
+        public Block load()
         {
             checkState(block != null, "Already loaded");
 
-            lazyBlock.setBlock(block.getPositions(rowsToKeep.elements(), 0, rowsToKeep.size()));
-
+            Block loaded = block.getPositions(rowsToKeep.elements(), 0, rowsToKeep.size());
             // clear reference to loader to free resources, since load was successful
             block = null;
+
+            return loaded;
         }
     }
 
