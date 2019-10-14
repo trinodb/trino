@@ -14,6 +14,7 @@
 package io.prestosql.plugin.postgresql;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.LegacyConfig;
 
 import javax.validation.constraints.NotNull;
 
@@ -34,7 +35,8 @@ public class PostgreSqlConfig
         return arrayMapping;
     }
 
-    @Config("postgresql.experimental.array-mapping")
+    @Config("postgresql.array-mapping")
+    @LegacyConfig("postgresql.experimental.array-mapping")
     public PostgreSqlConfig setArrayMapping(ArrayMapping arrayMapping)
     {
         this.arrayMapping = arrayMapping;

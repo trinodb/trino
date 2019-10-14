@@ -36,7 +36,7 @@ public class TestPostgreSqlConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("postgresql.experimental.array-mapping", "AS_ARRAY")
+                .put("postgresql.array-mapping", "AS_ARRAY")
                 .put("postgresql.include-system-tables", "true")
                 .build();
 
