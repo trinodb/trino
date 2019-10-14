@@ -79,4 +79,10 @@ public class SingleArrayAggregationState
     {
         blockBuilder = null;
     }
+
+    @Override
+    public String getBlockSimpleName()
+    {
+        return blockBuilder.getClass().getSimpleName();
+    }
 }

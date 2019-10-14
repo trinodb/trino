@@ -65,6 +65,7 @@ import io.prestosql.operator.aggregation.RealSumAggregation;
 import io.prestosql.operator.aggregation.SumDataSizeForStats;
 import io.prestosql.operator.aggregation.VarianceAggregation;
 import io.prestosql.operator.aggregation.arrayagg.ArrayAggregationFunction;
+import io.prestosql.operator.aggregation.arrayagg.CollectSetFunction;
 import io.prestosql.operator.aggregation.histogram.Histogram;
 import io.prestosql.operator.aggregation.multimapagg.MultimapAggregationFunction;
 import io.prestosql.operator.scalar.ArrayAllMatchFunction;
@@ -596,6 +597,7 @@ public class FunctionRegistry
                 .function(ARRAY_CONCAT_FUNCTION)
                 .functions(ARRAY_CONSTRUCTOR, ARRAY_SUBSCRIPT, ARRAY_TO_JSON, JSON_TO_ARRAY, JSON_STRING_TO_ARRAY)
                 .function(new ArrayAggregationFunction(featuresConfig.getArrayAggGroupImplementation()))
+                .function(new CollectSetFunction(featuresConfig.getArrayAggGroupImplementation()))
                 .functions(new MapSubscriptOperator())
                 .functions(MAP_CONSTRUCTOR, MAP_TO_JSON, JSON_TO_MAP, JSON_STRING_TO_MAP)
                 .functions(MAP_AGG, MAP_UNION)

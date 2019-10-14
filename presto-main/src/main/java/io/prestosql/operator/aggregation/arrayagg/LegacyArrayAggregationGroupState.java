@@ -88,4 +88,10 @@ public class LegacyArrayAggregationGroupState
         verify(blockBuilder.getPositionCount() != 0);
         return false;
     }
+
+    @Override
+    public String getBlockSimpleName()
+    {
+        return blockBuilders.getClass().getSimpleName();
+    }
 }
