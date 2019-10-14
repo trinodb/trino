@@ -56,7 +56,7 @@ public final class RowParametricType
 
         List<TypeSignatureParameter> typeSignatureParameters = parameters.stream()
                 .map(TypeParameter::getNamedType)
-                .map(parameter -> TypeSignatureParameter.of(new NamedTypeSignature(parameter.getName(), parameter.getType().getTypeSignature())))
+                .map(parameter -> TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(parameter.getName(), parameter.getType().getTypeSignature())))
                 .collect(toList());
 
         List<RowType.Field> fields = parameters.stream()

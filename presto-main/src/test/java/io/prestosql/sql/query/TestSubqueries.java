@@ -128,7 +128,7 @@ public class TestSubqueries
                 "SELECT (SELECT sum(t.a) FROM (VALUES 1, 2) t(a) WHERE t.a=t2.b group by t.a LIMIT 2) FROM (VALUES 1) t2(b)",
                 "VALUES BIGINT '1'");
         assertions.assertQuery(
-                "SELECT (SELECT count(*) FROM (SELECT t.a FROM (VALUES 1, 1, null, 3) t(a) LIMIT 1) t WHERE t.a=t2.b) FROM (VALUES 1, 2) t2(b)",
+                "SELECT (SELECT count(*) FROM (SELECT t.a FROM (VALUES 1, 1, null, 3) t(a) WHERE t.a=t2.b LIMIT 1)) FROM (VALUES 1, 2) t2(b)",
                 "VALUES BIGINT '1', BIGINT '0'");
         assertExistsRewrittenToAggregationBelowJoin(
                 "SELECT EXISTS(SELECT 1 FROM (VALUES 1, 1, 3) t(a) WHERE t.a=t2.b LIMIT 1) FROM (VALUES 1, 2) t2(b)",

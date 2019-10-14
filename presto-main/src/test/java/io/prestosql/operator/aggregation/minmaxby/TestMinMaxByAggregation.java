@@ -21,7 +21,6 @@ import io.prestosql.operator.aggregation.state.StateCompiler;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.SqlDecimal;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import org.testng.annotations.Test;
 
@@ -41,8 +40,11 @@ import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.TypeSignature.arrayType;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static java.util.Arrays.asList;
@@ -227,7 +229,7 @@ public class TestMinMaxByAggregation
     public void testMinLongLongArray()
     {
         InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(
-                new Signature("min_by", AGGREGATE, parseTypeSignature("array(bigint)"), parseTypeSignature("array(bigint)"), BIGINT.getTypeSignature()));
+                new Signature("min_by", AGGREGATE, arrayType(BIGINT.getTypeSignature()), arrayType(BIGINT.getTypeSignature()), BIGINT.getTypeSignature()));
         assertAggregation(
                 function,
                 ImmutableList.of(8L, 9L),
@@ -245,7 +247,7 @@ public class TestMinMaxByAggregation
     public void testMinLongArrayLong()
     {
         InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(
-                new Signature("min_by", AGGREGATE, BIGINT.getTypeSignature(), BIGINT.getTypeSignature(), parseTypeSignature("array(bigint)")));
+                new Signature("min_by", AGGREGATE, BIGINT.getTypeSignature(), BIGINT.getTypeSignature(), arrayType(BIGINT.getTypeSignature())));
         assertAggregation(
                 function,
                 3L,
@@ -263,7 +265,7 @@ public class TestMinMaxByAggregation
     public void testMaxLongArrayLong()
     {
         InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(
-                new Signature("max_by", AGGREGATE, BIGINT.getTypeSignature(), BIGINT.getTypeSignature(), parseTypeSignature("array(bigint)")));
+                new Signature("max_by", AGGREGATE, BIGINT.getTypeSignature(), BIGINT.getTypeSignature(), arrayType(BIGINT.getTypeSignature())));
         assertAggregation(
                 function,
                 1L,
@@ -281,7 +283,7 @@ public class TestMinMaxByAggregation
     public void testMaxLongLongArray()
     {
         InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(
-                new Signature("max_by", AGGREGATE, parseTypeSignature("array(bigint)"), parseTypeSignature("array(bigint)"), BIGINT.getTypeSignature()));
+                new Signature("max_by", AGGREGATE, arrayType(BIGINT.getTypeSignature()), arrayType(BIGINT.getTypeSignature()), BIGINT.getTypeSignature()));
         assertAggregation(
                 function,
                 ImmutableList.of(1L, 2L),
@@ -298,7 +300,12 @@ public class TestMinMaxByAggregation
     @Test
     public void testMinLongDecimalDecimal()
     {
-        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(new Signature("min_by", AGGREGATE, parseTypeSignature("decimal(19,1)"), parseTypeSignature("decimal(19,1)"), parseTypeSignature("decimal(19,1)")));
+        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(new Signature(
+                "min_by",
+                AGGREGATE,
+                createDecimalType(19, 1).getTypeSignature(),
+                createDecimalType(19, 1).getTypeSignature(),
+                createDecimalType(19, 1).getTypeSignature()));
         assertAggregation(
                 function,
                 SqlDecimal.of("2.2"),
@@ -309,7 +316,12 @@ public class TestMinMaxByAggregation
     @Test
     public void testMaxLongDecimalDecimal()
     {
-        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(new Signature("max_by", AGGREGATE, parseTypeSignature("decimal(19,1)"), parseTypeSignature("decimal(19,1)"), parseTypeSignature("decimal(19,1)")));
+        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(new Signature(
+                "max_by",
+                AGGREGATE,
+                createDecimalType(19, 1).getTypeSignature(),
+                createDecimalType(19, 1).getTypeSignature(),
+                createDecimalType(19, 1).getTypeSignature()));
         assertAggregation(
                 function,
                 SqlDecimal.of("3.3"),
@@ -320,7 +332,12 @@ public class TestMinMaxByAggregation
     @Test
     public void testMinShortDecimalDecimal()
     {
-        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(new Signature("min_by", AGGREGATE, parseTypeSignature("decimal(10,1)"), parseTypeSignature("decimal(10,1)"), parseTypeSignature("decimal(10,1)")));
+        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(new Signature(
+                "min_by",
+                AGGREGATE,
+                createDecimalType(10, 1).getTypeSignature(),
+                createDecimalType(10, 1).getTypeSignature(),
+                createDecimalType(10, 1).getTypeSignature()));
         assertAggregation(
                 function,
                 SqlDecimal.of("2.2"),
@@ -331,7 +348,12 @@ public class TestMinMaxByAggregation
     @Test
     public void testMaxShortDecimalDecimal()
     {
-        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(new Signature("max_by", AGGREGATE, parseTypeSignature("decimal(10,1)"), parseTypeSignature("decimal(10,1)"), parseTypeSignature("decimal(10,1)")));
+        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(new Signature(
+                "max_by",
+                AGGREGATE,
+                createDecimalType(10, 1).getTypeSignature(),
+                createDecimalType(10, 1).getTypeSignature(),
+                createDecimalType(10, 1).getTypeSignature()));
         assertAggregation(
                 function,
                 SqlDecimal.of("3.3"),
@@ -342,7 +364,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMinBooleanVarchar()
     {
-        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(new Signature("min_by", AGGREGATE, VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature(), parseTypeSignature(StandardTypes.BOOLEAN)));
+        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(new Signature("min_by", AGGREGATE, VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature(), BOOLEAN.getTypeSignature()));
         assertAggregation(
                 function,
                 "b",
@@ -353,7 +375,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMaxBooleanVarchar()
     {
-        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(new Signature("max_by", AGGREGATE, VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature(), parseTypeSignature(StandardTypes.BOOLEAN)));
+        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(new Signature("max_by", AGGREGATE, VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature(), BOOLEAN.getTypeSignature()));
         assertAggregation(
                 function,
                 "c",
@@ -364,7 +386,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMinIntegerVarchar()
     {
-        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(new Signature("min_by", AGGREGATE, VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature(), parseTypeSignature(StandardTypes.INTEGER)));
+        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(new Signature("min_by", AGGREGATE, VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature(), INTEGER.getTypeSignature()));
         assertAggregation(
                 function,
                 "a",
@@ -375,7 +397,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMaxIntegerVarchar()
     {
-        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(new Signature("max_by", AGGREGATE, VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature(), parseTypeSignature(StandardTypes.INTEGER)));
+        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(new Signature("max_by", AGGREGATE, VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature(), INTEGER.getTypeSignature()));
         assertAggregation(
                 function,
                 "c",
@@ -386,7 +408,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMinBooleanLongArray()
     {
-        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(new Signature("min_by", AGGREGATE, parseTypeSignature("array(bigint)"), parseTypeSignature("array(bigint)"), parseTypeSignature(StandardTypes.BOOLEAN)));
+        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(new Signature("min_by", AGGREGATE, arrayType(BIGINT.getTypeSignature()), arrayType(BIGINT.getTypeSignature()), BOOLEAN.getTypeSignature()));
         assertAggregation(
                 function,
                 null,
@@ -397,7 +419,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMaxBooleanLongArray()
     {
-        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(new Signature("max_by", AGGREGATE, parseTypeSignature("array(bigint)"), parseTypeSignature("array(bigint)"), parseTypeSignature(StandardTypes.BOOLEAN)));
+        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(new Signature("max_by", AGGREGATE, arrayType(BIGINT.getTypeSignature()), arrayType(BIGINT.getTypeSignature()), BOOLEAN.getTypeSignature()));
         assertAggregation(
                 function,
                 asList(2L, 2L),
@@ -431,7 +453,7 @@ public class TestMinMaxByAggregation
     public void testMinDoubleLongArray()
     {
         InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(
-                new Signature("min_by", AGGREGATE, parseTypeSignature("array(bigint)"), parseTypeSignature("array(bigint)"), DOUBLE.getTypeSignature()));
+                new Signature("min_by", AGGREGATE, arrayType(BIGINT.getTypeSignature()), arrayType(BIGINT.getTypeSignature()), DOUBLE.getTypeSignature()));
         assertAggregation(
                 function,
                 asList(3L, 4L),
@@ -449,7 +471,7 @@ public class TestMinMaxByAggregation
     public void testMaxDoubleLongArray()
     {
         InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(
-                new Signature("max_by", AGGREGATE, parseTypeSignature("array(bigint)"), parseTypeSignature("array(bigint)"), DOUBLE.getTypeSignature()));
+                new Signature("max_by", AGGREGATE, arrayType(BIGINT.getTypeSignature()), arrayType(BIGINT.getTypeSignature()), DOUBLE.getTypeSignature()));
         assertAggregation(
                 function,
                 null,
@@ -467,7 +489,7 @@ public class TestMinMaxByAggregation
     public void testMinSliceLongArray()
     {
         InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(
-                new Signature("min_by", AGGREGATE, parseTypeSignature("array(bigint)"), parseTypeSignature("array(bigint)"), VARCHAR.getTypeSignature()));
+                new Signature("min_by", AGGREGATE, arrayType(BIGINT.getTypeSignature()), arrayType(BIGINT.getTypeSignature()), VARCHAR.getTypeSignature()));
         assertAggregation(
                 function,
                 asList(3L, 4L),
@@ -485,7 +507,7 @@ public class TestMinMaxByAggregation
     public void testMaxSliceLongArray()
     {
         InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(
-                new Signature("max_by", AGGREGATE, parseTypeSignature("array(bigint)"), parseTypeSignature("array(bigint)"), VARCHAR.getTypeSignature()));
+                new Signature("max_by", AGGREGATE, arrayType(BIGINT.getTypeSignature()), arrayType(BIGINT.getTypeSignature()), VARCHAR.getTypeSignature()));
         assertAggregation(
                 function,
                 asList(2L, 2L),
@@ -503,7 +525,7 @@ public class TestMinMaxByAggregation
     public void testMinLongArrayLongArray()
     {
         InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(
-                new Signature("min_by", AGGREGATE, parseTypeSignature("array(bigint)"), parseTypeSignature("array(bigint)"), parseTypeSignature("array(bigint)")));
+                new Signature("min_by", AGGREGATE, arrayType(BIGINT.getTypeSignature()), arrayType(BIGINT.getTypeSignature()), arrayType(BIGINT.getTypeSignature())));
         assertAggregation(
                 function,
                 asList(1L, 2L),
@@ -515,7 +537,7 @@ public class TestMinMaxByAggregation
     public void testMaxLongArrayLongArray()
     {
         InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(
-                new Signature("max_by", AGGREGATE, parseTypeSignature("array(bigint)"), parseTypeSignature("array(bigint)"), parseTypeSignature("array(bigint)")));
+                new Signature("max_by", AGGREGATE, arrayType(BIGINT.getTypeSignature()), arrayType(BIGINT.getTypeSignature()), arrayType(BIGINT.getTypeSignature())));
         assertAggregation(
                 function,
                 asList(3L, 3L),
@@ -527,7 +549,7 @@ public class TestMinMaxByAggregation
     public void testMinLongArraySlice()
     {
         InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(
-                new Signature("min_by", AGGREGATE, VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature(), parseTypeSignature("array(bigint)")));
+                new Signature("min_by", AGGREGATE, VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature(), arrayType(BIGINT.getTypeSignature())));
         assertAggregation(
                 function,
                 "c",
@@ -539,7 +561,7 @@ public class TestMinMaxByAggregation
     public void testMaxLongArraySlice()
     {
         InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(
-                new Signature("max_by", AGGREGATE, VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature(), parseTypeSignature("array(bigint)")));
+                new Signature("max_by", AGGREGATE, VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature(), arrayType(BIGINT.getTypeSignature())));
         assertAggregation(
                 function,
                 "a",
@@ -575,7 +597,7 @@ public class TestMinMaxByAggregation
     public void testMinUnknownLongArray()
     {
         InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(
-                new Signature("min_by", AGGREGATE, parseTypeSignature("array(bigint)"), parseTypeSignature("array(bigint)"), UNKNOWN.getTypeSignature()));
+                new Signature("min_by", AGGREGATE, arrayType(BIGINT.getTypeSignature()), arrayType(BIGINT.getTypeSignature()), UNKNOWN.getTypeSignature()));
         assertAggregation(
                 function,
                 null,
@@ -587,7 +609,7 @@ public class TestMinMaxByAggregation
     public void testMaxUnknownLongArray()
     {
         InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(
-                new Signature("max_by", AGGREGATE, parseTypeSignature("array(bigint)"), parseTypeSignature("array(bigint)"), UNKNOWN.getTypeSignature()));
+                new Signature("max_by", AGGREGATE, arrayType(BIGINT.getTypeSignature()), arrayType(BIGINT.getTypeSignature()), UNKNOWN.getTypeSignature()));
         assertAggregation(
                 function,
                 null,

@@ -22,9 +22,11 @@ import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.DriverConnectionFactory;
 import io.prestosql.plugin.jdbc.JdbcClient;
+import io.prestosql.plugin.jdbc.SessionPropertiesProvider;
 import io.prestosql.plugin.jdbc.credential.CredentialProvider;
 import org.postgresql.Driver;
 
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class PostgreSqlClientModule
@@ -36,6 +38,8 @@ public class PostgreSqlClientModule
         binder.bind(JdbcClient.class).to(PostgreSqlClient.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(BaseJdbcConfig.class);
         configBinder(binder).bindConfig(PostgreSqlConfig.class);
+
+        newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(PostgreSqlSessionProperties.class).in(Scopes.SINGLETON);
     }
 
     @Provides

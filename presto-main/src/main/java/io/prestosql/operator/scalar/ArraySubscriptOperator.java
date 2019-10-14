@@ -33,7 +33,7 @@ import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConv
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.function.OperatorType.SUBSCRIPT;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.arrayType;
 import static io.prestosql.util.Reflection.methodHandle;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -56,7 +56,7 @@ public class ArraySubscriptOperator
                 ImmutableList.of(typeVariable("E")),
                 ImmutableList.of(),
                 new TypeSignature("E"),
-                ImmutableList.of(parseTypeSignature("array(E)"), BIGINT.getTypeSignature()));
+                ImmutableList.of(arrayType(new TypeSignature("E")), BIGINT.getTypeSignature()));
     }
 
     @Override

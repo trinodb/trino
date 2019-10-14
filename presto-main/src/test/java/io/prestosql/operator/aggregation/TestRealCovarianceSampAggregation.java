@@ -15,13 +15,14 @@ package io.prestosql.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.Type;
 import org.apache.commons.math3.stat.correlation.Covariance;
 
 import java.util.List;
 
 import static io.prestosql.block.BlockAssertions.createSequenceBlockOfReal;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.constructDoublePrimitiveArray;
+import static io.prestosql.spi.type.RealType.REAL;
 
 public class TestRealCovarianceSampAggregation
         extends AbstractTestAggregationFunction
@@ -39,9 +40,9 @@ public class TestRealCovarianceSampAggregation
     }
 
     @Override
-    protected List<String> getFunctionParameterTypes()
+    protected List<Type> getFunctionParameterTypes()
     {
-        return ImmutableList.of(StandardTypes.REAL, StandardTypes.REAL);
+        return ImmutableList.of(REAL, REAL);
     }
 
     @Override

@@ -18,6 +18,7 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.SqlDecimal;
+import io.prestosql.spi.type.Type;
 
 import java.util.List;
 
@@ -52,8 +53,8 @@ public class TestShortDecimalMaxAggregation
     }
 
     @Override
-    protected List<String> getFunctionParameterTypes()
+    protected List<Type> getFunctionParameterTypes()
     {
-        return ImmutableList.of(SHORT_DECIMAL.getTypeSignature().toString());
+        return ImmutableList.of(SHORT_DECIMAL);
     }
 }

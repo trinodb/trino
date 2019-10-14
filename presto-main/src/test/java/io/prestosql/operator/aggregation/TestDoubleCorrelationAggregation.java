@@ -15,7 +15,7 @@ package io.prestosql.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.Type;
 import org.apache.commons.math3.stat.correlation.PearsonsCorrelation;
 import org.testng.annotations.Test;
 
@@ -26,6 +26,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.block.BlockAssertions.createDoubleSequenceBlock;
 import static io.prestosql.block.BlockAssertions.createDoublesBlock;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.constructDoublePrimitiveArray;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
 
 public class TestDoubleCorrelationAggregation
         extends AbstractTestAggregationFunction
@@ -43,9 +44,9 @@ public class TestDoubleCorrelationAggregation
     }
 
     @Override
-    protected List<String> getFunctionParameterTypes()
+    protected List<Type> getFunctionParameterTypes()
     {
-        return ImmutableList.of(StandardTypes.DOUBLE, StandardTypes.DOUBLE);
+        return ImmutableList.of(DOUBLE, DOUBLE);
     }
 
     @Override

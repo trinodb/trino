@@ -35,7 +35,7 @@ import static io.prestosql.metadata.Signature.internalOperator;
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
 import static io.prestosql.util.Reflection.methodHandle;
 
@@ -58,7 +58,7 @@ public class MapElementAtFunction
                 ImmutableList.of(typeVariable("K"), typeVariable("V")),
                 ImmutableList.of(),
                 new TypeSignature("V"),
-                ImmutableList.of(parseTypeSignature("map(K,V)"), new TypeSignature("K")),
+                ImmutableList.of(mapType(new TypeSignature("K"), new TypeSignature("V")), new TypeSignature("K")),
                 false));
     }
 

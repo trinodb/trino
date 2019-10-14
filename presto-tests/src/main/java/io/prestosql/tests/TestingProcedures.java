@@ -19,6 +19,7 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.procedure.Procedure;
 import io.prestosql.spi.procedure.Procedure.Argument;
+import io.prestosql.spi.type.ArrayType;
 import io.prestosql.testing.ProcedureTester;
 
 import java.lang.invoke.MethodHandle;
@@ -28,10 +29,10 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
-import static io.prestosql.spi.type.StandardTypes.BIGINT;
-import static io.prestosql.spi.type.StandardTypes.BOOLEAN;
-import static io.prestosql.spi.type.StandardTypes.DOUBLE;
-import static io.prestosql.spi.type.StandardTypes.VARCHAR;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.util.Reflection.methodHandle;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -116,10 +117,10 @@ public final class TestingProcedures
                         new Argument("x", BIGINT),
                         new Argument("y", VARCHAR))))
                 .add(procedure(schema, "test_arrays", "arrays", ImmutableList.of(
-                        new Argument("x", "array(bigint)"),
-                        new Argument("y", "array(varchar)"))))
+                        new Argument("x", new ArrayType(BIGINT)),
+                        new Argument("y", new ArrayType(VARCHAR)))))
                 .add(procedure(schema, "test_nested", "nested", ImmutableList.of(
-                        new Argument("x", "array(array(bigint))"))))
+                        new Argument("x", new ArrayType(new ArrayType(BIGINT))))))
                 .add(procedure(schema, "test_session_first", "sessionFirst", ImmutableList.of(
                         new Argument("x", BIGINT))))
                 .add(procedure(schema, "test_session_last", "sessionLast", ImmutableList.of(

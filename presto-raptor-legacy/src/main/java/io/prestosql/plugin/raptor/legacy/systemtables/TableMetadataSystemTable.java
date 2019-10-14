@@ -34,7 +34,7 @@ import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SystemTable;
 import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.TypeManager;
 import org.skife.jdbi.v2.IDBI;
 
@@ -57,7 +57,6 @@ import static io.prestosql.spi.connector.SystemTable.Distribution.SINGLE_COORDIN
 import static io.prestosql.spi.predicate.TupleDomain.extractFixedValues;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -78,17 +77,16 @@ public class TableMetadataSystemTable
         this.dao = onDemandDao(dbi, MetadataDao.class);
         requireNonNull(typeManager, "typeManager is null");
 
-        Type arrayOfVarchar = typeManager.getType(parseTypeSignature("array(varchar)"));
         this.tableMetadata = new ConnectorTableMetadata(
                 new SchemaTableName("system", "tables"),
                 ImmutableList.of(
                         new ColumnMetadata(SCHEMA_NAME, VARCHAR),
                         new ColumnMetadata(TABLE_NAME, VARCHAR),
                         new ColumnMetadata("temporal_column", VARCHAR),
-                        new ColumnMetadata("ordering_columns", arrayOfVarchar),
+                        new ColumnMetadata("ordering_columns", new ArrayType(VARCHAR)),
                         new ColumnMetadata("distribution_name", VARCHAR),
                         new ColumnMetadata("bucket_count", BIGINT),
-                        new ColumnMetadata("bucketing_columns", arrayOfVarchar),
+                        new ColumnMetadata("bucketing_columns", new ArrayType(VARCHAR)),
                         new ColumnMetadata("organized", BOOLEAN)));
     }
 

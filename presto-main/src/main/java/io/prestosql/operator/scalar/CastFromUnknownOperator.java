@@ -27,7 +27,7 @@ import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.spi.function.OperatorType.CAST;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.type.UnknownType.UNKNOWN;
 import static io.prestosql.util.Reflection.methodHandle;
 
 public final class CastFromUnknownOperator
@@ -42,7 +42,7 @@ public final class CastFromUnknownOperator
                 ImmutableList.of(typeVariable("E")),
                 ImmutableList.of(),
                 new TypeSignature("E"),
-                ImmutableList.of(parseTypeSignature("unknown")));
+                ImmutableList.of(UNKNOWN.getTypeSignature()));
     }
 
     @Override

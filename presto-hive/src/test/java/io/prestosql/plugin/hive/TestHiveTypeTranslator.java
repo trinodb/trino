@@ -13,9 +13,12 @@
  */
 package io.prestosql.plugin.hive;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.spi.ErrorCode;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
 import org.testng.annotations.Test;
 
@@ -25,7 +28,20 @@ import java.util.Map;
 import static io.airlift.testing.Assertions.assertContains;
 import static io.prestosql.plugin.hive.HiveTestUtils.TYPE_MANAGER;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.DateType.DATE;
+import static io.prestosql.spi.type.DecimalType.createDecimalType;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.RowType.field;
+import static io.prestosql.spi.type.SmallintType.SMALLINT;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TinyintType.TINYINT;
+import static io.prestosql.spi.type.TypeSignature.mapType;
+import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
@@ -34,32 +50,33 @@ public class TestHiveTypeTranslator
 {
     private final TypeTranslator typeTranslator;
 
-    private final Map<String, HiveType> typeTranslationMap;
+    private final Map<Type, HiveType> typeTranslationMap;
 
     public TestHiveTypeTranslator()
     {
         this(new HiveTypeTranslator(), ImmutableMap.of());
     }
 
-    protected TestHiveTypeTranslator(TypeTranslator typeTranslator, Map<String, HiveType> overwriteTranslation)
+    protected TestHiveTypeTranslator(TypeTranslator typeTranslator, Map<Type, HiveType> overwriteTranslation)
     {
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
 
-        ImmutableMap<String, HiveType> hiveTypeTranslationMap = ImmutableMap.<String, HiveType>builder()
-                .put("bigint", HiveType.HIVE_LONG)
-                .put("integer", HiveType.HIVE_INT)
-                .put("smallint", HiveType.HIVE_SHORT)
-                .put("tinyint", HiveType.HIVE_BYTE)
-                .put("double", HiveType.HIVE_DOUBLE)
-                .put("varchar(3)", HiveType.valueOf("varchar(3)"))
-                .put("varchar", HiveType.HIVE_STRING)
-                .put("date", HiveType.HIVE_DATE)
-                .put("timestamp", HiveType.HIVE_TIMESTAMP)
-                .put("decimal(5,3)", HiveType.valueOf("decimal(5,3)"))
-                .put("varbinary", HiveType.HIVE_BINARY)
-                .put("array(timestamp)", HiveType.valueOf("array<timestamp>"))
-                .put("map(boolean,varbinary)", HiveType.valueOf("map<boolean,binary>"))
-                .put("row(col0 integer,col1 varbinary)", HiveType.valueOf("struct<col0:int,col1:binary>"))
+        ImmutableMap<Type, HiveType> hiveTypeTranslationMap = ImmutableMap.<Type, HiveType>builder()
+                .put(BIGINT, HiveType.HIVE_LONG)
+                .put(INTEGER, HiveType.HIVE_INT)
+                .put(SMALLINT, HiveType.HIVE_SHORT)
+                .put(TINYINT, HiveType.HIVE_BYTE)
+                .put(DOUBLE, HiveType.HIVE_DOUBLE)
+                .put(createVarcharType(3), HiveType.valueOf("varchar(3)"))
+                .put(VARCHAR, HiveType.HIVE_STRING)
+                .put(DATE, HiveType.HIVE_DATE)
+                .put(TIMESTAMP, HiveType.HIVE_TIMESTAMP)
+                .put(createDecimalType(5, 3), HiveType.valueOf("decimal(5,3)"))
+                .put(VARBINARY, HiveType.HIVE_BINARY)
+                .put(new ArrayType(TIMESTAMP), HiveType.valueOf("array<timestamp>"))
+                .put(TYPE_MANAGER.getType(mapType(BOOLEAN.getTypeSignature(), VARBINARY.getTypeSignature())), HiveType.valueOf("map<boolean,binary>"))
+                .put(RowType.from(ImmutableList.of(field("col0", INTEGER), field("col1", VARBINARY))),
+                        HiveType.valueOf("struct<col0:int,col1:binary>"))
                 .build();
 
         typeTranslationMap = new HashMap<>();
@@ -70,22 +87,23 @@ public class TestHiveTypeTranslator
     @Test
     public void testTypeTranslator()
     {
-        for (Map.Entry<String, HiveType> entry : typeTranslationMap.entrySet()) {
+        for (Map.Entry<Type, HiveType> entry : typeTranslationMap.entrySet()) {
             assertTypeTranslation(entry.getKey(), entry.getValue());
         }
 
-        assertInvalidTypeTranslation("row(integer,varbinary)", NOT_SUPPORTED.toErrorCode(), "Anonymous row type is not supported in Hive. Please give each field a name: row(integer,varbinary)");
+        assertInvalidTypeTranslation(
+                RowType.anonymous(ImmutableList.of(INTEGER, VARBINARY)),
+                NOT_SUPPORTED.toErrorCode(),
+                "Anonymous row type is not supported in Hive. Please give each field a name: row(integer,varbinary)");
     }
 
-    private void assertTypeTranslation(String typeName, HiveType hiveType)
+    private void assertTypeTranslation(Type type, HiveType hiveType)
     {
-        Type type = TYPE_MANAGER.getType(parseTypeSignature(typeName));
         assertEquals(HiveType.toHiveType(typeTranslator, type), hiveType);
     }
 
-    private void assertInvalidTypeTranslation(String typeName, ErrorCode errorCode, String message)
+    private void assertInvalidTypeTranslation(Type type, ErrorCode errorCode, String message)
     {
-        Type type = TYPE_MANAGER.getType(parseTypeSignature(typeName));
         try {
             HiveType.toHiveType(typeTranslator, type);
             fail("expected exception");

@@ -32,7 +32,7 @@ import static io.prestosql.operator.aggregation.AggregationTestUtils.getFinalBlo
 import static io.prestosql.operator.aggregation.AggregationTestUtils.getIntermediateBlock;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.util.StructuralTestUtil.mapType;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -47,7 +47,7 @@ public class TestDoubleHistogramAggregation
         InternalAggregationFunction function = createTestMetadataManager().getAggregateFunctionImplementation(
                 new Signature("numeric_histogram",
                         AGGREGATE,
-                        parseTypeSignature("map(double,double)"),
+                        mapType(DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()),
                         BIGINT.getTypeSignature(),
                         DOUBLE.getTypeSignature(),
                         DOUBLE.getTypeSignature()));

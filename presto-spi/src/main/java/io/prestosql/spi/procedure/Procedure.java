@@ -14,7 +14,7 @@
 package io.prestosql.spi.procedure;
 
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
@@ -22,7 +22,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -92,14 +91,9 @@ public class Procedure
     public static class Argument
     {
         private final String name;
-        private final TypeSignature type;
+        private final Type type;
 
-        public Argument(String name, String type)
-        {
-            this(name, parseTypeSignature(type));
-        }
-
-        public Argument(String name, TypeSignature type)
+        public Argument(String name, Type type)
         {
             this.name = checkNotNullOrEmpty(name, "name");
             this.type = requireNonNull(type, "type is null");
@@ -110,7 +104,7 @@ public class Procedure
             return name;
         }
 
-        public TypeSignature getType()
+        public Type getType()
         {
             return type;
         }

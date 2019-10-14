@@ -29,7 +29,6 @@ import io.prestosql.spi.type.BooleanType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.IntegerType;
-import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.SmallintType;
 import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
@@ -59,7 +58,8 @@ import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.RealType.REAL;
+import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
@@ -77,9 +77,9 @@ public class TestAvroDecoder
     private static final AvroRowDecoderFactory DECODER_FACTORY = new AvroRowDecoderFactory();
 
     private static final Metadata METADATA = createTestMetadataManager();
-    private static final Type VARCHAR_MAP_TYPE = METADATA.getType(parseTypeSignature("map(varchar,varchar)"));
-    private static final Type DOUBLE_MAP_TYPE = METADATA.getType(parseTypeSignature("map(varchar,double)"));
-    private static final Type REAL_MAP_TYPE = METADATA.getType(parseTypeSignature("map(varchar,real)"));
+    private static final Type VARCHAR_MAP_TYPE = METADATA.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
+    private static final Type DOUBLE_MAP_TYPE = METADATA.getType(mapType(VARCHAR.getTypeSignature(), DOUBLE.getTypeSignature()));
+    private static final Type REAL_MAP_TYPE = METADATA.getType(mapType(VARCHAR.getTypeSignature(), REAL.getTypeSignature()));
 
     private static String getAvroSchema(String name, String dataType)
     {
@@ -564,12 +564,12 @@ public class TestAvroDecoder
         singleColumnDecoder(DOUBLE_MAP_TYPE);
 
         // some unsupported types
-        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(RealType.REAL));
+        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(REAL));
         assertUnsupportedColumnTypeException(() -> singleColumnDecoder(IntegerType.INTEGER));
         assertUnsupportedColumnTypeException(() -> singleColumnDecoder(SmallintType.SMALLINT));
         assertUnsupportedColumnTypeException(() -> singleColumnDecoder(TinyintType.TINYINT));
         assertUnsupportedColumnTypeException(() -> singleColumnDecoder(DecimalType.createDecimalType(10, 4)));
-        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(new ArrayType(RealType.REAL)));
+        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(new ArrayType(REAL)));
         assertUnsupportedColumnTypeException(() -> singleColumnDecoder(REAL_MAP_TYPE));
     }
 

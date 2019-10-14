@@ -18,12 +18,13 @@ import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
+import io.prestosql.spi.type.TypeSignature;
 
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.Signature.comparableTypeParameter;
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.scalar.JsonToMapCast.JSON_TO_MAP;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 
 public final class JsonStringToMapCast
@@ -39,7 +40,7 @@ public final class JsonStringToMapCast
                 SCALAR,
                 ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")),
                 ImmutableList.of(),
-                parseTypeSignature("map(K,V)"),
+                mapType(new TypeSignature("K"), new TypeSignature("V")),
                 ImmutableList.of(VARCHAR.getTypeSignature()),
                 false));
     }

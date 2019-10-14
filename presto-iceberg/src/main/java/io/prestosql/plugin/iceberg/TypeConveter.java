@@ -104,7 +104,7 @@ public final class TypeConveter
                 Types.MapType mapType = (Types.MapType) type;
                 TypeSignature keyType = toPrestoType(mapType.keyType(), typeManager).getTypeSignature();
                 TypeSignature valueType = toPrestoType(mapType.valueType(), typeManager).getTypeSignature();
-                return typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(TypeSignatureParameter.of(keyType), TypeSignatureParameter.of(valueType)));
+                return typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(TypeSignatureParameter.typeParameter(keyType), TypeSignatureParameter.typeParameter(valueType)));
             case STRUCT:
                 List<Types.NestedField> fields = ((Types.StructType) type).fields();
                 return RowType.from(fields.stream()

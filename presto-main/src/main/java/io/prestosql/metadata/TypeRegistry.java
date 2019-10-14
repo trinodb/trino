@@ -204,7 +204,7 @@ final class TypeRegistry
         requireNonNull(alias, "alias is null");
         requireNonNull(type, "type is null");
 
-        Type existingType = types.putIfAbsent(TypeSignature.parseTypeSignature(alias), type);
+        Type existingType = types.putIfAbsent(new TypeSignature(alias), type);
         checkState(existingType == null || existingType.equals(type), "Alias %s is already mapped to %s", alias, type);
     }
 

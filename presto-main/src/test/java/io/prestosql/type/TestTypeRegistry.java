@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeNotFoundException;
+import io.prestosql.spi.type.TypeSignature;
 import org.testng.annotations.Test;
 
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
@@ -28,7 +29,6 @@ import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestTypeRegistry
@@ -38,7 +38,7 @@ public class TestTypeRegistry
     @Test
     public void testNonexistentType()
     {
-        assertThatThrownBy(() -> metadata.getType(parseTypeSignature("not a real type")))
+        assertThatThrownBy(() -> metadata.getType(new TypeSignature("not a real type")))
                 .isInstanceOf(TypeNotFoundException.class)
                 .hasMessage("Unknown type: not a real type");
     }

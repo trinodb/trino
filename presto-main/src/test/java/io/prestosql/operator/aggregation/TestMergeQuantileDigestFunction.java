@@ -18,6 +18,7 @@ import io.airlift.stats.QuantileDigest;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.QuantileDigestType;
 import io.prestosql.spi.type.SqlVarbinary;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
@@ -55,7 +56,7 @@ public class TestMergeQuantileDigestFunction
     @Override
     protected Block[] getSequenceBlocks(int start, int length)
     {
-        Type type = metadata.getType(new TypeSignature(QDIGEST.getName(), TypeSignatureParameter.of(DOUBLE.getTypeSignature())));
+        Type type = metadata.getType(new TypeSignature(QDIGEST.getName(), TypeSignatureParameter.typeParameter(DOUBLE.getTypeSignature())));
         BlockBuilder blockBuilder = type.createBlockBuilder(null, length);
         for (int i = start; i < start + length; i++) {
             QuantileDigest qdigest = new QuantileDigest(0.0);
@@ -72,9 +73,9 @@ public class TestMergeQuantileDigestFunction
     }
 
     @Override
-    protected List<String> getFunctionParameterTypes()
+    protected List<Type> getFunctionParameterTypes()
     {
-        return ImmutableList.of("qdigest(double)");
+        return ImmutableList.of(new QuantileDigestType(DOUBLE));
     }
 
     @Override

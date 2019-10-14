@@ -530,14 +530,14 @@ public class MongoSession
             Set<TypeSignature> signatures = subTypes.stream().map(Optional::get).collect(toSet());
             if (signatures.size() == 1) {
                 typeSignature = new TypeSignature(StandardTypes.ARRAY, signatures.stream()
-                        .map(TypeSignatureParameter::of)
+                        .map(TypeSignatureParameter::typeParameter)
                         .collect(Collectors.toList()));
             }
             else {
                 // TODO: presto cli doesn't handle empty field name row type yet
                 typeSignature = new TypeSignature(StandardTypes.ROW,
                         IntStream.range(0, subTypes.size())
-                                .mapToObj(idx -> TypeSignatureParameter.of(
+                                .mapToObj(idx -> TypeSignatureParameter.namedTypeParameter(
                                         new NamedTypeSignature(Optional.of(new RowFieldName(format("%s%d", implicitPrefix, idx + 1), false)), subTypes.get(idx).get())))
                                 .collect(toList()));
             }
@@ -551,7 +551,7 @@ public class MongoSession
                     return Optional.empty();
                 }
 
-                parameters.add(TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName(key, false)), fieldType.get())));
+                parameters.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(key, false)), fieldType.get())));
             }
             typeSignature = new TypeSignature(StandardTypes.ROW, parameters);
         }

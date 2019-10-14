@@ -92,4 +92,10 @@ public class TestingTypeManager
     {
         throw new UnsupportedOperationException();
     }
+
+    @Override
+    public MethodHandle getCoercion(Type fromType, Type toType)
+    {
+        throw new UnsupportedOperationException();
+    }
 }

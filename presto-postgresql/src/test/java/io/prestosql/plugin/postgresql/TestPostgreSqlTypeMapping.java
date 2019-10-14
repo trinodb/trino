@@ -48,12 +48,15 @@ import java.util.stream.Stream;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.io.BaseEncoding.base16;
+import static io.prestosql.plugin.postgresql.PostgreSqlConfig.ArrayMapping.AS_ARRAY;
+import static io.prestosql.plugin.postgresql.PostgreSqlConfig.ArrayMapping.AS_JSON;
 import static io.prestosql.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.tests.datatype.DataType.bigintDataType;
 import static io.prestosql.tests.datatype.DataType.booleanDataType;
 import static io.prestosql.tests.datatype.DataType.dataType;
@@ -113,8 +116,7 @@ public class TestPostgreSqlTypeMapping
     {
         super(() -> createPostgreSqlQueryRunner(
                 postgreSqlServer,
-                ImmutableMap.of("postgresql.experimental.array-mapping", "AS_ARRAY",
-                                "jdbc-types-mapped-to-varchar", "tsrange, inet"),
+                ImmutableMap.of("jdbc-types-mapped-to-varchar", "tsrange, inet"),
                 ImmutableList.of()));
         this.postgreSqlServer = postgreSqlServer;
     }
@@ -307,10 +309,14 @@ public class TestPostgreSqlTypeMapping
                 "VALUES ('[2010-01-01 14:30, 2010-01-01 15:30)'::tsrange, '172.0.0.1'::inet, array['[2010-01-01 14:30, 2010-01-01 15:30)'::tsrange], '[2010-01-01 14:30, 2010-01-01 15:30)'::tstzrange)");
         try {
             assertQuery(
+                    sessionWithArrayAsArray(),
                     "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = 'test_forced_varchar_mapping'",
                     "VALUES ('tsrange_col','varchar'),('inet_col','varchar'),('tsrange_arr_col','array(varchar)')"); // no 'unsupported_nonforced_column'
 
-            assertQuery("SELECT * FROM tpch.test_forced_varchar_mapping", "VALUES ('[\"2010-01-01 14:30:00\",\"2010-01-01 15:30:00\")','172.0.0.1',ARRAY['[\"2010-01-01 14:30:00\",\"2010-01-01 15:30:00\")'])");
+            assertQuery(
+                    sessionWithArrayAsArray(),
+                    "SELECT * FROM tpch.test_forced_varchar_mapping",
+                    "VALUES ('[\"2010-01-01 14:30:00\",\"2010-01-01 15:30:00\")','172.0.0.1',ARRAY['[\"2010-01-01 14:30:00\",\"2010-01-01 15:30:00\")'])");
         }
         finally {
             jdbcSqlExecutor.execute("DROP TABLE tpch.test_forced_varchar_mapping");
@@ -334,31 +340,31 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip(arrayDataType(smallintDataType()), asList((short) 32_456))
                 .addRoundTrip(arrayDataType(doubleDataType()), asList(123.45d))
                 .addRoundTrip(arrayDataType(realDataType()), asList(123.45f))
-                .execute(getQueryRunner(), prestoCreateAsSelect("test_array_basic"));
+                .execute(getQueryRunner(), sessionWithArrayAsArray(), prestoCreateAsSelect(sessionWithArrayAsArray(), "test_array_basic"));
 
         arrayDateTest(TestPostgreSqlTypeMapping::arrayDataType)
-                .execute(getQueryRunner(), prestoCreateAsSelect("test_array_date"));
+                .execute(getQueryRunner(), sessionWithArrayAsArray(), prestoCreateAsSelect(sessionWithArrayAsArray(), "test_array_date"));
         arrayDateTest(TestPostgreSqlTypeMapping::postgresArrayDataType)
-                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_array_date"));
+                .execute(getQueryRunner(), sessionWithArrayAsArray(), postgresCreateAndInsert("tpch.test_array_date"));
 
         arrayDecimalTest(TestPostgreSqlTypeMapping::arrayDataType)
-                .execute(getQueryRunner(), prestoCreateAsSelect("test_array_decimal"));
+                .execute(getQueryRunner(), sessionWithArrayAsArray(), prestoCreateAsSelect(sessionWithArrayAsArray(), "test_array_decimal"));
         arrayDecimalTest(TestPostgreSqlTypeMapping::postgresArrayDataType)
-                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_array_decimal"));
+                .execute(getQueryRunner(), sessionWithArrayAsArray(), postgresCreateAndInsert("tpch.test_array_decimal"));
 
         arrayVarcharDataTypeTest(TestPostgreSqlTypeMapping::arrayDataType)
-                .execute(getQueryRunner(), prestoCreateAsSelect("test_array_varchar"));
+                .execute(getQueryRunner(), sessionWithArrayAsArray(), prestoCreateAsSelect(sessionWithArrayAsArray(), "test_array_varchar"));
         arrayVarcharDataTypeTest(TestPostgreSqlTypeMapping::postgresArrayDataType)
-                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_array_varchar"));
+                .execute(getQueryRunner(), sessionWithArrayAsArray(), postgresCreateAndInsert("tpch.test_array_varchar"));
 
         arrayUnicodeDataTypeTest(TestPostgreSqlTypeMapping::arrayDataType, DataType::charDataType)
-                .execute(getQueryRunner(), prestoCreateAsSelect("test_array_parameterized_char_unicode"));
+                .execute(getQueryRunner(), sessionWithArrayAsArray(), prestoCreateAsSelect(sessionWithArrayAsArray(), "test_array_parameterized_char_unicode"));
         arrayUnicodeDataTypeTest(TestPostgreSqlTypeMapping::postgresArrayDataType, DataType::charDataType)
-                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_array_parameterized_char_unicode"));
+                .execute(getQueryRunner(), sessionWithArrayAsArray(), postgresCreateAndInsert("tpch.test_array_parameterized_char_unicode"));
         arrayVarcharUnicodeDataTypeTest(TestPostgreSqlTypeMapping::arrayDataType)
-                .execute(getQueryRunner(), prestoCreateAsSelect("test_array_parameterized_varchar_unicode"));
+                .execute(getQueryRunner(), sessionWithArrayAsArray(), prestoCreateAsSelect(sessionWithArrayAsArray(), "test_array_parameterized_varchar_unicode"));
         arrayVarcharUnicodeDataTypeTest(TestPostgreSqlTypeMapping::postgresArrayDataType)
-                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_array_parameterized_varchar_unicode"));
+                .execute(getQueryRunner(), sessionWithArrayAsArray(), postgresCreateAndInsert("tpch.test_array_parameterized_varchar_unicode"));
     }
 
     @Test
@@ -367,7 +373,7 @@ public class TestPostgreSqlTypeMapping
         DataTypeTest.create()
                 .addRoundTrip(arrayDataType(integerDataType(), "_int4"), asList(1, 2, 3))
                 .addRoundTrip(arrayDataType(varcharDataType(), "_text"), asList("a", "b"))
-                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_array_with_native_name"));
+                .execute(getQueryRunner(), sessionWithArrayAsArray(), postgresCreateAndInsert("tpch.test_array_with_native_name"));
     }
 
     @Test
@@ -382,7 +388,7 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip(arrayDataType(timestampDataType()), singletonList(null))
                 .addRoundTrip(arrayDataType(prestoTimestampWithTimeZoneDataType()), asList())
                 .addRoundTrip(arrayDataType(prestoTimestampWithTimeZoneDataType()), singletonList(null))
-                .execute(getQueryRunner(), prestoCreateAsSelect("test_array_empty_or_nulls"));
+                .execute(getQueryRunner(), sessionWithArrayAsArray(), prestoCreateAsSelect(sessionWithArrayAsArray(), "test_array_empty_or_nulls"));
     }
 
     private DataTypeTest arrayDecimalTest(Function<DataType<BigDecimal>, DataType<List<BigDecimal>>> arrayTypeFactory)
@@ -464,7 +470,7 @@ public class TestPostgreSqlTypeMapping
                         asList(new BigDecimal("193")),
                         asList(new BigDecimal("19")),
                         asList(new BigDecimal("-193"))))
-                .execute(getQueryRunner(), prestoCreateAsSelect("test_array_2d"));
+                .execute(getQueryRunner(), sessionWithArrayAsArray(), prestoCreateAsSelect(sessionWithArrayAsArray(), "test_array_2d"));
 
         DataTypeTest.create()
                 .addRoundTrip(arrayDataType(arrayDataType(arrayDataType(doubleDataType()))), asList(
@@ -475,7 +481,43 @@ public class TestPostgreSqlTypeMapping
                         asList(asList(LocalDate.of(1952, 4, 3), LocalDate.of(1970, 1, 1))),
                         asList(asList(null, LocalDate.of(1970, 1, 1))),
                         asList(asList(LocalDate.of(1970, 2, 3), LocalDate.of(2017, 7, 1)))))
-                .execute(getQueryRunner(), prestoCreateAsSelect("test_array_3d"));
+                .execute(getQueryRunner(), sessionWithArrayAsArray(), prestoCreateAsSelect(sessionWithArrayAsArray(), "test_array_3d"));
+    }
+
+    @Test
+    public void testArrayAsJson()
+    {
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty("postgresql.array_mapping", AS_JSON.name())
+                .build();
+
+        DataTypeTest.create()
+                .addRoundTrip(arrayAsJsonDataType("boolean[]"), null)
+                .addRoundTrip(arrayAsJsonDataType("boolean[]"), "[[true,false],[false,true],[true,true]]")
+                .addRoundTrip(arrayAsJsonDataType("boolean[3][2]"), "[[true,false],[false,true],[true,true]]")
+                .addRoundTrip(arrayAsJsonDataType("boolean[100][100][100]"), "[true]")
+                .addRoundTrip(arrayAsJsonDataType("_bool"), "[[true,false],[null,null]]")
+                .addRoundTrip(arrayAsJsonDataType("_bool"), "[[[null]]]")
+                .addRoundTrip(arrayAsJsonDataType("_bool"), "[]")
+                .execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_boolean_array_as_json"));
+
+        DataTypeTest.create()
+                .addRoundTrip(arrayAsJsonDataType("integer[]"), null)
+                .addRoundTrip(arrayAsJsonDataType("integer[]"), "[[[1,2,3],[4,5,6]],[[7,8,9],[10,11,12]]]")
+                .addRoundTrip(arrayAsJsonDataType("integer[100][100][100]"), "[0]")
+                .addRoundTrip(arrayAsJsonDataType("integer[]"), "[[[null,null]]]")
+                .addRoundTrip(arrayAsJsonDataType("integer[]"), "[]")
+                .addRoundTrip(arrayAsJsonDataType("_int4"), "[]")
+                .addRoundTrip(arrayAsJsonDataType("_int4"), "[[0],[1],[2],[3]]")
+                .execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_integer_array_as_json"));
+
+        DataTypeTest.create()
+                .addRoundTrip(arrayAsJsonDataType("varchar[]"), null)
+                .addRoundTrip(arrayAsJsonDataType("varchar[]"), "[\"text\"]")
+                .addRoundTrip(arrayAsJsonDataType("_text"), "[[\"one\",\"two\"],[\"three\",\"four\"]]")
+                .addRoundTrip(arrayAsJsonDataType("_text"), "[[\"one\",null]]")
+                .addRoundTrip(arrayAsJsonDataType("_text"), "[]")
+                .execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_varchar_array_as_json"));
     }
 
     private static <E> DataType<List<E>> arrayDataType(DataType<E> elementType)
@@ -495,6 +537,19 @@ public class TestPostgreSqlTypeMapping
                 new ArrayType(elementType.getPrestoResultType()),
                 valuesList -> "ARRAY" + valuesList.stream().map(elementType::toLiteral).collect(toList()),
                 valuesList -> valuesList == null ? null : valuesList.stream().map(elementType::toPrestoQueryResult).collect(toList()));
+    }
+
+    private static DataType<String> arrayAsJsonDataType(String insertType)
+    {
+        return dataType(
+                insertType,
+                JSON,
+                // naive conversion JSON array -> array literal, sufficient for tests
+                value -> value
+                        .replace("[", "ARRAY[")
+                        .replace("\"", "'")
+                        + "::" + insertType,
+                identity());
     }
 
     @Test
@@ -590,7 +645,7 @@ public class TestPostgreSqlTypeMapping
         DataSetup dataSetup;
         if (insertWithPresto) {
             dataType = arrayDataType(timestampDataType());
-            dataSetup = prestoCreateAsSelect("test_array_timestamp");
+            dataSetup = prestoCreateAsSelect(sessionWithArrayAsArray(), "test_array_timestamp");
         }
         else {
             dataType = arrayDataType(timestampDataType(), "timestamp[]");
@@ -609,7 +664,7 @@ public class TestPostgreSqlTypeMapping
             addArrayTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, dataType, timeGapInVilnius);
             addArrayTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, dataType, timeGapInKathmandu);
 
-            Session session = Session.builder(getQueryRunner().getDefaultSession())
+            Session session = Session.builder(sessionWithArrayAsArray())
                     .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
                     .setSystemProperty("legacy_timestamp", Boolean.toString(legacyTimestamp))
                     .build();
@@ -645,7 +700,7 @@ public class TestPostgreSqlTypeMapping
         DataSetup dataSetup;
         if (insertWithPresto) {
             dataType = arrayDataType(prestoTimestampWithTimeZoneDataType());
-            dataSetup = prestoCreateAsSelect("test_array_timestamp_with_time_zone");
+            dataSetup = prestoCreateAsSelect(sessionWithArrayAsArray(), "test_array_timestamp_with_time_zone");
         }
         else {
             dataType = arrayDataType(postgreSqlTimestampWithTimeZoneDataType(), "timestamptz[]");
@@ -669,7 +724,7 @@ public class TestPostgreSqlTypeMapping
             // TODO upgrade driver or find a different way to write timestamptz array elements as a point in time values with org.postgresql.jdbc.PgArray (https://github.com/pgjdbc/pgjdbc/issues/1225#issuecomment-516312324)
             tests.addRoundTrip(dataType, asList(timeDoubledInJvmZone.atZone(jvmZone)));
         }
-        tests.execute(getQueryRunner(), dataSetup);
+        tests.execute(getQueryRunner(), sessionWithArrayAsArray(), dataSetup);
     }
 
     @DataProvider
@@ -835,7 +890,7 @@ public class TestPostgreSqlTypeMapping
     {
         return dataType(
                 "hstore",
-                getQueryRunner().getMetadata().getType(parseTypeSignature("map(varchar, varchar)")),
+                getQueryRunner().getMetadata().getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature())),
                 value -> value.entrySet().stream()
                         .flatMap(entry -> Stream.of(entry.getKey(), entry.getValue()))
                         .map(string -> {
@@ -864,6 +919,13 @@ public class TestPostgreSqlTypeMapping
                 VARBINARY,
                 bytes -> format("bytea E'\\\\x%s'", base16().encode(bytes)),
                 identity());
+    }
+
+    private Session sessionWithArrayAsArray()
+    {
+        return Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty("postgresql.array_mapping", AS_ARRAY.name())
+                .build();
     }
 
     private DataSetup prestoCreateAsSelect(String tableNamePrefix)

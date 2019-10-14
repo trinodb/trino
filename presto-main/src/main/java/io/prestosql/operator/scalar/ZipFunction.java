@@ -26,6 +26,7 @@ import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.spi.type.TypeSignatureParameter;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -34,9 +35,9 @@ import java.util.stream.IntStream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.arrayType;
+import static io.prestosql.spi.type.TypeSignature.rowType;
 import static io.prestosql.util.Reflection.methodHandle;
-import static java.lang.String.join;
 import static java.lang.invoke.MethodType.methodType;
 import static java.util.Collections.nCopies;
 
@@ -69,8 +70,13 @@ public final class ZipFunction
                 FunctionKind.SCALAR,
                 typeParameters.stream().map(Signature::typeVariable).collect(toImmutableList()),
                 ImmutableList.of(),
-                parseTypeSignature("array(row(" + join(",", typeParameters) + "))"),
-                typeParameters.stream().map(name -> "array(" + name + ")").map(TypeSignature::parseTypeSignature).collect(toImmutableList()),
+                arrayType(rowType(typeParameters.stream()
+                        .map(TypeSignature::new)
+                        .map(TypeSignatureParameter::anonymousField)
+                        .collect(toImmutableList()))),
+                typeParameters.stream()
+                        .map(name -> arrayType(new TypeSignature(name)))
+                        .collect(toImmutableList()),
                 false));
         this.typeParameters = typeParameters;
     }

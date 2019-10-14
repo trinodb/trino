@@ -28,6 +28,7 @@ import io.prestosql.metadata.SqlOperator;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.gen.ArrayGeneratorUtils;
 import io.prestosql.sql.gen.ArrayMapBytecodeExpression;
 import io.prestosql.sql.gen.CachedInstanceBinder;
@@ -48,7 +49,7 @@ import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.spi.function.OperatorType.CAST;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.arrayType;
 import static io.prestosql.util.CompilerUtils.defineClass;
 import static io.prestosql.util.CompilerUtils.makeClassName;
 import static io.prestosql.util.Reflection.methodHandle;
@@ -63,8 +64,8 @@ public class ArrayToArrayCast
         super(CAST,
                 ImmutableList.of(typeVariable("F"), typeVariable("T")),
                 ImmutableList.of(),
-                parseTypeSignature("array(T)"),
-                ImmutableList.of(parseTypeSignature("array(F)")));
+                arrayType(new TypeSignature("T")),
+                ImmutableList.of(arrayType(new TypeSignature("F"))));
     }
 
     @Override

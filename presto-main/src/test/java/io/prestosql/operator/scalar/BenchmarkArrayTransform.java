@@ -61,7 +61,7 @@ import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.functionType;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
 
 @SuppressWarnings("MethodMayBeStatic")
@@ -113,7 +113,12 @@ public class BenchmarkArrayTransform
             for (int i = 0; i < TYPES.size(); i++) {
                 Type elementType = TYPES.get(i);
                 ArrayType arrayType = new ArrayType(elementType);
-                Signature signature = new Signature("transform", FunctionKind.SCALAR, returnType.getTypeSignature(), arrayType.getTypeSignature(), parseTypeSignature("function(bigint,boolean)"));
+                Signature signature = new Signature(
+                        "transform",
+                        FunctionKind.SCALAR,
+                        returnType.getTypeSignature(),
+                        arrayType.getTypeSignature(),
+                        functionType(BIGINT.getTypeSignature(), BOOLEAN.getTypeSignature()));
                 Signature greaterThan = new Signature("$operator$" + GREATER_THAN.name(), FunctionKind.SCALAR, BOOLEAN.getTypeSignature(), BIGINT.getTypeSignature(), BIGINT.getTypeSignature());
                 projectionsBuilder.add(new CallExpression(signature, returnType, ImmutableList.of(
                         new InputReferenceExpression(0, arrayType),

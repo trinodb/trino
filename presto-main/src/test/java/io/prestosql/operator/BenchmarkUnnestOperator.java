@@ -25,7 +25,6 @@ import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.testing.TestingTaskContext;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -160,8 +159,7 @@ public class BenchmarkUnnestOperator
             if (typeString.equals("NONE")) {
                 return Optional.empty();
             }
-            TypeSignature signature = TypeSignature.parseTypeSignature(typeString);
-            return Optional.of(metadata.getType(signature));
+            return Optional.of(metadata.fromSqlType(typeString));
         }
 
         @TearDown

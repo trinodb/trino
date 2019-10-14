@@ -65,8 +65,8 @@ public final class StructuralTestUtil
     public static MapType mapType(Type keyType, Type valueType)
     {
         return (MapType) METADATA.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
-                TypeSignatureParameter.of(keyType.getTypeSignature()),
-                TypeSignatureParameter.of(valueType.getTypeSignature())));
+                TypeSignatureParameter.typeParameter(keyType.getTypeSignature()),
+                TypeSignatureParameter.typeParameter(valueType.getTypeSignature())));
     }
 
     public static void appendToBlockBuilder(Type type, Object element, BlockBuilder blockBuilder)

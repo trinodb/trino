@@ -20,6 +20,7 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 
@@ -29,7 +30,7 @@ import static io.prestosql.operator.scalar.ScalarFunctionImplementation.Argument
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.type.TypeUtils.hashPosition;
 import static io.prestosql.util.Reflection.methodHandle;
 
@@ -45,7 +46,7 @@ public class MapHashCodeOperator
                 ImmutableList.of(comparableTypeParameter("K"), comparableTypeParameter("V")),
                 ImmutableList.of(),
                 BIGINT.getTypeSignature(),
-                ImmutableList.of(parseTypeSignature("map(K,V)")));
+                ImmutableList.of(mapType(new TypeSignature("K"), new TypeSignature("V"))));
     }
 
     @Override

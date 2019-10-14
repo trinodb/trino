@@ -99,4 +99,11 @@ public final class InternalTypeManager
     {
         return typeCoercion.coerceTypeBase(sourceType, resultTypeBase);
     }
+
+    @Override
+    public MethodHandle getCoercion(Type fromType, Type toType)
+    {
+        Signature signature = metadata.getCoercion(fromType, toType);
+        return metadata.getScalarFunctionImplementation(signature).getMethodHandle();
+    }
 }

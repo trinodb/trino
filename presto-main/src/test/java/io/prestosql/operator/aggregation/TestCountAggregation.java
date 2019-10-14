@@ -16,6 +16,7 @@ package io.prestosql.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.Type;
 
 import java.util.List;
 
@@ -53,7 +54,7 @@ public class TestCountAggregation
     }
 
     @Override
-    protected List<String> getFunctionParameterTypes()
+    protected List<Type> getFunctionParameterTypes()
     {
         return ImmutableList.of();
     }

@@ -36,8 +36,8 @@ import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggre
 import static io.prestosql.operator.aggregation.ChecksumAggregationFunction.PRIME64;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.util.Arrays.asList;
@@ -108,18 +108,26 @@ public class TestChecksumAggregation
     @Test
     public void testShortDecimal()
     {
-        InternalAggregationFunction decimalAgg = metadata.getAggregateFunctionImplementation(new Signature("checksum", AGGREGATE, VARBINARY.getTypeSignature(), parseTypeSignature("decimal(10,2)")));
+        InternalAggregationFunction decimalAgg = metadata.getAggregateFunctionImplementation(new Signature(
+                "checksum",
+                AGGREGATE,
+                VARBINARY.getTypeSignature(),
+                createDecimalType(10, 2).getTypeSignature()));
         Block block = createShortDecimalsBlock("11.11", "22.22", null, "33.33", "44.44");
-        DecimalType shortDecimalType = DecimalType.createDecimalType(1);
+        DecimalType shortDecimalType = createDecimalType(1);
         assertAggregation(decimalAgg, expectedChecksum(shortDecimalType, block), block);
     }
 
     @Test
     public void testLongDecimal()
     {
-        InternalAggregationFunction decimalAgg = metadata.getAggregateFunctionImplementation(new Signature("checksum", AGGREGATE, VARBINARY.getTypeSignature(), parseTypeSignature("decimal(19,2)")));
+        InternalAggregationFunction decimalAgg = metadata.getAggregateFunctionImplementation(new Signature(
+                "checksum",
+                AGGREGATE,
+                VARBINARY.getTypeSignature(),
+                createDecimalType(19, 2).getTypeSignature()));
         Block block = createLongDecimalsBlock("11.11", "22.22", null, "33.33", "44.44");
-        DecimalType longDecimalType = DecimalType.createDecimalType(19);
+        DecimalType longDecimalType = createDecimalType(19);
         assertAggregation(decimalAgg, expectedChecksum(longDecimalType, block), block);
     }
 

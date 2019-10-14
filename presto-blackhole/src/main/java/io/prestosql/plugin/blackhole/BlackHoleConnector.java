@@ -138,7 +138,7 @@ public class BlackHoleConnector
                 new PropertyMetadata<>(
                         DISTRIBUTED_ON,
                         "Distribution columns",
-                        typeManager.getParameterizedType(ARRAY, ImmutableList.of(TypeSignatureParameter.of(createUnboundedVarcharType().getTypeSignature()))),
+                        typeManager.getParameterizedType(ARRAY, ImmutableList.of(TypeSignatureParameter.typeParameter(createUnboundedVarcharType().getTypeSignature()))),
                         List.class,
                         ImmutableList.of(),
                         false,

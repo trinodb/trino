@@ -34,6 +34,7 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.gen.CallSiteBinder;
 import io.prestosql.sql.gen.lambda.UnaryFunctionInterface;
 
@@ -58,7 +59,8 @@ import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.functionTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.arrayType;
+import static io.prestosql.spi.type.TypeSignature.functionType;
 import static io.prestosql.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static io.prestosql.util.CompilerUtils.defineClass;
@@ -77,8 +79,10 @@ public final class ArrayTransformFunction
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("T"), typeVariable("U")),
                 ImmutableList.of(),
-                parseTypeSignature("array(U)"),
-                ImmutableList.of(parseTypeSignature("array(T)"), parseTypeSignature("function(T,U)")),
+                arrayType(new TypeSignature("U")),
+                ImmutableList.of(
+                        arrayType(new TypeSignature("T")),
+                        functionType(new TypeSignature("T"), new TypeSignature("U"))),
                 false));
     }
 

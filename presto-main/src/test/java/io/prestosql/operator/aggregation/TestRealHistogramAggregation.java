@@ -21,6 +21,7 @@ import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.TypeSignature;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -33,7 +34,6 @@ import static io.prestosql.operator.aggregation.AggregationTestUtils.getIntermed
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.RealType.REAL;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.util.StructuralTestUtil.mapType;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -48,7 +48,7 @@ public class TestRealHistogramAggregation
         InternalAggregationFunction function = createTestMetadataManager().getAggregateFunctionImplementation(
                 new Signature("numeric_histogram",
                         AGGREGATE,
-                        parseTypeSignature("map(real, real)"),
+                        TypeSignature.mapType(REAL.getTypeSignature(), REAL.getTypeSignature()),
                         BIGINT.getTypeSignature(),
                         REAL.getTypeSignature(),
                         DOUBLE.getTypeSignature()));

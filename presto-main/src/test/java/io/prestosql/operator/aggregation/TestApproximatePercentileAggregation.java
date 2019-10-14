@@ -34,7 +34,7 @@ import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggre
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.RealType.REAL;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.arrayType;
 
 public class TestApproximatePercentileAggregation
 {
@@ -55,14 +55,14 @@ public class TestApproximatePercentileAggregation
             new Signature("approx_percentile", AGGREGATE, BIGINT.getTypeSignature(), BIGINT.getTypeSignature(), DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()));
 
     private static final InternalAggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION = metadata.getAggregateFunctionImplementation(
-            new Signature("approx_percentile", AGGREGATE, parseTypeSignature("array(double)"), DOUBLE.getTypeSignature(), parseTypeSignature("array(double)")));
+            new Signature("approx_percentile", AGGREGATE, arrayType(DOUBLE.getTypeSignature()), DOUBLE.getTypeSignature(), arrayType(DOUBLE.getTypeSignature())));
     private static final InternalAggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED_AGGREGATION = metadata.getAggregateFunctionImplementation(
-            new Signature("approx_percentile", AGGREGATE, parseTypeSignature("array(double)"), DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature(), parseTypeSignature("array(double)")));
+            new Signature("approx_percentile", AGGREGATE, arrayType(DOUBLE.getTypeSignature()), DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature(), arrayType(DOUBLE.getTypeSignature())));
 
     private static final InternalAggregationFunction LONG_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION = metadata.getAggregateFunctionImplementation(
-            new Signature("approx_percentile", AGGREGATE, parseTypeSignature("array(bigint)"), BIGINT.getTypeSignature(), parseTypeSignature("array(double)")));
+            new Signature("approx_percentile", AGGREGATE, arrayType(BIGINT.getTypeSignature()), BIGINT.getTypeSignature(), arrayType(DOUBLE.getTypeSignature())));
     private static final InternalAggregationFunction LONG_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED_AGGREGATION = metadata.getAggregateFunctionImplementation(
-            new Signature("approx_percentile", AGGREGATE, parseTypeSignature("array(bigint)"), BIGINT.getTypeSignature(), DOUBLE.getTypeSignature(), parseTypeSignature("array(double)")));
+            new Signature("approx_percentile", AGGREGATE, arrayType(BIGINT.getTypeSignature()), BIGINT.getTypeSignature(), DOUBLE.getTypeSignature(), arrayType(DOUBLE.getTypeSignature())));
 
     private static final InternalAggregationFunction FLOAT_APPROXIMATE_PERCENTILE_AGGREGATION = metadata.getAggregateFunctionImplementation(
             new Signature("approx_percentile", AGGREGATE, REAL.getTypeSignature(),

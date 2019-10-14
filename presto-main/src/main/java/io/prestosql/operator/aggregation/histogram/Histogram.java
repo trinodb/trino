@@ -42,7 +42,7 @@ import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMet
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static io.prestosql.operator.aggregation.AggregationUtils.generateAggregationName;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.util.Reflection.methodHandle;
 import static java.util.Objects.requireNonNull;
 
@@ -62,7 +62,7 @@ public class Histogram
         super(NAME,
                 ImmutableList.of(comparableTypeParameter("K")),
                 ImmutableList.of(),
-                parseTypeSignature("map(K,bigint)"),
+                mapType(new TypeSignature("K"), BIGINT.getTypeSignature()),
                 ImmutableList.of(new TypeSignature("K")));
         this.groupMode = groupMode;
     }
@@ -78,8 +78,8 @@ public class Histogram
     {
         Type keyType = boundVariables.getTypeVariable("K");
         Type outputType = metadata.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
-                TypeSignatureParameter.of(keyType.getTypeSignature()),
-                TypeSignatureParameter.of(BIGINT.getTypeSignature())));
+                TypeSignatureParameter.typeParameter(keyType.getTypeSignature()),
+                TypeSignatureParameter.typeParameter(BIGINT.getTypeSignature())));
         return generateAggregation(NAME, keyType, outputType, groupMode);
     }
 

@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -25,7 +26,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
+import static io.prestosql.spi.type.TypeSignatureParameter.typeParameter;
 import static java.lang.Character.isDigit;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
@@ -94,7 +97,11 @@ public class TypeSignature
         return calculated;
     }
 
+    /**
+     * @deprecated Build TypeSignature programmatically instead
+     */
     @JsonCreator
+    @Deprecated
     public static TypeSignature parseTypeSignature(String signature)
     {
         return parseTypeSignature(signature, new HashSet<>());
@@ -243,7 +250,7 @@ public class TypeSignature
                     else if (c == ')') {
                         verify(tokenStart >= 0, "Expect tokenStart to be non-negative");
                         verify(delimitedColumnName != null, "Expect delimitedColumnName to be non-null");
-                        fields.add(TypeSignatureParameter.of(new NamedTypeSignature(
+                        fields.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(
                                 Optional.of(new RowFieldName(delimitedColumnName, true)),
                                 parseTypeSignature(signature.substring(tokenStart, i).trim(), literalParameters))));
                         delimitedColumnName = null;
@@ -253,7 +260,7 @@ public class TypeSignature
                     else if (c == ',' && bracketLevel == 1) {
                         verify(tokenStart >= 0, "Expect tokenStart to be non-negative");
                         verify(delimitedColumnName != null, "Expect delimitedColumnName to be non-null");
-                        fields.add(TypeSignatureParameter.of(new NamedTypeSignature(
+                        fields.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(
                                 Optional.of(new RowFieldName(delimitedColumnName, true)),
                                 parseTypeSignature(signature.substring(tokenStart, i).trim(), literalParameters))));
                         delimitedColumnName = null;
@@ -280,20 +287,20 @@ public class TypeSignature
 
         // Type without space or simple type with spaces
         if (split == -1 || SIMPLE_TYPE_WITH_SPACES.contains(typeOrNamedType)) {
-            return TypeSignatureParameter.of(new NamedTypeSignature(Optional.empty(), parseTypeSignature(typeOrNamedType, literalParameters)));
+            return TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.empty(), parseTypeSignature(typeOrNamedType, literalParameters)));
         }
 
         // Assume the first part of a structured type always has non-alphabetical character.
         // If the first part is a valid identifier, parameter is a named field.
         String firstPart = typeOrNamedType.substring(0, split);
         if (IDENTIFIER_PATTERN.matcher(firstPart).matches()) {
-            return TypeSignatureParameter.of(new NamedTypeSignature(
+            return TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(
                     Optional.of(new RowFieldName(firstPart, false)),
                     parseTypeSignature(typeOrNamedType.substring(split + 1).trim(), literalParameters)));
         }
 
         // Structured type composed from types with spaces. i.e. array(timestamp with time zone)
-        return TypeSignatureParameter.of(new NamedTypeSignature(Optional.empty(), parseTypeSignature(typeOrNamedType, literalParameters)));
+        return TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.empty(), parseTypeSignature(typeOrNamedType, literalParameters)));
     }
 
     private static TypeSignatureParameter parseTypeSignatureParameter(
@@ -304,13 +311,13 @@ public class TypeSignature
     {
         String parameterName = signature.substring(begin, end).trim();
         if (isDigit(signature.charAt(begin))) {
-            return TypeSignatureParameter.of(Long.parseLong(parameterName));
+            return TypeSignatureParameter.numericParameter(Long.parseLong(parameterName));
         }
         else if (literalCalculationParameters.contains(parameterName)) {
-            return TypeSignatureParameter.of(parameterName);
+            return TypeSignatureParameter.typeVariable(parameterName);
         }
         else {
-            return TypeSignatureParameter.of(parseTypeSignature(parameterName, literalCalculationParameters));
+            return typeParameter(parseTypeSignature(parameterName, literalCalculationParameters));
         }
     }
 
@@ -384,5 +391,55 @@ public class TypeSignature
     public int hashCode()
     {
         return Objects.hash(base.toLowerCase(Locale.ENGLISH), parameters);
+    }
+
+    // Type signature constructors for common types
+
+    public static TypeSignature arrayType(TypeSignature elementType)
+    {
+        return new TypeSignature(StandardTypes.ARRAY, typeParameter(elementType));
+    }
+
+    public static TypeSignature arrayType(TypeSignatureParameter elementType)
+    {
+        return new TypeSignature(StandardTypes.ARRAY, elementType);
+    }
+
+    public static TypeSignature mapType(TypeSignature keyType, TypeSignature valueType)
+    {
+        return new TypeSignature(StandardTypes.MAP, typeParameter(keyType), typeParameter(valueType));
+    }
+
+    public static TypeSignature parametricType(String name, TypeSignature... parameters)
+    {
+        return new TypeSignature(
+                name,
+                Arrays.asList(parameters).stream()
+                        .map(TypeSignatureParameter::typeParameter)
+                        .collect(Collectors.toList()));
+    }
+
+    public static TypeSignature functionType(TypeSignature first, TypeSignature... rest)
+    {
+        List<TypeSignatureParameter> parameters = new ArrayList<>();
+        parameters.add(typeParameter(first));
+
+        Arrays.asList(rest).stream()
+                .map(TypeSignatureParameter::typeParameter)
+                .forEach(parameters::add);
+
+        return new TypeSignature("function", parameters);
+    }
+
+    public static TypeSignature rowType(TypeSignatureParameter... fields)
+    {
+        return rowType(Arrays.asList(fields));
+    }
+
+    public static TypeSignature rowType(List<TypeSignatureParameter> fields)
+    {
+        checkArgument(fields.stream().allMatch(parameter -> parameter.getKind() == ParameterKind.NAMED_TYPE), "Parameters for ROW type must be NAMED_TYPE parameters");
+
+        return new TypeSignature(StandardTypes.ROW, fields);
     }
 }

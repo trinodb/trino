@@ -19,7 +19,6 @@ import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.SqlDecimal;
 import io.prestosql.spi.type.SqlTimestamp;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeSignature;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -510,13 +509,13 @@ public class BenchmarkStreamReaders
                 "varchar",
                 "varbinary",
         })
-        private String typeSignature;
+        private String typeName;
 
         @Setup
         public void setup()
                 throws Exception
         {
-            Type type = createTestMetadataManager().getType(TypeSignature.parseTypeSignature(typeSignature));
+            Type type = createTestMetadataManager().fromSqlType(typeName);
             setup(type);
         }
 

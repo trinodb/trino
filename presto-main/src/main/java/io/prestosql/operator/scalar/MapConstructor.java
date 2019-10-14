@@ -45,6 +45,7 @@ import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.StandardTypes.MAP;
+import static io.prestosql.spi.type.TypeSignature.arrayType;
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
 import static io.prestosql.util.Failures.checkCondition;
 import static io.prestosql.util.Failures.internalError;
@@ -77,8 +78,8 @@ public final class MapConstructor
                 FunctionKind.SCALAR,
                 ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")),
                 ImmutableList.of(),
-                TypeSignature.parseTypeSignature("map(K,V)"),
-                ImmutableList.of(TypeSignature.parseTypeSignature("array(K)"), TypeSignature.parseTypeSignature("array(V)")),
+                TypeSignature.mapType(new TypeSignature("K"), new TypeSignature("V")),
+                ImmutableList.of(arrayType(new TypeSignature("K")), arrayType(new TypeSignature("V"))),
                 false));
     }
 
@@ -106,7 +107,7 @@ public final class MapConstructor
         Type keyType = boundVariables.getTypeVariable("K");
         Type valueType = boundVariables.getTypeVariable("V");
 
-        Type mapType = metadata.getParameterizedType(MAP, ImmutableList.of(TypeSignatureParameter.of(keyType.getTypeSignature()), TypeSignatureParameter.of(valueType.getTypeSignature())));
+        Type mapType = metadata.getParameterizedType(MAP, ImmutableList.of(TypeSignatureParameter.typeParameter(keyType.getTypeSignature()), TypeSignatureParameter.typeParameter(valueType.getTypeSignature())));
         MethodHandle keyHashCode = metadata.getScalarFunctionImplementation(metadata.resolveOperator(OperatorType.HASH_CODE, ImmutableList.of(keyType))).getMethodHandle();
         MethodHandle keyEqual = metadata.getScalarFunctionImplementation(metadata.resolveOperator(OperatorType.EQUAL, ImmutableList.of(keyType, keyType))).getMethodHandle();
         MethodHandle keyIndeterminate = metadata.getScalarFunctionImplementation(internalOperator(INDETERMINATE, BOOLEAN.getTypeSignature(), ImmutableList.of(keyType.getTypeSignature()))).getMethodHandle();

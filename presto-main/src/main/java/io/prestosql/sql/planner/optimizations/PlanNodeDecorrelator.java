@@ -27,6 +27,7 @@ import io.prestosql.sql.planner.OrderingScheme;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.SymbolAllocator;
 import io.prestosql.sql.planner.SymbolsExtractor;
+import io.prestosql.sql.planner.iterative.GroupReference;
 import io.prestosql.sql.planner.iterative.Lookup;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.Assignments;
@@ -77,7 +78,7 @@ public class PlanNodeDecorrelator
         // right now, because for nested subqueries correlation list is empty while there might exists usages
         // of the outer most correlated symbols
 
-        Optional<DecorrelationResult> decorrelationResultOptional = lookup.resolve(node).accept(new DecorrelatingVisitor(correlation), null);
+        Optional<DecorrelationResult> decorrelationResultOptional = node.accept(new DecorrelatingVisitor(correlation), null);
         return decorrelationResultOptional.flatMap(decorrelationResult -> decorrelatedNode(
                 decorrelationResult.correlatedPredicates,
                 decorrelationResult.node,
@@ -106,6 +107,12 @@ public class PlanNodeDecorrelator
         }
 
         @Override
+        public Optional<DecorrelationResult> visitGroupReference(GroupReference node, Void context)
+        {
+            return lookup.resolve(node).accept(this, null);
+        }
+
+        @Override
         public Optional<DecorrelationResult> visitFilter(FilterNode node, Void context)
         {
             Optional<DecorrelationResult> childDecorrelationResultOptional = Optional.of(new DecorrelationResult(
@@ -117,7 +124,7 @@ public class PlanNodeDecorrelator
 
             // try to decorrelate filters down the tree
             if (containsCorrelation(node.getSource(), correlation)) {
-                childDecorrelationResultOptional = lookup.resolve(node.getSource()).accept(this, null);
+                childDecorrelationResultOptional = node.getSource().accept(this, null);
             }
 
             if (!childDecorrelationResultOptional.isPresent()) {
@@ -158,7 +165,7 @@ public class PlanNodeDecorrelator
                 return Optional.empty();
             }
 
-            Optional<DecorrelationResult> childDecorrelationResultOptional = lookup.resolve(node.getSource()).accept(this, null);
+            Optional<DecorrelationResult> childDecorrelationResultOptional = node.getSource().accept(this, null);
             if (!childDecorrelationResultOptional.isPresent()) {
                 return Optional.empty();
             }
@@ -259,7 +266,7 @@ public class PlanNodeDecorrelator
                 return Optional.empty();
             }
 
-            Optional<DecorrelationResult> childDecorrelationResultOptional = lookup.resolve(node.getSource()).accept(this, null);
+            Optional<DecorrelationResult> childDecorrelationResultOptional = node.getSource().accept(this, null);
             if (!childDecorrelationResultOptional.isPresent()) {
                 return Optional.empty();
             }
@@ -356,7 +363,7 @@ public class PlanNodeDecorrelator
         @Override
         public Optional<DecorrelationResult> visitEnforceSingleRow(EnforceSingleRowNode node, Void context)
         {
-            Optional<DecorrelationResult> childDecorrelationResultOptional = lookup.resolve(node.getSource()).accept(this, null);
+            Optional<DecorrelationResult> childDecorrelationResultOptional = node.getSource().accept(this, null);
             return childDecorrelationResultOptional.filter(result -> result.atMostSingleRow);
         }
 
@@ -371,7 +378,7 @@ public class PlanNodeDecorrelator
                 return Optional.empty();
             }
 
-            Optional<DecorrelationResult> childDecorrelationResultOptional = lookup.resolve(node.getSource()).accept(this, null);
+            Optional<DecorrelationResult> childDecorrelationResultOptional = node.getSource().accept(this, null);
             if (!childDecorrelationResultOptional.isPresent()) {
                 return Optional.empty();
             }
@@ -404,21 +411,18 @@ public class PlanNodeDecorrelator
                     decorrelatedAggregation.getHashSymbol(),
                     decorrelatedAggregation.getGroupIdSymbol());
 
-            boolean atMostSingleRow = newAggregation.getGroupingSetCount() == 1
-                    && constantSymbols.containsAll(newAggregation.getGroupingKeys());
-
             return Optional.of(new DecorrelationResult(
                     newAggregation,
                     childDecorrelationResult.symbolsToPropagate,
                     childDecorrelationResult.correlatedPredicates,
                     childDecorrelationResult.correlatedSymbolsMapping,
-                    atMostSingleRow));
+                    constantSymbols.containsAll(newAggregation.getGroupingKeys())));
         }
 
         @Override
         public Optional<DecorrelationResult> visitProject(ProjectNode node, Void context)
         {
-            Optional<DecorrelationResult> childDecorrelationResultOptional = lookup.resolve(node.getSource()).accept(this, null);
+            Optional<DecorrelationResult> childDecorrelationResultOptional = node.getSource().accept(this, null);
             if (!childDecorrelationResultOptional.isPresent()) {
                 return Optional.empty();
             }
