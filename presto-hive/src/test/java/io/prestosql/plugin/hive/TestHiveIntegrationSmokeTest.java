@@ -194,7 +194,7 @@ public class TestHiveIntegrationSmokeTest
                                         ImmutableSet.of(
                                                 new ColumnConstraint(
                                                         "orderkey",
-                                                        BIGINT.getTypeSignature(),
+                                                        BIGINT,
                                                         new FormattedDomain(
                                                                 false,
                                                                 ImmutableSet.of(
@@ -206,7 +206,7 @@ public class TestHiveIntegrationSmokeTest
                                                                                 new FormattedMarker(Optional.of("2"), EXACTLY))))),
                                                 new ColumnConstraint(
                                                         "processing",
-                                                        BOOLEAN.getTypeSignature(),
+                                                        BOOLEAN,
                                                         new FormattedDomain(
                                                                 false,
                                                                 ImmutableSet.of(
@@ -233,7 +233,7 @@ public class TestHiveIntegrationSmokeTest
                                         ImmutableSet.of(
                                                 new ColumnConstraint(
                                                         "orderkey",
-                                                        BIGINT.getTypeSignature(),
+                                                        BIGINT,
                                                         new FormattedDomain(
                                                                 false,
                                                                 ImmutableSet.of(
@@ -284,7 +284,7 @@ public class TestHiveIntegrationSmokeTest
                                     ImmutableSet.of(
                                             new ColumnConstraint(
                                                     "my_col",
-                                                    type.getTypeSignature(),
+                                                    type,
                                                     new FormattedDomain(
                                                             false,
                                                             ImmutableSet.of(
@@ -2966,7 +2966,7 @@ public class TestHiveIntegrationSmokeTest
                     ImmutableSet.of(
                             new ColumnConstraint(
                                     "k",
-                                    VARCHAR.getTypeSignature(),
+                                    VARCHAR,
                                     new FormattedDomain(
                                             false,
                                             ImmutableSet.of(
@@ -2981,7 +2981,7 @@ public class TestHiveIntegrationSmokeTest
                     ImmutableSet.of(
                             new ColumnConstraint(
                                     "k",
-                                    VARCHAR.getTypeSignature(),
+                                    VARCHAR,
                                     new FormattedDomain(
                                             false,
                                             ImmutableSet.of(
@@ -2999,7 +2999,7 @@ public class TestHiveIntegrationSmokeTest
                     ImmutableSet.of(
                             new ColumnConstraint(
                                     "k",
-                                    VARCHAR.getTypeSignature(),
+                                    VARCHAR,
                                     new FormattedDomain(
                                             false,
                                             ImmutableSet.of(
@@ -3025,7 +3025,7 @@ public class TestHiveIntegrationSmokeTest
                     ImmutableSet.of(
                             new ColumnConstraint(
                                     "k",
-                                    VARCHAR.getTypeSignature(),
+                                    VARCHAR,
                                     new FormattedDomain(
                                             false,
                                             ImmutableSet.of(

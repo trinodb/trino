@@ -14,20 +14,25 @@
 package io.prestosql.tests;
 
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodecFactory;
+import io.airlift.json.ObjectMapperProvider;
 import io.prestosql.Session;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
+import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.planprinter.IoPlanPrinter;
 import io.prestosql.sql.planner.planprinter.IoPlanPrinter.EstimatedStatsAndCost;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
+import io.prestosql.type.TypeDeserializer;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.prestosql.spi.predicate.Marker.Bound.EXACTLY;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
@@ -54,7 +59,7 @@ public class TestTpchDistributedQueries
                 ImmutableSet.of(
                         new IoPlanPrinter.ColumnConstraint(
                                 "orderstatus",
-                                createVarcharType(1).getTypeSignature(),
+                                createVarcharType(1),
                                 new IoPlanPrinter.FormattedDomain(
                                         false,
                                         ImmutableSet.of(
@@ -68,8 +73,13 @@ public class TestTpchDistributedQueries
                                                         new IoPlanPrinter.FormattedMarker(Optional.of("P"), EXACTLY),
                                                         new IoPlanPrinter.FormattedMarker(Optional.of("P"), EXACTLY)))))),
                 scanEstimate);
+
+        ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
+        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(getQueryRunner().getMetadata())));
+        JsonCodec<IoPlanPrinter.IoPlan> codec = new JsonCodecFactory(objectMapperProvider).jsonCodec(IoPlanPrinter.IoPlan.class);
+
         assertEquals(
-                jsonCodec(IoPlanPrinter.IoPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
+                codec.fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
                 new IoPlanPrinter.IoPlan(ImmutableSet.of(input), Optional.empty(), totalEstimate));
     }
 
