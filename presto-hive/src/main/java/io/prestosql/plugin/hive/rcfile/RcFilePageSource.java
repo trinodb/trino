@@ -204,7 +204,7 @@ public class RcFilePageSource
     }
 
     private final class RcFileBlockLoader
-            implements LazyBlockLoader<LazyBlock>
+            implements LazyBlockLoader
     {
         private final int expectedBatchId = pageId;
         private final int columnIndex;
@@ -216,14 +216,14 @@ public class RcFilePageSource
         }
 
         @Override
-        public final void load(LazyBlock lazyBlock)
+        public final Block load()
         {
             checkState(!loaded, "Already loaded");
             checkState(pageId == expectedBatchId);
 
+            Block block;
             try {
-                Block block = rcFileReader.readBlock(columnIndex);
-                lazyBlock.setBlock(block);
+                block = rcFileReader.readBlock(columnIndex);
             }
             catch (RcFileCorruptionException e) {
                 throw new PrestoException(HIVE_BAD_DATA, format("Corrupted RC file: %s", rcFileReader.getId()), e);
@@ -233,6 +233,7 @@ public class RcFilePageSource
             }
 
             loaded = true;
+            return block;
         }
     }
 }

@@ -64,7 +64,7 @@ public class InputPageProjection
             return new CompletedWork<>(
                     new LazyBlock(
                             selectedPositions.size(),
-                            lazyBlock -> lazyBlock.setBlock(projectPositions(block, selectedPositions))));
+                            () -> projectPositions(block, selectedPositions)));
         }
         else {
             // TODO: make it lazy when MergePages have better merging heuristics for small lazy pages

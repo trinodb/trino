@@ -26,11 +26,11 @@ public class LazyBlock
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(LazyBlock.class).instanceSize();
 
     private final int positionCount;
-    private LazyBlockLoader<LazyBlock> loader;
+    private LazyBlockLoader loader;
 
     private Block block;
 
-    public LazyBlock(int positionCount, LazyBlockLoader<LazyBlock> loader)
+    public LazyBlock(int positionCount, LazyBlockLoader loader)
     {
         this.positionCount = positionCount;
         this.loader = requireNonNull(loader, "loader is null");
@@ -254,14 +254,6 @@ public class LazyBlock
         return block;
     }
 
-    public void setBlock(Block block)
-    {
-        if (this.block != null) {
-            throw new IllegalStateException("block already set");
-        }
-        this.block = requireNonNull(block, "block is null");
-    }
-
     @Override
     public boolean isLoaded()
     {
@@ -281,7 +273,7 @@ public class LazyBlock
         if (block != null) {
             return;
         }
-        loader.load(this);
+        block = requireNonNull(loader.load(), "loader returned null");
 
         while (block instanceof LazyBlock) {
             block = ((LazyBlock) block).getBlock();
