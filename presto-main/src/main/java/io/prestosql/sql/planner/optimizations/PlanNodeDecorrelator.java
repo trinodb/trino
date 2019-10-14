@@ -98,6 +98,9 @@ public class PlanNodeDecorrelator
         @Override
         protected Optional<DecorrelationResult> visitPlan(PlanNode node, Void context)
         {
+            if (containsCorrelation(node, correlation)) {
+                return Optional.empty();
+            }
             return Optional.of(new DecorrelationResult(
                     node,
                     ImmutableSet.of(),
