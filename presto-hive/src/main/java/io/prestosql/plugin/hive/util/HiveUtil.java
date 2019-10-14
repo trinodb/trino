@@ -410,7 +410,7 @@ public final class HiveUtil
     {
         String name = getDeserializerClassName(schema);
 
-        // fix compat issue: colelction.delim in Hive 2.x, but collection.delim in Hive 3.x
+        // for collection delimiter, Hive 1.x, 2.x uses "colelction.delim" but Hive 3.x uses "collection.delim"
         // see also https://issues.apache.org/jira/browse/HIVE-16922
         if (name.equals("org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe")) {
             if (schema.containsKey("colelction.delim") && !schema.containsKey(COLLECTION_DELIM)) {
