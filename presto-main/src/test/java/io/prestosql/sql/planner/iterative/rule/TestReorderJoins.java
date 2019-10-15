@@ -284,7 +284,7 @@ public class TestReorderJoins
                                 INNER,
                                 p.values(new PlanNodeId("valuesB"), ImmutableList.of(p.symbol("B1")), TWO_ROWS),
                                 p.values(new PlanNodeId("valuesA"), p.symbol("A1")), // matches isAtMostScalar
-                                ImmutableList.of(new EquiJoinClause(p.symbol("A1"), p.symbol("B1"))),
+                                ImmutableList.of(new EquiJoinClause(p.symbol("B1"), p.symbol("A1"))),
                                 ImmutableList.of(p.symbol("A1"), p.symbol("B1")),
                                 Optional.empty()))
                 .overrideStats("valuesA", valuesA)
