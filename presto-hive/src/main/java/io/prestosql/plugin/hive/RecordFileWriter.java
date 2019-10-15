@@ -69,6 +69,7 @@ public class RecordFileWriter
     private final long estimatedWriterSystemMemoryUsage;
 
     private boolean committed;
+    private long finalWrittenBytes = -1;
 
     public RecordFileWriter(
             Path path,
@@ -121,8 +122,13 @@ public class RecordFileWriter
         }
 
         if (committed) {
+            if (finalWrittenBytes != -1) {
+                return finalWrittenBytes;
+            }
+
             try {
-                return path.getFileSystem(conf).getFileStatus(path).getLen();
+                finalWrittenBytes = path.getFileSystem(conf).getFileStatus(path).getLen();
+                return finalWrittenBytes;
             }
             catch (IOException e) {
                 throw new UncheckedIOException(e);
