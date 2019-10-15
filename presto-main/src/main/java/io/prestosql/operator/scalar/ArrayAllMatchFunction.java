@@ -27,7 +27,7 @@ import io.prestosql.spi.type.Type;
 import static java.lang.Boolean.FALSE;
 
 @Description("Returns true if all elements of the array match the given predicate")
-@ScalarFunction(value = "all_match")
+@ScalarFunction("all_match")
 public final class ArrayAllMatchFunction
 {
     private ArrayAllMatchFunction() {}

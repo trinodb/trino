@@ -39,7 +39,7 @@ public final class MapEqualOperator
     @SqlType(StandardTypes.BOOLEAN)
     public static Boolean equals(
             @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"K", "K"}) MethodHandle keyEqualsFunction,
-            @OperatorDependency(operator = HASH_CODE, returnType = StandardTypes.BIGINT, argumentTypes = {"K"}) MethodHandle keyHashcodeFunction,
+            @OperatorDependency(operator = HASH_CODE, returnType = StandardTypes.BIGINT, argumentTypes = "K") MethodHandle keyHashcodeFunction,
             @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"V", "V"}) MethodHandle valueEqualsFunction,
             @TypeParameter("K") Type keyType,
             @TypeParameter("V") Type valueType,

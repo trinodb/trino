@@ -45,7 +45,7 @@ public class TestTablePartitioningInsertInto
                 mutableTable(NATION, TARGET_NATION_NAME, CREATED));
     }
 
-    @Test(groups = {SMOKE})
+    @Test(groups = SMOKE)
     public void selectFromPartitionedNation()
             throws Exception
     {

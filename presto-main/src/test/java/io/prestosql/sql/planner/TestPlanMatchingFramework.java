@@ -178,7 +178,7 @@ public class TestPlanMatchingFramework
                         values(ImmutableMap.of("VALUE", 0))));
     }
 
-    @Test(expectedExceptions = {IllegalStateException.class}, expectedExceptionsMessageRegExp = ".* doesn't have column .*")
+    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = ".* doesn't have column .*")
     public void testAliasNonexistentColumn()
     {
         assertMinimallyOptimizedPlan("SELECT orderkey FROM lineitem",
@@ -186,7 +186,7 @@ public class TestPlanMatchingFramework
                         node(TableScanNode.class).withAlias("ORDERKEY", columnReference("lineitem", "NXCOLUMN"))));
     }
 
-    @Test(expectedExceptions = {IllegalStateException.class}, expectedExceptionsMessageRegExp = "missing expression for alias .*")
+    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "missing expression for alias .*")
     public void testReferenceNonexistentAlias()
     {
         assertMinimallyOptimizedPlan("SELECT orderkey FROM lineitem",
@@ -237,7 +237,7 @@ public class TestPlanMatchingFramework
                                 tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey"))))));
     }
 
-    @Test(expectedExceptions = {IllegalStateException.class}, expectedExceptionsMessageRegExp = ".*already bound to expression.*")
+    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = ".*already bound to expression.*")
     public void testDuplicateAliases()
     {
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey = o.orderkey",
@@ -249,7 +249,7 @@ public class TestPlanMatchingFramework
                                         tableScan("lineitem").withAlias("ORDERS_OK", columnReference("lineitem", "orderkey"))))));
     }
 
-    @Test(expectedExceptions = {IllegalStateException.class}, expectedExceptionsMessageRegExp = "missing expression for alias .*")
+    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "missing expression for alias .*")
     public void testProjectLimitsScope()
     {
         assertMinimallyOptimizedPlan("SELECT 1 + orderkey FROM lineitem",

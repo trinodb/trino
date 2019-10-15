@@ -219,8 +219,7 @@ public class TestPolymorphicScalarFunction
         ScalarFunctionImplementation functionImplementation = function.specialize(BOUND_VARIABLES, 1, METADATA);
     }
 
-    @Test(expectedExceptions = {IllegalStateException.class},
-            expectedExceptionsMessageRegExp = "method foo was not found in class io.prestosql.metadata.TestPolymorphicScalarFunction\\$TestMethods")
+    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "method foo was not found in class io.prestosql.metadata.TestPolymorphicScalarFunction\\$TestMethods")
     public void testFailIfNotAllMethodsPresent()
     {
         SqlScalarFunction.builder(TestMethods.class)
@@ -232,8 +231,7 @@ public class TestPolymorphicScalarFunction
                 .build();
     }
 
-    @Test(expectedExceptions = {IllegalStateException.class},
-            expectedExceptionsMessageRegExp = "methods must be selected first")
+    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "methods must be selected first")
     public void testFailNoMethodsAreSelectedWhenExtraParametersFunctionIsSet()
     {
         SqlScalarFunction.builder(TestMethods.class)
@@ -245,8 +243,7 @@ public class TestPolymorphicScalarFunction
                 .build();
     }
 
-    @Test(expectedExceptions = {IllegalStateException.class},
-            expectedExceptionsMessageRegExp = "two matching methods \\(varcharToBigintReturnFirstExtraParameter and varcharToBigintReturnExtraParameter\\) for parameter types \\[varchar\\(10\\)\\]")
+    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "two matching methods \\(varcharToBigintReturnFirstExtraParameter and varcharToBigintReturnExtraParameter\\) for parameter types \\[varchar\\(10\\)\\]")
     public void testFailIfTwoMethodsWithSameArguments()
     {
         SqlScalarFunction function = SqlScalarFunction.builder(TestMethods.class)

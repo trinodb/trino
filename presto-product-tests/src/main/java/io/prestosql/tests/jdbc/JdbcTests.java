@@ -164,7 +164,7 @@ public class JdbcTests
         }
     }
 
-    @Test(groups = {SIMBA_JDBC})
+    @Test(groups = SIMBA_JDBC)
     public void shouldSetApplicationPrefixAndName()
             throws SQLException
     {

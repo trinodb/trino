@@ -79,7 +79,7 @@ import static org.openjdk.jmh.annotations.Scope.Thread;
 
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
-@Fork(value = 3)
+@Fork(3)
 @Warmup(iterations = 20, timeUnit = TimeUnit.MILLISECONDS)
 @Measurement(iterations = 10, timeUnit = TimeUnit.MILLISECONDS)
 public class BenchmarkDecimalOperators

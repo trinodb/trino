@@ -99,7 +99,7 @@ public class TestHiveBucketedTables
         assertThat(query("SELECT * FROM " + tableName)).matches(PRESTO_NATION_RESULT);
     }
 
-    @Test(groups = {BIG_QUERY})
+    @Test(groups = BIG_QUERY)
     public void testIgnorePartitionBucketingIfNotBucketed()
     {
         String tableName = mutableTablesState().get(BUCKETED_PARTITIONED_NATION).getNameInDatabase();
@@ -116,7 +116,7 @@ public class TestHiveBucketedTables
                 .containsExactly(row(2));
     }
 
-    @Test(groups = {BIG_QUERY})
+    @Test(groups = BIG_QUERY)
     public void testAllowMultipleFilesPerBucket()
     {
         String tableName = mutableTablesState().get(BUCKETED_PARTITIONED_NATION).getNameInDatabase();
