@@ -253,6 +253,23 @@ public class TestSubqueries
     }
 
     @Test
+    public void testNestedUncorrelatedSubqueryInCorrelatedSubquery()
+    {
+        // aggregation with empty grouping set
+        assertions.assertQuery(
+                "SELECT((SELECT b FROM (SELECT array_agg(a) FROM (VALUES 1) A(a)) B(b) WHERE b = c)) FROM (VALUES ARRAY[1], ARRAY[2]) C(c)",
+                "VALUES ARRAY[1], null");
+        // aggregation with multiple grouping sets
+        assertions.assertQuery(
+                "SELECT((SELECT b FROM (SELECT count(a) FROM (VALUES (1, 2, 3)) A(a, key_1, key_2) GROUP BY GROUPING SETS ((key_1), (key_2)) LIMIT 1) B(b) WHERE b = c)) FROM (VALUES 1, 2) C(c)",
+                "VALUES BIGINT '1', null");
+        // limit 1
+        assertions.assertQuery(
+                "SELECT((SELECT c FROM (SELECT b FROM (VALUES (1, 2), (1, 2)) inner_relation(a, b) WHERE a = 1 LIMIT 1) C(c) WHERE c = d)) FROM (VALUES 2) D(d)",
+                "VALUES 2");
+    }
+
+    @Test
     public void testCorrelatedSubqueriesWithGroupBy()
     {
         // t.a is not a "constant" column, group by does not guarantee single row per correlated subquery
