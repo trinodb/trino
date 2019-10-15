@@ -93,6 +93,9 @@ public class DictionaryBlock
         this.retainedSizeInBytes = INSTANCE_SIZE + dictionary.getRetainedSizeInBytes() + sizeOf(ids);
 
         if (dictionaryIsCompacted) {
+            if (dictionary instanceof DictionaryBlock) {
+                throw new IllegalArgumentException("compacted dictionary should not have dictionary base block");
+            }
             this.sizeInBytes = this.retainedSizeInBytes;
             this.uniqueIds = dictionary.getPositionCount();
         }
@@ -205,6 +208,12 @@ public class DictionaryBlock
 
     private void calculateCompactSize()
     {
+        DictionaryBlock unnested = unnest();
+        if (unnested != this) {
+            this.sizeInBytes = unnested.getSizeInBytes();
+            return;
+        }
+
         int uniqueIds = 0;
         boolean[] used = new boolean[dictionary.getPositionCount()];
         for (int i = 0; i < positionCount; i++) {
@@ -413,6 +422,10 @@ public class DictionaryBlock
 
     public boolean isCompact()
     {
+        if (dictionary instanceof DictionaryBlock) {
+            return false;
+        }
+
         if (uniqueIds < 0) {
             calculateCompactSize();
         }
@@ -423,6 +436,11 @@ public class DictionaryBlock
     {
         if (isCompact()) {
             return this;
+        }
+
+        DictionaryBlock unnested = unnest();
+        if (unnested != this) {
+            return unnested.compact();
         }
 
         // determine which dictionary entries are referenced and build a reindex for them
@@ -463,5 +481,28 @@ public class DictionaryBlock
             // ignore if copy positions is not supported for the dictionary block
             return this;
         }
+    }
+
+    private DictionaryBlock unnest()
+    {
+        if (!(dictionary instanceof DictionaryBlock)) {
+            return this;
+        }
+
+        int[] ids = new int[positionCount];
+        for (int i = 0; i < positionCount; i++) {
+            ids[i] = getId(i);
+        }
+
+        Block dictionary = this.dictionary;
+        while (dictionary instanceof DictionaryBlock) {
+            DictionaryBlock nestedDictionary = (DictionaryBlock) dictionary;
+            for (int i = 0; i < positionCount; i++) {
+                ids[i] = nestedDictionary.getId(ids[i]);
+            }
+            dictionary = nestedDictionary.getDictionary();
+        }
+
+        return new DictionaryBlock(dictionary, ids);
     }
 }
