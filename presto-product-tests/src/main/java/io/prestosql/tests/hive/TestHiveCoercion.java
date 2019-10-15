@@ -16,7 +16,6 @@ package io.prestosql.tests.hive;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.jdbc.PrestoArray;
-import io.prestosql.tempto.ProductTest;
 import io.prestosql.tempto.Requirement;
 import io.prestosql.tempto.RequirementsProvider;
 import io.prestosql.tempto.Requires;
@@ -29,6 +28,7 @@ import io.prestosql.tempto.fulfillment.table.TableHandle;
 import io.prestosql.tempto.fulfillment.table.TableInstance;
 import io.prestosql.tempto.fulfillment.table.hive.HiveTableDefinition;
 import io.prestosql.tempto.query.QueryResult;
+import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
@@ -70,7 +70,7 @@ import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
 
 public class TestHiveCoercion
-        extends ProductTest
+        extends HiveProductTest
 {
     public static final HiveTableDefinition HIVE_COERCION_TEXTFILE = tableDefinitionBuilder("TEXTFILE", Optional.empty(), Optional.of("DELIMITED FIELDS TERMINATED BY '|'"))
             .setNoData()
@@ -206,6 +206,9 @@ public class TestHiveCoercion
     @Test(groups = {HIVE_COERCION, JDBC})
     public void testHiveCoercionTextFile()
     {
+        if (getHiveVersionMajor() >= 3) {
+            throw new SkipException("Hive 3 forbids certain coercions, we should still test remaining"); // TODO (https://github.com/prestosql/presto/issues/1218)
+        }
         doTestHiveCoercion(HIVE_COERCION_TEXTFILE);
     }
 
@@ -213,6 +216,9 @@ public class TestHiveCoercion
     @Test(groups = {HIVE_COERCION, JDBC})
     public void testHiveCoercionOrc()
     {
+        if (getHiveVersionMajor() >= 3) {
+            throw new SkipException("Hive 3 forbids certain coercions, we should still test remaining"); // TODO (https://github.com/prestosql/presto/issues/1218)
+        }
         doTestHiveCoercion(HIVE_COERCION_ORC);
     }
 
@@ -220,6 +226,9 @@ public class TestHiveCoercion
     @Test(groups = {HIVE_COERCION, JDBC})
     public void testHiveCoercionRcText()
     {
+        if (getHiveVersionMajor() >= 3) {
+            throw new SkipException("Hive 3 forbids certain coercions, we should still test remaining"); // TODO (https://github.com/prestosql/presto/issues/1218)
+        }
         doTestHiveCoercion(HIVE_COERCION_RCTEXT);
     }
 
@@ -227,6 +236,9 @@ public class TestHiveCoercion
     @Test(groups = {HIVE_COERCION, JDBC})
     public void testHiveCoercionRcBinary()
     {
+        if (getHiveVersionMajor() >= 3) {
+            throw new SkipException("Hive 3 forbids certain coercions, we should still test remaining"); // TODO (https://github.com/prestosql/presto/issues/1218)
+        }
         doTestHiveCoercion(HIVE_COERCION_RCBINARY);
     }
 
@@ -234,6 +246,9 @@ public class TestHiveCoercion
     @Test(groups = {HIVE_COERCION, JDBC})
     public void testHiveCoercionParquet()
     {
+        if (getHiveVersionMajor() >= 3) {
+            throw new SkipException("Hive 3 forbids certain coercions, we should still test remaining"); // TODO (https://github.com/prestosql/presto/issues/1218)
+        }
         doTestHiveCoercion(HIVE_COERCION_PARQUET);
     }
 

@@ -1305,14 +1305,14 @@
             <plugin>
                 <groupId>io.prestosql</groupId>
                 <artifactId>presto-maven-plugin</artifactId>
-                <version>6</version>
+                <version>8</version>
                 <extensions>true</extensions>
             </plugin>
 
             <plugin>
-                <groupId>io.takari.maven.plugins</groupId>
+                <groupId>ca.vanzyl.maven.plugins</groupId>
                 <artifactId>provisio-maven-plugin</artifactId>
-                <version>0.1.40</version>
+                <version>1.0.2</version>
                 <extensions>true</extensions>
             </plugin>
 

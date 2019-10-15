@@ -14,6 +14,7 @@
 package io.prestosql.client;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.client.ClientTypeSignatureParameter.ParameterKind;
 
 import java.util.ArrayList;
 import java.util.Base64;

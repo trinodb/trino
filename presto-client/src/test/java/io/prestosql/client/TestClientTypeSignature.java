@@ -53,14 +53,6 @@ public class TestClientTypeSignature
     }
 
     @Test
-    public void testBackwardsCompatible()
-    {
-        ClientTypeSignature signature = new ClientTypeSignature(StandardTypes.ARRAY, ImmutableList.of(ClientTypeSignatureParameter.ofType(new ClientTypeSignature(StandardTypes.BIGINT))));
-        ClientTypeSignature legacy = CLIENT_TYPE_SIGNATURE_CODEC.fromJson("{\"rawType\":\"array\",\"literalArguments\":[],\"typeArguments\":[{\"rawType\":\"bigint\",\"literalArguments\":[],\"typeArguments\":[]}]}");
-        assertEquals(legacy, signature);
-    }
-
-    @Test
     public void testStringSerialization()
     {
         ClientTypeSignature bigint = new ClientTypeSignature(StandardTypes.BIGINT);

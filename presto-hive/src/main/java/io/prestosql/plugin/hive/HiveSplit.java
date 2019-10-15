@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.connector.ConnectorSplit;
 
@@ -235,6 +236,7 @@ public class HiveSplit
 
     public static class BucketConversion
     {
+        private final BucketingVersion bucketingVersion;
         private final int tableBucketCount;
         private final int partitionBucketCount;
         private final List<HiveColumnHandle> bucketColumnNames;
@@ -242,13 +244,21 @@ public class HiveSplit
 
         @JsonCreator
         public BucketConversion(
+                @JsonProperty("bucketingVersion") BucketingVersion bucketingVersion,
                 @JsonProperty("tableBucketCount") int tableBucketCount,
                 @JsonProperty("partitionBucketCount") int partitionBucketCount,
                 @JsonProperty("bucketColumnHandles") List<HiveColumnHandle> bucketColumnHandles)
         {
+            this.bucketingVersion = requireNonNull(bucketingVersion, "bucketingVersion is null");
             this.tableBucketCount = tableBucketCount;
             this.partitionBucketCount = partitionBucketCount;
             this.bucketColumnNames = requireNonNull(bucketColumnHandles, "bucketColumnHandles is null");
+        }
+
+        @JsonProperty
+        public BucketingVersion getBucketingVersion()
+        {
+            return bucketingVersion;
         }
 
         @JsonProperty

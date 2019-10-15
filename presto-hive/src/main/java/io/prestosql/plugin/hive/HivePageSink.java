@@ -22,6 +22,7 @@ import io.airlift.concurrent.MoreFutures;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageIndexer;
 import io.prestosql.spi.PageIndexerFactory;
@@ -139,6 +140,7 @@ public class HivePageSink
         this.dataColumnInputIndex = Ints.toArray(dataColumnsInputIndex.build());
 
         if (bucketProperty.isPresent()) {
+            BucketingVersion bucketingVersion = bucketProperty.get().getBucketingVersion();
             int bucketCount = bucketProperty.get().getBucketCount();
             bucketColumns = bucketProperty.get().getBucketedBy().stream()
                     .mapToInt(dataColumnNameToIdMap::get)
@@ -146,7 +148,7 @@ public class HivePageSink
             List<HiveType> bucketColumnTypes = bucketProperty.get().getBucketedBy().stream()
                     .map(dataColumnNameToTypeMap::get)
                     .collect(toList());
-            bucketFunction = new HiveBucketFunction(bucketCount, bucketColumnTypes);
+            bucketFunction = new HiveBucketFunction(bucketingVersion, bucketCount, bucketColumnTypes);
         }
         else {
             bucketColumns = null;

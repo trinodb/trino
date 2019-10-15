@@ -18,9 +18,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.primitives.Shorts;
-import com.google.common.primitives.SignedBytes;
-import io.airlift.slice.Slice;
 import io.prestosql.plugin.hive.HiveBucketHandle;
 import io.prestosql.plugin.hive.HiveBucketProperty;
 import io.prestosql.plugin.hive.HiveColumnHandle;
@@ -29,13 +26,12 @@ import io.prestosql.plugin.hive.metastore.Column;
 import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.Block;
+import io.prestosql.spi.StandardErrorCode;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.ValueSet;
-import io.prestosql.spi.type.Type;
 import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
@@ -49,24 +45,38 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.plugin.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
+import static io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
+import static io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V2;
 import static io.prestosql.plugin.hive.util.HiveUtil.getRegularColumnHandles;
-import static java.lang.Double.doubleToLongBits;
-import static java.lang.Float.floatToIntBits;
-import static java.lang.Float.intBitsToFloat;
-import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Map.Entry;
-import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.TABLE_BUCKETING_VERSION;
-import static org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector.PrimitiveCategory;
+import static org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector.PrimitiveCategory.TIMESTAMP;
 
 public final class HiveBucketing
 {
+    public enum BucketingVersion
+    {
+        BUCKETING_V1(1),
+        BUCKETING_V2(2),
+        /**/;
+
+        private final int version;
+
+        BucketingVersion(int version)
+        {
+            this.version = version;
+        }
+
+        public int getVersion()
+        {
+            return version;
+        }
+    }
+
     private static final Set<HiveType> SUPPORTED_TYPES_FOR_BUCKET_FILTER = ImmutableSet.of(
             HiveType.HIVE_BYTE,
             HiveType.HIVE_SHORT,
@@ -77,14 +87,14 @@ public final class HiveBucketing
 
     private HiveBucketing() {}
 
-    public static int getHiveBucket(int bucketCount, List<TypeInfo> types, Page page, int position)
+    public static int getHiveBucket(BucketingVersion bucketingVersion, int bucketCount, List<TypeInfo> types, Page page, int position)
     {
-        return getBucketNumber(getBucketHashCode(types, page, position), bucketCount);
+        return getBucketNumber(getBucketHashCode(bucketingVersion, types, page, position), bucketCount);
     }
 
-    public static int getHiveBucket(int bucketCount, List<TypeInfo> types, Object[] values)
+    public static int getHiveBucket(BucketingVersion bucketingVersion, int bucketCount, List<TypeInfo> types, Object[] values)
     {
-        return getBucketNumber(getBucketHashCode(types, values), bucketCount);
+        return getBucketNumber(getBucketHashCode(bucketingVersion, types, values), bucketCount);
     }
 
     @VisibleForTesting
@@ -94,182 +104,35 @@ public final class HiveBucketing
     }
 
     @VisibleForTesting
-    static int getBucketHashCode(List<TypeInfo> types, Page page, int position)
+    static int getBucketHashCode(BucketingVersion bucketingVersion, List<TypeInfo> types, Page page, int position)
     {
-        checkArgument(types.size() == page.getChannelCount());
-        int result = 0;
-        for (int i = 0; i < page.getChannelCount(); i++) {
-            int fieldHash = hash(types.get(i), page.getBlock(i), position);
-            result = result * 31 + fieldHash;
+        switch (bucketingVersion) {
+            case BUCKETING_V1:
+                return HiveBucketingV1.getBucketHashCode(types, page, position);
+            case BUCKETING_V2:
+                return HiveBucketingV2.getBucketHashCode(types, page, position);
+            default:
+                throw new IllegalArgumentException("Unsupported bucketing version: " + bucketingVersion);
         }
-        return result;
     }
 
     @VisibleForTesting
-    static int getBucketHashCode(List<TypeInfo> types, Object[] values)
+    static int getBucketHashCode(BucketingVersion bucketingVersion, List<TypeInfo> types, Object[] values)
     {
-        checkArgument(types.size() == values.length);
-        int result = 0;
-        for (int i = 0; i < values.length; i++) {
-            int fieldHash = hash(types.get(i), values[i]);
-            result = result * 31 + fieldHash;
-        }
-        return result;
-    }
-
-    private static int hash(TypeInfo type, Block block, int position)
-    {
-        // This function mirrors the behavior of function hashCode in
-        // HIVE-12025 ba83fd7bff serde/src/java/org/apache/hadoop/hive/serde2/objectinspector/ObjectInspectorUtils.java
-        // https://github.com/apache/hive/blob/ba83fd7bff/serde/src/java/org/apache/hadoop/hive/serde2/objectinspector/ObjectInspectorUtils.java
-
-        // HIVE-7148 proposed change to bucketing hash algorithms. If that gets implemented, this function will need to change significantly.
-
-        if (block.isNull(position)) {
-            return 0;
-        }
-
-        switch (type.getCategory()) {
-            case PRIMITIVE:
-                PrimitiveTypeInfo typeInfo = (PrimitiveTypeInfo) type;
-                PrimitiveCategory primitiveCategory = typeInfo.getPrimitiveCategory();
-                Type prestoType = requireNonNull(HiveType.getPrimitiveType(typeInfo));
-                switch (primitiveCategory) {
-                    case BOOLEAN:
-                        return prestoType.getBoolean(block, position) ? 1 : 0;
-                    case BYTE:
-                        return SignedBytes.checkedCast(prestoType.getLong(block, position));
-                    case SHORT:
-                        return Shorts.checkedCast(prestoType.getLong(block, position));
-                    case INT:
-                        return toIntExact(prestoType.getLong(block, position));
-                    case LONG:
-                        long bigintValue = prestoType.getLong(block, position);
-                        return (int) ((bigintValue >>> 32) ^ bigintValue);
-                    case FLOAT:
-                        // convert to canonical NaN if necessary
-                        return floatToIntBits(intBitsToFloat(toIntExact(prestoType.getLong(block, position))));
-                    case DOUBLE:
-                        long doubleValue = doubleToLongBits(prestoType.getDouble(block, position));
-                        return (int) ((doubleValue >>> 32) ^ doubleValue);
-                    case STRING:
-                        return hashBytes(0, prestoType.getSlice(block, position));
-                    case VARCHAR:
-                        return hashBytes(1, prestoType.getSlice(block, position));
-                    case DATE:
-                        // day offset from 1970-01-01
-                        return toIntExact(prestoType.getLong(block, position));
-                    case TIMESTAMP:
-                        return hashTimestamp(prestoType.getLong(block, position));
-                    default:
-                        throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive primitive category: " + primitiveCategory);
-                }
-            case LIST:
-                return hashOfList((ListTypeInfo) type, block.getObject(position, Block.class));
-            case MAP:
-                return hashOfMap((MapTypeInfo) type, block.getObject(position, Block.class));
+        switch (bucketingVersion) {
+            case BUCKETING_V1:
+                return HiveBucketingV1.getBucketHashCode(types, values);
+            case BUCKETING_V2:
+                return HiveBucketingV2.getBucketHashCode(types, values);
             default:
-                // TODO: support more types, e.g. ROW
-                throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive category: " + type.getCategory());
+                throw new IllegalArgumentException("Unsupported bucketing version: " + bucketingVersion);
         }
-    }
-
-    private static int hash(TypeInfo type, Object value)
-    {
-        if (value == null) {
-            return 0;
-        }
-
-        switch (type.getCategory()) {
-            case PRIMITIVE:
-                PrimitiveTypeInfo typeInfo = (PrimitiveTypeInfo) type;
-                PrimitiveCategory primitiveCategory = typeInfo.getPrimitiveCategory();
-                switch (primitiveCategory) {
-                    case BOOLEAN:
-                        return (boolean) value ? 1 : 0;
-                    case BYTE:
-                        return SignedBytes.checkedCast((long) value);
-                    case SHORT:
-                        return Shorts.checkedCast((long) value);
-                    case INT:
-                        return toIntExact((long) value);
-                    case LONG:
-                        long bigintValue = (long) value;
-                        return (int) ((bigintValue >>> 32) ^ bigintValue);
-                    case FLOAT:
-                        // convert to canonical NaN if necessary
-                        return floatToIntBits(intBitsToFloat(toIntExact((long) value)));
-                    case DOUBLE:
-                        long doubleValue = doubleToLongBits((double) value);
-                        return (int) ((doubleValue >>> 32) ^ doubleValue);
-                    case STRING:
-                        return hashBytes(0, (Slice) value);
-                    case VARCHAR:
-                        return hashBytes(1, (Slice) value);
-                    case DATE:
-                        // day offset from 1970-01-01
-                        return toIntExact((long) value);
-                    case TIMESTAMP:
-                        return hashTimestamp((long) value);
-                    default:
-                        throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive primitive category: " + primitiveCategory);
-                }
-            case LIST:
-                return hashOfList((ListTypeInfo) type, (Block) value);
-            case MAP:
-                return hashOfMap((MapTypeInfo) type, (Block) value);
-            default:
-                // TODO: support more types, e.g. ROW
-                throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive category: " + type.getCategory());
-        }
-    }
-
-    @SuppressWarnings("NumericCastThatLosesPrecision")
-    private static int hashTimestamp(long epochMillis)
-    {
-        long seconds = (Math.floorDiv(epochMillis, 1000L) << 30);
-        long nanos = Math.floorMod(epochMillis, 1000) * 1_000_000L;
-        long secondsAndNanos = seconds | nanos;
-        return (int) ((secondsAndNanos >>> 32) ^ secondsAndNanos);
-    }
-
-    private static int hashOfMap(MapTypeInfo type, Block singleMapBlock)
-    {
-        TypeInfo keyTypeInfo = type.getMapKeyTypeInfo();
-        TypeInfo valueTypeInfo = type.getMapValueTypeInfo();
-        int result = 0;
-        for (int i = 0; i < singleMapBlock.getPositionCount(); i += 2) {
-            result += hash(keyTypeInfo, singleMapBlock, i) ^ hash(valueTypeInfo, singleMapBlock, i + 1);
-        }
-        return result;
-    }
-
-    private static int hashOfList(ListTypeInfo type, Block singleListBlock)
-    {
-        TypeInfo elementTypeInfo = type.getListElementTypeInfo();
-        int result = 0;
-        for (int i = 0; i < singleListBlock.getPositionCount(); i++) {
-            result = result * 31 + hash(elementTypeInfo, singleListBlock, i);
-        }
-        return result;
-    }
-
-    private static int hashBytes(int initialValue, Slice bytes)
-    {
-        int result = initialValue;
-        for (int i = 0; i < bytes.length(); i++) {
-            result = result * 31 + bytes.getByte(i);
-        }
-        return result;
     }
 
     public static Optional<HiveBucketHandle> getHiveBucketHandle(Table table)
     {
         Optional<HiveBucketProperty> hiveBucketProperty = table.getStorage().getBucketProperty();
         if (!hiveBucketProperty.isPresent()) {
-            return Optional.empty();
-        }
-        if (!isHiveBucketingV1(table)) {
             return Optional.empty();
         }
 
@@ -287,8 +150,9 @@ public final class HiveBucketing
             bucketColumns.add(bucketColumnHandle);
         }
 
+        BucketingVersion bucketingVersion = hiveBucketProperty.get().getBucketingVersion();
         int bucketCount = hiveBucketProperty.get().getBucketCount();
-        return Optional.of(new HiveBucketHandle(bucketColumns.build(), bucketCount, bucketCount));
+        return Optional.of(new HiveBucketHandle(bucketColumns.build(), bucketingVersion, bucketCount, bucketCount));
     }
 
     public static Optional<HiveBucketFilter> getHiveBucketFilter(Table table, TupleDomain<ColumnHandle> effectivePredicate)
@@ -296,7 +160,9 @@ public final class HiveBucketing
         if (!table.getStorage().getBucketProperty().isPresent()) {
             return Optional.empty();
         }
-        if (!isHiveBucketingV1(table)) {
+
+        // TODO (https://github.com/prestosql/presto/issues/1706): support bucketing v2 for timestamp
+        if (containsTimestampBucketedV2(table.getStorage().getBucketProperty().get(), table)) {
             return Optional.empty();
         }
 
@@ -372,12 +238,63 @@ public final class HiveBucketing
             values[i] = bucketBindings.get(column);
         }
 
-        return OptionalInt.of(getHiveBucket(table.getStorage().getBucketProperty().get().getBucketCount(), typeInfos.build(), values));
+        BucketingVersion bucketingVersion = getBucketingVersion(table);
+        return OptionalInt.of(getHiveBucket(bucketingVersion, table.getStorage().getBucketProperty().get().getBucketCount(), typeInfos.build(), values));
     }
 
-    public static boolean isHiveBucketingV1(Table table)
+    public static BucketingVersion getBucketingVersion(Table table)
     {
-        return firstNonNull(table.getParameters().get(TABLE_BUCKETING_VERSION), "1").equals("1");
+        return getBucketingVersion(table.getParameters());
+    }
+
+    public static BucketingVersion getBucketingVersion(Map<String, String> tableProperties)
+    {
+        String bucketingVersion = tableProperties.getOrDefault(TABLE_BUCKETING_VERSION, "1");
+        switch (bucketingVersion) {
+            case "1":
+                return BUCKETING_V1;
+            case "2":
+                return BUCKETING_V2;
+            default:
+                // org.apache.hadoop.hive.ql.exec.Utilities.getBucketingVersion is more permissive and treats any non-number as "1"
+                throw new PrestoException(StandardErrorCode.NOT_SUPPORTED, format("Unsupported bucketing version: '%s'", bucketingVersion));
+        }
+    }
+
+    // TODO (https://github.com/prestosql/presto/issues/1706): support bucketing v2 for timestamp and remove this method
+    public static boolean containsTimestampBucketedV2(HiveBucketProperty bucketProperty, Table table)
+    {
+        switch (bucketProperty.getBucketingVersion()) {
+            case BUCKETING_V1:
+                return false;
+            case BUCKETING_V2:
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported bucketing version: " + bucketProperty.getBucketingVersion());
+        }
+        return bucketProperty.getBucketedBy().stream()
+                .map(columnName -> table.getColumn(columnName)
+                        .orElseThrow(() -> new IllegalArgumentException(format("Cannot find column '%s' in %s", columnName, table))))
+                .map(Column::getType)
+                .map(HiveType::getTypeInfo)
+                .anyMatch(HiveBucketing::containsTimestampBucketedV2);
+    }
+
+    private static boolean containsTimestampBucketedV2(TypeInfo type)
+    {
+        switch (type.getCategory()) {
+            case PRIMITIVE:
+                return ((PrimitiveTypeInfo) type).getPrimitiveCategory() == TIMESTAMP;
+            case LIST:
+                return containsTimestampBucketedV2(((ListTypeInfo) type).getListElementTypeInfo());
+            case MAP:
+                MapTypeInfo mapTypeInfo = (MapTypeInfo) type;
+                // Note: we do not check map value type because HiveBucketingV2#hashOfMap hashes map values with v1
+                return containsTimestampBucketedV2(mapTypeInfo.getMapKeyTypeInfo());
+            default:
+                // TODO: support more types, e.g. ROW
+                throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive category: " + type.getCategory());
+        }
     }
 
     public static class HiveBucketFilter
