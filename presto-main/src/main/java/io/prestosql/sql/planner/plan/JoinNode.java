@@ -101,15 +101,23 @@ public class JoinNode
         this.spillable = spillable;
         this.dynamicFilters = ImmutableMap.copyOf(requireNonNull(dynamicFilters, "dynamicFilters is null"));
 
+        Set<Symbol> leftSymbols = ImmutableSet.copyOf(left.getOutputSymbols());
+        Set<Symbol> rightSymbols = ImmutableSet.copyOf(right.getOutputSymbols());
         Set<Symbol> inputSymbols = ImmutableSet.<Symbol>builder()
-                .addAll(left.getOutputSymbols())
-                .addAll(right.getOutputSymbols())
+                .addAll(leftSymbols)
+                .addAll(rightSymbols)
                 .build();
         checkArgument(new HashSet<>(inputSymbols).containsAll(outputSymbols), "Left and right join inputs do not contain all output symbols");
         checkArgument(!isCrossJoin() || inputSymbols.size() == outputSymbols.size(), "Cross join does not support output symbols pruning or reordering");
 
         checkArgument(!(criteria.isEmpty() && leftHashSymbol.isPresent()), "Left hash symbol is only valid in an equijoin");
         checkArgument(!(criteria.isEmpty() && rightHashSymbol.isPresent()), "Right hash symbol is only valid in an equijoin");
+
+        criteria.forEach(equiJoinClause ->
+                checkArgument(
+                        leftSymbols.contains(equiJoinClause.getLeft()) &&
+                                rightSymbols.contains(equiJoinClause.getRight()),
+                        "Equality join criteria should be normalized according to join sides: %s", equiJoinClause));
 
         if (distributionType.isPresent()) {
             // The implementation of full outer join only works if the data is hash partitioned.
@@ -127,7 +135,7 @@ public class JoinNode
         }
 
         for (Symbol symbol : dynamicFilters.values()) {
-            checkArgument(right.getOutputSymbols().contains(symbol), "Right join input doesn't contain symbol for dynamic filter: %s", symbol);
+            checkArgument(rightSymbols.contains(symbol), "Right join input doesn't contain symbol for dynamic filter: %s", symbol);
         }
     }
 
