@@ -114,8 +114,7 @@ public class StatisticsWriterNode
     }
 
     @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "@type")
-    @JsonSubTypes({
-            @JsonSubTypes.Type(value = WriteStatisticsHandle.class, name = "WriteStatisticsHandle")})
+    @JsonSubTypes(@JsonSubTypes.Type(value = WriteStatisticsHandle.class, name = "WriteStatisticsHandle"))
     @SuppressWarnings({"EmptyClass", "ClassMayBeInterface"})
     public abstract static class WriteStatisticsTarget
     {

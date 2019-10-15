@@ -36,7 +36,7 @@ public final class SumDataSizeForStats
     private SumDataSizeForStats() {}
 
     @InputFunction
-    @TypeParameter(value = "T")
+    @TypeParameter("T")
     public static void input(@AggregationState NullableLongState state, @BlockPosition @SqlType("T") Block block, @BlockIndex int index)
     {
         update(state, block.getEstimatedDataSizeForStats(index));
