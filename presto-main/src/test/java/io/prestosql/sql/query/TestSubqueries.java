@@ -365,6 +365,23 @@ public class TestSubqueries
                 "VALUES 1");
     }
 
+    @Test
+    public void testCorrelatedSubqueryWithoutFilter()
+    {
+        assertions.assertQuery(
+                "SELECT (SELECT outer_relation.b FROM (VALUES 1) inner_relation) FROM (values 2) outer_relation(b)",
+                "VALUES 2");
+        assertions.assertFails(
+                "SELECT (VALUES b) FROM (VALUES 2) outer_relation(b)",
+                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+        assertions.assertFails(
+                "SELECT (SELECT a + b FROM (VALUES 1) inner_relation(a)) FROM (VALUES 2) outer_relation(b)",
+                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+        assertions.assertFails(
+                "SELECT (SELECT rank() OVER(partition by b) FROM (VALUES 1) inner_relation(a)) FROM (VALUES 2) outer_relation(b)",
+                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+    }
+
     private void assertExistsRewrittenToAggregationBelowJoin(@Language("SQL") String actual, @Language("SQL") String expected, boolean extraAggregation)
     {
         PlanMatchPattern source = node(ValuesNode.class);
