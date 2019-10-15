@@ -30,6 +30,7 @@ import io.prestosql.sql.InterpretedFunctionInvoker;
 
 import java.util.OptionalDouble;
 
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static java.util.Collections.singletonList;
 
 final class StatsUtil
@@ -40,7 +41,7 @@ final class StatsUtil
     {
         if (convertibleToDoubleWithCast(type)) {
             InterpretedFunctionInvoker functionInvoker = new InterpretedFunctionInvoker(metadata);
-            ResolvedFunction castFunction = metadata.getCoercion(type, DoubleType.DOUBLE);
+            ResolvedFunction castFunction = metadata.getCoercion(type, DOUBLE);
             return OptionalDouble.of((double) functionInvoker.invoke(castFunction, session.toConnectorSession(), singletonList(value)));
         }
 
@@ -54,12 +55,12 @@ final class StatsUtil
     private static boolean convertibleToDoubleWithCast(Type type)
     {
         return type instanceof DecimalType
-                || DoubleType.DOUBLE.equals(type)
-                || RealType.REAL.equals(type)
-                || BigintType.BIGINT.equals(type)
-                || IntegerType.INTEGER.equals(type)
-                || SmallintType.SMALLINT.equals(type)
-                || TinyintType.TINYINT.equals(type)
-                || BooleanType.BOOLEAN.equals(type);
+                || type instanceof DoubleType
+                || type instanceof RealType
+                || type instanceof BigintType
+                || type instanceof IntegerType
+                || type instanceof SmallintType
+                || type instanceof TinyintType
+                || type instanceof BooleanType;
     }
 }
