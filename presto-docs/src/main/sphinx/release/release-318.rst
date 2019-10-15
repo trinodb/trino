@@ -43,7 +43,7 @@ Hive Connector Changes
 * Fix query failure due to missing credentials while writing empty bucket files. (:issue:`1298`)
 * Fix bucketing of ``NaN`` values of ``real`` type. Previously ``NaN`` values
   could be assigned a wrong bucket. (:issue:`1336`)
-* Fix reading collection delimiter set by Hive version earlier than 3.0. (:issue:`1321`)
+* Fix reading ``RCFile`` collection delimiter set by Hive version earlier than 3.0. (:issue:`1321`)
 * Return proper error when selecting ``"$bucket"`` column from a table using
   Hive bucketing v2. (:issue:`1336`)
 * Improve performance of S3 object listing. (:issue:`1232`)
