@@ -137,6 +137,13 @@ public final class SqlFormatter
         return builder.toString();
     }
 
+    static String formatName(QualifiedName name)
+    {
+        return name.getOriginalParts().stream()
+                .map(ExpressionFormatter::formatExpression)
+                .collect(joining("."));
+    }
+
     private static class Formatter
             extends AstVisitor<Void, Integer>
     {
@@ -901,19 +908,6 @@ public final class SqlFormatter
                     .collect(joining(", "));
 
             return " WITH ( " + propertyList + " )";
-        }
-
-        private static String formatName(Identifier name)
-        {
-            String delimiter = name.isDelimited() ? "\"" : "";
-            return delimiter + name.getValue().replace("\"", "\"\"") + delimiter;
-        }
-
-        private static String formatName(QualifiedName name)
-        {
-            return name.getOriginalParts().stream()
-                    .map(Formatter::formatName)
-                    .collect(joining("."));
         }
 
         private String formatColumnDefinition(ColumnDefinition column)
