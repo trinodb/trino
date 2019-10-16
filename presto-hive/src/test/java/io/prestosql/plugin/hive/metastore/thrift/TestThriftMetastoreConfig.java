@@ -40,7 +40,8 @@ public class TestThriftMetastoreConfig
                 .setMaxBackoffDelay(new Duration(1, SECONDS))
                 .setMaxRetryTime(new Duration(30, SECONDS))
                 .setImpersonationEnabled(false)
-                .setMaxWaitForTransactionLock(new Duration(10, MINUTES)));
+                .setMaxWaitForTransactionLock(new Duration(10, MINUTES))
+                .setDeleteFilesOnDrop(false));
     }
 
     @Test
@@ -56,6 +57,7 @@ public class TestThriftMetastoreConfig
                 .put("hive.metastore.thrift.client.max-retry-time", "60s")
                 .put("hive.metastore.thrift.impersonation.enabled", "true")
                 .put("hive.metastore.thrift.txn-lock-max-wait", "5m")
+                .put("hive.metastore.thrift.delete-files-on-drop", "true")
                 .build();
 
         ThriftMetastoreConfig expected = new ThriftMetastoreConfig()
@@ -67,8 +69,8 @@ public class TestThriftMetastoreConfig
                 .setMaxBackoffDelay(new Duration(4, SECONDS))
                 .setMaxRetryTime(new Duration(60, SECONDS))
                 .setImpersonationEnabled(true)
-                .setMaxWaitForTransactionLock(new Duration(5, MINUTES));
-
+                .setMaxWaitForTransactionLock(new Duration(5, MINUTES))
+                .setDeleteFilesOnDrop(true);
         assertFullMapping(properties, expected);
     }
 }

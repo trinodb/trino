@@ -46,7 +46,6 @@ import io.prestosql.spi.security.ConnectorIdentity;
 import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticType;
 import io.prestosql.spi.type.Type;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.LockComponentBuilder;
 import org.apache.hadoop.hive.metastore.LockRequestBuilder;
@@ -123,7 +122,6 @@ import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.pars
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiPartition;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
 import static io.prestosql.plugin.hive.util.HiveUtil.PRESTO_VIEW_FLAG;
-import static io.prestosql.plugin.hive.util.HiveWriteUtils.isS3FileSystem;
 import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.security.PrincipalType.USER;
@@ -158,6 +156,7 @@ public class ThriftHiveMetastore
     private final Duration maxWaitForLock;
     private final int maxRetries;
     private final boolean impersonationEnabled;
+    private final boolean deleteFilesOnDrop;
     private final HiveMetastoreAuthenticationType authenticationType;
 
     private final AtomicInteger chosenGetTableAlternative = new AtomicInteger(Integer.MAX_VALUE);
@@ -181,6 +180,7 @@ public class ThriftHiveMetastore
         this.maxRetryTime = thriftConfig.getMaxRetryTime();
         this.maxRetries = thriftConfig.getMaxRetries();
         this.impersonationEnabled = thriftConfig.isImpersonationEnabled();
+        this.deleteFilesOnDrop = thriftConfig.isDeleteFilesOnDrop();
         this.authenticationType = authenticationConfig.getHiveMetastoreAuthenticationType();
         this.maxWaitForLock = thriftConfig.getMaxWaitForTransactionLock();
     }
@@ -1003,8 +1003,8 @@ public class ThriftHiveMetastore
                             Table table = client.getTable(databaseName, tableName);
                             client.dropTable(databaseName, tableName, deleteData);
                             String tableLocation = table.getSd().getLocation();
-                            if (deleteData && isManagedTable(table) && !isNullOrEmpty(tableLocation)) {
-                                deleteTableFilesIfNeeded(hdfsContext, hdfsEnvironment, databaseName, tableName, new Path(tableLocation));
+                            if (deleteFilesOnDrop && deleteData && isManagedTable(table) && !isNullOrEmpty(tableLocation)) {
+                                deleteDir(hdfsContext, hdfsEnvironment, new Path(tableLocation), true);
                             }
                         }
                         return null;
@@ -1021,21 +1021,14 @@ public class ThriftHiveMetastore
         }
     }
 
-    private static void deleteTableFilesIfNeeded(HdfsContext context, HdfsEnvironment hdfsEnvironment, String databaseName, String tableName, Path tablePath)
+    private static void deleteDir(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path, boolean recursive)
     {
         try {
-            if (isS3FileSystem(context, hdfsEnvironment, tablePath)) {
-                FileSystem fs = hdfsEnvironment.getFileSystem(context, tablePath);
-                if (fs.listFiles(tablePath, true).hasNext()) {
-                    log.warn("Table \"%s\".\"%s\" dropped, but files exist in '%s'", databaseName, tableName, tablePath.toUri());
-                    if (fs.delete(tablePath, true)) {
-                        log.warn("Deleted files for table \"%s\".\"%s\" in '%s' (Workaround for issue #1053)", databaseName, tableName, tablePath.toUri());
-                    }
-                }
-            }
+            hdfsEnvironment.getFileSystem(context, path).delete(path, recursive);
         }
-        catch (IOException | RuntimeException e) {
-            log.error(e, "Failed to delete files for table %s.%s: %s", databaseName, tableName, tablePath.toUri());
+        catch (Exception e) {
+            // don't fail if unable to delete path
+            log.warn(e, "Failed to delete path: " + path.toString());
         }
     }
 

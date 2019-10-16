@@ -36,6 +36,7 @@ public class ThriftMetastoreConfig
     private Duration maxRetryTime = RetryDriver.DEFAULT_MAX_RETRY_TIME;
     private boolean impersonationEnabled;
     private Duration maxWaitForTransactionLock = new Duration(10, TimeUnit.MINUTES);
+    private boolean deleteFilesOnDrop;
 
     @NotNull
     public Duration getMetastoreTimeout()
@@ -153,6 +154,19 @@ public class ThriftMetastoreConfig
     public ThriftMetastoreConfig setMaxWaitForTransactionLock(Duration maxWaitForTransactionLock)
     {
         this.maxWaitForTransactionLock = maxWaitForTransactionLock;
+        return this;
+    }
+
+    public boolean isDeleteFilesOnDrop()
+    {
+        return deleteFilesOnDrop;
+    }
+
+    @Config("hive.metastore.thrift.delete-files-on-drop")
+    @ConfigDescription("Delete files on drop in case thrift doesn't do it")
+    public ThriftMetastoreConfig setDeleteFilesOnDrop(boolean deleteFilesOnDrop)
+    {
+        this.deleteFilesOnDrop = deleteFilesOnDrop;
         return this;
     }
 }
