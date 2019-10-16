@@ -66,7 +66,6 @@ import io.prestosql.sql.tree.NullIfExpression;
 import io.prestosql.sql.tree.NullLiteral;
 import io.prestosql.sql.tree.OrderBy;
 import io.prestosql.sql.tree.Parameter;
-import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.QuantifiedComparisonExpression;
 import io.prestosql.sql.tree.Rollup;
 import io.prestosql.sql.tree.Row;
@@ -92,12 +91,13 @@ import java.util.List;
 import java.util.Locale;
 import java.util.PrimitiveIterator;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.prestosql.sql.SqlFormatter.formatName;
 import static io.prestosql.sql.SqlFormatter.formatSql;
 import static java.lang.String.format;
-import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
 public final class ExpressionFormatter
@@ -110,13 +110,6 @@ public final class ExpressionFormatter
     public static String formatExpression(Expression expression)
     {
         return new Formatter().process(expression, null);
-    }
-
-    private static String formatQualifiedName(QualifiedName name)
-    {
-        return name.getParts().stream()
-                .map(ExpressionFormatter::formatIdentifier)
-                .collect(joining("."));
     }
 
     private static String formatIdentifier(String s)
@@ -363,7 +356,7 @@ public final class ExpressionFormatter
                 arguments = "DISTINCT " + arguments;
             }
 
-            builder.append(formatQualifiedName(node.getName()))
+            builder.append(formatName(node.getName()))
                     .append('(').append(arguments);
 
             if (node.getOrderBy().isPresent()) {
