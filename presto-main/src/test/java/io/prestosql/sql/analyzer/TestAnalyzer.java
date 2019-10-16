@@ -45,6 +45,7 @@ import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.session.PropertyMetadata;
 import io.prestosql.spi.transaction.IsolationLevel;
 import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.Type;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.tree.Statement;
 import io.prestosql.testing.TestingMetadata;
@@ -62,6 +63,7 @@ import static io.prestosql.connector.CatalogName.createInformationSchemaCatalogN
 import static io.prestosql.connector.CatalogName.createSystemTablesCatalogName;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.scalar.ApplyFunction.APPLY_FUNCTION;
+import static io.prestosql.spi.StandardErrorCode.AMBIGUOUS_IDENTIFIER_CHAIN;
 import static io.prestosql.spi.StandardErrorCode.AMBIGUOUS_NAME;
 import static io.prestosql.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.COLUMN_NOT_FOUND;
@@ -125,6 +127,8 @@ public class TestAnalyzer
     private static final CatalogName SECOND_CATALOG_NAME = new CatalogName(SECOND_CATALOG);
     private static final String THIRD_CATALOG = "c3";
     private static final CatalogName THIRD_CATALOG_NAME = new CatalogName(THIRD_CATALOG);
+    private static final String CATALOG_FOR_IDENTIFIER_CHAIN_TESTS = "cat";
+    private static final CatalogName CATALOG_FOR_IDENTIFIER_CHAIN_TESTS_NAME = new CatalogName(CATALOG_FOR_IDENTIFIER_CHAIN_TESTS);
     private static final Session SETUP_SESSION = testSessionBuilder()
             .setCatalog("c1")
             .setSchema("s1")
@@ -132,6 +136,10 @@ public class TestAnalyzer
     private static final Session CLIENT_SESSION = testSessionBuilder()
             .setCatalog(TPCH_CATALOG)
             .setSchema("s1")
+            .build();
+    private static final Session CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS = testSessionBuilder()
+            .setCatalog(CATALOG_FOR_IDENTIFIER_CHAIN_TESTS)
+            .setSchema("a")
             .build();
 
     private static final SqlParser SQL_PARSER = new SqlParser();
@@ -292,6 +300,77 @@ public class TestAnalyzer
                 .hasErrorCode(EXPRESSION_NOT_AGGREGATE);
         assertFails("SELECT u1.*, u2.* FROM (select a, b + 1 from t1) u1 JOIN (select a, b + 2 from t1) u2 ON u1.a = u2.a GROUP BY u1.a, u2.a, 3")
                 .hasErrorCode(EXPRESSION_NOT_AGGREGATE);
+    }
+
+    @Test
+    public void testAsteriskedIdentifierChainResolution()
+    {
+        // identifier chain of length 2; match to table and field in immediate scope
+        assertFails(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT a.b.* FROM a.b, t1 AS a")
+                .hasErrorCode(AMBIGUOUS_IDENTIFIER_CHAIN);
+
+        // identifier chain of length 2; match to table and field in outer scope
+        assertFails(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT (SELECT a.b.* FROM (VALUES 1) v) FROM a.b, t1 AS a")
+                .hasErrorCode(AMBIGUOUS_IDENTIFIER_CHAIN);
+
+        // identifier chain of length 3; match to table and field in immediate scope
+        assertFails(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT cat.a.b.* FROM cat.a.b, t2 AS cat")
+                .hasErrorCode(AMBIGUOUS_IDENTIFIER_CHAIN);
+
+        // identifier chain of length 3; match to table and field in outer scope
+        assertFails(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT (SELECT cat.a.b.* FROM (VALUES 1) v) FROM cat.a.b, t2 AS cat")
+                .hasErrorCode(AMBIGUOUS_IDENTIFIER_CHAIN);
+
+        // identifier chain of length 2; no ambiguity: table match in closer scope than field match
+        analyze(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT (SELECT a.b.* FROM a.b) FROM t1 AS a");
+
+        // identifier chain of length 2; no ambiguity: field match in closer scope than table match
+        analyze(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT (SELECT a.b.* FROM t5 AS a) FROM a.b");
+
+        // identifier chain of length 2; no ambiguity: only field match in outer scope
+        analyze(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT (SELECT a.b.* FROM (VALUES 1) v) FROM t5 AS a");
+
+        // identifier chain of length 2; no ambiguity: only table match in outer scope (not supported)
+        assertFails(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT (SELECT a.b.* FROM (VALUES 1) v) FROM a.b")
+                .hasErrorCode(NOT_SUPPORTED);
+
+        // identifier chain of length 1; only table match allowed, no potential ambiguity detection (could match field b from t1)
+        analyze(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT b.* FROM b, t1");
+
+        // identifier chain of length 1; only table match allowed, referencing field not qualified by table alias not allowed
+        assertFails(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT b.* FROM t1")
+                .hasErrorCode(TABLE_NOT_FOUND);
+
+        // identifier chain of length 3; illegal reference: multi-identifier table reference + field reference
+        assertFails(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT a.t1.b.* FROM a.t1")
+                .hasErrorCode(TABLE_NOT_FOUND);
+        // the above query fixed by the use of table alias
+        analyze(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT alias.b.* FROM a.t1 as alias");
+
+        // identifier chain of length 4; illegal reference: multi-identifier table reference + field reference
+        assertFails(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT cat.a.t1.b.* FROM cat.a.t1")
+                .hasErrorCode(TABLE_NOT_FOUND);
+        // the above query fixed by the use of table alias
+        analyze(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT alias.b.* FROM cat.a.t1 AS alias");
+
+        // reference to nested row qualified by single-identifier table alias
+        analyze(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT t3.b.f1.* FROM t3");
+
+        // reference to double-nested row qualified by single-identifier table alias
+        analyze(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT t4.b.f1.f11.* FROM t4");
+
+        // table reference by the suffix of table's qualified name
+        analyze(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT b.* FROM cat.a.b");
+        analyze(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT a.b.* FROM cat.a.b");
+        analyze(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT b.* FROM a.b");
+
+        // ambiguous field references in immediate scope
+        assertFails(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT a.b.* FROM t4 AS a, t5 AS a")
+                .hasErrorCode(AMBIGUOUS_NAME);
+
+        // ambiguous field references in outer scope
+        assertFails(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT (SELECT a.b.* FROM (VALUES 1) v) FROM t4 AS a, t5 AS a")
+                .hasErrorCode(AMBIGUOUS_NAME);
     }
 
     @Test
@@ -2020,6 +2099,51 @@ public class TestAnalyzer
                 Optional.of("user"),
                 false);
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v5"), viewData5, false));
+
+        // for identifier chain resolving tests
+        catalogManager.registerCatalog(createTestingCatalog(CATALOG_FOR_IDENTIFIER_CHAIN_TESTS, CATALOG_FOR_IDENTIFIER_CHAIN_TESTS_NAME));
+        Type singleFieldRowType = metadata.fromSqlType("row(f1 bigint)");
+        Type rowType = metadata.fromSqlType("row(f1 bigint, f2 bigint)");
+        Type nestedRowType = metadata.fromSqlType("row(f1 row(f11 bigint, f12 bigint), f2 boolean)");
+        Type doubleNestedRowType = metadata.fromSqlType("row(f1 row(f11 row(f111 bigint, f112 bigint), f12 boolean), f2 boolean)");
+
+        SchemaTableName b = new SchemaTableName("a", "b");
+        inSetupTransaction(session -> metadata.createTable(session, CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
+                new ConnectorTableMetadata(b, ImmutableList.of(
+                        new ColumnMetadata("x", VARCHAR))),
+                false));
+
+        SchemaTableName t1 = new SchemaTableName("a", "t1");
+        inSetupTransaction(session -> metadata.createTable(session, CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
+                new ConnectorTableMetadata(t1, ImmutableList.of(
+                        new ColumnMetadata("b", rowType))),
+                false));
+
+        SchemaTableName t2 = new SchemaTableName("a", "t2");
+        inSetupTransaction(session -> metadata.createTable(session, CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
+                new ConnectorTableMetadata(t2, ImmutableList.of(
+                        new ColumnMetadata("a", rowType))),
+                false));
+
+        SchemaTableName t3 = new SchemaTableName("a", "t3");
+        inSetupTransaction(session -> metadata.createTable(session, CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
+                new ConnectorTableMetadata(t3, ImmutableList.of(
+                        new ColumnMetadata("b", nestedRowType),
+                        new ColumnMetadata("c", BIGINT))),
+                false));
+
+        SchemaTableName t4 = new SchemaTableName("a", "t4");
+        inSetupTransaction(session -> metadata.createTable(session, CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
+                new ConnectorTableMetadata(t4, ImmutableList.of(
+                        new ColumnMetadata("b", doubleNestedRowType),
+                        new ColumnMetadata("c", BIGINT))),
+                false));
+
+        SchemaTableName t5 = new SchemaTableName("a", "t5");
+        inSetupTransaction(session -> metadata.createTable(session, CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
+                new ConnectorTableMetadata(t5, ImmutableList.of(
+                        new ColumnMetadata("b", singleFieldRowType))),
+                false));
     }
 
     private void inSetupTransaction(Consumer<Session> consumer)
