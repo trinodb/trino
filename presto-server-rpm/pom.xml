@@ -23,39 +23,20 @@
         <server.tar.package>presto-server-${project.version}</server.tar.package>
     </properties>
 
-    <dependencies>
-        <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-server</artifactId>
-            <version>${project.version}</version>
-            <type>tar.gz</type>
-            <scope>runtime</scope>
-        </dependency>
-    </dependencies>
-
     <build>
-        <!-- Untar presto-server tgz to target build folder -->
         <plugins>
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-dependency-plugin</artifactId>
+                <groupId>ca.vanzyl.maven.plugins</groupId>
+                <artifactId>provisio-maven-plugin</artifactId>
                 <executions>
                     <execution>
                         <id>unpack</id>
+                        <phase>prepare-package</phase>
                         <goals>
-                            <goal>unpack</goal>
+                            <goal>provision</goal>
                         </goals>
                         <configuration>
-                            <skip>false</skip>
-                            <artifactItems>
-                                <artifactItem>
-                                    <groupId>io.prestosql</groupId>
-                                    <artifactId>presto-server</artifactId>
-                                    <version>${project.version}</version>
-                                    <type>tar.gz</type>
-                                    <outputDirectory>${project.build.outputDirectory}</outputDirectory>
-                                </artifactItem>
-                            </artifactItems>
+                            <outputDirectory>${project.build.outputDirectory}</outputDirectory>
                         </configuration>
                     </execution>
                 </executions>

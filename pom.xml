@@ -1317,7 +1317,7 @@
             <plugin>
                 <groupId>ca.vanzyl.maven.plugins</groupId>
                 <artifactId>provisio-maven-plugin</artifactId>
-                <version>1.0.2</version>
+                <version>1.0.4</version>
                 <extensions>true</extensions>
             </plugin>
 
