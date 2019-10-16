@@ -63,6 +63,7 @@ git:
   quiet: true
 
 install:
+  - rm -f ~/.m2/settings.xml
   - travis_retry ./mvnw -v
   - |
     if [[ -v TEST_SPECIFIC_MODULES ]]; then
