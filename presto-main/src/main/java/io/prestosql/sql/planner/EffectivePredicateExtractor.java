@@ -228,6 +228,7 @@ public class EffectivePredicateExtractor
                 predicate = metadata.getTableProperties(session, node.getTable()).getPredicate();
             }
 
+            // TODO: replace with metadata.getTableProperties() when table layouts are fully removed
             return domainTranslator.toPredicate(predicate.simplify().transform(assignments::get));
         }
 
