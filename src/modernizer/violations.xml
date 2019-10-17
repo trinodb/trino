@@ -7,6 +7,12 @@
     </violation>
 
     <violation>
+        <name>java/lang/String.getBytes:()[B</name>
+        <version>1.1</version>
+        <comment>Prefer String.getBytes(Charset)</comment>
+    </violation>
+
+    <violation>
         <name>java/lang/String.toLowerCase:()Ljava/lang/String;</name>
         <version>1.1</version>
         <comment>Prefer String.toLowerCase(java.util.Locale)</comment>
