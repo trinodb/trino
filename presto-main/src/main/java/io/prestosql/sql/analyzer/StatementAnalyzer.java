@@ -1995,10 +1995,25 @@ class StatementAnalyzer
         private Scope analyzeFrom(QuerySpecification node, Optional<Scope> scope)
         {
             if (node.getFrom().isPresent()) {
+                validateFrom(node.getFrom().get(), new HashSet<>());
                 return process(node.getFrom().get(), scope);
             }
 
             return createScope(scope);
+        }
+
+        private void validateFrom(Relation from, Set<Identifier> aliases)
+        {
+            if (from instanceof AliasedRelation) {
+                Identifier alias = ((AliasedRelation) from).getAlias();
+                if (!aliases.add(alias)) {
+                    throw semanticException(AMBIGUOUS_NAME, alias, "Duplicate relation name in FROM clause");
+                }
+            }
+            if (from instanceof Join && ((Join) from).getType() == IMPLICIT) {
+                validateFrom(((Join) from).getLeft(), aliases);
+                validateFrom(((Join) from).getRight(), aliases);
+            }
         }
 
         private void analyzeGroupingOperations(QuerySpecification node, List<Expression> outputExpressions, List<Expression> orderByExpressions)

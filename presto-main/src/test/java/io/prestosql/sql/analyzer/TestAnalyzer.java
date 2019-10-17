@@ -1162,6 +1162,21 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testValidateFrom()
+    {
+        assertFails("SELECT * FROM (VALUES 1) a, (VALUES 2) a")
+                .hasErrorCode(AMBIGUOUS_NAME);
+        assertFails("SELECT * FROM t1 a, t3, t2 a")
+                .hasErrorCode(AMBIGUOUS_NAME);
+        analyze("SELECT * FROM t1, t1");
+        analyze("SELECT * FROM t1, t2 t1");
+        analyze("SELECT * FROM t1, t2, t3, (VALUES 1) t1");
+        analyze("SELECT * FROM tpch.s1.t1, (VALUES 2) t1");
+        analyze("SELECT * FROM tpch.s1.t1, s1.t1, t1");
+        analyze("SELECT * FROM t1 t2, t2 t1");
+    }
+
+    @Test
     public void testGroupBy()
     {
         // TODO: validate output
