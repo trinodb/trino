@@ -80,7 +80,7 @@ public class TestHttpQueryStatsClient
 
     private void mockHttpResponse(String answerJson)
     {
-        httpResponse = new TestingResponse(HttpStatus.OK, ImmutableListMultimap.of(), answerJson.getBytes());
+        httpResponse = new TestingResponse(HttpStatus.OK, ImmutableListMultimap.of(), answerJson.getBytes(UTF_8));
     }
 
     private void mockErrorHttpResponse(HttpStatus statusCode)

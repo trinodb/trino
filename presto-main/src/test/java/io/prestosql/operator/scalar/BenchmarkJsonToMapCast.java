@@ -59,6 +59,7 @@ import static io.prestosql.sql.relational.Expressions.field;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.util.StructuralTestUtil.mapType;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 @SuppressWarnings("MethodMayBeStatic")
 @State(Scope.Thread)
@@ -137,9 +138,9 @@ public class BenchmarkJsonToMapCast
                     String key = "key" + i;
                     String value = generateRandomJsonValue(valueType);
                     jsonSlice.appendByte('"');
-                    jsonSlice.appendBytes(key.getBytes());
-                    jsonSlice.appendBytes("\":".getBytes());
-                    jsonSlice.appendBytes(value.getBytes());
+                    jsonSlice.appendBytes(key.getBytes(UTF_8));
+                    jsonSlice.appendBytes("\":".getBytes(UTF_8));
+                    jsonSlice.appendBytes(value.getBytes(UTF_8));
                 }
                 jsonSlice.appendByte('}');
 

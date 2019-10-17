@@ -55,6 +55,7 @@ import static io.prestosql.plugin.kinesis.KinesisSessionProperties.getIteratorSt
 import static io.prestosql.plugin.kinesis.KinesisSessionProperties.getMaxBatches;
 import static io.prestosql.plugin.kinesis.KinesisSessionProperties.isCheckpointEnabled;
 import static io.prestosql.plugin.kinesis.KinesisSessionProperties.isIteratorFromTimestamp;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 public class KinesisRecordSet
@@ -314,16 +315,16 @@ public class KinesisRecordSet
                     KinesisInternalFieldDescription fieldDescription = KinesisInternalFieldDescription.forColumnName(columnHandle.getName());
                     switch (fieldDescription) {
                         case SHARD_ID_FIELD:
-                            currentRowValuesMap.put(columnHandle, bytesValueProvider(split.getShardId().getBytes()));
+                            currentRowValuesMap.put(columnHandle, bytesValueProvider(split.getShardId().getBytes(UTF_8)));
                             break;
                         case SEGMENT_START_FIELD:
-                            currentRowValuesMap.put(columnHandle, bytesValueProvider(split.getStart().getBytes()));
+                            currentRowValuesMap.put(columnHandle, bytesValueProvider(split.getStart().getBytes(UTF_8)));
                             break;
                         case SEGMENT_COUNT_FIELD:
                             currentRowValuesMap.put(columnHandle, longValueProvider(totalMessages));
                             break;
                         case SHARD_SEQUENCE_ID_FIELD:
-                            currentRowValuesMap.put(columnHandle, bytesValueProvider(currentRecord.getSequenceNumber().getBytes()));
+                            currentRowValuesMap.put(columnHandle, bytesValueProvider(currentRecord.getSequenceNumber().getBytes(UTF_8)));
                             break;
                         case MESSAGE_FIELD:
                             currentRowValuesMap.put(columnHandle, bytesValueProvider(messageData));

@@ -60,6 +60,7 @@ import static io.prestosql.tests.utils.JdbcDriverUtils.setSessionProperty;
 import static io.prestosql.tests.utils.JdbcDriverUtils.usingPrestoJdbcDriver;
 import static io.prestosql.tests.utils.JdbcDriverUtils.usingSimbaJdbcDriver;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.CHINESE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
@@ -295,7 +296,7 @@ public class TestJdbc
             assertThat(query("select {fn convert('1234.567', SQL_DECIMAL)}")).containsExactly(row(new BigDecimal(1235)));
 
             assertThat(query("select {fn convert('123456', SQL_INTEGER)}")).containsExactly(row(123456));
-            assertThat(query("select {fn convert('123abcd', SQL_VARBINARY)}")).containsExactly(row("123abcd".getBytes()));
+            assertThat(query("select {fn convert('123abcd', SQL_VARBINARY)}")).containsExactly(row("123abcd".getBytes(UTF_8)));
             assertThat(query("select {fn dayofmonth(date '2016-10-20')}")).containsExactly(row(20));
             assertThat(query("select {fn dayofweek(date '2016-10-20')}")).containsExactly(row(5));
             assertThat(query("select {fn dayofyear(date '2016-10-20')}")).containsExactly(row(294));
