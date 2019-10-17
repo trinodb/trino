@@ -214,6 +214,8 @@ import static io.prestosql.sql.tree.FrameBound.Type.FOLLOWING;
 import static io.prestosql.sql.tree.FrameBound.Type.PRECEDING;
 import static io.prestosql.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
 import static io.prestosql.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
+import static io.prestosql.sql.tree.Join.Type.CROSS;
+import static io.prestosql.sql.tree.Join.Type.IMPLICIT;
 import static io.prestosql.sql.tree.WindowFrame.Type.RANGE;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static io.prestosql.util.MoreLists.mappedCopy;
@@ -1262,7 +1264,7 @@ class StatementAnalyzer
 
             Scope output = createAndAssignScope(node, scope, left.getRelationType().joinWith(right.getRelationType()));
 
-            if (node.getType() == Join.Type.CROSS || node.getType() == Join.Type.IMPLICIT) {
+            if (node.getType() == CROSS || node.getType() == IMPLICIT) {
                 return output;
             }
             if (criteria instanceof JoinOn) {
