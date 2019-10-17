@@ -43,7 +43,7 @@ public class TestRowBlock
         extends AbstractTestBlock
 {
     @Test
-    void testWithVarcharBigint()
+    public void testWithVarcharBigint()
     {
         List<Type> fieldTypes = ImmutableList.of(VARCHAR, BIGINT);
         List<Object>[] testRows = generateTestRows(fieldTypes, 100);

@@ -1793,7 +1793,7 @@ public class TestAnalyzer
     }
 
     @Test
-    void testAggregationWithOrderBy()
+    public void testAggregationWithOrderBy()
     {
         analyze("SELECT array_agg(DISTINCT x ORDER BY x) FROM (VALUES (1, 2), (3, 4)) t(x, y)");
         analyze("SELECT array_agg(x ORDER BY y) FROM (VALUES (1, 2), (3, 4)) t(x, y)");

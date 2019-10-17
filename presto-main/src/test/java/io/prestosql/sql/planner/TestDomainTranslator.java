@@ -644,7 +644,7 @@ public class TestDomainTranslator
     }
 
     @Test
-    void testNonImplictCastOnSymbolSide()
+    public void testNonImplictCastOnSymbolSide()
     {
         // we expect TupleDomain.all here().
         // see comment in DomainTranslator.Visitor.visitComparisonExpression()
@@ -657,7 +657,7 @@ public class TestDomainTranslator
     }
 
     @Test
-    void testNoSaturatedFloorCastFromUnsupportedApproximateDomain()
+    public void testNoSaturatedFloorCastFromUnsupportedApproximateDomain()
     {
         assertUnsupportedPredicate(equal(
                 new Cast(C_DECIMAL_12_2.toSymbolReference(), toSqlType(DOUBLE)),
@@ -1029,7 +1029,7 @@ public class TestDomainTranslator
     }
 
     @Test
-    void testMultipleCoercionsOnSymbolSide()
+    public void testMultipleCoercionsOnSymbolSide()
     {
         assertPredicateTranslates(
                 comparison(GREATER_THAN, cast(cast(C_SMALLINT, REAL), DOUBLE), doubleLiteral(3.7)),
