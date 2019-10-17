@@ -45,6 +45,7 @@ import io.prestosql.security.AccessControlModule;
 import io.prestosql.server.security.PasswordAuthenticatorManager;
 import io.prestosql.server.security.ServerSecurityModule;
 import io.prestosql.sql.parser.SqlParserOptions;
+import io.prestosql.version.EmbedVersion;
 import org.weakref.jmx.guice.MBeanModule;
 
 import java.io.IOException;
@@ -67,7 +68,9 @@ public class PrestoServer
 {
     public static void main(String[] args)
     {
-        new PrestoServer().run();
+        // We use builtin version. This is used for system startup only.
+        EmbedVersion embedVersion = new EmbedVersion(new ServerConfig());
+        embedVersion.embedVersion(new PrestoServer()::run).run();
     }
 
     private final SqlParserOptions sqlParserOptions;
