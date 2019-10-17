@@ -2,6 +2,8 @@
 Release 321
 ===========
 
+.. warning:: The server RPM is broken in this release.
+
 General Changes
 ---------------
 
