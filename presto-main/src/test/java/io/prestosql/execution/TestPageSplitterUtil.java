@@ -73,7 +73,7 @@ public class TestPageSplitterUtil
     }
 
     @Test
-    private void testSplitPageNonDecreasingPageSize()
+    public void testSplitPageNonDecreasingPageSize()
     {
         int positionCount = 100;
         int maxPageSizeInBytes = 1;
