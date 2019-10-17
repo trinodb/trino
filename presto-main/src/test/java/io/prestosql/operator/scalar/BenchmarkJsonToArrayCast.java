@@ -58,6 +58,7 @@ import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.relational.Expressions.field;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static io.prestosql.type.JsonType.JSON;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 @SuppressWarnings("MethodMayBeStatic")
 @State(Scope.Thread)
@@ -133,7 +134,7 @@ public class BenchmarkJsonToArrayCast
                         jsonSlice.appendByte(',');
                     }
                     String value = generateRandomJsonValue(elementType);
-                    jsonSlice.appendBytes(value.getBytes());
+                    jsonSlice.appendBytes(value.getBytes(UTF_8));
                 }
                 jsonSlice.appendByte(']');
 

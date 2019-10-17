@@ -44,6 +44,7 @@ import static io.prestosql.tests.TestGroups.SIMBA_JDBC;
 import static io.prestosql.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
 import static io.prestosql.tests.utils.JdbcDriverUtils.usingSimbaJdbcDriver;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.sql.JDBCType.BIGINT;
 import static java.sql.JDBCType.BOOLEAN;
 import static java.sql.JDBCType.CHAR;
@@ -373,7 +374,7 @@ public class TestPreparedStatements
                             "def",
                             "ghi       ",
                             Boolean.FALSE,
-                            "jkl".getBytes()),
+                            "jkl".getBytes(UTF_8)),
                     row(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));
         }
         else {

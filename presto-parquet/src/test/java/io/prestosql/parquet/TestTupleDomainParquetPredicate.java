@@ -60,6 +60,7 @@ import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static java.lang.Float.floatToRawIntBits;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.singletonList;
 import static java.util.Collections.singletonMap;
 import static org.apache.parquet.column.statistics.Statistics.getStatsBasedOnType;
@@ -281,7 +282,7 @@ public class TestTupleDomainParquetPredicate
         TupleDomainParquetPredicate parquetPredicate = new TupleDomainParquetPredicate(effectivePredicate, singletonList(column));
         Statistics<?> stats = getStatsBasedOnType(column.getType());
         stats.setNumNulls(1L);
-        stats.setMinMaxFromBytes(value.getBytes(), value.getBytes());
+        stats.setMinMaxFromBytes(value.getBytes(UTF_8), value.getBytes(UTF_8));
         assertTrue(parquetPredicate.matches(2, ImmutableMap.of(column, stats), ID, true));
     }
 

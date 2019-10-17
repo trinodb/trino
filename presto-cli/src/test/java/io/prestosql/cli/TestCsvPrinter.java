@@ -26,6 +26,7 @@ import static io.prestosql.cli.CsvPrinter.CsvOutputFormat.NO_QUOTES;
 import static io.prestosql.cli.CsvPrinter.CsvOutputFormat.STANDARD;
 import static io.prestosql.cli.TestAlignedTablePrinter.row;
 import static io.prestosql.cli.TestAlignedTablePrinter.rows;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 
 public class TestCsvPrinter
@@ -174,7 +175,7 @@ public class TestCsvPrinter
         List<String> fieldNames = ImmutableList.of("first", "last", "quantity");
         OutputPrinter printer = new CsvPrinter(fieldNames, writer, NO_HEADER);
 
-        printRows(printer, row("hello".getBytes(), null, 123));
+        printRows(printer, row("hello".getBytes(UTF_8), null, 123));
         printer.finish();
 
         String expected = "\"68 65 6c 6c 6f\",\"\",\"123\"\n";

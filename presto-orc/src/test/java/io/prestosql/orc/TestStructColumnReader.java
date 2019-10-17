@@ -51,6 +51,7 @@ import static io.prestosql.orc.TestingOrcPredicate.ORC_ROW_GROUP_SIZE;
 import static io.prestosql.orc.TestingOrcPredicate.ORC_STRIPE_SIZE;
 import static io.prestosql.orc.metadata.CompressionKind.NONE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
@@ -243,7 +244,7 @@ public class TestStructColumnReader
 
         BlockBuilder blockBuilder = TEST_DATA_TYPE.createBlockBuilder(null, entries);
         for (int i = 0; i < data.size(); i++) {
-            byte[] bytes = data.get(i).getBytes();
+            byte[] bytes = data.get(i).getBytes(UTF_8);
             for (int j = 0; j < entries; j++) {
                 blockBuilder.writeBytes(Slices.wrappedBuffer(bytes), 0, bytes.length);
                 blockBuilder.closeEntry();
