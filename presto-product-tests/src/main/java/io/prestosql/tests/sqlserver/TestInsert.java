@@ -68,9 +68,8 @@ public class TestInsert
         String sql = format(
                 "INSERT INTO %s.%s values (BIGINT '%s', SMALLINT '%s', INTEGER '%s', DOUBLE '%s', " +
                         "CHAR 'a   ', 'aa', DOUBLE '%s', DATE '%s')",
-                SQLSERVER, INSERT_TABLE_NAME, Long.valueOf("-9223372036854775807"), Short.MIN_VALUE, Integer.MIN_VALUE,
+                SQLSERVER, INSERT_TABLE_NAME, Long.MIN_VALUE, Short.MIN_VALUE, Integer.MIN_VALUE,
                 Double.MIN_VALUE, Double.MIN_VALUE, Date.valueOf("1970-01-01"));
-        // Min value for BIGINT would be updated to "-9223372036854775808" post https://github.com/prestodb/presto/issues/4571
         onPresto().executeQuery(sql);
 
         sql = format(
@@ -80,7 +79,7 @@ public class TestInsert
                 .executeQuery(sql);
 
         assertThat(queryResult).contains(
-                row(Long.valueOf("-9223372036854775807"), Short.MIN_VALUE, Integer.MIN_VALUE, Double.MIN_VALUE, "a   ", "aa", Double.MIN_VALUE, Date.valueOf("1970-01-01")));
+                row(Long.MIN_VALUE, Short.MIN_VALUE, Integer.MIN_VALUE, Double.MIN_VALUE, "a   ", "aa", Double.MIN_VALUE, Date.valueOf("1970-01-01")));
     }
 
     @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
