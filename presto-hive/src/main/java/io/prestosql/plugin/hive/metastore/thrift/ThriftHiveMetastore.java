@@ -932,10 +932,6 @@ public class ThriftHiveMetastore
                     .stopOnIllegalExceptions()
                     .run("alterTable", stats.getAlterTable().wrap(() -> {
                         try (ThriftMetastoreClient client = createMetastoreClient(identity)) {
-                            Optional<Table> source = getTable(identity, databaseName, tableName);
-                            if (!source.isPresent()) {
-                                throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
-                            }
                             client.alterTable(databaseName, tableName, table);
                         }
                         return null;
