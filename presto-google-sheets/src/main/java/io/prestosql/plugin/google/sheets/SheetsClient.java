@@ -202,7 +202,7 @@ public class SheetsClient
     private List<List<Object>> readAllValuesFromSheetExpression(String sheetExpression)
     {
         try {
-            // by default loading up to max 10k columns
+            // by default loading up to 10k rows from the first tab of the sheet
             String defaultRange = "$1:$10000";
             String[] tableOptions = sheetExpression.split("#");
             String sheetId = tableOptions[0];
