@@ -14,7 +14,6 @@
 package io.prestosql.operator;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionKind;
@@ -66,7 +65,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.metadata.Signature.typeVariable;
-import static io.prestosql.operator.TypeSignatureParser.parseTypeSignature;
 import static io.prestosql.operator.aggregation.AggregationFromAnnotationsParser.parseFunctionDefinition;
 import static io.prestosql.operator.aggregation.AggregationFromAnnotationsParser.parseFunctionDefinitions;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN;
@@ -952,8 +950,8 @@ public class TestAnnotationEngineForAggregates
         Signature expectedSignature = new Signature(
                 "inject_literal_aggregate",
                 FunctionKind.AGGREGATE,
-                parseTypeSignature("varchar(x)", ImmutableSet.of("x")),
-                ImmutableList.of(parseTypeSignature("varchar(x)", ImmutableSet.of("x"))));
+                new TypeSignature("varchar", TypeSignatureParameter.typeVariable("x")),
+                ImmutableList.of(new TypeSignature("varchar", TypeSignatureParameter.typeVariable("x"))));
 
         ParametricAggregation aggregation = parseFunctionDefinition(InjectLiteralAggregateFunction.class);
         assertEquals(aggregation.getFunctionMetadata().getDescription(), "Simple aggregate with type literal");
@@ -1025,9 +1023,9 @@ public class TestAnnotationEngineForAggregates
                 FunctionKind.AGGREGATE,
                 ImmutableList.of(),
                 ImmutableList.of(new LongVariableConstraint("z", "x + y")),
-                parseTypeSignature("varchar(z)", ImmutableSet.of("z")),
-                ImmutableList.of(parseTypeSignature("varchar(x)", ImmutableSet.of("x")),
-                        parseTypeSignature("varchar(y)", ImmutableSet.of("y"))),
+                new TypeSignature("varchar", TypeSignatureParameter.typeVariable("z")),
+                ImmutableList.of(new TypeSignature("varchar", TypeSignatureParameter.typeVariable("x")),
+                        new TypeSignature("varchar", TypeSignatureParameter.typeVariable("y"))),
                 false);
 
         ParametricAggregation aggregation = parseFunctionDefinition(LongConstraintAggregateFunction.class);

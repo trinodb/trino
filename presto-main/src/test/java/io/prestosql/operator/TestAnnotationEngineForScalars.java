@@ -14,7 +14,6 @@
 package io.prestosql.operator;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionKind;
@@ -41,6 +40,7 @@ import io.prestosql.spi.function.TypeParameter;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.spi.type.TypeSignatureParameter;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -49,7 +49,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.metadata.Signature.typeVariable;
-import static io.prestosql.operator.TypeSignatureParser.parseTypeSignature;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
@@ -387,7 +386,7 @@ public class TestAnnotationEngineForScalars
                 ImmutableList.of(),
                 ImmutableList.of(),
                 BOOLEAN.getTypeSignature(),
-                ImmutableList.of(parseTypeSignature("array(varchar(x))", ImmutableSet.of("x"))),
+                ImmutableList.of(arrayType(new TypeSignature("varchar", TypeSignatureParameter.typeVariable("x")))),
                 false);
 
         Signature exactSignature = new Signature(
@@ -435,7 +434,7 @@ public class TestAnnotationEngineForScalars
                 ImmutableList.of(),
                 ImmutableList.of(),
                 BIGINT.getTypeSignature(),
-                ImmutableList.of(parseTypeSignature("varchar(x)", ImmutableSet.of("x"))),
+                ImmutableList.of(new TypeSignature("varchar", TypeSignatureParameter.typeVariable("x"))),
                 false);
 
         List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinition(SimpleInjectionScalarFunction.class);

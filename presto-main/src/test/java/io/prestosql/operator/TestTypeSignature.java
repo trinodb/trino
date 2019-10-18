@@ -33,6 +33,10 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.TypeSignature.arrayType;
 import static io.prestosql.spi.type.TypeSignature.mapType;
+import static io.prestosql.spi.type.TypeSignature.rowType;
+import static io.prestosql.spi.type.TypeSignatureParameter.namedField;
+import static io.prestosql.spi.type.TypeSignatureParameter.numericParameter;
+import static io.prestosql.spi.type.TypeSignatureParameter.typeVariable;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
@@ -48,7 +52,7 @@ public class TestTypeSignature
     @Test
     public void parseSignatureWithLiterals()
     {
-        TypeSignature result = parseTypeSignature("decimal(X,42)", ImmutableSet.of("X"));
+        TypeSignature result = new TypeSignature("decimal", typeVariable("X"), numericParameter(42));
         assertEquals(result.getParameters().size(), 2);
         assertEquals(result.getParameters().get(0).isVariable(), true);
         assertEquals(result.getParameters().get(1).isLongLiteral(), true);
@@ -192,7 +196,7 @@ public class TestTypeSignature
     private TypeSignature decimal(String precisionVariable, String scaleVariable)
     {
         return new TypeSignature(StandardTypes.DECIMAL, ImmutableList.of(
-                TypeSignatureParameter.typeVariable(precisionVariable), TypeSignatureParameter.typeVariable(scaleVariable)));
+                typeVariable(precisionVariable), typeVariable(scaleVariable)));
     }
 
     private static TypeSignature rowSignature(NamedTypeSignature... columns)
@@ -282,13 +286,13 @@ public class TestTypeSignature
     public void testIsCalculated()
     {
         assertFalse(BIGINT.getTypeSignature().isCalculated());
-        assertTrue(parseTypeSignature("decimal(p, s)", ImmutableSet.of("p", "s")).isCalculated());
+        assertTrue(new TypeSignature("decimal", typeVariable("p"), typeVariable("s")).isCalculated());
         assertFalse(createDecimalType(2, 1).getTypeSignature().isCalculated());
-        assertTrue(parseTypeSignature("array(decimal(p, s))", ImmutableSet.of("p", "s")).isCalculated());
+        assertTrue(arrayType(new TypeSignature("decimal", typeVariable("p"), typeVariable("s"))).isCalculated());
         assertFalse(arrayType(createDecimalType(2, 1).getTypeSignature()).isCalculated());
-        assertTrue(parseTypeSignature("map(decimal(p1, s1),decimal(p2, s2))", ImmutableSet.of("p1", "s1", "p2", "s2")).isCalculated());
+        assertTrue(mapType(new TypeSignature("decimal", typeVariable("p1"), typeVariable("s1")), new TypeSignature("decimal", typeVariable("p2"), typeVariable("s2"))).isCalculated());
         assertFalse(mapType(createDecimalType(2, 1).getTypeSignature(), createDecimalType(3, 1).getTypeSignature()).isCalculated());
-        assertTrue(parseTypeSignature("row(a decimal(p1,s1),b decimal(p2,s2))", ImmutableSet.of("p1", "s1", "p2", "s2")).isCalculated());
+        assertTrue(rowType(namedField("a", new TypeSignature("decimal", typeVariable("p1"), typeVariable("s1"))), namedField("b", new TypeSignature("decimal", typeVariable("p2"), typeVariable("s2")))).isCalculated());
     }
 
     private static void assertRowSignature(
