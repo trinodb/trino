@@ -37,7 +37,6 @@ import java.time.ZonedDateTime;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.airlift.slice.SizeOf.sizeOf;
 import static io.prestosql.orc.metadata.Stream.StreamKind.DATA;
 import static io.prestosql.orc.metadata.Stream.StreamKind.PRESENT;
 import static io.prestosql.orc.metadata.Stream.StreamKind.SECONDARY;
@@ -63,7 +62,6 @@ public class TimestampColumnReader
     private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
     @Nullable
     private BooleanInputStream presentStream;
-    private boolean[] nullVector = new boolean[0];
 
     private InputStreamSource<LongInputStream> secondsStreamSource = missingStreamSource(LongInputStream.class);
     @Nullable
@@ -72,9 +70,6 @@ public class TimestampColumnReader
     private InputStreamSource<LongInputStream> nanosStreamSource = missingStreamSource(LongInputStream.class);
     @Nullable
     private LongInputStream nanosStream;
-
-    private long[] secondsVector = new long[0];
-    private long[] nanosVector = new long[0];
 
     private boolean rowGroupOpen;
 
@@ -282,14 +277,11 @@ public class TimestampColumnReader
     public void close()
     {
         systemMemoryContext.close();
-        nullVector = null;
-        secondsVector = null;
-        nanosVector = null;
     }
 
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + sizeOf(nullVector) + sizeOf(secondsVector) + sizeOf(nanosVector);
+        return INSTANCE_SIZE;
     }
 }

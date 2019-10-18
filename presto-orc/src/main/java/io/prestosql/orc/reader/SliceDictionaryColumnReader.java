@@ -72,7 +72,6 @@ public class SliceDictionaryColumnReader
     private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
     @Nullable
     private BooleanInputStream presentStream;
-    private boolean[] isNullVector = new boolean[0];
 
     private InputStreamSource<ByteArrayInputStream> dictionaryDataStreamSource = missingStreamSource(ByteArrayInputStream.class);
     private boolean dictionaryOpen;
@@ -359,12 +358,11 @@ public class SliceDictionaryColumnReader
     public void close()
     {
         systemMemoryContext.close();
-        isNullVector = null;
     }
 
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + sizeOf(isNullVector);
+        return INSTANCE_SIZE;
     }
 }

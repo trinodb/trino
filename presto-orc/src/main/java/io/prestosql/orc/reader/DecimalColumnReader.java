@@ -66,9 +66,6 @@ public class DecimalColumnReader
     private int readOffset;
     private int nextBatchSize;
 
-    private boolean[] nullVector = new boolean[0];
-    private long[] scaleVector = new long[0];
-
     private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
     @Nullable
     private BooleanInputStream presentStream;
@@ -351,13 +348,11 @@ public class DecimalColumnReader
     public void close()
     {
         systemMemoryContext.close();
-        nullVector = null;
-        scaleVector = null;
     }
 
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + sizeOf(nullVector) + sizeOf(scaleVector);
+        return INSTANCE_SIZE;
     }
 }
