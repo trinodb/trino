@@ -543,7 +543,7 @@ public abstract class AbstractTestHiveFileSystem
 
             Optional<List<String>> partitionNames = getPartitionNames(identity, schemaName, tableName);
             if (partitionNames.isPresent()) {
-                getPartitionsByNames(identity, schemaName, tableName, partitionNames.get()).values().stream()
+                getPartitionsByNames(identity, table, partitionNames.get()).values().stream()
                         .map(Optional::get)
                         .map(partition -> partition.getStorage().getLocation())
                         .filter(location -> !location.startsWith(table.getStorage().getLocation()))

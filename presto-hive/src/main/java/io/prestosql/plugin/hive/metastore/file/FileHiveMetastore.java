@@ -926,21 +926,14 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized Optional<Partition> getPartition(HiveIdentity identity, String databaseName, String tableName, List<String> partitionValues)
+    public synchronized Optional<Partition> getPartition(HiveIdentity identity, Table table, List<String> partitionValues)
     {
-        requireNonNull(databaseName, "databaseName is null");
-        requireNonNull(tableName, "tableName is null");
+        requireNonNull(table, "table is null");
         requireNonNull(partitionValues, "partitionValues is null");
-
-        Optional<Table> tableReference = getTable(identity, databaseName, tableName);
-        if (!tableReference.isPresent()) {
-            return Optional.empty();
-        }
-        Table table = tableReference.get();
 
         Path partitionDirectory = getPartitionMetadataDirectory(table, partitionValues);
         return readSchemaFile("partition", partitionDirectory, partitionCodec)
-                .map(partitionMetadata -> partitionMetadata.toPartition(databaseName, tableName, partitionValues, partitionDirectory.toString()));
+                .map(partitionMetadata -> partitionMetadata.toPartition(table.getDatabaseName(), table.getTableName(), partitionValues, partitionDirectory.toString()));
     }
 
     @Override
@@ -968,12 +961,12 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized Map<String, Optional<Partition>> getPartitionsByNames(HiveIdentity identity, String databaseName, String tableName, List<String> partitionNames)
+    public synchronized Map<String, Optional<Partition>> getPartitionsByNames(HiveIdentity identity, Table table, List<String> partitionNames)
     {
         ImmutableMap.Builder<String, Optional<Partition>> builder = ImmutableMap.builder();
         for (String partitionName : partitionNames) {
             List<String> partitionValues = toPartitionValues(partitionName);
-            builder.put(partitionName, getPartition(identity, databaseName, tableName, partitionValues));
+            builder.put(partitionName, getPartition(identity, table, partitionValues));
         }
         return builder.build();
     }

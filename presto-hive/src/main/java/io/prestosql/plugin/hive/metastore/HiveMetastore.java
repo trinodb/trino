@@ -77,13 +77,13 @@ public interface HiveMetastore
 
     void dropColumn(HiveIdentity identity, String databaseName, String tableName, String columnName);
 
-    Optional<Partition> getPartition(HiveIdentity identity, String databaseName, String tableName, List<String> partitionValues);
+    Optional<Partition> getPartition(HiveIdentity identity, Table table, List<String> partitionValues);
 
     Optional<List<String>> getPartitionNames(HiveIdentity identity, String databaseName, String tableName);
 
     Optional<List<String>> getPartitionNamesByParts(HiveIdentity identity, String databaseName, String tableName, List<String> parts);
 
-    Map<String, Optional<Partition>> getPartitionsByNames(HiveIdentity identity, String databaseName, String tableName, List<String> partitionNames);
+    Map<String, Optional<Partition>> getPartitionsByNames(HiveIdentity identity, Table table, List<String> partitionNames);
 
     void addPartitions(HiveIdentity identity, String databaseName, String tableName, List<PartitionWithStatistics> partitions);
 

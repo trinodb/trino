@@ -21,11 +21,13 @@ import io.prestosql.plugin.hive.LocationService.WriteInfo;
 import io.prestosql.plugin.hive.PartitionUpdate.UpdateMode;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
+import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.connector.TableNotFoundException;
 import io.prestosql.spi.procedure.Procedure;
 import io.prestosql.spi.procedure.Procedure.Argument;
 import io.prestosql.spi.type.ArrayType;
@@ -94,11 +96,11 @@ public class CreateEmptyPartitionProcedure
         }
     }
 
-    private void doCreateEmptyPartition(ConnectorSession session, String schema, String table, List<Object> partitionColumnNames, List<Object> partitionValues)
+    private void doCreateEmptyPartition(ConnectorSession session, String schemaName, String tableName, List<Object> partitionColumnNames, List<Object> partitionValues)
     {
         TransactionalMetadata hiveMetadata = hiveMetadataFactory.get();
 
-        ConnectorTableHandle tableHandle = hiveMetadata.getTableHandle(session, new SchemaTableName(schema, table));
+        ConnectorTableHandle tableHandle = hiveMetadata.getTableHandle(session, new SchemaTableName(schemaName, tableName));
         HiveInsertTableHandle hiveInsertTableHandle = (HiveInsertTableHandle) hiveMetadata.beginInsert(session, tableHandle);
 
         List<String> actualPartitionColumnNames = hiveInsertTableHandle.getInputColumns().stream()
@@ -113,7 +115,10 @@ public class CreateEmptyPartitionProcedure
                 .map(String.class::cast)
                 .collect(toImmutableList());
 
-        if (metastore.getPartition(new HiveIdentity(session), schema, table, partitionStringValues).isPresent()) {
+        Table table = metastore.getTable(new HiveIdentity(session), schemaName, tableName)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(schemaName, tableName)));
+
+        if (metastore.getPartition(new HiveIdentity(session), table, partitionStringValues).isPresent()) {
             throw new PrestoException(ALREADY_EXISTS, "Partition already exists");
         }
         String partitionName = FileUtils.makePartName(actualPartitionColumnNames, partitionStringValues);

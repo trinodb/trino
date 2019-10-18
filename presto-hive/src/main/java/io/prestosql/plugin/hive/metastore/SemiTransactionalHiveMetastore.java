@@ -623,7 +623,7 @@ public class SemiTransactionalHiveMetastore
         checkReadable();
         TableSource tableSource = getTableSource(databaseName, tableName);
         Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.computeIfAbsent(new SchemaTableName(databaseName, tableName), k -> new HashMap<>());
-        ImmutableList.Builder<String> partitionNamesToQuery = ImmutableList.builder();
+        ImmutableList.Builder<String> partitionNamesToQueryBuilder = ImmutableList.builder();
         ImmutableMap.Builder<String, Optional<Partition>> resultBuilder = ImmutableMap.builder();
         for (String partitionName : partitionNames) {
             List<String> partitionValues = toPartitionValues(partitionName);
@@ -631,7 +631,7 @@ public class SemiTransactionalHiveMetastore
             if (partitionAction == null) {
                 switch (tableSource) {
                     case PRE_EXISTING_TABLE:
-                        partitionNamesToQuery.add(partitionName);
+                        partitionNamesToQueryBuilder.add(partitionName);
                         break;
                     case CREATED_IN_THIS_TRANSACTION:
                         resultBuilder.put(partitionName, Optional.empty());
@@ -644,8 +644,16 @@ public class SemiTransactionalHiveMetastore
                 resultBuilder.put(partitionName, getPartitionFromPartitionAction(partitionAction));
             }
         }
-        Map<String, Optional<Partition>> delegateResult = delegate.getPartitionsByNames(identity, databaseName, tableName, partitionNamesToQuery.build());
-        resultBuilder.putAll(delegateResult);
+
+        List<String> partitionNamesToQuery = partitionNamesToQueryBuilder.build();
+        if (!partitionNamesToQuery.isEmpty()) {
+            Map<String, Optional<Partition>> delegateResult = delegate.getPartitionsByNames(
+                    identity,
+                    getExistingTable(identity, databaseName, tableName),
+                    partitionNamesToQuery);
+            resultBuilder.putAll(delegateResult);
+        }
+
         return resultBuilder.build();
     }
 
@@ -741,7 +749,7 @@ public class SemiTransactionalHiveMetastore
         Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.computeIfAbsent(schemaTableName, k -> new HashMap<>());
         Action<PartitionAndMore> oldPartitionAction = partitionActionsOfTable.get(partitionValues);
         if (oldPartitionAction == null) {
-            Partition partition = delegate.getPartition(identity, databaseName, tableName, partitionValues)
+            Partition partition = delegate.getPartition(identity, getExistingTable(identity, databaseName, tableName), partitionValues)
                     .orElseThrow(() -> new PartitionNotFoundException(schemaTableName, partitionValues));
             String partitionName = getPartitionName(identity, databaseName, tableName, partitionValues);
             PartitionStatistics currentStatistics = delegate.getPartitionStatistics(identity, databaseName, tableName, ImmutableSet.of(partitionName)).get(partitionName);
@@ -1229,7 +1237,8 @@ public class SemiTransactionalHiveMetastore
 
             Partition partition = partitionAndMore.getPartition();
             String targetLocation = partition.getStorage().getLocation();
-            Optional<Partition> oldPartition = delegate.getPartition(identity, partition.getDatabaseName(), partition.getTableName(), partition.getValues());
+            Table table = getExistingTable(identity, partition.getDatabaseName(), partition.getTableName());
+            Optional<Partition> oldPartition = delegate.getPartition(identity, table, partition.getValues());
             if (!oldPartition.isPresent()) {
                 throw new PrestoException(
                         TRANSACTION_CONFLICT,
@@ -1611,7 +1620,7 @@ public class SemiTransactionalHiveMetastore
                             List<String> partitionNames = delegate.getPartitionNames(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName())
                                     .orElse(ImmutableList.of());
                             for (List<String> partitionNameBatch : Iterables.partition(partitionNames, 10)) {
-                                Collection<Optional<Partition>> partitions = delegate.getPartitionsByNames(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionNameBatch).values();
+                                Collection<Optional<Partition>> partitions = delegate.getPartitionsByNames(identity, table.get(), partitionNameBatch).values();
                                 partitions.stream()
                                         .filter(Optional::isPresent)
                                         .map(Optional::get)
@@ -2713,7 +2722,9 @@ public class SemiTransactionalHiveMetastore
                     boolean batchCompletelyAdded = true;
                     for (PartitionWithStatistics partition : batch) {
                         try {
-                            Optional<Partition> remotePartition = metastore.getPartition(identity, schemaName, tableName, partition.getPartition().getValues());
+                            Table table = metastore.getTable(identity, schemaName, tableName)
+                                    .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(schemaName, tableName)));
+                            Optional<Partition> remotePartition = metastore.getPartition(identity, table, partition.getPartition().getValues());
                             // getPrestoQueryId(partition) is guaranteed to be non-empty. It is asserted in PartitionAdder.addPartition.
                             if (remotePartition.isPresent() && getPrestoQueryId(remotePartition.get()).equals(getPrestoQueryId(partition.getPartition()))) {
                                 createdPartitionValues.add(partition.getPartition().getValues());

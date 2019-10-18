@@ -2797,7 +2797,7 @@ public abstract class AbstractTestHive
             // create partition with stats for all columns
             metastoreClient.addPartitions(identity, tableName.getSchemaName(), tableName.getTableName(), ImmutableList.of(new PartitionWithStatistics(partition, partitionName, statsForAllColumns1)));
             assertEquals(
-                    metastoreClient.getPartition(identity, tableName.getSchemaName(), tableName.getTableName(), partitionValues).get().getStorage().getStorageFormat(),
+                    metastoreClient.getPartition(identity, table, partitionValues).get().getStorage().getStorageFormat(),
                     fromHiveStorageFormat(ORC));
             assertThat(metastoreClient.getPartitionStatistics(identity, tableName.getSchemaName(), tableName.getTableName(), ImmutableSet.of(partitionName)))
                     .isEqualTo(ImmutableMap.of(partitionName, statsForAllColumns1));
@@ -2810,7 +2810,7 @@ public abstract class AbstractTestHive
                     .build();
             metastoreClient.alterPartition(identity, tableName.getSchemaName(), tableName.getTableName(), new PartitionWithStatistics(modifiedPartition, partitionName, statsForAllColumns2));
             assertEquals(
-                    metastoreClient.getPartition(identity, tableName.getSchemaName(), tableName.getTableName(), partitionValues).get().getStorage().getStorageFormat(),
+                    metastoreClient.getPartition(identity, table, partitionValues).get().getStorage().getStorageFormat(),
                     fromHiveStorageFormat(RCBINARY));
             assertThat(metastoreClient.getPartitionStatistics(identity, tableName.getSchemaName(), tableName.getTableName(), ImmutableSet.of(partitionName)))
                     .isEqualTo(ImmutableMap.of(partitionName, statsForAllColumns2));
@@ -3443,6 +3443,8 @@ public abstract class AbstractTestHive
         try (Transaction transaction = newTransaction()) {
             // verify partitions were created
             HiveIdentity identity = new HiveIdentity(newSession());
+            Table table = metastoreClient.getTable(identity, tableName.getSchemaName(), tableName.getTableName())
+                    .orElseThrow(() -> new TableNotFoundException(tableName));
             List<String> partitionNames = transaction.getMetastore().getPartitionNames(identity, tableName.getSchemaName(), tableName.getTableName())
                     .orElseThrow(() -> new AssertionError("Table does not exist: " + tableName));
             assertEqualsIgnoreOrder(partitionNames, CREATE_TABLE_PARTITIONED_DATA.getMaterializedRows().stream()
@@ -3450,7 +3452,7 @@ public abstract class AbstractTestHive
                     .collect(toImmutableList()));
 
             // verify the node versions in partitions
-            Map<String, Optional<Partition>> partitions = getMetastoreClient().getPartitionsByNames(identity, tableName.getSchemaName(), tableName.getTableName(), partitionNames);
+            Map<String, Optional<Partition>> partitions = getMetastoreClient().getPartitionsByNames(identity, table, partitionNames);
             assertEquals(partitions.size(), partitionNames.size());
             for (String partitionName : partitionNames) {
                 Partition partition = partitions.get(partitionName).get();
@@ -3714,7 +3716,7 @@ public abstract class AbstractTestHive
             List<String> partitionNames = metastoreClient.getPartitionNames(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName())
                     .orElse(ImmutableList.of());
             List<Partition> partitions = metastoreClient
-                    .getPartitionsByNames(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionNames)
+                    .getPartitionsByNames(identity, table, partitionNames)
                     .entrySet()
                     .stream()
                     .map(Map.Entry::getValue)
@@ -4786,7 +4788,9 @@ public abstract class AbstractTestHive
             // This method bypasses transaction interface because this method is inherently hacky and doesn't work well with the transaction abstraction.
             // Additionally, this method is not part of a test. Its purpose is to set up an environment for another test.
             HiveMetastore metastoreClient = getMetastoreClient();
-            Optional<Partition> partition = metastoreClient.getPartition(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName(), copyPartitionFrom);
+            Table table = metastoreClient.getTable(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName())
+                    .orElseThrow(() -> new TableNotFoundException(tableName));
+            Optional<Partition> partition = metastoreClient.getPartition(new HiveIdentity(session), table, copyPartitionFrom);
             conflictPartition = Partition.builder(partition.get())
                     .setValues(toPartitionValues(partitionNameToConflict))
                     .build();
@@ -4803,7 +4807,9 @@ public abstract class AbstractTestHive
             // This method bypasses transaction interface because this method is inherently hacky and doesn't work well with the transaction abstraction.
             // Additionally, this method is not part of a test. Its purpose is to set up an environment for another test.
             HiveMetastore metastoreClient = getMetastoreClient();
-            Optional<Partition> actualPartition = metastoreClient.getPartition(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName(), toPartitionValues(partitionNameToConflict));
+            Table table = metastoreClient.getTable(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName())
+                    .orElseThrow(() -> new TableNotFoundException(tableName));
+            Optional<Partition> actualPartition = metastoreClient.getPartition(new HiveIdentity(session), table, toPartitionValues(partitionNameToConflict));
             // Make sure the partition inserted to trigger conflict was not overwritten
             // Checking storage location is sufficient because implement never uses .../pk1=a/pk2=a2 as the directory for partition [b, b2].
             assertEquals(actualPartition.get().getStorage().getLocation(), conflictPartition.getStorage().getLocation());

@@ -579,9 +579,9 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public Optional<Partition> getPartition(HiveIdentity identity, String databaseName, String tableName, List<String> partitionValues)
+    public Optional<Partition> getPartition(HiveIdentity identity, Table table, List<String> partitionValues)
     {
-        return get(partitionCache, new WithIdentity<>(updateIdentity(identity), hivePartitionName(hiveTableName(databaseName, tableName), partitionValues)));
+        return get(partitionCache, new WithIdentity<>(updateIdentity(identity), hivePartitionName(hiveTableName(table.getDatabaseName(), table.getTableName()), partitionValues)));
     }
 
     @Override
@@ -611,11 +611,10 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public Map<String, Optional<Partition>> getPartitionsByNames(HiveIdentity identity, String databaseName, String tableName, List<String> partitionNames)
+    public Map<String, Optional<Partition>> getPartitionsByNames(HiveIdentity identity, Table table, List<String> partitionNames)
     {
-        HiveTableName hiveTableName = hiveTableName(databaseName, tableName);
         List<WithIdentity<HivePartitionName>> names = partitionNames.stream()
-                .map(name -> new WithIdentity<>(updateIdentity(identity), hivePartitionName(hiveTableName, name)))
+                .map(name -> new WithIdentity<>(updateIdentity(identity), hivePartitionName(hiveTableName(table.getDatabaseName(), table.getTableName()), name)))
                 .collect(toImmutableList());
 
         Map<WithIdentity<HivePartitionName>, Optional<Partition>> all = getAll(partitionCache, names);
@@ -628,11 +627,9 @@ public class CachingHiveMetastore
 
     private Optional<Partition> loadPartitionByName(WithIdentity<HivePartitionName> partitionName)
     {
-        return delegate.getPartition(
-                partitionName.getIdentity(),
-                partitionName.getKey().getHiveTableName().getDatabaseName(),
-                partitionName.getKey().getHiveTableName().getTableName(),
-                partitionName.getKey().getPartitionValues());
+        HiveTableName hiveTableName = partitionName.getKey().getHiveTableName();
+        return getTable(partitionName.getIdentity(), hiveTableName.getDatabaseName(), hiveTableName.getTableName())
+                .flatMap(table -> delegate.getPartition(partitionName.getIdentity(), table, partitionName.getKey().getPartitionValues()));
     }
 
     private Map<WithIdentity<HivePartitionName>, Optional<Partition>> loadPartitionsByNames(Iterable<? extends WithIdentity<HivePartitionName>> partitionNames)
@@ -644,8 +641,11 @@ public class CachingHiveMetastore
 
         HiveTableName hiveTableName = firstPartition.getKey().getHiveTableName();
         HiveIdentity identity = updateIdentity(firstPartition.getIdentity());
-        String databaseName = hiveTableName.getDatabaseName();
-        String tableName = hiveTableName.getTableName();
+        Optional<Table> table = getTable(identity, hiveTableName.getDatabaseName(), hiveTableName.getTableName());
+        if (!table.isPresent()) {
+            return stream(partitionNames)
+                    .collect(toImmutableMap(name -> name, name -> Optional.empty()));
+        }
 
         List<String> partitionsToFetch = new ArrayList<>();
         for (WithIdentity<HivePartitionName> partitionName : partitionNames) {
@@ -655,7 +655,7 @@ public class CachingHiveMetastore
         }
 
         ImmutableMap.Builder<WithIdentity<HivePartitionName>, Optional<Partition>> partitions = ImmutableMap.builder();
-        Map<String, Optional<Partition>> partitionsByNames = delegate.getPartitionsByNames(identity, databaseName, tableName, partitionsToFetch);
+        Map<String, Optional<Partition>> partitionsByNames = delegate.getPartitionsByNames(identity, table.get(), partitionsToFetch);
         for (WithIdentity<HivePartitionName> partitionName : partitionNames) {
             partitions.put(partitionName, partitionsByNames.getOrDefault(partitionName.getKey().getPartitionName().get(), Optional.empty()));
         }
