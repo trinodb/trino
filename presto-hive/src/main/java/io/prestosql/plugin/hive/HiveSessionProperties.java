@@ -34,7 +34,6 @@ import static io.prestosql.plugin.hive.HiveSessionProperties.InsertExistingParti
 import static io.prestosql.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.ERROR;
 import static io.prestosql.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
-import static io.prestosql.spi.session.PropertyMetadata.dataSizeProperty;
 import static io.prestosql.spi.session.PropertyMetadata.enumProperty;
 import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
 import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
@@ -550,5 +549,18 @@ public final class HiveSessionProperties
     public static String getTemporaryStagingDirectoryPath(ConnectorSession session)
     {
         return session.getProperty(TEMPORARY_STAGING_DIRECTORY_PATH, String.class);
+    }
+
+    private static PropertyMetadata<DataSize> dataSizeProperty(String name, String description, DataSize defaultValue, boolean hidden)
+    {
+        return new PropertyMetadata<>(
+                name,
+                description,
+                VARCHAR,
+                DataSize.class,
+                defaultValue,
+                hidden,
+                value -> DataSize.valueOf((String) value),
+                DataSize::toString);
     }
 }
