@@ -16,17 +16,6 @@
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
     </properties>
 
-    <!--
-    Generate HTML docs quickly while developing:
-
-    brew install python
-    pip3 install sphinx
-
-    make -C presto-docs clean html
-
-    open presto-docs/target/html/index.html
-    -->
-
     <build>
         <pluginManagement>
             <plugins>
