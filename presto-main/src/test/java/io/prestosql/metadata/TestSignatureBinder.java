@@ -20,13 +20,13 @@ import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.spi.type.TypeSignatureParameter;
 import io.prestosql.sql.analyzer.TypeSignatureProvider;
 import io.prestosql.type.FunctionType;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
@@ -48,6 +48,7 @@ import static io.prestosql.spi.type.TypeSignature.functionType;
 import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.spi.type.TypeSignature.rowType;
 import static io.prestosql.spi.type.TypeSignatureParameter.anonymousField;
+import static io.prestosql.spi.type.TypeSignatureParameter.numericParameter;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -67,8 +68,8 @@ public class TestSignatureBinder
     @Test
     public void testBindLiteralForDecimal()
     {
-        TypeSignature leftType = parseTypeSignature("decimal(p1,s1)", ImmutableSet.of("p1", "s1"));
-        TypeSignature rightType = parseTypeSignature("decimal(p2,s2)", ImmutableSet.of("p2", "s2"));
+        TypeSignature leftType = new TypeSignature("decimal", TypeSignatureParameter.typeVariable("p1"), TypeSignatureParameter.typeVariable("s1"));
+        TypeSignature rightType = new TypeSignature("decimal", TypeSignatureParameter.typeVariable("p2"), TypeSignatureParameter.typeVariable("s2"));
 
         Signature function = functionSignature()
                 .returnType(BOOLEAN.getTypeSignature())
@@ -91,7 +92,7 @@ public class TestSignatureBinder
     {
         Signature function = functionSignature()
                 .returnType(BOOLEAN.getTypeSignature())
-                .argumentTypes(parseTypeSignature("decimal(4,s)", ImmutableSet.of("s")))
+                .argumentTypes(new TypeSignature("decimal", numericParameter(4), TypeSignatureParameter.typeVariable("s")))
                 .build();
 
         assertThat(function)
@@ -103,7 +104,7 @@ public class TestSignatureBinder
 
         function = functionSignature()
                 .returnType(BOOLEAN.getTypeSignature())
-                .argumentTypes(parseTypeSignature("decimal(p,1)", ImmutableSet.of("p")))
+                .argumentTypes(new TypeSignature("decimal", TypeSignatureParameter.typeVariable("p"), numericParameter(1)))
                 .build();
 
         assertThat(function)
@@ -130,8 +131,8 @@ public class TestSignatureBinder
     @Test
     public void testBindLiteralForVarchar()
     {
-        TypeSignature leftType = parseTypeSignature("varchar(x)", ImmutableSet.of("x"));
-        TypeSignature rightType = parseTypeSignature("varchar(y)", ImmutableSet.of("y"));
+        TypeSignature leftType = new TypeSignature("varchar", TypeSignatureParameter.typeVariable("x"));
+        TypeSignature rightType = new TypeSignature("varchar", TypeSignatureParameter.typeVariable("y"));
 
         Signature function = functionSignature()
                 .returnType(BOOLEAN.getTypeSignature())
@@ -159,8 +160,8 @@ public class TestSignatureBinder
     @Test
     public void testBindLiteralForRepeatedVarcharWithReturn()
     {
-        TypeSignature leftType = parseTypeSignature("varchar(x)", ImmutableSet.of("x"));
-        TypeSignature rightType = parseTypeSignature("varchar(x)", ImmutableSet.of("x"));
+        TypeSignature leftType = new TypeSignature("varchar", TypeSignatureParameter.typeVariable("x"));
+        TypeSignature rightType = new TypeSignature("varchar", TypeSignatureParameter.typeVariable("x"));
 
         Signature function = functionSignature()
                 .returnType(BOOLEAN.getTypeSignature())
@@ -195,8 +196,8 @@ public class TestSignatureBinder
     @Test
     public void testBindLiteralForRepeatedDecimal()
     {
-        TypeSignature leftType = parseTypeSignature("decimal(p,s)", ImmutableSet.of("p", "s"));
-        TypeSignature rightType = parseTypeSignature("decimal(p,s)", ImmutableSet.of("p", "s"));
+        TypeSignature leftType = new TypeSignature("decimal", TypeSignatureParameter.typeVariable("p"), TypeSignatureParameter.typeVariable("s"));
+        TypeSignature rightType = new TypeSignature("decimal", TypeSignatureParameter.typeVariable("p"), TypeSignatureParameter.typeVariable("s"));
 
         Signature function = functionSignature()
                 .returnType(BOOLEAN.getTypeSignature())
@@ -231,10 +232,9 @@ public class TestSignatureBinder
     @Test
     public void testBindLiteralForRepeatedVarchar()
     {
-        Set<String> literalParameters = ImmutableSet.of("x");
-        TypeSignature leftType = parseTypeSignature("varchar(x)", literalParameters);
-        TypeSignature rightType = parseTypeSignature("varchar(x)", literalParameters);
-        TypeSignature returnType = parseTypeSignature("varchar(x)", literalParameters);
+        TypeSignature leftType = new TypeSignature("varchar", TypeSignatureParameter.typeVariable("x"));
+        TypeSignature rightType = new TypeSignature("varchar", TypeSignatureParameter.typeVariable("x"));
+        TypeSignature returnType = new TypeSignature("varchar", TypeSignatureParameter.typeVariable("x"));
 
         Signature function = functionSignature()
                 .returnType(returnType)
@@ -261,7 +261,7 @@ public class TestSignatureBinder
     {
         Signature function = functionSignature()
                 .returnType(BOOLEAN.getTypeSignature())
-                .argumentTypes(parseTypeSignature("varchar(x)", ImmutableSet.of("x")))
+                .argumentTypes(new TypeSignature("varchar", TypeSignatureParameter.typeVariable("x")))
                 .build();
 
         assertThat(function)
@@ -280,7 +280,7 @@ public class TestSignatureBinder
         Signature function = functionSignature()
                 .returnType(BOOLEAN.getTypeSignature())
                 .typeVariableConstraints(ImmutableList.of(typeVariable("T")))
-                .argumentTypes(arrayType(new TypeSignature("T")), parseTypeSignature("array(decimal(p,s))", ImmutableSet.of("p", "s")))
+                .argumentTypes(arrayType(new TypeSignature("T")), arrayType(new TypeSignature("decimal", TypeSignatureParameter.typeVariable("p"), TypeSignatureParameter.typeVariable("s"))))
                 .build();
 
         assertThat(function)
@@ -297,7 +297,7 @@ public class TestSignatureBinder
     @Test
     public void testBindDifferentLiteralParameters()
     {
-        TypeSignature argType = parseTypeSignature("decimal(p,s)", ImmutableSet.of("p", "s"));
+        TypeSignature argType = new TypeSignature("decimal", TypeSignatureParameter.typeVariable("p"), TypeSignatureParameter.typeVariable("s"));
 
         Signature function = functionSignature()
                 .returnType(BOOLEAN.getTypeSignature())
@@ -312,9 +312,8 @@ public class TestSignatureBinder
     @Test(expectedExceptions = UnsupportedOperationException.class)
     public void testNoVariableReuseAcrossTypes()
     {
-        Set<String> literalParameters = ImmutableSet.of("p1", "p2", "s");
-        TypeSignature leftType = parseTypeSignature("decimal(p1,s)", literalParameters);
-        TypeSignature rightType = parseTypeSignature("decimal(p2,s)", literalParameters);
+        TypeSignature leftType = new TypeSignature("decimal", TypeSignatureParameter.typeVariable("p1"), TypeSignatureParameter.typeVariable("s"));
+        TypeSignature rightType = new TypeSignature("decimal", TypeSignatureParameter.typeVariable("p2"), TypeSignatureParameter.typeVariable("s"));
 
         Signature function = functionSignature()
                 .returnType(BOOLEAN.getTypeSignature())
@@ -333,7 +332,7 @@ public class TestSignatureBinder
     {
         Signature function = functionSignature()
                 .returnType(BOOLEAN.getTypeSignature())
-                .argumentTypes(parseTypeSignature("decimal(p,s)", ImmutableSet.of("p", "s")))
+                .argumentTypes(new TypeSignature("decimal", TypeSignatureParameter.typeVariable("p"), TypeSignatureParameter.typeVariable("s")))
                 .build();
 
         assertThat(function)
@@ -480,7 +479,7 @@ public class TestSignatureBinder
     {
         Signature function = functionSignature()
                 .returnType(BOOLEAN.getTypeSignature())
-                .argumentTypes(parseTypeSignature("varchar(x)", ImmutableSet.of("x")))
+                .argumentTypes(new TypeSignature("varchar", TypeSignatureParameter.typeVariable("x")))
                 .build();
 
         assertThat(function)
@@ -1045,7 +1044,7 @@ public class TestSignatureBinder
         // Without coercion support for return type of lambda, the return type of lambda must be `varchar(x)` to avoid need for coercions.
         Signature varcharApply = functionSignature()
                 .returnType(VARCHAR.getTypeSignature())
-                .argumentTypes(VARCHAR.getTypeSignature(), parseTypeSignature("function(varchar, varchar(x))", ImmutableSet.of("x")))
+                .argumentTypes(VARCHAR.getTypeSignature(), functionType(VARCHAR.getTypeSignature(), new TypeSignature("varchar", TypeSignatureParameter.typeVariable("x"))))
                 .build();
         assertThat(varcharApply)
                 .withCoercion()
