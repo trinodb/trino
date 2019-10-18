@@ -30,9 +30,9 @@ import io.prestosql.spi.PrestoException;
 
 import java.util.List;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static java.util.stream.Collectors.toList;
 
 public final class GlueInputConverter
 {
@@ -55,7 +55,7 @@ public final class GlueInputConverter
         input.setOwner(table.getOwner());
         input.setTableType(table.getTableType());
         input.setStorageDescriptor(convertStorage(table.getStorage(), table.getDataColumns()));
-        input.setPartitionKeys(table.getPartitionColumns().stream().map(GlueInputConverter::convertColumn).collect(toList()));
+        input.setPartitionKeys(table.getPartitionColumns().stream().map(GlueInputConverter::convertColumn).collect(toImmutableList()));
         input.setParameters(table.getParameters());
         table.getViewOriginalText().ifPresent(input::setViewOriginalText);
         table.getViewExpandedText().ifPresent(input::setViewExpandedText);
@@ -93,7 +93,7 @@ public final class GlueInputConverter
 
         StorageDescriptor sd = new StorageDescriptor();
         sd.setLocation(storage.getLocation());
-        sd.setColumns(columns.stream().map(GlueInputConverter::convertColumn).collect(toList()));
+        sd.setColumns(columns.stream().map(GlueInputConverter::convertColumn).collect(toImmutableList()));
         sd.setSerdeInfo(serdeInfo);
         sd.setInputFormat(storage.getStorageFormat().getInputFormatNullable());
         sd.setOutputFormat(storage.getStorageFormat().getOutputFormatNullable());

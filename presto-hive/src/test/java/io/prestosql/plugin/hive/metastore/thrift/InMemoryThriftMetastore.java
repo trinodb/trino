@@ -64,7 +64,6 @@ import static io.prestosql.plugin.hive.util.HiveUtil.toPartitionValues;
 import static io.prestosql.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static java.util.Locale.US;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
 import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
 import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
@@ -355,7 +354,7 @@ public class InMemoryThriftMetastore
         return Optional.of(ImmutableList.copyOf(partitions.entrySet().stream()
                 .filter(entry -> entry.getKey().matches(databaseName, tableName))
                 .map(entry -> entry.getKey().getPartitionName())
-                .collect(toList())));
+                .collect(toImmutableList())));
     }
 
     @Override
@@ -375,7 +374,7 @@ public class InMemoryThriftMetastore
         return Optional.of(partitions.entrySet().stream()
                 .filter(entry -> partitionMatches(entry.getValue(), databaseName, tableName, parts))
                 .map(entry -> entry.getKey().getPartitionName())
-                .collect(toList()));
+                .collect(toImmutableList()));
     }
 
     private static boolean partitionMatches(Partition partition, String databaseName, String tableName, List<String> parts)

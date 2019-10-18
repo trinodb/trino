@@ -39,6 +39,7 @@ import java.util.List;
 import java.util.Properties;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static io.prestosql.plugin.hive.util.HiveUtil.getColumnNames;
@@ -100,7 +101,7 @@ public class RecordFileWriter
         // reorder (and possibly reduce) struct fields to match input
         structFields = ImmutableList.copyOf(inputColumnNames.stream()
                 .map(tableInspector::getStructFieldRef)
-                .collect(toList()));
+                .collect(toImmutableList()));
 
         row = tableInspector.create();
 

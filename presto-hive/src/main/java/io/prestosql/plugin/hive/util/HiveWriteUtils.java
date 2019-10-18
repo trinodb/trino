@@ -105,6 +105,7 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.BaseEncoding.base16;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_DATABASE_LOCATION_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
@@ -256,10 +257,10 @@ public final class HiveWriteUtils
             return ObjectInspectorFactory.getStandardStructObjectInspector(
                     type.getTypeSignature().getParameters().stream()
                             .map(parameter -> parameter.getNamedTypeSignature().getName().get())
-                            .collect(toList()),
+                            .collect(toImmutableList()),
                     type.getTypeParameters().stream()
                             .map(HiveWriteUtils::getJavaObjectInspector)
-                            .collect(toList()));
+                            .collect(toImmutableList()));
         }
         throw new IllegalArgumentException("unsupported type: " + type);
     }

@@ -949,7 +949,7 @@ public class FileHiveMetastore
         // todo this should be more efficient by selectively walking the directory tree
         return getPartitionNames(identity, databaseName, tableName).map(partitionNames -> partitionNames.stream()
                 .filter(partitionName -> partitionMatches(partitionName, parts))
-                .collect(toList()));
+                .collect(toImmutableList()));
     }
 
     private static boolean partitionMatches(String partitionName, List<String> parts)

@@ -42,7 +42,6 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
 
 public final class GlueToPrestoConverter
@@ -76,7 +75,7 @@ public final class GlueToPrestoConverter
                 .setTableType(firstNonNull(glueTable.getTableType(), EXTERNAL_TABLE.name()))
                 .setDataColumns(sd.getColumns().stream()
                         .map(GlueToPrestoConverter::convertColumn)
-                        .collect(toList()))
+                        .collect(toImmutableList()))
                 .setParameters(firstNonNull(glueTable.getParameters(), ImmutableMap.of()))
                 .setViewOriginalText(Optional.ofNullable(glueTable.getViewOriginalText()))
                 .setViewExpandedText(Optional.ofNullable(glueTable.getViewExpandedText()));
@@ -84,7 +83,7 @@ public final class GlueToPrestoConverter
         if (glueTable.getPartitionKeys() != null) {
             tableBuilder.setPartitionColumns(glueTable.getPartitionKeys().stream()
                     .map(GlueToPrestoConverter::convertColumn)
-                    .collect(toList()));
+                    .collect(toImmutableList()));
         }
         else {
             tableBuilder.setPartitionColumns(new ArrayList<>());
@@ -140,7 +139,7 @@ public final class GlueToPrestoConverter
                 .setValues(gluePartition.getValues())
                 .setColumns(sd.getColumns().stream()
                         .map(GlueToPrestoConverter::convertColumn)
-                        .collect(toList()))
+                        .collect(toImmutableList()))
                 .setParameters(firstNonNull(gluePartition.getParameters(), ImmutableMap.of()));
 
         setStorageBuilder(sd, partitionBuilder.getStorageBuilder());

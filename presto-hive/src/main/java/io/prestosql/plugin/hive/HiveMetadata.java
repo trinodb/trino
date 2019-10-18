@@ -443,10 +443,10 @@ public class HiveMetadata
                     Iterable<List<Object>> records = () ->
                             stream(partitionManager.getPartitions(metastore, new HiveIdentity(session), sourceTableHandle, targetConstraint).getPartitions())
                                     .map(hivePartition ->
-                                            IntStream.range(0, partitionColumns.size())
+                                            (List<Object>) IntStream.range(0, partitionColumns.size())
                                                     .mapToObj(fieldIdToColumnHandle::get)
                                                     .map(columnHandle -> hivePartition.getKeys().get(columnHandle).getValue())
-                                                    .collect(toList()))
+                                                    .collect(toImmutableList()))
                                     .iterator();
 
                     return new InMemoryRecordSet(partitionColumnTypes, records).cursor();
@@ -1270,7 +1270,7 @@ public class HiveMetadata
         return Optional.of(new HiveWrittenPartitions(
                 partitionUpdates.stream()
                         .map(PartitionUpdate::getName)
-                        .collect(toList())));
+                        .collect(toImmutableList())));
     }
 
     private List<PartitionUpdate> computePartitionUpdatesForMissingBuckets(
@@ -1529,7 +1529,7 @@ public class HiveMetadata
         return Optional.of(new HiveWrittenPartitions(
                 partitionUpdates.stream()
                         .map(PartitionUpdate::getName)
-                        .collect(toList())));
+                        .collect(toImmutableList())));
     }
 
     private Partition buildPartitionObject(ConnectorSession session, Table table, PartitionUpdate partitionUpdate)
@@ -1771,7 +1771,7 @@ public class HiveMetadata
                             OptionalInt.empty()),
                     bucketing.getColumns().stream()
                             .map(ColumnHandle.class::cast)
-                            .collect(toList())));
+                            .collect(toImmutableList())));
         }
 
         return new ConnectorTableProperties(
