@@ -5,8 +5,9 @@ The presto-docs module contains the reference documentation for Presto.
 ## Tools
 
 The engine used to create the documentation in HTML format is the Python-based
-[Sphinx](https://www.sphinx-doc.org). Installation instructions for various OS
-are [available on the Sphinx site](https://www.sphinx-doc.org/en/master/usage/installation.html).
+[Sphinx](https://www.sphinx-doc.org). Installation instructions for various
+operating systems and packaging systems are [available on the Sphinx
+site](https://www.sphinx-doc.org/en/master/usage/installation.html).
 
 Documentation source files can be found in [Restructured
 Text](https://en.wikipedia.org/wiki/ReStructuredText) (`.rst`) format in
@@ -20,7 +21,13 @@ With the tools installed and available on the PATH, you can build the docs
 easily with make:
 
 ```bash
-cd presto/presto-docs
+make -C presto-docs clean html
+```
+
+or
+
+```bash
+cd presto-docs
 make clean html
 ```
 
@@ -29,12 +36,19 @@ Presto build. You just need to have built the current version from the root.
 Subsequently you can build the site:
 
 ```bash
-cd presto/presto-docs
+mvn -pl presto-docs clean install
+```
+
+or
+
+```bash
+cd presto-docs
 mvn clean install
 ```
 
-It calls the make command and performs other checks, so you still need the tools
-installed.
+This also performs other checks and it is the authoritative way to build the
+docs, however it is also considerably slower. We suggest to use the make script
+approach for daily authoring of documentation.
 
 However you built the docs, the output HTML files can be found in the folder
 `presto-docs/target/html/`.
@@ -44,6 +58,12 @@ macOS with
 
 ```bash
 open presto-docs/target/html/index.html
+```
+
+or on Linux with
+
+```bash
+xdg-open presto-docs/target/html/index.html
 ```
 
 Or you can directly call your browser of choice with the filename e.g on Ubuntu
