@@ -1474,6 +1474,9 @@ public abstract class AbstractTestQueries
         assertQuery(
                 "SELECT x, T.y, z + 1 FROM (SELECT custkey, orderstatus, totalprice FROM orders) T (x, y, z)",
                 "SELECT custkey, orderstatus, totalprice + 1 FROM orders");
+
+        // wildcard from aliased table with column aliases
+        assertQuery("SELECT a, b, c FROM (SELECT T.* FROM region T (a, b, c))");
     }
 
     @Test
