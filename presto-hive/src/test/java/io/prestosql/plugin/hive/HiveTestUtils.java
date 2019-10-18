@@ -54,11 +54,11 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Set;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.prestosql.spi.type.Decimals.encodeScaledValue;
-import static java.util.stream.Collectors.toList;
 
 public final class HiveTestUtils
 {
@@ -171,7 +171,7 @@ public final class HiveTestUtils
                 StandardTypes.ROW,
                 ImmutableList.copyOf(elementTypeSignatures.stream()
                         .map(TypeSignatureParameter::namedTypeParameter)
-                        .collect(toList())));
+                        .collect(toImmutableList())));
     }
 
     public static Long shortDecimal(String value)

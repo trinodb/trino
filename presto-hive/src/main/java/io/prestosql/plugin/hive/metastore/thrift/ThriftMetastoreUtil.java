@@ -91,6 +91,7 @@ import java.util.stream.Stream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.prestosql.plugin.hive.HiveMetadata.AVRO_SCHEMA_URL_KEY;
@@ -133,7 +134,6 @@ import static java.lang.Math.round;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.api.ColumnStatisticsData.binaryStats;
 import static org.apache.hadoop.hive.metastore.api.ColumnStatisticsData.booleanStats;
 import static org.apache.hadoop.hive.metastore.api.ColumnStatisticsData.dateStats;
@@ -175,7 +175,7 @@ public final class ThriftMetastoreUtil
         result.setOwner(table.getOwner());
         result.setTableType(table.getTableType());
         result.setParameters(table.getParameters());
-        result.setPartitionKeys(table.getPartitionColumns().stream().map(ThriftMetastoreUtil::toMetastoreApiFieldSchema).collect(toList()));
+        result.setPartitionKeys(table.getPartitionColumns().stream().map(ThriftMetastoreUtil::toMetastoreApiFieldSchema).collect(toImmutableList()));
         result.setSd(makeStorageDescriptor(table.getTableName(), table.getDataColumns(), table.getStorage()));
         result.setPrivileges(toMetastoreApiPrincipalPrivilegeSet(privileges));
         result.setViewOriginalText(table.getViewOriginalText().orElse(null));
@@ -189,14 +189,14 @@ public final class ThriftMetastoreUtil
         for (Map.Entry<String, Collection<HivePrivilegeInfo>> entry : privileges.getUserPrivileges().asMap().entrySet()) {
             userPrivileges.put(entry.getKey(), entry.getValue().stream()
                     .map(ThriftMetastoreUtil::toMetastoreApiPrivilegeGrantInfo)
-                    .collect(toList()));
+                    .collect(toImmutableList()));
         }
 
         ImmutableMap.Builder<String, List<PrivilegeGrantInfo>> rolePrivileges = ImmutableMap.builder();
         for (Map.Entry<String, Collection<HivePrivilegeInfo>> entry : privileges.getRolePrivileges().asMap().entrySet()) {
             rolePrivileges.put(entry.getKey(), entry.getValue().stream()
                     .map(ThriftMetastoreUtil::toMetastoreApiPrivilegeGrantInfo)
-                    .collect(toList()));
+                    .collect(toImmutableList()));
         }
 
         return new PrincipalPrivilegeSet(userPrivileges.build(), ImmutableMap.of(), rolePrivileges.build());
@@ -431,10 +431,10 @@ public final class ThriftMetastoreUtil
                 .setTableType(table.getTableType())
                 .setDataColumns(schema.stream()
                         .map(ThriftMetastoreUtil::fromMetastoreApiFieldSchema)
-                        .collect(toList()))
+                        .collect(toImmutableList()))
                 .setPartitionColumns(table.getPartitionKeys().stream()
                         .map(ThriftMetastoreUtil::fromMetastoreApiFieldSchema)
-                        .collect(toList()))
+                        .collect(toImmutableList()))
                 .setParameters(table.getParameters() == null ? ImmutableMap.of() : table.getParameters())
                 .setViewOriginalText(Optional.ofNullable(emptyToNull(table.getViewOriginalText())))
                 .setViewExpandedText(Optional.ofNullable(emptyToNull(table.getViewExpandedText())));
@@ -499,7 +499,7 @@ public final class ThriftMetastoreUtil
                 .setValues(partition.getValues())
                 .setColumns(schema.stream()
                         .map(ThriftMetastoreUtil::fromMetastoreApiFieldSchema)
-                        .collect(toList()))
+                        .collect(toImmutableList()))
                 .setParameters(partition.getParameters());
 
         // TODO is bucketing_version set on partition level??
@@ -660,7 +660,7 @@ public final class ThriftMetastoreUtil
 
     public static Set<RoleGrant> fromRolePrincipalGrants(Collection<RolePrincipalGrant> grants)
     {
-        return ImmutableSet.copyOf(grants.stream().map(ThriftMetastoreUtil::fromRolePrincipalGrant).collect(toList()));
+        return grants.stream().map(ThriftMetastoreUtil::fromRolePrincipalGrant).collect(toImmutableSet());
     }
 
     private static RoleGrant fromRolePrincipalGrant(RolePrincipalGrant grant)
@@ -738,7 +738,7 @@ public final class ThriftMetastoreUtil
         sd.setLocation(emptyToNull(storage.getLocation()));
         sd.setCols(columns.stream()
                 .map(ThriftMetastoreUtil::toMetastoreApiFieldSchema)
-                .collect(toList()));
+                .collect(toImmutableList()));
         sd.setSerdeInfo(serdeInfo);
         sd.setInputFormat(storage.getStorageFormat().getInputFormatNullable());
         sd.setOutputFormat(storage.getStorageFormat().getOutputFormatNullable());
@@ -751,7 +751,7 @@ public final class ThriftMetastoreUtil
             if (!bucketProperty.get().getSortedBy().isEmpty()) {
                 sd.setSortCols(bucketProperty.get().getSortedBy().stream()
                         .map(column -> new Order(column.getColumnName(), column.getOrder().getHiveOrder()))
-                        .collect(toList()));
+                        .collect(toImmutableList()));
             }
         }
 
