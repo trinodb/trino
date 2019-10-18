@@ -59,7 +59,6 @@ public class ByteColumnReader
     private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
     @Nullable
     private BooleanInputStream presentStream;
-    private boolean[] nullVector = new boolean[0];
 
     private InputStreamSource<ByteInputStream> dataStreamSource = missingStreamSource(ByteInputStream.class);
     @Nullable
@@ -217,12 +216,11 @@ public class ByteColumnReader
     public void close()
     {
         systemMemoryContext.close();
-        nullVector = null;
     }
 
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + sizeOf(nullVector);
+        return INSTANCE_SIZE;
     }
 }
