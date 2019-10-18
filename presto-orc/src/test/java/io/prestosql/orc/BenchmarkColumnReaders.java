@@ -95,11 +95,7 @@ public class BenchmarkColumnReaders
             throws Throwable
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
-            List<Block> blocks = new ArrayList<>();
-            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
-                blocks.add(page.getBlock(0).getLoadedBlock());
-            }
-            return blocks;
+            return readFirstColumn(recordReader);
         }
     }
 
@@ -108,11 +104,7 @@ public class BenchmarkColumnReaders
             throws Throwable
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
-            List<Block> blocks = new ArrayList<>();
-            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
-                blocks.add(page.getBlock(0).getLoadedBlock());
-            }
-            return blocks;
+            return readFirstColumn(recordReader);
         }
     }
 
@@ -121,11 +113,7 @@ public class BenchmarkColumnReaders
             throws Throwable
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
-            List<Block> blocks = new ArrayList<>();
-            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
-                blocks.add(page.getBlock(0).getLoadedBlock());
-            }
-            return blocks;
+            return readFirstColumn(recordReader);
         }
     }
 
@@ -134,11 +122,7 @@ public class BenchmarkColumnReaders
             throws Throwable
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
-            List<Block> blocks = new ArrayList<>();
-            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
-                blocks.add(page.getBlock(0).getLoadedBlock());
-            }
-            return blocks;
+            return readFirstColumn(recordReader);
         }
     }
 
@@ -147,11 +131,7 @@ public class BenchmarkColumnReaders
             throws Throwable
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
-            List<Block> blocks = new ArrayList<>();
-            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
-                blocks.add(page.getBlock(0).getLoadedBlock());
-            }
-            return blocks;
+            return readFirstColumn(recordReader);
         }
     }
 
@@ -160,11 +140,7 @@ public class BenchmarkColumnReaders
             throws Throwable
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
-            List<Block> blocks = new ArrayList<>();
-            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
-                blocks.add(page.getBlock(0).getLoadedBlock());
-            }
-            return blocks;
+            return readFirstColumn(recordReader);
         }
     }
 
@@ -173,11 +149,7 @@ public class BenchmarkColumnReaders
             throws Throwable
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
-            List<Block> blocks = new ArrayList<>();
-            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
-                blocks.add(page.getBlock(0).getLoadedBlock());
-            }
-            return blocks;
+            return readFirstColumn(recordReader);
         }
     }
 
@@ -186,11 +158,7 @@ public class BenchmarkColumnReaders
             throws Throwable
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
-            List<Block> blocks = new ArrayList<>();
-            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
-                blocks.add(page.getBlock(0).getLoadedBlock());
-            }
-            return blocks;
+            return readFirstColumn(recordReader);
         }
     }
 
@@ -199,11 +167,7 @@ public class BenchmarkColumnReaders
             throws Throwable
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
-            List<Block> blocks = new ArrayList<>();
-            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
-                blocks.add(page.getBlock(0).getLoadedBlock());
-            }
-            return blocks;
+            return readFirstColumn(recordReader);
         }
     }
 
@@ -212,11 +176,7 @@ public class BenchmarkColumnReaders
             throws Throwable
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
-            List<Block> blocks = new ArrayList<>();
-            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
-                blocks.add(page.getBlock(0).getLoadedBlock());
-            }
-            return blocks;
+            return readFirstColumn(recordReader);
         }
     }
 
@@ -225,11 +185,7 @@ public class BenchmarkColumnReaders
             throws Throwable
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
-            List<Block> blocks = new ArrayList<>();
-            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
-                blocks.add(page.getBlock(0).getLoadedBlock());
-            }
-            return blocks;
+            return readFirstColumn(recordReader);
         }
     }
 
@@ -238,11 +194,7 @@ public class BenchmarkColumnReaders
             throws Throwable
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
-            List<Block> blocks = new ArrayList<>();
-            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
-                blocks.add(page.getBlock(0).getLoadedBlock());
-            }
-            return blocks;
+            return readFirstColumn(recordReader);
         }
     }
 
@@ -251,11 +203,7 @@ public class BenchmarkColumnReaders
             throws Throwable
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
-            List<Block> blocks = new ArrayList<>();
-            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
-                blocks.add(page.getBlock(0).getLoadedBlock());
-            }
-            return blocks;
+            return readFirstColumn(recordReader);
         }
     }
 
@@ -264,11 +212,7 @@ public class BenchmarkColumnReaders
             throws Throwable
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
-            List<Block> blocks = new ArrayList<>();
-            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
-                blocks.add(page.getBlock(0).getLoadedBlock());
-            }
-            return blocks;
+            return readFirstColumn(recordReader);
         }
     }
 
@@ -277,11 +221,7 @@ public class BenchmarkColumnReaders
             throws Throwable
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
-            List<Block> blocks = new ArrayList<>();
-            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
-                blocks.add(page.getBlock(0).getLoadedBlock());
-            }
-            return blocks;
+            return readFirstColumn(recordReader);
         }
     }
 
@@ -290,11 +230,7 @@ public class BenchmarkColumnReaders
             throws Throwable
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
-            List<Block> blocks = new ArrayList<>();
-            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
-                blocks.add(page.getBlock(0).getLoadedBlock());
-            }
-            return blocks;
+            return readFirstColumn(recordReader);
         }
     }
 
@@ -303,11 +239,7 @@ public class BenchmarkColumnReaders
             throws Throwable
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
-            List<Block> blocks = new ArrayList<>();
-            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
-                blocks.add(page.getBlock(0).getLoadedBlock());
-            }
-            return blocks;
+            return readFirstColumn(recordReader);
         }
     }
 
@@ -316,11 +248,7 @@ public class BenchmarkColumnReaders
             throws Throwable
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
-            List<Block> blocks = new ArrayList<>();
-            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
-                blocks.add(page.getBlock(0).getLoadedBlock());
-            }
-            return blocks;
+            return readFirstColumn(recordReader);
         }
     }
 
@@ -329,11 +257,7 @@ public class BenchmarkColumnReaders
             throws Throwable
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
-            List<Block> blocks = new ArrayList<>();
-            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
-                blocks.add(page.getBlock(0).getLoadedBlock());
-            }
-            return blocks;
+            return readFirstColumn(recordReader);
         }
     }
 
@@ -342,11 +266,7 @@ public class BenchmarkColumnReaders
             throws Throwable
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
-            List<Block> blocks = new ArrayList<>();
-            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
-                blocks.add(page.getBlock(0).getLoadedBlock());
-            }
-            return blocks;
+            return readFirstColumn(recordReader);
         }
     }
 
@@ -355,11 +275,7 @@ public class BenchmarkColumnReaders
             throws Throwable
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
-            List<Block> blocks = new ArrayList<>();
-            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
-                blocks.add(page.getBlock(0).getLoadedBlock());
-            }
-            return blocks;
+            return readFirstColumn(recordReader);
         }
     }
 
@@ -368,11 +284,7 @@ public class BenchmarkColumnReaders
             throws Throwable
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
-            List<Block> blocks = new ArrayList<>();
-            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
-                blocks.add(page.getBlock(0).getLoadedBlock());
-            }
-            return blocks;
+            return readFirstColumn(recordReader);
         }
     }
 
@@ -381,11 +293,7 @@ public class BenchmarkColumnReaders
             throws Throwable
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
-            List<Block> blocks = new ArrayList<>();
-            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
-                blocks.add(page.getBlock(0).getLoadedBlock());
-            }
-            return blocks;
+            return readFirstColumn(recordReader);
         }
     }
 
@@ -394,11 +302,7 @@ public class BenchmarkColumnReaders
             throws Throwable
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
-            List<Block> blocks = new ArrayList<>();
-            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
-                blocks.add(page.getBlock(0).getLoadedBlock());
-            }
-            return blocks;
+            return readFirstColumn(recordReader);
         }
     }
 
@@ -407,12 +311,18 @@ public class BenchmarkColumnReaders
             throws Throwable
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
-            List<Block> blocks = new ArrayList<>();
-            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
-                blocks.add(page.getBlock(0).getLoadedBlock());
-            }
-            return blocks;
+            return readFirstColumn(recordReader);
         }
+    }
+
+    private Object readFirstColumn(OrcRecordReader recordReader)
+            throws IOException
+    {
+        List<Block> blocks = new ArrayList<>();
+        for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
+            blocks.add(page.getBlock(0).getLoadedBlock());
+        }
+        return blocks;
     }
 
     private abstract static class BenchmarkData
