@@ -25,7 +25,7 @@ Configuration
 After a plugin that implements ``PasswordAuthenticatorFactory`` has been
 installed on the coordinator, it is configured using an
 ``etc/password-authenticator.properties`` file. All of the
-properties other than ``access-control.name`` are specific to the
+properties other than ``password-authenticator.name`` are specific to the
 ``PasswordAuthenticatorFactory`` implementation.
 
 The ``password-authenticator.name`` property is used by Presto to find a
