@@ -65,6 +65,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
@@ -483,6 +484,36 @@ public abstract class AbstractTestDistributedQueries
                 "SELECT 2 * count(*) FROM orders");
 
         assertUpdate("DROP TABLE test_insert");
+    }
+
+    @Test
+    public void testInsertUnicode()
+    {
+        assertUpdate("DROP TABLE IF EXISTS test_insert_unicode");
+
+        assertUpdate("CREATE TABLE test_insert_unicode(test varchar)");
+        assertUpdate("INSERT INTO test_insert_unicode(test) VALUES 'Hello', U&'hello\\6d4B\\8Bd5\\+10FFFFworld\\7F16\\7801' ", 2);
+        assertThat(computeActual("SELECT test FROM test_insert_unicode").getOnlyColumnAsSet())
+                .containsExactlyInAnyOrder("Hello", "hello测试􏿿world编码");
+        assertUpdate("DROP TABLE test_insert_unicode");
+
+        assertUpdate("CREATE TABLE test_insert_unicode(test varchar)");
+        assertUpdate("INSERT INTO test_insert_unicode(test) VALUES 'aa', 'bé'", 2);
+        assertQuery("SELECT test FROM test_insert_unicode", "VALUES 'aa', 'bé'");
+        assertQuery("SELECT test FROM test_insert_unicode WHERE test = 'aa'", "VALUES 'aa'");
+        assertQuery("SELECT test FROM test_insert_unicode WHERE test > 'ba'", "VALUES 'bé'");
+        assertQuery("SELECT test FROM test_insert_unicode WHERE test < 'ba'", "VALUES 'aa'");
+        assertQueryReturnsEmptyResult("SELECT test FROM test_insert_unicode WHERE test = 'ba'");
+        assertUpdate("DROP TABLE test_insert_unicode");
+
+        assertUpdate("CREATE TABLE test_insert_unicode(test varchar)");
+        assertUpdate("INSERT INTO test_insert_unicode(test) VALUES 'a', 'é'", 2);
+        assertQuery("SELECT test FROM test_insert_unicode", "VALUES 'a', 'é'");
+        assertQuery("SELECT test FROM test_insert_unicode WHERE test = 'a'", "VALUES 'a'");
+        assertQuery("SELECT test FROM test_insert_unicode WHERE test > 'b'", "VALUES 'é'");
+        assertQuery("SELECT test FROM test_insert_unicode WHERE test < 'b'", "VALUES 'a'");
+        assertQueryReturnsEmptyResult("SELECT test FROM test_insert_unicode WHERE test = 'b'");
+        assertUpdate("DROP TABLE test_insert_unicode");
     }
 
     @Test

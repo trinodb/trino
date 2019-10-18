@@ -70,6 +70,13 @@ public class TestCassandraDistributedQueries
     }
 
     @Override
+    public void testInsertUnicode()
+    {
+        // Cassandra connector currently does not support create table
+        // TODO test inserts
+    }
+
+    @Override
     public void testInsertArray()
     {
         // Cassandra connector currently does not support create table
