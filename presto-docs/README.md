@@ -25,7 +25,8 @@ make clean html
 ```
 
 Alternatively you can keep using Apache Maven and Java like for the rest of the
-Presto build. You just need to have built the current version from the root. Subsequently you can build the site:
+Presto build. You just need to have built the current version from the root.
+Subsequently you can build the site:
 
 ```bash
 cd presto/presto-docs
@@ -35,9 +36,11 @@ mvn clean install
 It calls the make command and performs other checks, so you still need the tools
 installed.
 
-However you built the docs, the output HTML files can be found in the folder `presto-docs/target/html/`.
+However you built the docs, the output HTML files can be found in the folder
+`presto-docs/target/html/`.
 
-You can open the file `presto-docs/target/html/index.html` in a web browser on macOS with
+You can open the file `presto-docs/target/html/index.html` in a web browser on
+macOS with
 
 ```bash
 open presto-docs/target/html/index.html
@@ -59,7 +62,8 @@ cd presto-docs/target/html/
 python3 -m http.server 4000
 ```
 
-In order to see any changes from the source files in the HTML output, simply re-run the make command and refresh the browser.
+In order to see any changes from the source files in the HTML output, simply
+re-run the make command and refresh the browser.
 
 ## Known Issues
 
