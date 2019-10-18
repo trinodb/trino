@@ -83,7 +83,7 @@ public abstract class PrimitiveColumnReader
 
     public static PrimitiveColumnReader createReader(RichColumnDescriptor descriptor)
     {
-        switch (descriptor.getType()) {
+        switch (descriptor.getPrimitiveType().getPrimitiveTypeName()) {
             case BOOLEAN:
                 return new BooleanColumnReader(descriptor);
             case INT32:
@@ -105,7 +105,7 @@ public abstract class PrimitiveColumnReader
                 return createDecimalColumnReader(descriptor)
                         .orElseThrow(() -> new PrestoException(NOT_SUPPORTED, " type FIXED_LEN_BYTE_ARRAY supported as DECIMAL; got " + descriptor.getPrimitiveType().getOriginalType()));
             default:
-                throw new PrestoException(NOT_SUPPORTED, "Unsupported parquet type: " + descriptor.getType());
+                throw new PrestoException(NOT_SUPPORTED, "Unsupported parquet type: " + descriptor.getPrimitiveType().getPrimitiveTypeName());
         }
     }
 
