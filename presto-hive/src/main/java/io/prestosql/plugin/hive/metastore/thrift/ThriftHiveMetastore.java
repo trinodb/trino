@@ -293,11 +293,16 @@ public class ThriftHiveMetastore
     {
         Table table = getTable(identity, databaseName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
+        return getPartitionStatistics(identity, table);
+    }
+
+    private PartitionStatistics getPartitionStatistics(HiveIdentity identity, Table table)
+    {
         List<String> dataColumns = table.getSd().getCols().stream()
                 .map(FieldSchema::getName)
                 .collect(toImmutableList());
         HiveBasicStatistics basicStatistics = getHiveBasicStatistics(table.getParameters());
-        Map<String, HiveColumnStatistics> columnStatistics = getTableColumnStatistics(identity, databaseName, tableName, dataColumns, basicStatistics.getRowCount());
+        Map<String, HiveColumnStatistics> columnStatistics = getTableColumnStatistics(identity, table.getDbName(), table.getTableName(), dataColumns, basicStatistics.getRowCount());
         return new PartitionStatistics(basicStatistics, columnStatistics);
     }
 
@@ -430,11 +435,12 @@ public class ThriftHiveMetastore
     @Override
     public synchronized void updateTableStatistics(HiveIdentity identity, String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update)
     {
-        PartitionStatistics currentStatistics = getTableStatistics(identity, databaseName, tableName);
-        PartitionStatistics updatedStatistics = update.apply(currentStatistics);
-
         Table originalTable = getTable(identity, databaseName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
+
+        PartitionStatistics currentStatistics = getPartitionStatistics(identity, originalTable);
+        PartitionStatistics updatedStatistics = update.apply(currentStatistics);
+
         Table modifiedTable = originalTable.deepCopy();
         HiveBasicStatistics basicStatistics = updatedStatistics.getBasicStatistics();
         modifiedTable.setParameters(updateStatisticsParameters(modifiedTable.getParameters(), basicStatistics));
