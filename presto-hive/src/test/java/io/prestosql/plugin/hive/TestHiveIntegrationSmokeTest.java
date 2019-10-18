@@ -176,7 +176,7 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
-    public void testIOExplain()
+    public void testIoExplain()
     {
         // Test IO explain with small number of discrete components.
         computeActual("CREATE TABLE test_orders WITH (partitioned_by = ARRAY['orderkey', 'processing']) AS SELECT custkey, orderkey, orderstatus = 'P' processing FROM orders WHERE orderkey < 3");
