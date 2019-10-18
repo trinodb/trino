@@ -15,16 +15,52 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
 
-        <air.check.skip-enforcer>true</air.check.skip-enforcer>
-        <air.check.skip-checkstyle>true</air.check.skip-checkstyle>
-        <air.check.skip-duplicate-finder>true</air.check.skip-duplicate-finder>
-        <air.check.skip-extended>true</air.check.skip-extended>
-
         <server.tar.package>presto-server-${project.version}</server.tar.package>
     </properties>
 
+    <dependencies>
+        <dependency>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-jdbc</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
     <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>com.mycila</groupId>
+                    <artifactId>license-maven-plugin</artifactId>
+                    <configuration>
+                        <excludes combine.children="append">
+                            <exclude>src/main/rpm/**</exclude>
+                        </excludes>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+
         <plugins>
+            <!-- the default RPM lifecycle does not include testCompile -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>testCompile</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
             <plugin>
                 <groupId>ca.vanzyl.maven.plugins</groupId>
                 <artifactId>provisio-maven-plugin</artifactId>
@@ -41,6 +77,7 @@
                     </execution>
                 </executions>
             </plugin>
+
             <!-- Build presto-server rpm using the untarred artifacts -->
             <plugin>
                 <groupId>com.teradata</groupId>
@@ -169,7 +206,6 @@
                                 <rule>
                                     <destination>/usr/lib/presto/lib</destination>
                                 </rule>
-
                             </rules>
                         </package>
                     </packages>
@@ -177,4 +213,95 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>ci</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>io.fabric8</groupId>
+                        <artifactId>docker-maven-plugin</artifactId>
+                        <version>0.31.0</version>
+                        <configuration>
+                            <logDate>none</logDate>
+                            <images>
+                                <image>
+                                    <name>prestodev/centos7-oj8</name>
+                                    <run>
+                                        <ports>
+                                            <!--suppress UnresolvedMavenProperty -->
+                                            <port>${presto.port}:8080</port>
+                                        </ports>
+                                        <volumes>
+                                            <bind>
+                                                <volume>${project.build.directory}:/target</volume>
+                                            </bind>
+                                        </volumes>
+                                        <cmd>
+                                            <exec>
+                                                <args>sh</args>
+                                                <args>-xeuc</args>
+                                                <args><![CDATA[
+rpm -i /target/${project.build.finalName}.x86_64.rpm
+mkdir /etc/presto/catalog
+cat <<EOT > /etc/presto/catalog/hive.properties
+connector.name=hive-hadoop2
+hive.metastore.uri=thrift://localhost:9083
+EOT
+/etc/init.d/presto start
+# allow tail to work with Docker's non-local file system
+tail ---disable-inotify -F /var/log/presto/server.log
+                                                ]]></args>
+                                            </exec>
+                                        </cmd>
+                                        <wait>
+                                            <time>60000</time>
+                                            <log>.*SERVER STARTED.*</log>
+                                        </wait>
+                                    </run>
+                                </image>
+                            </images>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>start</id>
+                                <phase>pre-integration-test</phase>
+                                <goals>
+                                    <goal>start</goal>
+                                </goals>
+                            </execution>
+                            <execution>
+                                <id>stop</id>
+                                <phase>post-integration-test</phase>
+                                <goals>
+                                    <goal>stop</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-failsafe-plugin</artifactId>
+                        <version>2.22.2</version>
+                        <configuration>
+                            <systemPropertyVariables>
+                                <!--suppress UnresolvedMavenProperty -->
+                                <presto.port>${presto.port}</presto.port>
+                            </systemPropertyVariables>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>integration-test</goal>
+                                    <goal>verify</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
