@@ -136,10 +136,10 @@ public class TestRecordingHiveMetastore
         assertEquals(hiveMetastore.getAllTables("database"), ImmutableList.of("table"));
         assertEquals(hiveMetastore.getTablesWithParameter("database", "param", "value3"), ImmutableList.of("table"));
         assertEquals(hiveMetastore.getAllViews("database"), ImmutableList.of());
-        assertEquals(hiveMetastore.getPartition(HIVE_CONTEXT, "database", "table", ImmutableList.of("value")), Optional.of(PARTITION));
+        assertEquals(hiveMetastore.getPartition(HIVE_CONTEXT, TABLE, ImmutableList.of("value")), Optional.of(PARTITION));
         assertEquals(hiveMetastore.getPartitionNames(HIVE_CONTEXT, "database", "table"), Optional.of(ImmutableList.of("value")));
         assertEquals(hiveMetastore.getPartitionNamesByParts(HIVE_CONTEXT, "database", "table", ImmutableList.of("value")), Optional.of(ImmutableList.of("value")));
-        assertEquals(hiveMetastore.getPartitionsByNames(HIVE_CONTEXT, "database", "table", ImmutableList.of("value")), ImmutableMap.of("value", Optional.of(PARTITION)));
+        assertEquals(hiveMetastore.getPartitionsByNames(HIVE_CONTEXT, TABLE, ImmutableList.of("value")), ImmutableMap.of("value", Optional.of(PARTITION)));
         assertEquals(hiveMetastore.listTablePrivileges("database", "table", "owner", Optional.of(new HivePrincipal(USER, "user"))), ImmutableSet.of(PRIVILEGE_INFO));
         assertEquals(hiveMetastore.listRoles(), ImmutableSet.of("role"));
         assertEquals(hiveMetastore.listRoleGrants(new HivePrincipal(USER, "user")), ImmutableSet.of(ROLE_GRANT));
@@ -236,9 +236,9 @@ public class TestRecordingHiveMetastore
         }
 
         @Override
-        public Optional<Partition> getPartition(HiveIdentity identity, String databaseName, String tableName, List<String> partitionValues)
+        public Optional<Partition> getPartition(HiveIdentity identity, Table table, List<String> partitionValues)
         {
-            if (databaseName.equals("database") && tableName.equals("table") && partitionValues.equals(ImmutableList.of("value"))) {
+            if (table.getDatabaseName().equals("database") && table.getTableName().equals("table") && partitionValues.equals(ImmutableList.of("value"))) {
                 return Optional.of(PARTITION);
             }
 
@@ -266,9 +266,9 @@ public class TestRecordingHiveMetastore
         }
 
         @Override
-        public Map<String, Optional<Partition>> getPartitionsByNames(HiveIdentity identity, String databaseName, String tableName, List<String> partitionNames)
+        public Map<String, Optional<Partition>> getPartitionsByNames(HiveIdentity identity, Table table, List<String> partitionNames)
         {
-            if (databaseName.equals("database") && tableName.equals("table") && partitionNames.contains("value")) {
+            if (table.getDatabaseName().equals("database") && table.getTableName().equals("table") && partitionNames.contains("value")) {
                 return ImmutableMap.of("value", Optional.of(PARTITION));
             }
 

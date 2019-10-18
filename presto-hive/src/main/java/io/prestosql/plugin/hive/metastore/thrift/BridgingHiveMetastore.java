@@ -44,9 +44,10 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.hive.HiveMetadata.TABLE_COMMENT;
+import static io.prestosql.plugin.hive.metastore.MetastoreUtil.isAvroTableWithSchemaSet;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.verifyCanDropColumn;
-import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiPartition;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiTable;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.isAvroTableWithSchemaSet;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.isCsvTable;
@@ -264,17 +265,9 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public Optional<Partition> getPartition(HiveIdentity identity, String databaseName, String tableName, List<String> partitionValues)
+    public Optional<Partition> getPartition(HiveIdentity identity, Table table, List<String> partitionValues)
     {
-        Function<org.apache.hadoop.hive.metastore.api.Partition, Partition> fromMetastoreApiPartition = ThriftMetastoreUtil::fromMetastoreApiPartition;
-        boolean isAvroTableWithSchemaSet = delegate.getTable(identity, databaseName, tableName)
-                .map(ThriftMetastoreUtil::isAvroTableWithSchemaSet)
-                .orElse(false);
-        if (isAvroTableWithSchemaSet) {
-            List<FieldSchema> schema = delegate.getFields(identity, databaseName, tableName).get();
-            fromMetastoreApiPartition = partition -> fromMetastoreApiPartition(partition, schema);
-        }
-        return delegate.getPartition(identity, databaseName, tableName, partitionValues).map(fromMetastoreApiPartition);
+        return delegate.getPartition(identity, table.getDatabaseName(), table.getTableName(), partitionValues).map(partition -> fromMetastoreApiPartition(table, partition));
     }
 
     @Override
@@ -290,26 +283,17 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public Map<String, Optional<Partition>> getPartitionsByNames(HiveIdentity identity, String databaseName, String tableName, List<String> partitionNames)
+    public Map<String, Optional<Partition>> getPartitionsByNames(HiveIdentity identity, Table table, List<String> partitionNames)
     {
         requireNonNull(partitionNames, "partitionNames is null");
         if (partitionNames.isEmpty()) {
             return ImmutableMap.of();
         }
 
-        Function<org.apache.hadoop.hive.metastore.api.Partition, Partition> fromMetastoreApiPartition = ThriftMetastoreUtil::fromMetastoreApiPartition;
-        boolean isAvroTableWithSchemaSet = delegate.getTable(identity, databaseName, tableName)
-                .map(ThriftMetastoreUtil::isAvroTableWithSchemaSet)
-                .orElse(false);
-        if (isAvroTableWithSchemaSet) {
-            List<FieldSchema> schema = delegate.getFields(identity, databaseName, tableName).get();
-            fromMetastoreApiPartition = partition -> fromMetastoreApiPartition(partition, schema);
-        }
-
         Map<String, List<String>> partitionNameToPartitionValuesMap = partitionNames.stream()
                 .collect(Collectors.toMap(identity(), HiveUtil::toPartitionValues));
-        Map<List<String>, Partition> partitionValuesToPartitionMap = delegate.getPartitionsByNames(identity, databaseName, tableName, partitionNames).stream()
-                .map(fromMetastoreApiPartition)
+        Map<List<String>, Partition> partitionValuesToPartitionMap = delegate.getPartitionsByNames(identity, table.getDatabaseName(), table.getTableName(), partitionNames).stream()
+                .map(partition -> fromMetastoreApiPartition(table, partition))
                 .collect(Collectors.toMap(Partition::getValues, identity()));
         ImmutableMap.Builder<String, Optional<Partition>> resultBuilder = ImmutableMap.builder();
         for (Map.Entry<String, List<String>> entry : partitionNameToPartitionValuesMap.entrySet()) {
@@ -317,6 +301,18 @@ public class BridgingHiveMetastore
             resultBuilder.put(entry.getKey(), Optional.ofNullable(partition));
         }
         return resultBuilder.build();
+    }
+
+    private Partition fromMetastoreApiPartition(Table table, org.apache.hadoop.hive.metastore.api.Partition partition)
+    {
+        if (isAvroTableWithSchemaSet(table)) {
+            List<FieldSchema> schema = table.getDataColumns().stream()
+                    .map(ThriftMetastoreUtil::toMetastoreApiFieldSchema)
+                    .collect(toImmutableList());
+            return ThriftMetastoreUtil.fromMetastoreApiPartition(partition, schema);
+        }
+
+        return ThriftMetastoreUtil.fromMetastoreApiPartition(partition);
     }
 
     @Override

@@ -674,7 +674,7 @@ public final class ThriftMetastoreUtil
         }
     }
 
-    private static FieldSchema toMetastoreApiFieldSchema(Column column)
+    public static FieldSchema toMetastoreApiFieldSchema(Column column)
     {
         return new FieldSchema(column.getName(), column.getType().getHiveTypeName().toString(), column.getComment().orElse(null));
     }

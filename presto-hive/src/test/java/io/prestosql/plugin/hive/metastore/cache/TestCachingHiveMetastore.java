@@ -20,6 +20,7 @@ import io.airlift.units.Duration;
 import io.prestosql.plugin.hive.authentication.HiveAuthenticationConfig;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.Partition;
+import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.prestosql.plugin.hive.metastore.thrift.MetastoreLocator;
 import io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClient;
@@ -39,6 +40,7 @@ import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.prestosql.plugin.hive.metastore.cache.CachingHiveMetastore.cachingHiveMetastore;
 import static io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClient.BAD_DATABASE;
+import static io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClient.BAD_PARTITION;
 import static io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_DATABASE;
 import static io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_PARTITION1;
 import static io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_PARTITION2;
@@ -193,29 +195,29 @@ public class TestCachingHiveMetastore
     public void testGetPartitionsByNames()
     {
         assertEquals(mockClient.getAccessCount(), 0);
-        metastore.getTable(IDENTITY, TEST_DATABASE, TEST_TABLE);
+        Table table = metastore.getTable(IDENTITY, TEST_DATABASE, TEST_TABLE).get();
         assertEquals(mockClient.getAccessCount(), 1);
 
         // Select half of the available partitions and load them into the cache
-        assertEquals(metastore.getPartitionsByNames(IDENTITY, TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION1)).size(), 1);
-        assertEquals(mockClient.getAccessCount(), 3);
+        assertEquals(metastore.getPartitionsByNames(IDENTITY, table, ImmutableList.of(TEST_PARTITION1)).size(), 1);
+        assertEquals(mockClient.getAccessCount(), 2);
 
         // Now select all of the partitions
-        assertEquals(metastore.getPartitionsByNames(IDENTITY, TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2)).size(), 2);
+        assertEquals(metastore.getPartitionsByNames(IDENTITY, table, ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2)).size(), 2);
         // There should be one more access to fetch the remaining partition
-        assertEquals(mockClient.getAccessCount(), 5);
+        assertEquals(mockClient.getAccessCount(), 3);
 
         // Now if we fetch any or both of them, they should not hit the client
-        assertEquals(metastore.getPartitionsByNames(IDENTITY, TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION1)).size(), 1);
-        assertEquals(metastore.getPartitionsByNames(IDENTITY, TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION2)).size(), 1);
-        assertEquals(metastore.getPartitionsByNames(IDENTITY, TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2)).size(), 2);
-        assertEquals(mockClient.getAccessCount(), 5);
+        assertEquals(metastore.getPartitionsByNames(IDENTITY, table, ImmutableList.of(TEST_PARTITION1)).size(), 1);
+        assertEquals(metastore.getPartitionsByNames(IDENTITY, table, ImmutableList.of(TEST_PARTITION2)).size(), 1);
+        assertEquals(metastore.getPartitionsByNames(IDENTITY, table, ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2)).size(), 2);
+        assertEquals(mockClient.getAccessCount(), 3);
 
         metastore.flushCache();
 
         // Fetching both should only result in one batched access
-        assertEquals(metastore.getPartitionsByNames(IDENTITY, TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2)).size(), 2);
-        assertEquals(mockClient.getAccessCount(), 7);
+        assertEquals(metastore.getPartitionsByNames(IDENTITY, table, ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2)).size(), 2);
+        assertEquals(mockClient.getAccessCount(), 5);
     }
 
     @Test
@@ -249,7 +251,8 @@ public class TestCachingHiveMetastore
     @Test
     public void testInvalidGetPartitionsByNames()
     {
-        Map<String, Optional<Partition>> partitionsByNames = metastore.getPartitionsByNames(IDENTITY, BAD_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION1));
+        Table table = metastore.getTable(IDENTITY, TEST_DATABASE, TEST_TABLE).get();
+        Map<String, Optional<Partition>> partitionsByNames = metastore.getPartitionsByNames(IDENTITY, table, ImmutableList.of(BAD_PARTITION));
         assertEquals(partitionsByNames.size(), 1);
         Optional<Partition> onlyElement = Iterables.getOnlyElement(partitionsByNames.values());
         assertFalse(onlyElement.isPresent());
