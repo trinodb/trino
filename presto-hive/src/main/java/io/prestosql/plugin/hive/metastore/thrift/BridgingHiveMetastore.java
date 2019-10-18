@@ -266,7 +266,15 @@ public class BridgingHiveMetastore
     @Override
     public Optional<Partition> getPartition(HiveIdentity identity, String databaseName, String tableName, List<String> partitionValues)
     {
-        return delegate.getPartition(identity, databaseName, tableName, partitionValues).map(ThriftMetastoreUtil::fromMetastoreApiPartition);
+        Function<org.apache.hadoop.hive.metastore.api.Partition, Partition> fromMetastoreApiPartition = ThriftMetastoreUtil::fromMetastoreApiPartition;
+        boolean isAvroTableWithSchemaSet = delegate.getTable(identity, databaseName, tableName)
+                .map(ThriftMetastoreUtil::isAvroTableWithSchemaSet)
+                .orElse(false);
+        if (isAvroTableWithSchemaSet) {
+            List<FieldSchema> schema = delegate.getFields(identity, databaseName, tableName).get();
+            fromMetastoreApiPartition = partition -> fromMetastoreApiPartition(partition, schema);
+        }
+        return delegate.getPartition(identity, databaseName, tableName, partitionValues).map(fromMetastoreApiPartition);
     }
 
     @Override
