@@ -25,7 +25,7 @@ import javax.inject.Inject;
 import java.util.List;
 
 import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
-import static io.prestosql.spi.session.PropertyMetadata.dataSizeProperty;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 
 public final class IcebergSessionProperties
 {
@@ -78,5 +78,18 @@ public final class IcebergSessionProperties
     public static DataSize getParquetMaxReadBlockSize(ConnectorSession session)
     {
         return session.getProperty(PARQUET_MAX_READ_BLOCK_SIZE, DataSize.class);
+    }
+
+    private static PropertyMetadata<DataSize> dataSizeProperty(String name, String description, DataSize defaultValue, boolean hidden)
+    {
+        return new PropertyMetadata<>(
+                name,
+                description,
+                VARCHAR,
+                DataSize.class,
+                defaultValue,
+                hidden,
+                value -> DataSize.valueOf((String) value),
+                DataSize::toString);
     }
 }
