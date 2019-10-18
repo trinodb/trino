@@ -135,7 +135,7 @@ public final class MetadataReader
                             CompressionCodecName.fromParquet(metaData.codec),
                             PARQUET_METADATA_CONVERTER.convertEncodingStats(metaData.encoding_stats),
                             readEncodings(metaData.encodings),
-                            readStats(metaData.statistics, primitiveType.getPrimitiveTypeName()),
+                            readStats(metaData.statistics, primitiveType),
                             metaData.data_page_offset,
                             metaData.dictionary_page_offset,
                             metaData.num_values,
@@ -200,16 +200,15 @@ public final class MetadataReader
         }
     }
 
-    public static org.apache.parquet.column.statistics.Statistics<?> readStats(Statistics statistics, PrimitiveTypeName type)
+    public static org.apache.parquet.column.statistics.Statistics<?> readStats(Statistics statistics, PrimitiveType type)
     {
-        org.apache.parquet.column.statistics.Statistics<?> stats = org.apache.parquet.column.statistics.Statistics.getStatsBasedOnType(type);
-        if (statistics != null) {
-            if (statistics.isSetMax() && statistics.isSetMin()) {
-                stats.setMinMaxFromBytes(statistics.min.array(), statistics.max.array());
-            }
-            stats.setNumNulls(statistics.null_count);
-        }
-        return stats;
+        // TODO (https://github.com/prestosql/presto/issues/1798) pass createdBy from file footer
+
+        // TODO when reading legacy BINARY min/max statistics for UTF8 we do not need to discard them if all byte are 0-127.
+        // More precisely, we do not need to discard leading ASCII characters, because Parquet pre-PARQUET-1025 sorting was
+        // correct for ASCII. We only need to adjust the max value when chopping off some non-ASCII characters.
+
+        return new ParquetMetadataConverter().fromParquetStatistics("", statistics, type);
     }
 
     private static Set<org.apache.parquet.column.Encoding> readEncodings(List<Encoding> encodings)
