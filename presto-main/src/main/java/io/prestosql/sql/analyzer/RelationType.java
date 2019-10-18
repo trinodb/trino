@@ -169,9 +169,9 @@ public class RelationType
                     visibleFields.size());
         }
 
+        int aliasIndex = 0;
         ImmutableList.Builder<Field> fieldsBuilder = ImmutableList.builder();
-        for (int i = 0; i < allFields.size(); i++) {
-            Field field = allFields.get(i);
+        for (Field field : allFields) {
             Optional<String> columnAlias = field.getName();
             if (columnAliases == null) {
                 fieldsBuilder.add(Field.newQualified(
@@ -185,7 +185,8 @@ public class RelationType
             }
             else if (!field.isHidden()) {
                 // hidden fields are not exposed when there are column aliases
-                columnAlias = Optional.of(columnAliases.get(i));
+                columnAlias = Optional.of(columnAliases.get(aliasIndex));
+                aliasIndex++;
                 fieldsBuilder.add(Field.newQualified(
                         QualifiedName.of(relationAlias),
                         columnAlias,
