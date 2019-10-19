@@ -14,9 +14,11 @@
 package io.prestosql.jdbc;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logging;
 import io.prestosql.plugin.blackhole.BlackHolePlugin;
+import io.prestosql.plugin.hive.HiveHadoop2Plugin;
 import io.prestosql.plugin.tpch.TpchMetadata;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.server.BasicQueryInfo;
@@ -95,11 +97,24 @@ public class TestPrestoDatabaseMetaData
         server.installPlugin(new BlackHolePlugin());
         server.createCatalog("blackhole", "blackhole");
 
+        server.installPlugin(new HiveHadoop2Plugin());
+        server.createCatalog("hive", "hive-hadoop2", ImmutableMap.<String, String>builder()
+                .put("hive.metastore", "file")
+                .put("hive.metastore.catalog.dir", server.getBaseDataDir().resolve("hive").toAbsolutePath().toString())
+                .put("hive.security", "sql-standard")
+                .build());
+
         waitForNodeRefresh(server);
 
         try (Connection connection = createConnection();
                 Statement statement = connection.createStatement()) {
             statement.executeUpdate("CREATE SCHEMA blackhole.blackhole");
+
+            statement.execute("USE hive.default");
+            statement.execute("SET ROLE admin");
+            statement.execute("CREATE SCHEMA default");
+            statement.execute("CREATE TABLE default.test_table(a varchar)");
+            statement.execute("CREATE VIEW default.test_view AS SELECT * FROM hive.default.test_table");
         }
     }
 
@@ -205,7 +220,7 @@ public class TestPrestoDatabaseMetaData
     {
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getCatalogs()) {
-                assertEquals(readRows(rs), list(list("blackhole"), list("system"), list(TEST_CATALOG)));
+                assertEquals(readRows(rs), list(list("blackhole"), list("hive"), list("system"), list(TEST_CATALOG)));
 
                 ResultSetMetaData metadata = rs.getMetaData();
                 assertEquals(metadata.getColumnCount(), 1);
@@ -219,6 +234,10 @@ public class TestPrestoDatabaseMetaData
     public void testGetSchemas()
             throws Exception
     {
+        List<List<String>> hive = new ArrayList<>();
+        hive.add(list("hive", "information_schema"));
+        hive.add(list("hive", "default"));
+
         List<List<String>> system = new ArrayList<>();
         system.add(list("system", "information_schema"));
         system.add(list("system", "jdbc"));
@@ -237,6 +256,7 @@ public class TestPrestoDatabaseMetaData
         }
 
         List<List<String>> all = new ArrayList<>();
+        all.addAll(hive);
         all.addAll(system);
         all.addAll(test);
         all.addAll(blackhole);
@@ -267,6 +287,7 @@ public class TestPrestoDatabaseMetaData
                 assertGetSchemasResult(rs, list(
                         list(TEST_CATALOG, "information_schema"),
                         list("blackhole", "information_schema"),
+                        list("hive", "information_schema"),
                         list("system", "information_schema")));
             }
 
@@ -564,6 +585,9 @@ public class TestPrestoDatabaseMetaData
                 assertEquals(rs.getString("COLUMN_NAME"), "table_name");
                 assertEquals(rs.getInt("DATA_TYPE"), Types.VARCHAR);
                 assertTrue(rs.next());
+                assertEquals(rs.getString("TABLE_CAT"), "hive");
+                assertEquals(rs.getString("TABLE_SCHEM"), "information_schema");
+                assertTrue(rs.next());
                 assertEquals(rs.getString("TABLE_CAT"), "system");
                 assertEquals(rs.getString("TABLE_SCHEM"), "information_schema");
                 assertTrue(rs.next());
@@ -586,7 +610,7 @@ public class TestPrestoDatabaseMetaData
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getColumns(null, "information_schema", "tables", "table_name")) {
                 assertColumnMetadata(rs);
-                assertEquals(readRows(rs).size(), 3);
+                assertEquals(readRows(rs).size(), 4);
             }
         }
 
@@ -886,14 +910,14 @@ public class TestPrestoDatabaseMetaData
             throws SQLException
     {
         String url = format("jdbc:presto://%s", server.getAddress());
-        return DriverManager.getConnection(url, "test", null);
+        return DriverManager.getConnection(url, "admin", null);
     }
 
     private Connection createConnection(String catalog, String schema)
             throws SQLException
     {
         String url = format("jdbc:presto://%s/%s/%s", server.getAddress(), catalog, schema);
-        return DriverManager.getConnection(url, "test", null);
+        return DriverManager.getConnection(url, "admin", null);
     }
 
     private static List<List<Object>> readRows(ResultSet rs)
