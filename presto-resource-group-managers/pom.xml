@@ -129,7 +129,6 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>units</artifactId>
-            <scope>provided</scope>
         </dependency>
 
         <dependency>
