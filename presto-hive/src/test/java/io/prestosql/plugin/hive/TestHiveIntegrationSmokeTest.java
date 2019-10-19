@@ -1593,6 +1593,45 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testInsertUnicode()
+    {
+        testWithAllStorageFormats(this::testInsertUnicode);
+    }
+
+    private void testInsertUnicode(Session session, HiveStorageFormat storageFormat)
+    {
+        assertUpdate(session, "DROP TABLE IF EXISTS test_insert_unicode");
+        assertUpdate(session, "CREATE TABLE test_insert_unicode(test varchar) WITH (format = '" + storageFormat + "')");
+
+        assertUpdate("INSERT INTO test_insert_unicode(test) VALUES 'Hello', U&'hello\\6d4B\\8Bd5\\+10FFFFworld\\7F16\\7801' ", 2);
+        assertThat(computeActual("SELECT test FROM test_insert_unicode").getOnlyColumnAsSet())
+                .containsExactlyInAnyOrder("Hello", "hello测试􏿿world编码");
+        assertUpdate(session, "DELETE FROM test_insert_unicode");
+
+        assertUpdate(session, "INSERT INTO test_insert_unicode(test) VALUES 'Hello', U&'hello\\6d4B\\8Bd5\\+10FFFFworld\\7F16\\7801' ", 2);
+        assertThat(computeActual(session, "SELECT test FROM test_insert_unicode").getOnlyColumnAsSet())
+                .containsExactlyInAnyOrder("Hello", "hello测试􏿿world编码");
+        assertUpdate(session, "DELETE FROM test_insert_unicode");
+
+        assertUpdate(session, "INSERT INTO test_insert_unicode(test) VALUES 'aa', 'bé'", 2);
+        assertQuery(session, "SELECT test FROM test_insert_unicode", "VALUES 'aa', 'bé'");
+        assertQuery(session, "SELECT test FROM test_insert_unicode WHERE test = 'aa'", "VALUES 'aa'");
+        assertQuery(session, "SELECT test FROM test_insert_unicode WHERE test > 'ba'", "VALUES 'bé'");
+        assertQuery(session, "SELECT test FROM test_insert_unicode WHERE test < 'ba'", "VALUES 'aa'");
+        assertQueryReturnsEmptyResult(session, "SELECT test FROM test_insert_unicode WHERE test = 'ba'");
+        assertUpdate(session, "DELETE FROM test_insert_unicode");
+
+        assertUpdate(session, "INSERT INTO test_insert_unicode(test) VALUES 'a', 'é'", 2);
+        assertQuery(session, "SELECT test FROM test_insert_unicode", "VALUES 'a', 'é'");
+        assertQuery(session, "SELECT test FROM test_insert_unicode WHERE test = 'a'", "VALUES 'a'");
+        assertQuery(session, "SELECT test FROM test_insert_unicode WHERE test > 'b'", "VALUES 'é'");
+        assertQuery(session, "SELECT test FROM test_insert_unicode WHERE test < 'b'", "VALUES 'a'");
+        assertQueryReturnsEmptyResult(session, "SELECT test FROM test_insert_unicode WHERE test = 'b'");
+
+        assertUpdate(session, "DROP TABLE test_insert_unicode");
+    }
+
+    @Test
     public void testPartitionPerScanLimit()
     {
         TestingHiveStorageFormat storageFormat = new TestingHiveStorageFormat(getSession(), HiveStorageFormat.ORC);
