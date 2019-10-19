@@ -52,6 +52,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.math.LongMath.saturatedMultiply;
 import static com.google.common.math.LongMath.saturatedSubtract;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.succinctBytes;
+import static io.airlift.units.Duration.succinctDuration;
 import static io.prestosql.SystemSessionProperties.getQueryPriority;
 import static io.prestosql.server.QueryStateInfo.createQueryStateInfo;
 import static io.prestosql.spi.StandardErrorCode.INVALID_RESOURCE_GROUP;
@@ -159,12 +161,12 @@ public class InternalResourceGroup
                     getState(),
                     schedulingPolicy,
                     schedulingWeight,
-                    DataSize.succinctBytes(softMemoryLimitBytes),
+                    succinctBytes(softMemoryLimitBytes),
                     softConcurrencyLimit,
                     hardConcurrencyLimit,
                     maxQueuedQueries,
-                    DataSize.succinctBytes(cachedResourceUsage.getMemoryUsageBytes()),
-                    Duration.succinctDuration(cachedResourceUsage.getCpuUsageMillis(), MILLISECONDS),
+                    succinctBytes(cachedResourceUsage.getMemoryUsageBytes()),
+                    succinctDuration(cachedResourceUsage.getCpuUsageMillis(), MILLISECONDS),
                     getQueuedQueries(),
                     getRunningQueries(),
                     eligibleSubGroups.size(),
@@ -184,12 +186,12 @@ public class InternalResourceGroup
                     getState(),
                     schedulingPolicy,
                     schedulingWeight,
-                    DataSize.succinctBytes(softMemoryLimitBytes),
+                    succinctBytes(softMemoryLimitBytes),
                     softConcurrencyLimit,
                     hardConcurrencyLimit,
                     maxQueuedQueries,
-                    DataSize.succinctBytes(cachedResourceUsage.getMemoryUsageBytes()),
-                    Duration.succinctDuration(cachedResourceUsage.getCpuUsageMillis(), MILLISECONDS),
+                    succinctBytes(cachedResourceUsage.getMemoryUsageBytes()),
+                    succinctDuration(cachedResourceUsage.getCpuUsageMillis(), MILLISECONDS),
                     getQueuedQueries(),
                     getRunningQueries(),
                     eligibleSubGroups.size(),
@@ -209,12 +211,12 @@ public class InternalResourceGroup
                     getState(),
                     schedulingPolicy,
                     schedulingWeight,
-                    DataSize.succinctBytes(softMemoryLimitBytes),
+                    succinctBytes(softMemoryLimitBytes),
                     softConcurrencyLimit,
                     hardConcurrencyLimit,
                     maxQueuedQueries,
-                    DataSize.succinctBytes(cachedResourceUsage.getMemoryUsageBytes()),
-                    Duration.succinctDuration(cachedResourceUsage.getCpuUsageMillis(), MILLISECONDS),
+                    succinctBytes(cachedResourceUsage.getMemoryUsageBytes()),
+                    succinctDuration(cachedResourceUsage.getCpuUsageMillis(), MILLISECONDS),
                     getQueuedQueries(),
                     getRunningQueries(),
                     eligibleSubGroups.size(),
