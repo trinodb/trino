@@ -37,7 +37,7 @@ public class TestPageUtils
         second.getLoadedBlock();
 
         AtomicLong sizeInBytes = new AtomicLong();
-        page = recordMaterializedBytes(page, sizeInBytes::getAndAdd);
+        recordMaterializedBytes(page, sizeInBytes::getAndAdd);
 
         assertEquals(sizeInBytes.get(), first.getSizeInBytes() * 2);
 

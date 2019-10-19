@@ -232,7 +232,7 @@ public class PageProcessor
                     // 2. lazy Page can be materialized only before fetching next page from PageProcessor
                     outputPagePositions = resultPage.getPositionCount();
                     outputPageSizeInBytes = 0;
-                    resultPage = recordMaterializedBytes(resultPage, sizeInBytes -> outputPageSizeInBytes += sizeInBytes);
+                    recordMaterializedBytes(resultPage, sizeInBytes -> outputPageSizeInBytes += sizeInBytes);
                 }
 
                 // remove batch from selectedPositions and previouslyComputedResults

@@ -62,6 +62,7 @@ import static io.prestosql.orc.OrcReader.MAX_BATCH_SIZE;
 import static io.prestosql.orc.OrcRecordReader.LinearProbeRangeFinder.createTinyStripesRangeFinder;
 import static io.prestosql.orc.OrcWriteValidation.WriteChecksumBuilder.createWriteChecksumBuilder;
 import static io.prestosql.orc.reader.ColumnReaders.createColumnReader;
+import static io.prestosql.spi.block.LazyBlock.listenForLoads;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
@@ -401,7 +402,8 @@ public class OrcRecordReader
             blocks[columnIndex] = blockFactory.createBlock(
                     currentBatchSize,
                     columnReaders[columnIndex]::readBlock,
-                    block -> blockLoaded(columnIndex, block));
+                    false);
+            listenForLoads(blocks[columnIndex], block -> blockLoaded(columnIndex, block));
         }
         return new Page(currentBatchSize, blocks);
     }
@@ -557,11 +559,7 @@ public class OrcRecordReader
             int columnIndex = i;
             Type readType = readTypes.get(columnIndex);
             OrcColumn column = columns.get(columnIndex);
-            columnReaders[columnIndex] = createColumnReader(
-                    readType,
-                    column,
-                    systemMemoryContext,
-                    blockFactory.createNestedBlockFactory(block -> blockLoaded(columnIndex, block)));
+            columnReaders[columnIndex] = createColumnReader(readType, column, systemMemoryContext, blockFactory);
         }
         return columnReaders;
     }

@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Closer;
 import io.prestosql.memory.context.AggregatedMemoryContext;
-import io.prestosql.orc.OrcBlockFactory.NestedBlockFactory;
+import io.prestosql.orc.OrcBlockFactory;
 import io.prestosql.orc.OrcColumn;
 import io.prestosql.orc.OrcCorruptionException;
 import io.prestosql.orc.metadata.ColumnEncoding;
@@ -59,7 +59,7 @@ public class StructColumnReader
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(StructColumnReader.class).instanceSize();
 
     private final OrcColumn column;
-    private final NestedBlockFactory blockFactory;
+    private final OrcBlockFactory blockFactory;
 
     private final Map<String, ColumnReader> structFields;
     private final RowType type;
@@ -74,7 +74,7 @@ public class StructColumnReader
 
     private boolean rowGroupOpen;
 
-    StructColumnReader(Type type, OrcColumn column, AggregatedMemoryContext systemMemoryContext, NestedBlockFactory blockFactory)
+    StructColumnReader(Type type, OrcColumn column, AggregatedMemoryContext systemMemoryContext, OrcBlockFactory blockFactory)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
@@ -227,7 +227,7 @@ public class StructColumnReader
             ColumnReader columnReader = structFields.get(fieldName);
             if (columnReader != null) {
                 columnReader.prepareNextRead(positionCount);
-                blocks[i] = blockFactory.createBlock(positionCount, columnReader::readBlock);
+                blocks[i] = blockFactory.createBlock(positionCount, columnReader::readBlock, true);
             }
             else {
                 blocks[i] = RunLengthEncodedBlock.create(type.getFields().get(i).getType(), null, positionCount);

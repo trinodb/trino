@@ -19,6 +19,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
 
@@ -30,6 +31,7 @@ import static io.prestosql.spi.block.BlockUtil.checkValidRegion;
 import static io.prestosql.spi.block.BlockUtil.countUsedPositions;
 import static io.prestosql.spi.block.DictionaryId.randomDictionaryId;
 import static java.lang.Math.min;
+import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
 public class DictionaryBlock
@@ -397,6 +399,12 @@ public class DictionaryBlock
             return this;
         }
         return new DictionaryBlock(idsOffset, getPositionCount(), loadedDictionary, ids, false, randomDictionaryId());
+    }
+
+    @Override
+    public final List<Block> getChildren()
+    {
+        return singletonList(getDictionary());
     }
 
     public Block getDictionary()

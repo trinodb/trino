@@ -248,17 +248,7 @@ public class HivePageSource
 
             if (bucketAdapter.isPresent()) {
                 IntArrayList rowsToKeep = bucketAdapter.get().computeEligibleRowIds(dataPage);
-                Block[] adaptedBlocks = new Block[dataPage.getChannelCount()];
-                for (int i = 0; i < adaptedBlocks.length; i++) {
-                    Block block = dataPage.getBlock(i);
-                    if (!block.isLoaded()) {
-                        adaptedBlocks[i] = new LazyBlock(rowsToKeep.size(), new RowFilterLazyBlockLoader(dataPage.getBlock(i), rowsToKeep));
-                    }
-                    else {
-                        adaptedBlocks[i] = block.getPositions(rowsToKeep.elements(), 0, rowsToKeep.size());
-                    }
-                }
-                dataPage = new Page(rowsToKeep.size(), adaptedBlocks);
+                dataPage = dataPage.getPositions(rowsToKeep.elements(), 0, rowsToKeep.size());
             }
 
             int batchSize = dataPage.getPositionCount();
@@ -534,31 +524,6 @@ public class HivePageSource
             checkState(block != null, "Already loaded");
 
             Block loaded = coercer.apply(block.getLoadedBlock());
-            // clear reference to loader to free resources, since load was successful
-            block = null;
-
-            return loaded;
-        }
-    }
-
-    private static final class RowFilterLazyBlockLoader
-            implements LazyBlockLoader
-    {
-        private Block block;
-        private final IntArrayList rowsToKeep;
-
-        public RowFilterLazyBlockLoader(Block block, IntArrayList rowsToKeep)
-        {
-            this.block = requireNonNull(block, "block is null");
-            this.rowsToKeep = requireNonNull(rowsToKeep, "rowsToKeep is null");
-        }
-
-        @Override
-        public Block load()
-        {
-            checkState(block != null, "Already loaded");
-
-            Block loaded = block.getPositions(rowsToKeep.elements(), 0, rowsToKeep.size());
             // clear reference to loader to free resources, since load was successful
             block = null;
 
