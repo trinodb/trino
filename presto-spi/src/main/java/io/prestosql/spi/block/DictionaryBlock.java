@@ -90,13 +90,13 @@ public class DictionaryBlock
         this.dictionary = dictionary;
         this.ids = ids;
         this.dictionarySourceId = requireNonNull(dictionarySourceId, "dictionarySourceId is null");
-        this.retainedSizeInBytes = INSTANCE_SIZE + dictionary.getRetainedSizeInBytes() + sizeOf(ids);
+        this.retainedSizeInBytes = INSTANCE_SIZE + sizeOf(ids);
 
         if (dictionaryIsCompacted) {
             if (dictionary instanceof DictionaryBlock) {
                 throw new IllegalArgumentException("compacted dictionary should not have dictionary base block");
             }
-            this.sizeInBytes = this.retainedSizeInBytes;
+            this.sizeInBytes = dictionary.getSizeInBytes() + (Integer.BYTES * (long) positionCount);
             this.uniqueIds = dictionary.getPositionCount();
         }
     }
@@ -284,7 +284,7 @@ public class DictionaryBlock
     @Override
     public long getRetainedSizeInBytes()
     {
-        return retainedSizeInBytes;
+        return retainedSizeInBytes + dictionary.getRetainedSizeInBytes();
     }
 
     @Override
