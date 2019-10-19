@@ -31,6 +31,7 @@ import javax.inject.Inject;
 
 import java.util.Optional;
 
+import static io.prestosql.connector.system.jdbc.FilterUtil.emptyOrEquals;
 import static io.prestosql.connector.system.jdbc.FilterUtil.filter;
 import static io.prestosql.connector.system.jdbc.FilterUtil.stringFilter;
 import static io.prestosql.connector.system.jdbc.FilterUtil.tablePrefix;
@@ -88,13 +89,13 @@ public class TableJdbcTable
         for (String catalog : filter(listCatalogs(session, metadata, accessControl).keySet(), catalogFilter)) {
             QualifiedTablePrefix prefix = tablePrefix(catalog, schemaFilter, tableFilter);
 
-            if (FilterUtil.emptyOrEquals(typeFilter, "TABLE")) {
+            if (emptyOrEquals(typeFilter, "TABLE")) {
                 for (SchemaTableName name : listTables(session, metadata, accessControl, prefix)) {
                     table.addRow(tableRow(catalog, name, "TABLE"));
                 }
             }
 
-            if (FilterUtil.emptyOrEquals(typeFilter, "VIEW")) {
+            if (emptyOrEquals(typeFilter, "VIEW")) {
                 for (SchemaTableName name : listViews(session, metadata, accessControl, prefix)) {
                     table.addRow(tableRow(catalog, name, "VIEW"));
                 }
