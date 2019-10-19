@@ -111,6 +111,7 @@ public class SemiTransactionalHiveMetastore
     private final HiveMetastoreClosure delegate;
     private final HdfsEnvironment hdfsEnvironment;
     private final Executor renameExecutor;
+    private final Executor dropExecutor;
     private final boolean skipDeletionForAlter;
     private final boolean skipTargetCleanupOnRollback;
     private final ScheduledExecutorService heartbeatExecutor;
@@ -141,6 +142,7 @@ public class SemiTransactionalHiveMetastore
             HdfsEnvironment hdfsEnvironment,
             HiveMetastoreClosure delegate,
             Executor renameExecutor,
+            Executor dropExecutor,
             boolean skipDeletionForAlter,
             boolean skipTargetCleanupOnRollback,
             Optional<Duration> hiveTransactionHeartbeatInterval,
@@ -149,6 +151,7 @@ public class SemiTransactionalHiveMetastore
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.renameExecutor = requireNonNull(renameExecutor, "renameExecutor is null");
+        this.dropExecutor = requireNonNull(dropExecutor, "dropExecutor is null");
         this.skipDeletionForAlter = skipDeletionForAlter;
         this.skipTargetCleanupOnRollback = skipTargetCleanupOnRollback;
         this.heartbeatExecutor = heartbeatService;
@@ -1652,23 +1655,35 @@ public class SemiTransactionalHiveMetastore
         {
             List<String> failedIrreversibleOperationDescriptions = new ArrayList<>();
             List<Throwable> suppressedExceptions = new ArrayList<>();
-            boolean anySucceeded = false;
+            AtomicBoolean anySucceeded = new AtomicBoolean(false);
+
+            ImmutableList.Builder<CompletableFuture<?>> dropFutures = ImmutableList.builder();
             for (IrreversibleMetastoreOperation irreversibleMetastoreOperation : metastoreDeleteOperations) {
-                try {
-                    irreversibleMetastoreOperation.run();
-                    anySucceeded = true;
-                }
-                catch (Throwable t) {
-                    failedIrreversibleOperationDescriptions.add(irreversibleMetastoreOperation.getDescription());
-                    // A limit is needed to avoid having a huge exception object. 5 was chosen arbitrarily.
-                    if (suppressedExceptions.size() < 5) {
-                        suppressedExceptions.add(t);
+                dropFutures.add(CompletableFuture.runAsync(() -> {
+                    try {
+                        irreversibleMetastoreOperation.run();
+                        anySucceeded.set(true);
                     }
-                }
+                    catch (Throwable t) {
+                        synchronized (failedIrreversibleOperationDescriptions) {
+                            failedIrreversibleOperationDescriptions.add(irreversibleMetastoreOperation.getDescription());
+                            // A limit is needed to avoid having a huge exception object. 5 was chosen arbitrarily.
+                            synchronized (suppressedExceptions) {
+                                if (suppressedExceptions.size() < 5) {
+                                    suppressedExceptions.add(t);
+                                }
+                            }
+                        }
+                    }
+                }, dropExecutor));
+            }
+
+            for (CompletableFuture<?> dropFuture : dropFutures.build()) {
+                MoreFutures.getFutureValue(dropFuture, PrestoException.class);
             }
             if (!suppressedExceptions.isEmpty()) {
                 StringBuilder message = new StringBuilder();
-                if (deleteOnly && !anySucceeded) {
+                if (deleteOnly && !anySucceeded.get()) {
                     message.append("The following metastore delete operations failed: ");
                 }
                 else {

@@ -68,6 +68,7 @@ public class HiveConfig
     private boolean recursiveDirWalkerEnabled;
 
     private int maxConcurrentFileRenames = 20;
+    private int maxConcurrentMetastoreDrops = 20;
 
     private boolean allowCorruptWritesForTesting;
 
@@ -226,6 +227,19 @@ public class HiveConfig
     public HiveConfig setMaxConcurrentFileRenames(int maxConcurrentFileRenames)
     {
         this.maxConcurrentFileRenames = maxConcurrentFileRenames;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxConcurrentMetastoreDrops()
+    {
+        return maxConcurrentMetastoreDrops;
+    }
+
+    @Config("hive.max-concurrent-metastore-drops")
+    public HiveConfig setMaxConcurrentMetastoreDrops(int maxConcurrentMetastoreDeletes)
+    {
+        this.maxConcurrentMetastoreDrops = maxConcurrentMetastoreDeletes;
         return this;
     }
 
