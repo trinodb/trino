@@ -260,7 +260,7 @@ public class TupleDomainParquetPredicate
         }
 
         int dictionarySize = dictionaryPage.get().getDictionarySize();
-        if (type.equals(BIGINT) && columnDescriptor.getType() == PrimitiveTypeName.INT64) {
+        if (type.equals(BIGINT) && columnDescriptor.getPrimitiveType().getPrimitiveTypeName() == PrimitiveTypeName.INT64) {
             List<Domain> domains = new ArrayList<>();
             for (int i = 0; i < dictionarySize; i++) {
                 domains.add(Domain.singleValue(type, dictionary.decodeToLong(i)));
@@ -269,7 +269,7 @@ public class TupleDomainParquetPredicate
             return Domain.union(domains);
         }
 
-        if ((type.equals(BIGINT) || type.equals(DATE)) && columnDescriptor.getType() == PrimitiveTypeName.INT32) {
+        if ((type.equals(BIGINT) || type.equals(DATE)) && columnDescriptor.getPrimitiveType().getPrimitiveTypeName() == PrimitiveTypeName.INT32) {
             List<Domain> domains = new ArrayList<>();
             for (int i = 0; i < dictionarySize; i++) {
                 domains.add(Domain.singleValue(type, (long) dictionary.decodeToInt(i)));
@@ -278,7 +278,7 @@ public class TupleDomainParquetPredicate
             return Domain.union(domains);
         }
 
-        if (type.equals(DOUBLE) && columnDescriptor.getType() == PrimitiveTypeName.DOUBLE) {
+        if (type.equals(DOUBLE) && columnDescriptor.getPrimitiveType().getPrimitiveTypeName() == PrimitiveTypeName.DOUBLE) {
             List<Domain> domains = new ArrayList<>();
             for (int i = 0; i < dictionarySize; i++) {
                 domains.add(Domain.singleValue(type, dictionary.decodeToDouble(i)));
@@ -287,7 +287,7 @@ public class TupleDomainParquetPredicate
             return Domain.union(domains);
         }
 
-        if (type.equals(DOUBLE) && columnDescriptor.getType() == PrimitiveTypeName.FLOAT) {
+        if (type.equals(DOUBLE) && columnDescriptor.getPrimitiveType().getPrimitiveTypeName() == PrimitiveTypeName.FLOAT) {
             List<Domain> domains = new ArrayList<>();
             for (int i = 0; i < dictionarySize; i++) {
                 domains.add(Domain.singleValue(type, (double) dictionary.decodeToFloat(i)));
@@ -296,7 +296,7 @@ public class TupleDomainParquetPredicate
             return Domain.union(domains);
         }
 
-        if (isVarcharType(type) && columnDescriptor.getType() == PrimitiveTypeName.BINARY) {
+        if (isVarcharType(type) && columnDescriptor.getPrimitiveType().getPrimitiveTypeName() == PrimitiveTypeName.BINARY) {
             List<Domain> domains = new ArrayList<>();
             for (int i = 0; i < dictionarySize; i++) {
                 domains.add(Domain.singleValue(type, Slices.wrappedBuffer(dictionary.decodeToBinary(i).getBytes())));

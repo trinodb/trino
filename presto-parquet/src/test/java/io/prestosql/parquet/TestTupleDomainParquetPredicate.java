@@ -280,7 +280,7 @@ public class TestTupleDomainParquetPredicate
         RichColumnDescriptor column = new RichColumnDescriptor(columnDescriptor, new PrimitiveType(OPTIONAL, BINARY, "Test column"));
         TupleDomain<ColumnDescriptor> effectivePredicate = getEffectivePredicate(column, createVarcharType(255), utf8Slice(value));
         TupleDomainParquetPredicate parquetPredicate = new TupleDomainParquetPredicate(effectivePredicate, singletonList(column));
-        Statistics<?> stats = getStatsBasedOnType(column.getType());
+        Statistics<?> stats = getStatsBasedOnType(column.getPrimitiveType().getPrimitiveTypeName());
         stats.setNumNulls(1L);
         stats.setMinMaxFromBytes(value.getBytes(UTF_8), value.getBytes(UTF_8));
         assertTrue(parquetPredicate.matches(2, ImmutableMap.of(column, stats), ID, true));
@@ -343,7 +343,7 @@ public class TestTupleDomainParquetPredicate
 
     private TupleDomain<ColumnDescriptor> getEffectivePredicate(RichColumnDescriptor column, VarcharType type, Slice value)
     {
-        ColumnDescriptor predicateColumn = new ColumnDescriptor(column.getPath(), column.getType(), 0, 0);
+        ColumnDescriptor predicateColumn = new ColumnDescriptor(column.getPath(), column.getPrimitiveType().getPrimitiveTypeName(), 0, 0);
         Domain predicateDomain = singleValue(type, value);
         Map<ColumnDescriptor, Domain> predicateColumns = singletonMap(predicateColumn, predicateDomain);
         return withColumnDomains(predicateColumns);
