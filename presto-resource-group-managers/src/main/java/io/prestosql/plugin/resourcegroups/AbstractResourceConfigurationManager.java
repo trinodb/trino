@@ -146,9 +146,8 @@ public abstract class AbstractResourceConfigurationManager
                 }
                 generalPoolBytes = poolInfo.getMaxBytes();
             }
-            for (Map.Entry<ResourceGroup, DataSize> entry : memoryLimits.entrySet()) {
-                entry.getKey().setSoftMemoryLimit(entry.getValue());
-            }
+            memoryLimits.forEach((group, limit) ->
+                    group.setSoftMemoryLimitBytes(limit.toBytes()));
         });
     }
 
@@ -191,16 +190,17 @@ public abstract class AbstractResourceConfigurationManager
         return match;
     }
 
+    @SuppressWarnings("NumericCastThatLosesPrecision")
     protected void configureGroup(ResourceGroup group, ResourceGroupSpec match)
     {
         if (match.getSoftMemoryLimit().isPresent()) {
-            group.setSoftMemoryLimit(match.getSoftMemoryLimit().get());
+            group.setSoftMemoryLimitBytes(match.getSoftMemoryLimit().get().toBytes());
         }
         else {
             synchronized (generalPoolMemoryFraction) {
                 double fraction = match.getSoftMemoryLimitFraction().get();
                 generalPoolMemoryFraction.put(group, fraction);
-                group.setSoftMemoryLimit(new DataSize(generalPoolBytes * fraction, BYTE));
+                group.setSoftMemoryLimitBytes((long) (generalPoolBytes * fraction));
             }
         }
         group.setMaxQueuedQueries(match.getMaxQueued());
@@ -209,8 +209,8 @@ public abstract class AbstractResourceConfigurationManager
         match.getSchedulingPolicy().ifPresent(group::setSchedulingPolicy);
         match.getSchedulingWeight().ifPresent(group::setSchedulingWeight);
         match.getJmxExport().filter(isEqual(group.getJmxExport()).negate()).ifPresent(group::setJmxExport);
-        match.getSoftCpuLimit().ifPresent(group::setSoftCpuLimit);
-        match.getHardCpuLimit().ifPresent(group::setHardCpuLimit);
+        match.getSoftCpuLimit().map(Duration::toMillis).map(java.time.Duration::ofMillis).ifPresent(group::setSoftCpuLimit);
+        match.getHardCpuLimit().map(Duration::toMillis).map(java.time.Duration::ofMillis).ifPresent(group::setHardCpuLimit);
         if (match.getSoftCpuLimit().isPresent() || match.getHardCpuLimit().isPresent()) {
             // This will never throw an exception if the validateRootGroups method succeeds
             checkState(getCpuQuotaPeriod().isPresent(), "cpuQuotaPeriod must be specified to use CPU limits on group: %s", group.getId());

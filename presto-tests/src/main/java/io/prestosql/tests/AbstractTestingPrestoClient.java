@@ -136,7 +136,7 @@ public abstract class AbstractTestingPrestoClient<T>
         ResourceEstimates estimates = session.getResourceEstimates();
         estimates.getExecutionTime().ifPresent(e -> resourceEstimates.put(EXECUTION_TIME, e.toString()));
         estimates.getCpuTime().ifPresent(e -> resourceEstimates.put(CPU_TIME, e.toString()));
-        estimates.getPeakMemory().ifPresent(e -> resourceEstimates.put(PEAK_MEMORY, e.toString()));
+        estimates.getPeakMemoryBytes().ifPresent(e -> resourceEstimates.put(PEAK_MEMORY, e.toString()));
 
         return new ClientSession(
                 server,

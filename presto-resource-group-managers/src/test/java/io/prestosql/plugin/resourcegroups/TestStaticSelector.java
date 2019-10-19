@@ -28,6 +28,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.airlift.units.DataSize.Unit.TERABYTE;
 import static org.testng.Assert.assertEquals;
 
 public class TestStaticSelector
@@ -110,9 +112,9 @@ public class TestStaticSelector
                                 null,
                                 ImmutableSet.of("tag1", "tag2"),
                                 new ResourceEstimates(
-                                        Optional.of(Duration.valueOf("4m")),
+                                        Optional.of(java.time.Duration.ofMinutes(4)),
                                         Optional.empty(),
-                                        Optional.of(DataSize.valueOf("400MB")))))
+                                        Optional.of(new DataSize(400, MEGABYTE).toBytes()))))
                         .map(SelectionContext::getResourceGroupId),
                 Optional.of(resourceGroupId));
 
@@ -123,9 +125,9 @@ public class TestStaticSelector
                                 "a source b",
                                 ImmutableSet.of("tag1"),
                                 new ResourceEstimates(
-                                        Optional.of(Duration.valueOf("4m")),
+                                        Optional.of(java.time.Duration.ofMinutes(4)),
                                         Optional.empty(),
-                                        Optional.of(DataSize.valueOf("600MB")))))
+                                        Optional.of(new DataSize(600, MEGABYTE).toBytes()))))
                         .map(SelectionContext::getResourceGroupId),
                 Optional.empty());
 
@@ -136,7 +138,7 @@ public class TestStaticSelector
                                 "source",
                                 ImmutableSet.of(),
                                 new ResourceEstimates(
-                                        Optional.of(Duration.valueOf("4m")),
+                                        Optional.of(java.time.Duration.ofMinutes(4)),
                                         Optional.empty(),
                                         Optional.empty())))
                         .map(SelectionContext::getResourceGroupId),
@@ -162,9 +164,9 @@ public class TestStaticSelector
                                 null,
                                 ImmutableSet.of("tag1", "tag2"),
                                 new ResourceEstimates(
-                                        Optional.of(Duration.valueOf("100h")),
+                                        Optional.of(java.time.Duration.ofHours(100)),
                                         Optional.empty(),
-                                        Optional.of(DataSize.valueOf("4TB")))))
+                                        Optional.of(new DataSize(4, TERABYTE).toBytes()))))
                         .map(SelectionContext::getResourceGroupId),
                 Optional.empty());
 
@@ -177,7 +179,7 @@ public class TestStaticSelector
                                 new ResourceEstimates(
                                         Optional.empty(),
                                         Optional.empty(),
-                                        Optional.of(DataSize.valueOf("6TB")))))
+                                        Optional.of(new DataSize(6, TERABYTE).toBytes()))))
                         .map(SelectionContext::getResourceGroupId),
                 Optional.of(resourceGroupId));
 
@@ -188,9 +190,9 @@ public class TestStaticSelector
                                 "source",
                                 ImmutableSet.of(),
                                 new ResourceEstimates(
-                                        Optional.of(Duration.valueOf("1s")),
-                                        Optional.of(Duration.valueOf("1s")),
-                                        Optional.of(DataSize.valueOf("6TB")))))
+                                        Optional.of(java.time.Duration.ofSeconds(1)),
+                                        Optional.of(java.time.Duration.ofSeconds(1)),
+                                        Optional.of(new DataSize(6, TERABYTE).toBytes()))))
                         .map(SelectionContext::getResourceGroupId),
                 Optional.of(resourceGroupId));
     }

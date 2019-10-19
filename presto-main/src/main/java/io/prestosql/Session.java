@@ -767,7 +767,10 @@ public final class Session
 
         public ResourceEstimates build()
         {
-            return new ResourceEstimates(executionTime, cpuTime, peakMemory);
+            return new ResourceEstimates(
+                    executionTime.map(Duration::toMillis).map(java.time.Duration::ofMillis),
+                    cpuTime.map(Duration::toMillis).map(java.time.Duration::ofMillis),
+                    peakMemory.map(DataSize::toBytes));
         }
     }
 }

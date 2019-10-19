@@ -16,7 +16,6 @@ package io.prestosql.plugin.resourcegroups;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 import io.prestosql.spi.memory.MemoryPoolInfo;
 import io.prestosql.spi.resourcegroups.ResourceGroup;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
@@ -25,6 +24,7 @@ import io.prestosql.spi.resourcegroups.SelectionCriteria;
 import io.prestosql.spi.session.ResourceEstimates;
 import org.testng.annotations.Test;
 
+import java.time.Duration;
 import java.util.Optional;
 
 import static com.google.common.io.Resources.getResource;
@@ -32,8 +32,6 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.memory.LocalMemoryManager.GENERAL_POOL;
 import static io.prestosql.spi.resourcegroups.SchedulingPolicy.WEIGHTED;
 import static java.lang.String.format;
-import static java.util.concurrent.TimeUnit.DAYS;
-import static java.util.concurrent.TimeUnit.HOURS;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -79,9 +77,9 @@ public class TestFileResourceGroupConfigurationManager
         ResourceGroupId globalId = new ResourceGroupId("global");
         ResourceGroup global = new TestingResourceGroup(globalId);
         manager.configure(global, new SelectionContext<>(globalId, new ResourceGroupIdTemplate("global")));
-        assertEquals(global.getSoftMemoryLimit(), new DataSize(1, MEGABYTE));
-        assertEquals(global.getSoftCpuLimit(), new Duration(1, HOURS));
-        assertEquals(global.getHardCpuLimit(), new Duration(1, DAYS));
+        assertEquals(global.getSoftMemoryLimitBytes(), new DataSize(1, MEGABYTE).toBytes());
+        assertEquals(global.getSoftCpuLimit(), Duration.ofHours(1));
+        assertEquals(global.getHardCpuLimit(), Duration.ofDays(1));
         assertEquals(global.getCpuQuotaGenerationMillisPerSecond(), 1000 * 24);
         assertEquals(global.getMaxQueuedQueries(), 1000);
         assertEquals(global.getHardConcurrencyLimit(), 100);
@@ -92,7 +90,7 @@ public class TestFileResourceGroupConfigurationManager
         ResourceGroupId subId = new ResourceGroupId(globalId, "sub");
         ResourceGroup sub = new TestingResourceGroup(subId);
         manager.configure(sub, new SelectionContext<>(subId, new ResourceGroupIdTemplate("global.sub")));
-        assertEquals(sub.getSoftMemoryLimit(), new DataSize(2, MEGABYTE));
+        assertEquals(sub.getSoftMemoryLimitBytes(), new DataSize(2, MEGABYTE).toBytes());
         assertEquals(sub.getHardConcurrencyLimit(), 3);
         assertEquals(sub.getMaxQueuedQueries(), 4);
         assertNull(sub.getSchedulingPolicy());
@@ -144,7 +142,7 @@ public class TestFileResourceGroupConfigurationManager
         manager.configure(resourceGroup, selectionContext);
         assertEquals(resourceGroup.getHardConcurrencyLimit(), 3);
         assertEquals(resourceGroup.getMaxQueuedQueries(), 10);
-        assertEquals(resourceGroup.getSoftMemoryLimit().toBytes(), generalPoolSize / 10);
+        assertEquals(resourceGroup.getSoftMemoryLimitBytes(), generalPoolSize / 10);
     }
 
     @Test
@@ -154,7 +152,7 @@ public class TestFileResourceGroupConfigurationManager
         ResourceGroupId globalId = new ResourceGroupId("global");
         ResourceGroup global = new TestingResourceGroup(globalId);
         manager.configure(global, new SelectionContext<>(globalId, new ResourceGroupIdTemplate("global")));
-        assertEquals(global.getSoftMemoryLimit(), new DataSize(3, MEGABYTE));
+        assertEquals(global.getSoftMemoryLimitBytes(), new DataSize(3, MEGABYTE).toBytes());
         assertEquals(global.getMaxQueuedQueries(), 99);
         assertEquals(global.getHardConcurrencyLimit(), 42);
     }
