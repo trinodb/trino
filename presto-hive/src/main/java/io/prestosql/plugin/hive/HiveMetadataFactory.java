@@ -53,6 +53,7 @@ public class HiveMetadataFactory
     private final LocationService locationService;
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
     private final BoundedExecutor renameExecution;
+    private final BoundedExecutor dropExecutor;
     private final TypeTranslator typeTranslator;
     private final String prestoVersion;
     private final AccessControlMetadataFactory accessControlMetadataFactory;
@@ -81,6 +82,7 @@ public class HiveMetadataFactory
                 partitionManager,
                 hiveConfig.getDateTimeZone(),
                 hiveConfig.getMaxConcurrentFileRenames(),
+                hiveConfig.getMaxConcurrentMetastoreDrops(),
                 hiveConfig.getAllowCorruptWritesForTesting(),
                 hiveConfig.isSkipDeletionForAlter(),
                 hiveConfig.isSkipTargetCleanupOnRollback(),
@@ -104,6 +106,7 @@ public class HiveMetadataFactory
             HivePartitionManager partitionManager,
             DateTimeZone timeZone,
             int maxConcurrentFileRenames,
+            int maxConcurrentMetastoreDrops,
             boolean allowCorruptWritesForTesting,
             boolean skipDeletionForAlter,
             boolean skipTargetCleanupOnRollback,
@@ -147,6 +150,7 @@ public class HiveMetadataFactory
         }
 
         renameExecution = new BoundedExecutor(executorService, maxConcurrentFileRenames);
+        dropExecutor = new BoundedExecutor(executorService, maxConcurrentMetastoreDrops);
         this.heartbeatService = requireNonNull(heartbeatService, "heartbeatService is null");
     }
 
@@ -157,6 +161,7 @@ public class HiveMetadataFactory
                 hdfsEnvironment,
                 new HiveMetastoreClosure(memoizeMetastore(this.metastore, perTransactionCacheMaximumSize)), // per-transaction cache
                 renameExecution,
+                dropExecutor,
                 skipDeletionForAlter,
                 skipTargetCleanupOnRollback,
                 hiveTransactionHeartbeatInterval,
