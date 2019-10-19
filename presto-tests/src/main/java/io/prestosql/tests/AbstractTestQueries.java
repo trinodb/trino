@@ -2246,7 +2246,7 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testIOExplain()
+    public void testIoExplain()
     {
         String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN (TYPE IO) " + query);

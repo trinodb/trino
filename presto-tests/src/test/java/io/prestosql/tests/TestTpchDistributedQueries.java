@@ -48,7 +48,8 @@ public class TestTpchDistributedQueries
     }
 
     @Test
-    public void testIOExplain()
+    @Override
+    public void testIoExplain()
     {
         String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) " + query);
