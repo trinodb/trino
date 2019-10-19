@@ -163,7 +163,8 @@ public interface Block
     int getPositionCount();
 
     /**
-     * Returns the size of this block as if it was compacted, ignoring any over-allocations.
+     * Returns the size of this block as if it was compacted, ignoring any over-allocations
+     * and any unloaded nested blocks.
      * For example, in dictionary blocks, this only counts each dictionary entry once,
      * rather than each time a value is referenced.
      */
