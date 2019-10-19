@@ -71,6 +71,7 @@ import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toList;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -509,11 +510,40 @@ public class TestPrestoDatabaseMetaData
                 assertEquals(readRows(rs).size(), 0);
             }
         }
+
+        // view
+        try (Connection connection = createConnection()) {
+            for (boolean includeTable : new boolean[] {false, true}) {
+                for (boolean includeView : new boolean[] {false, true}) {
+                    List<String> types = new ArrayList<>();
+                    List<List<Object>> expected = new ArrayList<>();
+                    if (includeTable) {
+                        types.add("TABLE");
+                        expected.add(getTablesRow("hive", "default", "test_table", "TABLE"));
+                    }
+                    if (includeView) {
+                        types.add("VIEW");
+                        expected.add(getTablesRow("hive", "default", "test_view", "VIEW"));
+                    }
+
+                    try (ResultSet rs = connection.getMetaData().getTables("hive", "default", "test_%", types.toArray(new String[0]))) {
+                        assertTableMetadata(rs);
+                        Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
+                        assertThat(rows).containsExactlyInAnyOrder(expected.toArray(new List[0]));
+                    }
+                }
+            }
+        }
     }
 
     private static List<Object> getTablesRow(String schema, String table)
     {
-        return list(TEST_CATALOG, schema, table, "TABLE", null, null, null, null, null, null);
+        return getTablesRow(TEST_CATALOG, schema, table, "TABLE");
+    }
+
+    private static List<Object> getTablesRow(String catalog, String schema, String table, String type)
+    {
+        return list(catalog, schema, table, type, null, null, null, null, null, null);
     }
 
     private static void assertTableMetadata(ResultSet rs)
