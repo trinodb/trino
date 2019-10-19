@@ -66,7 +66,6 @@ public class PluginManager
             .add("io.prestosql.spi.")
             .add("com.fasterxml.jackson.annotation.")
             .add("io.airlift.slice.")
-            .add("io.airlift.units.")
             .add("org.openjdk.jol.")
             .build();
 
