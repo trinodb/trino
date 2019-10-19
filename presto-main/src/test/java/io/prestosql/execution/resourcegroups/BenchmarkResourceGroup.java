@@ -74,13 +74,13 @@ public class BenchmarkResourceGroup
         public void setup()
         {
             root = new RootInternalResourceGroup("root", (group, export) -> {}, executor);
-            root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+            root.setSoftMemoryLimitBytes(new DataSize(1, MEGABYTE).toBytes());
             root.setMaxQueuedQueries(queries);
             root.setHardConcurrencyLimit(queries);
             InternalResourceGroup group = root;
             for (int i = 0; i < children; i++) {
                 group = root.getOrCreateSubGroup(String.valueOf(i));
-                group.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+                group.setSoftMemoryLimitBytes(new DataSize(1, MEGABYTE).toBytes());
                 group.setMaxQueuedQueries(queries);
                 group.setHardConcurrencyLimit(queries);
             }
