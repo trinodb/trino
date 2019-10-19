@@ -466,3 +466,17 @@ These functions convert between geometries and
 
     Returns the minimum set of Bing tiles that fully covers a given geometry at
     a given zoom level. Zoom levels from 1 to 23 are supported.
+
+Encoded Polylines
+-----------------
+
+These functions convert between geometries and
+`encoded polylines <https://developers.google.com/maps/documentation/utilities/polylinealgorithm>`_.
+
+.. function:: to_encoded_polyline(Geometry) -> varchar
+
+    Encodes a linestring or multipoint to a polyline.
+
+.. function:: from_encoded_polyline(varchar) -> Geometry
+
+    Decodes a polyline to a linestring.
