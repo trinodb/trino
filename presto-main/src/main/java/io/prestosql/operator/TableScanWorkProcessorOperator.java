@@ -157,7 +157,8 @@ public class TableScanWorkProcessorOperator
                     WorkProcessor.create(new ConnectorPageSourceToPages(aggregatedMemoryContext, source))
                             .map(page -> {
                                 processedPositions += page.getPositionCount();
-                                return recordMaterializedBytes(page, sizeInBytes -> processedBytes += sizeInBytes);
+                                recordMaterializedBytes(page, sizeInBytes -> processedBytes += sizeInBytes);
+                                return page;
                             }));
         }
 

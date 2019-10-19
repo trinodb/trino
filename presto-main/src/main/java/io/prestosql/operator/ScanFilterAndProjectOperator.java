@@ -371,7 +371,7 @@ public class ScanFilterAndProjectOperator
                 }
             }
 
-            page = recordMaterializedBytes(page, sizeInBytes -> processedBytes += sizeInBytes);
+            recordMaterializedBytes(page, sizeInBytes -> processedBytes += sizeInBytes);
 
             // update operator stats
             processedPositions += page.getPositionCount();

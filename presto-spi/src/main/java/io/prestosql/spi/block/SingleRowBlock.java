@@ -39,6 +39,12 @@ public class SingleRowBlock
     }
 
     @Override
+    Block[] getRawFieldBlocks()
+    {
+        return fieldBlocks;
+    }
+
+    @Override
     protected Block getRawFieldBlock(int fieldIndex)
     {
         return fieldBlocks[fieldIndex];

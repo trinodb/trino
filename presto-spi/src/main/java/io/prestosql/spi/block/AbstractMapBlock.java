@@ -19,6 +19,7 @@ import io.prestosql.spi.type.MapType;
 import javax.annotation.Nullable;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 
 import static io.prestosql.spi.block.BlockUtil.checkArrayRange;
@@ -27,6 +28,8 @@ import static io.prestosql.spi.block.BlockUtil.checkValidRegion;
 import static io.prestosql.spi.block.BlockUtil.compactArray;
 import static io.prestosql.spi.block.BlockUtil.compactOffsets;
 import static io.prestosql.spi.block.MapBlock.createMapBlockInternal;
+import static java.util.Arrays.asList;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractMapBlock
@@ -40,6 +43,12 @@ public abstract class AbstractMapBlock
     public AbstractMapBlock(MapType mapType)
     {
         this.mapType = requireNonNull(mapType, "mapType is null");
+    }
+
+    @Override
+    public final List<Block> getChildren()
+    {
+        return unmodifiableList(asList(getRawKeyBlock(), getRawValueBlock()));
     }
 
     protected abstract Block getRawKeyBlock();

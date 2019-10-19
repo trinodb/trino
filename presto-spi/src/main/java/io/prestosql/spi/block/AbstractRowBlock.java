@@ -13,6 +13,8 @@
  */
 package io.prestosql.spi.block;
 
+import java.util.List;
+
 import static io.prestosql.spi.block.BlockUtil.arraySame;
 import static io.prestosql.spi.block.BlockUtil.checkArrayRange;
 import static io.prestosql.spi.block.BlockUtil.checkValidPositions;
@@ -20,11 +22,19 @@ import static io.prestosql.spi.block.BlockUtil.checkValidRegion;
 import static io.prestosql.spi.block.BlockUtil.compactArray;
 import static io.prestosql.spi.block.BlockUtil.compactOffsets;
 import static io.prestosql.spi.block.RowBlock.createRowBlockInternal;
+import static java.util.Arrays.asList;
+import static java.util.Collections.unmodifiableList;
 
 public abstract class AbstractRowBlock
         implements Block
 {
     protected final int numFields;
+
+    @Override
+    public final List<Block> getChildren()
+    {
+        return unmodifiableList(asList(getRawFieldBlocks()));
+    }
 
     protected abstract Block[] getRawFieldBlocks();
 

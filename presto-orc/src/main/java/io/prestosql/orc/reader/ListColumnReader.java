@@ -15,7 +15,7 @@ package io.prestosql.orc.reader;
 
 import com.google.common.io.Closer;
 import io.prestosql.memory.context.AggregatedMemoryContext;
-import io.prestosql.orc.OrcBlockFactory.NestedBlockFactory;
+import io.prestosql.orc.OrcBlockFactory;
 import io.prestosql.orc.OrcColumn;
 import io.prestosql.orc.OrcCorruptionException;
 import io.prestosql.orc.metadata.ColumnEncoding;
@@ -55,7 +55,7 @@ public class ListColumnReader
 
     private final Type elementType;
     private final OrcColumn column;
-    private final NestedBlockFactory blockFactory;
+    private final OrcBlockFactory blockFactory;
 
     private final ColumnReader elementColumnReader;
 
@@ -72,7 +72,7 @@ public class ListColumnReader
 
     private boolean rowGroupOpen;
 
-    public ListColumnReader(Type type, OrcColumn column, AggregatedMemoryContext systemMemoryContext, NestedBlockFactory blockFactory)
+    public ListColumnReader(Type type, OrcColumn column, AggregatedMemoryContext systemMemoryContext, OrcBlockFactory blockFactory)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
@@ -142,7 +142,7 @@ public class ListColumnReader
         Block elements;
         if (elementCount > 0) {
             elementColumnReader.prepareNextRead(elementCount);
-            elements = blockFactory.createBlock(elementCount, elementColumnReader::readBlock);
+            elements = blockFactory.createBlock(elementCount, elementColumnReader::readBlock, true);
         }
         else {
             elements = elementType.createBlockBuilder(null, 0).build();

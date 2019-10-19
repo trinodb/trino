@@ -14,7 +14,7 @@
 package io.prestosql.orc.reader;
 
 import io.prestosql.memory.context.AggregatedMemoryContext;
-import io.prestosql.orc.OrcBlockFactory.NestedBlockFactory;
+import io.prestosql.orc.OrcBlockFactory;
 import io.prestosql.orc.OrcColumn;
 import io.prestosql.orc.OrcCorruptionException;
 import io.prestosql.spi.type.Type;
@@ -23,7 +23,7 @@ public final class ColumnReaders
 {
     private ColumnReaders() {}
 
-    public static ColumnReader createColumnReader(Type type, OrcColumn column, AggregatedMemoryContext systemMemoryContext, NestedBlockFactory blockFactory)
+    public static ColumnReader createColumnReader(Type type, OrcColumn column, AggregatedMemoryContext systemMemoryContext, OrcBlockFactory blockFactory)
             throws OrcCorruptionException
     {
         switch (column.getColumnType()) {

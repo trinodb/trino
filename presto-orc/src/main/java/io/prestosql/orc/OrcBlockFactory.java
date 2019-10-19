@@ -18,7 +18,6 @@ import io.prestosql.spi.block.LazyBlock;
 import io.prestosql.spi.block.LazyBlockLoader;
 
 import java.io.IOException;
-import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -41,14 +40,9 @@ public class OrcBlockFactory
         currentPageId++;
     }
 
-    public Block createBlock(int positionCount, OrcBlockReader reader, Consumer<Block> onBlockLoaded)
+    public Block createBlock(int positionCount, OrcBlockReader reader, boolean nested)
     {
-        return new LazyBlock(positionCount, new OrcBlockLoader(reader, onBlockLoaded));
-    }
-
-    public NestedBlockFactory createNestedBlockFactory(Consumer<Block> onBlockLoaded)
-    {
-        return new NestedBlockFactory(nestedLazy, onBlockLoaded);
+        return new LazyBlock(positionCount, new OrcBlockLoader(reader, nested && !nestedLazy));
     }
 
     public interface OrcBlockReader
@@ -57,46 +51,18 @@ public class OrcBlockFactory
                 throws IOException;
     }
 
-    public class NestedBlockFactory
-    {
-        private final boolean lazy;
-        private final Consumer<Block> onBlockLoaded;
-
-        private NestedBlockFactory(boolean lazy, Consumer<Block> onBlockLoaded)
-        {
-            this.lazy = lazy;
-            this.onBlockLoaded = requireNonNull(onBlockLoaded, "onBlockLoaded is null");
-        }
-
-        public Block createBlock(int positionCount, OrcBlockReader reader)
-        {
-            if (lazy) {
-                return new LazyBlock(positionCount, new OrcBlockLoader(reader, onBlockLoaded));
-            }
-
-            try {
-                Block block = reader.readBlock();
-                onBlockLoaded.accept(block);
-                return block;
-            }
-            catch (Exception e) {
-                throw exceptionTransform.apply(e);
-            }
-        }
-    }
-
     private final class OrcBlockLoader
             implements LazyBlockLoader
     {
         private final int expectedPageId = currentPageId;
         private final OrcBlockReader blockReader;
-        private final Consumer<Block> onBlockLoaded;
+        private final boolean loadFully;
         private boolean loaded;
 
-        public OrcBlockLoader(OrcBlockReader blockReader, Consumer<Block> onBlockLoaded)
+        public OrcBlockLoader(OrcBlockReader blockReader, boolean loadFully)
         {
             this.blockReader = requireNonNull(blockReader, "blockReader is null");
-            this.onBlockLoaded = requireNonNull(onBlockLoaded, "onBlockLoaded is null");
+            this.loadFully = loadFully;
         }
 
         @Override
@@ -105,17 +71,17 @@ public class OrcBlockFactory
             checkState(!loaded, "Already loaded");
             checkState(currentPageId == expectedPageId, "ORC reader has been advanced beyond block");
 
-            Block block;
+            loaded = true;
             try {
-                block = blockReader.readBlock();
-                onBlockLoaded.accept(block);
+                Block block = blockReader.readBlock();
+                if (loadFully) {
+                    block = block.getLoadedBlock();
+                }
+                return block;
             }
             catch (IOException | RuntimeException e) {
                 throw exceptionTransform.apply(e);
             }
-
-            loaded = true;
-            return block;
         }
     }
 }

@@ -15,7 +15,7 @@ package io.prestosql.orc.reader;
 
 import com.google.common.io.Closer;
 import io.prestosql.memory.context.AggregatedMemoryContext;
-import io.prestosql.orc.OrcBlockFactory.NestedBlockFactory;
+import io.prestosql.orc.OrcBlockFactory;
 import io.prestosql.orc.OrcColumn;
 import io.prestosql.orc.OrcCorruptionException;
 import io.prestosql.orc.metadata.ColumnEncoding;
@@ -56,7 +56,7 @@ public class MapColumnReader
 
     private final MapType type;
     private final OrcColumn column;
-    private final NestedBlockFactory blockFactory;
+    private final OrcBlockFactory blockFactory;
 
     private final ColumnReader keyColumnReader;
     private final ColumnReader valueColumnReader;
@@ -76,7 +76,7 @@ public class MapColumnReader
 
     private boolean rowGroupOpen;
 
-    public MapColumnReader(Type type, OrcColumn column, AggregatedMemoryContext systemMemoryContext, NestedBlockFactory blockFactory)
+    public MapColumnReader(Type type, OrcColumn column, AggregatedMemoryContext systemMemoryContext, OrcBlockFactory blockFactory)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
@@ -155,7 +155,7 @@ public class MapColumnReader
             keyColumnReader.prepareNextRead(entryCount);
             valueColumnReader.prepareNextRead(entryCount);
             keys = keyColumnReader.readBlock();
-            values = blockFactory.createBlock(entryCount, valueColumnReader::readBlock);
+            values = blockFactory.createBlock(entryCount, valueColumnReader::readBlock, true);
         }
         else {
             keys = type.getKeyType().createBlockBuilder(null, 0).build();
