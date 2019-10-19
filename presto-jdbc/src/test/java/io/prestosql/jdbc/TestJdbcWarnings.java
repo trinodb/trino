@@ -95,7 +95,7 @@ public class TestJdbcWarnings
     }
 
     @AfterClass(alwaysRun = true)
-    public void teardownServer()
+    public void tearDownServer()
     {
         closeQuietly(server);
     }

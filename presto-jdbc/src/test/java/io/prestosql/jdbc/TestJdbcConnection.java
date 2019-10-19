@@ -83,7 +83,7 @@ public class TestJdbcConnection
     }
 
     @AfterClass(alwaysRun = true)
-    public void teardownServer()
+    public void tearDownServer()
     {
         closeQuietly(server);
     }
