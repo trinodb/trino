@@ -43,7 +43,10 @@ public final class BlackHoleQueryRunner
                 .setSchema("default")
                 .build();
 
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(session, 4, extraProperties);
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
+                .setNodeCount(4)
+                .setExtraProperties(extraProperties)
+                .build();
 
         try {
             queryRunner.installPlugin(new BlackHolePlugin());
