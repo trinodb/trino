@@ -30,9 +30,7 @@ public class TestKdbTreeCasts
     @BeforeClass
     protected void registerFunctions()
     {
-        GeoPlugin plugin = new GeoPlugin();
-        registerTypes(plugin);
-        registerFunctions(plugin);
+        functionAssertions.installPlugin(new GeoPlugin());
     }
 
     @Test

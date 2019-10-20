@@ -24,10 +24,8 @@ import io.airlift.units.DataSize;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.Lifespan;
-import io.prestosql.metadata.FunctionListBuilder;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Split;
-import io.prestosql.metadata.SqlFunction;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.operator.DriverContext;
 import io.prestosql.operator.DriverYieldSignal;
@@ -44,6 +42,7 @@ import io.prestosql.spi.ErrorCodeSupplier;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
+import io.prestosql.spi.Plugin;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSource;
@@ -227,21 +226,9 @@ public final class FunctionAssertions
         return metadata;
     }
 
-    public void addType(Type type)
+    public void installPlugin(Plugin plugin)
     {
-        runner.addType(type);
-    }
-
-    public FunctionAssertions addFunctions(List<? extends SqlFunction> functionInfos)
-    {
-        metadata.addFunctions(functionInfos);
-        return this;
-    }
-
-    public FunctionAssertions addScalarFunctions(Class<?> clazz)
-    {
-        metadata.addFunctions(new FunctionListBuilder().scalars(clazz).getFunctions());
-        return this;
+        runner.installPlugin(plugin);
     }
 
     public void assertFunction(String projection, Type expectedType, Object expected)
