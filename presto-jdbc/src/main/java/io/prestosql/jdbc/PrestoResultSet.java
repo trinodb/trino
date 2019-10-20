@@ -16,6 +16,7 @@ package io.prestosql.jdbc;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Streams;
 import io.prestosql.client.Column;
 import io.prestosql.client.IntervalDayTime;
 import io.prestosql.client.IntervalYearMonth;
@@ -59,11 +60,10 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.collect.Iterators.concat;
-import static com.google.common.collect.Iterators.transform;
 import static io.prestosql.jdbc.ColumnInfo.setTypeInfo;
 import static java.lang.String.format;
 import static java.math.BigDecimal.ROUND_HALF_UP;
@@ -1748,8 +1748,12 @@ public class PrestoResultSet
 
     private static <T> Iterator<T> flatten(Iterator<Iterable<T>> iterator, long maxRows)
     {
-        Iterator<T> rowsIterator = concat(transform(iterator, Iterable::iterator));
-        return (maxRows > 0) ? new LengthLimitedIterator<>(rowsIterator, maxRows) : rowsIterator;
+        Stream<T> stream = Streams.stream(iterator)
+                .flatMap(Streams::stream);
+        if (maxRows > 0) {
+            stream = stream.limit(maxRows);
+        }
+        return stream.iterator();
     }
 
     private static class ResultsPageIterator
