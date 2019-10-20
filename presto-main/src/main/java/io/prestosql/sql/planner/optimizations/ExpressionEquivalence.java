@@ -23,6 +23,7 @@ import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.spi.type.Type;
+import io.prestosql.sql.planner.DesugarLikeRewriter;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
@@ -95,6 +96,8 @@ public class ExpressionEquivalence
 
     private RowExpression toRowExpression(Session session, Expression expression, Map<Symbol, Integer> symbolInput, TypeProvider types)
     {
+        expression = DesugarLikeRewriter.rewrite(expression, session, metadata, typeAnalyzer, types);
+
         return translate(
                 expression,
                 SCALAR,

@@ -28,6 +28,7 @@ import io.prestosql.sql.tree.CurrentUser;
 import io.prestosql.sql.tree.DefaultExpressionTraversalVisitor;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.Extract;
+import io.prestosql.sql.tree.LikePredicate;
 import io.prestosql.sql.tree.Node;
 import io.prestosql.sql.tree.TryExpression;
 
@@ -79,6 +80,12 @@ public final class SugarFreeChecker
 
         @Override
         protected Void visitCurrentUser(CurrentUser node, Builder<Symbol> context)
+        {
+            throw createIllegalNodeException(node);
+        }
+
+        @Override
+        protected Void visitLikePredicate(LikePredicate node, Builder<Symbol> context)
         {
             throw createIllegalNodeException(node);
         }

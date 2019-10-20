@@ -34,6 +34,7 @@ import io.prestosql.sql.planner.iterative.rule.DesugarAtTimeZone;
 import io.prestosql.sql.planner.iterative.rule.DesugarCurrentPath;
 import io.prestosql.sql.planner.iterative.rule.DesugarCurrentUser;
 import io.prestosql.sql.planner.iterative.rule.DesugarLambdaExpression;
+import io.prestosql.sql.planner.iterative.rule.DesugarLike;
 import io.prestosql.sql.planner.iterative.rule.DesugarRowSubscript;
 import io.prestosql.sql.planner.iterative.rule.DesugarTryExpression;
 import io.prestosql.sql.planner.iterative.rule.DetermineJoinDistributionType;
@@ -591,6 +592,15 @@ public class PlanOptimizers
                         new AddIntermediateAggregations(),
                         new RemoveRedundantIdentityProjections())));
         // DO NOT add optimizers that change the plan shape (computations) after this point
+
+        // Remove any remaining sugar
+        builder.add(new IterativeOptimizer(
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                ImmutableSet.<Rule<?>>builder()
+                        .addAll(new DesugarLike(metadata, typeAnalyzer).rules())
+                        .build()));
 
         // Precomputed hashes - this assumes that partitioning will not change
         builder.add(new HashGenerationOptimizer(metadata));

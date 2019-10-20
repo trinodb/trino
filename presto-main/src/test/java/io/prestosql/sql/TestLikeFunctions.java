@@ -18,11 +18,11 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.prestosql.operator.scalar.AbstractTestFunctions;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.type.LikeFunctions;
 import org.testng.annotations.Test;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.type.LikeFunctions.castCharToLikePattern;
 import static io.prestosql.type.LikeFunctions.isLikePattern;
 import static io.prestosql.type.LikeFunctions.likeChar;
 import static io.prestosql.type.LikeFunctions.likePattern;
@@ -39,7 +39,7 @@ public class TestLikeFunctions
     @Test
     public void testLikeBasic()
     {
-        Regex regex = likePattern(utf8Slice("f%b__"));
+        Regex regex = LikeFunctions.compileLikePattern(utf8Slice("f%b__"));
         assertTrue(likeVarchar(utf8Slice("foobar"), regex));
 
         assertFunction("'foob' LIKE 'f%b__'", BOOLEAN, false);
@@ -49,7 +49,7 @@ public class TestLikeFunctions
     @Test
     public void testLikeChar()
     {
-        Regex regex = likePattern(utf8Slice("f%b__"));
+        Regex regex = LikeFunctions.compileLikePattern(utf8Slice("f%b__"));
         assertTrue(likeChar(6L, utf8Slice("foobar"), regex));
         assertTrue(likeChar(6L, utf8Slice("foob"), regex));
         assertFalse(likeChar(7L, utf8Slice("foob"), regex));
@@ -61,11 +61,11 @@ public class TestLikeFunctions
     @Test
     public void testLikeSpacesInPattern()
     {
-        Regex regex = likePattern(utf8Slice("ala  "));
+        Regex regex = LikeFunctions.compileLikePattern(utf8Slice("ala  "));
         assertTrue(likeVarchar(utf8Slice("ala  "), regex));
         assertFalse(likeVarchar(utf8Slice("ala"), regex));
 
-        regex = castCharToLikePattern(5L, utf8Slice("ala"));
+        regex = LikeFunctions.likePattern(5L, utf8Slice("ala"));
         assertTrue(likeVarchar(utf8Slice("ala  "), regex));
         assertFalse(likeVarchar(utf8Slice("ala"), regex));
     }
@@ -73,21 +73,21 @@ public class TestLikeFunctions
     @Test
     public void testLikeNewlineInPattern()
     {
-        Regex regex = likePattern(utf8Slice("%o\nbar"));
+        Regex regex = LikeFunctions.compileLikePattern(utf8Slice("%o\nbar"));
         assertTrue(likeVarchar(utf8Slice("foo\nbar"), regex));
     }
 
     @Test
     public void testLikeNewlineBeforeMatch()
     {
-        Regex regex = likePattern(utf8Slice("%b%"));
+        Regex regex = LikeFunctions.compileLikePattern(utf8Slice("%b%"));
         assertTrue(likeVarchar(utf8Slice("foo\nbar"), regex));
     }
 
     @Test
     public void testLikeNewlineInMatch()
     {
-        Regex regex = likePattern(utf8Slice("f%b%"));
+        Regex regex = LikeFunctions.compileLikePattern(utf8Slice("f%b%"));
         assertTrue(likeVarchar(utf8Slice("foo\nbar"), regex));
     }
 
@@ -110,7 +110,7 @@ public class TestLikeFunctions
     @Test
     public void testBackslashesNoSpecialTreatment()
     {
-        Regex regex = likePattern(utf8Slice("\\abc\\/\\\\"));
+        Regex regex = LikeFunctions.compileLikePattern(utf8Slice("\\abc\\/\\\\"));
         assertTrue(likeVarchar(utf8Slice("\\abc\\/\\\\"), regex));
     }
 

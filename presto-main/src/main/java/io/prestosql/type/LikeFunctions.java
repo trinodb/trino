@@ -22,9 +22,7 @@ import io.airlift.slice.Slices;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.function.LiteralParameter;
 import io.prestosql.spi.function.LiteralParameters;
-import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.ScalarOperator;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.StandardTypes;
 
@@ -39,6 +37,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class LikeFunctions
 {
+    public static final String LIKE_PATTERN_FUNCTION_NAME = "$like_pattern";
     private static final Syntax SYNTAX = new Syntax(
             OP_DOT_ANYCHAR | OP_ASTERISK_ZERO_INF | OP_LINE_ANCHOR,
             0,
@@ -74,28 +73,28 @@ public final class LikeFunctions
         return regexMatches(pattern, bytes);
     }
 
-    @ScalarOperator(OperatorType.CAST)
+    @ScalarFunction(value = LIKE_PATTERN_FUNCTION_NAME, hidden = true)
     @LiteralParameters("x")
     @SqlType(LikePatternType.NAME)
-    public static Regex castVarcharToLikePattern(@SqlType("varchar(x)") Slice pattern)
+    public static Regex likePattern(@SqlType("varchar(x)") Slice pattern)
     {
-        return likePattern(pattern);
+        return compileLikePattern(pattern);
     }
 
-    @ScalarOperator(OperatorType.CAST)
+    @ScalarFunction(value = LIKE_PATTERN_FUNCTION_NAME, hidden = true)
     @LiteralParameters("x")
     @SqlType(LikePatternType.NAME)
-    public static Regex castCharToLikePattern(@LiteralParameter("x") Long charLength, @SqlType("char(x)") Slice pattern)
+    public static Regex likePattern(@LiteralParameter("x") Long charLength, @SqlType("char(x)") Slice pattern)
     {
-        return likePattern(padSpaces(pattern, charLength.intValue()));
+        return compileLikePattern(padSpaces(pattern, charLength.intValue()));
     }
 
-    public static Regex likePattern(Slice pattern)
+    public static Regex compileLikePattern(Slice pattern)
     {
         return likePattern(pattern.toStringUtf8(), '0', false);
     }
 
-    @ScalarFunction
+    @ScalarFunction(value = LIKE_PATTERN_FUNCTION_NAME, hidden = true)
     @LiteralParameters({"x", "y"})
     @SqlType(LikePatternType.NAME)
     public static Regex likePattern(@SqlType("varchar(x)") Slice pattern, @SqlType("varchar(y)") Slice escape)

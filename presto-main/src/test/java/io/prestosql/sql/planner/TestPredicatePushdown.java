@@ -490,7 +490,7 @@ public class TestPredicatePushdown
         assertPlan(
                 "SELECT t1.orderstatus " +
                         "FROM (SELECT orderstatus FROM orders WHERE rand() = orderkey AND orderkey = 123) t1, (VALUES 'F', 'K') t2(col) " +
-                        "WHERE t1.orderstatus = t2.col AND (t2.col = 'F' OR t2.col = 'K') AND t1.orderstatus LIKE '%'",
+                        "WHERE t1.orderstatus = t2.col AND (t2.col = 'F' OR t2.col = 'K') AND length(t1.orderstatus) < 42",
                 Session.builder(getQueryRunner().getDefaultSession())
                         .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "false")
                         .build(),
@@ -498,7 +498,7 @@ public class TestPredicatePushdown
                         node(
                                 JoinNode.class,
                                 node(ProjectNode.class,
-                                        filter("(ORDERKEY = BIGINT '123') AND rand() = CAST(ORDERKEY AS double) AND ORDERSTATUS LIKE '%'",
+                                        filter("(ORDERKEY = BIGINT '123') AND rand() = CAST(ORDERKEY AS double) AND length(ORDERSTATUS) < BIGINT '42'",
                                                 tableScan(
                                                         "orders",
                                                         ImmutableMap.of(
