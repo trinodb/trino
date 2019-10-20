@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.slice.Slice;
 import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
@@ -83,6 +84,8 @@ public class DecimalAverageAggregation
                         AGGREGATE,
                         new TypeSignature("decimal", typeVariable("p"), typeVariable("s")),
                         ImmutableList.of(new TypeSignature("decimal", typeVariable("p"), typeVariable("s")))),
+                true,
+                ImmutableList.of(new FunctionArgumentDefinition(false)),
                 false,
                 true,
                 "Calculates the average value"));

@@ -16,6 +16,7 @@ package io.prestosql.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
@@ -81,6 +82,8 @@ public final class ZipFunction
                                 .map(name -> arrayType(new TypeSignature(name)))
                                 .collect(toImmutableList()),
                         false),
+                false,
+                nCopies(typeParameters.size(), new FunctionArgumentDefinition(false)),
                 false,
                 true,
                 "Merges the given arrays, element-wise, into a single array of rows."));

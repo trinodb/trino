@@ -67,7 +67,8 @@ public class JsonToMapCast
                 ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")),
                 ImmutableList.of(),
                 mapType(new TypeSignature("K"), new TypeSignature("V")),
-                ImmutableList.of(JSON.getTypeSignature()));
+                ImmutableList.of(JSON.getTypeSignature()),
+                true);
     }
 
     @Override

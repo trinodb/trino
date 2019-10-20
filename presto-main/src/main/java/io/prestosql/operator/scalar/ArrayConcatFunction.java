@@ -16,6 +16,7 @@ package io.prestosql.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
@@ -63,6 +64,8 @@ public final class ArrayConcatFunction
                         arrayType(new TypeSignature("E")),
                         ImmutableList.of(arrayType(new TypeSignature("E"))),
                         true),
+                false,
+                ImmutableList.of(new FunctionArgumentDefinition(false)),
                 false,
                 true,
                 DESCRIPTION));

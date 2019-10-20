@@ -36,6 +36,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.metadata.SignatureBinder.applyBoundVariables;
@@ -59,10 +60,17 @@ public class ParametricAggregation
             AggregationHeader details,
             ParametricImplementationsGroup<AggregationImplementation> implementations)
     {
-        super(new FunctionMetadata(signature, details.isHidden(), true, details.getDescription().orElse("")));
+        super(new FunctionMetadata(
+                signature,
+                true,
+                implementations.getArgumentDefinitions(),
+                details.isHidden(),
+                true,
+                details.getDescription().orElse("")));
         requireNonNull(details, "details is null");
         this.decomposable = details.isDecomposable();
         this.orderSensitive = details.isOrderSensitive();
+        checkArgument(implementations.isNullable(), "currently aggregates are required to be nullable");
         this.implementations = requireNonNull(implementations, "implementations is null");
     }
 

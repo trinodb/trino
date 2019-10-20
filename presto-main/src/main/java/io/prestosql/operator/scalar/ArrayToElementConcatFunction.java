@@ -16,6 +16,7 @@ package io.prestosql.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
@@ -56,6 +57,10 @@ public class ArrayToElementConcatFunction
                         arrayType(new TypeSignature("E")),
                         ImmutableList.of(arrayType(new TypeSignature("E")), new TypeSignature("E")),
                         false),
+                false,
+                ImmutableList.of(
+                        new FunctionArgumentDefinition(false),
+                        new FunctionArgumentDefinition(false)),
                 false,
                 true,
                 "Concatenates an array to an element"));

@@ -56,7 +56,8 @@ public class ArraySubscriptOperator
                 ImmutableList.of(typeVariable("E")),
                 ImmutableList.of(),
                 new TypeSignature("E"),
-                ImmutableList.of(arrayType(new TypeSignature("E")), BIGINT.getTypeSignature()));
+                ImmutableList.of(arrayType(new TypeSignature("E")), BIGINT.getTypeSignature()),
+                true);
     }
 
     @Override

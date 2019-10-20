@@ -69,7 +69,8 @@ public class JsonToRowCast
                 ImmutableList.of(withVariadicBound("T", "row")),
                 ImmutableList.of(),
                 new TypeSignature("T"),
-                ImmutableList.of(JSON.getTypeSignature()));
+                ImmutableList.of(JSON.getTypeSignature()),
+                true);
     }
 
     @Override

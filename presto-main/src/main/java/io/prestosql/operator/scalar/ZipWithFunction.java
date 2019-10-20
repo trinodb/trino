@@ -15,6 +15,7 @@ package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
@@ -65,6 +66,11 @@ public final class ZipWithFunction
                                 arrayType(new TypeSignature("U")),
                                 functionType(new TypeSignature("T"), new TypeSignature("U"), new TypeSignature("R"))),
                         false),
+                false,
+                ImmutableList.of(
+                                        new FunctionArgumentDefinition(false),
+                                        new FunctionArgumentDefinition(false),
+                                        new FunctionArgumentDefinition(false)),
                 false,
                 false,
                 "merge two arrays, element-wise, into a single array using the lambda function"));

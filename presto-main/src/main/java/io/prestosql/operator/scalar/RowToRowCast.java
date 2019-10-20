@@ -72,7 +72,12 @@ public class RowToRowCast
 
     private RowToRowCast()
     {
-        super(CAST, ImmutableList.of(withVariadicBound("F", "row"), withVariadicBound("T", "row")), ImmutableList.of(), new TypeSignature("T"), ImmutableList.of(new TypeSignature("F")));
+        super(CAST,
+                ImmutableList.of(withVariadicBound("F", "row"), withVariadicBound("T", "row")),
+                ImmutableList.of(),
+                new TypeSignature("T"),
+                ImmutableList.of(new TypeSignature("F")),
+                false);
     }
 
     @Override

@@ -16,6 +16,7 @@ package io.prestosql.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
@@ -81,6 +82,10 @@ public final class MapConstructor
                         TypeSignature.mapType(new TypeSignature("K"), new TypeSignature("V")),
                         ImmutableList.of(arrayType(new TypeSignature("K")), arrayType(new TypeSignature("V"))),
                         false),
+                false,
+                ImmutableList.of(
+                        new FunctionArgumentDefinition(false),
+                        new FunctionArgumentDefinition(false)),
                 false,
                 true,
                 DESCRIPTION));

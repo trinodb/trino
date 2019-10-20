@@ -16,6 +16,7 @@ package io.prestosql.operator.scalar;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.FunctionListBuilder;
 import io.prestosql.metadata.FunctionMetadata;
@@ -215,6 +216,10 @@ public class BenchmarkArrayFilter
                                     arrayType(new TypeSignature("T")),
                                     functionType(new TypeSignature("T"), BOOLEAN.getTypeSignature())),
                             false),
+                    false,
+                    ImmutableList.of(
+                            new FunctionArgumentDefinition(false),
+                            new FunctionArgumentDefinition(false)),
                     false,
                     false,
                     "return array containing elements that match the given predicate"));

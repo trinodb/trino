@@ -63,7 +63,12 @@ public class RowIndeterminateOperator
 
     private RowIndeterminateOperator()
     {
-        super(INDETERMINATE, ImmutableList.of(withVariadicBound("T", "row")), ImmutableList.of(), BOOLEAN.getTypeSignature(), ImmutableList.of(new TypeSignature("T")));
+        super(INDETERMINATE,
+                ImmutableList.of(withVariadicBound("T", "row")),
+                ImmutableList.of(),
+                BOOLEAN.getTypeSignature(),
+                ImmutableList.of(new TypeSignature("T")),
+                false);
     }
 
     @Override

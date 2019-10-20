@@ -44,7 +44,8 @@ public class RowHashCodeOperator
                 ImmutableList.of(comparableWithVariadicBound("T", "row")),
                 ImmutableList.of(),
                 BIGINT.getTypeSignature(),
-                ImmutableList.of(new TypeSignature("T")));
+                ImmutableList.of(new TypeSignature("T")),
+                false);
     }
 
     @Override

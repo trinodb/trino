@@ -16,6 +16,7 @@ package io.prestosql.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
@@ -69,6 +70,10 @@ public class MapAggregationFunction
                         mapType(new TypeSignature("K"), new TypeSignature("V")),
                         ImmutableList.of(new TypeSignature("K"), new TypeSignature("V")),
                         false),
+                true,
+                ImmutableList.of(
+                        new FunctionArgumentDefinition(false),
+                        new FunctionArgumentDefinition(true)),
                 false,
                 true,
                 "Aggregates all the rows (key/value pairs) into a single map"));

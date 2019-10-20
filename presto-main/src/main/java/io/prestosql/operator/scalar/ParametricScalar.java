@@ -46,6 +46,8 @@ public class ParametricScalar
     {
         super(new FunctionMetadata(
                 signature,
+                implementations.isNullable(),
+                implementations.getArgumentDefinitions(),
                 details.isHidden(),
                 details.isDeterministic(),
                 details.getDescription().orElse("")));

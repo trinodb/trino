@@ -356,8 +356,11 @@ public class TestFunctionRegistry
         {
             ImmutableList.Builder<SqlFunction> functions = ImmutableList.builder();
             for (SignatureBuilder functionSignature : functionSignatures) {
+                Signature signature = functionSignature.name(TEST_FUNCTION_NAME).build();
                 FunctionMetadata functionMetadata = new FunctionMetadata(
-                        functionSignature.name(TEST_FUNCTION_NAME).build(),
+                        signature,
+                        false,
+                        nCopies(signature.getArgumentTypes().size(), new FunctionArgumentDefinition(false)),
                         false,
                         false,
                         "testing function that does nothing");

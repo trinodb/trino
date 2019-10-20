@@ -54,7 +54,8 @@ public class RowDistinctFromOperator
                 ImmutableList.of(comparableWithVariadicBound("T", "row")),
                 ImmutableList.of(),
                 BOOLEAN.getTypeSignature(),
-                ImmutableList.of(new TypeSignature("T"), new TypeSignature("T")));
+                ImmutableList.of(new TypeSignature("T"), new TypeSignature("T")),
+                false);
     }
 
     @Override

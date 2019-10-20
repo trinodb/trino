@@ -42,7 +42,8 @@ public abstract class RowComparisonOperator
                 ImmutableList.of(orderableWithVariadicBound("T", StandardTypes.ROW)),
                 ImmutableList.of(),
                 BOOLEAN.getTypeSignature(),
-                ImmutableList.of(new TypeSignature("T"), new TypeSignature("T")));
+                ImmutableList.of(new TypeSignature("T"), new TypeSignature("T")),
+                false);
     }
 
     protected List<MethodHandle> getMethodHandles(RowType type, Metadata metadata, OperatorType operatorType)

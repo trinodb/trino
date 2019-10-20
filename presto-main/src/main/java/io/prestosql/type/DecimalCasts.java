@@ -138,6 +138,7 @@ public final class DecimalCasts
                 .build();
         return SqlScalarFunction.builder(DecimalCasts.class)
                 .signature(signature)
+                .nullableResult(nullableResult)
                 .deterministic(true)
                 .choice(choice -> choice
                         .nullableResult(nullableResult)

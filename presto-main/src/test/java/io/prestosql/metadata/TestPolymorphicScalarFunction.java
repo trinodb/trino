@@ -84,6 +84,9 @@ public class TestPolymorphicScalarFunction
 
         SqlScalarFunction function = SqlScalarFunction.builder(TestMethods.class)
                 .signature(signature)
+                .argumentDefinitions(
+                        new FunctionArgumentDefinition(true),
+                        new FunctionArgumentDefinition(true))
                 .deterministic(true)
                 .choice(choice -> choice
                         .argumentProperties(

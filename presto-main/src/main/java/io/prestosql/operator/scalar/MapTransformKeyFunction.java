@@ -26,6 +26,7 @@ import io.airlift.bytecode.control.ForLoop;
 import io.airlift.bytecode.control.IfStatement;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
@@ -102,6 +103,10 @@ public final class MapTransformKeyFunction
                                 mapType(new TypeSignature("K1"), new TypeSignature("V")),
                                 functionType(new TypeSignature("K1"), new TypeSignature("V"), new TypeSignature("K2"))),
                         false),
+                false,
+                ImmutableList.of(
+                                        new FunctionArgumentDefinition(false),
+                                        new FunctionArgumentDefinition(false)),
                 false,
                 false,
                 "apply lambda to each entry of the map and transform the key"));

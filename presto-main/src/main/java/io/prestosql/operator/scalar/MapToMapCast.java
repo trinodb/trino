@@ -75,7 +75,8 @@ public final class MapToMapCast
                 ImmutableList.of(typeVariable("FK"), typeVariable("FV"), typeVariable("TK"), typeVariable("TV")),
                 ImmutableList.of(),
                 mapType(new TypeSignature("TK"), new TypeSignature("TV")),
-                ImmutableList.of(mapType(new TypeSignature("FK"), new TypeSignature("FV"))));
+                ImmutableList.of(mapType(new TypeSignature("FK"), new TypeSignature("FV"))),
+                true);
     }
 
     @Override

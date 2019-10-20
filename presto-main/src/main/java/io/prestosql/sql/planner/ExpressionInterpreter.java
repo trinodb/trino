@@ -27,7 +27,6 @@ import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.operator.scalar.ArraySubscriptOperator;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
@@ -120,7 +119,6 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.metadata.LiteralFunction.isSupportedLiteralType;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
@@ -938,10 +936,9 @@ public class ExpressionInterpreter
             ResolvedFunction resolvedFunction = ResolvedFunction.fromQualifiedName(node.getName())
                     .orElseThrow(() -> new IllegalArgumentException("function call has not been resolved: " + node));
             FunctionMetadata functionMetadata = metadata.getFunctionMetadata(resolvedFunction);
-            ScalarFunctionImplementation function = metadata.getScalarFunctionImplementation(resolvedFunction);
             for (int i = 0; i < argumentValues.size(); i++) {
                 Object value = argumentValues.get(i);
-                if (value == null && function.getArgumentProperty(i).getNullConvention() == RETURN_NULL_ON_NULL) {
+                if (value == null && !functionMetadata.getArgumentDefinitions().get(i).isNullable()) {
                     return null;
                 }
             }

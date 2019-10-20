@@ -15,6 +15,7 @@ package io.prestosql.tests;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
@@ -52,6 +53,12 @@ public class StatefulSleepingSum
                         BIGINT.getTypeSignature(),
                         ImmutableList.of(DOUBLE.getTypeSignature(), BIGINT.getTypeSignature(), BIGINT.getTypeSignature(), BIGINT.getTypeSignature()),
                         false),
+                false,
+                ImmutableList.of(
+                        new FunctionArgumentDefinition(false),
+                        new FunctionArgumentDefinition(false),
+                        new FunctionArgumentDefinition(false),
+                        new FunctionArgumentDefinition(false)),
                 true,
                 true,
                 "testing not thread safe function"));

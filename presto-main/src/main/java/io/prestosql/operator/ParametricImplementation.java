@@ -13,11 +13,18 @@
  */
 package io.prestosql.operator;
 
+import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.Signature;
+
+import java.util.List;
 
 public interface ParametricImplementation
 {
     Signature getSignature();
 
     boolean hasSpecializedTypeParameters();
+
+    boolean isNullable();
+
+    List<FunctionArgumentDefinition> getArgumentDefinitions();
 }

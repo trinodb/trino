@@ -14,12 +14,14 @@
 package io.prestosql.operator.window;
 
 import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlFunction;
 
 import static com.google.common.base.Strings.nullToEmpty;
+import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 
 public class SqlWindowFunction
@@ -34,6 +36,8 @@ public class SqlWindowFunction
         Signature signature = supplier.getSignature();
         functionMetadata = new FunctionMetadata(
                 signature,
+                true,
+                nCopies(signature.getArgumentTypes().size(), new FunctionArgumentDefinition(true)),
                 false,
                 true,
                 nullToEmpty(supplier.getDescription()));
