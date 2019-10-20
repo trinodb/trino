@@ -33,4 +33,5 @@ COPY --chown=presto:presto presto-server-${PRESTO_VERSION} /usr/lib/presto
 
 EXPOSE 8080
 USER presto:presto
+ENV LANG en_US.UTF-8
 CMD ["/usr/lib/presto/bin/run-presto"]
