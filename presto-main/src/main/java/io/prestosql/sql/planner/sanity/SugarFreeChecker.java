@@ -22,6 +22,7 @@ import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.plan.PlanNode;
+import io.prestosql.sql.tree.ArrayConstructor;
 import io.prestosql.sql.tree.AtTimeZone;
 import io.prestosql.sql.tree.CurrentPath;
 import io.prestosql.sql.tree.CurrentUser;
@@ -86,6 +87,12 @@ public final class SugarFreeChecker
 
         @Override
         protected Void visitLikePredicate(LikePredicate node, Builder<Symbol> context)
+        {
+            throw createIllegalNodeException(node);
+        }
+
+        @Override
+        protected Void visitArrayConstructor(ArrayConstructor node, Builder<Symbol> context)
         {
             throw createIllegalNodeException(node);
         }

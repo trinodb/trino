@@ -23,6 +23,7 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.sql.analyzer.ExpressionAnalyzer;
 import io.prestosql.sql.analyzer.Scope;
 import io.prestosql.sql.parser.SqlParser;
+import io.prestosql.sql.planner.DesugarArrayConstructorRewriter;
 import io.prestosql.sql.planner.DesugarLikeRewriter;
 import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
@@ -86,6 +87,7 @@ public final class ExpressionTestUtils
     {
         expression = rewriteIdentifiersToSymbolReferences(expression);
         expression = DesugarLikeRewriter.rewrite(expression, session, metadata, new TypeAnalyzer(SQL_PARSER, metadata), typeProvider);
+        expression = DesugarArrayConstructorRewriter.rewrite(expression, session, metadata, new TypeAnalyzer(SQL_PARSER, metadata), typeProvider);
         return resolveFunctionCalls(metadata, session, typeProvider, expression);
     }
 

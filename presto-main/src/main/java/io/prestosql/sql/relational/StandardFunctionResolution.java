@@ -20,9 +20,6 @@ import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.tree.ArithmeticBinaryExpression;
 import io.prestosql.sql.tree.ComparisonExpression;
-import io.prestosql.sql.tree.QualifiedName;
-
-import java.util.List;
 
 import static io.prestosql.spi.function.OperatorType.ADD;
 import static io.prestosql.spi.function.OperatorType.DIVIDE;
@@ -36,8 +33,6 @@ import static io.prestosql.spi.function.OperatorType.MODULUS;
 import static io.prestosql.spi.function.OperatorType.MULTIPLY;
 import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
 import static io.prestosql.spi.function.OperatorType.SUBTRACT;
-import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.prestosql.sql.tree.ArrayConstructor.ARRAY_CONSTRUCTOR;
 import static java.util.Objects.requireNonNull;
 
 public final class StandardFunctionResolution
@@ -72,11 +67,6 @@ public final class StandardFunctionResolution
                 throw new IllegalStateException("Unknown arithmetic operator: " + operator);
         }
         return metadata.resolveOperator(operatorType, ImmutableList.of(leftType, rightType));
-    }
-
-    public ResolvedFunction arrayConstructor(List<? extends Type> argumentTypes)
-    {
-        return metadata.resolveFunction(QualifiedName.of(ARRAY_CONSTRUCTOR), fromTypes(argumentTypes));
     }
 
     public ResolvedFunction comparisonFunction(ComparisonExpression.Operator operator, Type leftType, Type rightType)

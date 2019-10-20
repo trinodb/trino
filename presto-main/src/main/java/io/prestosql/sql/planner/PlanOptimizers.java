@@ -30,6 +30,7 @@ import io.prestosql.sql.planner.iterative.rule.AddExchangesBelowPartialAggregati
 import io.prestosql.sql.planner.iterative.rule.AddIntermediateAggregations;
 import io.prestosql.sql.planner.iterative.rule.CanonicalizeExpressions;
 import io.prestosql.sql.planner.iterative.rule.CreatePartialTopN;
+import io.prestosql.sql.planner.iterative.rule.DesugarArrayConstructor;
 import io.prestosql.sql.planner.iterative.rule.DesugarAtTimeZone;
 import io.prestosql.sql.planner.iterative.rule.DesugarCurrentPath;
 import io.prestosql.sql.planner.iterative.rule.DesugarCurrentUser;
@@ -600,6 +601,7 @@ public class PlanOptimizers
                 costCalculator,
                 ImmutableSet.<Rule<?>>builder()
                         .addAll(new DesugarLike(metadata, typeAnalyzer).rules())
+                        .addAll(new DesugarArrayConstructor(metadata, typeAnalyzer).rules())
                         .build()));
 
         // Precomputed hashes - this assumes that partitioning will not change
