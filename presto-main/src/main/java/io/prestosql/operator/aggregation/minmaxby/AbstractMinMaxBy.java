@@ -89,22 +89,25 @@ public abstract class AbstractMinMaxBy
 
     protected AbstractMinMaxBy(boolean min, String description)
     {
-        super(new FunctionMetadata(
-                new Signature(
-                        (min ? "min" : "max") + "_by",
-                        ImmutableList.of(orderableTypeParameter("K"), typeVariable("V")),
-                        ImmutableList.of(),
-                        new TypeSignature("V"),
-                        ImmutableList.of(new TypeSignature("V"), new TypeSignature("K")),
-                        false),
+        super(
+                new FunctionMetadata(
+                        new Signature(
+                                (min ? "min" : "max") + "_by",
+                                ImmutableList.of(orderableTypeParameter("K"), typeVariable("V")),
+                                ImmutableList.of(),
+                                new TypeSignature("V"),
+                                ImmutableList.of(new TypeSignature("V"), new TypeSignature("K")),
+                                false),
+                        true,
+                        ImmutableList.of(
+                                new FunctionArgumentDefinition(true),
+                                new FunctionArgumentDefinition(false)),
+                        false,
+                        true,
+                        description,
+                        AGGREGATE),
                 true,
-                ImmutableList.of(
-                        new FunctionArgumentDefinition(true),
-                        new FunctionArgumentDefinition(false)),
-                false,
-                true,
-                description,
-                AGGREGATE));
+                false);
         this.min = min;
     }
 

@@ -27,6 +27,8 @@ public abstract class SqlAggregationFunction
         implements SqlFunction
 {
     private final FunctionMetadata functionMetadata;
+    private final boolean orderSensitive;
+    private final boolean decomposable;
 
     public static List<SqlAggregationFunction> createFunctionByAnnotations(Class<?> aggregationDefinition)
     {
@@ -41,16 +43,28 @@ public abstract class SqlAggregationFunction
                 .collect(toImmutableList());
     }
 
-    protected SqlAggregationFunction(FunctionMetadata functionMetadata)
+    protected SqlAggregationFunction(FunctionMetadata functionMetadata, boolean decomposable, boolean orderSensitive)
     {
         this.functionMetadata = requireNonNull(functionMetadata, "functionMetadata is null");
         checkArgument(functionMetadata.isDeterministic(), "Aggregation function must be deterministic");
+        this.orderSensitive = orderSensitive;
+        this.decomposable = decomposable;
     }
 
     @Override
     public FunctionMetadata getFunctionMetadata()
     {
         return functionMetadata;
+    }
+
+    public boolean isOrderSensitive()
+    {
+        return orderSensitive;
+    }
+
+    public boolean isDecomposable()
+    {
+        return decomposable;
     }
 
     public abstract InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, Metadata metadata);

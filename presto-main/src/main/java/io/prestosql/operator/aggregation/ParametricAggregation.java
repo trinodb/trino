@@ -53,25 +53,24 @@ public class ParametricAggregation
         extends SqlAggregationFunction
 {
     private final ParametricImplementationsGroup<AggregationImplementation> implementations;
-    private final boolean decomposable;
-    private final boolean orderSensitive;
 
     public ParametricAggregation(
             Signature signature,
             AggregationHeader details,
             ParametricImplementationsGroup<AggregationImplementation> implementations)
     {
-        super(new FunctionMetadata(
-                signature,
-                true,
-                implementations.getArgumentDefinitions(),
-                details.isHidden(),
-                true,
-                details.getDescription().orElse(""),
-                AGGREGATE));
+        super(
+                new FunctionMetadata(
+                        signature,
+                        true,
+                        implementations.getArgumentDefinitions(),
+                        details.isHidden(),
+                        true,
+                        details.getDescription().orElse(""),
+                        AGGREGATE),
+                details.isDecomposable(),
+                details.isOrderSensitive());
         requireNonNull(details, "details is null");
-        this.decomposable = details.isDecomposable();
-        this.orderSensitive = details.isOrderSensitive();
         checkArgument(implementations.isNullable(), "currently aggregates are required to be nullable");
         this.implementations = requireNonNull(implementations, "implementations is null");
     }
@@ -132,8 +131,8 @@ public class ParametricAggregation
                 inputTypes,
                 ImmutableList.of(stateSerializer.getSerializedType()),
                 outputType,
-                decomposable,
-                orderSensitive,
+                isDecomposable(),
+                isOrderSensitive(),
                 new LazyAccumulatorFactoryBinder(aggregationMetadata, classLoader));
     }
 

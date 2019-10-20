@@ -81,20 +81,23 @@ public abstract class AbstractMinMaxAggregationFunction
 
     protected AbstractMinMaxAggregationFunction(String name, boolean min, String description)
     {
-        super(new FunctionMetadata(
-                new Signature(
-                        name,
-                        ImmutableList.of(orderableTypeParameter("E")),
-                        ImmutableList.of(),
-                        new TypeSignature("E"),
-                        ImmutableList.of(new TypeSignature("E")),
-                        false),
+        super(
+                new FunctionMetadata(
+                        new Signature(
+                                name,
+                                ImmutableList.of(orderableTypeParameter("E")),
+                                ImmutableList.of(),
+                                new TypeSignature("E"),
+                                ImmutableList.of(new TypeSignature("E")),
+                                false),
+                        true,
+                        ImmutableList.of(new FunctionArgumentDefinition(false)),
+                        false,
+                        true,
+                        description,
+                        AGGREGATE),
                 true,
-                ImmutableList.of(new FunctionArgumentDefinition(false)),
-                false,
-                true,
-                description,
-                AGGREGATE));
+                false);
         this.min = min;
         this.operatorType = min ? LESS_THAN : GREATER_THAN;
     }

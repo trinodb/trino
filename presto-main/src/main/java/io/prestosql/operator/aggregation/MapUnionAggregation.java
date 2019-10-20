@@ -59,20 +59,23 @@ public class MapUnionAggregation
 
     public MapUnionAggregation()
     {
-        super(new FunctionMetadata(
-                new Signature(
-                        NAME,
-                        ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")),
-                        ImmutableList.of(),
-                        mapType(new TypeSignature("K"), new TypeSignature("V")),
-                        ImmutableList.of(mapType(new TypeSignature("K"), new TypeSignature("V"))),
-                        false),
+        super(
+                new FunctionMetadata(
+                        new Signature(
+                                NAME,
+                                ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")),
+                                ImmutableList.of(),
+                                mapType(new TypeSignature("K"), new TypeSignature("V")),
+                                ImmutableList.of(mapType(new TypeSignature("K"), new TypeSignature("V"))),
+                                false),
+                        true,
+                        ImmutableList.of(new FunctionArgumentDefinition(false)),
+                        false,
+                        true,
+                        "Aggregate all the maps into a single map",
+                        AGGREGATE),
                 true,
-                ImmutableList.of(new FunctionArgumentDefinition(false)),
-                false,
-                true,
-                "Aggregate all the maps into a single map",
-                AGGREGATE));
+                false);
     }
 
     @Override

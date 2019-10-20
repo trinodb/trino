@@ -1346,6 +1346,12 @@ public final class MetadataManager
     }
 
     @Override
+    public AggregationFunctionMetadata getAggregationFunctionMetadata(ResolvedFunction resolvedFunction)
+    {
+        return functions.getAggregationFunctionMetadata(resolvedFunction);
+    }
+
+    @Override
     public WindowFunctionSupplier getWindowFunctionImplementation(ResolvedFunction resolvedFunction)
     {
         return functions.getWindowFunctionImplementation(resolvedFunction);

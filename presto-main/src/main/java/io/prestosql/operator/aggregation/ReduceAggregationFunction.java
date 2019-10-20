@@ -67,28 +67,31 @@ public class ReduceAggregationFunction
 
     public ReduceAggregationFunction()
     {
-        super(new FunctionMetadata(
-                new Signature(
-                        NAME,
-                        ImmutableList.of(typeVariable("T"), typeVariable("S")),
-                        ImmutableList.of(),
-                        new TypeSignature("S"),
-                        ImmutableList.of(
-                                new TypeSignature("T"),
+        super(
+                new FunctionMetadata(
+                        new Signature(
+                                NAME,
+                                ImmutableList.of(typeVariable("T"), typeVariable("S")),
+                                ImmutableList.of(),
                                 new TypeSignature("S"),
-                                functionType(new TypeSignature("S"), new TypeSignature("T"), new TypeSignature("S")),
-                                functionType(new TypeSignature("S"), new TypeSignature("S"), new TypeSignature("S"))),
-                        false),
+                                ImmutableList.of(
+                                        new TypeSignature("T"),
+                                        new TypeSignature("S"),
+                                        functionType(new TypeSignature("S"), new TypeSignature("T"), new TypeSignature("S")),
+                                        functionType(new TypeSignature("S"), new TypeSignature("S"), new TypeSignature("S"))),
+                                false),
+                        true,
+                        ImmutableList.of(
+                                new FunctionArgumentDefinition(false),
+                                new FunctionArgumentDefinition(false),
+                                new FunctionArgumentDefinition(false),
+                                new FunctionArgumentDefinition(false)),
+                        false,
+                        true,
+                        "Reduce input elements into a single value",
+                        AGGREGATE),
                 true,
-                ImmutableList.of(
-                        new FunctionArgumentDefinition(false),
-                        new FunctionArgumentDefinition(false),
-                        new FunctionArgumentDefinition(false),
-                        new FunctionArgumentDefinition(false)),
-                false,
-                true,
-                "Reduce input elements into a single value",
-                AGGREGATE));
+                false);
     }
 
     @Override

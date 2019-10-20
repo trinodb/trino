@@ -78,17 +78,20 @@ public class DecimalAverageAggregation
 
     public DecimalAverageAggregation()
     {
-        super(new FunctionMetadata(
-                new Signature(
-                        NAME,
-                        new TypeSignature("decimal", typeVariable("p"), typeVariable("s")),
-                        ImmutableList.of(new TypeSignature("decimal", typeVariable("p"), typeVariable("s")))),
+        super(
+                new FunctionMetadata(
+                        new Signature(
+                                NAME,
+                                new TypeSignature("decimal", typeVariable("p"), typeVariable("s")),
+                                ImmutableList.of(new TypeSignature("decimal", typeVariable("p"), typeVariable("s")))),
+                        true,
+                        ImmutableList.of(new FunctionArgumentDefinition(false)),
+                        false,
+                        true,
+                        "Calculates the average value",
+                        AGGREGATE),
                 true,
-                ImmutableList.of(new FunctionArgumentDefinition(false)),
-                false,
-                true,
-                "Calculates the average value",
-                AGGREGATE));
+                false);
     }
 
     @Override

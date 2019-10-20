@@ -62,20 +62,23 @@ public class ArrayAggregationFunction
 
     public ArrayAggregationFunction(ArrayAggGroupImplementation groupMode)
     {
-        super(new FunctionMetadata(
-                new Signature(
-                        NAME,
-                        ImmutableList.of(typeVariable("T")),
-                        ImmutableList.of(),
-                        TypeSignature.arrayType(new TypeSignature("T")),
-                        ImmutableList.of(new TypeSignature("T")),
-                        false),
+        super(
+                new FunctionMetadata(
+                        new Signature(
+                                NAME,
+                                ImmutableList.of(typeVariable("T")),
+                                ImmutableList.of(),
+                                TypeSignature.arrayType(new TypeSignature("T")),
+                                ImmutableList.of(new TypeSignature("T")),
+                                false),
+                        true,
+                        ImmutableList.of(new FunctionArgumentDefinition(true)),
+                        false,
+                        true,
+                        "return an array of values",
+                        AGGREGATE),
                 true,
-                ImmutableList.of(new FunctionArgumentDefinition(true)),
-                false,
-                true,
-                "return an array of values",
-                AGGREGATE));
+                true);
         this.groupMode = requireNonNull(groupMode, "groupMode is null");
     }
 

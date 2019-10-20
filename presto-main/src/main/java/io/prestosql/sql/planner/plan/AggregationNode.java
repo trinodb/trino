@@ -19,9 +19,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import io.prestosql.metadata.AggregationFunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.operator.aggregation.InternalAggregationFunction;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.planner.OrderingScheme;
 import io.prestosql.sql.planner.Symbol;
@@ -229,8 +229,9 @@ public class AggregationNode
 
         boolean decomposableFunctions = getAggregations().values().stream()
                 .map(Aggregation::getResolvedFunction)
-                .map(metadata::getAggregateFunctionImplementation)
-                .allMatch(InternalAggregationFunction::isDecomposable);
+                .map(metadata::getAggregationFunctionMetadata)
+                .map(AggregationFunctionMetadata::getIntermediateType)
+                .allMatch(Optional::isPresent);
 
         return !hasOrderBy && !hasDistinct && decomposableFunctions;
     }

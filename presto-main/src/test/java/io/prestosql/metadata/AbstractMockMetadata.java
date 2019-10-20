@@ -604,6 +604,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public AggregationFunctionMetadata getAggregationFunctionMetadata(ResolvedFunction resolvedFunction)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public WindowFunctionSupplier getWindowFunctionImplementation(ResolvedFunction resolvedFunction)
     {
         throw new UnsupportedOperationException();
