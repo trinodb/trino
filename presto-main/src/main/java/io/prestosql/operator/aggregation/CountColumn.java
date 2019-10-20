@@ -58,20 +58,23 @@ public class CountColumn
 
     public CountColumn()
     {
-        super(new FunctionMetadata(
-                new Signature(
-                        NAME,
-                        ImmutableList.of(typeVariable("T")),
-                        ImmutableList.of(),
-                        BIGINT.getTypeSignature(),
-                        ImmutableList.of(new TypeSignature("T")),
-                        false),
+        super(
+                new FunctionMetadata(
+                        new Signature(
+                                NAME,
+                                ImmutableList.of(typeVariable("T")),
+                                ImmutableList.of(),
+                                BIGINT.getTypeSignature(),
+                                ImmutableList.of(new TypeSignature("T")),
+                                false),
+                        true,
+                        ImmutableList.of(new FunctionArgumentDefinition(false)),
+                        false,
+                        true,
+                        "Counts the non-null values",
+                        AGGREGATE),
                 true,
-                ImmutableList.of(new FunctionArgumentDefinition(false)),
-                false,
-                true,
-                "Counts the non-null values",
-                AGGREGATE));
+                false);
     }
 
     @Override

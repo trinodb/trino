@@ -71,23 +71,26 @@ public abstract class AbstractMinMaxByNAggregationFunction
 
     protected AbstractMinMaxByNAggregationFunction(String name, Function<Type, BlockComparator> typeToComparator, String description)
     {
-        super(new FunctionMetadata(
-                new Signature(
-                        name,
-                        ImmutableList.of(typeVariable("V"), orderableTypeParameter("K")),
-                        ImmutableList.of(),
-                        TypeSignature.arrayType(new TypeSignature("V")),
-                        ImmutableList.of(new TypeSignature("V"), new TypeSignature("K"), BIGINT.getTypeSignature()),
-                        false),
+        super(
+                new FunctionMetadata(
+                        new Signature(
+                                name,
+                                ImmutableList.of(typeVariable("V"), orderableTypeParameter("K")),
+                                ImmutableList.of(),
+                                TypeSignature.arrayType(new TypeSignature("V")),
+                                ImmutableList.of(new TypeSignature("V"), new TypeSignature("K"), BIGINT.getTypeSignature()),
+                                false),
+                        true,
+                        ImmutableList.of(
+                                new FunctionArgumentDefinition(true),
+                                new FunctionArgumentDefinition(false),
+                                new FunctionArgumentDefinition(false)),
+                        false,
+                        true,
+                        description,
+                        AGGREGATE),
                 true,
-                ImmutableList.of(
-                        new FunctionArgumentDefinition(true),
-                        new FunctionArgumentDefinition(false),
-                        new FunctionArgumentDefinition(false)),
-                false,
-                true,
-                description,
-                AGGREGATE));
+                false);
         this.name = requireNonNull(name, "name is null");
         this.typeToComparator = requireNonNull(typeToComparator, "typeToComparator is null");
     }

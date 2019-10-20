@@ -59,20 +59,23 @@ public class RealAverageAggregation
 
     protected RealAverageAggregation()
     {
-        super(new FunctionMetadata(
-                new Signature(
-                        NAME,
-                        ImmutableList.of(),
-                        ImmutableList.of(),
-                        REAL.getTypeSignature(),
-                        ImmutableList.of(REAL.getTypeSignature()),
-                        false),
+        super(
+                new FunctionMetadata(
+                        new Signature(
+                                NAME,
+                                ImmutableList.of(),
+                                ImmutableList.of(),
+                                REAL.getTypeSignature(),
+                                ImmutableList.of(REAL.getTypeSignature()),
+                                false),
+                        true,
+                        ImmutableList.of(new FunctionArgumentDefinition(false)),
+                        false,
+                        true,
+                        "Returns the average value of the argument",
+                        AGGREGATE),
                 true,
-                ImmutableList.of(new FunctionArgumentDefinition(false)),
-                false,
-                true,
-                "Returns the average value of the argument",
-                AGGREGATE));
+                false);
     }
 
     @Override

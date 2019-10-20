@@ -76,20 +76,23 @@ public final class QuantileDigestAggregationFunction
 
     private QuantileDigestAggregationFunction(TypeSignature... typeSignatures)
     {
-        super(new FunctionMetadata(
-                new Signature(
-                        NAME,
-                        ImmutableList.of(comparableTypeParameter("V")),
-                        ImmutableList.of(),
-                        parametricType("qdigest", new TypeSignature("V")),
-                        ImmutableList.copyOf(typeSignatures),
-                        false),
+        super(
+                new FunctionMetadata(
+                        new Signature(
+                                NAME,
+                                ImmutableList.of(comparableTypeParameter("V")),
+                                ImmutableList.of(),
+                                parametricType("qdigest", new TypeSignature("V")),
+                                ImmutableList.copyOf(typeSignatures),
+                                false),
+                        true,
+                        nCopies(typeSignatures.length, new FunctionArgumentDefinition(false)),
+                        false,
+                        true,
+                        "Returns a qdigest from the set of reals, bigints or doubles",
+                        AGGREGATE),
                 true,
-                nCopies(typeSignatures.length, new FunctionArgumentDefinition(false)),
-                false,
-                true,
-                "Returns a qdigest from the set of reals, bigints or doubles",
-                AGGREGATE));
+                true);
     }
 
     @Override

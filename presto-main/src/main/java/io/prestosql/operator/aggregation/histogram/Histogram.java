@@ -63,20 +63,23 @@ public class Histogram
 
     public Histogram(HistogramGroupImplementation groupMode)
     {
-        super(new FunctionMetadata(
-                new Signature(
-                        NAME,
-                        ImmutableList.of(comparableTypeParameter("K")),
-                        ImmutableList.of(),
-                        mapType(new TypeSignature("K"), BIGINT.getTypeSignature()),
-                        ImmutableList.of(new TypeSignature("K")),
-                        false),
+        super(
+                new FunctionMetadata(
+                        new Signature(
+                                NAME,
+                                ImmutableList.of(comparableTypeParameter("K")),
+                                ImmutableList.of(),
+                                mapType(new TypeSignature("K"), BIGINT.getTypeSignature()),
+                                ImmutableList.of(new TypeSignature("K")),
+                                false),
+                        true,
+                        ImmutableList.of(new FunctionArgumentDefinition(false)),
+                        false,
+                        true,
+                        "Count the number of times each value occurs",
+                        AGGREGATE),
                 true,
-                ImmutableList.of(new FunctionArgumentDefinition(false)),
-                false,
-                true,
-                "Count the number of times each value occurs",
-                AGGREGATE));
+                false);
         this.groupMode = groupMode;
     }
 

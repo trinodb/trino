@@ -67,22 +67,25 @@ public class MultimapAggregationFunction
 
     public MultimapAggregationFunction(MultimapAggGroupImplementation groupMode)
     {
-        super(new FunctionMetadata(
-                new Signature(
-                        NAME,
-                        ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")),
-                        ImmutableList.of(),
-                        mapType(new TypeSignature("K"), arrayType(new TypeSignature("V"))),
-                        ImmutableList.of(new TypeSignature("K"), new TypeSignature("V")),
-                        false),
+        super(
+                new FunctionMetadata(
+                        new Signature(
+                                NAME,
+                                ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")),
+                                ImmutableList.of(),
+                                mapType(new TypeSignature("K"), arrayType(new TypeSignature("V"))),
+                                ImmutableList.of(new TypeSignature("K"), new TypeSignature("V")),
+                                false),
+                        true,
+                        ImmutableList.of(
+                                new FunctionArgumentDefinition(false),
+                                new FunctionArgumentDefinition(true)),
+                        false,
+                        true,
+                        "Aggregates all the rows (key/value pairs) into a single multimap",
+                        AGGREGATE),
                 true,
-                ImmutableList.of(
-                        new FunctionArgumentDefinition(false),
-                        new FunctionArgumentDefinition(true)),
-                false,
-                true,
-                "Aggregates all the rows (key/value pairs) into a single multimap",
-                AGGREGATE));
+                true);
         this.groupMode = groupMode;
     }
 

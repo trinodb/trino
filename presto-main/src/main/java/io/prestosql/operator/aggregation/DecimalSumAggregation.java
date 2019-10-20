@@ -70,17 +70,20 @@ public class DecimalSumAggregation
 
     public DecimalSumAggregation()
     {
-        super(new FunctionMetadata(
-                new Signature(
-                        NAME,
-                        new TypeSignature("decimal", numericParameter(38), typeVariable("s")),
-                        ImmutableList.of(new TypeSignature("decimal", typeVariable("p"), typeVariable("s")))),
+        super(
+                new FunctionMetadata(
+                        new Signature(
+                                NAME,
+                                new TypeSignature("decimal", numericParameter(38), typeVariable("s")),
+                                ImmutableList.of(new TypeSignature("decimal", typeVariable("p"), typeVariable("s")))),
+                        true,
+                        ImmutableList.of(new FunctionArgumentDefinition(false)),
+                        false,
+                        true,
+                        "Calculates the sum over the input values",
+                        AGGREGATE),
                 true,
-                ImmutableList.of(new FunctionArgumentDefinition(false)),
-                false,
-                true,
-                "Calculates the sum over the input values",
-                AGGREGATE));
+                false);
     }
 
     @Override

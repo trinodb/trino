@@ -397,8 +397,13 @@ public class FunctionRegistry
         specializedAggregationCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
                 .expireAfterWrite(1, HOURS)
-                .build(CacheLoader.from(key -> ((SqlAggregationFunction) key.getFunction())
-                        .specialize(key.getBoundVariables(), key.getArity(), metadata)));
+                .build(CacheLoader.from(key -> {
+                    SqlAggregationFunction function = (SqlAggregationFunction) key.getFunction();
+                    InternalAggregationFunction implementation = function.specialize(key.getBoundVariables(), key.getArity(), metadata);
+                    checkArgument(function.isOrderSensitive() == implementation.isOrderSensitive(), "implementation order sensitivity doesn't match for: %s", function.getFunctionMetadata().getSignature());
+                    checkArgument(function.isDecomposable() == implementation.isDecomposable(), "implementation decomposable doesn't match for: %s", function.getFunctionMetadata().getSignature());
+                    return implementation;
+                }));
 
         specializedWindowCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
@@ -936,6 +941,20 @@ public class FunctionRegistry
                 functionMetadata.isDeterministic(),
                 functionMetadata.getDescription(),
                 functionMetadata.getKind());
+    }
+
+    public AggregationFunctionMetadata getAggregationFunctionMetadata(ResolvedFunction resolvedFunction)
+    {
+        SqlFunction function = getSpecializedFunctionKey(resolvedFunction).getFunction();
+        checkArgument(function instanceof SqlAggregationFunction, "%s is not an aggregation function", resolvedFunction);
+
+        SqlAggregationFunction aggregationFunction = (SqlAggregationFunction) function;
+        if (!aggregationFunction.isDecomposable()) {
+            return new AggregationFunctionMetadata(aggregationFunction.isOrderSensitive(), Optional.empty());
+        }
+
+        InternalAggregationFunction implementation = getAggregateFunctionImplementation(resolvedFunction);
+        return new AggregationFunctionMetadata(aggregationFunction.isOrderSensitive(), Optional.of(implementation.getIntermediateType().getTypeSignature()));
     }
 
     public WindowFunctionSupplier getWindowFunctionImplementation(ResolvedFunction resolvedFunction)

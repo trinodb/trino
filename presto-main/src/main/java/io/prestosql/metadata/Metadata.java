@@ -451,6 +451,8 @@ public interface Metadata
 
     FunctionMetadata getFunctionMetadata(ResolvedFunction resolvedFunction);
 
+    AggregationFunctionMetadata getAggregationFunctionMetadata(ResolvedFunction resolvedFunction);
+
     WindowFunctionSupplier getWindowFunctionImplementation(ResolvedFunction resolvedFunction);
 
     InternalAggregationFunction getAggregateFunctionImplementation(ResolvedFunction resolvedFunction);

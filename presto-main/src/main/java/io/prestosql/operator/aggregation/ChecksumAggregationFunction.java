@@ -60,20 +60,23 @@ public class ChecksumAggregationFunction
 
     public ChecksumAggregationFunction()
     {
-        super(new FunctionMetadata(
-                new Signature(
-                        NAME,
-                        ImmutableList.of(comparableTypeParameter("T")),
-                        ImmutableList.of(),
-                        VARBINARY.getTypeSignature(),
-                        ImmutableList.of(new TypeSignature("T")),
-                        false),
+        super(
+                new FunctionMetadata(
+                        new Signature(
+                                NAME,
+                                ImmutableList.of(comparableTypeParameter("T")),
+                                ImmutableList.of(),
+                                VARBINARY.getTypeSignature(),
+                                ImmutableList.of(new TypeSignature("T")),
+                                false),
+                        true,
+                        ImmutableList.of(new FunctionArgumentDefinition(true)),
+                        false,
+                        true,
+                        "Checksum of the given values",
+                        AGGREGATE),
                 true,
-                ImmutableList.of(new FunctionArgumentDefinition(true)),
-                false,
-                true,
-                "Checksum of the given values",
-                AGGREGATE));
+                false);
     }
 
     @Override
