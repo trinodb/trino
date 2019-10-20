@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.geospatial;
 
+import io.airlift.slice.XxHash64;
 import io.prestosql.spi.function.IsNull;
 import io.prestosql.spi.function.ScalarOperator;
 import io.prestosql.spi.function.SqlNullable;
@@ -22,8 +23,10 @@ import io.prestosql.spi.type.StandardTypes;
 
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.HASH_CODE;
+import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
 import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
+import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
 
 public final class BingTileOperators
 {
@@ -67,5 +70,19 @@ public final class BingTileOperators
     public static long hashCode(@SqlType(BingTileType.NAME) long value)
     {
         return AbstractLongType.hash(value);
+    }
+
+    @ScalarOperator(XX_HASH_64)
+    @SqlType(StandardTypes.BIGINT)
+    public static long xxHash64(@SqlType(BingTileType.NAME) long value)
+    {
+        return XxHash64.hash(value);
+    }
+
+    @ScalarOperator(INDETERMINATE)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean indeterminate(@SqlType(BingTileType.NAME) long value, @IsNull boolean isNull)
+    {
+        return isNull;
     }
 }

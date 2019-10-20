@@ -163,6 +163,12 @@ public class PluginManager
 
     public void installPlugin(Plugin plugin, Supplier<ClassLoader> duplicatePluginClassLoaderFactory)
     {
+        installPluginInternal(plugin, duplicatePluginClassLoaderFactory);
+        metadataManager.verifyComparableOrderableContract();
+    }
+
+    private void installPluginInternal(Plugin plugin, Supplier<ClassLoader> duplicatePluginClassLoaderFactory)
+    {
         for (BlockEncoding blockEncoding : plugin.getBlockEncodings()) {
             log.info("Registering block encoding %s", blockEncoding.getName());
             metadataManager.addBlockEncoding(blockEncoding);

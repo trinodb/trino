@@ -14,6 +14,7 @@
 package io.prestosql.type;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.XxHash64;
 import io.prestosql.client.IntervalYearMonth;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.function.BlockIndex;
@@ -43,6 +44,7 @@ import static io.prestosql.spi.function.OperatorType.MULTIPLY;
 import static io.prestosql.spi.function.OperatorType.NEGATION;
 import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
 import static io.prestosql.spi.function.OperatorType.SUBTRACT;
+import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
 import static io.prestosql.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static java.lang.Math.toIntExact;
 
@@ -173,6 +175,13 @@ public final class IntervalYearMonthOperators
     public static long hashCode(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long value)
     {
         return AbstractIntType.hash((int) value);
+    }
+
+    @ScalarOperator(XX_HASH_64)
+    @SqlType(StandardTypes.BIGINT)
+    public static long xxHash64(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long value)
+    {
+        return XxHash64.hash(value);
     }
 
     @ScalarOperator(IS_DISTINCT_FROM)
