@@ -893,22 +893,20 @@ public class FunctionRegistry
     {
         ResolvedFunction resolvedFunction = applicableFunction.getResolvedFunction();
         FunctionKind functionKind = resolvedFunction.getSignature().getKind();
+        FunctionMetadata functionMetadata = getSpecializedFunctionKey(resolvedFunction).getFunction().getFunctionMetadata();
         // Window and Aggregation functions have fixed semantic where NULL values are always skipped
         if (functionKind != SCALAR) {
             return true;
         }
 
+        List<FunctionArgumentDefinition> argumentDefinitions = functionMetadata.getArgumentDefinitions();
         for (int i = 0; i < parameterTypes.size(); i++) {
-            Type parameterType = parameterTypes.get(i);
-            if (parameterType.equals(UNKNOWN)) {
-                // TODO: Move information about nullable arguments to FunctionSignature. Remove this hack.
-                ScalarFunctionImplementation implementation = getScalarFunctionImplementation(resolvedFunction);
-                if (implementation.getArgumentProperty(i).getNullConvention() != RETURN_NULL_ON_NULL) {
-                    return false;
-                }
+            // if the argument value will always be null and the function argument is not nullable, the function will always return null
+            if (parameterTypes.get(i).equals(UNKNOWN) && !argumentDefinitions.get(i).isNullable()) {
+                return true;
             }
         }
-        return true;
+        return false;
     }
 
     public FunctionMetadata getFunctionMetadata(ResolvedFunction resolvedFunction)
