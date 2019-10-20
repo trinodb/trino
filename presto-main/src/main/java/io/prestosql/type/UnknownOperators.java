@@ -32,6 +32,7 @@ import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
+import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
 
 public final class UnknownOperators
 {
@@ -93,6 +94,13 @@ public final class UnknownOperators
     public static long hashCode(@SqlType("unknown") boolean value)
     {
         throw new AssertionError("value of unknown type should all be NULL");
+    }
+
+    @ScalarOperator(XX_HASH_64)
+    @SqlType(StandardTypes.BIGINT)
+    public static long xxHash(@SqlType("unknown") boolean value)
+    {
+        throw new AssertionError("value of unknown type should always be NULL");
     }
 
     @ScalarOperator(IS_DISTINCT_FROM)
