@@ -40,11 +40,11 @@ import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Suppliers.memoizeWithExpiration;
-import static io.prestosql.plugin.base.JsonUtils.parseJson;
 import static io.prestosql.plugin.base.security.CatalogAccessControlRule.AccessMode.ALL;
 import static io.prestosql.plugin.base.security.CatalogAccessControlRule.AccessMode.READ_ONLY;
 import static io.prestosql.plugin.base.security.FileBasedAccessControlConfig.SECURITY_CONFIG_FILE;
 import static io.prestosql.plugin.base.security.FileBasedAccessControlConfig.SECURITY_REFRESH_PERIOD;
+import static io.prestosql.plugin.base.util.JsonUtils.parseJson;
 import static io.prestosql.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static io.prestosql.spi.security.AccessDeniedException.denyAddColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyCatalogAccess;
