@@ -70,7 +70,6 @@ public class ReduceAggregationFunction
         super(new FunctionMetadata(
                 new Signature(
                         NAME,
-                        AGGREGATE,
                         ImmutableList.of(typeVariable("T"), typeVariable("S")),
                         ImmutableList.of(),
                         new TypeSignature("S"),
@@ -88,7 +87,8 @@ public class ReduceAggregationFunction
                         new FunctionArgumentDefinition(false)),
                 false,
                 true,
-                "Reduce input elements into a single value"));
+                "Reduce input elements into a single value",
+                AGGREGATE));
     }
 
     @Override

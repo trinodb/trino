@@ -73,14 +73,14 @@ public class DecimalSumAggregation
         super(new FunctionMetadata(
                 new Signature(
                         NAME,
-                        AGGREGATE,
                         new TypeSignature("decimal", numericParameter(38), typeVariable("s")),
                         ImmutableList.of(new TypeSignature("decimal", typeVariable("p"), typeVariable("s")))),
                 true,
                 ImmutableList.of(new FunctionArgumentDefinition(false)),
                 false,
                 true,
-                "Calculates the sum over the input values"));
+                "Calculates the sum over the input values",
+                AGGREGATE));
     }
 
     @Override

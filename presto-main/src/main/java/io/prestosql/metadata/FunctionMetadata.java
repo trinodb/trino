@@ -28,13 +28,29 @@ public class FunctionMetadata
     private final boolean hidden;
     private final boolean deterministic;
     private final String description;
+    private final FunctionKind kind;
 
-    public FunctionMetadata(Signature signature, boolean nullable, List<FunctionArgumentDefinition> argumentDefinitions, boolean hidden, boolean deterministic, String description)
+    public FunctionMetadata(
+            Signature signature,
+            boolean nullable,
+            List<FunctionArgumentDefinition> argumentDefinitions,
+            boolean hidden,
+            boolean deterministic,
+            String description,
+            FunctionKind kind)
     {
-        this(FunctionId.toFunctionId(signature), signature, nullable, argumentDefinitions, hidden, deterministic, description);
+        this(FunctionId.toFunctionId(signature), signature, nullable, argumentDefinitions, hidden, deterministic, description, kind);
     }
 
-    public FunctionMetadata(FunctionId functionId, Signature signature, boolean nullable, List<FunctionArgumentDefinition> argumentDefinitions, boolean hidden, boolean deterministic, String description)
+    public FunctionMetadata(
+            FunctionId functionId,
+            Signature signature,
+            boolean nullable,
+            List<FunctionArgumentDefinition> argumentDefinitions,
+            boolean hidden,
+            boolean deterministic,
+            String description,
+            FunctionKind kind)
     {
         this.functionId = requireNonNull(functionId, "functionId is null");
         this.signature = requireNonNull(signature, "signature is null");
@@ -43,6 +59,7 @@ public class FunctionMetadata
         this.hidden = hidden;
         this.deterministic = deterministic;
         this.description = requireNonNull(description, "description is null");
+        this.kind = requireNonNull(kind, "kind is null");
     }
 
     public FunctionId getFunctionId()
@@ -78,6 +95,11 @@ public class FunctionMetadata
     public String getDescription()
     {
         return description;
+    }
+
+    public FunctionKind getKind()
+    {
+        return kind;
     }
 
     @Override

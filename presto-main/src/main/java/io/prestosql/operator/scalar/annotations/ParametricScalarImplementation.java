@@ -62,7 +62,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.operator.ParametricFunctionHelpers.bindDependencies;
 import static io.prestosql.operator.TypeSignatureParser.parseTypeSignature;
 import static io.prestosql.operator.annotations.FunctionsParserHelper.containsImplementationDependencyAnnotation;
@@ -745,7 +744,6 @@ public class ParametricScalarImplementation
         {
             return new Signature(
                     functionName,
-                    SCALAR,
                     createTypeVariableConstraints(typeParameters, dependencies),
                     longVariableConstraints,
                     returnType,

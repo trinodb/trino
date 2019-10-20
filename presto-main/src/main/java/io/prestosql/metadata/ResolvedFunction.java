@@ -81,9 +81,8 @@ public class ResolvedFunction
 
     private static String encodeSimpleSignature(Signature signature)
     {
-        List<Object> parts = new ArrayList<>(3 + signature.getArgumentTypes().size());
+        List<Object> parts = new ArrayList<>(2 + signature.getArgumentTypes().size());
         parts.add(signature.getName());
-        parts.add(signature.getKind());
         parts.add(signature.getReturnType());
         parts.addAll(signature.getArgumentTypes());
         // TODO: this needs to be canonicalized elsewhere
@@ -93,14 +92,13 @@ public class ResolvedFunction
     private static Signature decodeSimpleSignature(String encodedSignature)
     {
         List<String> parts = Splitter.on('|').splitToList(encodedSignature);
-        checkArgument(parts.size() >= 3, "Expected encoded signature to contain at least 3 parts: %s", encodedSignature);
+        checkArgument(parts.size() >= 2, "Expected encoded signature to contain at least 2 parts: %s", encodedSignature);
         String name = parts.get(0);
-        FunctionKind kind = FunctionKind.valueOf(parts.get(1).toUpperCase(Locale.US));
-        TypeSignature returnType = TypeSignatureParser.parseTypeSignature(parts.get(2), ImmutableSet.of());
-        List<TypeSignature> argumentTypes = parts.subList(3, parts.size()).stream()
+        TypeSignature returnType = TypeSignatureParser.parseTypeSignature(parts.get(1), ImmutableSet.of());
+        List<TypeSignature> argumentTypes = parts.subList(2, parts.size()).stream()
                 .map(part -> TypeSignatureParser.parseTypeSignature(part, ImmutableSet.of()))
                 .collect(toImmutableList());
-        return new Signature(name, kind, returnType, argumentTypes);
+        return new Signature(name, returnType, argumentTypes);
     }
 
     @Override

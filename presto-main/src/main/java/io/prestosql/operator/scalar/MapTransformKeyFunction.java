@@ -27,7 +27,6 @@ import io.airlift.bytecode.control.IfStatement;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionArgumentDefinition;
-import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
@@ -71,6 +70,7 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.newArray;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.airlift.bytecode.expression.BytecodeExpressions.subtract;
 import static io.airlift.bytecode.instruction.VariableInstruction.incrementVariable;
+import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.functionTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
@@ -95,7 +95,6 @@ public final class MapTransformKeyFunction
         super(new FunctionMetadata(
                 new Signature(
                         "transform_keys",
-                        FunctionKind.SCALAR,
                         ImmutableList.of(typeVariable("K1"), typeVariable("K2"), typeVariable("V")),
                         ImmutableList.of(),
                         mapType(new TypeSignature("K2"), new TypeSignature("V")),
@@ -109,7 +108,8 @@ public final class MapTransformKeyFunction
                                         new FunctionArgumentDefinition(false)),
                 false,
                 false,
-                "apply lambda to each entry of the map and transform the key"));
+                "apply lambda to each entry of the map and transform the key",
+                SCALAR));
     }
 
     @Override

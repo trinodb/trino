@@ -38,7 +38,6 @@ public final class JsonStringToRowCast
         super(new FunctionMetadata(
                 new Signature(
                         JSON_STRING_TO_ROW_NAME,
-                        SCALAR,
                         ImmutableList.of(withVariadicBound("T", "row")),
                         ImmutableList.of(),
                         new TypeSignature("T"),
@@ -48,7 +47,8 @@ public final class JsonStringToRowCast
                 ImmutableList.of(new FunctionArgumentDefinition(false)),
                 true,
                 true,
-                ""));
+                "",
+                SCALAR));
     }
 
     @Override

@@ -16,7 +16,6 @@ package io.prestosql.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionArgumentDefinition;
-import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
@@ -30,6 +29,7 @@ import io.prestosql.spi.type.TypeSignatureParameter;
 
 import java.lang.invoke.MethodHandle;
 
+import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
@@ -49,7 +49,6 @@ public class ArrayFlattenFunction
         super(new FunctionMetadata(
                 new Signature(
                         FUNCTION_NAME,
-                        FunctionKind.SCALAR,
                         ImmutableList.of(typeVariable("E")),
                         ImmutableList.of(),
                         arrayType(new TypeSignature("E")),
@@ -59,7 +58,8 @@ public class ArrayFlattenFunction
                 ImmutableList.of(new FunctionArgumentDefinition(false)),
                 false,
                 true,
-                "Flattens the given array"));
+                "Flattens the given array",
+                SCALAR));
     }
 
     @Override

@@ -65,6 +65,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 
 import static io.prestosql.metadata.FunctionId.toFunctionId;
+import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 
@@ -561,7 +562,7 @@ public abstract class AbstractMockMetadata
     {
         String nameSuffix = name.getSuffix();
         if (nameSuffix.equals("rand") && parameterTypes.isEmpty()) {
-            Signature boundSignature = new Signature(nameSuffix, FunctionKind.SCALAR, DOUBLE.getTypeSignature(), ImmutableList.of());
+            Signature boundSignature = new Signature(nameSuffix, DOUBLE.getTypeSignature(), ImmutableList.of());
             return new ResolvedFunction(boundSignature, toFunctionId(boundSignature));
         }
         throw new PrestoException(FUNCTION_NOT_FOUND, name + "(" + Joiner.on(", ").join(parameterTypes) + ")");
@@ -597,7 +598,7 @@ public abstract class AbstractMockMetadata
     {
         Signature signature = resolvedFunction.getSignature();
         if (signature.getName().equals("rand") && signature.getArgumentTypes().isEmpty()) {
-            return new FunctionMetadata(signature, false, ImmutableList.of(), false, false, "");
+            return new FunctionMetadata(signature, false, ImmutableList.of(), false, false, "", SCALAR);
         }
         throw new PrestoException(FUNCTION_NOT_FOUND, signature.toString());
     }

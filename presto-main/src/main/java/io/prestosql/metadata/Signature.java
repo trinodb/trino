@@ -34,7 +34,6 @@ public class Signature
     private static final String OPERATOR_PREFIX = "$operator$";
 
     private final String name;
-    private final FunctionKind kind;
     private final List<TypeVariableConstraint> typeVariableConstraints;
     private final List<LongVariableConstraint> longVariableConstraints;
     private final TypeSignature returnType;
@@ -44,7 +43,6 @@ public class Signature
     @JsonCreator
     public Signature(
             @JsonProperty("name") String name,
-            @JsonProperty("kind") FunctionKind kind,
             @JsonProperty("typeVariableConstraints") List<TypeVariableConstraint> typeVariableConstraints,
             @JsonProperty("longVariableConstraints") List<LongVariableConstraint> longVariableConstraints,
             @JsonProperty("returnType") TypeSignature returnType,
@@ -56,7 +54,6 @@ public class Signature
         requireNonNull(longVariableConstraints, "longVariableConstraints is null");
 
         this.name = name;
-        this.kind = requireNonNull(kind, "type is null");
         this.typeVariableConstraints = ImmutableList.copyOf(typeVariableConstraints);
         this.longVariableConstraints = ImmutableList.copyOf(longVariableConstraints);
         this.returnType = requireNonNull(returnType, "returnType is null");
@@ -66,12 +63,12 @@ public class Signature
 
     public Signature(String name, FunctionKind kind, TypeSignature returnType, TypeSignature... argumentTypes)
     {
-        this(name, kind, returnType, ImmutableList.copyOf(argumentTypes));
+        this(name, returnType, ImmutableList.copyOf(argumentTypes));
     }
 
-    public Signature(String name, FunctionKind kind, TypeSignature returnType, List<TypeSignature> argumentTypes)
+    public Signature(String name, TypeSignature returnType, List<TypeSignature> argumentTypes)
     {
-        this(name, kind, ImmutableList.of(), ImmutableList.of(), returnType, argumentTypes, false);
+        this(name, ImmutableList.of(), ImmutableList.of(), returnType, argumentTypes, false);
     }
 
     public static String mangleOperatorName(OperatorType operatorType)
@@ -86,21 +83,10 @@ public class Signature
         return OperatorType.valueOf(mangledName.substring(OPERATOR_PREFIX.length()));
     }
 
-    public Signature withAlias(String name)
-    {
-        return new Signature(name, kind, typeVariableConstraints, longVariableConstraints, getReturnType(), getArgumentTypes(), variableArity);
-    }
-
     @JsonProperty
     public String getName()
     {
         return name;
-    }
-
-    @JsonProperty
-    public FunctionKind getKind()
-    {
-        return kind;
     }
 
     @JsonProperty
@@ -136,7 +122,7 @@ public class Signature
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, kind, typeVariableConstraints, longVariableConstraints, returnType, argumentTypes, variableArity);
+        return Objects.hash(name, typeVariableConstraints, longVariableConstraints, returnType, argumentTypes, variableArity);
     }
 
     @Override
@@ -150,7 +136,6 @@ public class Signature
         }
         Signature other = (Signature) obj;
         return Objects.equals(this.name, other.name) &&
-                Objects.equals(this.kind, other.kind) &&
                 Objects.equals(this.typeVariableConstraints, other.typeVariableConstraints) &&
                 Objects.equals(this.longVariableConstraints, other.longVariableConstraints) &&
                 Objects.equals(this.returnType, other.returnType) &&

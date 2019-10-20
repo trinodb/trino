@@ -61,7 +61,6 @@ public class CountColumn
         super(new FunctionMetadata(
                 new Signature(
                         NAME,
-                        AGGREGATE,
                         ImmutableList.of(typeVariable("T")),
                         ImmutableList.of(),
                         BIGINT.getTypeSignature(),
@@ -71,7 +70,8 @@ public class CountColumn
                 ImmutableList.of(new FunctionArgumentDefinition(false)),
                 false,
                 true,
-                "Counts the non-null values"));
+                "Counts the non-null values",
+                AGGREGATE));
     }
 
     @Override

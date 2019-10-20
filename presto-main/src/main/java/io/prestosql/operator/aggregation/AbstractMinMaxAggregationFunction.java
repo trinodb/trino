@@ -84,7 +84,6 @@ public abstract class AbstractMinMaxAggregationFunction
         super(new FunctionMetadata(
                 new Signature(
                         name,
-                        AGGREGATE,
                         ImmutableList.of(orderableTypeParameter("E")),
                         ImmutableList.of(),
                         new TypeSignature("E"),
@@ -94,7 +93,8 @@ public abstract class AbstractMinMaxAggregationFunction
                 ImmutableList.of(new FunctionArgumentDefinition(false)),
                 false,
                 true,
-                description));
+                description,
+                AGGREGATE));
         this.min = min;
         this.operatorType = min ? LESS_THAN : GREATER_THAN;
     }

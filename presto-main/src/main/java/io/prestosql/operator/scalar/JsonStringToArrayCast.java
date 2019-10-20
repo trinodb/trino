@@ -39,7 +39,6 @@ public final class JsonStringToArrayCast
         super(new FunctionMetadata(
                 new Signature(
                         JSON_STRING_TO_ARRAY_NAME,
-                        SCALAR,
                         ImmutableList.of(typeVariable("T")),
                         ImmutableList.of(),
                         arrayType(new TypeSignature("T")),
@@ -49,7 +48,8 @@ public final class JsonStringToArrayCast
                 ImmutableList.of(new FunctionArgumentDefinition(false)),
                 true,
                 true,
-                ""));
+                "",
+                SCALAR));
     }
 
     @Override

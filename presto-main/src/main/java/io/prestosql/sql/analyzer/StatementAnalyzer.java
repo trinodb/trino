@@ -1465,7 +1465,7 @@ class StatementAnalyzer
         private List<FunctionCall> analyzeWindowFunctions(QuerySpecification node, List<Expression> expressions)
         {
             for (Expression expression : expressions) {
-                new WindowFunctionValidator().process(expression, analysis);
+                new WindowFunctionValidator(metadata).process(expression, analysis);
             }
 
             List<FunctionCall> windowFunctions = extractWindowFunctions(expressions);
@@ -1521,7 +1521,8 @@ class StatementAnalyzer
 
                 List<Type> argumentTypes = mappedCopy(windowFunction.getArguments(), analysis::getType);
 
-                FunctionKind kind = metadata.resolveFunction(windowFunction.getName(), fromTypes(argumentTypes)).getSignature().getKind();
+                ResolvedFunction resolvedFunction = metadata.resolveFunction(windowFunction.getName(), fromTypes(argumentTypes));
+                FunctionKind kind = metadata.getFunctionMetadata(resolvedFunction).getKind();
                 if (kind != AGGREGATE && kind != WINDOW) {
                     throw semanticException(FUNCTION_NOT_WINDOW, node, "Not a window function: %s", windowFunction.getName());
                 }

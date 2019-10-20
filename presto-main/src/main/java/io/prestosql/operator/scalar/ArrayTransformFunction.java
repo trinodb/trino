@@ -26,7 +26,6 @@ import io.airlift.bytecode.control.ForLoop;
 import io.airlift.bytecode.control.IfStatement;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionArgumentDefinition;
-import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
@@ -57,6 +56,7 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.lessThan;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.airlift.bytecode.expression.BytecodeExpressions.subtract;
 import static io.airlift.bytecode.instruction.VariableInstruction.incrementVariable;
+import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.functionTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
@@ -79,7 +79,6 @@ public final class ArrayTransformFunction
         super(new FunctionMetadata(
                 new Signature(
                         "transform",
-                        FunctionKind.SCALAR,
                         ImmutableList.of(typeVariable("T"), typeVariable("U")),
                         ImmutableList.of(),
                         arrayType(new TypeSignature("U")),
@@ -93,7 +92,8 @@ public final class ArrayTransformFunction
                         new FunctionArgumentDefinition(false)),
                 false,
                 false,
-                "apply lambda to each element of the array"));
+                "apply lambda to each element of the array",
+                SCALAR));
     }
 
     @Override

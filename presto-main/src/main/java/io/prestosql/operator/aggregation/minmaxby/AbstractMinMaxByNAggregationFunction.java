@@ -74,7 +74,6 @@ public abstract class AbstractMinMaxByNAggregationFunction
         super(new FunctionMetadata(
                 new Signature(
                         name,
-                        AGGREGATE,
                         ImmutableList.of(typeVariable("V"), orderableTypeParameter("K")),
                         ImmutableList.of(),
                         TypeSignature.arrayType(new TypeSignature("V")),
@@ -87,7 +86,8 @@ public abstract class AbstractMinMaxByNAggregationFunction
                         new FunctionArgumentDefinition(false)),
                 false,
                 true,
-                description));
+                description,
+                AGGREGATE));
         this.name = requireNonNull(name, "name is null");
         this.typeToComparator = requireNonNull(typeToComparator, "typeToComparator is null");
     }

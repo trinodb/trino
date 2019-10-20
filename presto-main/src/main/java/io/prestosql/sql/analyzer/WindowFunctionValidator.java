@@ -13,6 +13,7 @@
  */
 package io.prestosql.sql.analyzer;
 
+import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.sql.tree.DefaultExpressionTraversalVisitor;
 import io.prestosql.sql.tree.FunctionCall;
@@ -25,13 +26,20 @@ import static java.util.Objects.requireNonNull;
 class WindowFunctionValidator
         extends DefaultExpressionTraversalVisitor<Void, Analysis>
 {
+    private final Metadata metadata;
+
+    public WindowFunctionValidator(Metadata metadata)
+    {
+        this.metadata = metadata;
+    }
+
     @Override
     protected Void visitFunctionCall(FunctionCall functionCall, Analysis analysis)
     {
         requireNonNull(analysis, "analysis is null");
 
         ResolvedFunction resolvedFunction = analysis.getResolvedFunction(functionCall);
-        if (resolvedFunction != null && resolvedFunction.getSignature().getKind() == WINDOW && !functionCall.getWindow().isPresent()) {
+        if (resolvedFunction != null && !functionCall.getWindow().isPresent() && metadata.getFunctionMetadata(resolvedFunction).getKind() == WINDOW) {
             throw semanticException(MISSING_OVER, functionCall, "Window function %s requires an OVER clause", resolvedFunction.getSignature().getName());
         }
         return super.visitFunctionCall(functionCall, analysis);

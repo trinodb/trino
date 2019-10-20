@@ -16,7 +16,6 @@ package io.prestosql.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionArgumentDefinition;
-import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.LongVariableConstraint;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
@@ -353,7 +352,6 @@ public class AggregationImplementation
         {
             Signature signature = new Signature(
                     header.getName(),
-                    FunctionKind.AGGREGATE,
                     typeVariableConstraints,
                     longVariableConstraints,
                     returnType,

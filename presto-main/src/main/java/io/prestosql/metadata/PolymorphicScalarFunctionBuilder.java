@@ -29,6 +29,7 @@ import java.util.function.Function;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.Signature.mangleOperatorName;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.BLOCK_AND_POSITION;
@@ -116,7 +117,8 @@ public final class PolymorphicScalarFunctionBuilder
                         argumentDefinitions,
                         hidden.orElse(false),
                         deterministic,
-                        description),
+                        description,
+                        SCALAR),
                 choices);
     }
 

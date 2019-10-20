@@ -363,7 +363,8 @@ public class TestFunctionRegistry
                         nCopies(signature.getArgumentTypes().size(), new FunctionArgumentDefinition(false)),
                         false,
                         false,
-                        "testing function that does nothing");
+                        "testing function that does nothing",
+                        SCALAR);
                 functions.add(new SqlScalarFunction(functionMetadata)
                 {
                     @Override

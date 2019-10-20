@@ -92,7 +92,6 @@ public abstract class AbstractMinMaxBy
         super(new FunctionMetadata(
                 new Signature(
                         (min ? "min" : "max") + "_by",
-                        AGGREGATE,
                         ImmutableList.of(orderableTypeParameter("K"), typeVariable("V")),
                         ImmutableList.of(),
                         new TypeSignature("V"),
@@ -104,7 +103,8 @@ public abstract class AbstractMinMaxBy
                         new FunctionArgumentDefinition(false)),
                 false,
                 true,
-                description));
+                description,
+                AGGREGATE));
         this.min = min;
     }
 

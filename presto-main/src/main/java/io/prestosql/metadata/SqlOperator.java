@@ -19,6 +19,7 @@ import io.prestosql.spi.type.TypeSignature;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.Signature.mangleOperatorName;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
@@ -42,7 +43,6 @@ public abstract class SqlOperator
         super(new FunctionMetadata(
                 new Signature(
                         mangleOperatorName(operatorType),
-                        FunctionKind.SCALAR,
                         typeVariableConstraints,
                         longVariableConstraints,
                         returnType,
@@ -52,7 +52,8 @@ public abstract class SqlOperator
                 nCopies(argumentTypes.size(), new FunctionArgumentDefinition(operatorType == IS_DISTINCT_FROM || operatorType == INDETERMINATE)),
                 true,
                 true,
-                ""));
+                "",
+                SCALAR));
         if (operatorType == EQUAL || operatorType == NOT_EQUAL || operatorType == SUBSCRIPT) {
             checkArgument(nullable, "%s operator for %s must be nullable", operatorType, argumentTypes.get(0));
         }

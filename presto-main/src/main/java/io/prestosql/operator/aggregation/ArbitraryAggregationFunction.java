@@ -75,7 +75,6 @@ public class ArbitraryAggregationFunction
         super(new FunctionMetadata(
                 new Signature(
                         NAME,
-                        AGGREGATE,
                         ImmutableList.of(typeVariable("T")),
                         ImmutableList.of(),
                         new TypeSignature("T"),
@@ -85,7 +84,8 @@ public class ArbitraryAggregationFunction
                 ImmutableList.of(new FunctionArgumentDefinition(false)),
                 false,
                 true,
-                "return an arbitrary non-null input value"));
+                "return an arbitrary non-null input value",
+                AGGREGATE));
     }
 
     @Override

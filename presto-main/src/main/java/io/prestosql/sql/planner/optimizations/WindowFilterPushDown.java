@@ -18,7 +18,6 @@ import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.FunctionId;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.Signature;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.TupleDomain;
@@ -48,7 +47,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.SystemSessionProperties.isOptimizeTopNRowNumber;
-import static io.prestosql.metadata.FunctionKind.WINDOW;
 import static io.prestosql.spi.predicate.Marker.Bound.BELOW;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.sql.planner.DomainTranslator.ExtractionResult;
@@ -61,8 +59,6 @@ import static java.util.stream.Collectors.toMap;
 public class WindowFilterPushDown
         implements PlanOptimizer
 {
-    private static final Signature ROW_NUMBER_SIGNATURE = new Signature("row_number", WINDOW, BIGINT.getTypeSignature(), ImmutableList.of());
-
     private final Metadata metadata;
     private final DomainTranslator domainTranslator;
 
