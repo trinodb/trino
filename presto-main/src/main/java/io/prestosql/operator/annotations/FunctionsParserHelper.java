@@ -53,7 +53,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.operator.annotations.ImplementationDependency.isImplementationDependencyAnnotation;
 import static io.prestosql.spi.function.OperatorType.BETWEEN;
-import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
 import static io.prestosql.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
@@ -95,9 +94,6 @@ public final class FunctionsParserHelper
             if (dependency instanceof OperatorImplementationDependency) {
                 OperatorImplementationDependency operatorDependency = (OperatorImplementationDependency) dependency;
                 OperatorType operator = operatorDependency.getOperator();
-                if (operator == CAST) {
-                    continue;
-                }
                 List<TypeSignature> argumentTypes = operatorDependency.getArgumentTypes();
                 if (COMPARABLE_TYPE_OPERATORS.contains(operator)) {
                     verifyOperatorSignature(operator, argumentTypes);
@@ -109,7 +105,7 @@ public final class FunctionsParserHelper
                         verifyTypeSignatureDoesNotContainAnyTypeParameters(typeSignature, typeSignature, typeParameterNames);
                     }
                 }
-                if (ORDERABLE_TYPE_OPERATORS.contains(operator)) {
+                else if (ORDERABLE_TYPE_OPERATORS.contains(operator)) {
                     verifyOperatorSignature(operator, argumentTypes);
                     TypeSignature typeSignature = argumentTypes.get(0);
                     if (typeParameterNames.contains(typeSignature.getBase())) {
@@ -118,6 +114,9 @@ public final class FunctionsParserHelper
                     else {
                         verifyTypeSignatureDoesNotContainAnyTypeParameters(typeSignature, typeSignature, typeParameterNames);
                     }
+                }
+                else {
+                    throw new IllegalArgumentException("Operator dependency on " + operator + " is not allowed");
                 }
             }
         }
