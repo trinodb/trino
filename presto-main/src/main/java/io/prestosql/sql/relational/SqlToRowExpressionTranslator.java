@@ -32,7 +32,6 @@ import io.prestosql.sql.relational.SpecialForm.Form;
 import io.prestosql.sql.relational.optimizer.ExpressionOptimizer;
 import io.prestosql.sql.tree.ArithmeticBinaryExpression;
 import io.prestosql.sql.tree.ArithmeticUnaryExpression;
-import io.prestosql.sql.tree.ArrayConstructor;
 import io.prestosql.sql.tree.AstVisitor;
 import io.prestosql.sql.tree.BetweenPredicate;
 import io.prestosql.sql.tree.BinaryLiteral;
@@ -702,18 +701,6 @@ public final class SqlToRowExpressionTranslator
                     getType(node),
                     base,
                     index);
-        }
-
-        @Override
-        protected RowExpression visitArrayConstructor(ArrayConstructor node, Void context)
-        {
-            List<RowExpression> arguments = node.getValues().stream()
-                    .map(value -> process(value, context))
-                    .collect(toImmutableList());
-            List<Type> argumentTypes = arguments.stream()
-                    .map(RowExpression::getType)
-                    .collect(toImmutableList());
-            return call(standardFunctionResolution.arrayConstructor(argumentTypes), getType(node), arguments);
         }
 
         @Override
