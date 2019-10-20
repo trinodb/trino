@@ -16,6 +16,7 @@ package io.prestosql.operator.aggregation.arrayagg;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
@@ -70,6 +71,8 @@ public class ArrayAggregationFunction
                         TypeSignature.arrayType(new TypeSignature("T")),
                         ImmutableList.of(new TypeSignature("T")),
                         false),
+                true,
+                ImmutableList.of(new FunctionArgumentDefinition(true)),
                 false,
                 true,
                 "return an array of values"));

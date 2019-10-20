@@ -17,6 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
@@ -85,6 +86,8 @@ public class TestVarArgsToArrayAdapterGenerator
                             INTEGER.getTypeSignature(),
                             ImmutableList.of(INTEGER.getTypeSignature()),
                             true),
+                    false,
+                    ImmutableList.of(new FunctionArgumentDefinition(false)),
                     false,
                     false,
                     "return sum of all the parameters"));

@@ -103,7 +103,7 @@ public final class ScalarFromAnnotationsParser
 
         Map<SpecializedSignature, ParametricScalarImplementation.Builder> signatures = new HashMap<>();
         for (Method method : scalar.getMethods()) {
-            ParametricScalarImplementation implementation = ParametricScalarImplementation.Parser.parseImplementation(header.getName(), method, constructor);
+            ParametricScalarImplementation.Parser implementation = new ParametricScalarImplementation.Parser(header.getName(), method, constructor);
             if (!signatures.containsKey(implementation.getSpecializedSignature())) {
                 ParametricScalarImplementation.Builder builder = new ParametricScalarImplementation.Builder(
                         implementation.getSignature(),
@@ -111,11 +111,11 @@ public final class ScalarFromAnnotationsParser
                         implementation.getSpecializedTypeParameters(),
                         implementation.getReturnNativeContainerType());
                 signatures.put(implementation.getSpecializedSignature(), builder);
-                builder.addChoices(implementation);
+                builder.addChoice(implementation.getChoice());
             }
             else {
                 ParametricScalarImplementation.Builder builder = signatures.get(implementation.getSpecializedSignature());
-                builder.addChoices(implementation);
+                builder.addChoice(implementation.getChoice());
             }
         }
 

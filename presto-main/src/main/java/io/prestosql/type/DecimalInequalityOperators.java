@@ -15,6 +15,7 @@ package io.prestosql.type;
 
 import io.airlift.slice.Slice;
 import io.prestosql.annotation.UsedByGeneratedCode;
+import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.PolymorphicScalarFunctionBuilder;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
@@ -123,6 +124,7 @@ public final class DecimalInequalityOperators
     private static SqlScalarFunction equalityOperator(OperatorType operatorType, MethodHandle getResultMethodHandle)
     {
         return makeBinaryOperatorFunctionBuilder(operatorType)
+                .nullableResult(true)
                 .choice(choice -> choice
                         .nullableResult(true)
                         .implementation(methodsGroup -> methodsGroup
@@ -170,6 +172,9 @@ public final class DecimalInequalityOperators
     private static SqlScalarFunction distinctOperator()
     {
         return makeBinaryOperatorFunctionBuilder(IS_DISTINCT_FROM)
+                .argumentDefinitions(
+                        new FunctionArgumentDefinition(true),
+                        new FunctionArgumentDefinition(true))
                 .choice(choice -> choice
                         .argumentProperties(
                                 valueTypeArgumentProperty(USE_NULL_FLAG),

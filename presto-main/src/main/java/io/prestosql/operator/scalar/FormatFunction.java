@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.OperatorNotFoundException;
@@ -100,6 +101,8 @@ public final class FormatFunction
                         .argumentTypes(VARCHAR.getTypeSignature(), new TypeSignature("T"))
                         .returnType(VARCHAR.getTypeSignature())
                         .build(),
+                false,
+                ImmutableList.of(new FunctionArgumentDefinition(false), new FunctionArgumentDefinition(false)),
                 true,
                 true,
                 "formats the input arguments using a format string"));

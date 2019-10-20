@@ -45,7 +45,8 @@ public class MapHashCodeOperator
                 ImmutableList.of(comparableTypeParameter("K"), comparableTypeParameter("V")),
                 ImmutableList.of(),
                 BIGINT.getTypeSignature(),
-                ImmutableList.of(mapType(new TypeSignature("K"), new TypeSignature("V"))));
+                ImmutableList.of(mapType(new TypeSignature("K"), new TypeSignature("V"))),
+                false);
     }
 
     @Override

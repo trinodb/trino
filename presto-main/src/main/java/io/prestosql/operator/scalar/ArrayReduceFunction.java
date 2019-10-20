@@ -16,6 +16,7 @@ package io.prestosql.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
@@ -61,6 +62,12 @@ public final class ArrayReduceFunction
                                 functionType(new TypeSignature("S"), new TypeSignature("T"), new TypeSignature("S")),
                                 functionType(new TypeSignature("S"), new TypeSignature("R"))),
                         false),
+                true,
+                ImmutableList.of(
+                        new FunctionArgumentDefinition(false),
+                        new FunctionArgumentDefinition(true),
+                        new FunctionArgumentDefinition(false),
+                        new FunctionArgumentDefinition(false)),
                 false,
                 false,
                 "Reduce elements of the array into a single value"));

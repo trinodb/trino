@@ -16,6 +16,7 @@ package io.prestosql.operator.aggregation.minmaxby;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
@@ -79,6 +80,11 @@ public abstract class AbstractMinMaxByNAggregationFunction
                         TypeSignature.arrayType(new TypeSignature("V")),
                         ImmutableList.of(new TypeSignature("V"), new TypeSignature("K"), BIGINT.getTypeSignature()),
                         false),
+                true,
+                ImmutableList.of(
+                        new FunctionArgumentDefinition(true),
+                        new FunctionArgumentDefinition(false),
+                        new FunctionArgumentDefinition(false)),
                 false,
                 true,
                 description));

@@ -15,6 +15,7 @@ package io.prestosql.operator;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
@@ -46,6 +47,8 @@ public final class GenericLongFunction
                         FunctionKind.SCALAR,
                         BIGINT.getTypeSignature(),
                         BIGINT.getTypeSignature()),
+                false,
+                ImmutableList.of(new FunctionArgumentDefinition(false)),
                 true,
                 true,
                 "generic long function for test"));

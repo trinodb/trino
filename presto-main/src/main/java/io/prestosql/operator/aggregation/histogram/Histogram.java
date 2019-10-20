@@ -16,6 +16,7 @@ package io.prestosql.operator.aggregation.histogram;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
@@ -71,6 +72,8 @@ public class Histogram
                         mapType(new TypeSignature("K"), BIGINT.getTypeSignature()),
                         ImmutableList.of(new TypeSignature("K")),
                         false),
+                true,
+                ImmutableList.of(new FunctionArgumentDefinition(false)),
                 false,
                 true,
                 "Count the number of times each value occurs"));

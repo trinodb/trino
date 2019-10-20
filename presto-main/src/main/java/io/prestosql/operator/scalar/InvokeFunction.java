@@ -16,6 +16,7 @@ package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
@@ -54,6 +55,8 @@ public final class InvokeFunction
                         new TypeSignature("T"),
                         ImmutableList.of(functionType(new TypeSignature("T"))),
                         false),
+                true,
+                ImmutableList.of(new FunctionArgumentDefinition(false)),
                 true,
                 true,
                 "lambda invoke function"));

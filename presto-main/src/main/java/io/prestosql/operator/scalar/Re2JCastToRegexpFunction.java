@@ -56,7 +56,7 @@ public class Re2JCastToRegexpFunction
 
     private Re2JCastToRegexpFunction(String sourceType, int dfaStatesLimit, int dfaRetries, boolean padSpaces)
     {
-        super(CAST, emptyList(), emptyList(), RE2J_REGEXP.getTypeSignature(), ImmutableList.of(parseTypeSignature(sourceType, ImmutableSet.of("x"))));
+        super(CAST, emptyList(), emptyList(), RE2J_REGEXP.getTypeSignature(), ImmutableList.of(parseTypeSignature(sourceType, ImmutableSet.of("x"))), false);
         this.dfaStatesLimit = dfaStatesLimit;
         this.dfaRetries = dfaRetries;
         this.padSpaces = padSpaces;

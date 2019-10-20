@@ -39,14 +39,16 @@ public final class UnknownOperators
 
     @ScalarOperator(EQUAL)
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean equal(@SqlType("unknown") boolean left, @SqlType("unknown") boolean right)
+    @SqlNullable
+    public static Boolean equal(@SqlType("unknown") boolean left, @SqlType("unknown") boolean right)
     {
         throw new AssertionError("value of unknown type should all be NULL");
     }
 
     @ScalarOperator(NOT_EQUAL)
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean notEqual(@SqlType("unknown") boolean left, @SqlType("unknown") boolean right)
+    @SqlNullable
+    public static Boolean notEqual(@SqlType("unknown") boolean left, @SqlType("unknown") boolean right)
     {
         throw new AssertionError("value of unknown type should all be NULL");
     }

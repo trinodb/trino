@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.stats.QuantileDigest;
 import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
@@ -74,6 +75,8 @@ public final class MergeQuantileDigestFunction
                         parametricType("qdigest", new TypeSignature("T")),
                         ImmutableList.of(parametricType("qdigest", new TypeSignature("T"))),
                         false),
+                true,
+                ImmutableList.of(new FunctionArgumentDefinition(false)),
                 false,
                 true,
                 "Merges the input quantile digests into a single quantile digest"));

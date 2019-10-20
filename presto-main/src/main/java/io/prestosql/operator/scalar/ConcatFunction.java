@@ -27,6 +27,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
@@ -82,6 +83,8 @@ public final class ConcatFunction
                         type,
                         ImmutableList.of(type),
                         true),
+                false,
+                ImmutableList.of(new FunctionArgumentDefinition(false)),
                 false,
                 true,
                 description));

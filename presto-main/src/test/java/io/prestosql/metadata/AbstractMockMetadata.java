@@ -597,7 +597,7 @@ public abstract class AbstractMockMetadata
     {
         Signature signature = resolvedFunction.getSignature();
         if (signature.getName().equals("rand") && signature.getArgumentTypes().isEmpty()) {
-            return new FunctionMetadata(signature, false, false, "");
+            return new FunctionMetadata(signature, false, ImmutableList.of(), false, false, "");
         }
         throw new PrestoException(FUNCTION_NOT_FOUND, signature.toString());
     }

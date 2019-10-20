@@ -16,6 +16,7 @@ package io.prestosql.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
@@ -51,6 +52,8 @@ public class TryCastFunction
                         new TypeSignature("T"),
                         ImmutableList.of(new TypeSignature("F")),
                         false),
+                true,
+                ImmutableList.of(new FunctionArgumentDefinition(false)),
                 true,
                 true,
                 ""));

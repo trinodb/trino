@@ -42,7 +42,8 @@ public final class CastFromUnknownOperator
                 ImmutableList.of(typeVariable("E")),
                 ImmutableList.of(),
                 new TypeSignature("E"),
-                ImmutableList.of(UNKNOWN.getTypeSignature()));
+                ImmutableList.of(UNKNOWN.getTypeSignature()),
+                false);
     }
 
     @Override

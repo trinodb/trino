@@ -24,6 +24,7 @@ import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
@@ -97,6 +98,10 @@ public abstract class AbstractMinMaxBy
                         new TypeSignature("V"),
                         ImmutableList.of(new TypeSignature("V"), new TypeSignature("K")),
                         false),
+                true,
+                ImmutableList.of(
+                        new FunctionArgumentDefinition(true),
+                        new FunctionArgumentDefinition(false)),
                 false,
                 true,
                 description));

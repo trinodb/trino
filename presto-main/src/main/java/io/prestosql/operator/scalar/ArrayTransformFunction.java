@@ -25,6 +25,7 @@ import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.ForLoop;
 import io.airlift.bytecode.control.IfStatement;
 import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
@@ -86,6 +87,10 @@ public final class ArrayTransformFunction
                                 arrayType(new TypeSignature("T")),
                                 functionType(new TypeSignature("T"), new TypeSignature("U"))),
                         false),
+                false,
+                ImmutableList.of(
+                        new FunctionArgumentDefinition(false),
+                        new FunctionArgumentDefinition(false)),
                 false,
                 false,
                 "apply lambda to each element of the array"));

@@ -133,6 +133,9 @@ import io.prestosql.operator.scalar.Re2JRegexpFunctions;
 import io.prestosql.operator.scalar.Re2JRegexpReplaceLambdaFunction;
 import io.prestosql.operator.scalar.RepeatFunction;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
+import io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
+import io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentType;
+import io.prestosql.operator.scalar.ScalarFunctionImplementation.ScalarImplementationChoice;
 import io.prestosql.operator.scalar.SequenceFunction;
 import io.prestosql.operator.scalar.SessionFunctions;
 import io.prestosql.operator.scalar.SplitToMapFunction;
@@ -284,6 +287,7 @@ import static io.prestosql.operator.scalar.RowLessThanOrEqualOperator.ROW_LESS_T
 import static io.prestosql.operator.scalar.RowNotEqualOperator.ROW_NOT_EQUAL;
 import static io.prestosql.operator.scalar.RowToJsonCast.ROW_TO_JSON;
 import static io.prestosql.operator.scalar.RowToRowCast.ROW_TO_ROW_CAST;
+import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.BLOCK_AND_POSITION;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.operator.scalar.TryCastFunction.TRY_CAST;
 import static io.prestosql.operator.scalar.ZipFunction.ZIP_FUNCTIONS;
@@ -336,6 +340,7 @@ import static io.prestosql.type.DecimalSaturatedFloorCasts.SMALLINT_TO_DECIMAL_S
 import static io.prestosql.type.DecimalSaturatedFloorCasts.TINYINT_TO_DECIMAL_SATURATED_FLOOR_CAST;
 import static io.prestosql.type.DecimalToDecimalCasts.DECIMAL_TO_DECIMAL_CAST;
 import static io.prestosql.type.UnknownType.UNKNOWN;
+import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.HOURS;
@@ -364,8 +369,30 @@ public class FunctionRegistry
         specializedScalarCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
                 .expireAfterWrite(1, HOURS)
-                .build(CacheLoader.from(key -> ((SqlScalarFunction) key.getFunction())
-                        .specialize(key.getBoundVariables(), key.getArity(), metadata)));
+                .build(CacheLoader.from(key -> {
+                    SqlScalarFunction function = (SqlScalarFunction) key.getFunction();
+                    ScalarFunctionImplementation specialize = function.specialize(key.getBoundVariables(), key.getArity(), metadata);
+                    FunctionMetadata functionMetadata = function.getFunctionMetadata();
+                    for (ScalarImplementationChoice choice : specialize.getAllChoices()) {
+                        checkArgument(choice.isNullable() == functionMetadata.isNullable(), "choice nullability doesn't match for: " + functionMetadata.getSignature());
+                        for (int i = 0; i < choice.getArgumentProperties().size(); i++) {
+                            ArgumentProperty argumentProperty = choice.getArgumentProperty(i);
+                            int functionArgumentIndex = i;
+                            if (functionMetadata.getSignature().isVariableArity()) {
+                                functionArgumentIndex = min(i, functionMetadata.getSignature().getArgumentTypes().size() - 1);
+                            }
+                            boolean functionPropertyNullability = functionMetadata.getArgumentDefinitions().get(functionArgumentIndex).isNullable();
+                            if (argumentProperty.getArgumentType() == ArgumentType.FUNCTION_TYPE) {
+                                checkArgument(!functionPropertyNullability, "choice function argument must not be nullable: " + functionMetadata.getSignature());
+                            }
+                            else if (argumentProperty.getNullConvention() != BLOCK_AND_POSITION) {
+                                boolean choiceNullability = argumentProperty.getNullConvention() != RETURN_NULL_ON_NULL;
+                                checkArgument(functionPropertyNullability == choiceNullability, "choice function argument nullability doesn't match for: " + functionMetadata.getSignature());
+                            }
+                        }
+                    }
+                    return specialize;
+                }));
 
         specializedAggregationCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)

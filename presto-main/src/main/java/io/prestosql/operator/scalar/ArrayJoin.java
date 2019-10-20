@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
@@ -100,6 +101,11 @@ public final class ArrayJoin
                             ImmutableList.of(arrayType(new TypeSignature("T")), VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()),
                             false),
                     false,
+                    ImmutableList.of(
+                            new FunctionArgumentDefinition(false),
+                            new FunctionArgumentDefinition(false),
+                            new FunctionArgumentDefinition(false)),
+                    false,
                     true,
                     DESCRIPTION));
         }
@@ -122,6 +128,10 @@ public final class ArrayJoin
                         VARCHAR.getTypeSignature(),
                         ImmutableList.of(arrayType(new TypeSignature("T")), VARCHAR.getTypeSignature()),
                         false),
+                false,
+                ImmutableList.of(
+                        new FunctionArgumentDefinition(false),
+                        new FunctionArgumentDefinition(false)),
                 false,
                 true,
                 DESCRIPTION));

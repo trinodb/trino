@@ -65,7 +65,8 @@ public class ArrayToArrayCast
                 ImmutableList.of(typeVariable("F"), typeVariable("T")),
                 ImmutableList.of(),
                 arrayType(new TypeSignature("T")),
-                ImmutableList.of(arrayType(new TypeSignature("F"))));
+                ImmutableList.of(arrayType(new TypeSignature("F"))),
+                false);
     }
 
     @Override

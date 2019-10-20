@@ -59,7 +59,8 @@ public class ArrayToJsonCast
                 ImmutableList.of(typeVariable("T")),
                 ImmutableList.of(),
                 JSON.getTypeSignature(),
-                ImmutableList.of(arrayType(new TypeSignature("T"))));
+                ImmutableList.of(arrayType(new TypeSignature("T"))),
+                false);
     }
 
     @Override

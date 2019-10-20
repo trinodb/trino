@@ -63,7 +63,8 @@ public class MapToJsonCast
                 ImmutableList.of(typeVariable("K"), typeVariable("V")),
                 ImmutableList.of(),
                 JSON.getTypeSignature(),
-                ImmutableList.of(mapType(new TypeSignature("K"), new TypeSignature("V"))));
+                ImmutableList.of(mapType(new TypeSignature("K"), new TypeSignature("V"))),
+                false);
     }
 
     @Override

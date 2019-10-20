@@ -57,7 +57,8 @@ public class MapSubscriptOperator
                 ImmutableList.of(typeVariable("K"), typeVariable("V")),
                 ImmutableList.of(),
                 new TypeSignature("V"),
-                ImmutableList.of(mapType(new TypeSignature("K"), new TypeSignature("V")), new TypeSignature("K")));
+                ImmutableList.of(mapType(new TypeSignature("K"), new TypeSignature("V")), new TypeSignature("K")),
+                true);
     }
 
     @Override
