@@ -61,6 +61,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -132,6 +134,8 @@ public class PrestoResultSet
         return QueryStats.create(queryId, client.getStats());
     }
 
+    private static final Logger log = Logger.getLogger(PrestoResultSet.class.getName());
+
     @Override
     public boolean next()
             throws SQLException
@@ -142,7 +146,13 @@ public class PrestoResultSet
                 row.set(null);
                 return false;
             }
-            row.set(results.next());
+            List<Object> next = results.next();
+            List<Object> prev = row.getAndSet(next);
+            if (prev != null && (next == null || prev.size() != next.size())) {
+                RuntimeException e = new RuntimeException(format("Reshape: %s vs %s", prev, next));
+                log.log(Level.SEVERE, e, "zonkzonk"::toString);
+                throw e;
+            }
             return true;
         }
         catch (RuntimeException e) {
