@@ -1048,7 +1048,7 @@ public class ExpressionInterpreter
                     (escape == null || escape instanceof Slice)) {
                 Regex regex;
                 if (escape == null) {
-                    regex = LikeFunctions.likePattern((Slice) pattern);
+                    regex = LikeFunctions.compileLikePattern((Slice) pattern);
                 }
                 else {
                     regex = LikeFunctions.likePattern((Slice) pattern, (Slice) escape);
@@ -1110,7 +1110,7 @@ public class ExpressionInterpreter
                     result = LikeFunctions.likePattern(pattern.getSlice(), escape);
                 }
                 else {
-                    result = LikeFunctions.likePattern(pattern.getSlice());
+                    result = LikeFunctions.compileLikePattern(pattern.getSlice());
                 }
 
                 likePatternCache.put(node, result);

@@ -21,14 +21,12 @@ import io.prestosql.SystemSessionProperties;
 import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalParseResult;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.RowType.Field;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.relational.SpecialForm.Form;
 import io.prestosql.sql.relational.optimizer.ExpressionOptimizer;
@@ -60,7 +58,6 @@ import io.prestosql.sql.tree.IsNotNullPredicate;
 import io.prestosql.sql.tree.IsNullPredicate;
 import io.prestosql.sql.tree.LambdaArgumentDeclaration;
 import io.prestosql.sql.tree.LambdaExpression;
-import io.prestosql.sql.tree.LikePredicate;
 import io.prestosql.sql.tree.LogicalBinaryExpression;
 import io.prestosql.sql.tree.LongLiteral;
 import io.prestosql.sql.tree.NodeRef;
@@ -117,7 +114,6 @@ import static io.prestosql.sql.relational.SpecialForm.Form.ROW_CONSTRUCTOR;
 import static io.prestosql.sql.relational.SpecialForm.Form.SWITCH;
 import static io.prestosql.sql.relational.SpecialForm.Form.WHEN;
 import static io.prestosql.type.JsonType.JSON;
-import static io.prestosql.type.LikePatternType.LIKE_PATTERN;
 import static io.prestosql.util.DateTimeUtils.parseDayTimeInterval;
 import static io.prestosql.util.DateTimeUtils.parseTimeWithTimeZone;
 import static io.prestosql.util.DateTimeUtils.parseTimeWithoutTimeZone;
@@ -693,34 +689,6 @@ public final class SqlToRowExpressionTranslator
                     value,
                     min,
                     max);
-        }
-
-        @Override
-        protected RowExpression visitLikePredicate(LikePredicate node, Void context)
-        {
-            RowExpression value = process(node.getValue(), context);
-            RowExpression pattern = process(node.getPattern(), context);
-
-            if (node.getEscape().isPresent()) {
-                RowExpression escape = process(node.getEscape().get(), context);
-                return likeFunctionCall(value, new CallExpression(standardFunctionResolution.likePatternFunction(), LIKE_PATTERN, ImmutableList.of(pattern, escape)));
-            }
-
-            CallExpression patternCall = call(
-                    metadata.getCoercion(VARCHAR, LIKE_PATTERN),
-                    LIKE_PATTERN,
-                    pattern);
-            return likeFunctionCall(value, patternCall);
-        }
-
-        private RowExpression likeFunctionCall(RowExpression value, RowExpression pattern)
-        {
-            if (value.getType() instanceof VarcharType) {
-                return call(standardFunctionResolution.likeVarcharSignature(), BOOLEAN, value, pattern);
-            }
-
-            checkState(value.getType() instanceof CharType, "LIKE value type is neither VARCHAR or CHAR");
-            return call(standardFunctionResolution.likeCharFunction(value.getType()), BOOLEAN, value, pattern);
         }
 
         @Override

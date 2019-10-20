@@ -32,6 +32,7 @@ import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.assertions.SymbolAliases;
+import io.prestosql.sql.planner.iterative.rule.CanonicalizeExpressionRewriter;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.ExpressionRewriter;
 import io.prestosql.sql.tree.ExpressionTreeRewriter;
@@ -72,6 +73,7 @@ import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.sql.ExpressionFormatter.formatExpression;
 import static io.prestosql.sql.ExpressionTestUtils.assertExpressionEquals;
 import static io.prestosql.sql.ExpressionTestUtils.getFunctionName;
+import static io.prestosql.sql.ExpressionTestUtils.resolveFunctionCalls;
 import static io.prestosql.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static io.prestosql.sql.ParsingUtil.createParsingOptions;
 import static io.prestosql.sql.planner.ExpressionInterpreter.expressionInterpreter;
@@ -1472,7 +1474,15 @@ public class TestExpressionInterpreter
     {
         assertRoundTrip(expression);
 
-        Expression parsedExpression = FunctionAssertions.createExpression(expression, METADATA, SYMBOL_TYPES);
+        Expression parsedExpression = SQL_PARSER.createExpression(expression, createParsingOptions(TEST_SESSION));
+        parsedExpression = rewriteIdentifiersToSymbolReferences(parsedExpression);
+        parsedExpression = resolveFunctionCalls(METADATA, TEST_SESSION, SYMBOL_TYPES, parsedExpression);
+        parsedExpression = CanonicalizeExpressionRewriter.rewrite(
+                parsedExpression,
+                TEST_SESSION,
+                METADATA,
+                new TypeAnalyzer(SQL_PARSER, METADATA),
+                SYMBOL_TYPES);
 
         Map<NodeRef<Expression>, Type> expressionTypes = TYPE_ANALYZER.getTypes(TEST_SESSION, SYMBOL_TYPES, parsedExpression);
         ExpressionInterpreter interpreter = expressionOptimizer(parsedExpression, METADATA, TEST_SESSION, expressionTypes);
