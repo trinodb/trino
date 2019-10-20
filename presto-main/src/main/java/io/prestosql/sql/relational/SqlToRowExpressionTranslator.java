@@ -76,7 +76,6 @@ import io.prestosql.sql.tree.SubscriptExpression;
 import io.prestosql.sql.tree.SymbolReference;
 import io.prestosql.sql.tree.TimeLiteral;
 import io.prestosql.sql.tree.TimestampLiteral;
-import io.prestosql.sql.tree.TryExpression;
 import io.prestosql.sql.tree.WhenClause;
 import io.prestosql.type.UnknownType;
 
@@ -623,12 +622,6 @@ public final class SqlToRowExpressionTranslator
             }
 
             return new SpecialForm(IF, getType(node), arguments.build());
-        }
-
-        @Override
-        protected RowExpression visitTryExpression(TryExpression node, Void context)
-        {
-            return call(standardFunctionResolution.tryFunction(getType((node))), getType(node), process(node.getInnerExpression(), context));
         }
 
         @Override

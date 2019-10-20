@@ -130,9 +130,4 @@ public final class StandardFunctionResolution
 
         return metadata.resolveOperator(operatorType, ImmutableList.of(leftType, rightType));
     }
-
-    public ResolvedFunction tryFunction(Type returnType)
-    {
-        return metadata.resolveFunction(QualifiedName.of("TRY"), fromTypes(returnType));
-    }
 }
