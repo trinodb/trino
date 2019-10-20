@@ -29,12 +29,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static io.prestosql.plugin.base.JsonUtils.parseJson;
 import static io.prestosql.plugin.base.security.TableAccessControlRule.TablePrivilege.DELETE;
 import static io.prestosql.plugin.base.security.TableAccessControlRule.TablePrivilege.GRANT_SELECT;
 import static io.prestosql.plugin.base.security.TableAccessControlRule.TablePrivilege.INSERT;
 import static io.prestosql.plugin.base.security.TableAccessControlRule.TablePrivilege.OWNERSHIP;
 import static io.prestosql.plugin.base.security.TableAccessControlRule.TablePrivilege.SELECT;
+import static io.prestosql.plugin.base.util.JsonUtils.parseJson;
 import static io.prestosql.spi.security.AccessDeniedException.denyAddColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyCommentTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateSchema;
