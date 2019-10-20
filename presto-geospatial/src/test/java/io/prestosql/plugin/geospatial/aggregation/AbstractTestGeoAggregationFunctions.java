@@ -22,7 +22,6 @@ import io.prestosql.operator.aggregation.InternalAggregationFunction;
 import io.prestosql.operator.scalar.AbstractTestFunctions;
 import io.prestosql.plugin.geospatial.GeoPlugin;
 import io.prestosql.spi.Page;
-import io.prestosql.spi.type.Type;
 import io.prestosql.sql.tree.QualifiedName;
 import org.testng.annotations.BeforeClass;
 
@@ -32,7 +31,6 @@ import java.util.List;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
-import static io.prestosql.metadata.FunctionExtractor.extractFunctions;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.prestosql.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -45,12 +43,8 @@ public abstract class AbstractTestGeoAggregationFunctions
     @BeforeClass
     public void registerFunctions()
     {
-        GeoPlugin plugin = new GeoPlugin();
-        for (Type type : plugin.getTypes()) {
-            functionAssertions.addType(type);
-        }
+        functionAssertions.installPlugin(new GeoPlugin());
         Metadata metadata = functionAssertions.getMetadata();
-        metadata.addFunctions(extractFunctions(plugin.getFunctions()));
         function = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(
                 QualifiedName.of(getFunctionName()),
                 fromTypes(GEOMETRY)));

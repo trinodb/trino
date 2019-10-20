@@ -57,9 +57,7 @@ public class TestSpatialPartitioningInternalAggregation
     @BeforeClass
     public void setup()
     {
-        GeoPlugin plugin = new GeoPlugin();
-        registerTypes(plugin);
-        registerFunctions(plugin);
+        functionAssertions.installPlugin(new GeoPlugin());
     }
 
     @DataProvider(name = "partitionCount")

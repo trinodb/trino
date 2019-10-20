@@ -36,7 +36,6 @@ import java.util.Map;
 
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
-import static io.prestosql.metadata.FunctionExtractor.extractFunctions;
 import static io.prestosql.metadata.Signature.mangleOperatorName;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -177,16 +176,9 @@ public abstract class AbstractTestFunctions
                 .getFunctions());
     }
 
-    protected void registerFunctions(Plugin plugin)
+    protected void installPlugin(Plugin plugin)
     {
-        functionAssertions.getMetadata().addFunctions(extractFunctions(plugin.getFunctions()));
-    }
-
-    protected void registerTypes(Plugin plugin)
-    {
-        for (Type type : plugin.getTypes()) {
-            functionAssertions.addType(type);
-        }
+        functionAssertions.installPlugin(plugin);
     }
 
     protected static SqlDecimal decimal(String decimalString)
