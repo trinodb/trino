@@ -15,7 +15,6 @@ package io.prestosql.operator.annotations;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import io.prestosql.metadata.LongVariableConstraint;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.TypeVariableConstraint;
@@ -28,6 +27,7 @@ import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.function.TypeParameter;
 import io.prestosql.spi.function.TypeParameterSpecialization;
 import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.spi.type.TypeSignatureParameter;
 import io.prestosql.type.Constraint;
 
 import javax.annotation.Nullable;
@@ -38,6 +38,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -50,9 +51,6 @@ import java.util.stream.Stream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.prestosql.metadata.Signature.comparableTypeParameter;
-import static io.prestosql.metadata.Signature.orderableTypeParameter;
-import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.annotations.ImplementationDependency.isImplementationDependencyAnnotation;
 import static io.prestosql.spi.function.OperatorType.BETWEEN;
 import static io.prestosql.spi.function.OperatorType.CAST;
@@ -85,43 +83,83 @@ public final class FunctionsParserHelper
         return containsAnnotation(annotations, ImplementationDependency::isImplementationDependencyAnnotation);
     }
 
-    public static List<TypeVariableConstraint> createTypeVariableConstraints(Iterable<TypeParameter> typeParameters, List<ImplementationDependency> dependencies)
+    public static List<TypeVariableConstraint> createTypeVariableConstraints(Collection<TypeParameter> typeParameters, List<ImplementationDependency> dependencies)
     {
+        Set<String> typeParameterNames = typeParameters.stream()
+                .map(TypeParameter::value)
+                .collect(toImmutableSet());
+
         Set<String> orderableRequired = new HashSet<>();
         Set<String> comparableRequired = new HashSet<>();
         for (ImplementationDependency dependency : dependencies) {
             if (dependency instanceof OperatorImplementationDependency) {
-                OperatorType operator = ((OperatorImplementationDependency) dependency).getOperator();
+                OperatorImplementationDependency operatorDependency = (OperatorImplementationDependency) dependency;
+                OperatorType operator = operatorDependency.getOperator();
                 if (operator == CAST) {
                     continue;
                 }
-                Set<String> argumentTypes = ((OperatorImplementationDependency) dependency).getArgumentTypes().stream()
-                        .map(TypeSignature::getBase)
-                        .collect(toImmutableSet());
-                checkArgument(argumentTypes.size() == 1, "Operator dependency must only have arguments of a single type");
-                String argumentType = Iterables.getOnlyElement(argumentTypes);
+                List<TypeSignature> argumentTypes = operatorDependency.getArgumentTypes();
                 if (COMPARABLE_TYPE_OPERATORS.contains(operator)) {
-                    comparableRequired.add(argumentType);
+                    verifyOperatorSignature(operator, argumentTypes);
+                    TypeSignature typeSignature = argumentTypes.get(0);
+                    if (typeParameterNames.contains(typeSignature.getBase())) {
+                        comparableRequired.add(typeSignature.toString());
+                    }
+                    else {
+                        verifyTypeSignatureDoesNotContainAnyTypeParameters(typeSignature, typeSignature, typeParameterNames);
+                    }
                 }
                 if (ORDERABLE_TYPE_OPERATORS.contains(operator)) {
-                    orderableRequired.add(argumentType);
+                    verifyOperatorSignature(operator, argumentTypes);
+                    TypeSignature typeSignature = argumentTypes.get(0);
+                    if (typeParameterNames.contains(typeSignature.getBase())) {
+                        orderableRequired.add(typeSignature.toString());
+                    }
+                    else {
+                        verifyTypeSignatureDoesNotContainAnyTypeParameters(typeSignature, typeSignature, typeParameterNames);
+                    }
                 }
             }
         }
+
         ImmutableList.Builder<TypeVariableConstraint> typeVariableConstraints = ImmutableList.builder();
-        for (TypeParameter typeParameter : typeParameters) {
-            String name = typeParameter.value();
-            if (orderableRequired.contains(name)) {
-                typeVariableConstraints.add(orderableTypeParameter(name));
-            }
-            else if (comparableRequired.contains(name)) {
-                typeVariableConstraints.add(comparableTypeParameter(name));
-            }
-            else {
-                typeVariableConstraints.add(typeVariable(name));
-            }
+        for (String name : typeParameterNames) {
+            typeVariableConstraints.add(new TypeVariableConstraint(
+                    name,
+                    comparableRequired.contains(name),
+                    orderableRequired.contains(name),
+                    null));
         }
         return typeVariableConstraints.build();
+    }
+
+    private static void verifyOperatorSignature(OperatorType operator, List<TypeSignature> argumentTypes)
+    {
+        checkArgument(argumentTypes.size() == operator.getArgumentCount() && argumentTypes.stream().distinct().count() == 1,
+                "%s requires %s arguments of the same type",
+                operator,
+                operator.getArgumentCount());
+    }
+
+    private static void verifyTypeSignatureDoesNotContainAnyTypeParameters(TypeSignature rootType, TypeSignature typeSignature, Set<String> typeParameterNames)
+    {
+        checkArgument(!typeParameterNames.contains(typeSignature.getBase()), "Nested type variables are not allowed: %s", rootType);
+
+        for (TypeSignatureParameter parameter : typeSignature.getParameters()) {
+            switch (parameter.getKind()) {
+                case TYPE:
+                    verifyTypeSignatureDoesNotContainAnyTypeParameters(rootType, parameter.getTypeSignature(), typeParameterNames);
+                    break;
+                case NAMED_TYPE:
+                    verifyTypeSignatureDoesNotContainAnyTypeParameters(rootType, parameter.getNamedTypeSignature().getTypeSignature(), typeParameterNames);
+                    break;
+                case LONG:
+                case VARIABLE:
+                    break;
+                default:
+                    throw new UnsupportedOperationException();
+            }
+        }
     }
 
     public static void validateSignaturesCompatibility(Optional<Signature> signatureOld, Signature signatureNew)
