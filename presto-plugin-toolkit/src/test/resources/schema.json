@@ -2,7 +2,8 @@
   "schemas": [
     {
       "schema": "secret",
-      "owner": false
+      "owner": false,
+      "allow": "none"
     },
     {
       "user": "admin",

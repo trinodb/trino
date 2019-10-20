@@ -24,25 +24,41 @@ import static java.util.Objects.requireNonNull;
 public class SchemaAccessControlRule
 {
     private final boolean owner;
+    private final Optional<AccessMode> allow;
     private final Optional<Pattern> userRegex;
     private final Optional<Pattern> schemaRegex;
 
     @JsonCreator
     public SchemaAccessControlRule(
             @JsonProperty("owner") boolean owner,
+            @JsonProperty("allow") Optional<AccessMode> allow,
             @JsonProperty("user") Optional<Pattern> userRegex,
             @JsonProperty("schema") Optional<Pattern> schemaRegex)
     {
         this.owner = owner;
+        // For backward compatibility, assume ALL when `allow` is not set
+        this.allow = requireNonNull(allow, "allow is null");
         this.userRegex = requireNonNull(userRegex, "userRegex is null");
         this.schemaRegex = requireNonNull(schemaRegex, "sourceRegex is null");
     }
 
-    public Optional<Boolean> match(String user, String schema)
+    public Optional<Boolean> isSchemaOwner(String user, String schema)
     {
         if (userRegex.map(regex -> regex.matcher(user).matches()).orElse(true) &&
                 schemaRegex.map(regex -> regex.matcher(schema).matches()).orElse(true)) {
             return Optional.of(owner);
+        }
+        return Optional.empty();
+    }
+
+    public Optional<AccessMode> match(String user, String schema)
+    {
+        if (userRegex.map(regex -> regex.matcher(user).matches()).orElse(true) &&
+                schemaRegex.map(regex -> regex.matcher(schema).matches()).orElse(true)) {
+            if (!allow.isPresent()) {
+                return Optional.of(AccessMode.ALL);
+            }
+            return allow;
         }
         return Optional.empty();
     }

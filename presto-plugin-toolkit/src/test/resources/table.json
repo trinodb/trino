@@ -1,4 +1,24 @@
 {
+  "schemas": [
+    {
+      "user": "user_with_all_access_to_bobschema",
+      "schema": "bobschema",
+      "owner": false,
+      "allow": "all"
+    },
+    {
+      "user": "user_with_none_access_to_bobschema",
+      "schema": "bobschema",
+      "owner": false,
+      "allow": "none"
+    },
+    {
+      "user": "user_with_read_only_access_to_bobschema",
+      "schema": "bobschema",
+      "owner": false,
+      "allow": "read-only"
+    }
+  ],
   "tables": [
     {
       "schema": "secret",
@@ -14,6 +34,21 @@
       "schema": "bobschema",
       "table": "bobtable",
       "privileges": ["SELECT", "INSERT", "DELETE", "GRANT_SELECT"]
+    },
+    {
+      "user": "user_with_all_access_to_bobschema",
+      "schema": "bobschema",
+      "privileges": ["SELECT", "INSERT", "DELETE", "GRANT_SELECT"]
+    },
+    {
+      "user": "user_with_none_access_to_bobschema",
+      "schema": ".*",
+      "privileges": ["INSERT"]
+    },
+    {
+      "user": "user_with_read_only_access_to_bobschema",
+      "schema": ".*",
+      "privileges": ["INSERT"]
     },
     {
       "privileges": ["SELECT"]

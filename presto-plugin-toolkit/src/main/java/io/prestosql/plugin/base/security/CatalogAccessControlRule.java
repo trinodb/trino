@@ -15,12 +15,7 @@ package io.prestosql.plugin.base.security;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonValue;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Maps;
 
-import java.util.Locale;
-import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
@@ -50,55 +45,5 @@ public class CatalogAccessControlRule
             return Optional.of(accessMode);
         }
         return Optional.empty();
-    }
-
-    public enum AccessMode
-    {
-        ALL("all"),
-        READ_ONLY("read-only"),
-        NONE("none");
-
-        private static final Map<String, AccessMode> modeByName = Maps.uniqueIndex(ImmutableList.copyOf(AccessMode.values()), AccessMode::toString);
-
-        private final String stringValue;
-
-        AccessMode(String stringValue)
-        {
-            this.stringValue = requireNonNull(stringValue, "stringValue is null");
-        }
-
-        @JsonValue
-        @Override
-        public String toString()
-        {
-            return stringValue;
-        }
-
-        @JsonCreator
-        public static AccessMode fromJson(Object value)
-        {
-            if (Boolean.TRUE.equals(value)) {
-                return ALL;
-            }
-            if (Boolean.FALSE.equals(value)) {
-                return NONE;
-            }
-            if (value instanceof String) {
-                AccessMode accessMode = modeByName.get(((String) value).toLowerCase(Locale.US));
-                if (accessMode != null) {
-                    return accessMode;
-                }
-            }
-
-            throw new IllegalArgumentException("Unknown " + AccessMode.class.getSimpleName() + ": " + value);
-        }
-
-        boolean implies(AccessMode other)
-        {
-            if (this == ALL && other == READ_ONLY) {
-                return true;
-            }
-            return this == other;
-        }
     }
 }

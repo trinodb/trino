@@ -27,6 +27,7 @@ import java.util.Optional;
 
 import static io.prestosql.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
 
 public class TestFileBasedAccessControl
@@ -52,6 +53,9 @@ public class TestFileBasedAccessControl
         accessControl.checkCanCreateTable(user("bob"), new SchemaTableName("bob", "test"));
         assertDenied(() -> accessControl.checkCanCreateTable(user("bob"), new SchemaTableName("test", "test")));
         assertDenied(() -> accessControl.checkCanCreateTable(user("admin"), new SchemaTableName("secret", "test")));
+
+        assertEquals(accessControl.filterSchemas(user("admin"), ImmutableSet.of("secret", "bob")), ImmutableSet.of("bob"));
+        assertEquals(accessControl.filterSchemas(user("bob"), ImmutableSet.of("secret", "bob")), ImmutableSet.of("bob"));
     }
 
     @Test
@@ -64,15 +68,29 @@ public class TestFileBasedAccessControl
         accessControl.checkCanSelectFromColumns(user("bob"), new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of());
         accessControl.checkCanInsertIntoTable(user("bob"), new SchemaTableName("bobschema", "bobtable"));
         accessControl.checkCanDeleteFromTable(user("bob"), new SchemaTableName("bobschema", "bobtable"));
-        accessControl.checkCanSelectFromColumns(user("joe"), new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of());
+        accessControl.checkCanSelectFromColumns(user("user_with_all_access_to_bobschema"), new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of());
+        accessControl.checkCanInsertIntoTable(user("user_with_all_access_to_bobschema"), new SchemaTableName("bobschema", "bobtable"));
         accessControl.checkCanCreateViewWithSelectFromColumns(user("bob"), new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of());
         accessControl.checkCanDropTable(user("admin"), new SchemaTableName("bobschema", "bobtable"));
         assertDenied(() -> accessControl.checkCanInsertIntoTable(user("alice"), new SchemaTableName("bobschema", "bobtable")));
         assertDenied(() -> accessControl.checkCanDropTable(user("bob"), new SchemaTableName("bobschema", "bobtable")));
         assertDenied(() -> accessControl.checkCanInsertIntoTable(user("bob"), new SchemaTableName("test", "test")));
         assertDenied(() -> accessControl.checkCanSelectFromColumns(user("admin"), new SchemaTableName("secret", "secret"), ImmutableSet.of()));
-        assertDenied(() -> accessControl.checkCanSelectFromColumns(user("joe"), new SchemaTableName("secret", "secret"), ImmutableSet.of()));
-        assertDenied(() -> accessControl.checkCanCreateViewWithSelectFromColumns(user("joe"), new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of()));
+        assertDenied(() -> accessControl.checkCanSelectFromColumns(user("user_with_all_access_to_bobschema"), new SchemaTableName("secret", "secret"), ImmutableSet.of()));
+        assertDenied(() -> accessControl.checkCanSelectFromColumns(user("user_with_none_access_to_bobschema"), new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of()));
+        assertDenied(() -> accessControl.checkCanInsertIntoTable(user("user_with_none_access_to_bobschema"), new SchemaTableName("bobschema", "bobtable")));
+        assertDenied(() -> accessControl.checkCanInsertIntoTable(user("user_with_read_only_access_to_bobschema"), new SchemaTableName("bobschema", "bobtable")));
+        assertDenied(() -> accessControl.checkCanCreateViewWithSelectFromColumns(user("user_with_access_to_bobschema"), new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of()));
+        assertEquals(accessControl.filterTables(user("admin"), ImmutableSet.of(new SchemaTableName("bobschema", "bobtable"),
+                new SchemaTableName("secret", "secret"))), ImmutableSet.of(new SchemaTableName("bobschema", "bobtable")));
+        assertEquals(accessControl.filterTables(user("bob"), ImmutableSet.of(new SchemaTableName("bobschema", "bobtable"),
+                new SchemaTableName("secret", "secret"))), ImmutableSet.of(new SchemaTableName("bobschema", "bobtable")));
+        assertEquals(accessControl.filterTables(user("alice"), ImmutableSet.of(new SchemaTableName("bobschema", "bobtable"),
+                new SchemaTableName("secret", "secret"))), ImmutableSet.of(new SchemaTableName("bobschema", "bobtable")));
+        assertEquals(accessControl.filterTables(user("user_with_all_access_to_bobschema"), ImmutableSet.of(new SchemaTableName("bobschema", "bobtable"),
+                new SchemaTableName("secret", "secret"))), ImmutableSet.of(new SchemaTableName("bobschema", "bobtable")));
+        assertEquals(accessControl.filterTables(user("user_with_none_access_to_bobschema"), ImmutableSet.of(new SchemaTableName("bobschema", "bobtable"),
+                new SchemaTableName("secret", "secret"))), ImmutableSet.of());
     }
 
     @Test

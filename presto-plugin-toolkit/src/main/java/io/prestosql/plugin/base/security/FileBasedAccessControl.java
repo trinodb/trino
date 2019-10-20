@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.plugin.base.JsonUtils.parseJson;
 import static io.prestosql.plugin.base.security.TableAccessControlRule.TablePrivilege.DELETE;
 import static io.prestosql.plugin.base.security.TableAccessControlRule.TablePrivilege.GRANT_SELECT;
@@ -106,7 +107,9 @@ public class FileBasedAccessControl
     @Override
     public Set<String> filterSchemas(ConnectorSecurityContext context, Set<String> schemaNames)
     {
-        return schemaNames;
+        return schemaNames.stream()
+                .filter(schemaName -> canAccessSchema(context, schemaName, AccessMode.READ_ONLY))
+                .collect(toImmutableSet());
     }
 
     @Override
@@ -133,7 +136,11 @@ public class FileBasedAccessControl
     @Override
     public Set<SchemaTableName> filterTables(ConnectorSecurityContext context, Set<SchemaTableName> tableNames)
     {
-        return tableNames;
+        // table should be visible to schema owner
+        // table should be visible to user with any privilege on that table
+        return tableNames.stream()
+                .filter(tableName -> isSchemaOwner(context, tableName.getSchemaName()) || checkTableAnyPermission(context, tableName))
+                .collect(toImmutableSet());
     }
 
     @Override
@@ -320,7 +327,10 @@ public class FileBasedAccessControl
         if (INFORMATION_SCHEMA_NAME.equals(tableName.getSchemaName())) {
             return true;
         }
-
+        AccessMode requiredSchemaAccessMode = calculateRequiredSchemaAccessModeFromTablePrivileges(requiredPrivileges);
+        if (!canAccessSchema(context, tableName.getSchemaName(), requiredSchemaAccessMode)) {
+            return false;
+        }
         for (TableAccessControlRule rule : tableRules) {
             Optional<Set<TablePrivilege>> tablePrivileges = rule.match(context.getIdentity().getUser(), tableName);
             if (tablePrivileges.isPresent()) {
@@ -330,14 +340,56 @@ public class FileBasedAccessControl
         return false;
     }
 
+    private boolean checkTableAnyPermission(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        if (INFORMATION_SCHEMA_NAME.equals(tableName.getSchemaName())) {
+            return true;
+        }
+        if (!canAccessSchema(context, tableName.getSchemaName(), AccessMode.READ_ONLY)) {
+            return false;
+        }
+        for (TableAccessControlRule rule : tableRules) {
+            Optional<Set<TablePrivilege>> tablePrivileges = rule.match(context.getIdentity().getUser(), tableName);
+            if (tablePrivileges.isPresent()) {
+                return !tablePrivileges.get().isEmpty();
+            }
+        }
+        return false;
+    }
+
     private boolean isSchemaOwner(ConnectorSecurityContext context, String schemaName)
     {
         for (SchemaAccessControlRule rule : schemaRules) {
-            Optional<Boolean> owner = rule.match(context.getIdentity().getUser(), schemaName);
+            Optional<Boolean> owner = rule.isSchemaOwner(context.getIdentity().getUser(), schemaName);
             if (owner.isPresent()) {
                 return owner.get();
             }
         }
         return false;
+    }
+
+    private boolean canAccessSchema(ConnectorSecurityContext context, String schemaName, AccessMode requiredAccessMode)
+    {
+        for (SchemaAccessControlRule rule : schemaRules) {
+            Optional<AccessMode> accessMode = rule.match(context.getIdentity().getUser(), schemaName);
+            if (accessMode.isPresent()) {
+                return accessMode.get().implies(requiredAccessMode);
+            }
+        }
+        // if not rule match, we assume schema is at least READ_ONLY to user by default
+        return true;
+    }
+
+    private static AccessMode calculateRequiredSchemaAccessModeFromTablePrivileges(TablePrivilege... tablePrivileges)
+    {
+        AccessMode accessMode = AccessMode.NONE;
+        for (TablePrivilege tablePrivilege : tablePrivileges) {
+            if (tablePrivilege.equals(SELECT) && accessMode.equals(AccessMode.NONE)) {
+                accessMode = AccessMode.READ_ONLY;
+                continue;
+            }
+            accessMode = AccessMode.ALL;
+        }
+        return accessMode;
     }
 }
