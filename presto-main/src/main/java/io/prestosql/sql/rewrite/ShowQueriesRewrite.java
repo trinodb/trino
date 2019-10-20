@@ -570,7 +570,7 @@ final class ShowQueriesRewrite
 
         private static String getFunctionType(FunctionMetadata function)
         {
-            FunctionKind kind = function.getSignature().getKind();
+            FunctionKind kind = function.getKind();
             switch (kind) {
                 case AGGREGATE:
                     return "aggregate";

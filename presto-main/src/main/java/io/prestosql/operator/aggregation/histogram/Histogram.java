@@ -66,7 +66,6 @@ public class Histogram
         super(new FunctionMetadata(
                 new Signature(
                         NAME,
-                        AGGREGATE,
                         ImmutableList.of(comparableTypeParameter("K")),
                         ImmutableList.of(),
                         mapType(new TypeSignature("K"), BIGINT.getTypeSignature()),
@@ -76,7 +75,8 @@ public class Histogram
                 ImmutableList.of(new FunctionArgumentDefinition(false)),
                 false,
                 true,
-                "Count the number of times each value occurs"));
+                "Count the number of times each value occurs",
+                AGGREGATE));
         this.groupMode = groupMode;
     }
 

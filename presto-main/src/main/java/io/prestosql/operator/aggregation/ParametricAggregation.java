@@ -39,6 +39,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.SignatureBinder.applyBoundVariables;
 import static io.prestosql.operator.ParametricFunctionHelpers.bindDependencies;
 import static io.prestosql.operator.aggregation.AggregationUtils.generateAggregationName;
@@ -66,7 +67,8 @@ public class ParametricAggregation
                 implementations.getArgumentDefinitions(),
                 details.isHidden(),
                 true,
-                details.getDescription().orElse("")));
+                details.getDescription().orElse(""),
+                AGGREGATE));
         requireNonNull(details, "details is null");
         this.decomposable = details.isDecomposable();
         this.orderSensitive = details.isOrderSensitive();

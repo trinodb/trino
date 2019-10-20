@@ -63,7 +63,6 @@ public class ChecksumAggregationFunction
         super(new FunctionMetadata(
                 new Signature(
                         NAME,
-                        AGGREGATE,
                         ImmutableList.of(comparableTypeParameter("T")),
                         ImmutableList.of(),
                         VARBINARY.getTypeSignature(),
@@ -73,7 +72,8 @@ public class ChecksumAggregationFunction
                 ImmutableList.of(new FunctionArgumentDefinition(true)),
                 false,
                 true,
-                "Checksum of the given values"));
+                "Checksum of the given values",
+                AGGREGATE));
     }
 
     @Override

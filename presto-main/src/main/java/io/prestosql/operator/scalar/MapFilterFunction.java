@@ -27,7 +27,6 @@ import io.airlift.bytecode.control.IfStatement;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionArgumentDefinition;
-import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
@@ -62,6 +61,7 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.lessThan;
 import static io.airlift.bytecode.expression.BytecodeExpressions.notEqual;
 import static io.airlift.bytecode.expression.BytecodeExpressions.subtract;
 import static io.airlift.bytecode.instruction.VariableInstruction.incrementVariable;
+import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.functionTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
@@ -86,7 +86,6 @@ public final class MapFilterFunction
         super(new FunctionMetadata(
                 new Signature(
                         "map_filter",
-                        FunctionKind.SCALAR,
                         ImmutableList.of(typeVariable("K"), typeVariable("V")),
                         ImmutableList.of(),
                         mapType(new TypeSignature("K"), new TypeSignature("V")),
@@ -100,7 +99,8 @@ public final class MapFilterFunction
                         new FunctionArgumentDefinition(false)),
                 false,
                 false,
-                "return map containing entries that match the given predicate"));
+                "return map containing entries that match the given predicate",
+                SCALAR));
     }
 
     @Override

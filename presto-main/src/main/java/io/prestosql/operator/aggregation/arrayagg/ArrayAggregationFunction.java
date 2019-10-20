@@ -65,7 +65,6 @@ public class ArrayAggregationFunction
         super(new FunctionMetadata(
                 new Signature(
                         NAME,
-                        AGGREGATE,
                         ImmutableList.of(typeVariable("T")),
                         ImmutableList.of(),
                         TypeSignature.arrayType(new TypeSignature("T")),
@@ -75,7 +74,8 @@ public class ArrayAggregationFunction
                 ImmutableList.of(new FunctionArgumentDefinition(true)),
                 false,
                 true,
-                "return an array of values"));
+                "return an array of values",
+                AGGREGATE));
         this.groupMode = requireNonNull(groupMode, "groupMode is null");
     }
 

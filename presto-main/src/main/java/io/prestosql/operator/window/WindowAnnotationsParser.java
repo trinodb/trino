@@ -26,7 +26,6 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.metadata.FunctionKind.WINDOW;
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.TypeSignatureParser.parseTypeSignature;
 
@@ -56,7 +55,6 @@ public final class WindowAnnotationsParser
 
         Signature signature = new Signature(
                 window.name(),
-                WINDOW,
                 typeVariables,
                 ImmutableList.of(),
                 parseTypeSignature(window.returnType(), ImmutableSet.of()),

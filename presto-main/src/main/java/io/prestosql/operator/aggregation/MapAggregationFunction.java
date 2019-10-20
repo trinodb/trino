@@ -64,7 +64,6 @@ public class MapAggregationFunction
         super(new FunctionMetadata(
                 new Signature(
                         NAME,
-                        AGGREGATE,
                         ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")),
                         ImmutableList.of(),
                         mapType(new TypeSignature("K"), new TypeSignature("V")),
@@ -76,7 +75,8 @@ public class MapAggregationFunction
                         new FunctionArgumentDefinition(true)),
                 false,
                 true,
-                "Aggregates all the rows (key/value pairs) into a single map"));
+                "Aggregates all the rows (key/value pairs) into a single map",
+                AGGREGATE));
     }
 
     @Override

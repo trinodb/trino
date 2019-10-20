@@ -20,7 +20,6 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Ordering;
@@ -342,6 +341,7 @@ import static io.prestosql.type.DecimalToDecimalCasts.DECIMAL_TO_DECIMAL_CAST;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static java.lang.Math.min;
 import static java.lang.String.format;
+import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.HOURS;
 
@@ -687,7 +687,9 @@ public class FunctionRegistry
 
     public boolean isAggregationFunction(QualifiedName name)
     {
-        return Iterables.any(functions.get(name), function -> function.getSignature().getKind() == AGGREGATE);
+        return functions.get(name).stream()
+                .map(FunctionMetadata::getKind)
+                .anyMatch(AGGREGATE::equals);
     }
 
     ResolvedFunction resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
@@ -892,10 +894,9 @@ public class FunctionRegistry
     private boolean returnsNullOnGivenInputTypes(ApplicableFunction applicableFunction, List<Type> parameterTypes)
     {
         ResolvedFunction resolvedFunction = applicableFunction.getResolvedFunction();
-        FunctionKind functionKind = resolvedFunction.getSignature().getKind();
         FunctionMetadata functionMetadata = getSpecializedFunctionKey(resolvedFunction).getFunction().getFunctionMetadata();
         // Window and Aggregation functions have fixed semantic where NULL values are always skipped
-        if (functionKind != SCALAR) {
+        if (functionMetadata.getKind() != SCALAR) {
             return true;
         }
 
@@ -911,7 +912,30 @@ public class FunctionRegistry
 
     public FunctionMetadata getFunctionMetadata(ResolvedFunction resolvedFunction)
     {
-        return getSpecializedFunctionKey(resolvedFunction).getFunction().getFunctionMetadata();
+        FunctionMetadata functionMetadata = getSpecializedFunctionKey(resolvedFunction).getFunction().getFunctionMetadata();
+
+        // specialize function metadata to resolvedFunction
+        List<FunctionArgumentDefinition> argumentDefinitions;
+        if (functionMetadata.getSignature().isVariableArity()) {
+            List<FunctionArgumentDefinition> fixedArguments = functionMetadata.getArgumentDefinitions().subList(0, functionMetadata.getArgumentDefinitions().size() - 1);
+            int variableArgumentCount = resolvedFunction.getSignature().getArgumentTypes().size() - fixedArguments.size();
+            argumentDefinitions = ImmutableList.<FunctionArgumentDefinition>builder()
+                    .addAll(fixedArguments)
+                    .addAll(nCopies(variableArgumentCount, functionMetadata.getArgumentDefinitions().get(functionMetadata.getArgumentDefinitions().size() - 1)))
+                    .build();
+        }
+        else {
+            argumentDefinitions = functionMetadata.getArgumentDefinitions();
+        }
+        return new FunctionMetadata(
+                functionMetadata.getFunctionId(),
+                resolvedFunction.getSignature(),
+                functionMetadata.isNullable(),
+                argumentDefinitions,
+                functionMetadata.isHidden(),
+                functionMetadata.isDeterministic(),
+                functionMetadata.getDescription(),
+                functionMetadata.getKind());
     }
 
     public WindowFunctionSupplier getWindowFunctionImplementation(ResolvedFunction resolvedFunction)
@@ -965,7 +989,6 @@ public class FunctionRegistry
         try {
             Signature signature = new Signature(
                     mangleOperatorName(operatorType),
-                    SCALAR,
                     returnType.getTypeSignature(),
                     argumentTypes.stream().map(Type::getTypeSignature).collect(toImmutableList()));
             // TODO: this is hacky, but until the magic literal and row field reference hacks are cleaned up it's difficult to implement this.
@@ -1004,7 +1027,7 @@ public class FunctionRegistry
     {
         checkArgument(operatorType == OperatorType.CAST || operatorType == OperatorType.SATURATED_FLOOR_CAST);
         try {
-            Signature signature = new Signature(mangleOperatorName(operatorType), SCALAR, toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature()));
+            Signature signature = new Signature(mangleOperatorName(operatorType), toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature()));
             ResolvedFunction resolvedFunction = resolveCoercion(signature);
             getScalarFunctionImplementation(resolvedFunction);
             return resolvedFunction;
@@ -1019,7 +1042,7 @@ public class FunctionRegistry
 
     public ResolvedFunction getCoercion(QualifiedName name, Type fromType, Type toType)
     {
-        ResolvedFunction resolvedFunction = resolveCoercion(new Signature(name.getSuffix(), SCALAR, toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature())));
+        ResolvedFunction resolvedFunction = resolveCoercion(new Signature(name.getSuffix(), toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature())));
         getScalarFunctionImplementation(resolvedFunction);
         return resolvedFunction;
     }
@@ -1122,7 +1145,7 @@ public class FunctionRegistry
             for (Map.Entry<QualifiedName, Collection<FunctionMetadata>> entry : this.functionsByName.asMap().entrySet()) {
                 Collection<FunctionMetadata> values = entry.getValue();
                 long aggregations = values.stream()
-                        .map(function -> function.getSignature().getKind())
+                        .map(FunctionMetadata::getKind)
                         .filter(kind -> kind == AGGREGATE)
                         .count();
                 checkState(aggregations == 0 || aggregations == values.size(), "'%s' is both an aggregation and a scalar function", entry.getKey());

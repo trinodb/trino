@@ -21,6 +21,7 @@ import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlFunction;
 
 import static com.google.common.base.Strings.nullToEmpty;
+import static io.prestosql.metadata.FunctionKind.WINDOW;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 
@@ -40,7 +41,8 @@ public class SqlWindowFunction
                 nCopies(signature.getArgumentTypes().size(), new FunctionArgumentDefinition(true)),
                 false,
                 true,
-                nullToEmpty(supplier.getDescription()));
+                nullToEmpty(supplier.getDescription()),
+                WINDOW);
     }
 
     @Override

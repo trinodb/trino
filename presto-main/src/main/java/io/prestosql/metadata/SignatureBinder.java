@@ -144,7 +144,6 @@ public class SignatureBinder
 
         return new Signature(
                 signature.getName(),
-                signature.getKind(),
                 ImmutableList.of(),
                 ImmutableList.of(),
                 boundReturnTypeSignature,

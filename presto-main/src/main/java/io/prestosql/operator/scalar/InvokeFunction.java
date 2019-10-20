@@ -17,7 +17,6 @@ package io.prestosql.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionArgumentDefinition;
-import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
@@ -29,6 +28,7 @@ import io.prestosql.sql.gen.lambda.LambdaFunctionInterface;
 import java.lang.invoke.MethodHandle;
 
 import static com.google.common.primitives.Primitives.wrap;
+import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.functionTypeArgumentProperty;
 import static io.prestosql.spi.type.TypeSignature.functionType;
@@ -49,7 +49,6 @@ public final class InvokeFunction
         super(new FunctionMetadata(
                 new Signature(
                         "invoke",
-                        FunctionKind.SCALAR,
                         ImmutableList.of(typeVariable("T")),
                         ImmutableList.of(),
                         new TypeSignature("T"),
@@ -59,7 +58,8 @@ public final class InvokeFunction
                 ImmutableList.of(new FunctionArgumentDefinition(false)),
                 true,
                 true,
-                "lambda invoke function"));
+                "lambda invoke function",
+                SCALAR));
     }
 
     @Override

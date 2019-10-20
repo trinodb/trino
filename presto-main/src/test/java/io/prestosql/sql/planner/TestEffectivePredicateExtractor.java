@@ -23,7 +23,6 @@ import com.google.common.collect.Maps;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.AbstractMockMetadata;
-import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
@@ -92,7 +91,6 @@ import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.metadata.FunctionId.toFunctionId;
-import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.sql.ExpressionUtils.and;
@@ -235,14 +233,14 @@ public class TestEffectivePredicateExtractor
                                 equals(EE, FE))),
                 ImmutableMap.of(
                         C, new Aggregation(
-                                fakeFunction("test", AGGREGATE),
+                                fakeFunction("test"),
                                 ImmutableList.of(),
                                 false,
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()),
                         D, new Aggregation(
-                                fakeFunction("test", AGGREGATE),
+                                fakeFunction("test"),
                                 ImmutableList.of(),
                                 false,
                                 Optional.empty(),
@@ -1001,9 +999,9 @@ public class TestEffectivePredicateExtractor
         return new IsNullPredicate(expression);
     }
 
-    private static ResolvedFunction fakeFunction(String name, FunctionKind kind)
+    private static ResolvedFunction fakeFunction(String name)
     {
-        Signature boundSignature = new Signature(name, kind, UNKNOWN.getTypeSignature(), ImmutableList.of());
+        Signature boundSignature = new Signature(name, UNKNOWN.getTypeSignature(), ImmutableList.of());
         return new ResolvedFunction(boundSignature, toFunctionId(boundSignature));
     }
 

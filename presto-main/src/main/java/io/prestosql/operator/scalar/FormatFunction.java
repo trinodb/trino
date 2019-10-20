@@ -95,7 +95,6 @@ public final class FormatFunction
     {
         super(new FunctionMetadata(
                 Signature.builder()
-                        .kind(SCALAR)
                         .name(NAME)
                         .typeVariableConstraints(withVariadicBound("T", "row"))
                         .argumentTypes(VARCHAR.getTypeSignature(), new TypeSignature("T"))
@@ -105,7 +104,8 @@ public final class FormatFunction
                 ImmutableList.of(new FunctionArgumentDefinition(false), new FunctionArgumentDefinition(false)),
                 true,
                 true,
-                "formats the input arguments using a format string"));
+                "formats the input arguments using a format string",
+                SCALAR));
     }
 
     @Override

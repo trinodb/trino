@@ -62,7 +62,6 @@ public class RealAverageAggregation
         super(new FunctionMetadata(
                 new Signature(
                         NAME,
-                        AGGREGATE,
                         ImmutableList.of(),
                         ImmutableList.of(),
                         REAL.getTypeSignature(),
@@ -72,7 +71,8 @@ public class RealAverageAggregation
                 ImmutableList.of(new FunctionArgumentDefinition(false)),
                 false,
                 true,
-                "Returns the average value of the argument"));
+                "Returns the average value of the argument",
+                AGGREGATE));
     }
 
     @Override

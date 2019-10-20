@@ -16,7 +16,6 @@ package io.prestosql.operator;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
@@ -83,7 +82,6 @@ public class TestAnnotationEngineForScalars
     {
         Signature expectedSignature = new Signature(
                 "single_implementation_parametric_scalar",
-                FunctionKind.SCALAR,
                 DOUBLE.getTypeSignature(),
                 ImmutableList.of(DOUBLE.getTypeSignature()));
 
@@ -170,7 +168,6 @@ public class TestAnnotationEngineForScalars
     {
         Signature expectedSignature = new Signature(
                 "scalar_with_nullable",
-                FunctionKind.SCALAR,
                 DOUBLE.getTypeSignature(),
                 ImmutableList.of(DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()));
 
@@ -209,7 +206,6 @@ public class TestAnnotationEngineForScalars
     {
         Signature expectedSignature = new Signature(
                 "scalar_with_nullable_complex",
-                FunctionKind.SCALAR,
                 DOUBLE.getTypeSignature(),
                 ImmutableList.of(DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()));
 
@@ -246,7 +242,6 @@ public class TestAnnotationEngineForScalars
     {
         Signature expectedSignature = new Signature(
                 "static_method_scalar",
-                FunctionKind.SCALAR,
                 DOUBLE.getTypeSignature(),
                 ImmutableList.of(DOUBLE.getTypeSignature()));
 
@@ -285,13 +280,11 @@ public class TestAnnotationEngineForScalars
     {
         Signature expectedSignature1 = new Signature(
                 "static_method_scalar_1",
-                FunctionKind.SCALAR,
                 DOUBLE.getTypeSignature(),
                 ImmutableList.of(DOUBLE.getTypeSignature()));
 
         Signature expectedSignature2 = new Signature(
                 "static_method_scalar_2",
-                FunctionKind.SCALAR,
                 BIGINT.getTypeSignature(),
                 ImmutableList.of(BIGINT.getTypeSignature()));
 
@@ -340,7 +333,6 @@ public class TestAnnotationEngineForScalars
     {
         Signature expectedSignature = new Signature(
                 "parametric_scalar",
-                FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("T")),
                 ImmutableList.of(),
                 new TypeSignature("T"),
@@ -382,7 +374,6 @@ public class TestAnnotationEngineForScalars
     {
         Signature expectedSignature = new Signature(
                 "with_exact_scalar",
-                FunctionKind.SCALAR,
                 ImmutableList.of(),
                 ImmutableList.of(),
                 BOOLEAN.getTypeSignature(),
@@ -391,7 +382,6 @@ public class TestAnnotationEngineForScalars
 
         Signature exactSignature = new Signature(
                 "with_exact_scalar",
-                FunctionKind.SCALAR,
                 ImmutableList.of(),
                 ImmutableList.of(),
                 BOOLEAN.getTypeSignature(),
@@ -430,7 +420,6 @@ public class TestAnnotationEngineForScalars
     {
         Signature expectedSignature = new Signature(
                 "parametric_scalar_inject",
-                FunctionKind.SCALAR,
                 ImmutableList.of(),
                 ImmutableList.of(),
                 BIGINT.getTypeSignature(),
@@ -491,7 +480,6 @@ public class TestAnnotationEngineForScalars
     {
         Signature expectedSignature = new Signature(
                 "parametric_scalar_inject_constructor",
-                FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("T")),
                 ImmutableList.of(),
                 BIGINT.getTypeSignature(),
@@ -535,7 +523,6 @@ public class TestAnnotationEngineForScalars
     {
         Signature expectedSignature = new Signature(
                 "fixed_type_parameter_scalar_function",
-                FunctionKind.SCALAR,
                 ImmutableList.of(),
                 ImmutableList.of(),
                 BIGINT.getTypeSignature(),
@@ -574,7 +561,6 @@ public class TestAnnotationEngineForScalars
     {
         Signature expectedSignature = new Signature(
                 "partially_fixed_type_parameter_scalar_function",
-                FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("T1"), typeVariable("T2")),
                 ImmutableList.of(),
                 BIGINT.getTypeSignature(),

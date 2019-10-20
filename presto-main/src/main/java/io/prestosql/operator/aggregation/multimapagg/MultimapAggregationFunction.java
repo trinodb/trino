@@ -70,7 +70,6 @@ public class MultimapAggregationFunction
         super(new FunctionMetadata(
                 new Signature(
                         NAME,
-                        AGGREGATE,
                         ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")),
                         ImmutableList.of(),
                         mapType(new TypeSignature("K"), arrayType(new TypeSignature("V"))),
@@ -82,7 +81,8 @@ public class MultimapAggregationFunction
                         new FunctionArgumentDefinition(true)),
                 false,
                 true,
-                "Aggregates all the rows (key/value pairs) into a single multimap"));
+                "Aggregates all the rows (key/value pairs) into a single multimap",
+                AGGREGATE));
         this.groupMode = groupMode;
     }
 

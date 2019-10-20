@@ -69,7 +69,6 @@ public final class MergeQuantileDigestFunction
         super(new FunctionMetadata(
                 new Signature(
                         NAME,
-                        AGGREGATE,
                         ImmutableList.of(comparableTypeParameter("T")),
                         ImmutableList.of(),
                         parametricType("qdigest", new TypeSignature("T")),
@@ -79,7 +78,8 @@ public final class MergeQuantileDigestFunction
                 ImmutableList.of(new FunctionArgumentDefinition(false)),
                 false,
                 true,
-                "Merges the input quantile digests into a single quantile digest"));
+                "Merges the input quantile digests into a single quantile digest",
+                AGGREGATE));
     }
 
     @Override

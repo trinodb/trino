@@ -81,14 +81,14 @@ public class DecimalAverageAggregation
         super(new FunctionMetadata(
                 new Signature(
                         NAME,
-                        AGGREGATE,
                         new TypeSignature("decimal", typeVariable("p"), typeVariable("s")),
                         ImmutableList.of(new TypeSignature("decimal", typeVariable("p"), typeVariable("s")))),
                 true,
                 ImmutableList.of(new FunctionArgumentDefinition(false)),
                 false,
                 true,
-                "Calculates the average value"));
+                "Calculates the average value",
+                AGGREGATE));
     }
 
     @Override

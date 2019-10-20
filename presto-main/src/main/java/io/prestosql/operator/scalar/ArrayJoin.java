@@ -18,7 +18,6 @@ import io.airlift.slice.Slice;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionArgumentDefinition;
-import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
@@ -41,6 +40,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
@@ -94,7 +94,6 @@ public final class ArrayJoin
             super(new FunctionMetadata(
                     new Signature(
                             FUNCTION_NAME,
-                            FunctionKind.SCALAR,
                             ImmutableList.of(typeVariable("T")),
                             ImmutableList.of(),
                             VARCHAR.getTypeSignature(),
@@ -107,7 +106,8 @@ public final class ArrayJoin
                             new FunctionArgumentDefinition(false)),
                     false,
                     true,
-                    DESCRIPTION));
+                    DESCRIPTION,
+                    SCALAR));
         }
 
         @Override
@@ -122,7 +122,6 @@ public final class ArrayJoin
         super(new FunctionMetadata(
                 new Signature(
                         FUNCTION_NAME,
-                        FunctionKind.SCALAR,
                         ImmutableList.of(typeVariable("T")),
                         ImmutableList.of(),
                         VARCHAR.getTypeSignature(),
@@ -134,7 +133,8 @@ public final class ArrayJoin
                         new FunctionArgumentDefinition(false)),
                 false,
                 true,
-                DESCRIPTION));
+                DESCRIPTION,
+                SCALAR));
     }
 
     @UsedByGeneratedCode

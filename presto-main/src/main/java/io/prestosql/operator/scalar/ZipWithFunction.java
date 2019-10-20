@@ -16,7 +16,6 @@ package io.prestosql.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionArgumentDefinition;
-import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
@@ -33,6 +32,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.functionTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
@@ -57,7 +57,6 @@ public final class ZipWithFunction
         super(new FunctionMetadata(
                 new Signature(
                         "zip_with",
-                        FunctionKind.SCALAR,
                         ImmutableList.of(typeVariable("T"), typeVariable("U"), typeVariable("R")),
                         ImmutableList.of(),
                         arrayType(new TypeSignature("R")),
@@ -73,7 +72,8 @@ public final class ZipWithFunction
                                         new FunctionArgumentDefinition(false)),
                 false,
                 false,
-                "merge two arrays, element-wise, into a single array using the lambda function"));
+                "merge two arrays, element-wise, into a single array using the lambda function",
+                SCALAR));
     }
 
     @Override
