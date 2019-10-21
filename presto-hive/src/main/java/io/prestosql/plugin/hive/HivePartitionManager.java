@@ -155,8 +155,8 @@ public class HivePartitionManager
         Predicate<Map<ColumnHandle, NullableValue>> predicate = constraint.predicate().orElse(value -> true);
         if (hiveTableHandle.getPartitions().isPresent()) {
             partitionsIterable = hiveTableHandle.getPartitions().get().stream()
-                .filter(partition -> partitionMatches(partitionColumns, effectivePredicate, predicate, partition))
-                .collect(toImmutableList());
+                    .filter(partition -> partitionMatches(partitionColumns, effectivePredicate, predicate, partition))
+                    .collect(toImmutableList());
         }
         else {
             List<String> partitionNames = getFilteredPartitionNames(metastore, identity, tableName, partitionColumns, effectivePredicate);

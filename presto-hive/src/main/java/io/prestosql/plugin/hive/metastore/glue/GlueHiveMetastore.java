@@ -178,15 +178,15 @@ public class GlueHiveMetastore
     {
         if (config.getAwsAccessKey().isPresent() && config.getAwsSecretKey().isPresent()) {
             return new AWSStaticCredentialsProvider(
-                new BasicAWSCredentials(config.getAwsAccessKey().get(), config.getAwsSecretKey().get()));
+                    new BasicAWSCredentials(config.getAwsAccessKey().get(), config.getAwsSecretKey().get()));
         }
         if (config.isUseInstanceCredentials()) {
             return InstanceProfileCredentialsProvider.getInstance();
         }
         if (config.getIamRole().isPresent()) {
             return new STSAssumeRoleSessionCredentialsProvider
-                .Builder(config.getIamRole().get(), "presto-session")
-                .build();
+                    .Builder(config.getIamRole().get(), "presto-session")
+                    .build();
         }
         if (config.getAwsCredentialsProvider().isPresent()) {
             return getCustomAWSCredentialsProvider(config.getAwsCredentialsProvider().get());
