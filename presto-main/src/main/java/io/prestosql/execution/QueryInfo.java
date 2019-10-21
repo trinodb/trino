@@ -14,6 +14,7 @@
 package io.prestosql.execution;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.ImmutableList;
@@ -80,6 +81,8 @@ public class QueryInfo
     private final Optional<Output> output;
     private final boolean completeInfo;
     private final Optional<ResourceGroupId> resourceGroupId;
+
+    private final Exception constructorStacktrace = new Exception("CONSTRUCTOR STACKTRACE");
 
     @JsonCreator
     public QueryInfo(
@@ -167,15 +170,22 @@ public class QueryInfo
         this.resourceGroupId = resourceGroupId;
 
         if (query.trim().toUpperCase(Locale.ENGLISH).startsWith("SELECT") && state == QueryState.FINISHED && !outputStage.isPresent()) {
-            log.error("query brain damage: %s", this);
-            try {
-                log.error("query brain damage: %s", new ObjectMapperProvider().get().writer().forType(QueryInfo.class).writeValueAsString(this));
-            }
-            catch (JsonProcessingException e) {
-                throw new RuntimeException(e);
-            }
-            log.error(new Exception("STACKTRACE"), "query brain damage here");
+//            log.error("query brain damage: %s", this);
+//            try {
+//                log.error("query brain damage: %s", new ObjectMapperProvider().get().writer().forType(QueryInfo.class).writeValueAsString(this));
+//            }
+//            catch (JsonProcessingException e) {
+//                throw new RuntimeException(e);
+//            }
+//            log.error(new Exception("STACKTRACE"), "query brain damage here");
+            System.out.println();
         }
+    }
+
+    @JsonIgnore
+    public Exception getConstructorStacktrace()
+    {
+        return constructorStacktrace;
     }
 
     @JsonProperty

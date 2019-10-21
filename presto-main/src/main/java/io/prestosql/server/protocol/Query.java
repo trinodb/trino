@@ -453,6 +453,7 @@ class Query
                     throw new RuntimeException(e);
                 }
                 log.error(new Exception("STACKTRACE"), "brain damage here");
+                log.error(queryInfo.getConstructorStacktrace(), "brain damage origin");
             }
 
             columns = ImmutableList.of(createColumn("result", BooleanType.BOOLEAN));
