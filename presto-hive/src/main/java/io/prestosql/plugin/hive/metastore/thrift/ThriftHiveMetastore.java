@@ -516,7 +516,7 @@ public class ThriftHiveMetastore
         Partition originalPartition = getOnlyElement(partitions);
 
         PartitionStatistics currentStatistics = requireNonNull(
-                getPartitionStatistics(identity, databaseName, tableName, partitions).get(partitionName), "getPartitionStatistics() returned null");
+                getPartitionStatistics(identity, databaseName, tableName, partitions).get(partitionName), "getPartitionStatistics() did not return statistics for partition");
         PartitionStatistics updatedStatistics = update.apply(currentStatistics);
 
         Partition modifiedPartition = originalPartition.deepCopy();
