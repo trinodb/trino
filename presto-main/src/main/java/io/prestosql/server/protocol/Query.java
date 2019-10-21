@@ -452,6 +452,7 @@ class Query
                 catch (JsonProcessingException e) {
                     throw new RuntimeException(e);
                 }
+                log.error(new Exception("STACKTRACE"), "brain damage here");
             }
 
             columns = ImmutableList.of(createColumn("result", BooleanType.BOOLEAN));
