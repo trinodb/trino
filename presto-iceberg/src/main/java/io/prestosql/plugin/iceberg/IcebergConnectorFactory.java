@@ -16,7 +16,6 @@ package io.prestosql.plugin.iceberg;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorContext;
 import io.prestosql.spi.connector.ConnectorFactory;
-import io.prestosql.spi.connector.ConnectorHandleResolver;
 
 import java.util.Map;
 import java.util.Optional;
@@ -30,12 +29,6 @@ public class IcebergConnectorFactory
     public String getName()
     {
         return "iceberg";
-    }
-
-    @Override
-    public ConnectorHandleResolver getHandleResolver()
-    {
-        return new IcebergHandleResolver();
     }
 
     @Override
