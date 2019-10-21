@@ -222,7 +222,7 @@ public class LocalDispatchQuery
     {
         return tryGetQueryExecution()
                 .map(QueryExecution::getQueryInfo)
-                .orElse(stateMachine.updateQueryInfo(Optional.empty()));
+                .orElseGet(() -> stateMachine.updateQueryInfo(Optional.empty()));
     }
 
     @Override
