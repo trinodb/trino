@@ -52,7 +52,7 @@ public class TestUtils
         ConnectorFactory factory = plugin.getConnectorFactories().iterator().next();
         assertNotNull(factory);
 
-        Connector connector = factory.create("kinesis", properties, new TestingConnectorContext() {});
+        Connector connector = factory.create("kinesis", properties, new TestingConnectorContext());
         return (KinesisConnector) connector;
     }
 
