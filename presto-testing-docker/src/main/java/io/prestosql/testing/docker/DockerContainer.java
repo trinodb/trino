@@ -20,6 +20,8 @@ import com.spotify.docker.client.DockerClient;
 import com.spotify.docker.client.exceptions.ContainerNotFoundException;
 import com.spotify.docker.client.messages.Container;
 import com.spotify.docker.client.messages.ContainerConfig;
+import com.spotify.docker.client.messages.ExecCreation;
+import com.spotify.docker.client.messages.ExecState;
 import com.spotify.docker.client.messages.HostConfig;
 import com.spotify.docker.client.messages.PortBinding;
 import io.airlift.log.Logger;
@@ -43,8 +45,11 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.google.common.primitives.Ints.asList;
+import static com.spotify.docker.client.DockerClient.ExecCreateParam.attachStderr;
+import static com.spotify.docker.client.DockerClient.ExecCreateParam.attachStdout;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static java.lang.String.format;
+import static java.time.temporal.ChronoUnit.MILLIS;
 import static java.time.temporal.ChronoUnit.MINUTES;
 import static java.time.temporal.ChronoUnit.SECONDS;
 import static java.util.Objects.requireNonNull;
@@ -231,6 +236,27 @@ public final class DockerContainer
             LOG.info("Killing container %s", containerId);
             dockerClient.killContainer(containerId);
             dockerClient.removeContainer(containerId);
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public DockerContainer execute(String... arguments)
+    {
+        try {
+            ImmutableList<String> command = ImmutableList.copyOf(arguments);
+            ExecCreation execCreation = dockerClient.execCreate(containerId, arguments, attachStdout(), attachStderr());
+            dockerClient.execStart(execCreation.id());
+            RetryPolicy<Object> retryPolicy = new RetryPolicy<>()
+                    .withMaxDuration(Duration.of(10, MINUTES))
+                    .withMaxAttempts(Integer.MAX_VALUE)
+                    .withBackoff(100, 2000, MILLIS)
+                    .onRetry(event -> LOG.info(format("Waiting for command: '%s' [%s]...", command, event.getLastFailure())));
+            Failsafe.with(retryPolicy).run(() -> checkState(!dockerClient.execInspect(execCreation.id()).running(), "Command is still running"));
+            ExecState execState = dockerClient.execInspect(execCreation.id());
+            checkState(execState.exitCode() == 0, "Command '%s' exited with: %s", command, execState.exitCode());
+            return this;
         }
         catch (Exception e) {
             throw new RuntimeException(e);
