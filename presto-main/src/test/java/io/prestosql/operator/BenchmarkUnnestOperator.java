@@ -61,6 +61,7 @@ import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
 import static io.prestosql.util.StructuralTestUtil.mapType;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -144,14 +145,17 @@ public class BenchmarkUnnestOperator
                 primitiveNullsRatioNestedOne, rowNullsRatioNestedOne);
 
             operatorFactory = new UnnestOperatorFactory(
-                        0,
-                        new PlanNodeId("test"),
-                        channels.subList(0, 1),
-                        types.subList(0, 1),
-                        channels.subList(1, channels.size()),
-                        types.subList(1, types.size()),
-                        true,
-                        false);
+                    0,
+                    new PlanNodeId("test"),
+                    channels.subList(0, 1),
+                    types.subList(0, 1),
+                    channels.subList(1, channels.size()),
+                    types.subList(1, types.size()),
+                    true,
+                    false,
+                    false,
+                    INNER,
+                    true);
         }
 
         public Optional<Type> getType(Metadata metadata, String typeString)

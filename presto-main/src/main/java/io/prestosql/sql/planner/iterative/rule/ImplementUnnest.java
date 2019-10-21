@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.operator.unnest.UnnestingOperator;
+import io.prestosql.operator.unnest.UnnestOperator;
 import io.prestosql.sql.ExpressionUtils;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
@@ -131,7 +131,7 @@ import static java.util.Objects.requireNonNull;
  *                      - AssignUniqueId (left_id)
  *                         - Source
  * </pre>
- * For the semantics of helper symbols: right_id and marker, see {@link UnnestingOperator}
+ * For the semantics of helper symbols: right_id and marker, see {@link UnnestOperator}
  */
 public class ImplementUnnest
         implements Rule<UnnestNode>

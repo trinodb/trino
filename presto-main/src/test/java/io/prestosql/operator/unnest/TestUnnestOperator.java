@@ -41,6 +41,10 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.sql.planner.plan.JoinNode.Type.FULL;
+import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
+import static io.prestosql.sql.planner.plan.JoinNode.Type.LEFT;
+import static io.prestosql.sql.planner.plan.JoinNode.Type.RIGHT;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.TestingTaskContext.createTaskContext;
 import static io.prestosql.util.StructuralTestUtil.arrayBlockOf;
@@ -92,7 +96,17 @@ public class TestUnnestOperator
                 .build();
 
         OperatorFactory operatorFactory = new UnnestOperator.UnnestOperatorFactory(
-                0, new PlanNodeId("test"), ImmutableList.of(0), ImmutableList.of(BIGINT), ImmutableList.of(1, 2), ImmutableList.of(arrayType, mapType), false, false);
+                0,
+                new PlanNodeId("test"),
+                ImmutableList.of(0),
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(1, 2),
+                ImmutableList.of(arrayType, mapType),
+                false,
+                false,
+                false,
+                INNER,
+                true);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT, BIGINT, BIGINT)
                 .row(1L, 2L, 4L, 5L)
@@ -127,7 +141,17 @@ public class TestUnnestOperator
                 .build();
 
         OperatorFactory operatorFactory = new UnnestOperator.UnnestOperatorFactory(
-                0, new PlanNodeId("test"), ImmutableList.of(0), ImmutableList.of(BIGINT), ImmutableList.of(1, 2), ImmutableList.of(arrayType, mapType), false, false);
+                0,
+                new PlanNodeId("test"),
+                ImmutableList.of(0),
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(1, 2),
+                ImmutableList.of(arrayType, mapType),
+                false,
+                false,
+                false,
+                INNER,
+                true);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, new ArrayType(BIGINT), new ArrayType(BIGINT), new ArrayType(BIGINT))
                 .row(1L, ImmutableList.of(2L, 4L), ImmutableList.of(4L, 8L), ImmutableList.of(5L, 10L))
@@ -156,7 +180,17 @@ public class TestUnnestOperator
                 .build();
 
         OperatorFactory operatorFactory = new UnnestOperator.UnnestOperatorFactory(
-                0, new PlanNodeId("test"), ImmutableList.of(0), ImmutableList.of(BIGINT), ImmutableList.of(1, 2), ImmutableList.of(arrayType, mapType), true, false);
+                0,
+                new PlanNodeId("test"),
+                ImmutableList.of(0),
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(1, 2),
+                ImmutableList.of(arrayType, mapType),
+                true,
+                false,
+                false,
+                INNER,
+                true);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT, BIGINT, BIGINT, BIGINT)
                 .row(1L, 2L, 4L, 5L, 1L)
@@ -182,7 +216,17 @@ public class TestUnnestOperator
                 .build();
 
         OperatorFactory operatorFactory = new UnnestOperator.UnnestOperatorFactory(
-                0, new PlanNodeId("test"), ImmutableList.of(0), ImmutableList.of(BIGINT), ImmutableList.of(1, 2), ImmutableList.of(arrayType, mapType), false, false);
+                0,
+                new PlanNodeId("test"),
+                ImmutableList.of(0),
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(1, 2),
+                ImmutableList.of(arrayType, mapType),
+                false,
+                false,
+                false,
+                INNER,
+                true);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, DOUBLE, BIGINT, DOUBLE)
                 .row(1L, NEGATIVE_INFINITY, 1L, NEGATIVE_INFINITY)
@@ -208,7 +252,17 @@ public class TestUnnestOperator
                 .build();
 
         OperatorFactory operatorFactory = new UnnestOperator.UnnestOperatorFactory(
-                0, new PlanNodeId("test"), ImmutableList.of(0), ImmutableList.of(BIGINT), ImmutableList.of(1), ImmutableList.of(arrayOfRowType), false, false);
+                0,
+                new PlanNodeId("test"),
+                ImmutableList.of(0),
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(1),
+                ImmutableList.of(arrayOfRowType),
+                false,
+                false,
+                false,
+                INNER,
+                true);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT, DOUBLE, VARCHAR)
                 .row(1L, 2L, 4.2, "abc")
@@ -223,7 +277,7 @@ public class TestUnnestOperator
     }
 
     @Test
-    public void testOuterUnnest()
+    public void testLeftJoinUnnestOnTrue()
     {
         Metadata metadata = createTestMetadataManager();
         Type mapType = metadata.getType(mapType(BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
@@ -243,8 +297,25 @@ public class TestUnnestOperator
                 .build();
 
         OperatorFactory operatorFactory = new UnnestOperator.UnnestOperatorFactory(
-                0, new PlanNodeId("test"), ImmutableList.of(0), ImmutableList.of(BIGINT), ImmutableList.of(1, 2, 3), ImmutableList.of(mapType, arrayType, arrayOfRowType), false, true);
+                0,
+                new PlanNodeId("test"),
+                ImmutableList.of(0),
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(1, 2, 3),
+                ImmutableList.of(mapType, arrayType, arrayOfRowType),
+                false,
+                false,
+                false,
+                LEFT,
+                true);
 
+        /*
+        explanation of the result fields:
+        position 0 (BIGINT): replicate value
+        positions 1, 2 (BIGINT, BIGINT): unnested key and value of a map
+        position 3 (BIGINT): unnested array
+        positions 4, 5, 6 (BIGINT, DOUBLE, VARCHAR): unnested array of rows
+         */
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, DOUBLE, VARCHAR)
                 .row(1L, 1L, 2L, 3L, 4L, 5.5, "a")
                 .row(1L, null, null, null, 6L, 7.7, "b")
@@ -256,7 +327,7 @@ public class TestUnnestOperator
     }
 
     @Test
-    public void testOuterUnnestWithOrdinality()
+    public void testLeftJoinUnnestOnTrueWithOrdinality()
     {
         Metadata metadata = createTestMetadataManager();
         Type mapType = metadata.getType(mapType(BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
@@ -276,13 +347,193 @@ public class TestUnnestOperator
                 .build();
 
         OperatorFactory operatorFactory = new UnnestOperator.UnnestOperatorFactory(
-                0, new PlanNodeId("test"), ImmutableList.of(0), ImmutableList.of(BIGINT), ImmutableList.of(1, 2, 3), ImmutableList.of(mapType, arrayType, arrayOfRowType), true, true);
+                0,
+                new PlanNodeId("test"),
+                ImmutableList.of(0),
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(1, 2, 3),
+                ImmutableList.of(mapType, arrayType, arrayOfRowType),
+                true,
+                false,
+                false,
+                LEFT,
+                true);
 
+        /*
+        explanation of the result fields:
+        position 0 (BIGINT): replicate value
+        positions 1, 2 (BIGINT, BIGINT): unnested key and value of a map
+        position 3 (BIGINT): unnested array
+        positions 4, 5, 6 (BIGINT, DOUBLE, VARCHAR): unnested array of rows
+        position 7 (BIGINT): ordinality
+         */
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT)
                 .row(1L, 1L, 2L, 3L, 4L, 5.5, "a", 1L)
                 .row(1L, 6L, 7L, null, null, null, null, 2L)
                 .row(2L, null, null, null, null, null, null, null)
                 .row(3L, null, null, null, null, null, null, null)
+                .build();
+
+        assertOperatorEquals(operatorFactory, driverContext, input, expected);
+    }
+
+    @Test
+    public void testLeftUnnestWithOrdinality()
+    {
+        Metadata metadata = createTestMetadataManager();
+        Type mapType = metadata.getType(mapType(BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
+        Type arrayType = new ArrayType(BIGINT);
+        Type elementType = RowType.anonymous(ImmutableList.of(BIGINT, DOUBLE, VARCHAR));
+        Type arrayOfRowType = new ArrayType(elementType);
+
+        List<Page> input = rowPagesBuilder(BIGINT, mapType, arrayType, arrayOfRowType)
+                .row(
+                        1,
+                        mapBlockOf(BIGINT, BIGINT, ImmutableMap.of(1, 2, 6, 7)),
+                        arrayBlockOf(BIGINT, 3),
+                        arrayBlockOf(elementType, ImmutableList.of(4, 5.5, "a")))
+                .row(2, null, null, null)
+                .pageBreak()
+                .row(3, null, null, null)
+                .build();
+
+        OperatorFactory operatorFactory = new UnnestOperator.UnnestOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                ImmutableList.of(0),
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(1, 2, 3),
+                ImmutableList.of(mapType, arrayType, arrayOfRowType),
+                true,
+                false,
+                true,
+                LEFT,
+                false);
+
+        /*
+        explanation of the result fields:
+        position 0 (BIGINT): replicate value
+        positions 1, 2 (BIGINT, BIGINT): unnested key and value of a map
+        position 3 (BIGINT): unnested array
+        positions 4, 5, 6 (BIGINT, DOUBLE, VARCHAR): unnested array of rows
+        position 7 (BIGINT): ordinality
+        position 8 (BIGINT): marker (0 for "left outer" row, 2 for "cross-joined" row)
+         */
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT, BIGINT)
+                .row(1L, null, null, null, null, null, null, null, 0L)
+                .row(1L, 1L, 2L, 3L, 4L, 5.5, "a", 1L, 2L)
+                .row(1L, 6L, 7L, null, null, null, null, 2L, 2L)
+                .row(2L, null, null, null, null, null, null, null, 0L)
+                .row(3L, null, null, null, null, null, null, null, 0L)
+                .build();
+
+        assertOperatorEquals(operatorFactory, driverContext, input, expected);
+    }
+
+    @Test
+    public void testRightUnnestWithOrdinality()
+    {
+        Metadata metadata = createTestMetadataManager();
+        Type mapType = metadata.getType(mapType(BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
+        Type arrayType = new ArrayType(BIGINT);
+        Type elementType = RowType.anonymous(ImmutableList.of(BIGINT, DOUBLE, VARCHAR));
+        Type arrayOfRowType = new ArrayType(elementType);
+
+        List<Page> input = rowPagesBuilder(BIGINT, mapType, arrayType, arrayOfRowType)
+                .row(
+                        1,
+                        mapBlockOf(BIGINT, BIGINT, ImmutableMap.of(1, 2, 6, 7)),
+                        arrayBlockOf(BIGINT, 3),
+                        arrayBlockOf(elementType, ImmutableList.of(4, 5.5, "a")))
+                .row(2, null, null, null)
+                .pageBreak()
+                .row(3, null, null, null)
+                .build();
+
+        OperatorFactory operatorFactory = new UnnestOperator.UnnestOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                ImmutableList.of(0),
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(1, 2, 3),
+                ImmutableList.of(mapType, arrayType, arrayOfRowType),
+                true,
+                true,
+                true,
+                RIGHT,
+                false);
+
+        /*
+        explanation of the result fields:
+        position 0 (BIGINT): replicate value
+        positions 1, 2 (BIGINT, BIGINT): unnested key and value of a map
+        position 3 (BIGINT): unnested array
+        positions 4, 5, 6 (BIGINT, DOUBLE, VARCHAR): unnested array of rows
+        position 7 (BIGINT): ordinality
+        position 8 (BIGINT): right Id (unique for each unnested row)
+        position 9 (BIGINT): marker (1 for "right outer" row, 2 for "cross-joined" row)
+         */
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT, BIGINT, BIGINT)
+                .row(null, 1L, 2L, 3L, 4L, 5.5, "a", 1L, 0L, 1L)
+                .row(1L, 1L, 2L, 3L, 4L, 5.5, "a", 1L, 0L, 2L)
+                .row(null, 6L, 7L, null, null, null, null, 2L, 1L, 1L)
+                .row(1L, 6L, 7L, null, null, null, null, 2L, 1L, 2L)
+                .build();
+
+        assertOperatorEquals(operatorFactory, driverContext, input, expected);
+    }
+
+    @Test
+    public void testFullUnnestWithOrdinality()
+    {
+        Metadata metadata = createTestMetadataManager();
+        Type mapType = metadata.getType(mapType(BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
+        Type arrayType = new ArrayType(BIGINT);
+        Type elementType = RowType.anonymous(ImmutableList.of(BIGINT, DOUBLE, VARCHAR));
+        Type arrayOfRowType = new ArrayType(elementType);
+
+        List<Page> input = rowPagesBuilder(BIGINT, mapType, arrayType, arrayOfRowType)
+                .row(
+                        1,
+                        mapBlockOf(BIGINT, BIGINT, ImmutableMap.of(1, 2, 6, 7)),
+                        arrayBlockOf(BIGINT, 3),
+                        arrayBlockOf(elementType, ImmutableList.of(4, 5.5, "a")))
+                .row(2, null, null, null)
+                .pageBreak()
+                .row(3, null, null, null)
+                .build();
+
+        OperatorFactory operatorFactory = new UnnestOperator.UnnestOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                ImmutableList.of(0),
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(1, 2, 3),
+                ImmutableList.of(mapType, arrayType, arrayOfRowType),
+                true,
+                true,
+                true,
+                FULL,
+                false);
+
+        /*
+        explanation of the result fields:
+        position 0 (BIGINT): replicate value
+        positions 1, 2 (BIGINT, BIGINT): unnested key and value of a map
+        position 3 (BIGINT): unnested array
+        positions 4, 5, 6 (BIGINT, DOUBLE, VARCHAR): unnested array of rows
+        position 7 (BIGINT): ordinality
+        position 8 (BIGINT): right Id (unique for each unnested row)
+        position 9 (BIGINT): marker (0 for "left outer" row, 1 for "right outer" row, 2 for "cross-joined" row)
+         */
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT, BIGINT, BIGINT)
+                .row(1L, null, null, null, null, null, null, null, 0L, 0L)
+                .row(null, 1L, 2L, 3L, 4L, 5.5, "a", 1L, 1L, 1L)
+                .row(1L, 1L, 2L, 3L, 4L, 5.5, "a", 1L, 1L, 2L)
+                .row(null, 6L, 7L, null, null, null, null, 2L, 2L, 1L)
+                .row(1L, 6L, 7L, null, null, null, null, 2L, 2L, 2L)
+                .row(2L, null, null, null, null, null, null, null, 3L, 0L)
+                .row(3L, null, null, null, null, null, null, null, 4L, 0L)
                 .build();
 
         assertOperatorEquals(operatorFactory, driverContext, input, expected);

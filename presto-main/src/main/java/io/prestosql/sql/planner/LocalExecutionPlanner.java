@@ -114,7 +114,7 @@ import io.prestosql.operator.index.IndexLookupSourceFactory;
 import io.prestosql.operator.index.IndexSourceOperator;
 import io.prestosql.operator.project.CursorProcessor;
 import io.prestosql.operator.project.PageProcessor;
-import io.prestosql.operator.unnest.UnnestingOperator.UnnestingOperatorFactory;
+import io.prestosql.operator.unnest.UnnestOperator.UnnestOperatorFactory;
 import io.prestosql.operator.window.FrameInfo;
 import io.prestosql.operator.window.WindowFunctionSupplier;
 import io.prestosql.spi.Page;
@@ -180,7 +180,6 @@ import io.prestosql.sql.planner.plan.TableWriterNode.DeleteTarget;
 import io.prestosql.sql.planner.plan.TopNNode;
 import io.prestosql.sql.planner.plan.TopNRowNumberNode;
 import io.prestosql.sql.planner.plan.UnionNode;
-import io.prestosql.sql.planner.plan.UnnestNode;
 import io.prestosql.sql.planner.plan.UnnestingNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.planner.plan.WindowNode;
@@ -253,7 +252,6 @@ import static io.prestosql.operator.TableWriterOperator.ROW_COUNT_CHANNEL;
 import static io.prestosql.operator.TableWriterOperator.STATS_START_CHANNEL;
 import static io.prestosql.operator.TableWriterOperator.TableWriterOperatorFactory;
 import static io.prestosql.operator.WindowFunctionDefinition.window;
-import static io.prestosql.operator.unnest.UnnestOperator.UnnestOperatorFactory;
 import static io.prestosql.spi.StandardErrorCode.COMPILER_ERROR;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
@@ -273,7 +271,6 @@ import static io.prestosql.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.prestosql.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.FULL;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
-import static io.prestosql.sql.planner.plan.JoinNode.Type.LEFT;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.RIGHT;
 import static io.prestosql.sql.planner.plan.TableWriterNode.CreateTarget;
 import static io.prestosql.sql.planner.plan.TableWriterNode.InsertTarget;
@@ -1358,57 +1355,6 @@ public class LocalExecutionPlanner
         }
 
         @Override
-        public PhysicalOperation visitUnnest(UnnestNode node, LocalExecutionPlanContext context)
-        {
-            PhysicalOperation source = node.getSource().accept(this, context);
-
-            ImmutableList.Builder<Type> replicateTypes = ImmutableList.builder();
-            for (Symbol symbol : node.getReplicateSymbols()) {
-                replicateTypes.add(context.getTypes().get(symbol));
-            }
-            List<Symbol> unnestSymbols = ImmutableList.copyOf(node.getUnnestSymbols().keySet());
-            ImmutableList.Builder<Type> unnestTypes = ImmutableList.builder();
-            for (Symbol symbol : unnestSymbols) {
-                unnestTypes.add(context.getTypes().get(symbol));
-            }
-            Optional<Symbol> ordinalitySymbol = node.getOrdinalitySymbol();
-            Optional<Type> ordinalityType = ordinalitySymbol.map(context.getTypes()::get);
-            ordinalityType.ifPresent(type -> checkState(type.equals(BIGINT), "Type of ordinalitySymbol must always be BIGINT."));
-
-            List<Integer> replicateChannels = getChannelsForSymbols(node.getReplicateSymbols(), source.getLayout());
-            List<Integer> unnestChannels = getChannelsForSymbols(unnestSymbols, source.getLayout());
-
-            // Source channels are always laid out first, followed by the unnested symbols
-            ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
-            int channel = 0;
-            for (Symbol symbol : node.getReplicateSymbols()) {
-                outputMappings.put(symbol, channel);
-                channel++;
-            }
-            for (Symbol symbol : unnestSymbols) {
-                for (Symbol unnestedSymbol : node.getUnnestSymbols().get(symbol)) {
-                    outputMappings.put(unnestedSymbol, channel);
-                    channel++;
-                }
-            }
-            if (ordinalitySymbol.isPresent()) {
-                outputMappings.put(ordinalitySymbol.get(), channel);
-                channel++;
-            }
-            boolean outer = node.getJoinType() == LEFT || node.getJoinType() == FULL;
-            OperatorFactory operatorFactory = new UnnestOperatorFactory(
-                    context.getNextOperatorId(),
-                    node.getId(),
-                    replicateChannels,
-                    replicateTypes.build(),
-                    unnestChannels,
-                    unnestTypes.build(),
-                    ordinalityType.isPresent(),
-                    outer);
-            return new PhysicalOperation(operatorFactory, outputMappings.build(), context, source);
-        }
-
-        @Override
         public PhysicalOperation visitUnnesting(UnnestingNode node, LocalExecutionPlanContext context)
         {
             PhysicalOperation source = node.getSource().accept(this, context);
@@ -1462,7 +1408,7 @@ public class LocalExecutionPlanner
                 outputMappings.put(markerSymbol.get(), channel);
                 channel++;
             }
-            OperatorFactory operatorFactory = new UnnestingOperatorFactory(
+            OperatorFactory operatorFactory = new UnnestOperatorFactory(
                     context.getNextOperatorId(),
                     node.getId(),
                     replicateChannels,

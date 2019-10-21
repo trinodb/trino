@@ -14,6 +14,7 @@
 package io.prestosql.operator.unnest;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.execution.TaskId;
 import io.prestosql.operator.DriverContext;
 import io.prestosql.operator.Operator;
 import io.prestosql.operator.OperatorContext;
@@ -26,9 +27,11 @@ import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -49,10 +52,25 @@ public class UnnestOperator
         private final List<Integer> unnestChannels;
         private final List<Type> unnestTypes;
         private final boolean withOrdinality;
-        private final boolean outer;
+        private final boolean withRightId;
+        private final boolean withMarker;
+        private final JoinNode.Type joinType;
+        private final boolean onTrue;
         private boolean closed;
+        private final AtomicLong uniqueValuePool = new AtomicLong();
 
-        public UnnestOperatorFactory(int operatorId, PlanNodeId planNodeId, List<Integer> replicateChannels, List<Type> replicateTypes, List<Integer> unnestChannels, List<Type> unnestTypes, boolean withOrdinality, boolean outer)
+        public UnnestOperatorFactory(
+                int operatorId,
+                PlanNodeId planNodeId,
+                List<Integer> replicateChannels,
+                List<Type> replicateTypes,
+                List<Integer> unnestChannels,
+                List<Type> unnestTypes,
+                boolean withOrdinality,
+                boolean withRightId,
+                boolean withMarker,
+                JoinNode.Type joinType,
+                boolean onTrue)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -63,7 +81,10 @@ public class UnnestOperator
             this.unnestTypes = ImmutableList.copyOf(requireNonNull(unnestTypes, "unnestTypes is null"));
             checkArgument(unnestChannels.size() == unnestTypes.size(), "unnestChannels and unnestTypes do not match");
             this.withOrdinality = withOrdinality;
-            this.outer = outer;
+            this.withRightId = withRightId;
+            this.withMarker = withMarker;
+            this.joinType = requireNonNull(joinType, "joinType is null");
+            this.onTrue = onTrue;
         }
 
         @Override
@@ -71,7 +92,18 @@ public class UnnestOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, UnnestOperator.class.getSimpleName());
-            return new UnnestOperator(operatorContext, replicateChannels, replicateTypes, unnestChannels, unnestTypes, withOrdinality, outer);
+            return new UnnestOperator(
+                    operatorContext,
+                    replicateChannels,
+                    replicateTypes,
+                    unnestChannels,
+                    unnestTypes,
+                    withOrdinality,
+                    withRightId,
+                    withMarker,
+                    joinType,
+                    onTrue,
+                    uniqueValuePool);
         }
 
         @Override
@@ -83,12 +115,24 @@ public class UnnestOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new UnnestOperator.UnnestOperatorFactory(operatorId, planNodeId, replicateChannels, replicateTypes, unnestChannels, unnestTypes, withOrdinality, outer);
+            return new UnnestOperator.UnnestOperatorFactory(
+                    operatorId,
+                    planNodeId,
+                    replicateChannels,
+                    replicateTypes,
+                    unnestChannels,
+                    unnestTypes,
+                    withOrdinality,
+                    withRightId,
+                    withMarker,
+                    joinType,
+                    onTrue);
         }
     }
 
     private static final int MAX_ROWS_PER_BLOCK = 1000;
     private static final int MAX_BYTES_PER_PAGE = 1024 * 1024;
+    private static final long RIGHT_ID_LIMIT = 1L << 40L;
 
     // Output row count is checked *after* processing every input row. For this reason, estimated rows per
     // block are always going to be slightly greater than {@code maxRowsPerBlock}. Accounting for this skew
@@ -102,7 +146,10 @@ public class UnnestOperator
     private final List<Integer> unnestChannels;
     private final List<Type> unnestTypes;
     private final boolean withOrdinality;
-    private final boolean outer;
+    private final boolean withRightId;
+    private final boolean withMarker;
+    private final JoinNode.Type joinType;
+    private final boolean onTrue;
 
     private boolean finishing;
     private Page currentPage;
@@ -111,22 +158,71 @@ public class UnnestOperator
     private final List<Unnester> unnesters;
     private final int unnestOutputChannelCount;
 
-    private final List<SimpleReplicatedBlockBuilder> replicatedBlockBuilders;
+    private final List<ReplicatedBlockBuilder> replicatedBlockBuilders;
 
     private BlockBuilder ordinalityBlockBuilder;
+    private BlockBuilder rightIdBlockBuilder;
+    private BlockBuilder markerBlockBuilder;
+
+    private final AtomicLong rightIdPool;
+    private final long rightIdMask;
 
     private int outputChannelCount;
 
-    public UnnestOperator(OperatorContext operatorContext, List<Integer> replicateChannels, List<Type> replicateTypes, List<Integer> unnestChannels, List<Type> unnestTypes, boolean withOrdinality, boolean outer)
+    /*
+    NOTE: this operator doesn't perform `JOIN involving UNNEST` computation independently
+    (except for the `onTrue` case). It prepares input for sequence of other operators
+    which will further impose filter (JOIN condition) and prune helper symbols.
+
+    Helper symbols' semantics:
+
+    marker is used to distinguish between the three types of completing rows:
+    0 for replicate values completed with nulls instead of unnested values (used in LEFT and FULL join)
+    1 for unnested values completed with nulls instead of replicate values (used in RIGHT and FULL join)
+    2 for replicate values joined with unnested values (used in all types of join)
+
+    rightId is needed for RIGHT and FULL join type.
+    Each of unnested rows will be doubled and completed with replicate values one time
+    and with nulls instead of replicate values the other time. Both rows will have the same
+    rightId which will allow to identify them further as originating from the same
+    unnested row.
+    The absence of rightId implies that this is a join of type LEFT or INNER.
+    In such case unnested rows are not doubled.
+
+    The absence of both rightId and marker, implies that this is a join of type INNER.
+
+    The additional information onTrue allows to optimise results. With onTrue set to true,
+    unnested rows are never doubled and null-completed rows are added only when necessary.
+    */
+    public UnnestOperator(
+            OperatorContext operatorContext,
+            List<Integer> replicateChannels,
+            List<Type> replicateTypes,
+            List<Integer> unnestChannels,
+            List<Type> unnestTypes,
+            boolean withOrdinality,
+            boolean withRightId,
+            boolean withMarker,
+            JoinNode.Type joinType,
+            boolean onTrue,
+            AtomicLong uniqueValuePool)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
 
         this.replicateChannels = ImmutableList.copyOf(requireNonNull(replicateChannels, "replicateChannels is null"));
         this.replicateTypes = ImmutableList.copyOf(requireNonNull(replicateTypes, "replicateTypes is null"));
         checkArgument(replicateChannels.size() == replicateTypes.size(), "replicate channels or types has wrong size");
-        this.replicatedBlockBuilders = replicateTypes.stream()
-                .map(type -> new SimpleReplicatedBlockBuilder())
-                .collect(toImmutableList());
+        this.joinType = requireNonNull(joinType, "joinType is null");
+        if ((joinType == JoinNode.Type.RIGHT || joinType == JoinNode.Type.FULL) && !onTrue) {
+            this.replicatedBlockBuilders = replicateTypes.stream()
+                    .map(ReplicatedBlockBuilderAppendingNulls::new)
+                    .collect(toImmutableList());
+        }
+        else {
+            this.replicatedBlockBuilders = replicateTypes.stream()
+                    .map(type -> new SimpleReplicatedBlockBuilder())
+                    .collect(toImmutableList());
+        }
 
         this.unnestChannels = ImmutableList.copyOf(requireNonNull(unnestChannels, "unnestChannels is null"));
         this.unnestTypes = ImmutableList.copyOf(requireNonNull(unnestTypes, "unnestTypes is null"));
@@ -137,9 +233,18 @@ public class UnnestOperator
         this.unnestOutputChannelCount = unnesters.stream().mapToInt(Unnester::getChannelCount).sum();
 
         this.withOrdinality = withOrdinality;
-        this.outer = outer;
+        this.withRightId = withRightId;
+        this.withMarker = withMarker;
+        this.onTrue = onTrue;
 
-        this.outputChannelCount = unnestOutputChannelCount + replicateTypes.size() + (withOrdinality ? 1 : 0);
+        this.rightIdPool = requireNonNull(uniqueValuePool, "uniqueValuePool is null");
+        TaskId fullTaskId = operatorContext.getDriverContext().getTaskId();
+        this.rightIdMask = (((long) fullTaskId.getStageId().getId()) << 54) | (((long) fullTaskId.getId()) << 40);
+
+        this.outputChannelCount = unnestOutputChannelCount + replicateTypes.size()
+                + (withOrdinality ? 1 : 0)
+                + (withRightId ? 1 : 0)
+                + (withMarker ? 1 : 0);
     }
 
     @Override
@@ -225,6 +330,23 @@ public class UnnestOperator
 
     private int processCurrentPosition()
     {
+        if (onTrue) {
+            return processCurrentPositionOnTrue(joinType == JoinNode.Type.LEFT || joinType == JoinNode.Type.FULL);
+        }
+        if (joinType == JoinNode.Type.INNER) {
+            return processCurrentPositionOnTrue(false);
+        }
+        if (joinType == JoinNode.Type.LEFT) {
+            return processCurrentPositionLeftJoin();
+        }
+        if (joinType == JoinNode.Type.RIGHT) {
+            return processCurrentPositionRightJoin();
+        }
+        return processCurrentPositionFullJoin();
+    }
+
+    private int processCurrentPositionOnTrue(boolean outer)
+    {
         // Determine number of output rows for this input position
         int maxEntries = getCurrentMaxEntries();
 
@@ -232,7 +354,7 @@ public class UnnestOperator
         // append a single row replicating values of replicate channels
         // and appending nulls for unnested chennels
         if (outer && maxEntries == 0) {
-            replicatedBlockBuilders.forEach(blockBuilder -> blockBuilder.appendRepeated(currentPosition, 1));
+            replicatedBlockBuilders.forEach(blockBuilder -> ((SimpleReplicatedBlockBuilder) blockBuilder).appendRepeated(currentPosition, 1));
             unnesters.forEach(unnester -> unnester.appendNulls(1));
             if (withOrdinality) {
                 ordinalityBlockBuilder.appendNull();
@@ -241,7 +363,7 @@ public class UnnestOperator
         }
 
         // Append elements repeatedly to replicate output columns
-        replicatedBlockBuilders.forEach(blockBuilder -> blockBuilder.appendRepeated(currentPosition, maxEntries));
+        replicatedBlockBuilders.forEach(blockBuilder -> ((SimpleReplicatedBlockBuilder) blockBuilder).appendRepeated(currentPosition, maxEntries));
 
         // Process this position in unnesters
         unnesters.forEach(unnester -> unnester.processCurrentAndAdvance(maxEntries, false));
@@ -255,6 +377,105 @@ public class UnnestOperator
         return maxEntries;
     }
 
+    private int processCurrentPositionLeftJoin()
+    {
+        // Append a row with replicate values and nulls for unnested values
+        replicatedBlockBuilders.forEach(blockBuilder -> ((SimpleReplicatedBlockBuilder) blockBuilder).appendRepeated(currentPosition, 1));
+        unnesters.forEach(unnester -> unnester.appendNulls(1));
+        if (withOrdinality) {
+            ordinalityBlockBuilder.appendNull();
+        }
+        BIGINT.writeLong(markerBlockBuilder, 0);
+
+        // Determine number of output rows for this input position
+        int maxEntries = getCurrentMaxEntries();
+
+        // Append elements repeatedly to replicate output columns
+        replicatedBlockBuilders.forEach(blockBuilder -> ((SimpleReplicatedBlockBuilder) blockBuilder).appendRepeated(currentPosition, maxEntries));
+
+        // Process this position in unnesters
+        unnesters.forEach(unnester -> unnester.processCurrentAndAdvance(maxEntries, false));
+
+        if (withOrdinality) {
+            for (long ordinalityCount = 1; ordinalityCount <= maxEntries; ordinalityCount++) {
+                BIGINT.writeLong(ordinalityBlockBuilder, ordinalityCount);
+            }
+        }
+        for (int i = 0; i < maxEntries; i++) {
+            BIGINT.writeLong(markerBlockBuilder, 2);
+        }
+
+        return maxEntries + 1;
+    }
+
+    private int processCurrentPositionRightJoin()
+    {
+        // Determine number of unnested rows for this input position
+        int maxEntries = getCurrentMaxEntries();
+
+        // For each unnested row, append two rows: one with nulls for replicate values and one with actual values
+        replicatedBlockBuilders.forEach(blockBuilder -> ((ReplicatedBlockBuilderAppendingNulls) blockBuilder).appendRepeatedWithNulls(currentPosition, maxEntries));
+        unnesters.forEach(unnester -> unnester.processCurrentAndAdvance(maxEntries, true));
+        if (withOrdinality) {
+            for (long ordinalityCount = 1; ordinalityCount <= maxEntries; ordinalityCount++) {
+                BIGINT.writeLong(ordinalityBlockBuilder, ordinalityCount);
+                BIGINT.writeLong(ordinalityBlockBuilder, ordinalityCount);
+            }
+        }
+        long rightId = rightIdPool.getAndAdd(maxEntries);
+        checkState(rightId + maxEntries < RIGHT_ID_LIMIT, "rightId %s exceeds limit: %s", rightId + maxEntries, RIGHT_ID_LIMIT);
+        for (int i = 0; i < maxEntries; i++) {
+            BIGINT.writeLong(rightIdBlockBuilder, rightIdMask | rightId);
+            BIGINT.writeLong(rightIdBlockBuilder, rightIdMask | rightId);
+            rightId++;
+        }
+        for (int i = 0; i < maxEntries; i++) {
+            BIGINT.writeLong(markerBlockBuilder, 1);
+            BIGINT.writeLong(markerBlockBuilder, 2);
+        }
+
+        return maxEntries * 2;
+    }
+
+    private int processCurrentPositionFullJoin()
+    {
+        // Determine number of unnested rows for this input position
+        int maxEntries = getCurrentMaxEntries();
+
+        // Append a row with replicate values and nulls for unnested values
+        replicatedBlockBuilders.forEach(blockBuilder -> ((ReplicatedBlockBuilderAppendingNulls) blockBuilder).appendElement(currentPosition));
+        unnesters.forEach(unnester -> unnester.appendNulls(1));
+        if (withOrdinality) {
+            ordinalityBlockBuilder.appendNull();
+        }
+        long rightId = rightIdPool.getAndAdd(maxEntries + 1);
+        checkState(rightId + maxEntries + 1 < RIGHT_ID_LIMIT, "rightId %s exceeds limit: %s", rightId + maxEntries + 1, RIGHT_ID_LIMIT);
+        BIGINT.writeLong(rightIdBlockBuilder, rightIdMask | rightId);
+        rightId++;
+        BIGINT.writeLong(markerBlockBuilder, 0);
+
+        // For each unnested row, append two rows: one with nulls for replicate values and one with actual values
+        replicatedBlockBuilders.forEach(blockBuilder -> ((ReplicatedBlockBuilderAppendingNulls) blockBuilder).appendRepeatedWithNulls(currentPosition, maxEntries));
+        unnesters.forEach(unnester -> unnester.processCurrentAndAdvance(maxEntries, true));
+        if (withOrdinality) {
+            for (long ordinalityCount = 1; ordinalityCount <= maxEntries; ordinalityCount++) {
+                BIGINT.writeLong(ordinalityBlockBuilder, ordinalityCount);
+                BIGINT.writeLong(ordinalityBlockBuilder, ordinalityCount);
+            }
+        }
+        for (int i = 0; i < maxEntries; i++) {
+            BIGINT.writeLong(rightIdBlockBuilder, rightIdMask | rightId);
+            BIGINT.writeLong(rightIdBlockBuilder, rightIdMask | rightId);
+            rightId++;
+        }
+        for (int i = 0; i < maxEntries; i++) {
+            BIGINT.writeLong(markerBlockBuilder, 1);
+            BIGINT.writeLong(markerBlockBuilder, 2);
+        }
+
+        return maxEntries * 2 + 1;
+    }
+
     private int getCurrentMaxEntries()
     {
         return unnesters.stream()
@@ -266,10 +487,16 @@ public class UnnestOperator
     private void prepareForNewOutput(PageBuilderStatus pageBuilderStatus)
     {
         unnesters.forEach(unnester -> unnester.startNewOutput(pageBuilderStatus, estimatedMaxRowsPerBlock));
-        replicatedBlockBuilders.forEach(replicatedBlockBuilder -> replicatedBlockBuilder.startNewOutput(null, estimatedMaxRowsPerBlock));
+        replicatedBlockBuilders.forEach(replicatedBlockBuilder -> replicatedBlockBuilder.startNewOutput(pageBuilderStatus, estimatedMaxRowsPerBlock));
 
         if (withOrdinality) {
             ordinalityBlockBuilder = BIGINT.createBlockBuilder(pageBuilderStatus.createBlockBuilderStatus(), estimatedMaxRowsPerBlock);
+        }
+        if (withRightId) {
+            rightIdBlockBuilder = BIGINT.createBlockBuilder(pageBuilderStatus.createBlockBuilderStatus(), estimatedMaxRowsPerBlock);
+        }
+        if (withMarker) {
+            markerBlockBuilder = BIGINT.createBlockBuilder(pageBuilderStatus.createBlockBuilderStatus(), estimatedMaxRowsPerBlock);
         }
     }
 
@@ -291,7 +518,13 @@ public class UnnestOperator
         }
 
         if (withOrdinality) {
-            outputBlocks[offset] = ordinalityBlockBuilder.build();
+            outputBlocks[offset++] = ordinalityBlockBuilder.build();
+        }
+        if (withRightId) {
+            outputBlocks[offset++] = rightIdBlockBuilder.build();
+        }
+        if (withMarker) {
+            outputBlocks[offset++] = markerBlockBuilder.build();
         }
 
         return outputBlocks;
