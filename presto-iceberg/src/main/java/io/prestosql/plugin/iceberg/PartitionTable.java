@@ -15,7 +15,6 @@ package io.prestosql.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.classloader.ThreadContextClassLoader;
@@ -59,15 +58,14 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.iceberg.IcebergUtil.getIdentityPartitions;
+import static io.prestosql.plugin.iceberg.IcebergUtil.getTableScan;
 import static io.prestosql.plugin.iceberg.TypeConveter.toPrestoType;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static java.util.Objects.requireNonNull;
-import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toSet;
 
@@ -75,7 +73,6 @@ public class PartitionTable
         implements SystemTable
 {
     private final IcebergTableHandle tableHandle;
-    private final ConnectorSession session;
     private final TypeManager typeManager;
     private final Table icebergTable;
     private Map<Integer, Type.PrimitiveType> idToTypeMapping;
@@ -84,10 +81,9 @@ public class PartitionTable
     private List<io.prestosql.spi.type.Type> resultTypes;
     private List<RowType> columnMetricTypes;
 
-    public PartitionTable(IcebergTableHandle tableHandle, ConnectorSession session, TypeManager typeManager, Table icebergTable)
+    public PartitionTable(IcebergTableHandle tableHandle, TypeManager typeManager, Table icebergTable)
     {
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
-        this.session = requireNonNull(session, "session is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.icebergTable = requireNonNull(icebergTable, "icebergTable is null");
     }
@@ -163,7 +159,7 @@ public class PartitionTable
     {
         // TODO instead of cursor use pageSource method.
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
-            TableScan tableScan = getTableScan(constraint);
+            TableScan tableScan = getTableScan(session, TupleDomain.all(), tableHandle.getSnapshotId(), icebergTable).includeColumnStats();
             Map<StructLikeWrapper, Partition> partitions = getPartitions(tableScan);
             return buildRecordCursor(partitions, icebergTable.spec().fields());
         }
@@ -267,17 +263,6 @@ public class PartitionTable
 
         rowBlockBuilder.closeEntry();
         return columnMetricType.getObject(rowBlockBuilder, 0);
-    }
-
-    private TableScan getTableScan(TupleDomain<Integer> constraint)
-    {
-        List<HiveColumnHandle> partitionColumns = IcebergUtil.getPartitionColumns(icebergTable.schema(), icebergTable.spec(), typeManager);
-        Map<Integer, HiveColumnHandle> fieldIdToColumnHandle = IntStream.range(0, partitionColumnTypes.size())
-                .boxed()
-                .collect(Collectors.toMap(identity(), partitionColumns::get));
-        TupleDomain<HiveColumnHandle> predicates = constraint.transform(fieldIdToColumnHandle::get);
-
-        return IcebergUtil.getTableScan(session, predicates, tableHandle.getSnapshotId(), icebergTable).includeColumnStats();
     }
 
     private Map<Integer, Object> toMap(Map<Integer, ByteBuffer> idToMetricMap)
