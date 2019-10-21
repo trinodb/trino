@@ -107,25 +107,6 @@ final class IcebergUtil
         return builder.build();
     }
 
-    public static List<HiveColumnHandle> getPartitionColumns(Schema schema, PartitionSpec spec, TypeManager typeManager)
-    {
-        List<PartitionField> partitionFields = ImmutableList.copyOf(getIdentityPartitions(spec).keySet());
-
-        int columnIndex = 0;
-        ImmutableList.Builder<HiveColumnHandle> builder = ImmutableList.builder();
-
-        for (PartitionField partitionField : partitionFields) {
-            Type sourceType = schema.findType(partitionField.sourceId());
-            Type type = partitionField.transform().getResultType(sourceType);
-            io.prestosql.spi.type.Type prestoType = toPrestoType(type, typeManager);
-            HiveType hiveType = toHiveType(TYPE_TRANSLATOR, coerceForHive(prestoType));
-            HiveColumnHandle columnHandle = new HiveColumnHandle(partitionField.name(), hiveType, prestoType, columnIndex, PARTITION_KEY, Optional.empty());
-            columnIndex++;
-            builder.add(columnHandle);
-        }
-        return builder.build();
-    }
-
     public static io.prestosql.spi.type.Type coerceForHive(io.prestosql.spi.type.Type prestoType)
     {
         if (prestoType.equals(TIMESTAMP_WITH_TIME_ZONE)) {

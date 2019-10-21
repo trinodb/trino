@@ -170,7 +170,7 @@ public class IcebergMetadata
         org.apache.iceberg.Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, table.getSchemaTableName());
         switch (table.getTableType()) {
             case PARTITIONS:
-                return Optional.of(new PartitionTable(table, session, typeManager, icebergTable));
+                return Optional.of(new PartitionTable(table, typeManager, icebergTable));
             case HISTORY:
                 return Optional.of(new HistoryTable(table.getSchemaTableNameWithType(), icebergTable));
         }
