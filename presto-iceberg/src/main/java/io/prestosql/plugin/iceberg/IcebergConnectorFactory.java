@@ -17,10 +17,11 @@ import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorContext;
 import io.prestosql.spi.connector.ConnectorFactory;
 
+import java.lang.reflect.InvocationTargetException;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.prestosql.plugin.iceberg.InternalIcebergConnectorFactory.createConnector;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 
 public class IcebergConnectorFactory
         implements ConnectorFactory
@@ -34,6 +35,19 @@ public class IcebergConnectorFactory
     @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        return createConnector(catalogName, config, context, Optional.empty());
+        ClassLoader classLoader = context.duplicatePluginClassLoader();
+        try {
+            return (Connector) classLoader.loadClass(InternalIcebergConnectorFactory.class.getName())
+                    .getMethod("createConnector", String.class, Map.class, ConnectorContext.class, Optional.class)
+                    .invoke(null, catalogName, config, context, Optional.empty());
+        }
+        catch (InvocationTargetException e) {
+            Throwable targetException = e.getTargetException();
+            throwIfUnchecked(targetException);
+            throw new RuntimeException(targetException);
+        }
+        catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
     }
 }
