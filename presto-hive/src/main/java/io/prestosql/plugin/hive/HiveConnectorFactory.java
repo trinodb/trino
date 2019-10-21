@@ -16,7 +16,6 @@ package io.prestosql.plugin.hive;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorContext;
 import io.prestosql.spi.connector.ConnectorFactory;
-import io.prestosql.spi.connector.ConnectorHandleResolver;
 
 import java.util.Map;
 import java.util.Optional;
@@ -40,12 +39,6 @@ public class HiveConnectorFactory
     public String getName()
     {
         return name;
-    }
-
-    @Override
-    public ConnectorHandleResolver getHandleResolver()
-    {
-        return new HiveHandleResolver();
     }
 
     @Override
