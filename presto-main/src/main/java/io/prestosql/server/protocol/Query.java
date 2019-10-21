@@ -13,6 +13,7 @@
  */
 package io.prestosql.server.protocol;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -20,6 +21,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.json.ObjectMapperProvider;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -72,6 +74,7 @@ import java.net.URI;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -439,6 +442,18 @@ class Query
 
         // for queries with no output, return a fake result for clients that require it
         if ((queryInfo.getState() == QueryState.FINISHED) && !queryInfo.getOutputStage().isPresent()) {
+            if (queryInfo.getQuery().trim().toUpperCase(Locale.ENGLISH).startsWith("SELECT")) {
+                // too bad
+                log.error("brain damage: %s", queryInfo.getState());
+                log.error("brain damage: %s", queryInfo);
+                try {
+                    log.error("brain damage: %s", new ObjectMapperProvider().get().writer().forType(QueryInfo.class).writeValueAsString(queryInfo));
+                }
+                catch (JsonProcessingException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+
             columns = ImmutableList.of(createColumn("result", BooleanType.BOOLEAN));
             data = ImmutableSet.of(ImmutableList.of(true));
         }
