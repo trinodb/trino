@@ -452,8 +452,7 @@ public class SemiTransactionalHiveMetastore
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
         Action<TableAndMore> oldTableAction = tableActions.get(schemaTableName);
         if (oldTableAction == null) {
-            Table table = delegate.getTable(identity, databaseName, tableName)
-                    .orElseThrow(() -> new TableNotFoundException(schemaTableName));
+            Table table = getSourceTableOrElseThrow(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName());
             PartitionStatistics currentStatistics = getTableStatistics(identity, databaseName, tableName);
             HdfsContext hdfsContext = new HdfsContext(session, databaseName, tableName);
             tableActions.put(
@@ -868,9 +867,13 @@ public class SemiTransactionalHiveMetastore
 
     private String getTableOwner(HiveIdentity identity, String databaseName, String tableName)
     {
-        Table table = delegate.getTable(identity, databaseName, tableName)
+        return getSourceTableOrElseThrow(identity, databaseName, tableName).getOwner();
+    }
+
+    private Table getSourceTableOrElseThrow(HiveIdentity identity, String databaseName, String tableName)
+    {
+        return delegate.getTable(identity, databaseName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
-        return table.getOwner();
     }
 
     public synchronized void grantTablePrivileges(HiveIdentity identity, String databaseName, String tableName, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
