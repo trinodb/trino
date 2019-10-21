@@ -263,6 +263,20 @@ public final class DockerContainer
         }
     }
 
+    public DockerContainer restart()
+    {
+        try {
+            LOG.info("Restarting container %s", containerId);
+            dockerClient.restartContainer(containerId);
+            calculateHostPorts(ImmutableList.copyOf(hostPorts.keySet()));
+            waitForContainer();
+            return this;
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     @Override
     public void close()
     {
