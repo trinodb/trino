@@ -42,6 +42,7 @@ import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.prestosql.execution.QueryState.FAILED;
+import static io.prestosql.execution.QueryState.FINISHED;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.util.Failures.toFailure;
 import static java.util.Objects.requireNonNull;
@@ -267,7 +268,9 @@ public class LocalDispatchQuery
             return tryGetFutureValue(queryExecutionFuture);
         }
         catch (Exception ignored) {
-            log.error(ignored, "brain damage. What am i ignoring here?");
+            if (stateMachine.getQueryState() == FINISHED) {
+                log.error(ignored, "brain damage. What am i ignoring here?");
+            }
             return Optional.empty();
         }
     }
