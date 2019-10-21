@@ -311,7 +311,7 @@ public interface Block
     }
 
     /**
-     * Gets the child blocks of this block.
+     * Gets the direct child blocks of this block.
      */
     default List<Block> getChildren()
     {
