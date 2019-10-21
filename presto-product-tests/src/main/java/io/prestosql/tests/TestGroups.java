@@ -64,6 +64,7 @@ public final class TestGroups
     public static final String BIG_QUERY = "big_query";
     public static final String HIVE_TABLE_STATISTICS = "hive_table_statistics";
     public static final String KAFKA = "kafka";
+    public static final String TWO_HIVES = "two_hives";
 
     private TestGroups() {}
 }
