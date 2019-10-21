@@ -15,9 +15,12 @@ package io.prestosql.execution;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.json.ObjectMapperProvider;
+import io.airlift.log.Logger;
 import io.prestosql.SessionRepresentation;
 import io.prestosql.spi.ErrorCode;
 import io.prestosql.spi.ErrorType;
@@ -33,6 +36,7 @@ import javax.annotation.concurrent.Immutable;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -44,6 +48,8 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public class QueryInfo
 {
+    private static final Logger log = Logger.get(QueryInfo.class);
+
     private final QueryId queryId;
     private final SessionRepresentation session;
     private final QueryState state;
@@ -159,6 +165,17 @@ public class QueryInfo
         this.output = output;
         this.completeInfo = completeInfo;
         this.resourceGroupId = resourceGroupId;
+
+        if (query.trim().toUpperCase(Locale.ENGLISH).startsWith("SELECT") && state == QueryState.FINISHED && !outputStage.isPresent()) {
+            log.error("query brain damage: %s", this);
+            try {
+                log.error("query brain damage: %s", new ObjectMapperProvider().get().writer().forType(QueryInfo.class).writeValueAsString(this));
+            }
+            catch (JsonProcessingException e) {
+                throw new RuntimeException(e);
+            }
+            log.error(new Exception("STACKTRACE"), "query brain damage here");
+        }
     }
 
     @JsonProperty
