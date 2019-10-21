@@ -610,25 +610,6 @@ public class SemiTransactionalHiveMetastore
         return true;
     }
 
-    public synchronized Optional<Partition> getPartition(HiveIdentity identity, String databaseName, String tableName, List<String> partitionValues)
-    {
-        checkReadable();
-        TableSource tableSource = getTableSource(databaseName, tableName);
-        Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.computeIfAbsent(new SchemaTableName(databaseName, tableName), k -> new HashMap<>());
-        Action<PartitionAndMore> partitionAction = partitionActionsOfTable.get(partitionValues);
-        if (partitionAction != null) {
-            return getPartitionFromPartitionAction(partitionAction);
-        }
-        switch (tableSource) {
-            case PRE_EXISTING_TABLE:
-                return delegate.getPartition(identity, databaseName, tableName, partitionValues);
-            case CREATED_IN_THIS_TRANSACTION:
-                return Optional.empty();
-            default:
-                throw new UnsupportedOperationException("unknown table source");
-        }
-    }
-
     public synchronized Map<String, Optional<Partition>> getPartitionsByNames(HiveIdentity identity, String databaseName, String tableName, List<String> partitionNames)
     {
         checkReadable();
