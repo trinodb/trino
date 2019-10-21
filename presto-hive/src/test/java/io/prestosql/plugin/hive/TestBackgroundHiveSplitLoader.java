@@ -510,7 +510,7 @@ public class TestBackgroundHiveSplitLoader
                 null,
                 null,
                 path,
-                new BlockLocation[] {new BlockLocation(new String[1], new String[]{"localhost"}, 0, fileLength)});
+                new BlockLocation[] {new BlockLocation(new String[1], new String[] {"localhost"}, 0, fileLength)});
     }
 
     private static LocatedFileStatus locatedFileStatusWithNoBlocks(Path path)
