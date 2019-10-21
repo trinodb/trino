@@ -89,7 +89,7 @@ public class SystemConnectorModule
         @Inject
         public SystemConnectorRegistrar(ConnectorManager manager, GlobalSystemConnectorFactory globalSystemConnectorFactory)
         {
-            manager.addConnectorFactory(globalSystemConnectorFactory);
+            manager.addConnectorFactory(globalSystemConnectorFactory, globalSystemConnectorFactory.getClass()::getClassLoader);
             manager.createCatalog(GlobalSystemConnector.NAME, GlobalSystemConnector.NAME, ImmutableMap.of());
         }
     }
