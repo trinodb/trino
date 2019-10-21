@@ -52,11 +52,13 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MICROSECONDS;
 
 public class TupleDomainParquetPredicate
         implements Predicate
@@ -226,6 +228,17 @@ public class TupleDomainParquetPredicate
                 return Domain.create(ValueSet.all(type), hasNullValue);
             }
             ParquetIntegerStatistics parquetIntegerStatistics = new ParquetIntegerStatistics((long) intStatistics.getMin(), (long) intStatistics.getMax());
+            return createDomain(type, hasNullValue, parquetIntegerStatistics);
+        }
+
+        if (type.equals(TIMESTAMP) && statistics instanceof LongStatistics) {
+            LongStatistics longStatistics = (LongStatistics) statistics;
+            if (longStatistics.genericGetMin() > longStatistics.genericGetMax()) {
+                failWithCorruptionException(failOnCorruptedParquetStatistics, column, id, longStatistics);
+                return Domain.create(ValueSet.all(type), hasNullValue);
+            }
+            ParquetIntegerStatistics parquetIntegerStatistics = new ParquetIntegerStatistics(
+                    MICROSECONDS.toMillis(longStatistics.getMin()), MICROSECONDS.toMillis(longStatistics.getMax()));
             return createDomain(type, hasNullValue, parquetIntegerStatistics);
         }
 
