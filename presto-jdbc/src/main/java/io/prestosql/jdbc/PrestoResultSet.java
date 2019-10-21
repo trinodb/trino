@@ -151,6 +151,7 @@ public class PrestoResultSet
             if (prev != null && (next == null || prev.size() != next.size())) {
                 RuntimeException e = new RuntimeException(format("Reshape: %s vs %s", prev, next));
                 log.log(Level.SEVERE, e, "zonkzonk"::toString);
+                System.exit(17);
                 throw e;
             }
             return true;
