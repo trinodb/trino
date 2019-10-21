@@ -120,6 +120,10 @@ where profile is one of either:
  While running tests on ``singlenode-sqlserver`` make sure to exclude
  `mysql` and `postgresql` tests i.e.
  `-x mysql, postgresql`.
+- **two-mixed-hives** - two pseudo-distributed Hadoop installations running on
+ a single Docker containers. One Hadoop (Hive) installations is kerberized.
+ A single node installation of kerberized Presto also
+ running on a single Docker container.
 
 ### Hadoop docker image used for testing
 The default Hadoop/Hive docker image used for testing is defined in `conf/common/compose-commons.sh` and can be controlled

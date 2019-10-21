@@ -1,0 +1,17 @@
+version: '2'
+services:
+
+    presto-master:
+        volumes:
+            - ../../../conf/docker/two-mixed-hives/presto-master/etc/presto/hive1.properties:/docker/volumes/conf/presto/etc/catalog/hive1.properties
+            - ../../../conf/docker/two-mixed-hives/presto-master/etc/presto/hive2.properties:/docker/volumes/conf/presto/etc/catalog/hive2.properties
+
+    hadoop-master-2:
+        extends:
+            service: java-8-base
+        image: '${HADOOP_BASE_IMAGE}:${DOCKER_IMAGES_VERSION}'
+        hostname: hadoop-master-2
+        volumes:
+            - ../../../conf/docker/two-mixed-hives/hadoop-master-2/core-site.xml:/etc/hadoop/conf/core-site.xml
+            - ../../../conf/docker/two-mixed-hives/hadoop-master-2/mapred-site.xml:/etc/hadoop/conf/mapred-site.xml
+            - ../../../conf/docker/two-mixed-hives/hadoop-master-2/yarn-site.xml:/etc/hadoop/conf/yarn-site.xml
