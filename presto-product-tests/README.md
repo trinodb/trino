@@ -124,6 +124,10 @@ where profile is one of either:
  a single Docker containers. One Hadoop (Hive) installations is kerberized.
  A single node installation of kerberized Presto also
  running on a single Docker container.
+- **two-kerberos-hives** - two pseudo-distributed Hadoop installations running on
+ a single Docker containers. Both Hadoop (Hive) installations are kerberized.
+ A single node installation of kerberized Presto also
+ running on a single Docker container.
 
 ### Hadoop docker image used for testing
 The default Hadoop/Hive docker image used for testing is defined in `conf/common/compose-commons.sh` and can be controlled
