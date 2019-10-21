@@ -267,6 +267,7 @@ public class LocalDispatchQuery
             return tryGetFutureValue(queryExecutionFuture);
         }
         catch (Exception ignored) {
+            log.error(ignored, "brain damage. What am i ignoring here?");
             return Optional.empty();
         }
     }
