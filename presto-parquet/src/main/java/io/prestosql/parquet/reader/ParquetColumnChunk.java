@@ -30,21 +30,26 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.prestosql.parquet.ParquetTypeUtils.getParquetEncoding;
+import static java.util.Objects.requireNonNull;
 
 public class ParquetColumnChunk
         extends ByteArrayInputStream
 {
+    private final Optional<String> fileCreatedBy;
     private final ColumnChunkDescriptor descriptor;
 
     public ParquetColumnChunk(
+            Optional<String> fileCreatedBy,
             ColumnChunkDescriptor descriptor,
             byte[] data,
             int offset)
     {
         super(data);
+        this.fileCreatedBy = requireNonNull(fileCreatedBy, "fileCreatedBy is null");
         this.descriptor = descriptor;
         this.pos = offset;
     }
@@ -124,6 +129,7 @@ public class ParquetColumnChunk
                 dataHeaderV1.getNum_values(),
                 uncompressedPageSize,
                 MetadataReader.readStats(
+                        fileCreatedBy,
                         dataHeaderV1.getStatistics(),
                         descriptor.getColumnDescriptor().getPrimitiveType()),
                 getParquetEncoding(Encoding.valueOf(dataHeaderV1.getRepetition_level_encoding().name())),
@@ -149,6 +155,7 @@ public class ParquetColumnChunk
                 getSlice(dataSize),
                 uncompressedPageSize,
                 MetadataReader.readStats(
+                        fileCreatedBy,
                         dataHeaderV2.getStatistics(),
                         descriptor.getColumnDescriptor().getPrimitiveType()),
                 dataHeaderV2.isIs_compressed()));

@@ -20,7 +20,10 @@ import org.apache.parquet.column.statistics.LongStatistics;
 import org.apache.parquet.format.Statistics;
 import org.apache.parquet.schema.OriginalType;
 import org.apache.parquet.schema.PrimitiveType;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
+
+import java.util.Optional;
 
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -34,14 +37,28 @@ import static org.testng.Assert.assertNull;
 
 public class TestMetadataReader
 {
-    @Test
-    public void testReadStatsInt32()
+    private static final Optional<String> NO_CREATED_BY = Optional.empty();
+
+    // com.twitter:parquet-hadoop:jar:1.6.0, parquet.Version.FULL_VERSION
+    // The value of this field depends on packaging, so this is the actual value as written by Presto [0.168, 0.214)
+    private static final Optional<String> PARQUET_MR = Optional.of("parquet-mr");
+
+    // org.apache.parquet:parquet-common:jar:1.10.1, org.apache.parquet.Version.FULL_VERSION
+    // Used by Presto [0.215, 303)
+    private static final Optional<String> PARQUET_MR_1_8 = Optional.of("parquet-mr version 1.8.2 (build c6522788629e590a53eb79874b95f6c3ff11f16c)");
+
+    // org.apache.parquet:parquet-common:jar:1.10.1, org.apache.parquet.Version.FULL_VERSION
+    // Used by Presto [303, ?)
+    private static final Optional<String> PARQUET_MR_1_10 = Optional.of("parquet-mr version 1.10.1 (build a89df8f9932b6ef6633d06069e50c9b7970bebd1)");
+
+    @Test(dataProvider = "allCreatedBy")
+    public void testReadStatsInt32(Optional<String> fileCreatedBy)
     {
         Statistics statistics = new Statistics();
         statistics.setNull_count(13);
         statistics.setMin(fromHex("F6FFFFFF"));
         statistics.setMax(fromHex("3AA40000"));
-        assertThat(MetadataReader.readStats(statistics, new PrimitiveType(OPTIONAL, INT32, "Test column")))
+        assertThat(MetadataReader.readStats(fileCreatedBy, statistics, new PrimitiveType(OPTIONAL, INT32, "Test column")))
                 .isInstanceOfSatisfying(IntStatistics.class, columnStatistics -> {
                     assertEquals(columnStatistics.getNumNulls(), 13);
                     assertEquals(columnStatistics.getMin(), -10);
@@ -51,14 +68,14 @@ public class TestMetadataReader
                 });
     }
 
-    @Test
-    public void testReadStatsInt64()
+    @Test(dataProvider = "allCreatedBy")
+    public void testReadStatsInt64(Optional<String> fileCreatedBy)
     {
         Statistics statistics = new Statistics();
         statistics.setNull_count(13);
         statistics.setMin(fromHex("F6FFFFFFFFFFFFFF"));
         statistics.setMax(fromHex("3AA4000000000000"));
-        assertThat(MetadataReader.readStats(statistics, new PrimitiveType(OPTIONAL, INT64, "Test column")))
+        assertThat(MetadataReader.readStats(fileCreatedBy, statistics, new PrimitiveType(OPTIONAL, INT64, "Test column")))
                 .isInstanceOfSatisfying(LongStatistics.class, columnStatistics -> {
                     assertEquals(columnStatistics.getNumNulls(), 13);
                     assertEquals(columnStatistics.getMin(), -10);
@@ -68,8 +85,8 @@ public class TestMetadataReader
                 });
     }
 
-    @Test
-    public void testReadStatsBinary()
+    @Test(dataProvider = "allCreatedBy")
+    public void testReadStatsBinary(Optional<String> fileCreatedBy)
     {
         PrimitiveType varbinary = new PrimitiveType(OPTIONAL, BINARY, "Test column");
 
@@ -77,7 +94,7 @@ public class TestMetadataReader
         statistics.setNull_count(13);
         statistics.setMin(fromHex("6162"));
         statistics.setMax(fromHex("DEAD5FC0DE"));
-        assertThat(MetadataReader.readStats(statistics, varbinary))
+        assertThat(MetadataReader.readStats(fileCreatedBy, statistics, varbinary))
                 .isInstanceOfSatisfying(BinaryStatistics.class, columnStatistics -> {
                     // Stats ignored because we did not provide original type and provided min/max for BINARY
                     assertFalse(columnStatistics.isNumNullsSet());
@@ -95,7 +112,7 @@ public class TestMetadataReader
         statistics.setNull_count(13);
         statistics.setMin_value("a".getBytes(UTF_8));
         statistics.setMax_value("é".getBytes(UTF_8));
-        assertThat(MetadataReader.readStats(statistics, varbinary))
+        assertThat(MetadataReader.readStats(fileCreatedBy, statistics, varbinary))
                 .isInstanceOfSatisfying(BinaryStatistics.class, columnStatistics -> {
                     assertEquals(columnStatistics.getNumNulls(), 13);
                     assertEquals(columnStatistics.getMin().getBytes(), new byte[] {'a'});
@@ -107,54 +124,78 @@ public class TestMetadataReader
                 });
     }
 
-    @Test
-    public void testReadStatsBinaryUtf8()
+    /**
+     * Stats written by Parquet before https://issues.apache.org/jira/browse/PARQUET-1025
+     */
+    @Test(dataProvider = "testReadStatsBinaryUtf8OldWriterDataProvider")
+    public void testReadStatsBinaryUtf8OldWriter(Optional<String> fileCreatedBy, int nullCount, byte[] min, byte[] max, int expectedNullCount, byte[] expectedMin, byte[] expectedMax)
+    {
+        Statistics statistics = new Statistics();
+        statistics.setNull_count(nullCount);
+        statistics.setMin(min);
+        statistics.setMax(max);
+        assertThat(MetadataReader.readStats(fileCreatedBy, statistics, new PrimitiveType(OPTIONAL, BINARY, "Test column", OriginalType.UTF8)))
+                .isInstanceOfSatisfying(BinaryStatistics.class, columnStatistics -> {
+                    assertEquals(columnStatistics.getNumNulls(), expectedNullCount);
+
+                    assertEquals(columnStatistics.getMinBytes(), expectedMin);
+                    if (expectedMin != null) {
+                        assertEquals(columnStatistics.getMin().getBytes(), expectedMin);
+                        assertEquals(columnStatistics.genericGetMin().getBytes(), expectedMin);
+                    }
+                    else {
+                        assertNull(columnStatistics.getMin());
+                        assertNull(columnStatistics.genericGetMin());
+                    }
+
+                    assertEquals(columnStatistics.getMaxBytes(), expectedMax);
+                    if (expectedMax != null) {
+                        assertEquals(columnStatistics.getMax().getBytes(), expectedMax);
+                        assertEquals(columnStatistics.genericGetMax().getBytes(), expectedMax);
+                    }
+                    else {
+                        assertNull(columnStatistics.getMax());
+                        assertNull(columnStatistics.genericGetMax());
+                    }
+                });
+    }
+
+    @DataProvider
+    public Object[][] testReadStatsBinaryUtf8OldWriterDataProvider()
+    {
+        return new Object[][] {
+                // [aa, bé]
+                {NO_CREATED_BY, 13, "aa".getBytes(UTF_8), "bé".getBytes(UTF_8), -1, null, null},
+                {PARQUET_MR, 13, "aa".getBytes(UTF_8), "bé".getBytes(UTF_8), -1, null, null},
+                {PARQUET_MR_1_8, 13, "aa".getBytes(UTF_8), "bé".getBytes(UTF_8), -1, null, null},
+                {PARQUET_MR_1_10, 13, "aa".getBytes(UTF_8), "bé".getBytes(UTF_8), -1, null, null},
+
+                // [é, a]
+                {NO_CREATED_BY, 13, "é".getBytes(UTF_8), "a".getBytes(UTF_8), -1, null, null},
+                {PARQUET_MR, 13, "é".getBytes(UTF_8), "a".getBytes(UTF_8), -1, null, null},
+                {PARQUET_MR_1_8, 13, "é".getBytes(UTF_8), "a".getBytes(UTF_8), -1, null, null},
+                {PARQUET_MR_1_10, 13, "é".getBytes(UTF_8), "a".getBytes(UTF_8), -1, null, null},
+
+                // [aé, aé]
+                {NO_CREATED_BY, 13, "aé".getBytes(UTF_8), "aé".getBytes(UTF_8), -1, null, null},
+                {PARQUET_MR, 13, "aé".getBytes(UTF_8), "aé".getBytes(UTF_8), -1, null, null},
+                {PARQUET_MR_1_8, 13, "aé".getBytes(UTF_8), "aé".getBytes(UTF_8), 13, "aé".getBytes(UTF_8), "aé".getBytes(UTF_8)},
+                {PARQUET_MR_1_10, 13, "aé".getBytes(UTF_8), "aé".getBytes(UTF_8), 13, "aé".getBytes(UTF_8), "aé".getBytes(UTF_8)},
+        };
+    }
+
+    @Test(dataProvider = "allCreatedBy")
+    public void testReadStatsBinaryUtf8(Optional<String> fileCreatedBy)
     {
         PrimitiveType varchar = new PrimitiveType(OPTIONAL, BINARY, "Test column", OriginalType.UTF8);
         Statistics statistics;
-
-        // Stats written by Parquet before https://issues.apache.org/jira/browse/PARQUET-1025
-        statistics = new Statistics();
-        statistics.setNull_count(13);
-        statistics.setMin("aa".getBytes(UTF_8));
-        statistics.setMax("bé".getBytes(UTF_8));
-        assertThat(MetadataReader.readStats(statistics, varchar))
-                .isInstanceOfSatisfying(BinaryStatistics.class, columnStatistics -> {
-                    // Stats ignored because we provided min/max for UTF8
-                    assertFalse(columnStatistics.isNumNullsSet());
-                    assertEquals(columnStatistics.getNumNulls(), -1);
-                    assertNull(columnStatistics.getMin());
-                    assertNull(columnStatistics.getMax());
-                    assertNull(columnStatistics.getMinBytes());
-                    assertNull(columnStatistics.getMaxBytes());
-                    assertNull(columnStatistics.genericGetMin());
-                    assertNull(columnStatistics.genericGetMax());
-                });
-
-        // Corrupted stats written by Parquet before https://issues.apache.org/jira/browse/PARQUET-1025
-        statistics = new Statistics();
-        statistics.setNull_count(13);
-        statistics.setMin("é".getBytes(UTF_8));
-        statistics.setMax("a".getBytes(UTF_8));
-        assertThat(MetadataReader.readStats(statistics, varchar))
-                .isInstanceOfSatisfying(BinaryStatistics.class, columnStatistics -> {
-                    // Stats ignored because we provided min/max for UTF8
-                    assertFalse(columnStatistics.isNumNullsSet());
-                    assertEquals(columnStatistics.getNumNulls(), -1);
-                    assertNull(columnStatistics.getMin());
-                    assertNull(columnStatistics.getMax());
-                    assertNull(columnStatistics.getMinBytes());
-                    assertNull(columnStatistics.getMaxBytes());
-                    assertNull(columnStatistics.genericGetMin());
-                    assertNull(columnStatistics.genericGetMax());
-                });
 
         // Stats written by Parquet after https://issues.apache.org/jira/browse/PARQUET-1025
         statistics = new Statistics();
         statistics.setNull_count(13);
         statistics.setMin_value("a".getBytes(UTF_8));
         statistics.setMax_value("é".getBytes(UTF_8));
-        assertThat(MetadataReader.readStats(statistics, varchar))
+        assertThat(MetadataReader.readStats(fileCreatedBy, statistics, varchar))
                 .isInstanceOfSatisfying(BinaryStatistics.class, columnStatistics -> {
                     assertEquals(columnStatistics.getNumNulls(), 13);
                     assertEquals(columnStatistics.getMin().getBytes(), new byte[] {'a'});
@@ -164,6 +205,17 @@ public class TestMetadataReader
                     assertEquals(columnStatistics.genericGetMin().getBytes(), new byte[] {'a'});
                     assertEquals(columnStatistics.genericGetMax().getBytes(), new byte[] {(byte) 0xC3, (byte) 0xA9});
                 });
+    }
+
+    @DataProvider
+    public Object[][] allCreatedBy()
+    {
+        return new Object[][] {
+                {NO_CREATED_BY},
+                {PARQUET_MR},
+                {PARQUET_MR_1_8},
+                {PARQUET_MR_1_10},
+        };
     }
 
     private static byte[] fromHex(String hex)

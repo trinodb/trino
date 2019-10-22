@@ -63,6 +63,7 @@ public class ParquetReader
     private static final int INITIAL_BATCH_SIZE = 1;
     private static final int BATCH_SIZE_GROWTH_FACTOR = 2;
 
+    private final Optional<String> fileCreatedBy;
     private final List<BlockMetaData> blocks;
     private final List<PrimitiveColumnIO> columns;
     private final ParquetDataSource dataSource;
@@ -83,12 +84,15 @@ public class ParquetReader
 
     private AggregatedMemoryContext currentRowGroupMemoryContext;
 
-    public ParquetReader(MessageColumnIO messageColumnIO,
+    public ParquetReader(
+            Optional<String> fileCreatedBy,
+            MessageColumnIO messageColumnIO,
             List<BlockMetaData> blocks,
             ParquetDataSource dataSource,
             AggregatedMemoryContext systemMemoryContext,
             DataSize maxReadBlockSize)
     {
+        this.fileCreatedBy = requireNonNull(fileCreatedBy, "fileCreatedBy is null");
         this.blocks = blocks;
         this.dataSource = requireNonNull(dataSource, "dataSource is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
@@ -217,7 +221,7 @@ public class ParquetReader
             byte[] buffer = allocateBlock(totalSize);
             dataSource.readFully(startingPosition, buffer);
             ColumnChunkDescriptor descriptor = new ColumnChunkDescriptor(columnDescriptor, metadata, totalSize);
-            ParquetColumnChunk columnChunk = new ParquetColumnChunk(descriptor, buffer, 0);
+            ParquetColumnChunk columnChunk = new ParquetColumnChunk(fileCreatedBy, descriptor, buffer, 0);
             columnReader.setPageReader(columnChunk.readAllPages());
         }
         ColumnChunk columnChunk = columnReader.readPrimitive(field);

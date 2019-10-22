@@ -199,6 +199,7 @@ public class ParquetPageSourceFactory
             }
             MessageColumnIO messageColumnIO = getColumnIO(fileSchema, requestedSchema);
             ParquetReader parquetReader = new ParquetReader(
+                    Optional.ofNullable(fileMetaData.getCreatedBy()),
                     messageColumnIO,
                     blocks.build(),
                     dataSource,
