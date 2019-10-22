@@ -16,6 +16,8 @@ package io.prestosql.parquet.reader;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.parquet.CorruptStatistics;
+import org.apache.parquet.column.statistics.BinaryStatistics;
 import org.apache.parquet.format.ColumnChunk;
 import org.apache.parquet.format.ColumnMetaData;
 import org.apache.parquet.format.ConvertedType;
@@ -203,11 +205,57 @@ public final class MetadataReader
 
     public static org.apache.parquet.column.statistics.Statistics<?> readStats(Optional<String> fileCreatedBy, Statistics statistics, PrimitiveType type)
     {
-        // TODO when reading legacy BINARY min/max statistics for UTF8 we do not need to discard them if all byte are 0-127.
-        // More precisely, we do not need to discard leading ASCII characters, because Parquet pre-PARQUET-1025 sorting was
-        // correct for ASCII. We only need to adjust the max value when chopping off some non-ASCII characters.
+        org.apache.parquet.column.statistics.Statistics<?> columnStatistics = new ParquetMetadataConverter().fromParquetStatistics(fileCreatedBy.orElse(null), statistics, type);
 
-        return new ParquetMetadataConverter().fromParquetStatistics(fileCreatedBy.orElse(null), statistics, type);
+        if (type.getOriginalType() == OriginalType.UTF8
+                && !statistics.isSetMin_value() && !statistics.isSetMax_value() // the min,max fields used for UTF8 since Parquet PARQUET-1025
+                && statistics.isSetMin() && statistics.isSetMax()  // the min,max fields used for UTF8 before Parquet PARQUET-1025
+                && columnStatistics.genericGetMin() == null && columnStatistics.genericGetMax() == null
+                && !CorruptStatistics.shouldIgnoreStatistics(fileCreatedBy.orElse(null), type.getPrimitiveTypeName())) {
+            tryReadOldUtf8Stats(statistics, (BinaryStatistics) columnStatistics);
+        }
+
+        return columnStatistics;
+    }
+
+    private static void tryReadOldUtf8Stats(Statistics statistics, BinaryStatistics columnStatistics)
+    {
+        byte[] min = statistics.getMin();
+        byte[] max = statistics.getMax();
+
+        if (Arrays.equals(min, max)) {
+            // If min=max, then there is single value only
+            min = min.clone();
+            max = min;
+        }
+        else {
+            // For min it's enough to retain leading all-ASCII, because this produces a strictly lower value.
+            int minFirstNonAsciiOffset = firstOutsideRange(min, 0, 128);
+            min = Arrays.copyOf(min, minFirstNonAsciiOffset);
+
+            // For max we chop away everything at the first non-ASCII, then increment last character.
+            int maxFirstBadCharacter = firstOutsideRange(max, 0, 127); // last ASCII is also bad because we can't increment it
+            if (maxFirstBadCharacter == 0) {
+                // We can't help.
+                return;
+            }
+            max[maxFirstBadCharacter - 1]++;
+            max = Arrays.copyOf(max, maxFirstBadCharacter);
+        }
+
+        columnStatistics.setMinMaxFromBytes(min, max);
+        if (!columnStatistics.isNumNullsSet() && statistics.isSetNull_count()) {
+            columnStatistics.setNumNulls(statistics.getNull_count());
+        }
+    }
+
+    private static int firstOutsideRange(byte[] bytes, int rangeStartInclusive, int rangeEndExclusive)
+    {
+        int offset = 0;
+        while (offset < bytes.length && rangeStartInclusive <= bytes[offset] && bytes[offset] < rangeEndExclusive) {
+            offset++;
+        }
+        return offset;
     }
 
     private static Set<org.apache.parquet.column.Encoding> readEncodings(List<Encoding> encodings)
