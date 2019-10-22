@@ -43,6 +43,7 @@ import io.prestosql.plugin.hive.metastore.Partition;
 import io.prestosql.plugin.hive.metastore.PartitionWithStatistics;
 import io.prestosql.plugin.hive.metastore.PrincipalPrivileges;
 import io.prestosql.plugin.hive.metastore.Table;
+import io.prestosql.plugin.hive.metastore.TableWithPrivileges;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnNotFoundException;
@@ -244,8 +245,10 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized void createTable(HiveIdentity identity, Table table, PrincipalPrivileges principalPrivileges)
+    public synchronized void createTable(HiveIdentity identity, TableWithPrivileges tableWithPrivileges)
     {
+        Table table = tableWithPrivileges.getTable();
+        PrincipalPrivileges principalPrivileges = tableWithPrivileges.getPrincipalPrivileges();
         verifyTableNotExists(table.getDatabaseName(), table.getTableName());
 
         Path tableMetadataDirectory = getTableMetadataDirectory(table);
@@ -451,7 +454,7 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized void replaceTable(HiveIdentity identity, String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges)
+    public synchronized void replaceTable(HiveIdentity identity, String databaseName, String tableName, TableWithPrivileges newTableWithPrivileges)
     {
         Table table = getRequiredTable(databaseName, tableName);
         if (!table.getDatabaseName().equals(databaseName) || !table.getTableName().equals(tableName)) {
@@ -459,11 +462,12 @@ public class FileHiveMetastore
         }
 
         Path tableMetadataDirectory = getTableMetadataDirectory(table);
-        writeSchemaFile("table", tableMetadataDirectory, tableCodec, new TableMetadata(newTable), true);
+        writeSchemaFile("table", tableMetadataDirectory, tableCodec, new TableMetadata(newTableWithPrivileges.getTable()), true);
 
         // replace existing permissions
         deleteTablePrivileges(table);
 
+        PrincipalPrivileges principalPrivileges = newTableWithPrivileges.getPrincipalPrivileges();
         for (Entry<String, Collection<HivePrivilegeInfo>> entry : principalPrivileges.getUserPrivileges().asMap().entrySet()) {
             setTablePrivileges(new HivePrincipal(USER, entry.getKey()), table.getDatabaseName(), table.getTableName(), entry.getValue());
         }

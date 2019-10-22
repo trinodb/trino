@@ -32,6 +32,7 @@ import io.prestosql.plugin.hive.metastore.Database;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.PrincipalPrivileges;
 import io.prestosql.plugin.hive.metastore.Table;
+import io.prestosql.plugin.hive.metastore.TableWithPrivileges;
 import io.prestosql.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.prestosql.plugin.hive.metastore.cache.CachingHiveMetastoreConfig;
 import io.prestosql.plugin.hive.metastore.thrift.BridgingHiveMetastore;
@@ -472,12 +473,12 @@ public abstract class AbstractTestHiveFileSystem
         }
 
         @Override
-        public void createTable(HiveIdentity identity, Table table, PrincipalPrivileges privileges)
+        public void createTable(HiveIdentity identity, TableWithPrivileges tableWithPrivileges)
         {
             // hack to work around the metastore not being configured for S3 or other FS
-            Table.Builder tableBuilder = Table.builder(table);
+            Table.Builder tableBuilder = Table.builder(tableWithPrivileges.getTable());
             tableBuilder.getStorageBuilder().setLocation("/");
-            super.createTable(identity, tableBuilder.build(), privileges);
+            super.createTable(identity, new TableWithPrivileges(tableBuilder.build(), tableWithPrivileges.getPrincipalPrivileges()));
         }
 
         @Override
@@ -496,7 +497,7 @@ public abstract class AbstractTestHiveFileSystem
                 tableBuilder.getStorageBuilder().setLocation("/");
 
                 // drop table
-                replaceTable(identity, databaseName, tableName, tableBuilder.build(), new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of()));
+                replaceTable(identity, databaseName, tableName, new TableWithPrivileges(tableBuilder.build(), new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of())));
                 delegate.dropTable(identity, databaseName, tableName, false);
 
                 // drop data
@@ -527,7 +528,7 @@ public abstract class AbstractTestHiveFileSystem
             tableBuilder.getStorageBuilder().setLocation(location);
 
             // NOTE: this clears the permissions
-            replaceTable(identity, databaseName, tableName, tableBuilder.build(), new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of()));
+            replaceTable(identity, databaseName, tableName, new TableWithPrivileges(tableBuilder.build(), new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of())));
         }
 
         private List<String> listAllDataPaths(HiveIdentity identity, String schemaName, String tableName)

@@ -23,8 +23,8 @@ import io.prestosql.plugin.hive.metastore.HivePrincipal;
 import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo;
 import io.prestosql.plugin.hive.metastore.Partition;
 import io.prestosql.plugin.hive.metastore.PartitionWithStatistics;
-import io.prestosql.plugin.hive.metastore.PrincipalPrivileges;
 import io.prestosql.plugin.hive.metastore.Table;
+import io.prestosql.plugin.hive.metastore.TableWithPrivileges;
 import io.prestosql.plugin.hive.util.HiveUtil;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.SchemaNotFoundException;
@@ -166,9 +166,9 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public void createTable(HiveIdentity identity, Table table, PrincipalPrivileges principalPrivileges)
+    public void createTable(HiveIdentity identity, TableWithPrivileges table)
     {
-        delegate.createTable(identity, toMetastoreApiTable(table, principalPrivileges));
+        delegate.createTable(identity, toMetastoreApiTable(table));
     }
 
     @Override
@@ -178,9 +178,9 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public void replaceTable(HiveIdentity identity, String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges)
+    public void replaceTable(HiveIdentity identity, String databaseName, String tableName, TableWithPrivileges newTableWithPrivileges)
     {
-        alterTable(identity, databaseName, tableName, toMetastoreApiTable(newTable, principalPrivileges));
+        alterTable(identity, databaseName, tableName, toMetastoreApiTable(newTableWithPrivileges));
     }
 
     @Override

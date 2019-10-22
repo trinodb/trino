@@ -114,7 +114,7 @@ class UnimplementedHiveMetastore
     }
 
     @Override
-    public void createTable(HiveIdentity identity, Table table, PrincipalPrivileges principalPrivileges)
+    public void createTable(HiveIdentity identity, TableWithPrivileges tableWithPrivileges)
     {
         throw new UnsupportedOperationException();
     }
@@ -126,7 +126,7 @@ class UnimplementedHiveMetastore
     }
 
     @Override
-    public void replaceTable(HiveIdentity identity, String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges)
+    public void replaceTable(HiveIdentity identity, String databaseName, String tableName, TableWithPrivileges newTableWithPrivileges)
     {
         throw new UnsupportedOperationException();
     }

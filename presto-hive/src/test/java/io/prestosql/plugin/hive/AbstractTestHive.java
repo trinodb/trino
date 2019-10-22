@@ -42,6 +42,7 @@ import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.prestosql.plugin.hive.metastore.SortingColumn;
 import io.prestosql.plugin.hive.metastore.StorageFormat;
 import io.prestosql.plugin.hive.metastore.Table;
+import io.prestosql.plugin.hive.metastore.TableWithPrivileges;
 import io.prestosql.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.prestosql.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.prestosql.plugin.hive.metastore.thrift.MetastoreLocator;
@@ -1068,7 +1069,7 @@ public abstract class AbstractTestHive
             Table.Builder newTable = Table.builder(oldTable)
                     .setDataColumns(dataColumns);
 
-            transaction.getMetastore().replaceTable(new HiveIdentity(session), schemaName, tableName, newTable.build(), principalPrivileges);
+            transaction.getMetastore().replaceTable(new HiveIdentity(session), schemaName, tableName, new TableWithPrivileges(newTable.build(), principalPrivileges));
 
             transaction.commit();
         }
@@ -4453,7 +4454,7 @@ public abstract class AbstractTestHive
             Table.Builder tableBuilder = Table.builder(table.get());
             tableBuilder.getStorageBuilder().setBucketProperty(bucketProperty);
             PrincipalPrivileges principalPrivileges = testingPrincipalPrivilege(tableOwner, session.getUser());
-            transaction.getMetastore().replaceTable(new HiveIdentity(session), schemaName, tableName, tableBuilder.build(), principalPrivileges);
+            transaction.getMetastore().replaceTable(new HiveIdentity(session), schemaName, tableName, new TableWithPrivileges(tableBuilder.build(), principalPrivileges));
 
             transaction.commit();
         }

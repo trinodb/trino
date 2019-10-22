@@ -56,7 +56,7 @@ public interface HiveMetastore
 
     void renameDatabase(HiveIdentity identity, String databaseName, String newDatabaseName);
 
-    void createTable(HiveIdentity identity, Table table, PrincipalPrivileges principalPrivileges);
+    void createTable(HiveIdentity identity, TableWithPrivileges tableWithPrivileges);
 
     void dropTable(HiveIdentity identity, String databaseName, String tableName, boolean deleteData);
 
@@ -65,7 +65,7 @@ public interface HiveMetastore
      * alter one field of a table object previously acquired from getTable is
      * probably not what you want.
      */
-    void replaceTable(HiveIdentity identity, String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges);
+    void replaceTable(HiveIdentity identity, String databaseName, String tableName, TableWithPrivileges newTableWithPrivileges);
 
     void renameTable(HiveIdentity identity, String databaseName, String tableName, String newDatabaseName, String newTableName);
 

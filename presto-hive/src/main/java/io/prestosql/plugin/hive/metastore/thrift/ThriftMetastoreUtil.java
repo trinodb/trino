@@ -35,6 +35,7 @@ import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.prestosql.plugin.hive.metastore.Storage;
 import io.prestosql.plugin.hive.metastore.StorageFormat;
 import io.prestosql.plugin.hive.metastore.Table;
+import io.prestosql.plugin.hive.metastore.TableWithPrivileges;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.security.ConnectorIdentity;
 import io.prestosql.spi.security.PrestoPrincipal;
@@ -165,6 +166,11 @@ public final class ThriftMetastoreUtil
         database.getComment().ifPresent(result::setDescription);
         result.setParameters(database.getParameters());
         return result;
+    }
+
+    public static org.apache.hadoop.hive.metastore.api.Table toMetastoreApiTable(TableWithPrivileges table)
+    {
+        return toMetastoreApiTable(table.getTable(), table.getPrincipalPrivileges());
     }
 
     public static org.apache.hadoop.hive.metastore.api.Table toMetastoreApiTable(Table table, PrincipalPrivileges privileges)

@@ -407,9 +407,9 @@ public class SemiTransactionalHiveMetastore
         }
     }
 
-    public synchronized void replaceTable(HiveIdentity identity, String databaseName, String tableName, Table table, PrincipalPrivileges principalPrivileges)
+    public synchronized void replaceTable(HiveIdentity identity, String databaseName, String tableName, TableWithPrivileges tableWithPrivileges)
     {
-        setExclusive((delegate, hdfsEnvironment) -> delegate.replaceTable(identity, databaseName, tableName, table, principalPrivileges));
+        setExclusive((delegate, hdfsEnvironment) -> delegate.replaceTable(identity, databaseName, tableName, tableWithPrivileges));
     }
 
     public synchronized void renameTable(HiveIdentity identity, String databaseName, String tableName, String newDatabaseName, String newTableName)
@@ -2456,7 +2456,7 @@ public class SemiTransactionalHiveMetastore
         {
             boolean done = false;
             try {
-                metastore.createTable(identity, newTable, privileges);
+                metastore.createTable(identity, new TableWithPrivileges(newTable, privileges));
                 done = true;
             }
             catch (RuntimeException e) {
@@ -2554,7 +2554,7 @@ public class SemiTransactionalHiveMetastore
         public void run(HiveMetastore metastore)
         {
             undo = true;
-            metastore.replaceTable(identity, newTable.getDatabaseName(), newTable.getTableName(), newTable, principalPrivileges);
+            metastore.replaceTable(identity, newTable.getDatabaseName(), newTable.getTableName(), new TableWithPrivileges(newTable, principalPrivileges));
         }
 
         public void undo(HiveMetastore metastore)
@@ -2563,7 +2563,7 @@ public class SemiTransactionalHiveMetastore
                 return;
             }
 
-            metastore.replaceTable(identity, oldTable.getDatabaseName(), oldTable.getTableName(), oldTable, principalPrivileges);
+            metastore.replaceTable(identity, oldTable.getDatabaseName(), oldTable.getTableName(), new TableWithPrivileges(oldTable, principalPrivileges));
         }
     }
 

@@ -23,6 +23,7 @@ import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.PrincipalPrivileges;
 import io.prestosql.plugin.hive.metastore.StorageFormat;
 import io.prestosql.plugin.hive.metastore.Table;
+import io.prestosql.plugin.hive.metastore.TableWithPrivileges;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.TableNotFoundException;
@@ -222,10 +223,10 @@ public class HiveTableOperations
         ConnectorIdentity identity = new ConnectorIdentity(table.getOwner(), Optional.empty(), Optional.empty());
         HiveIdentity context = new HiveIdentity(identity);
         if (base == null) {
-            metastore.createTable(context, table, privileges);
+            metastore.createTable(context, new TableWithPrivileges(table, privileges));
         }
         else {
-            metastore.replaceTable(context, database, tableName, table, privileges);
+            metastore.replaceTable(context, database, tableName, new TableWithPrivileges(table, privileges));
         }
 
         shouldRefresh = true;

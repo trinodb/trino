@@ -293,10 +293,10 @@ public class RecordingHiveMetastore
     }
 
     @Override
-    public void createTable(HiveIdentity identity, Table table, PrincipalPrivileges principalPrivileges)
+    public void createTable(HiveIdentity identity, TableWithPrivileges tableWithPrivileges)
     {
         verifyRecordingMode();
-        delegate.createTable(identity, table, principalPrivileges);
+        delegate.createTable(identity, tableWithPrivileges);
     }
 
     @Override
@@ -307,10 +307,10 @@ public class RecordingHiveMetastore
     }
 
     @Override
-    public void replaceTable(HiveIdentity identity, String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges)
+    public void replaceTable(HiveIdentity identity, String databaseName, String tableName, TableWithPrivileges newTableWithPrivileges)
     {
         verifyRecordingMode();
-        delegate.replaceTable(identity, databaseName, tableName, newTable, principalPrivileges);
+        delegate.replaceTable(identity, databaseName, tableName, newTableWithPrivileges);
     }
 
     @Override

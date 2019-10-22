@@ -77,8 +77,8 @@ import io.prestosql.plugin.hive.metastore.HivePrincipal;
 import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo;
 import io.prestosql.plugin.hive.metastore.Partition;
 import io.prestosql.plugin.hive.metastore.PartitionWithStatistics;
-import io.prestosql.plugin.hive.metastore.PrincipalPrivileges;
 import io.prestosql.plugin.hive.metastore.Table;
+import io.prestosql.plugin.hive.metastore.TableWithPrivileges;
 import io.prestosql.plugin.hive.metastore.glue.converter.GlueInputConverter;
 import io.prestosql.plugin.hive.metastore.glue.converter.GlueToPrestoConverter;
 import io.prestosql.plugin.hive.util.HiveUtil;
@@ -477,8 +477,9 @@ public class GlueHiveMetastore
     }
 
     @Override
-    public void createTable(HiveIdentity identity, Table table, PrincipalPrivileges principalPrivileges)
+    public void createTable(HiveIdentity identity, TableWithPrivileges tableWithPrivileges)
     {
+        Table table = tableWithPrivileges.getTable();
         try {
             TableInput input = GlueInputConverter.convertTable(table);
             glueClient.createTable(new CreateTableRequest()
@@ -535,7 +536,12 @@ public class GlueHiveMetastore
     }
 
     @Override
-    public void replaceTable(HiveIdentity identity, String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges)
+    public void replaceTable(HiveIdentity identity, String databaseName, String tableName, TableWithPrivileges newTableWithPrivileges)
+    {
+        replaceTable(databaseName, tableName, newTableWithPrivileges.getTable());
+    }
+
+    private void replaceTable(String databaseName, String tableName, Table newTable)
     {
         try {
             TableInput newTableInput = GlueInputConverter.convertTable(newTable);
@@ -571,7 +577,7 @@ public class GlueHiveMetastore
         Table newTable = Table.builder(oldTable)
                 .addDataColumn(new Column(columnName, columnType, Optional.ofNullable(columnComment)))
                 .build();
-        replaceTable(identity, databaseName, tableName, newTable, null);
+        replaceTable(databaseName, tableName, newTable);
     }
 
     @Override
@@ -595,7 +601,7 @@ public class GlueHiveMetastore
         Table newTable = Table.builder(oldTable)
                 .setDataColumns(newDataColumns.build())
                 .build();
-        replaceTable(identity, databaseName, tableName, newTable, null);
+        replaceTable(databaseName, tableName, newTable);
     }
 
     @Override
@@ -617,7 +623,7 @@ public class GlueHiveMetastore
         Table newTable = Table.builder(oldTable)
                 .setDataColumns(newDataColumns.build())
                 .build();
-        replaceTable(identity, databaseName, tableName, newTable, null);
+        replaceTable(databaseName, tableName, newTable);
     }
 
     @Override

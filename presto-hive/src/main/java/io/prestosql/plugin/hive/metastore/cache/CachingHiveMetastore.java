@@ -34,8 +34,8 @@ import io.prestosql.plugin.hive.metastore.HiveTableName;
 import io.prestosql.plugin.hive.metastore.Partition;
 import io.prestosql.plugin.hive.metastore.PartitionFilter;
 import io.prestosql.plugin.hive.metastore.PartitionWithStatistics;
-import io.prestosql.plugin.hive.metastore.PrincipalPrivileges;
 import io.prestosql.plugin.hive.metastore.Table;
+import io.prestosql.plugin.hive.metastore.TableWithPrivileges;
 import io.prestosql.plugin.hive.metastore.TablesWithParameterCacheKey;
 import io.prestosql.plugin.hive.metastore.UserTableKey;
 import io.prestosql.spi.PrestoException;
@@ -453,11 +453,12 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void createTable(HiveIdentity identity, Table table, PrincipalPrivileges principalPrivileges)
+    public void createTable(HiveIdentity identity, TableWithPrivileges tableWithPrivileges)
     {
+        Table table = tableWithPrivileges.getTable();
         identity = updateIdentity(identity);
         try {
-            delegate.createTable(identity, table, principalPrivileges);
+            delegate.createTable(identity, tableWithPrivileges);
         }
         finally {
             invalidateTable(table.getDatabaseName(), table.getTableName());
@@ -477,11 +478,12 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void replaceTable(HiveIdentity identity, String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges)
+    public void replaceTable(HiveIdentity identity, String databaseName, String tableName, TableWithPrivileges newTableWithPrivileges)
     {
+        Table newTable = newTableWithPrivileges.getTable();
         identity = updateIdentity(identity);
         try {
-            delegate.replaceTable(identity, databaseName, tableName, newTable, principalPrivileges);
+            delegate.replaceTable(identity, databaseName, tableName, newTableWithPrivileges);
         }
         finally {
             invalidateTable(databaseName, tableName);
