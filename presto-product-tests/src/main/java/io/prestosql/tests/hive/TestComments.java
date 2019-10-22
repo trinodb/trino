@@ -29,6 +29,7 @@ public class TestComments
         extends ProductTest
 {
     private static final String COMMENT_TABLE_NAME = "comment_test";
+    private static final String COMMENT_COLUMN_NAME = "comment_column_test";
 
     @BeforeTestWithContext
     @AfterTestWithContext
@@ -36,6 +37,7 @@ public class TestComments
     {
         try {
             query("DROP TABLE IF EXISTS " + COMMENT_TABLE_NAME);
+            query("DROP TABLE IF EXISTS " + COMMENT_COLUMN_NAME);
         }
         catch (Exception e) {
             Logger.get(getClass()).warn(e, "failed to drop table");
@@ -99,5 +101,24 @@ public class TestComments
         query(format("COMMENT ON TABLE %s IS NULL", COMMENT_TABLE_NAME));
         actualResult = query("SHOW CREATE TABLE " + COMMENT_TABLE_NAME);
         assertEquals(actualResult.row(0).get(0), commentedCreateTableSql);
+    }
+
+    @Test(groups = COMMENT)
+    public void testCommentColumn()
+    {
+        String createTableSql = format("" +
+                        "CREATE TABLE hive.default.%s (\n" +
+                        "   c1 bigint COMMENT 'test comment',\n" +
+                        "   c2 bigint COMMENT '',\n" +
+                        "   c3 bigint\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   format = 'RCBINARY'\n" +
+                        ")",
+                COMMENT_COLUMN_NAME);
+
+        query(createTableSql);
+        QueryResult actualResult = query("SHOW CREATE TABLE " + COMMENT_COLUMN_NAME);
+        assertEquals(actualResult.row(0).get(0), createTableSql);
     }
 }

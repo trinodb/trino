@@ -2182,7 +2182,7 @@ public class TestHiveIntegrationSmokeTest
                         "   \"c 2\" varchar,\n" +
                         "   \"c'3\" array(bigint),\n" +
                         "   c4 map(bigint, varchar) COMMENT 'comment test4',\n" +
-                        "   c5 double COMMENT 'comment test5'\n)\n" +
+                        "   c5 double COMMENT ''\n)\n" +
                         "COMMENT 'test'\n" +
                         "WITH (\n" +
                         "   bucket_count = 5,\n" +
