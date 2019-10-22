@@ -38,6 +38,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.TimeZone;
 
+import static io.prestosql.orc.metadata.PostScript.MAGIC;
 import static java.lang.Math.toIntExact;
 import static java.util.stream.Collectors.toList;
 
@@ -76,6 +77,7 @@ public class OrcMetadataWriter
                 .setCompression(toCompression(compression))
                 .setCompressionBlockSize(compressionBlockSize)
                 .setWriterVersion(useLegacyVersion ? HIVE_LEGACY_WRITER_VERSION : PRESTO_WRITER_VERSION)
+                .setMagic(MAGIC.toStringUtf8())
                 .build();
 
         return writeProtobufObject(output, postScriptProtobuf);

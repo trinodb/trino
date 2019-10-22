@@ -39,6 +39,7 @@ import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.STORAGE_FORMATS;
 import static io.prestosql.tests.utils.JdbcDriverUtils.setSessionProperty;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
+import static io.prestosql.tests.utils.QueryExecutors.onPresto;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -198,6 +199,20 @@ public class TestHiveStorageFormats
         assertSelect("select sum(tax), sum(discount), sum(length(returnflag)) from %s", tableName);
 
         query(format("DROP TABLE %s", tableName));
+    }
+
+    @Test(groups = STORAGE_FORMATS)
+    public void testOrcTableCreatedInPresto()
+    {
+        onPresto().executeQuery("CREATE TABLE orc_table_created_in_presto WITH (format='ORC') AS SELECT 42 a");
+        assertThat(onHive().executeQuery("SELECT * FROM orc_table_created_in_presto"))
+                .containsOnly(row(42));
+        // Hive 3.1 validates (`org.apache.orc.impl.ReaderImpl#ensureOrcFooter`) ORC footer only when loading it from the cache, so when querying *second* time.
+        assertThat(onHive().executeQuery("SELECT * FROM orc_table_created_in_presto"))
+                .containsOnly(row(42));
+        assertThat(onHive().executeQuery("SELECT * FROM orc_table_created_in_presto WHERE a < 43"))
+                .containsOnly(row(42));
+        onPresto().executeQuery("DROP TABLE orc_table_created_in_presto");
     }
 
     @Test(groups = STORAGE_FORMATS)
