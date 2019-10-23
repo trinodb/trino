@@ -138,7 +138,6 @@ public final class ParquetCompressionUtils
     {
         byte[] byteArray = (byte[]) input.getBase();
         int byteArrayOffset = inputOffset + (int) (input.getAddress() - ARRAY_BYTE_BASE_OFFSET);
-        int size = decompressor.decompress(byteArray, byteArrayOffset, inputLength, output, outputOffset, output.length - outputOffset);
-        return size;
+        return decompressor.decompress(byteArray, byteArrayOffset, inputLength, output, outputOffset, output.length - outputOffset);
     }
 }

@@ -34,6 +34,7 @@ public class RichColumnDescriptor
         this.required = primitiveType.getRepetition() != OPTIONAL;
     }
 
+    @Override
     public PrimitiveType getPrimitiveType()
     {
         return primitiveType;

@@ -238,7 +238,7 @@ public final class ParquetTypeUtils
         }
 
         for (int i = 0; i < bytes.length; i++) {
-            value |= ((long) bytes[bytes.length - i - 1] & 0xFFL) << (8 * i);
+            value |= (bytes[bytes.length - i - 1] & 0xFFL) << (8 * i);
         }
 
         return value;
