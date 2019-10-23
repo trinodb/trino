@@ -1028,6 +1028,11 @@ public abstract class AbstractTestQueries
 
         //qualified wildcard from inline view
         assertQuery("SELECT T.* FROM (SELECT orderkey + custkey FROM orders) T");
+
+        // wildcard from table with order by
+        assertQuery("SELECT name FROM (SELECT * FROM region ORDER BY name DESC LIMIT 2)", "VALUES 'MIDDLE EAST', 'EUROPE'");
+        assertQuery("SELECT y FROM (SELECT r.* AS (x, y, z) FROM region r ORDER BY name DESC LIMIT 2)", "VALUES 'MIDDLE EAST', 'EUROPE'");
+        assertQuery("SELECT y FROM (SELECT r.* AS (x, y, z) FROM region r ORDER BY y DESC LIMIT 2)", "VALUES 'MIDDLE EAST', 'EUROPE'");
     }
 
     @Test
@@ -1039,6 +1044,34 @@ public abstract class AbstractTestQueries
         // wildcard from subquery
         assertQuery("SELECT (SELECT (name, regionkey) FROM nation WHERE name='ALGERIA').*", "SELECT 'ALGERIA', 0");
         assertQuery("SELECT (SELECT (count(*), true) FROM nation WHERE regionkey = 0).*", "SELECT 5, true");
+
+        // wildcard from row with order by
+        assertQueryOrdered(
+                "SELECT * FROM (SELECT (ROW(name, regionkey)).* FROM region) ORDER BY 1 DESC",
+                "VALUES " +
+                        "('MIDDLE EAST',    4), " +
+                        "('EUROPE',         3), " +
+                        "('ASIA',           2), " +
+                        "('AMERICA',        1), " +
+                        "('AFRICA',         0) ");
+
+        assertQueryOrdered(
+                "SELECT (ROW(name, regionkey)).* FROM region ORDER BY 1 DESC",
+                "VALUES " +
+                        "('MIDDLE EAST',    4), " +
+                        "('EUROPE',         3), " +
+                        "('ASIA',           2), " +
+                        "('AMERICA',        1), " +
+                        "('AFRICA',         0) ");
+
+        assertQueryOrdered(
+                "SELECT (ROW(name, regionkey)).* AS (x, y) FROM region ORDER BY y DESC",
+                "VALUES " +
+                        "('MIDDLE EAST',    4), " +
+                        "('EUROPE',         3), " +
+                        "('ASIA',           2), " +
+                        "('AMERICA',        1), " +
+                        "('AFRICA',         0) ");
     }
 
     @Test
