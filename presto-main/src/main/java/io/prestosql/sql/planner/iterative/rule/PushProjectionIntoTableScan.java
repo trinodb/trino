@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.matching.Capture.newCapture;
@@ -102,6 +103,12 @@ public class PushProjectionIntoTableScan
             return Result.empty();
         }
 
+        List<ConnectorExpression> newConnectorProjections = result.get().getProjections();
+        checkState(newConnectorProjections.size() == projections.size(),
+                "Mismatch between input and output projections from the connector: expected %s but got %s",
+                projections.size(),
+                newConnectorProjections.size());
+
         List<Symbol> newScanOutputs = new ArrayList<>();
         Map<Symbol, ColumnHandle> newScanAssignments = new HashMap<>();
         Map<String, Symbol> variableMappings = new HashMap<>();
@@ -113,9 +120,7 @@ public class PushProjectionIntoTableScan
             variableMappings.put(assignment.getVariable(), symbol);
         }
 
-        // TODO: ensure newProjections.size == original projections.size
-
-        List<Expression> newProjections = result.get().getProjections().stream()
+        List<Expression> newProjections = newConnectorProjections.stream()
                 .map(expression -> ConnectorExpressionTranslator.translate(expression, variableMappings, new LiteralEncoder(metadata)))
                 .collect(toImmutableList());
 
