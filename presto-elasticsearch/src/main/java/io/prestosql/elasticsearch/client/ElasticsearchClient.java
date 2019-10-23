@@ -32,7 +32,11 @@ import io.prestosql.elasticsearch.ElasticsearchConfig;
 import io.prestosql.spi.PrestoException;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.CredentialsProvider;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
+import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.util.EntityUtils;
 import org.elasticsearch.ElasticsearchStatusException;
 import org.elasticsearch.action.search.ClearScrollRequest;
@@ -86,6 +90,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.prestosql.elasticsearch.ElasticsearchConfig.Security.X_PACK;
 import static io.prestosql.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_CONNECTION_ERROR;
 import static io.prestosql.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_INVALID_RESPONSE;
 import static io.prestosql.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_QUERY_FAILURE;
@@ -184,6 +189,15 @@ public class ElasticsearchClient
                 .setMaxRetryTimeoutMillis((int) config.getMaxRetryTime().toMillis());
 
         builder.setHttpClientConfigCallback(clientBuilder -> {
+            if (config.getSecurity().isPresent()) {
+                if (config.getSecurity().get().equals(X_PACK)) {
+                    CredentialsProvider xPackCredentialsProvider = getXPackCredentialsProvider(config);
+                    if (xPackCredentialsProvider != null) {
+                        clientBuilder.setDefaultCredentialsProvider(xPackCredentialsProvider);
+                    }
+                }
+            }
+
             if (config.isTlsEnabled()) {
                 buildSslContext(config.getKeystorePath(), config.getKeystorePassword(), config.getTrustStorePath(), config.getTruststorePassword())
                         .ifPresent(clientBuilder::setSSLContext);
@@ -201,6 +215,17 @@ public class ElasticsearchClient
         });
 
         return new RestHighLevelClient(builder);
+    }
+
+    private static CredentialsProvider getXPackCredentialsProvider(ElasticsearchConfig config)
+    {
+        if (config.getUsername() != null && config.getPassword() != null) {
+            final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+            credentialsProvider.setCredentials(AuthScope.ANY,
+                    new UsernamePasswordCredentials(config.getUsername(), config.getPassword()));
+            return credentialsProvider;
+        }
+        return null;
     }
 
     private static AWSCredentialsProvider getAwsCredentialsProvider(AwsSecurityConfig config)

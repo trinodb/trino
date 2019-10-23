@@ -48,11 +48,14 @@ public class ElasticsearchConfig
 {
     public enum Security
     {
-        AWS
+        AWS,
+        X_PACK
     }
 
     private String host;
     private int port = 9200;
+    private String username;
+    private String password;
     private String defaultSchema = "default";
     private int scrollSize = 1_000;
     private Duration scrollTimeout = new Duration(1, MINUTES);
@@ -92,6 +95,33 @@ public class ElasticsearchConfig
     public ElasticsearchConfig setPort(int port)
     {
         this.port = port;
+        return this;
+    }
+
+    public String getUsername()
+    {
+        return username;
+    }
+
+    @Config("elasticsearch.username")
+    @ConfigDescription("Username for connecting to X-Pack secured Elasticsearch")
+    public ElasticsearchConfig setUsername(String username)
+    {
+        this.username = username;
+        return this;
+    }
+
+    public String getPassword()
+    {
+        return password;
+    }
+
+    @Config("elasticsearch.password")
+    @ConfigSecuritySensitive
+    @ConfigDescription("Password for connecting to X-Pack secured Elasticsearch")
+    public ElasticsearchConfig setPassword(String password)
+    {
+        this.password = password;
         return this;
     }
 

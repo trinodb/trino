@@ -213,6 +213,19 @@ as part of the table name, separated by a colon. For example:
 .. _full text query: https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html#query-string-syntax
 
 
+X-Pack Authentication
+---------------------
+
+To enable X-Pack authentication, the ``elasticsearch.security`` option needs to be set to ``X_PACK``.
+Additionally, the following options need to be configured appropriately:
+
+================================================ ==================================================================
+Property Name                                    Description
+================================================ ==================================================================
+``elasticsearch.username``                       X-Pack username for connecting to the Elasticsearch. This option is required.
+``elasticsearch.password``                       X-Pack password for connecting to the Elasticsearch. This option is required
+================================================ ==================================================================
+
 AWS Authorization
 -----------------
 
@@ -227,4 +240,3 @@ Property Name                                    Description
 ``elasticsearch.aws.secret-key``                 AWS secret key to use to connect to the Elasticsearch domain.
 ``elasticsearch.aws.use-instance-credentials``   Use the EC2 metadata service to retrieve API credentials.
 ================================================ ==================================================================
-

@@ -35,6 +35,8 @@ public class TestElasticsearchConfig
         assertRecordedDefaults(recordDefaults(ElasticsearchConfig.class)
                 .setHost(null)
                 .setPort(9200)
+                .setUsername(null)
+                .setPassword(null)
                 .setDefaultSchema("default")
                 .setScrollSize(1000)
                 .setScrollTimeout(new Duration(1, MINUTES))
@@ -71,6 +73,8 @@ public class TestElasticsearchConfig
                 .put("elasticsearch.tls.truststore-password", "truststore-password")
                 .put("elasticsearch.tls.verify-hostnames", "false")
                 .put("elasticsearch.security", "AWS")
+                .put("elasticsearch.username", "username")
+                .put("elasticsearch.password", "password")
                 .build();
 
         ElasticsearchConfig expected = new ElasticsearchConfig()
@@ -89,7 +93,9 @@ public class TestElasticsearchConfig
                 .setTrustStorePath(new File("/tmp/truststore"))
                 .setTruststorePassword("truststore-password")
                 .setVerifyHostnames(false)
-                .setSecurity(AWS);
+                .setSecurity(AWS)
+                .setUsername("username")
+                .setPassword("password");
 
         assertFullMapping(properties, expected);
     }
