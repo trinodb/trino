@@ -16,6 +16,7 @@ package io.prestosql.sql.analyzer;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.spi.type.Type;
+import io.prestosql.sql.tree.ArrayConstructor;
 import io.prestosql.sql.tree.ExistsPredicate;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FunctionCall;
@@ -40,6 +41,7 @@ public class ExpressionAnalysis
     private final Set<NodeRef<InPredicate>> subqueryInPredicates;
     private final Set<NodeRef<SubqueryExpression>> scalarSubqueries;
     private final Set<NodeRef<ExistsPredicate>> existsSubqueries;
+    private final Set<NodeRef<ArrayConstructor>> arraySubqueries;
     private final Set<NodeRef<QuantifiedComparisonExpression>> quantifiedComparisons;
     // For lambda argument references, maps each QualifiedNameReference to the referenced LambdaArgumentDeclaration
     private final Map<NodeRef<Identifier>, LambdaArgumentDeclaration> lambdaArgumentReferences;
@@ -51,6 +53,7 @@ public class ExpressionAnalysis
             Set<NodeRef<InPredicate>> subqueryInPredicates,
             Set<NodeRef<SubqueryExpression>> scalarSubqueries,
             Set<NodeRef<ExistsPredicate>> existsSubqueries,
+            Set<NodeRef<ArrayConstructor>> arraySubqueries,
             Map<NodeRef<Expression>, FieldId> columnReferences,
             Set<NodeRef<Expression>> typeOnlyCoercions,
             Set<NodeRef<QuantifiedComparisonExpression>> quantifiedComparisons,
@@ -64,6 +67,7 @@ public class ExpressionAnalysis
         this.subqueryInPredicates = ImmutableSet.copyOf(requireNonNull(subqueryInPredicates, "subqueryInPredicates is null"));
         this.scalarSubqueries = ImmutableSet.copyOf(requireNonNull(scalarSubqueries, "subqueryInPredicates is null"));
         this.existsSubqueries = ImmutableSet.copyOf(requireNonNull(existsSubqueries, "existsSubqueries is null"));
+        this.arraySubqueries = ImmutableSet.copyOf(requireNonNull(arraySubqueries, "arraySubqueries is null"));
         this.quantifiedComparisons = ImmutableSet.copyOf(requireNonNull(quantifiedComparisons, "quantifiedComparisons is null"));
         this.lambdaArgumentReferences = ImmutableMap.copyOf(requireNonNull(lambdaArgumentReferences, "lambdaArgumentReferences is null"));
         this.windowFunctions = ImmutableSet.copyOf(requireNonNull(windowFunctions, "windowFunctions is null"));
@@ -117,5 +121,10 @@ public class ExpressionAnalysis
     public Set<NodeRef<FunctionCall>> getWindowFunctions()
     {
         return windowFunctions;
+    }
+
+    public Set<NodeRef<ArrayConstructor>> getArraySubqueries()
+    {
+        return arraySubqueries;
     }
 }

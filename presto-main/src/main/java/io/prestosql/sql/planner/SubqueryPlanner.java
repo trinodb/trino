@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignatureParameter;
 import io.prestosql.sql.analyzer.Analysis;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.ApplyNode;
@@ -30,6 +32,7 @@ import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.planner.plan.SimplePlanRewriter;
 import io.prestosql.sql.planner.plan.UnnestNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
+import io.prestosql.sql.tree.ArrayConstructor;
 import io.prestosql.sql.tree.DefaultExpressionTraversalVisitor;
 import io.prestosql.sql.tree.DereferenceExpression;
 import io.prestosql.sql.tree.ExistsPredicate;
@@ -64,6 +67,7 @@ import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.prestosql.sql.util.AstUtils.nodeContains;
+import static io.prestosql.type.ArrayParametricType.ARRAY;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -124,6 +128,7 @@ class SubqueryPlanner
     {
         builder = appendInPredicateApplyNodes(builder, collectInPredicateSubqueries(expression, node), correlationAllowed, node);
         builder = appendScalarSubqueryCorrelatedJoins(builder, collectScalarSubqueries(expression, node), correlationAllowed);
+        builder = appendArraySubqueryCorrelatedJoins(builder, collectArraySubqueries(expression, node), correlationAllowed);
         builder = appendExistsSubqueryApplyNodes(builder, collectExistsSubqueries(expression, node), correlationAllowed);
         builder = appendQuantifiedComparisonApplyNodes(builder, collectQuantifiedComparisonSubqueries(expression, node), correlationAllowed, node);
         return builder;
@@ -140,6 +145,14 @@ class SubqueryPlanner
     public Set<SubqueryExpression> collectScalarSubqueries(Expression expression, Node node)
     {
         return analysis.getScalarSubqueries(node)
+                .stream()
+                .filter(subquery -> nodeContains(expression, subquery))
+                .collect(toImmutableSet());
+    }
+
+    public Set<ArrayConstructor> collectArraySubqueries(Expression expression, Node node)
+    {
+        return analysis.getArraySubqueries(node)
                 .stream()
                 .filter(subquery -> nodeContains(expression, subquery))
                 .collect(toImmutableSet());
@@ -201,6 +214,14 @@ class SubqueryPlanner
     {
         for (SubqueryExpression scalarSubquery : scalarSubqueries) {
             builder = appendScalarSubqueryApplyNode(builder, scalarSubquery, correlationAllowed);
+        }
+        return builder;
+    }
+
+    private PlanBuilder appendArraySubqueryCorrelatedJoins(PlanBuilder builder, Set<ArrayConstructor> arraySubqueries, boolean correlationAllowed)
+    {
+        for (ArrayConstructor arraySubquery : arraySubqueries) {
+            builder = appendArraySubqueryApplyNode(builder, arraySubquery, correlationAllowed);
         }
         return builder;
     }
@@ -295,6 +316,30 @@ class SubqueryPlanner
                 existsPredicate.getSubquery(),
                 subqueryNode,
                 Assignments.of(exists, rewrittenExistsPredicate),
+                correlationAllowed);
+    }
+
+    private PlanBuilder appendArraySubqueryApplyNode(PlanBuilder subPlan, ArrayConstructor arraySubquery, boolean correlationAllowed)
+    {
+        if (subPlan.canTranslate(arraySubquery)) {
+            // given subquery is already appended
+            return subPlan;
+        }
+
+        PlanBuilder subqueryPlan = createPlanBuilder(arraySubquery.getSubquery());
+
+        Type type = analysis.getTypes().get(NodeRef.of(arraySubquery));
+        Type arrayType = metadata.getParameterizedType(ARRAY.getName(), ImmutableList.of(TypeSignatureParameter.of(type.getTypeSignature())));
+        Symbol rewrittenValue = subPlan.translate(arraySubquery);
+        ArrayConstructor arraySubqueryExpression = new ArrayConstructor(ImmutableList.of(rewrittenValue.toSymbolReference()));
+        Symbol array = symbolAllocator.newSymbol(arraySubqueryExpression, arrayType);
+
+        subPlan.getTranslations().put(arraySubquery, array);
+        return appendApplyNode(
+                subPlan,
+                arraySubquery,
+                subqueryPlan.getRoot(),
+                Assignments.of(array, arraySubqueryExpression),
                 correlationAllowed);
     }
 

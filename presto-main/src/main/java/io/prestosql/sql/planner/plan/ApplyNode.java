@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.tree.ArrayConstructor;
 import io.prestosql.sql.tree.ExistsPredicate;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.InPredicate;
@@ -101,7 +102,8 @@ public class ApplyNode
     {
         return expression instanceof InPredicate ||
                 expression instanceof ExistsPredicate ||
-                expression instanceof QuantifiedComparisonExpression;
+                expression instanceof QuantifiedComparisonExpression ||
+                expression instanceof ArrayConstructor;
     }
 
     @JsonProperty("input")

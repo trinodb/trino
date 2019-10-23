@@ -88,6 +88,20 @@ public class TestSubqueries
     }
 
     @Test
+    public void testSimpleArraySubqueries()
+    {
+        assertions.assertQuery(
+                "SELECT a,\n"
+                    + "   ARRAY(SELECT cast(row(d.x, d.y) as row(e VARCHAR, f VARCHAR))\n"
+                    + "          FROM UNNEST(c) as d)\n"
+                    + "FROM (VALUES(1,0,\n"
+                    + "         ARRAY[cast(row('a','1') as row(x varchar, y varchar)),\n"
+                    + "               cast(row('b','2') as row(x varchar, y varchar)),\n"
+                    + "               cast(row('c','3') as row(x varchar, y varchar))])) t(a,b,c)",
+                "VALUES " + "(1, (('a','1'),('b','2'),('c','3')))");
+    }
+
+    @Test
     public void testCorrelatedSubqueriesWithLimit()
     {
         assertions.assertQuery(

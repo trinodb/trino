@@ -26,22 +26,51 @@ public class ArrayConstructor
 {
     public static final String ARRAY_CONSTRUCTOR = "ARRAY_CONSTRUCTOR";
     private final List<Expression> values;
+    private final SubqueryExpression subquery;
 
     public ArrayConstructor(List<Expression> values)
     {
-        this(Optional.empty(), values);
+        this(Optional.empty(), values, null);
+    }
+
+    public ArrayConstructor(SubqueryExpression subquery)
+    {
+        this(Optional.empty(), null, subquery);
     }
 
     public ArrayConstructor(NodeLocation location, List<Expression> values)
     {
-        this(Optional.of(location), values);
+        this(Optional.of(location), values, null);
     }
 
-    private ArrayConstructor(Optional<NodeLocation> location, List<Expression> values)
+    public ArrayConstructor(NodeLocation location, SubqueryExpression subquery)
+    {
+        this(Optional.of(location), null, subquery);
+    }
+
+    private ArrayConstructor(Optional<NodeLocation> location, List<Expression> values, SubqueryExpression subquery)
     {
         super(location);
-        requireNonNull(values, "values is null");
-        this.values = ImmutableList.copyOf(values);
+        this.subquery = subquery;
+        if (subquery == null) {
+            this.values = ImmutableList.copyOf(requireNonNull(values, "values is null"));
+        }
+        else if (values == null) {
+            this.values = ImmutableList.of(requireNonNull(subquery, "subquery is null"));
+        }
+        else {
+            throw new IllegalArgumentException("both values and subquery may not have values");
+        }
+    }
+
+    public boolean isSubquery()
+    {
+        return subquery != null;
+    }
+
+    public SubqueryExpression getSubquery()
+    {
+        return subquery;
     }
 
     public List<Expression> getValues()
