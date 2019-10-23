@@ -49,11 +49,6 @@ public class ParquetColumnChunk
         this.pos = offset;
     }
 
-    public ColumnChunkDescriptor getDescriptor()
-    {
-        return descriptor;
-    }
-
     protected PageHeader readPageHeader()
             throws IOException
     {
@@ -89,11 +84,6 @@ public class ParquetColumnChunk
             }
         }
         return new PageReader(descriptor.getColumnChunkMetaData().getCodec(), pages, dictionaryPage);
-    }
-
-    public int getPosition()
-    {
-        return pos;
     }
 
     private Slice getSlice(int size)
