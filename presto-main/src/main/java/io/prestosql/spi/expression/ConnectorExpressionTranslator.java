@@ -82,7 +82,7 @@ public final class ConnectorExpressionTranslator
             if (expression instanceof FieldDereference) {
                 FieldDereference dereference = (FieldDereference) expression;
 
-                RowType type = (RowType) expression.getType();
+                RowType type = (RowType) dereference.getTarget().getType();
                 String name = type.getFields().get(dereference.getField()).getName().get();
                 return new DereferenceExpression(translate(dereference.getTarget()), new Identifier(name));
             }
