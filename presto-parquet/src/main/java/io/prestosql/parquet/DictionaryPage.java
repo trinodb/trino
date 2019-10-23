@@ -15,10 +15,7 @@ package io.prestosql.parquet;
 
 import io.airlift.slice.Slice;
 
-import java.util.Arrays;
-
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.util.Objects.requireNonNull;
 
 public class DictionaryPage
@@ -57,11 +54,6 @@ public class DictionaryPage
     public ParquetEncoding getEncoding()
     {
         return encoding;
-    }
-
-    public DictionaryPage copy()
-    {
-        return new DictionaryPage(wrappedBuffer(Arrays.copyOf(slice.getBytes(), slice.length())), getUncompressedSize(), dictionarySize, encoding);
     }
 
     @Override
