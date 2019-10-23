@@ -290,6 +290,51 @@ public class TestStringFunctions
         testStrPosAndPosition(null, "", null);
         testStrPosAndPosition("", null, null);
         testStrPosAndPosition(null, null, null);
+
+        assertFunction("STRPOS(NULL, '')", BIGINT, null);
+        assertFunction("STRPOS('', NULL)", BIGINT, null);
+        assertFunction("STRPOS(NULL, NULL)", BIGINT, null);
+        assertInvalidFunction("STRPOS('abc/xyz/foo/bar', '/', 0)", "'instance' must be a positive or negative number.");
+        assertInvalidFunction("STRPOS('', '', 0)", "'instance' must be a positive or negative number.");
+
+        assertFunction("STRPOS('abc/xyz/foo/bar', '/')", BIGINT, 4L);
+        assertFunction("STRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u7231')", BIGINT, 4L);
+        assertFunction("STRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u5E0C\u671B')", BIGINT, 6L);
+        assertFunction("STRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', 'nice')", BIGINT, 0L);
+
+        assertFunction("STRPOS('high', 'ig')", BIGINT, 2L);
+        assertFunction("STRPOS('high', 'igx')", BIGINT, 0L);
+        assertFunction("STRPOS('Quadratically', 'a')", BIGINT, 3L);
+        assertFunction("STRPOS('foobar', 'foobar')", BIGINT, 1L);
+        assertFunction("STRPOS('foobar', 'obar')", BIGINT, 3L);
+        assertFunction("STRPOS('zoo!', '!')", BIGINT, 4L);
+        assertFunction("STRPOS('x', '')", BIGINT, 1L);
+        assertFunction("STRPOS('', '')", BIGINT, 1L);
+
+        assertFunction("STRPOS('abc abc abc', 'abc', 1)", BIGINT, 1L);
+        assertFunction("STRPOS('abc/xyz/foo/bar', '/', 1)", BIGINT, 4L);
+        assertFunction("STRPOS('abc/xyz/foo/bar', '/', 2)", BIGINT, 8L);
+        assertFunction("STRPOS('abc/xyz/foo/bar', '/', 3)", BIGINT, 12L);
+        assertFunction("STRPOS('abc/xyz/foo/bar', '/', 4)", BIGINT, 0L);
+        assertFunction("STRPOS('highhigh', 'ig', 1)", BIGINT, 2L);
+        assertFunction("STRPOS('foobarfoo', 'fb', 1)", BIGINT, 0L);
+        assertFunction("STRPOS('foobarfoo', 'oo', 1)", BIGINT, 2L);
+
+        assertFunction("STRPOS('abc abc abc', 'abc', -1)", BIGINT, 9L);
+        assertFunction("STRPOS('abc/xyz/foo/bar', '/', -1)", BIGINT, 12L);
+        assertFunction("STRPOS('abc/xyz/foo/bar', '/', -2)", BIGINT, 8L);
+        assertFunction("STRPOS('abc/xyz/foo/bar', '/', -3)", BIGINT, 4L);
+        assertFunction("STRPOS('abc/xyz/foo/bar', '/', -4)", BIGINT, 0L);
+        assertFunction("STRPOS('highhigh', 'ig', -1)", BIGINT, 6L);
+        assertFunction("STRPOS('highhigh', 'ig', -2)", BIGINT, 2L);
+        assertFunction("STRPOS('foobarfoo', 'fb', -1)", BIGINT, 0L);
+        assertFunction("STRPOS('foobarfoo', 'oo', -1)", BIGINT, 8L);
+
+        assertFunction("STRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u7231', -1)", BIGINT, 4L);
+        assertFunction("STRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u7231\u671B', '\u7231', -1)", BIGINT, 7L);
+        assertFunction("STRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u7231\u671B', '\u7231', -2)", BIGINT, 4L);
+        assertFunction("STRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u5E0C\u671B', -1)", BIGINT, 6L);
+        assertFunction("STRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', 'nice', -1)", BIGINT, 0L);
     }
 
     private void testStrPosAndPosition(String string, String substring, Long expected)
