@@ -35,8 +35,8 @@ public class DictionaryPage
 
     public DictionaryPage(Slice slice, int uncompressedSize, int dictionarySize, ParquetEncoding encoding)
     {
-        super(requireNonNull(slice, "slice is null").length(), uncompressedSize);
-        this.slice = slice;
+        super(uncompressedSize);
+        this.slice = requireNonNull(slice, "slice is null");
         this.dictionarySize = dictionarySize;
         this.encoding = requireNonNull(encoding, "encoding is null");
     }
@@ -63,7 +63,6 @@ public class DictionaryPage
                 .add("slice", slice)
                 .add("dictionarySize", dictionarySize)
                 .add("encoding", encoding)
-                .add("compressedSize", compressedSize)
                 .add("uncompressedSize", uncompressedSize)
                 .toString();
     }
