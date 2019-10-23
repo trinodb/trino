@@ -124,7 +124,7 @@ public class TestMetastoreUtil
     {
         Table table = ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE, TEST_SCHEMA);
         PrincipalPrivileges privileges = new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of());
-        org.apache.hadoop.hive.metastore.api.Table metastoreApiTable = ThriftMetastoreUtil.toMetastoreApiTable(table, privileges);
+        org.apache.hadoop.hive.metastore.api.Table metastoreApiTable = ThriftMetastoreUtil.toMetastoreApiTable(new TableWithPrivileges(table, privileges));
         assertEquals(metastoreApiTable, TEST_TABLE);
     }
 
@@ -158,7 +158,7 @@ public class TestMetastoreUtil
     public void testTableRoundTripUnsupported()
     {
         Table table = ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE_WITH_UNSUPPORTED_FIELDS, TEST_SCHEMA);
-        ThriftMetastoreUtil.toMetastoreApiTable(table, null);
+        ThriftMetastoreUtil.toMetastoreApiTableWithoutPrivileges(table);
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Writing to skewed table/partition is not supported")
