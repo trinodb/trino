@@ -22,21 +22,6 @@ import java.util.Map;
 
 public interface Predicate
 {
-    Predicate TRUE = new Predicate()
-    {
-        @Override
-        public boolean matches(long numberOfRows, Map<ColumnDescriptor, Statistics<?>> statistics, ParquetDataSourceId id, boolean failOnCorruptedParquetStatistics)
-        {
-            return true;
-        }
-
-        @Override
-        public boolean matches(DictionaryDescriptor dictionary)
-        {
-            return true;
-        }
-    };
-
     /**
      * Should the Parquet Reader process a file section with the specified statistics.
      *
