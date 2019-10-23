@@ -446,12 +446,6 @@ public class CachingHiveMetastore
         }
     }
 
-    protected void invalidateDatabase(String databaseName)
-    {
-        databaseCache.invalidate(databaseName);
-        databaseNamesCache.invalidateAll();
-    }
-
     @Override
     public void createTable(HiveIdentity identity, TableWithPrivileges tableWithPrivileges)
     {
@@ -552,32 +546,6 @@ public class CachingHiveMetastore
         }
     }
 
-    protected void invalidateTable(String databaseName, String tableName)
-    {
-        invalidateTableCache(databaseName, tableName);
-        tableNamesCache.invalidate(databaseName);
-        viewNamesCache.invalidate(databaseName);
-        tablePrivilegesCache.asMap().keySet().stream()
-                .filter(userTableKey -> userTableKey.matches(databaseName, tableName))
-                .forEach(tablePrivilegesCache::invalidate);
-        invalidateTableStatisticsCache(databaseName, tableName);
-        invalidatePartitionCache(databaseName, tableName);
-    }
-
-    private void invalidateTableCache(String databaseName, String tableName)
-    {
-        tableCache.asMap().keySet().stream()
-                .filter(table -> table.getKey().getDatabaseName().equals(databaseName) && table.getKey().getTableName().equals(tableName))
-                .forEach(tableCache::invalidate);
-    }
-
-    private void invalidateTableStatisticsCache(String databaseName, String tableName)
-    {
-        tableStatisticsCache.asMap().keySet().stream()
-                .filter(table -> table.getKey().getDatabaseName().equals(databaseName) && table.getKey().getTableName().equals(tableName))
-                .forEach(tableCache::invalidate);
-    }
-
     @Override
     public Optional<Partition> getPartition(HiveIdentity identity, String databaseName, String tableName, List<String> partitionValues)
     {
@@ -669,7 +637,7 @@ public class CachingHiveMetastore
         }
         finally {
             // todo do we need to invalidate all partitions?
-            invalidatePartitionCache(databaseName, tableName);
+            invalidatePartitions(databaseName, tableName);
         }
     }
 
@@ -681,7 +649,7 @@ public class CachingHiveMetastore
             delegate.dropPartition(identity, databaseName, tableName, parts, deleteData);
         }
         finally {
-            invalidatePartitionCache(databaseName, tableName);
+            invalidatePartitions(databaseName, tableName);
         }
     }
 
@@ -693,7 +661,7 @@ public class CachingHiveMetastore
             delegate.alterPartition(identity, databaseName, tableName, partition);
         }
         finally {
-            invalidatePartitionCache(databaseName, tableName);
+            invalidatePartitions(databaseName, tableName);
         }
     }
 
@@ -764,7 +732,29 @@ public class CachingHiveMetastore
         return delegate.listRoleGrants(principal);
     }
 
-    private void invalidatePartitionCache(String databaseName, String tableName)
+    private void invalidateDatabase(String databaseName)
+    {
+        databaseCache.invalidate(databaseName);
+        databaseNamesCache.invalidateAll();
+    }
+
+    protected void invalidateTable(String databaseName, String tableName)
+    {
+        tableCache.asMap().keySet().stream()
+                .filter(table -> table.getKey().getDatabaseName().equals(databaseName) && table.getKey().getTableName().equals(tableName))
+                .forEach(tableCache::invalidate);
+        tableNamesCache.invalidate(databaseName);
+        viewNamesCache.invalidate(databaseName);
+        tablePrivilegesCache.asMap().keySet().stream()
+                .filter(userTableKey -> userTableKey.matches(databaseName, tableName))
+                .forEach(tablePrivilegesCache::invalidate);
+        tableStatisticsCache.asMap().keySet().stream()
+                .filter(table -> table.getKey().getDatabaseName().equals(databaseName) && table.getKey().getTableName().equals(tableName))
+                .forEach(tableCache::invalidate);
+        invalidatePartitions(databaseName, tableName);
+    }
+
+    private void invalidatePartitions(String databaseName, String tableName)
     {
         HiveTableName hiveTableName = hiveTableName(databaseName, tableName);
         partitionNamesCache.asMap().keySet().stream()
