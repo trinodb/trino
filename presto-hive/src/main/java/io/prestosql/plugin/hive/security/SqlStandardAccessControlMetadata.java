@@ -15,6 +15,7 @@ package io.prestosql.plugin.hive.security;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.plugin.hive.HiveViewNotSupportedException;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.HivePrincipal;
 import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo;
@@ -154,6 +155,9 @@ public class SqlStandardAccessControlMetadata
             }
             catch (TableNotFoundException e) {
                 // table disappeared during listing operation
+            }
+            catch (HiveViewNotSupportedException e) {
+                // table is an unsupported hive view but shouldn't fail listTablePrivileges.
             }
         }
         return result.build();

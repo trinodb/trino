@@ -20,6 +20,8 @@ import io.prestosql.tempto.AfterTestWithContext;
 import io.prestosql.tempto.BeforeTestWithContext;
 import io.prestosql.tempto.ProductTest;
 import io.prestosql.tempto.query.QueryExecutor;
+import io.prestosql.tempto.query.QueryResult;
+import org.assertj.core.api.Condition;
 import org.testng.annotations.Test;
 
 import java.util.Set;
@@ -36,6 +38,7 @@ import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static io.prestosql.tests.utils.QueryExecutors.onPresto;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toSet;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestGrantRevoke
         extends ProductTest
@@ -229,6 +232,30 @@ public class TestGrantRevoke
                     .project(7, 8)) // Project only two relevant columns of SHOW GRANT: Privilege and Grant Option
                     .containsOnly(ownerGrants());
         });
+    }
+
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    public void testTablePrivilegesWithHiveOnlyViews()
+    {
+        executeWith(createViewAs("hive_only_view", format("SELECT * FROM %s", tableName), onHive()), view -> {
+            assertThatThrownBy(() -> onPresto().executeQuery(format("SELECT * FROM %s", view.getName())))
+                    .hasMessageContaining("Hive views are not supported");
+
+            assertThat(onPresto().executeQuery("SELECT DISTINCT table_name FROM information_schema.table_privileges"))
+                    .contains(row(tableName))
+                    .doesNotHave(expectedRow(row(view.getName())));
+            assertThat(onPresto().executeQuery("SHOW GRANTS").project(7))
+                    .contains(row(tableName))
+                    .doesNotHave(expectedRow(row(view.getName())));
+        });
+    }
+
+    private Condition<? super QueryResult> expectedRow(Row row)
+    {
+        return new Condition<>(
+                (QueryResult qr) -> qr.rows().contains(row.getValues()),
+                "expected row %s",
+                row);
     }
 
     private ImmutableList<Row> ownerGrants()
