@@ -31,7 +31,6 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import org.apache.parquet.bytes.ByteBufferInputStream;
 import org.apache.parquet.bytes.BytesUtils;
-import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.values.ValuesReader;
 import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridDecoder;
 import org.apache.parquet.io.ParquetDecodingException;
@@ -154,11 +153,6 @@ public abstract class PrimitiveColumnReader
     {
         readOffset = readOffset + nextBatchSize;
         nextBatchSize = batchSize;
-    }
-
-    public ColumnDescriptor getDescriptor()
-    {
-        return columnDescriptor;
     }
 
     public ColumnChunk readPrimitive(Field field)
