@@ -92,12 +92,12 @@ public class TupleDomainParquetPredicate
             Statistics<?> columnStatistics = statistics.get(column);
             if (columnStatistics == null || columnStatistics.isEmpty()) {
                 // no stats for column
+                continue;
             }
-            else {
-                Domain domain = getDomain(effectivePredicateDomain.getType(), numberOfRows, columnStatistics, id, column.toString(), failOnCorruptedParquetStatistics);
-                if (effectivePredicateDomain.intersect(domain).isNone()) {
-                    return false;
-                }
+
+            Domain domain = getDomain(effectivePredicateDomain.getType(), numberOfRows, columnStatistics, id, column.toString(), failOnCorruptedParquetStatistics);
+            if (effectivePredicateDomain.intersect(domain).isNone()) {
+                return false;
             }
         }
         return true;

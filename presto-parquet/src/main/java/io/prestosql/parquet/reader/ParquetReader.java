@@ -77,7 +77,7 @@ public class ParquetReader
     private int batchSize;
     private int nextBatchSize = INITIAL_BATCH_SIZE;
     private final PrimitiveColumnReader[] columnReaders;
-    private long[] maxBytesPerCell;
+    private final long[] maxBytesPerCell;
     private long maxCombinedBytesPerRow;
     private final long maxReadBlockBytes;
     private int maxBatchSize = MAX_VECTOR_LENGTH;
@@ -221,6 +221,7 @@ public class ParquetReader
             byte[] buffer = allocateBlock(totalSize);
             dataSource.readFully(startingPosition, buffer);
             ColumnChunkDescriptor descriptor = new ColumnChunkDescriptor(columnDescriptor, metadata, totalSize);
+            @SuppressWarnings("resource")
             ParquetColumnChunk columnChunk = new ParquetColumnChunk(fileCreatedBy, descriptor, buffer, 0);
             columnReader.setPageReader(columnChunk.readAllPages());
         }
