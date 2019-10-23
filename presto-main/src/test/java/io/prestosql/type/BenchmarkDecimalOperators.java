@@ -63,7 +63,6 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.RowPagesBuilder.rowPagesBuilder;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.scalar.FunctionAssertions.createExpression;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -614,7 +613,6 @@ public class BenchmarkDecimalOperators
 
             return SqlToRowExpressionTranslator.translate(
                     expression,
-                    SCALAR,
                     typeAnalyzer.getTypes(TEST_SESSION, TypeProvider.copyOf(symbolTypes), expression),
                     sourceLayout,
                     metadata,

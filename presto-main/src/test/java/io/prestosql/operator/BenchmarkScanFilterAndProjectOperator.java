@@ -74,7 +74,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
-import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.scalar.FunctionAssertions.createExpression;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -234,7 +233,6 @@ public class BenchmarkScanFilterAndProjectOperator
 
             return SqlToRowExpressionTranslator.translate(
                     expression,
-                    SCALAR,
                     TYPE_ANALYZER.getTypes(TEST_SESSION, TypeProvider.copyOf(symbolTypes), expression),
                     sourceLayout,
                     METADATA,

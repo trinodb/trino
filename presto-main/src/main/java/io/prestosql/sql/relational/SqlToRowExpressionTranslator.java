@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
-import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.spi.type.DecimalParseResult;
@@ -126,7 +125,6 @@ public final class SqlToRowExpressionTranslator
 
     public static RowExpression translate(
             Expression expression,
-            FunctionKind functionKind,
             Map<NodeRef<Expression>, Type> types,
             Map<Symbol, Integer> layout,
             Metadata metadata,
@@ -135,7 +133,6 @@ public final class SqlToRowExpressionTranslator
     {
         Visitor visitor = new Visitor(
                 metadata,
-                functionKind,
                 types,
                 layout,
                 session.getTimeZoneKey(),
@@ -156,7 +153,6 @@ public final class SqlToRowExpressionTranslator
             extends AstVisitor<RowExpression, Void>
     {
         private final Metadata metadata;
-        private final FunctionKind functionKind;
         private final Map<NodeRef<Expression>, Type> types;
         private final Map<Symbol, Integer> layout;
         private final TimeZoneKey timeZoneKey;
@@ -165,14 +161,12 @@ public final class SqlToRowExpressionTranslator
 
         private Visitor(
                 Metadata metadata,
-                FunctionKind functionKind,
                 Map<NodeRef<Expression>, Type> types,
                 Map<Symbol, Integer> layout,
                 TimeZoneKey timeZoneKey,
                 boolean isLegacyTimestamp)
         {
             this.metadata = metadata;
-            this.functionKind = functionKind;
             this.types = ImmutableMap.copyOf(requireNonNull(types, "types is null"));
             this.layout = layout;
             this.timeZoneKey = timeZoneKey;
