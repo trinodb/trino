@@ -37,7 +37,7 @@ public class DataPageV1
             ParquetEncoding definitionLevelEncoding,
             ParquetEncoding valuesEncoding)
     {
-        super(slice.length(), uncompressedSize, valueCount);
+        super(uncompressedSize, valueCount);
         this.slice = requireNonNull(slice, "slice is null");
         this.statistics = statistics;
         this.repetitionLevelEncoding = repetitionLevelEncoding;
@@ -80,7 +80,6 @@ public class DataPageV1
                 .add("definitionLevelEncoding", definitionLevelEncoding)
                 .add("valuesEncoding", valuesEncoding)
                 .add("valueCount", valueCount)
-                .add("compressedSize", compressedSize)
                 .add("uncompressedSize", uncompressedSize)
                 .toString();
     }

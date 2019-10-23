@@ -43,7 +43,7 @@ public class DataPageV2
             Statistics<?> statistics,
             boolean isCompressed)
     {
-        super(repetitionLevels.length() + definitionLevels.length() + slice.length(), uncompressedSize, valueCount);
+        super(uncompressedSize, valueCount);
         this.rowCount = rowCount;
         this.nullCount = nullCount;
         this.repetitionLevels = requireNonNull(repetitionLevels, "repetitionLevels slice is null");
@@ -107,7 +107,6 @@ public class DataPageV2
                 .add("statistics", statistics)
                 .add("isCompressed", isCompressed)
                 .add("valueCount", valueCount)
-                .add("compressedSize", compressedSize)
                 .add("uncompressedSize", uncompressedSize)
                 .toString();
     }
