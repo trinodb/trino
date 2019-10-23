@@ -71,7 +71,6 @@ public class ParquetReader
 
     private int currentBlock;
     private BlockMetaData currentBlockMetadata;
-    private long currentPosition;
     private long currentGroupRowCount;
     private long nextRowInGroup;
     private int batchSize;
@@ -111,11 +110,6 @@ public class ParquetReader
         dataSource.close();
     }
 
-    public long getPosition()
-    {
-        return currentPosition;
-    }
-
     public int nextBatch()
     {
         if (nextRowInGroup >= currentGroupRowCount && !advanceToNextRowGroup()) {
@@ -127,7 +121,6 @@ public class ParquetReader
         batchSize = toIntExact(min(batchSize, currentGroupRowCount - nextRowInGroup));
 
         nextRowInGroup += batchSize;
-        currentPosition += batchSize;
         Arrays.stream(columnReaders)
                 .forEach(reader -> reader.prepareNextRead(batchSize));
         return batchSize;
