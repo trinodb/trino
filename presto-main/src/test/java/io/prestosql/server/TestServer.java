@@ -22,7 +22,6 @@ import io.airlift.http.client.Request;
 import io.airlift.http.client.StatusResponseHandler;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.json.JsonCodec;
-import io.airlift.testing.Closeables;
 import io.prestosql.client.QueryError;
 import io.prestosql.client.QueryResults;
 import io.prestosql.server.testing.TestingPrestoServer;
@@ -42,6 +41,7 @@ import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.airlift.testing.Closeables.closeQuietly;
 import static io.prestosql.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.SystemSessionProperties.QUERY_MAX_MEMORY;
@@ -76,12 +76,10 @@ public class TestServer
         client = new JettyHttpClient();
     }
 
-    @SuppressWarnings("deprecation")
     @AfterClass(alwaysRun = true)
     public void tearDown()
     {
-        Closeables.closeQuietly(server);
-        Closeables.closeQuietly(client);
+        closeQuietly(server, client);
     }
 
     @Test
@@ -187,12 +185,7 @@ public class TestServer
                 .build();
 
         JsonResponse<QueryResults> queryResults = client.execute(request, createFullJsonResponseHandler(QUERY_RESULTS_CODEC));
-        ImmutableList.Builder<List<Object>> data = ImmutableList.builder();
         while (true) {
-            if (queryResults.getValue().getData() != null) {
-                data.addAll(queryResults.getValue().getData());
-            }
-
             if (queryResults.getValue().getNextUri() == null) {
                 break;
             }
