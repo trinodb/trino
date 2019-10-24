@@ -80,7 +80,7 @@ public class DispatchManager
     public DispatchManager(
             QueryIdGenerator queryIdGenerator,
             QueryPreparer queryPreparer,
-            @SuppressWarnings("rawtypes") ResourceGroupManager resourceGroupManager,
+            ResourceGroupManager<?> resourceGroupManager,
             DispatchQueryFactory dispatchQueryFactory,
             FailedDispatchQueryFactory failedDispatchQueryFactory,
             TransactionManager transactionManager,

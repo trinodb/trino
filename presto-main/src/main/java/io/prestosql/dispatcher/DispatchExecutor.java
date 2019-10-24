@@ -37,6 +37,7 @@ import static java.util.concurrent.Executors.newScheduledThreadPool;
 
 public class DispatchExecutor
 {
+    @SuppressWarnings("resource")
     private final Closer closer = Closer.create();
 
     private final ListeningExecutorService executor;
@@ -82,7 +83,7 @@ public class DispatchExecutor
         closer.close();
     }
 
-    public class DispatchExecutorMBeans
+    public static class DispatchExecutorMBeans
     {
         private final ThreadPoolExecutorMBean executor;
         private final ThreadPoolExecutorMBean scheduledExecutor;
