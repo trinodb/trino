@@ -13,8 +13,10 @@
  */
 package io.prestosql.server;
 
+import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Streams;
 import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpUriBuilder;
@@ -33,9 +35,13 @@ import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
-import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
@@ -58,6 +64,7 @@ import static io.prestosql.client.PrestoHeaders.PRESTO_TRANSACTION_ID;
 import static io.prestosql.client.PrestoHeaders.PRESTO_USER;
 import static io.prestosql.spi.StandardErrorCode.INCOMPATIBLE_CLIENT;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.Response.Status.OK;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -86,23 +93,17 @@ public class TestServer
     public void testInvalidSessionError()
     {
         String invalidTimeZone = "this_is_an_invalid_time_zone";
-        Request request = preparePost().setHeader(PRESTO_USER, "user")
-                .setUri(uriFor("/v1/statement"))
+        QueryResults queryResults = postQuery(request -> request
                 .setBodyGenerator(createStaticBodyGenerator("show catalogs", UTF_8))
-                .setHeader(PRESTO_SOURCE, "source")
                 .setHeader(PRESTO_CATALOG, "catalog")
                 .setHeader(PRESTO_SCHEMA, "schema")
                 .setHeader(PRESTO_PATH, "path")
-                .setHeader(PRESTO_TIME_ZONE, invalidTimeZone)
-                .build();
+                .setHeader(PRESTO_TIME_ZONE, invalidTimeZone))
+                .map(JsonResponse::getValue)
+                .collect(last());
 
-        QueryResults queryResults = client.execute(request, createJsonResponseHandler(QUERY_RESULTS_CODEC));
-        while (queryResults.getNextUri() != null) {
-            queryResults = client.execute(prepareGet().setUri(queryResults.getNextUri()).build(), createJsonResponseHandler(QUERY_RESULTS_CODEC));
-        }
         QueryError queryError = queryResults.getError();
         assertNotNull(queryError);
-
         TimeZoneNotSupportedException expected = new TimeZoneNotSupportedException(invalidTimeZone);
         assertEquals(queryError.getErrorCode(), expected.getErrorCode().getCode());
         assertEquals(queryError.getErrorName(), expected.getErrorCode().getName());
@@ -123,31 +124,24 @@ public class TestServer
     @Test
     public void testQuery()
     {
-        // start query
-        Request request = preparePost()
-                .setUri(uriFor("/v1/statement"))
+        ImmutableList.Builder<List<Object>> data = ImmutableList.builder();
+        QueryResults queryResults = postQuery(request -> request
                 .setBodyGenerator(createStaticBodyGenerator("show catalogs", UTF_8))
-                .setHeader(PRESTO_USER, "user")
-                .setHeader(PRESTO_SOURCE, "source")
                 .setHeader(PRESTO_CATALOG, "catalog")
                 .setHeader(PRESTO_SCHEMA, "schema")
                 .setHeader(PRESTO_PATH, "path")
                 .setHeader(PRESTO_CLIENT_INFO, "{\"clientVersion\":\"testVersion\"}")
                 .addHeader(PRESTO_SESSION, QUERY_MAX_MEMORY + "=1GB")
                 .addHeader(PRESTO_SESSION, JOIN_DISTRIBUTION_TYPE + "=partitioned," + HASH_PARTITION_COUNT + " = 43")
-                .addHeader(PRESTO_PREPARED_STATEMENT, "foo=select * from bar")
-                .build();
+                .addHeader(PRESTO_PREPARED_STATEMENT, "foo=select * from bar"))
+                .map(JsonResponse::getValue)
+                .peek(results -> {
+                    if (results.getData() != null) {
+                        data.addAll(results.getData());
+                    }
+                })
+                .collect(last());
 
-        QueryResults queryResults = client.execute(request, createJsonResponseHandler(QUERY_RESULTS_CODEC));
-
-        ImmutableList.Builder<List<Object>> data = ImmutableList.builder();
-        while (queryResults.getNextUri() != null) {
-            queryResults = client.execute(prepareGet().setUri(queryResults.getNextUri()).build(), createJsonResponseHandler(QUERY_RESULTS_CODEC));
-
-            if (queryResults.getData() != null) {
-                data.addAll(queryResults.getData());
-            }
-        }
         assertNull(queryResults.getError());
 
         // get the query info
@@ -176,21 +170,10 @@ public class TestServer
     @Test
     public void testTransactionSupport()
     {
-        Request request = preparePost()
-                .setUri(uriFor("/v1/statement"))
+        JsonResponse<QueryResults> queryResults = postQuery(request -> request
                 .setBodyGenerator(createStaticBodyGenerator("start transaction", UTF_8))
-                .setHeader(PRESTO_USER, "user")
-                .setHeader(PRESTO_SOURCE, "source")
-                .setHeader(PRESTO_TRANSACTION_ID, "none")
-                .build();
-
-        JsonResponse<QueryResults> queryResults = client.execute(request, createFullJsonResponseHandler(QUERY_RESULTS_CODEC));
-        while (true) {
-            if (queryResults.getValue().getNextUri() == null) {
-                break;
-            }
-            queryResults = client.execute(prepareGet().setUri(queryResults.getValue().getNextUri()).build(), createFullJsonResponseHandler(QUERY_RESULTS_CODEC));
-        }
+                .setHeader(PRESTO_TRANSACTION_ID, "none"))
+                .collect(last());
         assertNull(queryResults.getValue().getError());
         assertNotNull(queryResults.getHeader(PRESTO_STARTED_TRANSACTION_ID));
     }
@@ -198,24 +181,56 @@ public class TestServer
     @Test
     public void testNoTransactionSupport()
     {
-        Request request = preparePost()
-                .setUri(uriFor("/v1/statement"))
-                .setBodyGenerator(createStaticBodyGenerator("start transaction", UTF_8))
-                .setHeader(PRESTO_USER, "user")
-                .setHeader(PRESTO_SOURCE, "source")
-                .build();
-
-        QueryResults queryResults = client.execute(request, createJsonResponseHandler(QUERY_RESULTS_CODEC));
-        while (queryResults.getNextUri() != null) {
-            queryResults = client.execute(prepareGet().setUri(queryResults.getNextUri()).build(), createJsonResponseHandler(QUERY_RESULTS_CODEC));
-        }
-
+        QueryResults queryResults = postQuery(request -> request.setBodyGenerator(createStaticBodyGenerator("start transaction", UTF_8)))
+                .map(JsonResponse::getValue)
+                .collect(last());
         assertNotNull(queryResults.getError());
         assertEquals(queryResults.getError().getErrorCode(), INCOMPATIBLE_CLIENT.toErrorCode().getCode());
+    }
+
+    private Stream<JsonResponse<QueryResults>> postQuery(Function<Request.Builder, Request.Builder> requestConfigurer)
+    {
+        Request.Builder request = preparePost()
+                .setUri(uriFor("/v1/statement"))
+                .setHeader(PRESTO_USER, "user")
+                .setHeader(PRESTO_SOURCE, "source");
+        request = requestConfigurer.apply(request);
+        JsonResponse<QueryResults> queryResults = client.execute(request.build(), createFullJsonResponseHandler(QUERY_RESULTS_CODEC));
+        return Streams.stream(new QueryResultsIterator(client, queryResults));
     }
 
     private URI uriFor(String path)
     {
         return HttpUriBuilder.uriBuilderFrom(server.getBaseUrl()).replacePath(path).build();
+    }
+
+    /**
+     * Retains last element of a stream. Does not not accept null stream elements nor empty streams.
+     */
+    private static <T> Collector<T, ?, T> last()
+    {
+        return Collectors.collectingAndThen(Collectors.reducing((a, b) -> b), Optional::get);
+    }
+
+    private static class QueryResultsIterator
+            extends AbstractSequentialIterator<JsonResponse<QueryResults>>
+    {
+        private final HttpClient client;
+
+        QueryResultsIterator(HttpClient client, JsonResponse<QueryResults> firstResults)
+        {
+            super(requireNonNull(firstResults, "firstResults is null"));
+            this.client = requireNonNull(client, "client is null");
+        }
+
+        @Override
+        protected JsonResponse<QueryResults> computeNext(JsonResponse<QueryResults> previous)
+        {
+            if (previous.getValue().getNextUri() == null) {
+                return null;
+            }
+
+            return client.execute(prepareGet().setUri(previous.getValue().getNextUri()).build(), createFullJsonResponseHandler(QUERY_RESULTS_CODEC));
+        }
     }
 }
