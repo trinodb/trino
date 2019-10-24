@@ -160,7 +160,7 @@ public class TestPrestoCli
 
     @Test(groups = CLI, timeOut = TIMEOUT)
     public void shouldExitOnErrorFromExecute()
-            throws IOException, InterruptedException
+            throws IOException
     {
         String sql = "select * from hive.default.nations; select * from hive.default.nation;";
         launchPrestoCliWithServerArgument("--execute", sql);
@@ -171,7 +171,7 @@ public class TestPrestoCli
 
     @Test(groups = CLI, timeOut = TIMEOUT)
     public void shouldExitOnErrorFromFile()
-            throws IOException, InterruptedException
+            throws IOException
     {
         try (TempFile file = new TempFile()) {
             Files.write("select * from hive.default.nations;\nselect * from hive.default.nation;\n", file.file(), UTF_8);
@@ -185,7 +185,7 @@ public class TestPrestoCli
 
     @Test(groups = CLI, timeOut = TIMEOUT)
     public void shouldNotExitOnErrorFromExecute()
-            throws IOException, InterruptedException
+            throws IOException
     {
         String sql = "select * from hive.default.nations; select * from hive.default.nation;";
         launchPrestoCliWithServerArgument("--execute", sql, "--ignore-errors");
@@ -196,7 +196,7 @@ public class TestPrestoCli
 
     @Test(groups = CLI, timeOut = TIMEOUT)
     public void shouldNotExitOnErrorFromFile()
-            throws IOException, InterruptedException
+            throws IOException
     {
         try (TempFile file = new TempFile()) {
             Files.write("select * from hive.default.nations;\nselect * from hive.default.nation;\n", file.file(), UTF_8);

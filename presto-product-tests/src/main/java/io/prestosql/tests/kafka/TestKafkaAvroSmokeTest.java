@@ -120,7 +120,6 @@ public class TestKafkaAvroSmokeTest
     @Test(groups = KAFKA)
     @Requires(AllDataTypesAvroTable.class)
     public void testSelectPrimitiveDataType()
-            throws SQLException
     {
         QueryResult queryResult = query(format("select * from %s.%s", KAFKA_CATALOG, ALL_DATATYPES_AVRO_TABLE_NAME));
         assertThat(queryResult).containsOnly(row(
@@ -143,7 +142,6 @@ public class TestKafkaAvroSmokeTest
     @Test(groups = KAFKA)
     @Requires(NullDataAvroTable.class)
     public void testNullType()
-            throws SQLException
     {
         QueryResult queryResult = query(format("select * from %s.%s", KAFKA_CATALOG, ALL_NULL_AVRO_TABLE_NAME));
         assertThat(queryResult).containsOnly(row(
@@ -169,7 +167,6 @@ public class TestKafkaAvroSmokeTest
     @Test(groups = KAFKA)
     @Requires(StructuralDataTypeTable.class)
     public void testSelectStructuralDataType()
-            throws SQLException
     {
         QueryResult queryResult = query(format("SELECT a[1], a[2], m['key1'] FROM (SELECT c_array as a, c_map as m FROM %s.%s) t", KAFKA_CATALOG, STRUCTURAL_AVRO_TABLE_NAME));
         assertThat(queryResult).containsOnly(row(100, 102, "value1"));
