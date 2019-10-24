@@ -41,6 +41,7 @@ import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.Request.Builder.preparePost;
@@ -100,6 +101,7 @@ public class TestServer
                 .setHeader(PRESTO_PATH, "path")
                 .setHeader(PRESTO_TIME_ZONE, invalidTimeZone))
                 .map(JsonResponse::getValue)
+                .peek(result -> checkState((result.getError() == null) != (result.getNextUri() == null)))
                 .collect(last());
 
         QueryError queryError = queryResults.getError();
@@ -135,14 +137,13 @@ public class TestServer
                 .addHeader(PRESTO_SESSION, JOIN_DISTRIBUTION_TYPE + "=partitioned," + HASH_PARTITION_COUNT + " = 43")
                 .addHeader(PRESTO_PREPARED_STATEMENT, "foo=select * from bar"))
                 .map(JsonResponse::getValue)
+                .peek(result -> assertNull(result.getError()))
                 .peek(results -> {
                     if (results.getData() != null) {
                         data.addAll(results.getData());
                     }
                 })
                 .collect(last());
-
-        assertNull(queryResults.getError());
 
         // get the query info
         BasicQueryInfo queryInfo = server.getQueryManager().getQueryInfo(new QueryId(queryResults.getId()));
@@ -173,8 +174,8 @@ public class TestServer
         JsonResponse<QueryResults> queryResults = postQuery(request -> request
                 .setBodyGenerator(createStaticBodyGenerator("start transaction", UTF_8))
                 .setHeader(PRESTO_TRANSACTION_ID, "none"))
+                .peek(result -> assertNull(result.getValue().getError()))
                 .collect(last());
-        assertNull(queryResults.getValue().getError());
         assertNotNull(queryResults.getHeader(PRESTO_STARTED_TRANSACTION_ID));
     }
 
@@ -183,8 +184,11 @@ public class TestServer
     {
         QueryResults queryResults = postQuery(request -> request.setBodyGenerator(createStaticBodyGenerator("start transaction", UTF_8)))
                 .map(JsonResponse::getValue)
-                .collect(last());
-        assertNotNull(queryResults.getError());
+                .filter(result -> result.getError() != null)
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Error expected"));
+
+        assertNull(queryResults.getNextUri());
         assertEquals(queryResults.getError().getErrorCode(), INCOMPATIBLE_CLIENT.toErrorCode().getCode());
     }
 
