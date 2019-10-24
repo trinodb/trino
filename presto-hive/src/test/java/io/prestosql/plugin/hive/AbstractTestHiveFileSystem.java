@@ -245,7 +245,7 @@ public abstract class AbstractTestHiveFileSystem
             ConnectorSplitSource splitSource = splitManager.getSplits(transaction.getTransactionHandle(), session, table, UNGROUPED_SCHEDULING);
 
             List<ConnectorSplit> splits = getAllSplits(splitSource);
-            assertEquals(splits.size(), 1);
+            assertEquals(splits.size(), 4);
 
             long sum = 0;
             for (ConnectorSplit split : splits) {
