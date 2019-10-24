@@ -68,6 +68,7 @@ public class HdfsEnvironment
             throws IOException
     {
         return hdfsAuthentication.doAs(user, () -> {
+            configuration.setBoolean("fs.v3io.impl.disable.cache", true);
             FileSystem fileSystem = path.getFileSystem(configuration);
             fileSystem.setVerifyChecksum(verifyChecksum);
             return fileSystem;
