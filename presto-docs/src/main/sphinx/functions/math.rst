@@ -135,6 +135,10 @@ Mathematical Functions
 
     Returns a pseudo-random number between 0 and n (exclusive).
 
+.. function:: random(m, n) -> [same as input]
+
+    Returns a pseudo-random number between m and n (exclusive).
+
 .. function:: round(x) -> [same as input]
 
     Returns ``x`` rounded to the nearest integer.
