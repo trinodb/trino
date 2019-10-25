@@ -1037,6 +1037,41 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testSelectAllFromOuterScopeTable()
+    {
+        // scalar subquery
+        assertQuery(
+                "SELECT (SELECT t.* FROM (VALUES 1)) FROM (SELECT name FROM nation) t(a)",
+                "SELECT name FROM nation");
+        assertQueryOrdered(
+                "SELECT (SELECT t.* FROM (VALUES 1)) FROM (SELECT name FROM nation ORDER BY regionkey, name LIMIT 5) t(a)",
+                "SELECT name FROM nation ORDER BY regionkey, name LIMIT 5");
+        assertQueryFails(
+                "SELECT (SELECT t.* FROM (VALUES 1)) FROM (SELECT name, regionkey FROM nation) t(a, b)",
+                ".* Multiple columns returned by subquery are not yet supported. Found 2");
+
+        // EXISTS subquery
+        assertQuery("SELECT EXISTS(SELECT t.* FROM region) FROM nation t", "SELECT true FROM nation");
+        assertQuery("SELECT EXISTS(SELECT t.* FROM region WHERE region.name = 'ASIA') FROM nation t", "SELECT true FROM nation");
+        assertQuery("SELECT EXISTS(SELECT t.* FROM region WHERE region.name = 'NO_NAME') FROM nation t", "SELECT false FROM nation");
+        assertQuery("SELECT EXISTS(SELECT t.* FROM region WHERE region.name = 'ASIA' AND t.name = 'CHINA') FROM nation t", "SELECT name = 'CHINA' FROM nation");
+
+        // lateral relation
+        assertQuery("SELECT * FROM region r, LATERAL (SELECT r.*)", "SELECT *, * FROM region");
+        assertQuery("SELECT * FROM region r, LATERAL (SELECT r.* LIMIT 2)", "SELECT *, * FROM region");
+        assertQuery("SELECT r.name, t.a FROM region r, LATERAL (SELECT r.* LIMIT 2) t(a, b, c)", "SELECT name, regionkey FROM region");
+        assertQueryFails("SELECT * FROM region r, LATERAL (SELECT r.* LIMIT 0)", UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+        assertQuery("SELECT * FROM region r, LATERAL (SELECT r.* WHERE true)", "SELECT *, * FROM region");
+        assertQueryFails("SELECT * FROM region r, LATERAL (SELECT r.* WHERE false)", UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+        assertQueryFails("SELECT * FROM region r, LATERAL (SELECT r.* WHERE r.name = 'ASIA')", UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+
+        // reference to further outer scope relation
+        assertQuery("SELECT * FROM region r, LATERAL (SELECT t.* from (VALUES 1) t, LATERAL (SELECT r.*))", "SELECT *, 1 FROM region");
+        assertQuery("SELECT * FROM region r, LATERAL (SELECT t2.* from (VALUES 1) t, LATERAL (SELECT r.*) t2(a, b, c))", "SELECT *, * FROM region");
+        assertQuery("SELECT * FROM region r, LATERAL (SELECT t2.a from (VALUES 1) t, LATERAL (SELECT r.*) t2(a, b, c))", "SELECT *, regionkey FROM region");
+    }
+
+    @Test
     public void testSelectAllFromRow()
     {
         // wildcard from row with aggreggation
