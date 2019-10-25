@@ -110,6 +110,7 @@ public class FeaturesConfig
     private double spillMaxUsedSpaceThreshold = 0.9;
     private boolean iterativeOptimizerEnabled = true;
     private boolean enableStatsCalculator = true;
+    private boolean collectPlanStatisticsForAllQueries;
     private boolean ignoreStatsCalculatorFailures = true;
     private boolean defaultFilterFactorEnabled;
     private boolean enableForcedExchangeBelowGroupId = true;
@@ -584,6 +585,19 @@ public class FeaturesConfig
     public FeaturesConfig setEnableStatsCalculator(boolean enableStatsCalculator)
     {
         this.enableStatsCalculator = enableStatsCalculator;
+        return this;
+    }
+
+    public boolean isCollectPlanStatisticsForAllQueries()
+    {
+        return collectPlanStatisticsForAllQueries;
+    }
+
+    @Config("collect-plan-statistics-for-all-queries")
+    @ConfigDescription("Collect plan statistics for non-EXPLAIN queries")
+    public FeaturesConfig setCollectPlanStatisticsForAllQueries(boolean collectPlanStatisticsForAllQueries)
+    {
+        this.collectPlanStatisticsForAllQueries = collectPlanStatisticsForAllQueries;
         return this;
     }
 

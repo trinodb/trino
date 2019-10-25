@@ -85,6 +85,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Streams.zip;
+import static io.prestosql.SystemSessionProperties.isCollectPlanStatisticsForAllQueries;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.statistics.TableStatisticType.ROW_COUNT;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -163,6 +164,11 @@ public class LogicalPlanner
 
     public Plan plan(Analysis analysis, Stage stage)
     {
+        return plan(analysis, stage, analysis.getStatement() instanceof Explain || isCollectPlanStatisticsForAllQueries(session));
+    }
+
+    public Plan plan(Analysis analysis, Stage stage, boolean collectPlanStatistics)
+    {
         PlanNode root = planStatement(analysis, analysis.getStatement());
 
         planSanityChecker.validateIntermediatePlan(root, session, metadata, typeAnalyzer, symbolAllocator.getTypes(), warningCollector);
@@ -180,9 +186,14 @@ public class LogicalPlanner
         }
 
         TypeProvider types = symbolAllocator.getTypes();
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types);
-        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.empty(), session, types);
-        return new Plan(root, types, StatsAndCosts.create(root, statsProvider, costProvider));
+
+        StatsAndCosts statsAndCosts = StatsAndCosts.empty();
+        if (collectPlanStatistics) {
+            StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types);
+            CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.empty(), session, types);
+            statsAndCosts = StatsAndCosts.create(root, statsProvider, costProvider);
+        }
+        return new Plan(root, types, statsAndCosts);
     }
 
     public PlanNode planStatement(Analysis analysis, Statement statement)

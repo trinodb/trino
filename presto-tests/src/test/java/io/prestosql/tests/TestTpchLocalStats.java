@@ -23,6 +23,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static io.prestosql.SystemSessionProperties.COLLECT_PLAN_STATISTICS_FOR_ALL_QUERIES;
 import static io.prestosql.SystemSessionProperties.PREFER_PARTIAL_AGGREGATION;
 import static io.prestosql.plugin.tpch.TpchConnectorFactory.TPCH_COLUMN_NAMING_PROPERTY;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -49,6 +50,8 @@ public class TestTpchLocalStats
                 .setSchema(TINY_SCHEMA_NAME)
                 // We are not able to calculate stats for PARTIAL aggregations
                 .setSystemProperty(PREFER_PARTIAL_AGGREGATION, "false")
+                // Stats for non-EXPLAIN queries are not collected by default
+                .setSystemProperty(COLLECT_PLAN_STATISTICS_FOR_ALL_QUERIES, "true")
                 .build();
 
         LocalQueryRunner queryRunner = new LocalQueryRunner(defaultSession);

@@ -844,6 +844,7 @@ public class LocalQueryRunner
         LogicalPlanner logicalPlanner = new LogicalPlanner(session, optimizers, new PlanSanityChecker(true), idAllocator, metadata, new TypeAnalyzer(sqlParser, metadata), statsCalculator, costCalculator, warningCollector);
 
         Analysis analysis = analyzer.analyze(preparedQuery.getStatement());
+        // make LocalQueryRunner always compute plan statistics for test purposes
         return logicalPlanner.plan(analysis, stage);
     }
 
