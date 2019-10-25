@@ -558,9 +558,7 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitSimpleCaseExpression(SimpleCaseExpression node, StackableAstVisitorContext<Context> context)
         {
-            for (WhenClause whenClause : node.getWhenClauses()) {
-                coerceToSingleType(context, whenClause, "CASE operand type does not match WHEN clause operand type: %s vs %s", node.getOperand(), whenClause.getOperand());
-            }
+            coerceCaseOperandToToSingleType(node, context);
 
             Type type = coerceToSingleType(context,
                     "All CASE results must be the same type: %s",
@@ -573,6 +571,41 @@ public class ExpressionAnalyzer
             }
 
             return type;
+        }
+
+        private void coerceCaseOperandToToSingleType(SimpleCaseExpression node, StackableAstVisitorContext<Context> context)
+        {
+            Type operandType = process(node.getOperand(), context);
+
+            List<WhenClause> whenClauses = node.getWhenClauses();
+            List<Type> whenOperandTypes = new ArrayList<>(whenClauses.size());
+
+            Type commonType = operandType;
+            for (WhenClause whenClause : whenClauses) {
+                Expression whenOperand = whenClause.getOperand();
+                Type whenOperandType = process(whenOperand, context);
+                whenOperandTypes.add(whenOperandType);
+
+                Optional<Type> operandCommonType = typeCoercion.getCommonSuperType(commonType, whenOperandType);
+
+                if (!operandCommonType.isPresent()) {
+                    throw semanticException(TYPE_MISMATCH, whenOperand, "CASE operand type does not match WHEN clause operand type: %s vs %s", operandType, whenOperandType);
+                }
+
+                commonType = operandCommonType.get();
+            }
+
+            if (commonType != operandType) {
+                addOrReplaceExpressionCoercion(node.getOperand(), operandType, commonType);
+            }
+
+            for (int i = 0; i < whenOperandTypes.size(); i++) {
+                Type whenOperandType = whenOperandTypes.get(i);
+                if (!whenOperandType.equals(commonType)) {
+                    Expression whenOperand = whenClauses.get(i).getOperand();
+                    addOrReplaceExpressionCoercion(whenOperand, whenOperandType, commonType);
+                }
+            }
         }
 
         private List<Expression> getCaseResultExpressions(List<WhenClause> whenClauses, Optional<Expression> defaultValue)
