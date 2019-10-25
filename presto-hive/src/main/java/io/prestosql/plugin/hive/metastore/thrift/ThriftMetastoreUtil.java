@@ -48,6 +48,7 @@ import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
+import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.hadoop.hive.metastore.api.BinaryColumnStatsData;
 import org.apache.hadoop.hive.metastore.api.BooleanColumnStatsData;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
@@ -92,6 +93,7 @@ import java.util.stream.Stream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.prestosql.plugin.hive.HiveMetadata.AVRO_SCHEMA_URL_KEY;
@@ -155,6 +157,23 @@ public final class ThriftMetastoreUtil
     private static final Set<String> STATS_PROPERTIES = ImmutableSet.of(NUM_FILES, NUM_ROWS, RAW_DATA_SIZE, TOTAL_SIZE);
 
     private ThriftMetastoreUtil() {}
+
+    public static String makePartitionName(Table table, Partition partition)
+    {
+        return FileUtils.makePartName(
+                table.getPartitionColumns().stream()
+                        .map(Column::getName)
+                        .collect(toImmutableList()),
+                partition.getValues());
+    }
+
+    public static String makePartitionName(org.apache.hadoop.hive.metastore.api.Table table, org.apache.hadoop.hive.metastore.api.Partition partition)
+    {
+        List<String> partitionColumns = table.getPartitionKeys().stream()
+                .map(FieldSchema::getName)
+                .collect(toImmutableList());
+        return FileUtils.makePartName(partitionColumns, partition.getValues());
+    }
 
     public static org.apache.hadoop.hive.metastore.api.Database toMetastoreApiDatabase(Database database)
     {

@@ -36,13 +36,13 @@ public interface HiveMetastore
 
     Set<ColumnStatisticType> getSupportedColumnStatistics(Type type);
 
-    PartitionStatistics getTableStatistics(HiveIdentity identity, String databaseName, String tableName);
+    PartitionStatistics getTableStatistics(HiveIdentity identity, Table table);
 
-    Map<String, PartitionStatistics> getPartitionStatistics(HiveIdentity identity, String databaseName, String tableName, Set<String> partitionNames);
+    Map<String, PartitionStatistics> getPartitionStatistics(HiveIdentity identity, Table table, Set<Partition> partitions);
 
     void updateTableStatistics(HiveIdentity identity, String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update);
 
-    void updatePartitionStatistics(HiveIdentity identity, String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update);
+    void updatePartitionStatistics(HiveIdentity identity, Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update);
 
     List<String> getAllTables(String databaseName);
 

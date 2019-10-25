@@ -113,6 +113,7 @@ import static io.prestosql.plugin.hive.metastore.MetastoreUtil.makePartName;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.verifyCanDropColumn;
 import static io.prestosql.plugin.hive.metastore.glue.GlueExpressionUtil.buildGlueExpression;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
+import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.makePartitionName;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
 import static io.prestosql.plugin.hive.util.HiveUtil.toPartitionValues;
 import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
@@ -275,22 +276,18 @@ public class GlueHiveMetastore
     }
 
     @Override
-    public PartitionStatistics getTableStatistics(HiveIdentity identity, String databaseName, String tableName)
+    public PartitionStatistics getTableStatistics(HiveIdentity identity, Table table)
     {
-        Table table = getTable(identity, databaseName, tableName)
-                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
         return new PartitionStatistics(getHiveBasicStatistics(table.getParameters()), ImmutableMap.of());
     }
 
     @Override
-    public Map<String, PartitionStatistics> getPartitionStatistics(HiveIdentity identity, String databaseName, String tableName, Set<String> partitionNames)
+    public Map<String, PartitionStatistics> getPartitionStatistics(HiveIdentity identity, Table table, Set<Partition> partitions)
     {
         ImmutableMap.Builder<String, PartitionStatistics> result = ImmutableMap.builder();
-        getPartitionsByNames(identity, databaseName, tableName, ImmutableList.copyOf(partitionNames)).forEach((partitionName, optionalPartition) -> {
-            Partition partition = optionalPartition.orElseThrow(() ->
-                    new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), toPartitionValues(partitionName)));
+        partitions.forEach(partition -> {
             PartitionStatistics partitionStatistics = new PartitionStatistics(getHiveBasicStatistics(partition.getParameters()), ImmutableMap.of());
-            result.put(partitionName, partitionStatistics);
+            result.put(makePartitionName(table, partition), partitionStatistics);
         });
         return result.build();
     }
@@ -298,13 +295,12 @@ public class GlueHiveMetastore
     @Override
     public void updateTableStatistics(HiveIdentity identity, String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update)
     {
-        PartitionStatistics currentStatistics = getTableStatistics(identity, databaseName, tableName);
+        Table table = getTableOrElseThrow(identity, databaseName, tableName);
+        PartitionStatistics currentStatistics = getTableStatistics(identity, table);
         PartitionStatistics updatedStatistics = update.apply(currentStatistics);
         if (!updatedStatistics.getColumnStatistics().isEmpty()) {
             throw new PrestoException(NOT_SUPPORTED, "Glue metastore does not support column level statistics");
         }
-
-        Table table = getTableOrElseThrow(identity, databaseName, tableName);
 
         try {
             TableInput tableInput = GlueInputConverter.convertTable(table);
@@ -323,9 +319,12 @@ public class GlueHiveMetastore
     }
 
     @Override
-    public void updatePartitionStatistics(HiveIdentity identity, String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    public void updatePartitionStatistics(HiveIdentity identity, Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
     {
-        PartitionStatistics currentStatistics = getPartitionStatistics(identity, databaseName, tableName, ImmutableSet.of(partitionName)).get(partitionName);
+        List<String> partitionValues = toPartitionValues(partitionName);
+        Partition partition = getPartition(identity, table.getDatabaseName(), table.getTableName(), partitionValues)
+                .orElseThrow(() -> new PartitionNotFoundException(new SchemaTableName(table.getDatabaseName(), table.getTableName()), partitionValues));
+        PartitionStatistics currentStatistics = new PartitionStatistics(getHiveBasicStatistics(partition.getParameters()), ImmutableMap.of());
         if (currentStatistics == null) {
             throw new PrestoException(HIVE_PARTITION_DROPPED_DURING_QUERY, "Statistics result does not contain entry for partition: " + partitionName);
         }
@@ -334,21 +333,18 @@ public class GlueHiveMetastore
             throw new PrestoException(NOT_SUPPORTED, "Glue metastore does not support column level statistics");
         }
 
-        List<String> partitionValues = toPartitionValues(partitionName);
-        Partition partition = getPartition(identity, databaseName, tableName, partitionValues)
-                .orElseThrow(() -> new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), partitionValues));
         try {
             PartitionInput partitionInput = GlueInputConverter.convertPartition(partition);
             partitionInput.setParameters(updateStatisticsParameters(partition.getParameters(), updatedStatistics.getBasicStatistics()));
             glueClient.updatePartition(new UpdatePartitionRequest()
                     .withCatalogId(catalogId)
-                    .withDatabaseName(databaseName)
-                    .withTableName(tableName)
+                    .withDatabaseName(table.getDatabaseName())
+                    .withTableName(table.getTableName())
                     .withPartitionValueList(partition.getValues())
                     .withPartitionInput(partitionInput));
         }
         catch (EntityNotFoundException e) {
-            throw new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), partitionValues);
+            throw new PartitionNotFoundException(new SchemaTableName(table.getDatabaseName(), table.getTableName()), partitionValues);
         }
         catch (AmazonServiceException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);

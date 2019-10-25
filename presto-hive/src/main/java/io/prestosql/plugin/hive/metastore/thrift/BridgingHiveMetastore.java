@@ -44,6 +44,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.verifyCanDropColumn;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiPartition;
@@ -52,6 +53,7 @@ import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.isAv
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.isCsvTable;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiDatabase;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiTable;
+import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiTableWithoutPrivileges;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.UnaryOperator.identity;
@@ -97,15 +99,20 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public PartitionStatistics getTableStatistics(HiveIdentity identity, String databaseName, String tableName)
+    public PartitionStatistics getTableStatistics(HiveIdentity identity, Table table)
     {
-        return delegate.getTableStatistics(identity, databaseName, tableName);
+        return delegate.getTableStatistics(identity, toMetastoreApiTableWithoutPrivileges(table));
     }
 
     @Override
-    public Map<String, PartitionStatistics> getPartitionStatistics(HiveIdentity identity, String databaseName, String tableName, Set<String> partitionNames)
+    public Map<String, PartitionStatistics> getPartitionStatistics(HiveIdentity identity, Table table, Set<Partition> partitions)
     {
-        return delegate.getPartitionStatistics(identity, databaseName, tableName, partitionNames);
+        return delegate.getPartitionStatistics(
+                identity,
+                toMetastoreApiTableWithoutPrivileges(table),
+                partitions.stream()
+                        .map(ThriftMetastoreUtil::toMetastoreApiPartition)
+                        .collect(toImmutableSet()));
     }
 
     @Override
@@ -115,9 +122,9 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public void updatePartitionStatistics(HiveIdentity identity, String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    public void updatePartitionStatistics(HiveIdentity identity, Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
     {
-        delegate.updatePartitionStatistics(identity, databaseName, tableName, partitionName, update);
+        delegate.updatePartitionStatistics(identity, toMetastoreApiTableWithoutPrivileges(table), partitionName, update);
     }
 
     @Override

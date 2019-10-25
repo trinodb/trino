@@ -67,6 +67,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Sets.difference;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CORRUPTED_COLUMN_STATISTICS;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
@@ -173,7 +174,8 @@ public class SemiTransactionalHiveMetastore
         checkReadable();
         Action<TableAndMore> tableAction = tableActions.get(new SchemaTableName(databaseName, tableName));
         if (tableAction == null) {
-            return delegate.getTableStatistics(identity, databaseName, tableName);
+            Table table = getSourceTableOrElseThrow(identity, databaseName, tableName);
+            return delegate.getTableStatistics(identity, table);
         }
         switch (tableAction.getType()) {
             case ADD:
@@ -196,7 +198,7 @@ public class SemiTransactionalHiveMetastore
         }
         TableSource tableSource = getTableSource(databaseName, tableName);
         Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.computeIfAbsent(table.get().getSchemaTableName(), k -> new HashMap<>());
-        ImmutableSet.Builder<String> partitionNamesToQuery = ImmutableSet.builder();
+        ImmutableSet.Builder<String> partitionNamesToQueryBuilder = ImmutableSet.builder();
         ImmutableMap.Builder<String, PartitionStatistics> resultBuilder = ImmutableMap.builder();
         for (String partitionName : partitionNames) {
             List<String> partitionValues = toPartitionValues(partitionName);
@@ -204,7 +206,7 @@ public class SemiTransactionalHiveMetastore
             if (partitionAction == null) {
                 switch (tableSource) {
                     case PRE_EXISTING_TABLE:
-                        partitionNamesToQuery.add(partitionName);
+                        partitionNamesToQueryBuilder.add(partitionName);
                         break;
                     case CREATED_IN_THIS_TRANSACTION:
                         resultBuilder.put(partitionName, PartitionStatistics.empty());
@@ -218,13 +220,15 @@ public class SemiTransactionalHiveMetastore
             }
         }
 
-        Map<String, PartitionStatistics> delegateResult = delegate.getPartitionStatistics(identity, databaseName, tableName, partitionNamesToQuery.build());
-        if (!delegateResult.isEmpty()) {
-            resultBuilder.putAll(delegateResult);
-        }
-        else {
-            partitionNamesToQuery.build().forEach(partitionName -> resultBuilder.put(partitionName, PartitionStatistics.empty()));
-        }
+        Set<String> partitionNamesToQuery = partitionNamesToQueryBuilder.build();
+        Set<Partition> partitionsToQuery = delegate.getPartitionsByNames(identity, databaseName, tableName, ImmutableList.copyOf(partitionNamesToQuery)).entrySet().stream()
+                .filter(entry -> entry.getValue().isPresent())
+                .map(entry -> entry.getValue().get())
+                .collect(toImmutableSet());
+        Map<String, PartitionStatistics> partitionStatistics = delegate.getPartitionStatistics(identity, table.get(), partitionsToQuery);
+        resultBuilder.putAll(partitionStatistics);
+        // add empty statistics for every partition for which statistics could not be found
+        difference(partitionNamesToQuery, partitionStatistics.keySet()).forEach(partitionName -> resultBuilder.put(partitionName, PartitionStatistics.empty()));
         return resultBuilder.build();
     }
 
@@ -317,8 +321,7 @@ public class SemiTransactionalHiveMetastore
                 partitionStatisticsMap.forEach((partitionValues, newPartitionStats) ->
                         delegate.updatePartitionStatistics(
                                 identity,
-                                table.getDatabaseName(),
-                                table.getTableName(),
+                                table,
                                 getPartitionName(table, partitionValues),
                                 oldPartitionStats -> updatePartitionStatistics(oldPartitionStats, newPartitionStats))));
     }
@@ -754,7 +757,8 @@ public class SemiTransactionalHiveMetastore
             Partition partition = delegate.getPartition(identity, databaseName, tableName, partitionValues)
                     .orElseThrow(() -> new PartitionNotFoundException(schemaTableName, partitionValues));
             String partitionName = getPartitionName(identity, databaseName, tableName, partitionValues);
-            PartitionStatistics currentStatistics = delegate.getPartitionStatistics(identity, databaseName, tableName, ImmutableSet.of(partitionName)).get(partitionName);
+            Table table = getSourceTableOrElseThrow(identity, databaseName, tableName);
+            PartitionStatistics currentStatistics = delegate.getPartitionStatistics(identity, table, ImmutableSet.of(partition)).get(partitionName);
             if (currentStatistics == null) {
                 throw new PrestoException(HIVE_METASTORE_ERROR, "currentStatistics is null");
             }
@@ -1143,7 +1147,7 @@ public class SemiTransactionalHiveMetastore
 
             updateStatisticsOperations.add(new UpdateStatisticsOperation(
                     tableAndMore.getIdentity(),
-                    table.getSchemaTableName(),
+                    table,
                     Optional.empty(),
                     tableAndMore.getStatisticsUpdate(),
                     false));
@@ -1199,7 +1203,7 @@ public class SemiTransactionalHiveMetastore
             if (!isPrestoView(table)) {
                 updateStatisticsOperations.add(new UpdateStatisticsOperation(
                         tableAndMore.getIdentity(),
-                        table.getSchemaTableName(),
+                        table,
                         Optional.empty(),
                         tableAndMore.getStatisticsUpdate(),
                         false));
@@ -1219,7 +1223,7 @@ public class SemiTransactionalHiveMetastore
             }
             updateStatisticsOperations.add(new UpdateStatisticsOperation(
                     tableAndMore.getIdentity(),
-                    table.getSchemaTableName(),
+                    table,
                     Optional.empty(),
                     tableAndMore.getStatisticsUpdate(),
                     true));
@@ -1245,7 +1249,8 @@ public class SemiTransactionalHiveMetastore
                         format("The partition that this transaction modified was deleted in another transaction. %s %s", partition.getTableName(), partition.getValues()));
             }
             String partitionName = getPartitionName(identity, partition.getDatabaseName(), partition.getTableName(), partition.getValues());
-            PartitionStatistics oldPartitionStatistics = getExistingPartitionStatistics(identity, partition, partitionName);
+            Table table = getSourceTableOrElseThrow(identity, partition.getDatabaseName(), partition.getTableName());
+            PartitionStatistics oldPartitionStatistics = getExistingPartitionStatistics(identity, table, partition, partitionName);
             String oldPartitionLocation = oldPartition.get().getStorage().getLocation();
             Path oldPartitionPath = new Path(oldPartitionLocation);
 
@@ -1293,11 +1298,10 @@ public class SemiTransactionalHiveMetastore
                     new PartitionWithStatistics(oldPartition.get(), partitionName, oldPartitionStatistics)));
         }
 
-        private PartitionStatistics getExistingPartitionStatistics(HiveIdentity identity, Partition partition, String partitionName)
+        private PartitionStatistics getExistingPartitionStatistics(HiveIdentity identity, Table table, Partition partition, String partitionName)
         {
             try {
-                PartitionStatistics statistics = delegate.getPartitionStatistics(identity, partition.getDatabaseName(), partition.getTableName(), ImmutableSet.of(partitionName))
-                        .get(partitionName);
+                PartitionStatistics statistics = delegate.getPartitionStatistics(identity, table, ImmutableSet.of(partition)).get(partitionName);
                 if (statistics == null) {
                     throw new PrestoException(
                             TRANSACTION_CONFLICT,
@@ -1363,7 +1367,7 @@ public class SemiTransactionalHiveMetastore
             }
             updateStatisticsOperations.add(new UpdateStatisticsOperation(
                     partitionAndMore.getIdentity(),
-                    partition.getSchemaTableName(),
+                    getSourceTableOrElseThrow(identity, partition.getDatabaseName(), partition.getTableName()),
                     Optional.of(getPartitionName(identity, partition.getDatabaseName(), partition.getTableName(), partition.getValues())),
                     partitionAndMore.getStatisticsUpdate(),
                     true));
@@ -2611,17 +2615,17 @@ public class SemiTransactionalHiveMetastore
     private static class UpdateStatisticsOperation
     {
         private final HiveIdentity identity;
-        private final SchemaTableName tableName;
+        private final Table table;
         private final Optional<String> partitionName;
         private final PartitionStatistics statistics;
         private final boolean merge;
 
         private boolean done;
 
-        public UpdateStatisticsOperation(HiveIdentity identity, SchemaTableName tableName, Optional<String> partitionName, PartitionStatistics statistics, boolean merge)
+        public UpdateStatisticsOperation(HiveIdentity identity, Table table, Optional<String> partitionName, PartitionStatistics statistics, boolean merge)
         {
             this.identity = requireNonNull(identity, "identity is null");
-            this.tableName = requireNonNull(tableName, "tableName is null");
+            this.table = requireNonNull(table, "table is null");
             this.partitionName = requireNonNull(partitionName, "partitionValues is null");
             this.statistics = requireNonNull(statistics, "statistics is null");
             this.merge = merge;
@@ -2630,10 +2634,10 @@ public class SemiTransactionalHiveMetastore
         public void run(HiveMetastore metastore)
         {
             if (partitionName.isPresent()) {
-                metastore.updatePartitionStatistics(identity, tableName.getSchemaName(), tableName.getTableName(), partitionName.get(), this::updateStatistics);
+                metastore.updatePartitionStatistics(identity, table, partitionName.get(), this::updateStatistics);
             }
             else {
-                metastore.updateTableStatistics(identity, tableName.getSchemaName(), tableName.getTableName(), this::updateStatistics);
+                metastore.updateTableStatistics(identity, table.getDatabaseName(), table.getTableName(), this::updateStatistics);
             }
             done = true;
         }
@@ -2644,19 +2648,19 @@ public class SemiTransactionalHiveMetastore
                 return;
             }
             if (partitionName.isPresent()) {
-                metastore.updatePartitionStatistics(identity, tableName.getSchemaName(), tableName.getTableName(), partitionName.get(), this::resetStatistics);
+                metastore.updatePartitionStatistics(identity, table, partitionName.get(), this::resetStatistics);
             }
             else {
-                metastore.updateTableStatistics(identity, tableName.getSchemaName(), tableName.getTableName(), this::resetStatistics);
+                metastore.updateTableStatistics(identity, table.getDatabaseName(), table.getTableName(), this::resetStatistics);
             }
         }
 
         public String getDescription()
         {
             if (partitionName.isPresent()) {
-                return format("replace partition parameters %s %s", tableName, partitionName.get());
+                return format("replace partition parameters %s %s", table.getTableName(), partitionName.get());
             }
-            return format("replace table parameters %s", tableName);
+            return format("replace table parameters %s", table.getTableName());
         }
 
         private PartitionStatistics updateStatistics(PartitionStatistics currentStatistics)

@@ -25,6 +25,8 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.prestosql.plugin.hive.metastore.HiveTableName.hiveTableName;
+import static io.prestosql.plugin.hive.metastore.MetastoreUtil.makePartName;
+import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.makePartitionName;
 import static io.prestosql.plugin.hive.util.HiveUtil.toPartitionValues;
 import static java.util.Objects.requireNonNull;
 
@@ -46,19 +48,33 @@ public class HivePartitionName
         this.partitionName = requireNonNull(partitionName, "partitionName is null");
     }
 
+    public static HivePartitionName hivePartitionName(Table table, Partition partition)
+    {
+        String partitionName = makePartitionName(table, partition);
+        return new HivePartitionName(
+                hiveTableName(table),
+                toPartitionValues(partitionName),
+                Optional.of(partitionName));
+    }
+
+    public static HivePartitionName hivePartitionName(Table table, String partitionName)
+    {
+        return hivePartitionName(table, toPartitionValues(partitionName));
+    }
+
+    public static HivePartitionName hivePartitionName(Table table, List<String> partitionValues)
+    {
+        return new HivePartitionName(hiveTableName(table), partitionValues, Optional.of(makePartName(table.getPartitionColumns(), partitionValues)));
+    }
+
     public static HivePartitionName hivePartitionName(HiveTableName hiveTableName, String partitionName)
     {
         return new HivePartitionName(hiveTableName, toPartitionValues(partitionName), Optional.of(partitionName));
     }
 
-    public static HivePartitionName hivePartitionName(String databaseName, String tableName, String partitionName)
+    public static HivePartitionName hivePartitionName(HiveTableName hiveTableName, List<String> partitionValues)
     {
-        return hivePartitionName(hiveTableName(databaseName, tableName), partitionName);
-    }
-
-    public static HivePartitionName hivePartitionName(String databaseName, String tableName, List<String> partitionValues)
-    {
-        return new HivePartitionName(hiveTableName(databaseName, tableName), partitionValues, Optional.empty());
+        return new HivePartitionName(hiveTableName, partitionValues, Optional.empty());
     }
 
     @JsonProperty

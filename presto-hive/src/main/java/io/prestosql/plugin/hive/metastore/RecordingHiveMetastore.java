@@ -47,6 +47,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.prestosql.plugin.hive.metastore.HivePartitionName.hivePartitionName;
 import static io.prestosql.plugin.hive.metastore.HiveTableName.hiveTableName;
@@ -221,21 +222,23 @@ public class RecordingHiveMetastore
     }
 
     @Override
-    public PartitionStatistics getTableStatistics(HiveIdentity identity, String databaseName, String tableName)
+    public PartitionStatistics getTableStatistics(HiveIdentity identity, Table table)
     {
         return loadValue(
                 tableStatisticsCache,
-                hiveTableName(databaseName, tableName),
-                () -> delegate.getTableStatistics(identity, databaseName, tableName));
+                hiveTableName(table),
+                () -> delegate.getTableStatistics(identity, table));
     }
 
     @Override
-    public Map<String, PartitionStatistics> getPartitionStatistics(HiveIdentity identity, String databaseName, String tableName, Set<String> partitionNames)
+    public Map<String, PartitionStatistics> getPartitionStatistics(HiveIdentity identity, Table table, Set<Partition> partitions)
     {
         return loadValue(
                 partitionStatisticsCache,
-                getHivePartitionNames(databaseName, tableName, partitionNames),
-                () -> delegate.getPartitionStatistics(identity, databaseName, tableName, partitionNames));
+                partitions.stream()
+                        .map(partition -> hivePartitionName(table, partition))
+                        .collect(toImmutableSet()),
+                () -> delegate.getPartitionStatistics(identity, table, partitions));
     }
 
     @Override
@@ -246,10 +249,10 @@ public class RecordingHiveMetastore
     }
 
     @Override
-    public void updatePartitionStatistics(HiveIdentity identity, String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    public void updatePartitionStatistics(HiveIdentity identity, Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
     {
         verifyRecordingMode();
-        delegate.updatePartitionStatistics(identity, databaseName, tableName, partitionName, update);
+        delegate.updatePartitionStatistics(identity, table, partitionName, update);
     }
 
     @Override
@@ -353,7 +356,7 @@ public class RecordingHiveMetastore
     {
         return loadValue(
                 partitionCache,
-                hivePartitionName(databaseName, tableName, partitionValues),
+                hivePartitionName(hiveTableName(databaseName, tableName), partitionValues),
                 () -> delegate.getPartition(identity, databaseName, tableName, partitionValues));
     }
 
@@ -431,8 +434,8 @@ public class RecordingHiveMetastore
     private Set<HivePartitionName> getHivePartitionNames(String databaseName, String tableName, Set<String> partitionNames)
     {
         return partitionNames.stream()
-                .map(partitionName -> HivePartitionName.hivePartitionName(databaseName, tableName, partitionName))
-                .collect(ImmutableSet.toImmutableSet());
+                .map(partitionName -> hivePartitionName(hiveTableName(databaseName, tableName), partitionName))
+                .collect(toImmutableSet());
     }
 
     @Override

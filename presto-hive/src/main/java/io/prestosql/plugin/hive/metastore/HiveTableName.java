@@ -35,6 +35,11 @@ public class HiveTableName
         this.tableName = tableName;
     }
 
+    public static HiveTableName hiveTableName(Table table)
+    {
+        return new HiveTableName(table.getDatabaseName(), table.getTableName());
+    }
+
     public static HiveTableName hiveTableName(String databaseName, String tableName)
     {
         return new HiveTableName(databaseName, tableName);
