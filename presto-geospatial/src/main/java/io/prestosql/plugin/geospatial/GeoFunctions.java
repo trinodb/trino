@@ -15,6 +15,7 @@ package io.prestosql.plugin.geospatial;
 
 import com.esri.core.geometry.Envelope;
 import com.esri.core.geometry.GeometryCursor;
+import com.esri.core.geometry.GeometryEngine;
 import com.esri.core.geometry.ListeningGeometryCursor;
 import com.esri.core.geometry.MultiPath;
 import com.esri.core.geometry.MultiPoint;
@@ -54,6 +55,7 @@ import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlNullable;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.IntegerType;
+import io.prestosql.spi.type.StandardTypes;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.linearref.LengthIndexedLine;
 
@@ -61,6 +63,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.EnumSet;
 import java.util.Iterator;
@@ -633,6 +636,92 @@ public final class GeoFunctions
         }
 
         return new LengthIndexedLine(line).indexOf(point.getCoordinate()) / line.getLength();
+    }
+
+    @SqlNullable
+    @Description("Returns a Point interpolated along a LineString at the fraction given.")
+    @ScalarFunction("line_interpolate_point")
+    @SqlType(GEOMETRY_TYPE_NAME)
+    public static Slice lineInterpolatePoint(
+            @SqlType(GEOMETRY_TYPE_NAME) Slice input,
+            @SqlType(StandardTypes.DOUBLE) double distanceFraction)
+    {
+        OGCGeometry geometry = deserialize(input);
+        if (geometry.isEmpty()) {
+            return null;
+        }
+
+        List<Point> interpolatedPoints = interpolatePoints(geometry, distanceFraction, false);
+        return serialize(createFromEsriGeometry(interpolatedPoints.get(0), null));
+    }
+
+    @SqlNullable
+    @Description("Returns an array of Points interpolated along a LineString.")
+    @ScalarFunction("line_interpolate_points")
+    @SqlType("array(" + GEOMETRY_TYPE_NAME + ")")
+    public static Block lineInterpolatePoints(
+            @SqlType(GEOMETRY_TYPE_NAME) Slice input,
+            @SqlType(StandardTypes.DOUBLE) double fractionStep)
+    {
+        OGCGeometry geometry = deserialize(input);
+        if (geometry.isEmpty()) {
+            return null;
+        }
+
+        List<Point> interpolatedPoints = interpolatePoints(geometry, fractionStep, true);
+        BlockBuilder blockBuilder = GEOMETRY.createBlockBuilder(null, interpolatedPoints.size());
+        for (Point point : interpolatedPoints) {
+            GEOMETRY.writeSlice(blockBuilder, serialize(createFromEsriGeometry(point, null)));
+        }
+        return blockBuilder.build();
+    }
+
+    private static List<Point> interpolatePoints(OGCGeometry geometry, double fractionStep, boolean repeated)
+    {
+        validateType("line_interpolate_point", geometry, EnumSet.of(LINE_STRING));
+        if (fractionStep < 0 || fractionStep > 1) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "fraction must be between 0 and 1");
+        }
+
+        MultiPath path = (MultiPath) geometry.getEsriGeometry();
+
+        if (fractionStep == 0) {
+            return Collections.singletonList(path.getPoint(0));
+        }
+        else if (fractionStep == 1) {
+            return Collections.singletonList((path.getPoint(path.getPointCount() - 1)));
+        }
+
+        int pointCount = repeated ? (int) Math.floor(1 / fractionStep) : 1;
+        List<Point> interpolatedPoints = new ArrayList<>(pointCount);
+
+        double lineStringLength = path.calculateLength2D();
+        Point previous = path.getPoint(0);
+        double fractionConsumed = 0.0;
+        double fractionIncrement = fractionStep;
+
+        for (int i = 1; i < path.getPointCount() && interpolatedPoints.size() < pointCount; i++) {
+            Point current = path.getPoint(i);
+            double segmentLengthFraction = GeometryEngine.distance(previous, current, null) / lineStringLength;
+
+            while (fractionStep < fractionConsumed + segmentLengthFraction && interpolatedPoints.size() < pointCount) {
+                double segmentFraction = (fractionStep - fractionConsumed) / segmentLengthFraction;
+                Point point = new Point();
+                point.setX(previous.getX() + (current.getX() - previous.getX()) * segmentFraction);
+                point.setY(previous.getY() + (current.getY() - previous.getY()) * segmentFraction);
+                interpolatedPoints.add(point);
+                fractionStep += fractionIncrement;
+            }
+
+            fractionConsumed += segmentLengthFraction;
+            previous = current;
+        }
+
+        if (interpolatedPoints.size() < pointCount) {
+            interpolatedPoints.add(path.getPoint(path.getPointCount() - 1));
+        }
+
+        return interpolatedPoints;
     }
 
     @SqlNullable
