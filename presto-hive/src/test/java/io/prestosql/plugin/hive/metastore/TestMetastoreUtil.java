@@ -153,18 +153,4 @@ public class TestMetastoreUtil
         Properties actual = MetastoreUtil.getHiveSchema(ThriftMetastoreUtil.fromMetastoreApiPartition(TEST_PARTITION_WITH_UNSUPPORTED_FIELDS), ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE_WITH_UNSUPPORTED_FIELDS, TEST_SCHEMA));
         assertEquals(actual, expected);
     }
-
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Writing to skewed table/partition is not supported")
-    public void testTableRoundTripUnsupported()
-    {
-        Table table = ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE_WITH_UNSUPPORTED_FIELDS, TEST_SCHEMA);
-        ThriftMetastoreUtil.toMetastoreApiTable(table, null);
-    }
-
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Writing to skewed table/partition is not supported")
-    public void testPartitionRoundTripUnsupported()
-    {
-        Partition partition = ThriftMetastoreUtil.fromMetastoreApiPartition(TEST_PARTITION_WITH_UNSUPPORTED_FIELDS);
-        ThriftMetastoreUtil.toMetastoreApiPartition(partition);
-    }
 }

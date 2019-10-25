@@ -726,9 +726,6 @@ public final class ThriftMetastoreUtil
 
     private static StorageDescriptor makeStorageDescriptor(String tableName, List<Column> columns, Storage storage)
     {
-        if (storage.isSkewed()) {
-            throw new IllegalArgumentException("Writing to skewed table/partition is not supported");
-        }
         SerDeInfo serdeInfo = new SerDeInfo();
         serdeInfo.setName(tableName);
         serdeInfo.setSerializationLib(storage.getStorageFormat().getSerDeNullable());
@@ -742,6 +739,7 @@ public final class ThriftMetastoreUtil
         sd.setSerdeInfo(serdeInfo);
         sd.setInputFormat(storage.getStorageFormat().getInputFormatNullable());
         sd.setOutputFormat(storage.getStorageFormat().getOutputFormatNullable());
+        sd.setSkewedInfoIsSet(storage.isSkewed());
         sd.setParameters(ImmutableMap.of());
 
         Optional<HiveBucketProperty> bucketProperty = storage.getBucketProperty();
