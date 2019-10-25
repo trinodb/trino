@@ -66,6 +66,7 @@ import static io.prestosql.plugin.hive.HivePartition.UNPARTITIONED_ID;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.getProtectMode;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.makePartName;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.verifyOnline;
+import static io.prestosql.plugin.hive.util.HiveUtil.getPartitionColumns;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static io.prestosql.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
@@ -318,7 +319,7 @@ public class HiveSplitManager
                 // column that exists in both the table and partition must have
                 // the same type.
                 List<Column> tableColumns = table.getDataColumns();
-                List<Column> partitionColumns = partition.getColumns();
+                List<Column> partitionColumns = getPartitionColumns(table, partition);
                 if ((tableColumns == null) || (partitionColumns == null)) {
                     throw new PrestoException(HIVE_INVALID_METADATA, format("Table '%s' or partition '%s' has null columns", tableName, partName));
                 }

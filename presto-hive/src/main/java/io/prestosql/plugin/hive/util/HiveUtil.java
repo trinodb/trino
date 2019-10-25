@@ -31,6 +31,7 @@ import io.prestosql.plugin.hive.HivePartitionKey;
 import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.plugin.hive.avro.PrestoAvroSerDe;
 import io.prestosql.plugin.hive.metastore.Column;
+import io.prestosql.plugin.hive.metastore.Partition;
 import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.spi.ErrorCodeSupplier;
 import io.prestosql.spi.PrestoException;
@@ -124,6 +125,7 @@ import static io.prestosql.plugin.hive.HiveMetadata.SKIP_FOOTER_COUNT_KEY;
 import static io.prestosql.plugin.hive.HiveMetadata.SKIP_HEADER_COUNT_KEY;
 import static io.prestosql.plugin.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static io.prestosql.plugin.hive.HiveType.toHiveTypes;
+import static io.prestosql.plugin.hive.metastore.MetastoreUtil.isAvroTableWithSchemaSet;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.copy;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.toJobConf;
 import static io.prestosql.plugin.hive.util.HiveBucketing.containsTimestampBucketedV2;
@@ -1017,5 +1019,10 @@ public final class HiveUtil
     public static List<HiveType> getColumnTypes(Properties schema)
     {
         return toHiveTypes(schema.getProperty(IOConstants.COLUMNS_TYPES, ""));
+    }
+
+    public static List<Column> getPartitionColumns(Table table, Partition partition)
+    {
+        return isAvroTableWithSchemaSet(table) ? table.getDataColumns() : partition.getColumns();
     }
 }

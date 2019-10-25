@@ -86,6 +86,7 @@ import static io.prestosql.plugin.hive.util.CompressionConfigUtil.configureCompr
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.toJobConf;
 import static io.prestosql.plugin.hive.util.HiveUtil.getColumnNames;
 import static io.prestosql.plugin.hive.util.HiveUtil.getColumnTypes;
+import static io.prestosql.plugin.hive.util.HiveUtil.getPartitionColumns;
 import static io.prestosql.plugin.hive.util.HiveWriteUtils.createPartitionValues;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static java.lang.Math.min;
@@ -380,7 +381,7 @@ public class HiveWriterFactory
                 updateMode = UpdateMode.APPEND;
                 // Check the column types in partition schema match the column types in table schema
                 List<Column> tableColumns = table.getDataColumns();
-                List<Column> existingPartitionColumns = partition.get().getColumns();
+                List<Column> existingPartitionColumns = getPartitionColumns(table, partition.get());
                 for (int i = 0; i < min(existingPartitionColumns.size(), tableColumns.size()); i++) {
                     HiveType tableType = tableColumns.get(i).getType();
                     HiveType partitionType = existingPartitionColumns.get(i).getType();

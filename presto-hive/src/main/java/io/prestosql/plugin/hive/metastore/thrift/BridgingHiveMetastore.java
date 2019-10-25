@@ -46,7 +46,6 @@ import java.util.stream.Collectors;
 
 import static io.prestosql.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.verifyCanDropColumn;
-import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiPartition;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiTable;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.isAvroTableWithSchemaSet;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.isCsvTable;
@@ -289,19 +288,10 @@ public class BridgingHiveMetastore
             return ImmutableMap.of();
         }
 
-        Function<org.apache.hadoop.hive.metastore.api.Partition, Partition> fromMetastoreApiPartition = ThriftMetastoreUtil::fromMetastoreApiPartition;
-        boolean isAvroTableWithSchemaSet = delegate.getTable(identity, databaseName, tableName)
-                .map(ThriftMetastoreUtil::isAvroTableWithSchemaSet)
-                .orElse(false);
-        if (isAvroTableWithSchemaSet) {
-            List<FieldSchema> schema = delegate.getFields(identity, databaseName, tableName).get();
-            fromMetastoreApiPartition = partition -> fromMetastoreApiPartition(partition, schema);
-        }
-
         Map<String, List<String>> partitionNameToPartitionValuesMap = partitionNames.stream()
                 .collect(Collectors.toMap(identity(), HiveUtil::toPartitionValues));
         Map<List<String>, Partition> partitionValuesToPartitionMap = delegate.getPartitionsByNames(identity, databaseName, tableName, partitionNames).stream()
-                .map(fromMetastoreApiPartition)
+                .map(ThriftMetastoreUtil::fromMetastoreApiPartition)
                 .collect(Collectors.toMap(Partition::getValues, identity()));
         ImmutableMap.Builder<String, Optional<Partition>> resultBuilder = ImmutableMap.builder();
         for (Map.Entry<String, List<String>> entry : partitionNameToPartitionValuesMap.entrySet()) {
