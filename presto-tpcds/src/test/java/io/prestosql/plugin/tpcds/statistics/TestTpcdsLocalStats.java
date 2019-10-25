@@ -21,6 +21,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static io.prestosql.SystemSessionProperties.COLLECT_PLAN_STATISTICS_FOR_ALL_QUERIES;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.tests.statistics.MetricComparisonStrategies.absoluteError;
 import static io.prestosql.tests.statistics.MetricComparisonStrategies.defaultTolerance;
@@ -40,6 +41,8 @@ public class TestTpcdsLocalStats
         Session defaultSession = testSessionBuilder()
                 .setCatalog("tpcds")
                 .setSchema("sf1")
+                // Stats for non-EXPLAIN queries are not collected by default
+                .setSystemProperty(COLLECT_PLAN_STATISTICS_FOR_ALL_QUERIES, "true")
                 .build();
 
         LocalQueryRunner queryRunner = new LocalQueryRunner(defaultSession);
