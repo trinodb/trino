@@ -167,8 +167,6 @@ import static io.prestosql.sql.QueryUtil.subquery;
 import static io.prestosql.sql.QueryUtil.table;
 import static io.prestosql.sql.QueryUtil.values;
 import static io.prestosql.sql.SqlFormatter.formatSql;
-import static io.prestosql.sql.parser.IdentifierSymbol.AT_SIGN;
-import static io.prestosql.sql.parser.IdentifierSymbol.COLON;
 import static io.prestosql.sql.parser.ParserAssert.expression;
 import static io.prestosql.sql.parser.ParserAssert.statement;
 import static io.prestosql.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
@@ -679,21 +677,6 @@ public class TestSqlParser
                 new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY,
                         new LongLiteral("2"),
                         new LongLiteral("3"))));
-    }
-
-    @Test
-    public void testAllowIdentifierColon()
-    {
-        SqlParser sqlParser = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON));
-        sqlParser.createStatement("select * from foo:bar");
-    }
-
-    @SuppressWarnings("deprecation")
-    @Test
-    public void testAllowIdentifierAtSign()
-    {
-        SqlParser sqlParser = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(AT_SIGN));
-        sqlParser.createStatement("select * from foo@bar");
     }
 
     @Test
