@@ -171,6 +171,8 @@ public class IcebergMetadata
                 return Optional.of(new PartitionTable(table, typeManager, icebergTable));
             case HISTORY:
                 return Optional.of(new HistoryTable(table.getSchemaTableNameWithType(), icebergTable));
+            case SNAPSHOTS:
+                return Optional.of(new SnapshotsTable(table.getSchemaTableNameWithType(), typeManager, icebergTable));
         }
         return Optional.empty();
     }

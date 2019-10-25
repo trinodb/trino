@@ -124,6 +124,21 @@ public class TestIcebergSystemTables
         assertQuery("SELECT count(*) FROM test_schema.\"test_table$history\"", "VALUES 3");
     }
 
+    @Test
+    public void testSnapshotsTable()
+    {
+        assertQuery("SHOW COLUMNS FROM test_schema.\"test_table$snapshots\"",
+                "VALUES ('committed_at', 'timestamp with time zone', '', '')," +
+                        "('snapshot_id', 'bigint', '', '')," +
+                        "('parent_id', 'bigint', '', '')," +
+                        "('operation', 'varchar', '', '')," +
+                        "('manifest_list', 'varchar', '', '')," +
+                        "('summary', 'map(varchar, varchar)', '', '')");
+
+        assertQuery("SELECT operation FROM test_schema.\"test_table$snapshots\"", "VALUES 'append', 'append', 'append'");
+        assertQuery("SELECT summary['total-records'] FROM test_schema.\"test_table$snapshots\"", "VALUES '0', '3', '6'");
+    }
+
     @AfterClass(alwaysRun = true)
     public void tearDown()
     {
