@@ -451,10 +451,9 @@ public final class ThriftMetastoreUtil
         }
         SerDeInfo serdeInfo = getSerdeInfo(table);
 
-        return serdeInfo.getSerializationLib() != null &&
+        return AVRO.getSerDe().equals(serdeInfo.getSerializationLib()) &&
                 (table.getParameters().get(AVRO_SCHEMA_URL_KEY) != null ||
-                        (serdeInfo.getParameters() != null && serdeInfo.getParameters().get(AVRO_SCHEMA_URL_KEY) != null)) &&
-                serdeInfo.getSerializationLib().equals(AVRO.getSerDe());
+                        (serdeInfo.getParameters() != null && serdeInfo.getParameters().get(AVRO_SCHEMA_URL_KEY) != null));
     }
 
     public static boolean isCsvTable(org.apache.hadoop.hive.metastore.api.Table table)
