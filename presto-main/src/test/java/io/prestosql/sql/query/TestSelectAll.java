@@ -25,6 +25,8 @@ public class TestSelectAll
 {
     private QueryAssertions assertions;
 
+    private static final String UNSUPPORTED_DECORRELATION_MESSAGE = ".*: Given correlated subquery is not supported";
+
     @BeforeClass
     public void init()
     {
@@ -165,5 +167,62 @@ public class TestSelectAll
         assertions.assertQueryOrdered(
                 "SELECT array_agg(r[2]), t.r.* FROM (VALUES ROW(ROW(1, true)), ROW(ROW(2, false)), ROW(ROW(1, true))) t(r) GROUP BY r ORDER BY r[2]",
                 "VALUES (ARRAY[false], 2, false), (ARRAY[true, true], 1, true)");
+    }
+
+    @Test
+    public void testSelectAllFromOuterScopeTable()
+    {
+        // scalar subquery
+        assertions.assertQuery("SELECT (SELECT t.*) FROM (VALUES 1, 2) t(a)", "VALUES 1, 2");
+        assertions.assertQuery("SELECT (SELECT t.* FROM (SELECT 'a', 'b')) FROM (VALUES 1, 2) t(a)", "VALUES 1, 2");
+        assertions.assertQuery("SELECT (SELECT t.* FROM (VALUES 0)) FROM (VALUES 1, 2) t(a)", "VALUES 1, 2");
+        assertions.assertQuery("SELECT (SELECT t.* FROM (VALUES 0)) FROM (SELECT * FROM (VALUES 1, 1, 1) LIMIT 2) t(a)", "VALUES 1, 1");
+        assertions.assertFails(
+                "SELECT (SELECT t.* FROM (VALUES 0)) FROM (VALUES (1, 1), (2, 2)) t(a, b)",
+                ".*Multiple columns returned by subquery are not yet supported. Found 2");
+        // the following query should fail due to multiple rows returned from subquery, but instead fails to decorrelate
+        assertions.assertFails("SELECT (SELECT t.* FROM (VALUES 0, 1)) FROM (VALUES 2) t(a)", UNSUPPORTED_DECORRELATION_MESSAGE);
+        // filter in subquery
+        assertions.assertQuery("SELECT (SELECT t.* FROM (VALUES 0) WHERE true) FROM (VALUES 1) t(a)", "VALUES 1");
+        assertions.assertFails("SELECT (SELECT t.* FROM (VALUES 0) WHERE 0 = 0) FROM (VALUES 1) t(a)", UNSUPPORTED_DECORRELATION_MESSAGE);
+        assertions.assertFails("SELECT (SELECT t.* FROM (VALUES 0) t2(b) WHERE b > 1) FROM (VALUES 1) t(a)", UNSUPPORTED_DECORRELATION_MESSAGE);
+        assertions.assertFails("SELECT (SELECT t.* FROM (VALUES 0) WHERE false) FROM (VALUES 1) t(a)", UNSUPPORTED_DECORRELATION_MESSAGE);
+        // limit in subquery
+        assertions.assertQuery("SELECT (SELECT t.* FROM (VALUES 0) LIMIT 1) FROM (VALUES 1, 2) t(a)", "VALUES 1, 2");
+        assertions.assertQuery("SELECT (SELECT t.* FROM (VALUES 0) LIMIT 5) FROM (VALUES 1, 2) t(a)", "VALUES 1, 2");
+        assertions.assertFails("SELECT (SELECT t.* FROM (VALUES 0) LIMIT 0) FROM (VALUES 1, 2) t(a)", UNSUPPORTED_DECORRELATION_MESSAGE);
+        assertions.assertFails("SELECT (SELECT t.* FROM (VALUES 0, 1) LIMIT 1) FROM (VALUES 2, 3) t(a)", UNSUPPORTED_DECORRELATION_MESSAGE);
+        assertions.assertFails("SELECT (SELECT t.* FROM (SELECT * FROM (VALUES 0, 1) LIMIT 1)) FROM (VALUES 2, 3) t(a)", UNSUPPORTED_DECORRELATION_MESSAGE);
+
+        // EXISTS subquery
+        assertions.assertQuery("SELECT EXISTS(SELECT t.* FROM (VALUES 0)) FROM (VALUES 1, 2) t(a)", "VALUES true, true");
+        assertions.assertQuery("SELECT EXISTS(SELECT t.* FROM (VALUES 1) t2(b) WHERE t2.b > t.a) FROM (VALUES 0, 2) t(a)", "VALUES true, false");
+
+        // IN subquery
+        assertions.assertFails("SELECT 1 IN (SELECT t.*) FROM (VALUES 1, 2) t(a)", UNSUPPORTED_DECORRELATION_MESSAGE);
+
+        // lateral relation
+        assertions.assertQuery("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT t.*)", "VALUES (0, 0), (1, 1)");
+        assertions.assertQuery("SELECT t.a, t2.d FROM (VALUES (0, 1), (2, 3)) t(a, b), LATERAL (SELECT t.*) t2(c, d)", "VALUES (0, 1), (2, 3)");
+        // limit in lateral relation
+        assertions.assertQuery("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT t.* LIMIT 5)", "VALUES (0, 0), (1, 1)");
+        assertions.assertFails("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT t.* LIMIT 0)", UNSUPPORTED_DECORRELATION_MESSAGE);
+        // filter in lateral relation
+        assertions.assertQuery("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT t.* WHERE true)", "VALUES (0, 0), (1, 1)");
+        assertions.assertFails("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT t.* WHERE 0 = 0)", UNSUPPORTED_DECORRELATION_MESSAGE);
+        assertions.assertFails("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT t.* WHERE false)", UNSUPPORTED_DECORRELATION_MESSAGE);
+        assertions.assertFails("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT t.* WHERE t.a = 0)", UNSUPPORTED_DECORRELATION_MESSAGE);
+        // FROM in lateral relation
+        assertions.assertQuery("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT t.* FROM (VALUES 1))", "VALUES (0, 0), (1, 1)");
+        assertions.assertFails("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT t.* FROM (VALUES 1, 2))", UNSUPPORTED_DECORRELATION_MESSAGE);
+        assertions.assertFails("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT t.* FROM (VALUES 1, 2) LIMIT 1)", UNSUPPORTED_DECORRELATION_MESSAGE);
+        assertions.assertFails("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT t.* FROM (SELECT * FROM (VALUES 1, 2) LIMIT 1))", UNSUPPORTED_DECORRELATION_MESSAGE);
+
+        // reference to further outer scope relation
+        assertions.assertQuery("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT t2.* from (VALUES 3, 4) t2(b), LATERAL (SELECT t.*))", "VALUES (0, 3), (1, 3), (0, 4), (1, 4)");
+        assertions.assertQuery("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT t2.* from (VALUES 2), LATERAL (SELECT t.*) t2(b))", "VALUES (0, 0), (1, 1)");
+        assertions.assertQuery("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT t2.b from (VALUES 2), LATERAL (SELECT t.*) t2(b))", "VALUES (0, 0), (1, 1)");
+        assertions.assertFails("SELECT * FROM (VALUES 0) t(a), LATERAL (SELECT t2.* from (VALUES 1, 2), LATERAL (SELECT t.*) t2(b))", UNSUPPORTED_DECORRELATION_MESSAGE);
+        assertions.assertFails("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT * from (VALUES 2), LATERAL (SELECT t.*))", UNSUPPORTED_DECORRELATION_MESSAGE);
     }
 }

@@ -1929,16 +1929,21 @@ class StatementAnalyzer
                         throw semanticException(TABLE_NOT_FOUND, allColumns, "Unable to resolve reference " + prefix);
                     }
                     if (identifierChainBasis.get().getBasisType() == TABLE) {
-                        // TODO enable all fields reference from outer scope relation
-                        if (!scope.isLocalScope(identifierChainBasis.get().getScope().get())) {
-                            throw semanticException(NOT_SUPPORTED, allColumns, "SELECT * from outer scope relation not yet supported");
-                        }
                         RelationType relationType = identifierChainBasis.get().getRelationType().get();
                         List<Field> fields = relationType.resolveVisibleFieldsWithRelationPrefix(Optional.of(prefix));
                         if (fields.isEmpty()) {
                             throw semanticException(COLUMN_NOT_FOUND, allColumns, "SELECT * not allowed from relation that has no columns");
                         }
-                        analyzeAllColumnsFromTable(fields, allColumns, node, scope, outputExpressionBuilder, selectExpressionBuilder, relationType);
+                        boolean local = scope.isLocalScope(identifierChainBasis.get().getScope().get());
+                        analyzeAllColumnsFromTable(
+                                fields,
+                                allColumns,
+                                node,
+                                local ? scope : identifierChainBasis.get().getScope().get(),
+                                outputExpressionBuilder,
+                                selectExpressionBuilder,
+                                relationType,
+                                local);
                         return;
                     }
                 }
@@ -1959,7 +1964,7 @@ class StatementAnalyzer
                     throw semanticException(COLUMN_NOT_FOUND, allColumns, "SELECT * not allowed from relation that has no columns");
                 }
 
-                analyzeAllColumnsFromTable(fields, allColumns, node, scope, outputExpressionBuilder, selectExpressionBuilder, scope.getRelationType());
+                analyzeAllColumnsFromTable(fields, allColumns, node, scope, outputExpressionBuilder, selectExpressionBuilder, scope.getRelationType(), true);
             }
         }
 
@@ -1970,7 +1975,8 @@ class StatementAnalyzer
                 Scope scope,
                 ImmutableList.Builder<Expression> outputExpressionBuilder,
                 ImmutableList.Builder<SelectExpression> selectExpressionBuilder,
-                RelationType relationType)
+                RelationType relationType,
+                boolean local)
         {
             if (!allColumns.getAliases().isEmpty()) {
                 validateColumnAliasesCount(allColumns.getAliases(), fields.size());
@@ -1980,11 +1986,20 @@ class StatementAnalyzer
 
             for (int i = 0; i < fields.size(); i++) {
                 Field field = fields.get(i);
-                int fieldIndex = relationType.indexOf(field);
-                FieldReference fieldReference = new FieldReference(fieldIndex);
-                analyzeExpression(fieldReference, scope);
-                outputExpressionBuilder.add(fieldReference);
-                selectExpressionBuilder.add(new SelectExpression(fieldReference, Optional.empty()));
+                Expression fieldExpression;
+                if (local) {
+                    fieldExpression = new FieldReference(relationType.indexOf(field));
+                }
+                else {
+                    if (!field.getName().isPresent()) {
+                        throw semanticException(NOT_SUPPORTED, node.getSelect(), "SELECT * from outer scope table not supported with anonymous columns");
+                    }
+                    checkState(field.getRelationAlias().isPresent(), "missing relation alias");
+                    fieldExpression = new DereferenceExpression(DereferenceExpression.from(field.getRelationAlias().get()), new Identifier(field.getName().get()));
+                }
+                analyzeExpression(fieldExpression, scope);
+                outputExpressionBuilder.add(fieldExpression);
+                selectExpressionBuilder.add(new SelectExpression(fieldExpression, Optional.empty()));
 
                 Optional<String> alias = field.getName();
                 if (!allColumns.getAliases().isEmpty()) {

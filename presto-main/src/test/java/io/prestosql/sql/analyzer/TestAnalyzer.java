@@ -287,7 +287,7 @@ public class TestAnalyzer
         assertFails("SELECT t.row.non_row.* FROM (VALUES (CAST(ROW('true') AS ROW(non_row boolean)), 1)) t(row, b)")
                 .hasErrorCode(TYPE_MISMATCH);
 
-        // reference to outer scope relation
+        // reference to outer scope relation with anonymous field
         assertFails("SELECT (SELECT outer_relation.* FROM (VALUES 1) inner_relation) FROM (values 2) outer_relation")
                 .hasErrorCode(NOT_SUPPORTED);
     }
@@ -329,9 +329,8 @@ public class TestAnalyzer
         // identifier chain of length 2; no ambiguity: only field match in outer scope
         analyze(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT (SELECT a.b.* FROM (VALUES 1) v) FROM t5 AS a");
 
-        // identifier chain of length 2; no ambiguity: only table match in outer scope (not supported)
-        assertFails(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT (SELECT a.b.* FROM (VALUES 1) v) FROM a.b")
-                .hasErrorCode(NOT_SUPPORTED);
+        // identifier chain of length 2; no ambiguity: only table match in outer scope
+        analyze(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT (SELECT a.b.* FROM (VALUES 1) v) FROM a.b");
 
         // identifier chain of length 1; only table match allowed, no potential ambiguity detection (could match field b from t1)
         analyze(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT b.* FROM b, t1");
