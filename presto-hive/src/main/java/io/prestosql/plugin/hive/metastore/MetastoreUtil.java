@@ -35,7 +35,6 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.prestosql.plugin.hive.HiveSplitManager.PRESTO_OFFLINE;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.security.PrincipalType.USER;
-import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.ColumnType.typeToThriftType;
 import static org.apache.hadoop.hive.metastore.ProtectMode.getProtectModeFromString;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.BUCKET_COUNT;
@@ -176,11 +175,6 @@ public final class MetastoreUtil
     public static ProtectMode getProtectMode(Table table)
     {
         return getProtectMode(table.getParameters());
-    }
-
-    public static String makePartName(List<Column> partitionColumns, List<String> values)
-    {
-        return toPartitionName(partitionColumns.stream().map(Column::getName).collect(toList()), values);
     }
 
     public static String toPartitionName(List<String> names, List<String> values)

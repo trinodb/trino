@@ -25,7 +25,6 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.prestosql.plugin.hive.metastore.HiveTableName.hiveTableName;
-import static io.prestosql.plugin.hive.metastore.MetastoreUtil.makePartName;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.makePartitionName;
 import static io.prestosql.plugin.hive.util.HiveUtil.toPartitionValues;
 import static java.util.Objects.requireNonNull;
@@ -64,7 +63,7 @@ public class HivePartitionName
 
     public static HivePartitionName hivePartitionName(Table table, List<String> partitionValues)
     {
-        return new HivePartitionName(hiveTableName(table), partitionValues, Optional.of(makePartName(table.getPartitionColumns(), partitionValues)));
+        return new HivePartitionName(hiveTableName(table), partitionValues, Optional.of(makePartitionName(table.getPartitionColumns(), partitionValues)));
     }
 
     public static HivePartitionName hivePartitionName(HiveTableName hiveTableName, String partitionName)

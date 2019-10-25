@@ -111,6 +111,7 @@ import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege
 import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
 import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.UPDATE;
+import static io.prestosql.plugin.hive.metastore.MetastoreUtil.toPartitionName;
 import static io.prestosql.spi.security.PrincipalType.ROLE;
 import static io.prestosql.spi.security.PrincipalType.USER;
 import static io.prestosql.spi.statistics.ColumnStatisticType.MAX_VALUE;
@@ -160,11 +161,12 @@ public final class ThriftMetastoreUtil
 
     public static String makePartitionName(Table table, Partition partition)
     {
-        return FileUtils.makePartName(
-                table.getPartitionColumns().stream()
-                        .map(Column::getName)
-                        .collect(toImmutableList()),
-                partition.getValues());
+        return makePartitionName(table.getPartitionColumns(), partition.getValues());
+    }
+
+    public static String makePartitionName(List<Column> partitionColumns, List<String> values)
+    {
+        return toPartitionName(partitionColumns.stream().map(Column::getName).collect(toList()), values);
     }
 
     public static String makePartitionName(org.apache.hadoop.hive.metastore.api.Table table, org.apache.hadoop.hive.metastore.api.Partition partition)
