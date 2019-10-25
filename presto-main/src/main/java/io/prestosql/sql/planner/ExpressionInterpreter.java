@@ -61,8 +61,6 @@ import io.prestosql.sql.tree.CurrentUser;
 import io.prestosql.sql.tree.DereferenceExpression;
 import io.prestosql.sql.tree.ExistsPredicate;
 import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.ExpressionRewriter;
-import io.prestosql.sql.tree.ExpressionTreeRewriter;
 import io.prestosql.sql.tree.FieldReference;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.Identifier;
@@ -136,6 +134,7 @@ import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.prestosql.sql.gen.VarArgsToMapAdapterGenerator.generateVarArgsToMapAdapter;
 import static io.prestosql.sql.planner.DeterminismEvaluator.isDeterministic;
+import static io.prestosql.sql.planner.ResolvedFunctionCallRewriter.rewriteResolvedFunctions;
 import static io.prestosql.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
 import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.type.LikeFunctions.isLikePattern;
@@ -233,27 +232,7 @@ public class ExpressionInterpreter
         analyzer.analyze(canonicalized, Scope.create());
 
         // resolve functions
-        Map<NodeRef<FunctionCall>, ResolvedFunction> resolvedFunctions = analyzer.getResolvedFunctions();
-        Expression resolved = ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
-        {
-            @Override
-            public Expression rewriteFunctionCall(FunctionCall node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                ResolvedFunction resolvedFunction = resolvedFunctions.get(NodeRef.of(node));
-                checkArgument(resolvedFunction != null, "Function has not been analyzed: %s", node);
-
-                FunctionCall rewritten = treeRewriter.defaultRewrite(node, context);
-                return new FunctionCall(
-                        rewritten.getLocation(),
-                        resolvedFunction.toQualifiedName(),
-                        rewritten.getWindow(),
-                        rewritten.getFilter(),
-                        rewritten.getOrderBy(),
-                        rewritten.isDistinct(),
-                        rewritten.getNullTreatment(),
-                        rewritten.getArguments());
-            }
-        }, canonicalized);
+        Expression resolved = rewriteResolvedFunctions(canonicalized, analyzer.getResolvedFunctions());
 
         // The optimization above may have rewritten the expression tree which breaks all the identity maps, so redo the analysis
         // to re-analyze coercions that might be necessary
