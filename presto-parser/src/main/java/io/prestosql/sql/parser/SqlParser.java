@@ -37,7 +37,6 @@ import org.antlr.v4.runtime.tree.TerminalNode;
 import javax.inject.Inject;
 
 import java.util.Arrays;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.function.Function;
 
@@ -68,7 +67,6 @@ public class SqlParser
             .ignoredRule(SqlBaseParser.RULE_nonReserved)
             .build();
 
-    private final EnumSet<IdentifierSymbol> allowedIdentifierSymbols;
     private boolean enhancedErrorHandlerEnabled;
 
     public SqlParser()
@@ -80,7 +78,6 @@ public class SqlParser
     public SqlParser(SqlParserOptions options)
     {
         requireNonNull(options, "options is null");
-        allowedIdentifierSymbols = EnumSet.copyOf(options.getAllowedIdentifierSymbols());
         enhancedErrorHandlerEnabled = options.isEnhancedErrorHandlerEnabled();
     }
 
@@ -198,18 +195,6 @@ public class SqlParser
             Token token = context.QUOTED_IDENTIFIER().getSymbol();
             if (token.getText().length() == 2) { // empty identifier
                 throw new ParsingException("Zero-length delimited identifier not allowed", null, token.getLine(), token.getCharPositionInLine());
-            }
-        }
-
-        @Override
-        public void exitUnquotedIdentifier(SqlBaseParser.UnquotedIdentifierContext context)
-        {
-            String identifier = context.IDENTIFIER().getText();
-            for (IdentifierSymbol identifierSymbol : EnumSet.complementOf(allowedIdentifierSymbols)) {
-                char symbol = identifierSymbol.getSymbol();
-                if (identifier.indexOf(symbol) >= 0) {
-                    throw new ParsingException("identifiers must not contain '" + identifierSymbol.getSymbol() + "'", null, context.IDENTIFIER().getSymbol().getLine(), context.IDENTIFIER().getSymbol().getCharPositionInLine());
-                }
             }
         }
 
