@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
+import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
@@ -550,7 +551,8 @@ public class FeaturesConfig
         return iterativeOptimizerEnabled;
     }
 
-    @Config("experimental.iterative-optimizer-enabled")
+    @Config("iterative-optimizer-enabled")
+    @LegacyConfig("experimental.iterative-optimizer-enabled")
     public FeaturesConfig setIterativeOptimizerEnabled(boolean value)
     {
         this.iterativeOptimizerEnabled = value;
@@ -562,7 +564,8 @@ public class FeaturesConfig
         return iterativeOptimizerTimeout;
     }
 
-    @Config("experimental.iterative-optimizer-timeout")
+    @Config("iterative-optimizer-timeout")
+    @LegacyConfig("experimental.iterative-optimizer-timeout")
     public FeaturesConfig setIterativeOptimizerTimeout(Duration timeout)
     {
         this.iterativeOptimizerTimeout = timeout;
@@ -574,7 +577,8 @@ public class FeaturesConfig
         return enableStatsCalculator;
     }
 
-    @Config("experimental.enable-stats-calculator")
+    @Config("enable-stats-calculator")
+    @LegacyConfig("experimental.enable-stats-calculator")
     public FeaturesConfig setEnableStatsCalculator(boolean enableStatsCalculator)
     {
         this.enableStatsCalculator = enableStatsCalculator;
@@ -843,7 +847,8 @@ public class FeaturesConfig
         return filterAndProjectMinOutputPageSize;
     }
 
-    @Config("experimental.filter-and-project-min-output-page-size")
+    @Config("filter-and-project-min-output-page-size")
+    @LegacyConfig("experimental.filter-and-project-min-output-page-size")
     public FeaturesConfig setFilterAndProjectMinOutputPageSize(DataSize filterAndProjectMinOutputPageSize)
     {
         this.filterAndProjectMinOutputPageSize = filterAndProjectMinOutputPageSize;
@@ -856,7 +861,8 @@ public class FeaturesConfig
         return filterAndProjectMinOutputPageRowCount;
     }
 
-    @Config("experimental.filter-and-project-min-output-page-row-count")
+    @Config("filter-and-project-min-output-page-row-count")
+    @LegacyConfig("experimental.filter-and-project-min-output-page-row-count")
     public FeaturesConfig setFilterAndProjectMinOutputPageRowCount(int filterAndProjectMinOutputPageRowCount)
     {
         this.filterAndProjectMinOutputPageRowCount = filterAndProjectMinOutputPageRowCount;
