@@ -295,4 +295,10 @@ public class JdbcMetadata
         JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
         return jdbcClient.getTableStatistics(session, handle, constraint.getSummary());
     }
+
+    @Override
+    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
+    {
+        jdbcClient.createSchema(JdbcIdentity.from(session), schemaName);
+    }
 }

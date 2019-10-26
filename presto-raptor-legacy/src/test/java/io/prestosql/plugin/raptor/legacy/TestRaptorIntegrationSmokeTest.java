@@ -771,4 +771,16 @@ public class TestRaptorIntegrationSmokeTest
 
         assertUpdate("DROP TABLE test_alter_table");
     }
+
+    @Override
+    protected boolean canCreateSchema()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean canDropSchema()
+    {
+        return false;
+    }
 }

@@ -451,6 +451,18 @@ public class TestElasticsearchIntegrationSmokeTest
         assertQueryFails("SELECT count(*) FROM \"orders: ++foo AND\"", "\\QFailed to parse query [ ++foo and]\\E");
     }
 
+    @Override
+    protected boolean canCreateSchema()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean canDropSchema()
+    {
+        return false;
+    }
+
     private void index(String indexName, Map<String, Object> document)
     {
         embeddedElasticsearchNode.getClient()
