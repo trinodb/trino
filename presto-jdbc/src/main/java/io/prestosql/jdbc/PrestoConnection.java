@@ -541,7 +541,7 @@ public class PrestoConnection
     }
 
     /**
-     * Adds a session property (experimental).
+     * Adds a session property.
      */
     public void setSessionProperty(String name, String value)
     {
