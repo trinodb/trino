@@ -124,6 +124,7 @@ public class FeaturesConfig
     private boolean workProcessorPipelines;
     private boolean skipRedundantSort = true;
     private boolean predicatePushdownUseTableProperties = true;
+    private boolean ignoreDownstreamPreferences;
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
     private boolean enableDynamicFiltering;
@@ -984,6 +985,18 @@ public class FeaturesConfig
     public FeaturesConfig setPredicatePushdownUseTableProperties(boolean predicatePushdownUseTableProperties)
     {
         this.predicatePushdownUseTableProperties = predicatePushdownUseTableProperties;
+        return this;
+    }
+
+    public boolean isIgnoreDownstreamPreferences()
+    {
+        return ignoreDownstreamPreferences;
+    }
+
+    @Config("optimizer.ignore-downstream-preferences")
+    public FeaturesConfig setIgnoreDownstreamPreferences(boolean ignoreDownstreamPreferences)
+    {
+        this.ignoreDownstreamPreferences = ignoreDownstreamPreferences;
         return this;
     }
 }

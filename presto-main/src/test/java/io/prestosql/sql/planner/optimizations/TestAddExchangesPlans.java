@@ -16,6 +16,7 @@ package io.prestosql.sql.planner.optimizations;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
 import io.prestosql.plugin.tpch.TpchConnectorFactory;
 import io.prestosql.sql.analyzer.FeaturesConfig;
@@ -23,11 +24,14 @@ import io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import io.prestosql.sql.planner.assertions.BasePlanTest;
 import io.prestosql.sql.planner.plan.ExchangeNode;
 import io.prestosql.sql.planner.plan.JoinNode.DistributionType;
+import io.prestosql.sql.planner.plan.MarkDistinctNode;
+import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.testing.LocalQueryRunner;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static io.prestosql.SystemSessionProperties.IGNORE_DOWNSTREAM_PREFERENCES;
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.SystemSessionProperties.SPILL_ENABLED;
 import static io.prestosql.SystemSessionProperties.TASK_CONCURRENCY;
@@ -38,7 +42,10 @@ import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyNot;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.exchange;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.join;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.node;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
 import static io.prestosql.sql.planner.plan.ExchangeNode.Scope.LOCAL;
@@ -160,6 +167,45 @@ public class TestAddExchangesPlans
                                         exchange(REMOTE, REPARTITION,
                                                 anyTree(
                                                         tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))));
+    }
+
+    @Test
+    public void testForcePartitioningMarkDistinctInput()
+    {
+        String query = "SELECT count(orderkey), count(distinct orderkey), custkey , count(1) FROM ( SELECT * FROM (VALUES (1, 2)) as t(custkey, orderkey) UNION ALL SELECT 3, 4) GROUP BY 3";
+        assertDistributedPlan(
+                query,
+                Session.builder(getQueryRunner().getDefaultSession())
+                        .setSystemProperty(IGNORE_DOWNSTREAM_PREFERENCES, "true")
+                        .build(),
+                anyTree(
+                        node(MarkDistinctNode.class,
+                                anyTree(
+                                        exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partition1", "partition2"),
+                                                anyTree(
+                                                        values(ImmutableList.of("partition1", "partition2")))),
+                                        exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partition3", "partition3"),
+                                                project(
+                                                        project(ImmutableMap.of("partition3", expression("3"), "partition4", expression("4")),
+                                                                anyTree(
+                                                                        node(ValuesNode.class)))))))));
+
+        assertDistributedPlan(
+                query,
+                Session.builder(getQueryRunner().getDefaultSession())
+                        .setSystemProperty(IGNORE_DOWNSTREAM_PREFERENCES, "false")
+                        .build(),
+                anyTree(
+                        node(MarkDistinctNode.class,
+                                anyTree(
+                                        exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partition1"),
+                                                anyTree(
+                                                        values(ImmutableList.of("partition1", "partition2")))),
+                                        exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partition3"),
+                                                project(
+                                                        project(ImmutableMap.of("partition3", expression("3"), "partition4", expression("4")),
+                                                                anyTree(
+                                                                        node(ValuesNode.class)))))))));
     }
 
     private Session spillEnabledWithJoinDistributionType(JoinDistributionType joinDistributionType)
