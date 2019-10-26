@@ -124,6 +124,7 @@ public final class SystemSessionProperties
     public static final String QUERY_MAX_TOTAL_MEMORY_PER_NODE = "query_max_total_memory_per_node";
     public static final String DYNAMIC_FILTERING_MAX_PER_DRIVER_ROW_COUNT = "dynamic_filtering_max_per_driver_row_count";
     public static final String DYNAMIC_FILTERING_MAX_PER_DRIVER_SIZE = "dynamic_filtering_max_per_driver_size";
+    public static final String IGNORE_DOWNSTREAM_PREFERENCES = "ignore_downstream_preferences";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -546,6 +547,11 @@ public final class SystemSessionProperties
                         DYNAMIC_FILTERING_MAX_PER_DRIVER_SIZE,
                         "Experimental: maximum number of bytes to be collected for dynamic filtering per-driver",
                         featuresConfig.getDynamicFilteringMaxPerDriverSize(),
+                        false),
+                booleanProperty(
+                        IGNORE_DOWNSTREAM_PREFERENCES,
+                        "Ignore Parent's PreferredProperties in AddExchange optimizer",
+                        featuresConfig.isIgnoreDownstreamPreferences(),
                         false));
     }
 
@@ -970,6 +976,11 @@ public final class SystemSessionProperties
     public static DataSize getDynamicFilteringMaxPerDriverSize(Session session)
     {
         return session.getSystemProperty(DYNAMIC_FILTERING_MAX_PER_DRIVER_SIZE, DataSize.class);
+    }
+
+    public static boolean ignoreDownStreamPreferences(Session session)
+    {
+        return session.getSystemProperty(IGNORE_DOWNSTREAM_PREFERENCES, Boolean.class);
     }
 
     private static PropertyMetadata<DataSize> dataSizeProperty(String name, String description, DataSize defaultValue, boolean hidden)

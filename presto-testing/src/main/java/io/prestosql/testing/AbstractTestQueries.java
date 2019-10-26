@@ -48,6 +48,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.prestosql.SystemSessionProperties.IGNORE_DOWNSTREAM_PREFERENCES;
 import static io.prestosql.connector.informationschema.InformationSchemaTable.INFORMATION_SCHEMA;
 import static io.prestosql.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static io.prestosql.operator.scalar.InvokeFunction.INVOKE_FUNCTION;
@@ -5353,5 +5354,27 @@ public abstract class AbstractTestQueries
         assertEquals(doubleColumnResult.getRowCount(), 1);
         assertEquals(doubleColumnResult.getTypes().get(0), DOUBLE);
         assertEquals(doubleColumnResult.getMaterializedRows().get(0).getField(0), 1.0);
+    }
+
+    @Test
+    public void testForcePartitioningMarkDistinctInput()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(IGNORE_DOWNSTREAM_PREFERENCES, "false")
+                .build();
+
+        assertQuery(
+                session,
+                "SELECT count(orderkey), count(distinct orderkey), custkey , count(1) FROM ( SELECT * FROM (VALUES (1, 2)) as t(custkey, orderkey) UNION ALL SELECT 3, 4) GROUP BY 3",
+                "VALUES (1, 1, 1, 1), (1, 1, 3, 1)");
+
+        session = Session.builder(getSession())
+                .setSystemProperty(IGNORE_DOWNSTREAM_PREFERENCES, "true")
+                .build();
+
+        assertQuery(
+                session,
+                "SELECT count(orderkey), count(distinct orderkey), custkey , count(1) FROM ( SELECT * FROM (VALUES (1, 2)) as t(custkey, orderkey) UNION ALL SELECT 3, 4) GROUP BY 3",
+                "VALUES (1, 1, 1, 1), (1, 1, 3, 1)");
     }
 }
