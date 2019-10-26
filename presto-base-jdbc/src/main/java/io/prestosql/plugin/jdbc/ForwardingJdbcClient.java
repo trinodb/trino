@@ -223,4 +223,10 @@ public abstract class ForwardingJdbcClient
     {
         getDelegate().createTable(session, tableMetadata);
     }
+
+    @Override
+    public void createSchema(JdbcIdentity identity, String schemaName)
+    {
+        getDelegate().createSchema(identity, schemaName);
+    }
 }

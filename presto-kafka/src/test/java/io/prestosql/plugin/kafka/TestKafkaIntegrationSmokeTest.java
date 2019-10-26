@@ -34,6 +34,18 @@ public class TestKafkaIntegrationSmokeTest
         return createKafkaQueryRunner(testingKafka, TpchTable.getTables());
     }
 
+    @Override
+    protected boolean canCreateSchema()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean canDropSchema()
+    {
+        return false;
+    }
+
     @AfterClass(alwaysRun = true)
     public void destroy()
     {

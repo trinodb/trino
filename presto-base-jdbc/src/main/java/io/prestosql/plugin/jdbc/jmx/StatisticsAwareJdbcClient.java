@@ -230,6 +230,12 @@ public class StatisticsAwareJdbcClient
         return stats.getTableStatistics.wrap(() -> getDelegate().getTableStatistics(session, handle, tupleDomain));
     }
 
+    @Override
+    public void createSchema(JdbcIdentity identity, String schemaName)
+    {
+        stats.getCreateSchema().wrap(() -> getDelegate().createSchema(identity, schemaName));
+    }
+
     public static final class JdbcClientStats
     {
         private final JdbcApiStats schemaExists = new JdbcApiStats();
@@ -258,6 +264,7 @@ public class StatisticsAwareJdbcClient
         private final JdbcApiStats renameColumn = new JdbcApiStats();
         private final JdbcApiStats renameTable = new JdbcApiStats();
         private final JdbcApiStats createTable = new JdbcApiStats();
+        private final JdbcApiStats createSchema = new JdbcApiStats();
 
         @Managed
         @Nested
@@ -439,6 +446,13 @@ public class StatisticsAwareJdbcClient
         public JdbcApiStats getCreateTable()
         {
             return createTable;
+        }
+
+        @Managed
+        @Nested
+        public JdbcApiStats getCreateSchema()
+        {
+            return createSchema;
         }
     }
 }

@@ -28,6 +28,18 @@ public class TestAccumuloIntegrationSmokeTest
     }
 
     @Override
+    protected boolean canCreateSchema()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean canDropSchema()
+    {
+        return false;
+    }
+
+    @Override
     public void testDescribeTable()
     {
         // Override base class because table descriptions for Accumulo connector include comments

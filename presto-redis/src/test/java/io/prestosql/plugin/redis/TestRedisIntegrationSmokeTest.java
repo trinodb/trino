@@ -45,4 +45,16 @@ public class TestRedisIntegrationSmokeTest
     {
         embeddedRedis.close();
     }
+
+    @Override
+    protected boolean canCreateSchema()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean canDropSchema()
+    {
+        return false;
+    }
 }

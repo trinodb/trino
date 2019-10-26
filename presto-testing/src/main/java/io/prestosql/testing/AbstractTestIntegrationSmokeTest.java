@@ -13,16 +13,28 @@
  */
 package io.prestosql.testing;
 
+import com.google.common.collect.ImmutableList;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
+
+import java.security.SecureRandom;
+import java.sql.SQLException;
+import java.util.List;
 
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.QueryAssertions.assertContains;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static java.lang.Character.MAX_RADIX;
+import static java.lang.Math.abs;
+import static java.lang.Math.min;
+import static java.lang.String.format;
 
 public abstract class AbstractTestIntegrationSmokeTest
         extends AbstractTestQueryFramework
 {
+    private static final SecureRandom random = new SecureRandom();
+    private static final int RANDOM_SUFFIX_LENGTH = 12;
+
     @Deprecated
     protected AbstractTestIntegrationSmokeTest(QueryRunnerSupplier supplier)
     {
@@ -39,6 +51,24 @@ public abstract class AbstractTestIntegrationSmokeTest
     protected boolean isParameterizedVarcharSupported()
     {
         return true;
+    }
+
+    protected boolean canCreateSchema()
+    {
+        return true;
+    }
+
+    protected boolean canDropSchema()
+    {
+        return true;
+    }
+
+    protected void cleanUpSchemas(List<String> schemaNames)
+            throws SQLException
+    {
+        if (!canDropSchema()) {
+            throw new IllegalStateException("cleanUpSchemas() must be implemented if canDropSchema is false");
+        }
     }
 
     @Test
@@ -242,5 +272,41 @@ public abstract class AbstractTestIntegrationSmokeTest
                     .row("comment", "varchar", "", "")
                     .build();
         }
+    }
+
+    @Test
+    public void testCreateSchema()
+            throws SQLException
+    {
+        skipTestUnless(canCreateSchema());
+        String schemaName = "schema_" + randomNameSuffix();
+        assertEquals(computeActual(format("SHOW SCHEMAS LIKE '%s'", schemaName)).getRowCount(), 0);
+        assertUpdate("CREATE SCHEMA " + schemaName);
+        assertQuery(format("SHOW SCHEMAS LIKE '%s'", schemaName), format("VALUES '%s'", schemaName));
+        assertQueryFails("CREATE SCHEMA " + schemaName, format("line 1:1: Schema '.*.%s' already exists", schemaName));
+        if (canDropSchema()) {
+            assertUpdate("DROP SCHEMA " + schemaName);
+            assertQueryFails("DROP SCHEMA " + schemaName, format("line 1:1: Schema '.*.%s' does not exist", schemaName));
+        }
+        else {
+            cleanUpSchemas(ImmutableList.of(schemaName));
+        }
+    }
+
+    @Test
+    public void testDropSchema()
+    {
+        skipTestUnless(canCreateSchema() && canDropSchema());
+        String schemaName = "schema_" + randomNameSuffix();
+        assertUpdate("CREATE SCHEMA " + schemaName);
+        assertQuery(format("SHOW SCHEMAS LIKE '%s'", schemaName), format("VALUES '%s'", schemaName));
+        assertUpdate("DROP SCHEMA " + schemaName);
+        assertQueryFails("DROP SCHEMA " + schemaName, format("line 1:1: Schema '.*.%s' does not exist", schemaName));
+    }
+
+    private static String randomNameSuffix()
+    {
+        String randomSuffix = Long.toString(abs(random.nextLong()), MAX_RADIX);
+        return randomSuffix.substring(0, min(RANDOM_SUFFIX_LENGTH, randomSuffix.length()));
     }
 }
