@@ -146,6 +146,7 @@ import io.prestosql.type.TypeCoercion;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -427,6 +428,7 @@ class StatementAnalyzer
         }
 
         @Override
+        @SuppressWarnings("unchecked")
         protected Scope visitAnalyze(Analyze node, Optional<Scope> scope)
         {
             analysis.setUpdateType("ANALYZE");

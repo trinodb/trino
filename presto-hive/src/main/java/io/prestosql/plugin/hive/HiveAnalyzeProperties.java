@@ -35,6 +35,7 @@ import static io.prestosql.spi.type.VarcharType.VARCHAR;
 public class HiveAnalyzeProperties
 {
     public static final String PARTITIONS_PROPERTY = "partitions";
+    public static final String COLUMNS_PROPERTY = "columns";
 
     private final List<PropertyMetadata<?>> analyzeProperties;
 
@@ -50,6 +51,15 @@ public class HiveAnalyzeProperties
                         null,
                         false,
                         HiveAnalyzeProperties::decodePartitionLists,
+                        value -> value),
+                new PropertyMetadata<>(
+                        COLUMNS_PROPERTY,
+                        "Columns to be analyzed",
+                        new ArrayType(VARCHAR),
+                        List.class,
+                        null,
+                        false,
+                        HiveAnalyzeProperties::decodeColumnList,
                         value -> value));
     }
 
@@ -78,6 +88,22 @@ public class HiveAnalyzeProperties
                         .map(name -> firstNonNull((String) name, HIVE_DEFAULT_DYNAMIC_PARTITION))
                         .collect(toImmutableList()))
                 .collect(toImmutableSet()));
+    }
+
+    @SuppressWarnings("unchecked")
+    public static Optional<List<String>> getColumnList(Map<String, Object> properties)
+    {
+        List<String> columns = (List<String>) properties.get(COLUMNS_PROPERTY);
+        return columns == null ? Optional.empty() : Optional.of(columns);
+    }
+
+    private static List<String> decodeColumnList(Object object)
+    {
+        if (object == null) {
+            return null;
+        }
+
+        return ImmutableList.copyOf(((List<String>) object).stream().collect(toImmutableSet()));
     }
 
     private static void throwIfNull(Object object)

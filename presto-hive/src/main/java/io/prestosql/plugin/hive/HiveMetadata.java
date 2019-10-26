@@ -122,6 +122,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Streams.stream;
+import static io.prestosql.plugin.hive.HiveAnalyzeProperties.getColumnList;
 import static io.prestosql.plugin.hive.HiveAnalyzeProperties.getPartitionList;
 import static io.prestosql.plugin.hive.HiveBasicStatistics.createEmptyStatistics;
 import static io.prestosql.plugin.hive.HiveBasicStatistics.createZeroStatistics;
@@ -351,8 +352,9 @@ public class HiveMetadata
             return null;
         }
         Optional<List<List<String>>> partitionValuesList = getPartitionList(analyzeProperties);
+        Optional<List<String>> columnValuesList = getColumnList(analyzeProperties);
         ConnectorTableMetadata tableMetadata = getTableMetadata(session, handle.getSchemaTableName());
-        handle = handle.withAnalyzePartitionValues(partitionValuesList);
+        handle = handle.withAnalyzePartitionValues(partitionValuesList, columnValuesList);
 
         List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
 
@@ -619,8 +621,14 @@ public class HiveMetadata
         SchemaTableName tableName = ((HiveTableHandle) tableHandle).getSchemaTableName();
         Table table = metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
-        return hiveColumnHandles(table, typeManager).stream()
-                .collect(toImmutableMap(HiveColumnHandle::getName, identity()));
+        List<HiveColumnHandle> columnHandles = hiveColumnHandles(table, typeManager);
+        Optional<List<String>> columnValues = ((HiveTableHandle) tableHandle).getAnalyzeColumnValues();
+        if (columnValues.isPresent()) {
+            return columnHandles.stream().filter(columnHandle -> columnValues.get().contains(columnHandle.getName()))
+                    .collect(toImmutableMap(HiveColumnHandle::getName, identity()));
+        } else {
+            return columnHandles.stream().collect(toImmutableMap(HiveColumnHandle::getName, identity()));
+        }
     }
 
     @SuppressWarnings("TryWithIdenticalCatches")
@@ -1889,7 +1897,8 @@ public class HiveMetadata
                         bucketHandle.getTableBucketCount(),
                         hivePartitioningHandle.getBucketCount())),
                 hiveTable.getBucketFilter(),
-                hiveTable.getAnalyzePartitionValues());
+                hiveTable.getAnalyzePartitionValues(),
+                hiveTable.getAnalyzeColumnValues());
     }
 
     @VisibleForTesting

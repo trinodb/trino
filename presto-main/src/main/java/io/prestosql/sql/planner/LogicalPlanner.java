@@ -79,6 +79,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -242,17 +244,25 @@ public class LogicalPlanner
         ImmutableMap.Builder<Symbol, ColumnHandle> symbolToColumnHandle = ImmutableMap.builder();
         ImmutableMap.Builder<String, Symbol> columnNameToSymbol = ImmutableMap.builder();
         TableMetadata tableMetadata = metadata.getTableMetadata(session, targetTable);
-        for (ColumnMetadata column : tableMetadata.getColumns()) {
-            Symbol symbol = symbolAllocator.newSymbol(column.getName(), column.getType());
+
+        Set<String> columns = columnHandles.keySet();
+
+        for (String name : columns) {
+            ColumnMetadata column = tableMetadata.getColumn(name);
+            Symbol symbol = symbolAllocator.newSymbol(name, column.getType());
             tableScanOutputs.add(symbol);
-            symbolToColumnHandle.put(symbol, columnHandles.get(column.getName()));
+            symbolToColumnHandle.put(symbol, columnHandles.get(name));
             columnNameToSymbol.put(column.getName(), symbol);
         }
+
+        ConnectorTableMetadata connectorMetadata = tableMetadata.getMetadata();
+        List<ColumnMetadata> columnList = connectorMetadata.getColumns().stream().filter(column -> columns.contains(column.getName())).collect(Collectors.toList());
+        connectorMetadata = new ConnectorTableMetadata(connectorMetadata.getTable(), columnList, connectorMetadata.getProperties());
 
         TableStatisticsMetadata tableStatisticsMetadata = metadata.getStatisticsCollectionMetadata(
                 session,
                 targetTable.getCatalogName().getCatalogName(),
-                tableMetadata.getMetadata());
+                connectorMetadata);
 
         TableStatisticAggregation tableStatisticAggregation = statisticsAggregationPlanner.createStatisticsAggregation(tableStatisticsMetadata, columnNameToSymbol.build());
         StatisticAggregations statisticAggregations = tableStatisticAggregation.getAggregations();

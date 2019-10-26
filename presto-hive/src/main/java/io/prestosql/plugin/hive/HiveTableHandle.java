@@ -44,6 +44,7 @@ public class HiveTableHandle
     private final Optional<HiveBucketHandle> bucketHandle;
     private final Optional<HiveBucketFilter> bucketFilter;
     private final Optional<List<List<String>>> analyzePartitionValues;
+    private final Optional<List<String>> analyzeColumnValues;
 
     @JsonCreator
     public HiveTableHandle(
@@ -54,7 +55,8 @@ public class HiveTableHandle
             @JsonProperty("enforcedConstraint") TupleDomain<ColumnHandle> enforcedConstraint,
             @JsonProperty("bucketHandle") Optional<HiveBucketHandle> bucketHandle,
             @JsonProperty("bucketFilter") Optional<HiveBucketFilter> bucketFilter,
-            @JsonProperty("analyzePartitionValues") Optional<List<List<String>>> analyzePartitionValues)
+            @JsonProperty("analyzePartitionValues") Optional<List<List<String>>> analyzePartitionValues,
+            @JsonProperty("analyzeColumnsValues") Optional<List<String>> analyzeColumnValues)
     {
         this(
                 schemaName,
@@ -66,7 +68,8 @@ public class HiveTableHandle
                 enforcedConstraint,
                 bucketHandle,
                 bucketFilter,
-                analyzePartitionValues);
+                analyzePartitionValues,
+                analyzeColumnValues);
     }
 
     public HiveTableHandle(
@@ -86,6 +89,7 @@ public class HiveTableHandle
                 TupleDomain.all(),
                 bucketHandle,
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
     }
 
@@ -99,7 +103,8 @@ public class HiveTableHandle
             TupleDomain<ColumnHandle> enforcedConstraint,
             Optional<HiveBucketHandle> bucketHandle,
             Optional<HiveBucketFilter> bucketFilter,
-            Optional<List<List<String>>> analyzePartitionValues)
+            Optional<List<List<String>>> analyzePartitionValues,
+            Optional<List<String>> analyzeColumnValues)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -111,9 +116,12 @@ public class HiveTableHandle
         this.bucketHandle = requireNonNull(bucketHandle, "bucketHandle is null");
         this.bucketFilter = requireNonNull(bucketFilter, "bucketFilter is null");
         this.analyzePartitionValues = requireNonNull(analyzePartitionValues, "analyzePartitionValues is null");
+        this.analyzeColumnValues = requireNonNull(analyzeColumnValues, "analyzeColumnValues is null");
     }
 
-    public HiveTableHandle withAnalyzePartitionValues(Optional<List<List<String>>> analyzePartitionValues)
+    public HiveTableHandle withAnalyzePartitionValues(
+            Optional<List<List<String>>> analyzePartitionValues,
+            Optional<List<String>> analyzeColumnValues)
     {
         return new HiveTableHandle(
                 schemaName,
@@ -125,7 +133,8 @@ public class HiveTableHandle
                 enforcedConstraint,
                 bucketHandle,
                 bucketFilter,
-                analyzePartitionValues);
+                analyzePartitionValues,
+                analyzeColumnValues);
     }
 
     @JsonProperty
@@ -188,6 +197,12 @@ public class HiveTableHandle
     public Optional<List<List<String>>> getAnalyzePartitionValues()
     {
         return analyzePartitionValues;
+    }
+
+    @JsonProperty
+    public Optional<List<String>> getAnalyzeColumnValues()
+    {
+        return analyzeColumnValues;
     }
 
     public SchemaTableName getSchemaTableName()
