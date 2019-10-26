@@ -30,6 +30,7 @@ public class ColumnMetadata
     private final String name;
     private final Type type;
     private final boolean nullable;
+    private final boolean hasDefault;
     private final String comment;
     private final String extraInfo;
     private final boolean hidden;
@@ -62,6 +63,11 @@ public class ColumnMetadata
 
     public ColumnMetadata(String name, Type type, boolean nullable, String comment, String extraInfo, boolean hidden, Map<String, Object> properties)
     {
+        this(name, type, nullable, false, comment, extraInfo, hidden, properties);
+    }
+
+    public ColumnMetadata(String name, Type type, boolean nullable, boolean hasDefault, String comment, String extraInfo, boolean hidden, Map<String, Object> properties)
+    {
         checkNotEmpty(name, "name");
         requireNonNull(type, "type is null");
         requireNonNull(properties, "properties is null");
@@ -73,6 +79,7 @@ public class ColumnMetadata
         this.hidden = hidden;
         this.properties = properties.isEmpty() ? emptyMap() : unmodifiableMap(new LinkedHashMap<>(properties));
         this.nullable = nullable;
+        this.hasDefault = hasDefault;
     }
 
     public String getName()
@@ -88,6 +95,11 @@ public class ColumnMetadata
     public boolean isNullable()
     {
         return nullable;
+    }
+
+    public boolean hasDefault()
+    {
+        return hasDefault;
     }
 
     public String getComment()
@@ -117,6 +129,9 @@ public class ColumnMetadata
         sb.append("name='").append(name).append('\'');
         sb.append(", type=").append(type);
         sb.append(", ").append(nullable ? "nullable" : "nonnull");
+        if (hasDefault) {
+            sb.append(", hasDefault");
+        }
         if (comment != null) {
             sb.append(", comment='").append(comment).append('\'');
         }
@@ -136,7 +151,7 @@ public class ColumnMetadata
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, type, nullable, comment, extraInfo, hidden);
+        return Objects.hash(name, type, nullable, hasDefault, comment, extraInfo, hidden);
     }
 
     @Override
@@ -152,6 +167,7 @@ public class ColumnMetadata
         return Objects.equals(this.name, other.name) &&
                 Objects.equals(this.type, other.type) &&
                 Objects.equals(this.nullable, other.nullable) &&
+                Objects.equals(this.hasDefault, other.hasDefault) &&
                 Objects.equals(this.comment, other.comment) &&
                 Objects.equals(this.extraInfo, other.extraInfo) &&
                 Objects.equals(this.hidden, other.hidden);

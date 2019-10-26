@@ -336,14 +336,6 @@ class StatementAnalyzer
                     .map(ColumnMetadata::getName)
                     .collect(toImmutableList());
 
-            // analyze target table layout
-            Optional<NewTableLayout> newTableLayout = metadata.getInsertLayout(session, targetTableHandle.get());
-            newTableLayout.ifPresent(layout -> {
-                if (!ImmutableSet.copyOf(tableColumns).containsAll(layout.getPartitionColumns())) {
-                    throw new PrestoException(NOT_SUPPORTED, "INSERT must write all distribution columns: " + layout.getPartitionColumns());
-                }
-            });
-
             List<String> insertColumns;
             if (insert.getColumns().isPresent()) {
                 insertColumns = insert.getColumns().get().stream()
@@ -366,6 +358,15 @@ class StatementAnalyzer
             }
 
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, targetTableHandle.get());
+
+            // analyze target table layout
+            Optional<NewTableLayout> newTableLayout = metadata.getInsertLayout(session, targetTableHandle.get());
+            newTableLayout.ifPresent(layout -> {
+                if (!ImmutableSet.copyOf(tableColumns).containsAll(layout.getPartitionColumns())) {
+                    throw new PrestoException(NOT_SUPPORTED, "INSERT must write all distribution columns: " + layout.getPartitionColumns());
+                }
+            });
+
             analysis.setInsert(new Analysis.Insert(
                     targetTableHandle.get(),
                     insertColumns.stream().map(columnHandles::get).collect(toImmutableList()),

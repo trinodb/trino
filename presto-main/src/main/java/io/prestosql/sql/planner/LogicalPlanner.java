@@ -313,16 +313,12 @@ public class LogicalPlanner
 
         TableMetadata tableMetadata = metadata.getTableMetadata(session, insert.getTarget());
 
-        List<ColumnMetadata> visibleTableColumns = tableMetadata.getColumns().stream()
-                .filter(column -> !column.isHidden())
-                .collect(toImmutableList());
-        List<String> visibleTableColumnNames = visibleTableColumns.stream()
-                .map(ColumnMetadata::getName)
-                .collect(toImmutableList());
+        ImmutableList.Builder<ColumnMetadata> visibleColumnMetadataBuilder = ImmutableList.builder();
 
         RelationPlan plan = createRelationPlan(analysis, insertStatement.getQuery());
 
         Map<String, ColumnHandle> columns = metadata.getColumnHandles(session, insert.getTarget());
+        ImmutableList.Builder<ColumnHandle> insertColumnsBuilder = ImmutableList.builder();
         Assignments.Builder assignments = Assignments.builder();
         for (ColumnMetadata column : tableMetadata.getColumns()) {
             if (column.isHidden()) {
@@ -331,6 +327,9 @@ public class LogicalPlanner
             Symbol output = symbolAllocator.newSymbol(column.getName(), column.getType());
             int index = insert.getColumns().indexOf(columns.get(column.getName()));
             if (index < 0) {
+                if (column.hasDefault()) {
+                    continue;
+                }
                 Expression cast = new Cast(new NullLiteral(), toSqlType(column.getType()));
                 assignments.put(output, cast);
             }
@@ -347,8 +346,15 @@ public class LogicalPlanner
                     assignments.put(output, cast);
                 }
             }
+            visibleColumnMetadataBuilder.add(column);
+            insertColumnsBuilder.add(columns.get(column.getName()));
         }
         ProjectNode projectNode = new ProjectNode(idAllocator.getNextId(), plan.getRoot(), assignments.build());
+        List<ColumnMetadata> visibleTableColumns = visibleColumnMetadataBuilder.build();
+
+        List<String> visibleTableColumnNames = visibleTableColumns.stream()
+                .map(ColumnMetadata::getName)
+                .collect(toImmutableList());
 
         List<Field> fields = visibleTableColumns.stream()
                 .map(column -> Field.newUnqualified(column.getName(), column.getType()))
@@ -363,7 +369,7 @@ public class LogicalPlanner
         return createTableWriterPlan(
                 analysis,
                 plan,
-                new InsertReference(insert.getTarget()),
+                new InsertReference(insert.getTarget(), insertColumnsBuilder.build()),
                 visibleTableColumnNames,
                 insert.getNewTableLayout(),
                 statisticsMetadata);

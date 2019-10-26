@@ -419,6 +419,11 @@ public interface ConnectorMetadata
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support inserts");
     }
 
+    default ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columnsToBeInserted)
+    {
+        return beginInsert(session, tableHandle);
+    }
+
     /**
      * Finish insert query
      */

@@ -243,7 +243,7 @@ public interface Metadata
     /**
      * Begin insert query
      */
-    InsertTableHandle beginInsert(Session session, TableHandle tableHandle);
+    InsertTableHandle beginInsert(Session session, TableHandle tableHandle, List<ColumnHandle> columnHandles);
 
     /**
      * Finish insert query
