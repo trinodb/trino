@@ -41,10 +41,10 @@ public class TestNodeSpillConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("experimental.max-spill-per-node", "10MB")
-                .put("experimental.query-max-spill-per-node", "15 MB")
-                .put("experimental.spill-compression-enabled", "true")
-                .put("experimental.spill-encryption-enabled", "true")
+                .put("max-spill-per-node", "10MB")
+                .put("query-max-spill-per-node", "15 MB")
+                .put("spill-compression-enabled", "true")
+                .put("spill-encryption-enabled", "true")
                 .build();
 
         NodeSpillConfig expected = new NodeSpillConfig()

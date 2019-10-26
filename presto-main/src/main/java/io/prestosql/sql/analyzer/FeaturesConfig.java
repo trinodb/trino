@@ -61,9 +61,8 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 public class FeaturesConfig
 {
     @VisibleForTesting
-    static final String SPILL_ENABLED = "experimental.spill-enabled";
-    @VisibleForTesting
-    static final String SPILLER_SPILL_PATH = "experimental.spiller-spill-path";
+    static final String SPILL_ENABLED = "spill-enabled";
+    public static final String SPILLER_SPILL_PATH = "spiller-spill-path";
 
     private double cpuCostWeight = 75;
     private double memoryCostWeight = 10;
@@ -516,6 +515,7 @@ public class FeaturesConfig
     }
 
     @Config(SPILL_ENABLED)
+    @LegacyConfig("experimental.spill-enabled")
     public FeaturesConfig setSpillEnabled(boolean spillEnabled)
     {
         this.spillEnabled = spillEnabled;
@@ -527,7 +527,8 @@ public class FeaturesConfig
         return spillOrderBy;
     }
 
-    @Config("experimental.spill-order-by")
+    @Config("spill-order-by")
+    @LegacyConfig("experimental.spill-order-by")
     public FeaturesConfig setSpillOrderBy(boolean spillOrderBy)
     {
         this.spillOrderBy = spillOrderBy;
@@ -539,7 +540,8 @@ public class FeaturesConfig
         return spillWindowOperator;
     }
 
-    @Config("experimental.spill-window-operator")
+    @Config("spill-window-operator")
+    @LegacyConfig("experimental.spill-window-operator")
     public FeaturesConfig setSpillWindowOperator(boolean spillWindowOperator)
     {
         this.spillWindowOperator = spillWindowOperator;
@@ -627,7 +629,8 @@ public class FeaturesConfig
         return aggregationOperatorUnspillMemoryLimit;
     }
 
-    @Config("experimental.aggregation-operator-unspill-memory-limit")
+    @Config("aggregation-operator-unspill-memory-limit")
+    @LegacyConfig("experimental.aggregation-operator-unspill-memory-limit")
     public FeaturesConfig setAggregationOperatorUnspillMemoryLimit(DataSize aggregationOperatorUnspillMemoryLimit)
     {
         this.aggregationOperatorUnspillMemoryLimit = aggregationOperatorUnspillMemoryLimit;
@@ -640,6 +643,7 @@ public class FeaturesConfig
     }
 
     @Config(SPILLER_SPILL_PATH)
+    @LegacyConfig("experimental.spiller-spill-path")
     public FeaturesConfig setSpillerSpillPaths(String spillPaths)
     {
         List<String> spillPathsSplit = ImmutableList.copyOf(Splitter.on(",").trimResults().omitEmptyStrings().split(spillPaths));
@@ -659,7 +663,8 @@ public class FeaturesConfig
         return spillerThreads;
     }
 
-    @Config("experimental.spiller-threads")
+    @Config("spiller-threads")
+    @LegacyConfig("experimental.spiller-threads")
     public FeaturesConfig setSpillerThreads(int spillerThreads)
     {
         this.spillerThreads = spillerThreads;
@@ -673,7 +678,8 @@ public class FeaturesConfig
         return memoryRevokingThreshold;
     }
 
-    @Config("experimental.memory-revoking-threshold")
+    @Config("memory-revoking-threshold")
+    @LegacyConfig("experimental.memory-revoking-threshold")
     @ConfigDescription("Revoke memory when memory pool is filled over threshold")
     public FeaturesConfig setMemoryRevokingThreshold(double memoryRevokingThreshold)
     {
@@ -688,7 +694,8 @@ public class FeaturesConfig
         return memoryRevokingTarget;
     }
 
-    @Config("experimental.memory-revoking-target")
+    @Config("memory-revoking-target")
+    @LegacyConfig("experimental.memory-revoking-target")
     @ConfigDescription("When revoking memory, try to revoke so much that pool is filled below target at the end")
     public FeaturesConfig setMemoryRevokingTarget(double memoryRevokingTarget)
     {
@@ -701,7 +708,8 @@ public class FeaturesConfig
         return spillMaxUsedSpaceThreshold;
     }
 
-    @Config("experimental.spiller-max-used-space-threshold")
+    @Config("spiller-max-used-space-threshold")
+    @LegacyConfig("experimental.spiller-max-used-space-threshold")
     public FeaturesConfig setSpillMaxUsedSpaceThreshold(double spillMaxUsedSpaceThreshold)
     {
         this.spillMaxUsedSpaceThreshold = spillMaxUsedSpaceThreshold;

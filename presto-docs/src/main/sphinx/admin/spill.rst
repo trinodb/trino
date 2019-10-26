@@ -96,7 +96,7 @@ When spill encryption is enabled (``spill-encryption-enabled`` property in
 :ref:`tuning-spilling`), spill contents will be encrypted with a randomly generated
 (per spill file) secret key. Enabling this will increase CPU load and reduce throughput
 of spilling to disk, but can protect spilled data from being recovered from spill files.
-Consider reducing the value of ``experimental.memory-revoking-threshold`` when spill
+Consider reducing the value of ``memory-revoking-threshold`` when spill
 encryption is enabled to account for the increase in latency of spilling.
 
 Supported Operations
