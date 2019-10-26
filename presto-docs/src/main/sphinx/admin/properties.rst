@@ -121,7 +121,7 @@ Memory Management Properties
 Spilling Properties
 -------------------
 
-``experimental.spill-enabled``
+``spill-enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``boolean``
@@ -134,34 +134,32 @@ Spilling Properties
     aggregations, joins (inner and outer), sorting, and window functions. This property will not
     reduce memory usage required for other join types.
 
-    Be aware that this is an experimental feature and should be used with care.
-
     This config property can be overridden by the ``spill_enabled`` session property.
 
 
-``experimental.spill-order-by``
+``spill-order-by``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``boolean``
     * **Default value:** ``true``
 
     Try spilling memory to disk to avoid exceeding memory limits for the query when running sorting operators.
-    This property must be used in conjunction with the ``experimental.spill-enabled`` property.
+    This property must be used in conjunction with the ``spill-enabled`` property.
 
     This config property can be overridden by the ``spill_order_by`` session property.
 
-``experimental.spill-window-operator``
+``spill-window-operator``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``boolean``
     * **Default value:** ``true``
 
     Try spilling memory to disk to avoid exceeding memory limits for the query when running window operators;
-    This property must be used in conjunction with the ``experimental.spill-enabled`` property.
+    This property must be used in conjunction with the ``spill-enabled`` property.
 
     This config property can be overridden by the ``spill_window_operator`` session property.
 
-``experimental.spiller-spill-path``
+``spiller-spill-path``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``string``
@@ -175,7 +173,7 @@ Spilling Properties
     to the drive on which the JVM logs are written, as disk overutilization might
     cause JVM to pause for lengthy periods, causing queries to fail.
 
-``experimental.spiller-max-used-space-threshold``
+``spiller-max-used-space-threshold``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``double``
@@ -184,7 +182,7 @@ Spilling Properties
     If disk space usage ratio of a given spill path is above this threshold,
     this spill path will not be eligible for spilling.
 
-``experimental.spiller-threads``
+``spiller-threads``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``integer``
@@ -193,7 +191,7 @@ Spilling Properties
     Number of spiller threads. Increase this value if the default is not able
     to saturate the underlying spilling device (for example, when using RAID).
 
-``experimental.max-spill-per-node``
+``max-spill-per-node``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``data size``
@@ -201,7 +199,7 @@ Spilling Properties
 
     Max spill space to be used by all queries on a single node.
 
-``experimental.query-max-spill-per-node``
+``query-max-spill-per-node``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``data size``
@@ -209,7 +207,7 @@ Spilling Properties
 
     Max spill space to be used by a single query on a single node.
 
-``experimental.aggregation-operator-unspill-memory-limit``
+``aggregation-operator-unspill-memory-limit``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``data size``
@@ -217,7 +215,7 @@ Spilling Properties
 
     Limit for memory used for unspilling a single aggregation operator instance.
 
-``experimental.spill-compression-enabled``
+``spill-compression-enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``boolean``
@@ -225,7 +223,7 @@ Spilling Properties
 
     Enables data compression for pages spilled to disk
 
-``experimental.spill-encryption-enabled``
+``spill-encryption-enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``boolean``

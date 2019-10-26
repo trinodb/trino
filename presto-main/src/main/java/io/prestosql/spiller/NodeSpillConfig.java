@@ -14,6 +14,7 @@
 package io.prestosql.spiller;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 
 import javax.validation.constraints.NotNull;
@@ -32,7 +33,8 @@ public class NodeSpillConfig
         return maxSpillPerNode;
     }
 
-    @Config("experimental.max-spill-per-node")
+    @Config("max-spill-per-node")
+    @LegacyConfig("experimental.max-spill-per-node")
     public NodeSpillConfig setMaxSpillPerNode(DataSize maxSpillPerNode)
     {
         this.maxSpillPerNode = maxSpillPerNode;
@@ -45,7 +47,8 @@ public class NodeSpillConfig
         return queryMaxSpillPerNode;
     }
 
-    @Config("experimental.query-max-spill-per-node")
+    @Config("query-max-spill-per-node")
+    @LegacyConfig("experimental.query-max-spill-per-node")
     public NodeSpillConfig setQueryMaxSpillPerNode(DataSize queryMaxSpillPerNode)
     {
         this.queryMaxSpillPerNode = queryMaxSpillPerNode;
@@ -57,7 +60,8 @@ public class NodeSpillConfig
         return spillCompressionEnabled;
     }
 
-    @Config("experimental.spill-compression-enabled")
+    @Config("spill-compression-enabled")
+    @LegacyConfig("experimental.spill-compression-enabled")
     public NodeSpillConfig setSpillCompressionEnabled(boolean spillCompressionEnabled)
     {
         this.spillCompressionEnabled = spillCompressionEnabled;
@@ -69,7 +73,8 @@ public class NodeSpillConfig
         return spillEncryptionEnabled;
     }
 
-    @Config("experimental.spill-encryption-enabled")
+    @Config("spill-encryption-enabled")
+    @LegacyConfig("experimental.spill-encryption-enabled")
     public NodeSpillConfig setSpillEncryptionEnabled(boolean spillEncryptionEnabled)
     {
         this.spillEncryptionEnabled = spillEncryptionEnabled;

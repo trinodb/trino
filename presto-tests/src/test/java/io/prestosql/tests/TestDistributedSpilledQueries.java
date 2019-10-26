@@ -44,10 +44,10 @@ public class TestDistributedSpilledQueries
                 .build();
 
         ImmutableMap<String, String> extraProperties = ImmutableMap.<String, String>builder()
-                .put("experimental.spiller-spill-path", Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills").toString())
-                .put("experimental.spiller-max-used-space-threshold", "1.0")
-                .put("experimental.memory-revoking-threshold", "0.0") // revoke always
-                .put("experimental.memory-revoking-target", "0.0")
+                .put("spiller-spill-path", Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills").toString())
+                .put("spiller-max-used-space-threshold", "1.0")
+                .put("memory-revoking-threshold", "0.0") // revoke always
+                .put("memory-revoking-target", "0.0")
                 .build();
 
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(defaultSession)

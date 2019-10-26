@@ -41,6 +41,7 @@ import java.util.Optional;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.prestosql.spi.StandardErrorCode.OUT_OF_SPILL_SPACE;
+import static io.prestosql.sql.analyzer.FeaturesConfig.SPILLER_SPILL_PATH;
 import static java.lang.String.format;
 import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.delete;
@@ -103,12 +104,10 @@ public class FileSingleStreamSpillerFactory
                 createDirectories(path);
             }
             catch (IOException e) {
-                throw new IllegalArgumentException(
-                        format("could not create spill path %s; adjust experimental.spiller-spill-path config property or filesystem permissions", path), e);
+                throw new IllegalArgumentException(format("could not create spill path %s; adjust %s config property or filesystem permissions", path, SPILLER_SPILL_PATH), e);
             }
             if (!path.toFile().canWrite()) {
-                throw new IllegalArgumentException(
-                        format("spill path %s is not writable; adjust experimental.spiller-spill-path config property or filesystem permissions", path));
+                throw new IllegalArgumentException(format("spill path %s is not writable; adjust %s config property or filesystem permissions", path, SPILLER_SPILL_PATH));
             }
         });
         this.maxUsedSpaceThreshold = maxUsedSpaceThreshold;
