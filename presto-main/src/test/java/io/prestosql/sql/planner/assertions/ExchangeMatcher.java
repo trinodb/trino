@@ -16,11 +16,13 @@ package io.prestosql.sql.planner.assertions;
 import io.prestosql.Session;
 import io.prestosql.cost.StatsProvider;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.assertions.PlanMatchPattern.Ordering;
 import io.prestosql.sql.planner.plan.ExchangeNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 
 import java.util.List;
+import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
@@ -34,12 +36,14 @@ final class ExchangeMatcher
     private final ExchangeNode.Scope scope;
     private final ExchangeNode.Type type;
     private final List<Ordering> orderBy;
+    private final Set<String> partitionedBy;
 
-    public ExchangeMatcher(ExchangeNode.Scope scope, ExchangeNode.Type type, List<Ordering> orderBy)
+    public ExchangeMatcher(ExchangeNode.Scope scope, ExchangeNode.Type type, List<Ordering> orderBy, Set<String> partitionedBy)
     {
         this.scope = scope;
         this.type = type;
         this.orderBy = requireNonNull(orderBy, "orderBy is null");
+        this.partitionedBy = requireNonNull(partitionedBy, "partitionedBy is null");
     }
 
     @Override
@@ -69,6 +73,16 @@ final class ExchangeMatcher
             }
         }
 
+        if (!partitionedBy.isEmpty()) {
+            Set<Symbol> partitionedColumns = exchangeNode.getPartitioningScheme().getPartitioning().getColumns();
+            if (!partitionedBy.stream()
+                    .map(symbolAliases::get)
+                    .map(Symbol::from)
+                    .allMatch(partitionedColumns::contains)) {
+                return NO_MATCH;
+            }
+        }
+
         return MatchResult.match();
     }
 
@@ -79,6 +93,7 @@ final class ExchangeMatcher
                 .add("scope", scope)
                 .add("type", type)
                 .add("orderBy", orderBy)
+                .add("partitionedBy", partitionedBy)
                 .toString();
     }
 }
