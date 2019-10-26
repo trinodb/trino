@@ -235,7 +235,9 @@ public class PostgreSqlClient
                     // skip unsupported column types
                     if (columnMapping.isPresent()) {
                         boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
-                        columns.add(new JdbcColumnHandle(columnName, typeHandle, columnMapping.get().getType(), nullable));
+                        resultSet.getString("COLUMN_DEF");
+                        boolean hasDefault = !resultSet.wasNull();
+                        columns.add(new JdbcColumnHandle(columnName, typeHandle, columnMapping.get().getType(), nullable, hasDefault));
                     }
                 }
                 if (columns.isEmpty()) {

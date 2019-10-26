@@ -78,6 +78,21 @@ public class TestSqlServerIntegrationSmokeTest
         }
     }
 
+    @Test
+    public void testInsertForDefaultColumn()
+    {
+        sqlServer.execute("CREATE TABLE default_table (a bigint, b bigint default 40)");
+        assertUpdate("INSERT INTO default_table (a) VALUES (1)", 1);
+        assertUpdate("INSERT INTO default_table VALUES (2, 3)", 1);
+        assertUpdate("INSERT INTO default_table VALUES (4, null)", 1);
+
+        assertQuery("SELECT * FROM default_table WHERE a = 1", "VALUES (1, 40)");
+        assertQuery("SELECT * FROM default_table WHERE a = 2", "VALUES (2, 3)");
+        assertQuery("SELECT * FROM default_table WHERE a = 4", "VALUES (4, null)");
+
+        assertUpdate("DROP TABLE default_table");
+    }
+
     private AutoCloseable withTable(String tableName, String tableDefinition)
     {
         sqlServer.execute(format("CREATE TABLE %s %s", tableName, tableDefinition));

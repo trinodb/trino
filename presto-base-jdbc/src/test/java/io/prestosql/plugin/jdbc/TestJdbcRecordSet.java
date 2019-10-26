@@ -65,20 +65,20 @@ public class TestJdbcRecordSet
     public void testGetColumnTypes()
     {
         RecordSet recordSet = new JdbcRecordSet(jdbcClient, SESSION, split, table, ImmutableList.of(
-                new JdbcColumnHandle("text", JDBC_VARCHAR, VARCHAR, true),
-                new JdbcColumnHandle("text_short", JDBC_VARCHAR, createVarcharType(32), true),
-                new JdbcColumnHandle("value", JDBC_BIGINT, BIGINT, true)));
+                new JdbcColumnHandle("text", JDBC_VARCHAR, VARCHAR, true, false),
+                new JdbcColumnHandle("text_short", JDBC_VARCHAR, createVarcharType(32), true, false),
+                new JdbcColumnHandle("value", JDBC_BIGINT, BIGINT, true, false)));
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of(VARCHAR, createVarcharType(32), BIGINT));
 
         recordSet = new JdbcRecordSet(jdbcClient, SESSION, split, table, ImmutableList.of(
-                new JdbcColumnHandle("value", JDBC_BIGINT, BIGINT, true),
-                new JdbcColumnHandle("text", JDBC_VARCHAR, VARCHAR, true)));
+                new JdbcColumnHandle("value", JDBC_BIGINT, BIGINT, true, false),
+                new JdbcColumnHandle("text", JDBC_VARCHAR, VARCHAR, true, false)));
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of(BIGINT, VARCHAR));
 
         recordSet = new JdbcRecordSet(jdbcClient, SESSION, split, table, ImmutableList.of(
-                new JdbcColumnHandle("value", JDBC_BIGINT, BIGINT, true),
-                new JdbcColumnHandle("value", JDBC_BIGINT, BIGINT, true),
-                new JdbcColumnHandle("text", JDBC_VARCHAR, VARCHAR, true)));
+                new JdbcColumnHandle("value", JDBC_BIGINT, BIGINT, true, false),
+                new JdbcColumnHandle("value", JDBC_BIGINT, BIGINT, true, false),
+                new JdbcColumnHandle("text", JDBC_VARCHAR, VARCHAR, true, false)));
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of(BIGINT, BIGINT, VARCHAR));
 
         recordSet = new JdbcRecordSet(jdbcClient, SESSION, split, table, ImmutableList.of());

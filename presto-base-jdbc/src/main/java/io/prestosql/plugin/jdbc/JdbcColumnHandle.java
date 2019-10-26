@@ -32,18 +32,21 @@ public final class JdbcColumnHandle
     private final JdbcTypeHandle jdbcTypeHandle;
     private final Type columnType;
     private final boolean nullable;
+    private final boolean hasDefault;
 
     @JsonCreator
     public JdbcColumnHandle(
             @JsonProperty("columnName") String columnName,
             @JsonProperty("jdbcTypeHandle") JdbcTypeHandle jdbcTypeHandle,
             @JsonProperty("columnType") Type columnType,
-            @JsonProperty("nullable") boolean nullable)
+            @JsonProperty("nullable") boolean nullable,
+            @JsonProperty("hasDefault") boolean hasDefault)
     {
         this.columnName = requireNonNull(columnName, "columnName is null");
         this.jdbcTypeHandle = requireNonNull(jdbcTypeHandle, "jdbcTypeHandle is null");
         this.columnType = requireNonNull(columnType, "columnType is null");
         this.nullable = nullable;
+        this.hasDefault = hasDefault;
     }
 
     @JsonProperty
@@ -70,9 +73,15 @@ public final class JdbcColumnHandle
         return nullable;
     }
 
+    @JsonProperty("hasDefault")
+    public boolean hasDefault()
+    {
+        return hasDefault;
+    }
+
     public ColumnMetadata getColumnMetadata()
     {
-        return new ColumnMetadata(columnName, columnType, nullable, null, null, false, emptyMap());
+        return new ColumnMetadata(columnName, columnType, nullable, hasDefault, null, null, false, emptyMap());
     }
 
     @Override

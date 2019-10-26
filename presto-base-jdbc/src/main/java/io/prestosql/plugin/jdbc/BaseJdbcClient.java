@@ -50,6 +50,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.StringJoiner;
 import java.util.UUID;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -254,7 +255,9 @@ public class BaseJdbcClient
                 // skip unsupported column types
                 if (columnMapping.isPresent()) {
                     boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
-                    columns.add(new JdbcColumnHandle(columnName, typeHandle, columnMapping.get().getType(), nullable));
+                    resultSet.getString("COLUMN_DEF");
+                    boolean hasDefault = !resultSet.wasNull();
+                    columns.add(new JdbcColumnHandle(columnName, typeHandle, columnMapping.get().getType(), nullable, hasDefault));
                 }
             }
             if (columns.isEmpty()) {
@@ -424,7 +427,7 @@ public class BaseJdbcClient
     }
 
     @Override
-    public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle)
+    public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columnsToBeInserted)
     {
         SchemaTableName schemaTableName = tableHandle.getSchemaTableName();
         JdbcIdentity identity = JdbcIdentity.from(session);
@@ -442,8 +445,13 @@ public class BaseJdbcClient
             ImmutableList.Builder<String> columnNames = ImmutableList.builder();
             ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
             ImmutableList.Builder<JdbcTypeHandle> jdbcColumnTypes = ImmutableList.builder();
-            for (JdbcColumnHandle column : getColumns(session, tableHandle)) {
-                columnNames.add(column.getColumnName());
+
+            for (JdbcColumnHandle column : columnsToBeInserted) {
+                String columnName = column.getColumnName();
+                if (uppercase) {
+                    columnName = columnName.toUpperCase(ENGLISH);
+                }
+                columnNames.add(columnName);
                 columnTypes.add(column.getColumnType());
                 jdbcColumnTypes.add(column.getJdbcTypeHandle());
             }
@@ -524,7 +532,9 @@ public class BaseJdbcClient
     {
         String temporaryTable = quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName());
         String targetTable = quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName());
-        String insertSql = format("INSERT INTO %s SELECT * FROM %s", targetTable, temporaryTable);
+        StringJoiner columnNameJoiner = new StringJoiner(", ", "(", ")");
+        handle.getColumnNames().stream().map(this::quoted).forEach(columnNameJoiner::add);
+        String insertSql = format("INSERT INTO %s %s SELECT * FROM %s", targetTable, columnNameJoiner.toString(), temporaryTable);
         String cleanupSql = "DROP TABLE " + temporaryTable;
 
         try (Connection connection = getConnection(identity, handle)) {

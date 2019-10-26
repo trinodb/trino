@@ -117,9 +117,9 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
-    public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle)
+    public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columnsToBeInserted)
     {
-        return getDelegate().beginInsertTable(session, tableHandle);
+        return getDelegate().beginInsertTable(session, tableHandle, columnsToBeInserted);
     }
 
     @Override
