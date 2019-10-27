@@ -194,6 +194,7 @@ import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.prestosql.sql.QueryUtil.query;
 import static io.prestosql.sql.parser.SqlBaseParser.TIME;
 import static io.prestosql.sql.parser.SqlBaseParser.TIMESTAMP;
 import static java.lang.String.format;
@@ -863,8 +864,7 @@ class AstBuilder
     public Node visitShowStatsForQuery(SqlBaseParser.ShowStatsForQueryContext context)
     {
         QuerySpecification specification = (QuerySpecification) visitQuerySpecification(context.querySpecification());
-        Query query = new Query(Optional.empty(), specification, Optional.empty(), Optional.empty(), Optional.empty());
-        return new ShowStats(Optional.of(getLocation(context)), new TableSubquery(query));
+        return new ShowStats(Optional.of(getLocation(context)), new TableSubquery(query(specification)));
     }
 
     @Override
