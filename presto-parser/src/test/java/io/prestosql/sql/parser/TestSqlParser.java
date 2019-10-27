@@ -13,6 +13,7 @@
  */
 package io.prestosql.sql.parser;
 
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
@@ -152,11 +153,10 @@ import io.prestosql.sql.tree.With;
 import io.prestosql.sql.tree.WithQuery;
 import org.testng.annotations.Test;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.sql.QueryUtil.identifier;
 import static io.prestosql.sql.QueryUtil.query;
 import static io.prestosql.sql.QueryUtil.quotedIdentifier;
@@ -181,8 +181,6 @@ import static io.prestosql.sql.parser.TreeNodes.simpleType;
 import static io.prestosql.sql.testing.TreeAssertions.assertFormattedSql;
 import static io.prestosql.sql.tree.ArithmeticUnaryExpression.negative;
 import static io.prestosql.sql.tree.ArithmeticUnaryExpression.positive;
-import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
-import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 import static io.prestosql.sql.tree.DateTimeDataType.Type.TIMESTAMP;
 import static io.prestosql.sql.tree.SortItem.NullOrdering.UNDEFINED;
 import static io.prestosql.sql.tree.SortItem.Ordering.ASCENDING;
@@ -216,13 +214,13 @@ public class TestSqlParser
     @Test
     public void testPossibleExponentialBacktracking()
     {
-        SQL_PARSER.createExpression("(((((((((((((((((((((((((((true)))))))))))))))))))))))))))");
+        createExpression("(((((((((((((((((((((((((((true)))))))))))))))))))))))))))");
     }
 
     @Test(timeOut = 2_000)
     public void testPotentialUnboundedLookahead()
     {
-        SQL_PARSER.createExpression("(\n" +
+        createExpression("(\n" +
                 "      1 * -1 +\n" +
                 "      1 * -2 +\n" +
                 "      1 * -3 +\n" +
@@ -742,7 +740,7 @@ public class TestSqlParser
                 "CASE 1 IS NULL WHEN true THEN 2 ELSE 3 END",
                 new SimpleCaseExpression(
                         new IsNullPredicate(new LongLiteral("1")),
-                        ImmutableList.<WhenClause>of(
+                        ImmutableList.of(
                                 new WhenClause(
                                         new BooleanLiteral("true"),
                                         new LongLiteral("2"))),
@@ -814,7 +812,7 @@ public class TestSqlParser
     @Test
     public void testSubstringBuiltInFunction()
     {
-        final String givenString = "ABCDEF";
+        String givenString = "ABCDEF";
         assertStatement(format("SELECT substring('%s' FROM 2)", givenString),
                 new Query(
                         Optional.empty(),
@@ -851,7 +849,7 @@ public class TestSqlParser
     @Test
     public void testSubstringRegisteredFunction()
     {
-        final String givenString = "ABCDEF";
+        String givenString = "ABCDEF";
         assertStatement(format("SELECT substring('%s', 2)", givenString),
                 new Query(
                         Optional.empty(),
@@ -2295,7 +2293,7 @@ public class TestSqlParser
     @Test
     public void testShowStats()
     {
-        final String[] tableNames = {"t", "s.t", "c.s.t"};
+        String[] tableNames = {"t", "s.t", "c.s.t"};
 
         for (String fullName : tableNames) {
             QualifiedName qualifiedName = makeQualifiedName(fullName);
@@ -2306,7 +2304,7 @@ public class TestSqlParser
     @Test
     public void testShowStatsForQuery()
     {
-        final String[] tableNames = {"t", "s.t", "c.s.t"};
+        String[] tableNames = {"t", "s.t", "c.s.t"};
 
         for (String fullName : tableNames) {
             QualifiedName qualifiedName = makeQualifiedName(fullName);
@@ -2316,7 +2314,7 @@ public class TestSqlParser
                     createShowStats(qualifiedName,
                             ImmutableList.of(new AllColumns()),
                             Optional.of(
-                                    new ComparisonExpression(GREATER_THAN,
+                                    new ComparisonExpression(ComparisonExpression.Operator.GREATER_THAN,
                                             new Identifier("field"),
                                             new LongLiteral("0")))));
             assertStatement(format("SHOW STATS FOR (SELECT * FROM %s WHERE field > 0 or field < 0)", qualifiedName),
@@ -2324,16 +2322,16 @@ public class TestSqlParser
                             ImmutableList.of(new AllColumns()),
                             Optional.of(
                                     new LogicalBinaryExpression(LogicalBinaryExpression.Operator.OR,
-                                            new ComparisonExpression(GREATER_THAN,
+                                            new ComparisonExpression(ComparisonExpression.Operator.GREATER_THAN,
                                                     new Identifier("field"),
                                                     new LongLiteral("0")),
-                                            new ComparisonExpression(LESS_THAN,
+                                            new ComparisonExpression(ComparisonExpression.Operator.LESS_THAN,
                                                     new Identifier("field"),
                                                     new LongLiteral("0"))))));
         }
     }
 
-    private ShowStats createShowStats(QualifiedName name, List<SelectItem> selects, Optional<Expression> where)
+    private static ShowStats createShowStats(QualifiedName name, List<SelectItem> selects, Optional<Expression> where)
     {
         return new ShowStats(
                 new TableSubquery(simpleQuery(new Select(false, selects),
@@ -2391,7 +2389,7 @@ public class TestSqlParser
     {
         assertExpression("col1 < ANY (SELECT col2 FROM table1)",
                 new QuantifiedComparisonExpression(
-                        LESS_THAN,
+                        ComparisonExpression.Operator.LESS_THAN,
                         QuantifiedComparisonExpression.Quantifier.ANY,
                         identifier("col1"),
                         new SubqueryExpression(simpleQuery(selectList(new SingleColumn(identifier("col2"))), table(QualifiedName.of("table1"))))));
@@ -2657,17 +2655,17 @@ public class TestSqlParser
                         ImmutableList.of(new Identifier("x"), new LongLiteral("1"))));
     }
 
-    private QualifiedName makeQualifiedName(String tableName)
+    private static QualifiedName makeQualifiedName(String tableName)
     {
-        List<Identifier> parts = Arrays.stream(tableName.split("\\."))
+        List<Identifier> parts = Splitter.on('.').splitToList(tableName).stream()
                 .map(Identifier::new)
-                .collect(Collectors.toList());
+                .collect(toImmutableList());
         return QualifiedName.of(parts);
     }
 
     private static void assertStatement(String query, Statement expected)
     {
-        assertParsed(query, expected, SQL_PARSER.createStatement(query));
+        assertParsed(query, expected, SQL_PARSER.createStatement(query, new ParsingOptions()));
         assertFormattedSql(SQL_PARSER, expected);
     }
 
@@ -2689,7 +2687,7 @@ public class TestSqlParser
     private static void assertInvalidExpression(String expression, String expectedErrorMessageRegex)
     {
         try {
-            Expression result = SQL_PARSER.createExpression(expression);
+            Expression result = createExpression(expression);
             fail("Expected to throw ParsingException for input:[" + expression + "], but got: " + result);
         }
         catch (ParsingException e) {
@@ -2703,5 +2701,10 @@ public class TestSqlParser
     {
         String indent = "    ";
         return indent + value.trim().replaceAll("\n", "\n" + indent);
+    }
+
+    private static Expression createExpression(String expression)
+    {
+        return SQL_PARSER.createExpression(expression, new ParsingOptions());
     }
 }
