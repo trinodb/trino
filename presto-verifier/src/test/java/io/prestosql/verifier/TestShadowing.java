@@ -25,8 +25,6 @@ import io.prestosql.sql.tree.Identifier;
 import io.prestosql.sql.tree.Insert;
 import io.prestosql.sql.tree.LongLiteral;
 import io.prestosql.sql.tree.QualifiedName;
-import io.prestosql.sql.tree.QuerySpecification;
-import io.prestosql.sql.tree.Select;
 import io.prestosql.sql.tree.SingleColumn;
 import io.prestosql.sql.tree.Table;
 import org.jdbi.v3.core.Handle;
@@ -37,6 +35,8 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static io.prestosql.sql.QueryUtil.identifier;
+import static io.prestosql.sql.QueryUtil.selectList;
+import static io.prestosql.sql.QueryUtil.simpleQuery;
 import static io.prestosql.verifier.QueryType.READ;
 import static io.prestosql.verifier.VerifyCommand.statementToQueryType;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -85,9 +85,7 @@ public class TestShadowing
         Table table = new Table(createTableAs.getName());
         SingleColumn column1 = new SingleColumn(new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(new Identifier("COLUMN1"))));
         SingleColumn column2 = new SingleColumn(new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(new FunctionCall(QualifiedName.of("round"), ImmutableList.of(new Identifier("COLUMN2"), new LongLiteral("1"))))));
-        Select select = new Select(false, ImmutableList.of(column1, column2));
-        QuerySpecification querySpecification = new QuerySpecification(select, Optional.of(table), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
-        assertEquals(parser.createStatement(rewrittenQuery.getQuery()), new io.prestosql.sql.tree.Query(Optional.empty(), querySpecification, Optional.empty(), Optional.empty(), Optional.empty()));
+        assertEquals(parser.createStatement(rewrittenQuery.getQuery()), simpleQuery(selectList(column1, column2), table));
 
         assertEquals(parser.createStatement(rewrittenQuery.getPostQueries().get(0)), new DropTable(createTableAs.getName(), true));
     }
@@ -134,9 +132,7 @@ public class TestShadowing
         SingleColumn columnA = new SingleColumn(new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(new Identifier("A"))));
         SingleColumn columnB = new SingleColumn(new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(new FunctionCall(QualifiedName.of("round"), ImmutableList.of(new Identifier("B"), new LongLiteral("1"))))));
         SingleColumn columnC = new SingleColumn(new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(new Identifier("C"))));
-        Select select = new Select(false, ImmutableList.of(columnA, columnB, columnC));
-        QuerySpecification querySpecification = new QuerySpecification(select, Optional.of(table), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
-        assertEquals(parser.createStatement(rewrittenQuery.getQuery()), new io.prestosql.sql.tree.Query(Optional.empty(), querySpecification, Optional.empty(), Optional.empty(), Optional.empty()));
+        assertEquals(parser.createStatement(rewrittenQuery.getQuery()), simpleQuery(selectList(columnA, columnB, columnC), table));
 
         assertEquals(rewrittenQuery.getPostQueries().size(), 1);
         assertEquals(parser.createStatement(rewrittenQuery.getPostQueries().get(0)), new DropTable(createTable.getName(), true));
