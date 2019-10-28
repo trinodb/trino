@@ -153,6 +153,7 @@ This property is optional; the default is ``NONE``.
 Enable end-user Hive metastore impersonation.
 
 This property is optional; the default is ``false``.
+See :ref:`hive-security-metastore-impersonation` for more information.
 
 ``hive.metastore.service.principal``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -187,7 +188,8 @@ This property is optional; no default value.
 
 .. warning::
 
-    The principal specified by ``hive.metastore.client.principal`` must have
+    Unless :ref:`hive-security-metastore-impersonation` is enabled,
+    the principal specified by ``hive.metastore.client.principal`` must have
     sufficient privileges to remove files and directories within the
     ``hive/warehouse`` directory. If the principal does not, only the metadata
     will be removed, and the data will continue to consume disk space.
@@ -395,7 +397,7 @@ section :ref:`configuring-hadoop-impersonation`. Kerberos is not used.
 When using ``KERBEROS`` authentication with impersonation, Presto impersonates
 the user who is running the query when accessing HDFS. The principal
 specified by the ``hive.hdfs.presto.principal`` property must be allowed to
-impersonate this user, as discussed in the section
+impersonate the current Presto user, as discussed in the section
 :ref:`configuring-hadoop-impersonation`. Presto authenticates
 ``hive.hdfs.presto.principal`` using the keytab specified by
 ``hive.hdfs.presto.keytab``.
@@ -404,13 +406,43 @@ Keytab files must be distributed to every node in the cluster that runs Presto.
 
 :ref:`Additional Information About Keytab Files.<hive-security-additional-keytab>`
 
+.. _hive-security-metastore-impersonation:
+
+Impersonation Accessing the Hive Metastore
+------------------------------------------
+
+Presto supports impersonating the end user when accessing the Hive metastore.
+Metastore impersonation can be enabled with
+
+.. code-block:: none
+
+    hive.metastore.thrift.impersonation.enabled=true
+
+When using ``KERBEROS`` Metastore authentication with impersonation, the principal
+specified by the ``hive.metastore.client.principal`` property must be allowed to
+impersonate the current Presto user, as discussed in the section
+:ref:`configuring-hadoop-impersonation`.
+
+The impersonation is applied when:
+
+* modifying (creating or deleting) a database (schema),
+* getting information about a single table,
+* creating or modifying a table.
+
+Impersonation is not applied when for the following operations. In case of the following operations,
+Presto is fully responsible for doing all relevant security checks.
+
+* listing databases (schemas),
+* listing tables,
+* listing roles, grants,
+* changing roles, grants.
+
 .. _configuring-hadoop-impersonation:
 
 Impersonation in Hadoop
 -----------------------
 
-In order to use :ref:`hive-security-simple-impersonation` or
-:ref:`hive-security-kerberos-impersonation`, the Hadoop cluster must be
+In order to use impersonation, the Hadoop cluster must be
 configured to allow the user or principal that Presto is running as to
 impersonate the users who log in to Presto. Impersonation in Hadoop is
 configured in the file :file:`core-site.xml`. A complete description of the
