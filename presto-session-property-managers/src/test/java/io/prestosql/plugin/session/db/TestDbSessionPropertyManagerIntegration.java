@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.execution.sessionpropertymanagers;
+package io.prestosql.plugin.session.db;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -29,12 +29,6 @@ import io.prestosql.SystemSessionProperties;
 import io.prestosql.execution.QueryIdGenerator;
 import io.prestosql.execution.QueryManagerConfig;
 import io.prestosql.metadata.SessionPropertyManager;
-import io.prestosql.plugin.session.db.DbSessionPropertyManager;
-import io.prestosql.plugin.session.db.DbSessionPropertyManagerConfig;
-import io.prestosql.plugin.session.db.DbSpecsProvider;
-import io.prestosql.plugin.session.db.SessionPropertiesDao;
-import io.prestosql.plugin.session.db.SessionPropertiesDaoProvider;
-import io.prestosql.plugin.session.db.TestingDbSpecsProvider;
 import io.prestosql.server.SessionPropertyDefaults;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.resourcegroups.SessionPropertyConfigurationManagerContext;

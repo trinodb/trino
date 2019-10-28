@@ -143,16 +143,6 @@
         </dependency>
 
         <dependency>
-            <groupId>org.jdbi</groupId>
-            <artifactId>jdbi3-sqlobject</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>mysql</groupId>
-            <artifactId>mysql-connector-java</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>org.weakref</groupId>
             <artifactId>jmxutils</artifactId>
         </dependency>
@@ -201,19 +191,6 @@
         <dependency>
             <groupId>io.prestosql</groupId>
             <artifactId>presto-resource-group-managers</artifactId>
-            <type>test-jar</type>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-session-property-managers</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-session-property-managers</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>
