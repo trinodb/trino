@@ -108,7 +108,8 @@ public class ParquetColumnChunk
                 getParquetEncoding(Encoding.valueOf(dicHeader.getEncoding().name())));
     }
 
-    private long readDataPageV1(PageHeader pageHeader,
+    private long readDataPageV1(
+            PageHeader pageHeader,
             int uncompressedPageSize,
             int compressedPageSize,
             List<DataPage> pages)
@@ -128,7 +129,8 @@ public class ParquetColumnChunk
         return dataHeaderV1.getNum_values();
     }
 
-    private long readDataPageV2(PageHeader pageHeader,
+    private long readDataPageV2(
+            PageHeader pageHeader,
             int uncompressedPageSize,
             int compressedPageSize,
             List<DataPage> pages)

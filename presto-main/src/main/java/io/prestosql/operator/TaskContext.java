@@ -119,7 +119,8 @@ public class TaskContext
         return taskContext;
     }
 
-    private TaskContext(QueryContext queryContext,
+    private TaskContext(
+            QueryContext queryContext,
             TaskStateMachine taskStateMachine,
             GcMonitor gcMonitor,
             Executor notificationExecutor,

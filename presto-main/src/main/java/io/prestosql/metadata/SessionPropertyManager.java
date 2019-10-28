@@ -353,7 +353,8 @@ public final class SessionPropertyManager
         private final String defaultValue;
         private final boolean hidden;
 
-        private SessionPropertyValue(String value,
+        private SessionPropertyValue(
+                String value,
                 String defaultValue,
                 String fullyQualifiedName,
                 Optional<String> catalogName,

@@ -190,7 +190,8 @@ public class FailedDispatchQuery
         return new DataSize(0, BYTE);
     }
 
-    private static QueryInfo immediateFailureQueryInfo(Session session,
+    private static QueryInfo immediateFailureQueryInfo(
+            Session session,
             String query,
             Optional<String> preparedQuery,
             URI self,

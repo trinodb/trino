@@ -70,7 +70,8 @@ public final class BytecodeUtils
         return handleNullValue(scope, label, returnType, ImmutableList.copyOf(stackArgsToPop), true);
     }
 
-    public static BytecodeNode handleNullValue(Scope scope,
+    public static BytecodeNode handleNullValue(
+            Scope scope,
             LabelNode label,
             Class<?> returnType,
             List<Class<?>> stackArgsToPop,

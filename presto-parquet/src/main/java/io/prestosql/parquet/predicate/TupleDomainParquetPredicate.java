@@ -318,10 +318,7 @@ public class TupleDomainParquetPredicate
         return createDomain(type, hasNullValue, rangeStatistics, value -> value);
     }
 
-    private static <F, T extends Comparable<T>> Domain createDomain(Type type,
-            boolean hasNullValue,
-            ParquetRangeStatistics<F> rangeStatistics,
-            Function<F, T> function)
+    private static <F, T extends Comparable<T>> Domain createDomain(Type type, boolean hasNullValue, ParquetRangeStatistics<F> rangeStatistics, Function<F, T> function)
     {
         F min = rangeStatistics.getMin();
         F max = rangeStatistics.getMax();

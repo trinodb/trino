@@ -235,7 +235,8 @@ public class HandTpchQuery1
 
         private static final int MAX_SHIP_DATE = DateTimeUtils.parseDate("1998-09-02");
 
-        private static void filterAndProjectRowOriented(PageBuilder pageBuilder,
+        private static void filterAndProjectRowOriented(
+                PageBuilder pageBuilder,
                 Block returnFlagBlock,
                 Block lineStatusBlock,
                 Block quantityBlock,

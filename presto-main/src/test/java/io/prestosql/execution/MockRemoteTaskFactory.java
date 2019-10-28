@@ -168,7 +168,8 @@ public class MockRemoteTaskFactory
 
         private final PartitionedSplitCountTracker partitionedSplitCountTracker;
 
-        public MockRemoteTask(TaskId taskId,
+        public MockRemoteTask(
+                TaskId taskId,
                 PlanFragment fragment,
                 String nodeId,
                 Executor executor,

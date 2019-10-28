@@ -67,7 +67,8 @@ public class KafkaRecordSet
     private final List<KafkaColumnHandle> columnHandles;
     private final List<Type> columnTypes;
 
-    KafkaRecordSet(KafkaSplit split,
+    KafkaRecordSet(
+            KafkaSplit split,
             KafkaSimpleConsumerManager consumerManager,
             List<KafkaColumnHandle> columnHandles,
             RowDecoder keyDecoder,

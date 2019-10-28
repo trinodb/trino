@@ -240,7 +240,8 @@ public class JoinCompiler
         return defineClass(classDefinition, PagesHashStrategy.class, callSiteBinder.getBindings(), getClass().getClassLoader());
     }
 
-    private static void generateConstructor(ClassDefinition classDefinition,
+    private static void generateConstructor(
+            ClassDefinition classDefinition,
             List<Integer> joinChannels,
             FieldDefinition sizeField,
             FieldDefinition instanceSizeField,

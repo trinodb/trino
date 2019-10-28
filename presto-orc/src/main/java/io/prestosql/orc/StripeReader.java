@@ -88,7 +88,8 @@ public class StripeReader
     private final MetadataReader metadataReader;
     private final Optional<OrcWriteValidation> writeValidation;
 
-    public StripeReader(OrcDataSource orcDataSource,
+    public StripeReader(
+            OrcDataSource orcDataSource,
             ZoneId defaultTimeZone,
             Optional<OrcDecompressor> decompressor,
             ColumnMetadata<OrcType> types,

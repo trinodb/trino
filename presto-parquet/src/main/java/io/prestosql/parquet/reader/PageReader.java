@@ -33,9 +33,7 @@ class PageReader
     private final List<DataPage> compressedPages;
     private final DictionaryPage compressedDictionaryPage;
 
-    public PageReader(CompressionCodecName codec,
-            List<DataPage> compressedPages,
-            DictionaryPage compressedDictionaryPage)
+    public PageReader(CompressionCodecName codec, List<DataPage> compressedPages, DictionaryPage compressedDictionaryPage)
     {
         this.codec = codec;
         this.compressedPages = new LinkedList<>(compressedPages);

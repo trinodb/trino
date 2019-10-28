@@ -152,7 +152,8 @@ public final class MetadataManager
     private final ConcurrentMap<String, Collection<ConnectorMetadata>> catalogsByQueryId = new ConcurrentHashMap<>();
 
     @Inject
-    public MetadataManager(FeaturesConfig featuresConfig,
+    public MetadataManager(
+            FeaturesConfig featuresConfig,
             SessionPropertyManager sessionPropertyManager,
             SchemaPropertyManager schemaPropertyManager,
             TablePropertyManager tablePropertyManager,

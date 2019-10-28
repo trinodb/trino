@@ -469,7 +469,8 @@ public class ScanFilterAndProjectOperator
             return create(session, memoryTrackingContext, yieldSignal, splits, true);
         }
 
-        public WorkProcessorSourceOperator createAdapterOperator(Session session,
+        public WorkProcessorSourceOperator createAdapterOperator(
+                Session session,
                 MemoryTrackingContext memoryTrackingContext,
                 DriverYieldSignal yieldSignal,
                 WorkProcessor<Split> splits)
