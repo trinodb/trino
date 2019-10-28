@@ -16,6 +16,7 @@ package io.prestosql.plugin.hive.metastore.thrift;
 import com.google.common.net.HostAndPort;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.Duration;
 import io.prestosql.plugin.hive.util.RetryDriver;
 
@@ -133,6 +134,7 @@ public class ThriftMetastoreConfig
     }
 
     @Config("hive.metastore.thrift.impersonation.enabled")
+    @LegacyConfig("hive.metastore.impersonation-enabled")
     @ConfigDescription("Should end user be impersonated when communicating with metastore")
     public ThriftMetastoreConfig setImpersonationEnabled(boolean impersonationEnabled)
     {
