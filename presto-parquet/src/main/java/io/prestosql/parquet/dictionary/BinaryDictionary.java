@@ -44,14 +44,14 @@ public class BinaryDictionary
             for (int i = 0; i < content.length; i++) {
                 int len = readIntLittleEndian(dictionaryBytes, offset);
                 offset += 4;
-                content[i] = Binary.fromByteArray(dictionaryBytes, offset, len);
+                content[i] = Binary.fromReusedByteArray(dictionaryBytes, offset, len);
                 offset += len;
             }
         }
         else {
             checkArgument(length > 0, "Invalid byte array length: %s", length);
             for (int i = 0; i < content.length; i++) {
-                content[i] = Binary.fromByteArray(dictionaryBytes, offset, length);
+                content[i] = Binary.fromReusedByteArray(dictionaryBytes, offset, length);
                 offset += length;
             }
         }

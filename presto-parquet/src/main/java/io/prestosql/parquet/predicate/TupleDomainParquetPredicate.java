@@ -209,8 +209,8 @@ public class TupleDomainParquetPredicate
 
         if (isVarcharType(type) && statistics instanceof BinaryStatistics) {
             BinaryStatistics binaryStatistics = (BinaryStatistics) statistics;
-            Slice minSlice = Slices.wrappedBuffer(binaryStatistics.getMin().getBytes());
-            Slice maxSlice = Slices.wrappedBuffer(binaryStatistics.getMax().getBytes());
+            Slice minSlice = Slices.wrappedBuffer(binaryStatistics.genericGetMin().getBytes());
+            Slice maxSlice = Slices.wrappedBuffer(binaryStatistics.genericGetMax().getBytes());
             if (minSlice.compareTo(maxSlice) > 0) {
                 failWithCorruptionException(failOnCorruptedParquetStatistics, column, id, binaryStatistics);
                 return Domain.create(ValueSet.all(type), hasNullValue);
