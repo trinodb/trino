@@ -280,7 +280,8 @@ public class IndexLoader
 
         private final IndexSnapshotBuilder indexSnapshotBuilder;
 
-        private IndexSnapshotLoader(IndexBuildDriverFactoryProvider indexBuildDriverFactoryProvider,
+        private IndexSnapshotLoader(
+                IndexBuildDriverFactoryProvider indexBuildDriverFactoryProvider,
                 PipelineContext pipelineContext,
                 AtomicReference<IndexSnapshot> indexSnapshotReference,
                 Set<Integer> lookupSourceInputChannels,

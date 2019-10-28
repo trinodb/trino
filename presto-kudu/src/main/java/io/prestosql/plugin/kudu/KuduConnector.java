@@ -66,8 +66,7 @@ public class KuduConnector
     }
 
     @Override
-    public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel,
-            boolean readOnly)
+    public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
     {
         checkConnectorSupports(READ_COMMITTED, isolationLevel);
         return KuduTransactionHandle.INSTANCE;

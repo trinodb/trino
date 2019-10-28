@@ -59,8 +59,7 @@ public abstract class AbstractTestingPrestoClient<T>
 
     private final OkHttpClient httpClient = new OkHttpClient();
 
-    protected AbstractTestingPrestoClient(TestingPrestoServer prestoServer,
-            Session defaultSession)
+    protected AbstractTestingPrestoClient(TestingPrestoServer prestoServer, Session defaultSession)
     {
         this.prestoServer = requireNonNull(prestoServer, "prestoServer is null");
         this.defaultSession = requireNonNull(defaultSession, "defaultSession is null");

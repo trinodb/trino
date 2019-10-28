@@ -26,7 +26,8 @@ import java.util.OptionalInt;
 
 public interface RemoteTaskFactory
 {
-    RemoteTask createRemoteTask(Session session,
+    RemoteTask createRemoteTask(
+            Session session,
             TaskId taskId,
             InternalNode node,
             PlanFragment fragment,

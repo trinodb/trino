@@ -351,7 +351,8 @@ public enum FileFormat
     {
         private final RecordFileWriter recordWriter;
 
-        public RecordFormatWriter(File targetFile,
+        public RecordFormatWriter(
+                File targetFile,
                 List<String> columnNames,
                 List<Type> columnTypes,
                 HiveCompressionCodec compressionCodec,

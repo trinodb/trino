@@ -520,9 +520,7 @@ public class KuduClientSession
         return createComparisonPredicate(columnSchema, KuduPredicate.ComparisonOp.EQUAL, value);
     }
 
-    private KuduPredicate createComparisonPredicate(ColumnSchema columnSchema,
-            KuduPredicate.ComparisonOp op,
-            Object value)
+    private KuduPredicate createComparisonPredicate(ColumnSchema columnSchema, KuduPredicate.ComparisonOp op, Object value)
     {
         io.prestosql.spi.type.Type type = TypeHelper.fromKuduColumn(columnSchema);
         Object javaValue = TypeHelper.getJavaValue(type, value);

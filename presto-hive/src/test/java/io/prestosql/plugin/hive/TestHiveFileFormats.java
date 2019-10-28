@@ -525,7 +525,8 @@ public class TestHiveFileFormats
                 .isFailingForRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT), expectedErrorCode, expectedMessage);
     }
 
-    private void testCursorProvider(HiveRecordCursorProvider cursorProvider,
+    private void testCursorProvider(
+            HiveRecordCursorProvider cursorProvider,
             FileSplit split,
             HiveStorageFormat storageFormat,
             List<TestColumn> testColumns,
@@ -581,7 +582,8 @@ public class TestHiveFileFormats
         checkCursor(cursor, testColumns, rowCount);
     }
 
-    private void testPageSourceFactory(HivePageSourceFactory sourceFactory,
+    private void testPageSourceFactory(
+            HivePageSourceFactory sourceFactory,
             FileSplit split,
             HiveStorageFormat storageFormat,
             List<TestColumn> testColumns,

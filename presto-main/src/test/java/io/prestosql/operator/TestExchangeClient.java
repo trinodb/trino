@@ -338,7 +338,8 @@ public class TestExchangeClient
         assertEquals(PAGES_SERDE.deserialize(actualPage).getChannelCount(), expectedPage.getChannelCount());
     }
 
-    private static void assertStatus(PageBufferClientStatus clientStatus,
+    private static void assertStatus(
+            PageBufferClientStatus clientStatus,
             URI location,
             String status,
             int pagesReceived,

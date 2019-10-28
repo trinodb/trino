@@ -36,7 +36,8 @@ public class Footer
     private final Optional<ColumnMetadata<ColumnStatistics>> fileStats;
     private final Map<String, Slice> userMetadata;
 
-    public Footer(long numberOfRows,
+    public Footer(
+            long numberOfRows,
             int rowsInRowGroup,
             List<StripeInformation> stripes,
             ColumnMetadata<OrcType> types,

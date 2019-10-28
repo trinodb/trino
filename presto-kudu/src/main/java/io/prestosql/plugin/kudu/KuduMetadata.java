@@ -191,7 +191,8 @@ public class KuduMetadata
     }
 
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session,
+    public List<ConnectorTableLayoutResult> getTableLayouts(
+            ConnectorSession session,
             ConnectorTableHandle tableHandle,
             Constraint constraint,
             Optional<Set<ColumnHandle>> desiredColumns)
@@ -289,7 +290,8 @@ public class KuduMetadata
     }
 
     @Override
-    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session,
+    public Optional<ConnectorOutputMetadata> finishInsert(
+            ConnectorSession session,
             ConnectorInsertTableHandle insertHandle,
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics)
@@ -298,7 +300,8 @@ public class KuduMetadata
     }
 
     @Override
-    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session,
+    public ConnectorOutputTableHandle beginCreateTable(
+            ConnectorSession session,
             ConnectorTableMetadata tableMetadata,
             Optional<ConnectorNewTableLayout> layout)
     {
@@ -338,7 +341,8 @@ public class KuduMetadata
     }
 
     @Override
-    public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session,
+    public Optional<ConnectorOutputMetadata> finishCreateTable(
+            ConnectorSession session,
             ConnectorOutputTableHandle tableHandle,
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics)

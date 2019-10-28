@@ -50,7 +50,8 @@ public class Analyzer
     private final Map<NodeRef<Parameter>, Expression> parameterLookup;
     private final WarningCollector warningCollector;
 
-    public Analyzer(Session session,
+    public Analyzer(
+            Session session,
             Metadata metadata,
             SqlParser sqlParser,
             AccessControl accessControl,

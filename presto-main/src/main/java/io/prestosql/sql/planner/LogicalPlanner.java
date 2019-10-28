@@ -119,7 +119,8 @@ public class LogicalPlanner
     private final CostCalculator costCalculator;
     private final WarningCollector warningCollector;
 
-    public LogicalPlanner(Session session,
+    public LogicalPlanner(
+            Session session,
             List<PlanOptimizer> planOptimizers,
             PlanNodeIdAllocator idAllocator,
             Metadata metadata,
@@ -131,7 +132,8 @@ public class LogicalPlanner
         this(session, planOptimizers, DISTRIBUTED_PLAN_SANITY_CHECKER, idAllocator, metadata, typeAnalyzer, statsCalculator, costCalculator, warningCollector);
     }
 
-    public LogicalPlanner(Session session,
+    public LogicalPlanner(
+            Session session,
             List<PlanOptimizer> planOptimizers,
             PlanSanityChecker planSanityChecker,
             PlanNodeIdAllocator idAllocator,

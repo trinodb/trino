@@ -40,7 +40,8 @@ public class IndexBuildDriverFactoryProvider
     private final List<Type> outputTypes;
     private final Optional<DynamicTupleFilterFactory> dynamicTupleFilterFactory;
 
-    public IndexBuildDriverFactoryProvider(int pipelineId,
+    public IndexBuildDriverFactoryProvider(
+            int pipelineId,
             int outputOperatorId,
             PlanNodeId planNodeId,
             boolean inputDriver,

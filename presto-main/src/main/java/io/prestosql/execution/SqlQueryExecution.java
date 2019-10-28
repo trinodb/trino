@@ -656,7 +656,8 @@ public class SqlQueryExecution
         private final CostCalculator costCalculator;
 
         @Inject
-        SqlQueryExecutionFactory(QueryManagerConfig config,
+        SqlQueryExecutionFactory(
+                QueryManagerConfig config,
                 Metadata metadata,
                 AccessControl accessControl,
                 SqlParser sqlParser,

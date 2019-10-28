@@ -548,7 +548,8 @@ public class TestOrcPageSourceMemoryTracking
         }
     }
 
-    public static FileSplit createTestFile(String filePath,
+    public static FileSplit createTestFile(
+            String filePath,
             HiveOutputFormat<?, ?> outputFormat,
             Serializer serializer,
             String compressionCodec,
