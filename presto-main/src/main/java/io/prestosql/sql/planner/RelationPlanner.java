@@ -95,7 +95,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.sql.analyzer.SemanticExceptions.notSupportedException;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -230,7 +231,7 @@ class RelationPlanner
             if (node.getCriteria().get() instanceof JoinOn && ((JoinOn) node.getCriteria().get()).getExpression().equals(TRUE_LITERAL)) {
                 return planJoinUnnest(leftPlan, node, unnest.get());
             }
-            throw notSupportedException(unnest.get(), "UNNEST in conditional JOIN");
+            throw semanticException(NOT_SUPPORTED, unnest.get(), "UNNEST in conditional JOIN is not supported");
         }
 
         Optional<Lateral> lateral = getLateral(node.getRight());
@@ -352,7 +353,7 @@ class RelationPlanner
                 Set<InPredicate> inPredicates = subqueryPlanner.collectInPredicateSubqueries(complexExpression, node);
                 if (!inPredicates.isEmpty()) {
                     InPredicate inPredicate = Iterables.getLast(inPredicates);
-                    throw notSupportedException(inPredicate, "IN with subquery predicate in join condition");
+                    throw semanticException(NOT_SUPPORTED, inPredicate, "IN with subquery predicate in join condition is not supported");
                 }
             }
 
@@ -564,7 +565,7 @@ class RelationPlanner
         else {
             JoinCriteria criteria = join.getCriteria().get();
             if (criteria instanceof JoinUsing || criteria instanceof NaturalJoin) {
-                throw notSupportedException(join, "Correlated join with criteria other than ON");
+                throw semanticException(NOT_SUPPORTED, join, "Correlated join with criteria other than ON is not supported");
             }
             filterExpression = (Expression) getOnlyElement(criteria.getNodes());
         }
@@ -656,17 +657,17 @@ class RelationPlanner
         if (joinNode.getCriteria().isPresent()) {
             JoinCriteria criteria = joinNode.getCriteria().get();
             if (criteria instanceof NaturalJoin) {
-                throw notSupportedException(joinNode, "Natural join involving UNNEST not supported");
+                throw semanticException(NOT_SUPPORTED, joinNode, "Natural join involving UNNEST is not supported");
             }
             if (criteria instanceof JoinUsing) {
-                throw notSupportedException(joinNode, "USING not supported for join involving UNNEST");
+                throw semanticException(NOT_SUPPORTED, joinNode, "USING for join involving UNNEST is not supported");
             }
             Expression filter = (Expression) getOnlyElement(criteria.getNodes());
             if (filter.equals(TRUE_LITERAL)) {
                 filterExpression = Optional.of(filter);
             }
             else { //TODO rewrite filter to support non-trivial join criteria
-                throw notSupportedException(joinNode, "JOIN involving UNNEST on condition other than TRUE");
+                throw semanticException(NOT_SUPPORTED, joinNode, "JOIN involving UNNEST on condition other than TRUE is not supported");
             }
         }
 

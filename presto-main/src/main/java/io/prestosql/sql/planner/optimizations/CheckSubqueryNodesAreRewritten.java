@@ -29,7 +29,8 @@ import io.prestosql.sql.tree.Node;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.sql.analyzer.SemanticExceptions.notSupportedException;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 
 public class CheckSubqueryNodesAreRewritten
@@ -58,6 +59,6 @@ public class CheckSubqueryNodesAreRewritten
     private PrestoException error(List<Symbol> correlation, Node originSubquery)
     {
         checkState(!correlation.isEmpty(), "All the non correlated subqueries should be rewritten at this point");
-        throw notSupportedException(originSubquery, "Given correlated subquery");
+        throw semanticException(NOT_SUPPORTED, originSubquery, "Given correlated subquery is not supported");
     }
 }
