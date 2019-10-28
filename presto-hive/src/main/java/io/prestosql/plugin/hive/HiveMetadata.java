@@ -443,10 +443,10 @@ public class HiveMetadata
                     Iterable<List<Object>> records = () ->
                             stream(partitionManager.getPartitions(metastore, new HiveIdentity(session), sourceTableHandle, targetConstraint).getPartitions())
                                     .map(hivePartition ->
-                                            (List<Object>) IntStream.range(0, partitionColumns.size())
+                                            IntStream.range(0, partitionColumns.size())
                                                     .mapToObj(fieldIdToColumnHandle::get)
                                                     .map(columnHandle -> hivePartition.getKeys().get(columnHandle).getValue())
-                                                    .collect(toImmutableList()))
+                                                    .collect(toList())) // nullable
                                     .iterator();
 
                     return new InMemoryRecordSet(partitionColumnTypes, records).cursor();
