@@ -83,10 +83,11 @@ Lists)` to provide additional security for data.
 
 .. warning::
 
-  Access to the Presto coordinator should be secured using Kerberos when using
-  Kerberos authentication to Hadoop services. Failure to secure access to the
-  Presto coordinator could result in unauthorized access to sensitive data on
-  the Hadoop cluster.
+  Access to the Presto coordinator should be secured (e.g. using Kerberos or password
+  authentication) when using Kerberos authentication to Hadoop services.
+  Failure to secure access to the Presto coordinator could result in unauthorized
+  access to sensitive data on the Hadoop cluster. Refer to :doc:`/security` for
+  further information.
 
   See :doc:`/security/server` and :doc:`/security/cli`
   for information on setting up Kerberos authentication.
