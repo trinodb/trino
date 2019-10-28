@@ -368,7 +368,7 @@ HDFS Permissions and ACLs are explained in the `HDFS Permissions Guide
 .. _hive-security-simple-impersonation:
 
 ``NONE`` authentication with HDFS impersonation
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: none
 
