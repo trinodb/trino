@@ -14,6 +14,7 @@
 package io.prestosql.plugin.password;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.plugin.password.ldap.LdapAuthenticatorFactory;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.security.PasswordAuthenticatorFactory;
 
