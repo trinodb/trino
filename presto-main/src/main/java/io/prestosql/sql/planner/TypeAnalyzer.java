@@ -20,14 +20,12 @@ import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.analyzer.ExpressionAnalyzer;
-import io.prestosql.sql.analyzer.TypeSignatureProvider;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.NodeRef;
 
 import javax.inject.Inject;
 
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -60,10 +58,5 @@ public class TypeAnalyzer
     public Type getType(Session session, TypeProvider inputTypes, Expression expression)
     {
         return getTypes(session, inputTypes, expression).get(NodeRef.of(expression));
-    }
-
-    public List<TypeSignatureProvider> getCallArgumentTypes(Session session, TypeProvider inputTypes, List<Expression> arguments)
-    {
-        return ExpressionAnalyzer.getCallArgumentTypes(session, metadata, parser, inputTypes, arguments, ImmutableMap.of(), WarningCollector.NOOP, false);
     }
 }
