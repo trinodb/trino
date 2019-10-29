@@ -113,7 +113,7 @@ public class HiveTableHandle
         this.analyzePartitionValues = requireNonNull(analyzePartitionValues, "analyzePartitionValues is null");
     }
 
-    public HiveTableHandle withAnalyzePartitionValues(Optional<List<List<String>>> analyzePartitionValues)
+    public HiveTableHandle withAnalyzePartitionValues(List<List<String>> analyzePartitionValues)
     {
         return new HiveTableHandle(
                 schemaName,
@@ -125,7 +125,7 @@ public class HiveTableHandle
                 enforcedConstraint,
                 bucketHandle,
                 bucketFilter,
-                analyzePartitionValues);
+                Optional.of(analyzePartitionValues));
     }
 
     @JsonProperty
