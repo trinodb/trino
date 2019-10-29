@@ -108,6 +108,7 @@ import io.prestosql.spi.PageIndexerFactory;
 import io.prestosql.spi.PageSorter;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.ConnectorFactory;
+import io.prestosql.spi.session.PropertyMetadata;
 import io.prestosql.spiller.FileSingleStreamSpillerFactory;
 import io.prestosql.spiller.GenericPartitioningSpillerFactory;
 import io.prestosql.spiller.GenericSpillerFactory;
@@ -249,6 +250,7 @@ public class LocalQueryRunner
     private final NodeSpillConfig nodeSpillConfig;
     private final NodeSchedulerConfig nodeSchedulerConfig;
     private final FeaturesConfig featuresConfig;
+    private final Map<String, List<PropertyMetadata<?>>> defaultSessionProperties;
     private boolean printPlan;
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
@@ -258,6 +260,11 @@ public class LocalQueryRunner
         this(defaultSession, new FeaturesConfig(), new NodeSpillConfig(), false, false);
     }
 
+    public LocalQueryRunner(Session defaultSession, Map<String, List<PropertyMetadata<?>>> defaultSessionProperties)
+    {
+        this(defaultSession, new FeaturesConfig(), new NodeSpillConfig(), false, false, defaultSessionProperties);
+    }
+
     public LocalQueryRunner(Session defaultSession, FeaturesConfig featuresConfig)
     {
         this(defaultSession, featuresConfig, new NodeSpillConfig(), false, false);
@@ -265,15 +272,21 @@ public class LocalQueryRunner
 
     public LocalQueryRunner(Session defaultSession, FeaturesConfig featuresConfig, NodeSpillConfig nodeSpillConfig, boolean withInitialTransaction, boolean alwaysRevokeMemory)
     {
-        this(defaultSession, featuresConfig, nodeSpillConfig, withInitialTransaction, alwaysRevokeMemory, 1);
+        this(defaultSession, featuresConfig, nodeSpillConfig, withInitialTransaction, alwaysRevokeMemory, 1, ImmutableMap.of());
     }
 
-    private LocalQueryRunner(Session defaultSession, FeaturesConfig featuresConfig, NodeSpillConfig nodeSpillConfig, boolean withInitialTransaction, boolean alwaysRevokeMemory, int nodeCountForStats)
+    public LocalQueryRunner(Session defaultSession, FeaturesConfig featuresConfig, NodeSpillConfig nodeSpillConfig, boolean withInitialTransaction, boolean alwaysRevokeMemory, Map<String, List<PropertyMetadata<?>>> defaultSessionProperties)
+    {
+        this(defaultSession, featuresConfig, nodeSpillConfig, withInitialTransaction, alwaysRevokeMemory, 1, defaultSessionProperties);
+    }
+
+    private LocalQueryRunner(Session defaultSession, FeaturesConfig featuresConfig, NodeSpillConfig nodeSpillConfig, boolean withInitialTransaction, boolean alwaysRevokeMemory, int nodeCountForStats, Map<String, List<PropertyMetadata<?>>> defaultSessionProperties)
     {
         requireNonNull(defaultSession, "defaultSession is null");
         checkArgument(!defaultSession.getTransactionId().isPresent() || !withInitialTransaction, "Already in transaction");
 
         this.taskManagerConfig = new TaskManagerConfig().setTaskConcurrency(4);
+        this.defaultSessionProperties = requireNonNull(defaultSessionProperties, "defaultSessionProperties is null");
         this.nodeSpillConfig = requireNonNull(nodeSpillConfig, "nodeSpillConfig is null");
         this.alwaysRevokeMemory = alwaysRevokeMemory;
         this.notificationExecutor = newCachedThreadPool(daemonThreadsNamed("local-query-runner-executor-%s"));
@@ -365,6 +378,7 @@ public class LocalQueryRunner
 
         // add bogus connector for testing session properties
         catalogManager.registerCatalog(createBogusTestingCatalog(TESTING_CATALOG));
+        metadata.getSessionPropertyManager().addConnectorSessionProperties(new CatalogName(TESTING_CATALOG), this.defaultSessionProperties.getOrDefault(TESTING_CATALOG, ImmutableList.of()));
 
         // rewrite session to use managed SessionPropertyMetadata
         this.defaultSession = new Session(
@@ -424,7 +438,7 @@ public class LocalQueryRunner
 
     public static LocalQueryRunner queryRunnerWithFakeNodeCountForStats(Session defaultSession, int nodeCount)
     {
-        return new LocalQueryRunner(defaultSession, new FeaturesConfig(), new NodeSpillConfig(), false, false, nodeCount);
+        return new LocalQueryRunner(defaultSession, new FeaturesConfig(), new NodeSpillConfig(), false, false, nodeCount, ImmutableMap.of());
     }
 
     @Override
