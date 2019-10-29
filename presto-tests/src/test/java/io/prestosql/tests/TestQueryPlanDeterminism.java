@@ -15,7 +15,6 @@ package io.prestosql.tests;
 
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
-import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.SessionPropertyManager;
 import io.prestosql.plugin.tpch.TpchConnectorFactory;
 import io.prestosql.spi.type.Type;
@@ -63,7 +62,7 @@ public class TestQueryPlanDeterminism
                 .setSchema(TINY_SCHEMA_NAME)
                 .build();
 
-        LocalQueryRunner localQueryRunner = new LocalQueryRunner(defaultSession);
+        LocalQueryRunner localQueryRunner = new LocalQueryRunner(defaultSession, ImmutableMap.of(TESTING_CATALOG, TEST_CATALOG_PROPERTIES));
 
         // add the tpch catalog
         // local queries run directly against the generator
@@ -76,7 +75,6 @@ public class TestQueryPlanDeterminism
 
         SessionPropertyManager sessionPropertyManager = localQueryRunner.getMetadata().getSessionPropertyManager();
         sessionPropertyManager.addSystemSessionProperties(TEST_SYSTEM_PROPERTIES);
-        sessionPropertyManager.addConnectorSessionProperties(new CatalogName(TESTING_CATALOG), TEST_CATALOG_PROPERTIES);
 
         return localQueryRunner;
     }
