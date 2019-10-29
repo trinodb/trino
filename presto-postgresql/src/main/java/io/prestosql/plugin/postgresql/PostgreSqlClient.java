@@ -46,6 +46,7 @@ import io.prestosql.plugin.postgresql.PostgreSqlConfig.ArrayMapping;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.block.SingleMapBlock;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
@@ -76,6 +77,7 @@ import java.sql.Types;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -85,6 +87,7 @@ import java.util.function.BiFunction;
 
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedLongArray;
@@ -296,7 +299,7 @@ public class PostgreSqlClient
                 // PostgreSQL's "timestamp with time zone" is reported as Types.TIMESTAMP rather than Types.TIMESTAMP_WITH_TIMEZONE
                 return Optional.of(timestampWithTimeZoneColumnMapping());
             case "hstore":
-                return Optional.of(hstoreColumnMapping());
+                return Optional.of(hstoreColumnMapping(session));
         }
         if (typeHandle.getJdbcType() == Types.VARCHAR && !jdbcTypeName.equals("varchar")) {
             // This can be e.g. an ENUM
@@ -428,12 +431,12 @@ public class PostgreSqlClient
         };
     }
 
-    private ColumnMapping hstoreColumnMapping()
+    private ColumnMapping hstoreColumnMapping(ConnectorSession session)
     {
         return ColumnMapping.blockMapping(
                 varcharMapType,
                 varcharMapReadFunction(),
-                (statement, index, block) -> { throw new PrestoException(NOT_SUPPORTED, "PosgtreSQL hstore write is not supported"); },
+                hstoreWriteFunction(session),
                 DISABLE_PUSHDOWN);
     }
 
@@ -458,6 +461,18 @@ public class PostgreSqlClient
             }
             return varcharMapType.createBlockFromKeyValue(Optional.empty(), new int[] {0, map.size()}, keyBlockBuilder.build(), valueBlockBuilder.build())
                     .getObject(0, Block.class);
+        };
+    }
+
+    private BlockWriteFunction hstoreWriteFunction(ConnectorSession session)
+    {
+        return (statement, index, block) -> {
+            checkArgument(block instanceof SingleMapBlock, "wrong block type: %s. expected SingleMapBlock", block.getClass().getSimpleName());
+            Map<Object, Object> map = new HashMap<>();
+            for (int i = 0; i < block.getPositionCount(); i += 2) {
+                map.put(varcharMapType.getKeyType().getObjectValue(session, block, i), varcharMapType.getValueType().getObjectValue(session, block, i + 1));
+            }
+            statement.setObject(index, Collections.unmodifiableMap(map));
         };
     }
 
