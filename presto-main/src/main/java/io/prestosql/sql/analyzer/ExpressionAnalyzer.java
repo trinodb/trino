@@ -282,12 +282,6 @@ public class ExpressionAnalyzer
         return visitor.process(expression, new StackableAstVisitor.StackableAstVisitorContext<>(context));
     }
 
-    private List<TypeSignatureProvider> getCallArgumentTypes(List<Expression> arguments, Scope scope)
-    {
-        Visitor visitor = new Visitor(scope, warningCollector);
-        return visitor.getCallArgumentTypes(arguments, new StackableAstVisitor.StackableAstVisitorContext<>(Context.notInLambda(scope)));
-    }
-
     public Set<NodeRef<SubqueryExpression>> getScalarSubqueries()
     {
         return unmodifiableSet(scalarSubqueries);
@@ -1592,23 +1586,6 @@ public class ExpressionAnalyzer
                 analyzer.getQuantifiedComparisons(),
                 analyzer.getLambdaArgumentReferences(),
                 analyzer.getWindowFunctions());
-    }
-
-    public static List<TypeSignatureProvider> getCallArgumentTypes(
-            Session session,
-            Metadata metadata,
-            SqlParser sqlParser,
-            TypeProvider types,
-            List<Expression> callArguments,
-            Map<NodeRef<Parameter>, Expression> parameters,
-            WarningCollector warningCollector,
-            boolean isDescribe)
-    {
-        // Expressions at this point can not have sub queries, so deny all access checks.
-        // In the future, we will need a full access controller here to verify access to functions.
-        Analysis analysis = new Analysis(null, parameters, isDescribe);
-        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, new DenyAllAccessControl(), types, warningCollector);
-        return analyzer.getCallArgumentTypes(callArguments, Scope.builder().withRelationType(RelationId.anonymous(), new RelationType()).build());
     }
 
     public static ExpressionAnalyzer create(
