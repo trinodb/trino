@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.prestosql.plugin.hive.util.HiveBucketing.HiveBucketFilter;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorTableHandle;
@@ -28,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -44,6 +46,7 @@ public class HiveTableHandle
     private final Optional<HiveBucketHandle> bucketHandle;
     private final Optional<HiveBucketFilter> bucketFilter;
     private final Optional<List<List<String>>> analyzePartitionValues;
+    private final Optional<Set<String>> analyzeColumnNames;
 
     @JsonCreator
     public HiveTableHandle(
@@ -54,7 +57,8 @@ public class HiveTableHandle
             @JsonProperty("enforcedConstraint") TupleDomain<ColumnHandle> enforcedConstraint,
             @JsonProperty("bucketHandle") Optional<HiveBucketHandle> bucketHandle,
             @JsonProperty("bucketFilter") Optional<HiveBucketFilter> bucketFilter,
-            @JsonProperty("analyzePartitionValues") Optional<List<List<String>>> analyzePartitionValues)
+            @JsonProperty("analyzePartitionValues") Optional<List<List<String>>> analyzePartitionValues,
+            @JsonProperty("analyzeColumnNames") Optional<Set<String>> analyzeColumnNames)
     {
         this(
                 schemaName,
@@ -66,7 +70,8 @@ public class HiveTableHandle
                 enforcedConstraint,
                 bucketHandle,
                 bucketFilter,
-                analyzePartitionValues);
+                analyzePartitionValues,
+                analyzeColumnNames);
     }
 
     public HiveTableHandle(
@@ -86,6 +91,7 @@ public class HiveTableHandle
                 TupleDomain.all(),
                 bucketHandle,
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
     }
 
@@ -99,7 +105,8 @@ public class HiveTableHandle
             TupleDomain<ColumnHandle> enforcedConstraint,
             Optional<HiveBucketHandle> bucketHandle,
             Optional<HiveBucketFilter> bucketFilter,
-            Optional<List<List<String>>> analyzePartitionValues)
+            Optional<List<List<String>>> analyzePartitionValues,
+            Optional<Set<String>> analyzeColumnNames)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -111,6 +118,7 @@ public class HiveTableHandle
         this.bucketHandle = requireNonNull(bucketHandle, "bucketHandle is null");
         this.bucketFilter = requireNonNull(bucketFilter, "bucketFilter is null");
         this.analyzePartitionValues = requireNonNull(analyzePartitionValues, "analyzePartitionValues is null");
+        this.analyzeColumnNames = requireNonNull(analyzeColumnNames, "analyzeColumnNames is null").map(ImmutableSet::copyOf);
     }
 
     public HiveTableHandle withAnalyzePartitionValues(List<List<String>> analyzePartitionValues)
@@ -125,7 +133,24 @@ public class HiveTableHandle
                 enforcedConstraint,
                 bucketHandle,
                 bucketFilter,
-                Optional.of(analyzePartitionValues));
+                Optional.of(analyzePartitionValues),
+                analyzeColumnNames);
+    }
+
+    public HiveTableHandle withAnalyzeColumnNames(Set<String> analyzeColumnNames)
+    {
+        return new HiveTableHandle(
+                schemaName,
+                tableName,
+                tableParameters,
+                partitionColumns,
+                partitions,
+                compactEffectivePredicate,
+                enforcedConstraint,
+                bucketHandle,
+                bucketFilter,
+                analyzePartitionValues,
+                Optional.of(analyzeColumnNames));
     }
 
     @JsonProperty
@@ -188,6 +213,12 @@ public class HiveTableHandle
     public Optional<List<List<String>>> getAnalyzePartitionValues()
     {
         return analyzePartitionValues;
+    }
+
+    @JsonProperty
+    public Optional<Set<String>> getAnalyzeColumnNames()
+    {
+        return analyzeColumnNames;
     }
 
     public SchemaTableName getSchemaTableName()

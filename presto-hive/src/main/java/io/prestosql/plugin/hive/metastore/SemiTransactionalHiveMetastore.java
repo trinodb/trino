@@ -324,7 +324,7 @@ public class SemiTransactionalHiveMetastore
     }
 
     // For HiveBasicStatistics, we only overwrite the original statistics if the new one is not empty.
-    // For HiveColumnStatistics, we always overwrite every statistics.
+    // For HiveColumnStatistics, only overwrite the original statistics for columns present in the new ones and preserve the others.
     // TODO: Collect file count, on-disk size and in-memory size during ANALYZE
     private PartitionStatistics updatePartitionStatistics(PartitionStatistics oldPartitionStats, PartitionStatistics newPartitionStats)
     {
@@ -335,7 +335,16 @@ public class SemiTransactionalHiveMetastore
                 firstPresent(newBasicStatistics.getRowCount(), oldBasicStatistics.getRowCount()),
                 firstPresent(newBasicStatistics.getInMemoryDataSizeInBytes(), oldBasicStatistics.getInMemoryDataSizeInBytes()),
                 firstPresent(newBasicStatistics.getOnDiskDataSizeInBytes(), oldBasicStatistics.getOnDiskDataSizeInBytes()));
-        return new PartitionStatistics(updatedBasicStatistics, newPartitionStats.getColumnStatistics());
+        Map<String, HiveColumnStatistics> updatedColumnStatistics =
+                updateColumnStatistics(oldPartitionStats.getColumnStatistics(), newPartitionStats.getColumnStatistics());
+        return new PartitionStatistics(updatedBasicStatistics, updatedColumnStatistics);
+    }
+
+    private Map<String, HiveColumnStatistics> updateColumnStatistics(Map<String, HiveColumnStatistics> oldColumnStats, Map<String, HiveColumnStatistics> newColumnStats)
+    {
+        Map<String, HiveColumnStatistics> result = new HashMap<>(oldColumnStats);
+        result.putAll(newColumnStats);
+        return ImmutableMap.copyOf(result);
     }
 
     private static OptionalLong firstPresent(OptionalLong first, OptionalLong second)

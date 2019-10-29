@@ -572,6 +572,18 @@ the values of the partition keys in the order they are declared in the table sch
 This query will collect statistics for two partitions with keys
 ``p1_value1, p1_value2`` and ``p2_value1, p2_value2``.
 
+On wide tables, collecting statistics for all columns can be expensive and can have a
+detrimental effect on query planning. It is also typically unnecessary - statistics are
+only useful on specific columns, like join keys, predicates, grouping keys. One can
+specify a subset of columns to be analyzed via the optional ``columns`` property::
+
+    ANALYZE table_name WITH (
+        partitions = ARRAY[ARRAY['p2_value1', 'p2_value2']],
+        columns = ARRAY['col_1', 'col_2'])
+
+This query will collect statistics for columns ``col_1`` and ``col_2`` for the partition
+with keys ``p2_value1, p2_value2``.
+
 Schema Evolution
 ----------------
 
