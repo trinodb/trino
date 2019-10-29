@@ -122,6 +122,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Streams.stream;
+import static io.prestosql.plugin.hive.HiveAnalyzeProperties.getColumnNames;
 import static io.prestosql.plugin.hive.HiveAnalyzeProperties.getPartitionList;
 import static io.prestosql.plugin.hive.HiveBasicStatistics.createEmptyStatistics;
 import static io.prestosql.plugin.hive.HiveBasicStatistics.createZeroStatistics;
@@ -150,6 +151,7 @@ import static io.prestosql.plugin.hive.HiveSessionProperties.isOptimizedMismatch
 import static io.prestosql.plugin.hive.HiveSessionProperties.isRespectTableFormat;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isSortedWritingEnabled;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isStatisticsEnabled;
+import static io.prestosql.plugin.hive.HiveTableProperties.ANALYZE_COLUMNS_PROPERTY;
 import static io.prestosql.plugin.hive.HiveTableProperties.AVRO_SCHEMA_URL;
 import static io.prestosql.plugin.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static io.prestosql.plugin.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
@@ -166,6 +168,7 @@ import static io.prestosql.plugin.hive.HiveTableProperties.SORTED_BY_PROPERTY;
 import static io.prestosql.plugin.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static io.prestosql.plugin.hive.HiveTableProperties.TEXTFILE_FIELD_SEPARATOR;
 import static io.prestosql.plugin.hive.HiveTableProperties.TEXTFILE_FIELD_SEPARATOR_ESCAPE;
+import static io.prestosql.plugin.hive.HiveTableProperties.getAnalyzeColumns;
 import static io.prestosql.plugin.hive.HiveTableProperties.getAvroSchemaUrl;
 import static io.prestosql.plugin.hive.HiveTableProperties.getBucketProperty;
 import static io.prestosql.plugin.hive.HiveTableProperties.getExternalLocation;
@@ -351,6 +354,7 @@ public class HiveMetadata
             return null;
         }
         Optional<List<List<String>>> partitionValuesList = getPartitionList(analyzeProperties);
+        Optional<Set<String>> analyzeColumnNames = getColumnNames(analyzeProperties);
         ConnectorTableMetadata tableMetadata = getTableMetadata(session, handle.getSchemaTableName());
 
         List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
@@ -370,6 +374,23 @@ public class HiveMetadata
             handle = handle.withAnalyzePartitionValues(list);
             HivePartitionResult partitions = partitionManager.getPartitions(handle, list);
             handle = partitionManager.applyPartitionResult(handle, partitions);
+        }
+
+        if (analyzeColumnNames.isPresent()) {
+            Set<String> columnNames = analyzeColumnNames.get();
+            if (columnNames.isEmpty()) {
+                throw new PrestoException(INVALID_ANALYZE_PROPERTY, "Cannot analyze with empty column list");
+            }
+            Set<String> allColumnNames = tableMetadata.getColumns().stream()
+                    .map(ColumnMetadata::getName)
+                    .collect(toImmutableSet());
+            if (!allColumnNames.containsAll(columnNames)) {
+                throw new PrestoException(
+                        INVALID_ANALYZE_PROPERTY,
+                        format("Invalid columns specified for analysis: %s", Sets.difference(columnNames, allColumnNames)));
+            }
+
+            handle = handle.withAnalyzeColumnNames(columnNames);
         }
 
         return handle;
@@ -457,7 +478,20 @@ public class HiveMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return getTableMetadata(session, ((HiveTableHandle) tableHandle).getSchemaTableName());
+        HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
+        ConnectorTableMetadata tableMetadata = getTableMetadata(session, hiveTableHandle.getSchemaTableName());
+
+        return hiveTableHandle.getAnalyzeColumnNames()
+                .map(columnNames -> new ConnectorTableMetadata(
+                        tableMetadata.getTable(),
+                        tableMetadata.getColumns(),
+                        ImmutableMap.<String, Object>builder()
+                                .putAll(tableMetadata.getProperties())
+                                // we use table properties as a vehicle to pass to the analyzer the subset of columns to be analyzed
+                                .put(ANALYZE_COLUMNS_PROPERTY, columnNames)
+                                .build(),
+                        tableMetadata.getComment()))
+                .orElse(tableMetadata);
     }
 
     private ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName tableName)
@@ -1890,7 +1924,8 @@ public class HiveMetadata
                         bucketHandle.getTableBucketCount(),
                         hivePartitioningHandle.getBucketCount())),
                 hiveTable.getBucketFilter(),
-                hiveTable.getAnalyzePartitionValues());
+                hiveTable.getAnalyzePartitionValues(),
+                hiveTable.getAnalyzeColumnNames());
     }
 
     @VisibleForTesting
@@ -2016,21 +2051,22 @@ public class HiveMetadata
             return TableStatisticsMetadata.empty();
         }
         List<String> partitionedBy = firstNonNull(getPartitionedBy(tableMetadata.getProperties()), ImmutableList.of());
-        return getStatisticsCollectionMetadata(tableMetadata.getColumns(), partitionedBy, false);
+        return getStatisticsCollectionMetadata(tableMetadata.getColumns(), partitionedBy, Optional.empty(), false);
     }
 
     @Override
     public TableStatisticsMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         List<String> partitionedBy = firstNonNull(getPartitionedBy(tableMetadata.getProperties()), ImmutableList.of());
-        return getStatisticsCollectionMetadata(tableMetadata.getColumns(), partitionedBy, true);
+        return getStatisticsCollectionMetadata(tableMetadata.getColumns(), partitionedBy, getAnalyzeColumns(tableMetadata.getProperties()), true);
     }
 
-    private TableStatisticsMetadata getStatisticsCollectionMetadata(List<ColumnMetadata> columns, List<String> partitionedBy, boolean includeRowCount)
+    private TableStatisticsMetadata getStatisticsCollectionMetadata(List<ColumnMetadata> columns, List<String> partitionedBy, Optional<Set<String>> analyzeColumns, boolean includeRowCount)
     {
         Set<ColumnStatisticMetadata> columnStatistics = columns.stream()
                 .filter(column -> !partitionedBy.contains(column.getName()))
                 .filter(column -> !column.isHidden())
+                .filter(column -> !analyzeColumns.isPresent() || analyzeColumns.get().contains(column.getName()))
                 .map(this::getColumnStatisticMetadata)
                 .flatMap(List::stream)
                 .collect(toImmutableSet());
