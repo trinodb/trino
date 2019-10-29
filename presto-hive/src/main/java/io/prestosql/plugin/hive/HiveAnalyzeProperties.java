@@ -74,7 +74,7 @@ public class HiveAnalyzeProperties
     public static Optional<List<List<String>>> getPartitionList(Map<String, Object> properties)
     {
         List<List<String>> partitions = (List<List<String>>) properties.get(PARTITIONS_PROPERTY);
-        return partitions == null ? Optional.empty() : Optional.of(partitions);
+        return Optional.ofNullable(partitions);
     }
 
     private static List<List<String>> decodePartitionLists(Object object)
@@ -84,12 +84,13 @@ public class HiveAnalyzeProperties
         }
 
         // replace null partition value with hive default partition
-        return ImmutableList.copyOf(((Collection<?>) object).stream()
+        return ((Collection<?>) object).stream()
                 .peek(partition -> throwIfNull(partition, "partitions"))
                 .map(partition -> ((Collection<?>) partition).stream()
                         .map(name -> firstNonNull((String) name, HIVE_DEFAULT_DYNAMIC_PARTITION))
                         .collect(toImmutableList()))
-                .collect(toImmutableSet()));
+                .distinct()
+                .collect(toImmutableList());
     }
 
     public static Optional<Set<String>> getColumnNames(Map<String, Object> properties)
