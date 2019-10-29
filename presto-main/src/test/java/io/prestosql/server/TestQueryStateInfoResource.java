@@ -52,17 +52,14 @@ public class TestQueryStateInfoResource
     private HttpClient client;
     private QueryResults queryResults;
 
-    TestQueryStateInfoResource()
+    @BeforeClass
+    public void setUp()
     {
         server = new TestingPrestoServer();
         server.installPlugin(new TpchPlugin());
         server.createCatalog("tpch", "tpch");
         client = new JettyHttpClient();
-    }
 
-    @BeforeClass
-    public void setup()
-    {
         Request request1 = preparePost()
                 .setUri(uriBuilderFrom(server.getBaseUrl()).replacePath("/v1/statement").build())
                 .setBodyGenerator(createStaticBodyGenerator(LONG_LASTING_QUERY, UTF_8))
@@ -91,10 +88,9 @@ public class TestQueryStateInfoResource
     }
 
     @AfterClass(alwaysRun = true)
-    public void teardown()
+    public void tearDown()
     {
-        closeQuietly(server);
-        closeQuietly(client);
+        closeQuietly(server, client);
     }
 
     @Test
