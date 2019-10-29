@@ -80,7 +80,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
-import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -361,18 +360,17 @@ public class ElasticsearchClient
         List<ElasticsearchNode> nodes = ImmutableList.copyOf(nodeById.values());
 
         for (List<SearchShardsResponse.Shard> shardGroup : shardsResponse.getShardGroups()) {
-            Stream<SearchShardsResponse.Shard> preferred = shardGroup.stream()
-                    .sorted(this::shardPreference);
-
-            Optional<SearchShardsResponse.Shard> candidate = preferred
+            Optional<SearchShardsResponse.Shard> candidate = shardGroup.stream()
                     .filter(shard -> shard.getNode() != null && nodeById.containsKey(shard.getNode()))
-                    .findFirst();
+                    .min(this::shardPreference);
 
             SearchShardsResponse.Shard chosen;
             ElasticsearchNode node;
             if (!candidate.isPresent()) {
                 // pick an arbitrary shard with and assign to an arbitrary node
-                chosen = preferred.findFirst().get();
+                chosen = shardGroup.stream()
+                        .min(this::shardPreference)
+                        .get();
                 node = nodes.get(chosen.getShard() % nodes.size());
             }
             else {
