@@ -187,6 +187,11 @@ public class ColumnMetadata
         return new Builder();
     }
 
+    public static Builder builderFrom(ColumnMetadata columnMetadata)
+    {
+        return new Builder(columnMetadata);
+    }
+
     public static class Builder
     {
         private String name;
@@ -198,6 +203,17 @@ public class ColumnMetadata
         private Map<String, Object> properties = emptyMap();
 
         private Builder() {}
+
+        private Builder(ColumnMetadata columnMetadata)
+        {
+            this.name = columnMetadata.getName();
+            this.type = columnMetadata.getType();
+            this.nullable = columnMetadata.isNullable();
+            this.comment = Optional.ofNullable(columnMetadata.getComment());
+            this.extraInfo = Optional.ofNullable(columnMetadata.getExtraInfo());
+            this.hidden = columnMetadata.isHidden();
+            this.properties = columnMetadata.getProperties();
+        }
 
         public Builder setName(String name)
         {
