@@ -75,29 +75,11 @@ public class TestElasticsearchIntegrationSmokeTest
     }
 
     @Test
+    @Override
     public void testSelectAll()
     {
         // List columns explicitly, as there's no defined order in Elasticsearch
         assertQuery("SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment  FROM orders");
-    }
-
-    @Test
-    public void testRangePredicate()
-    {
-        // List columns explicitly, as there's no defined order in Elasticsearch
-        assertQuery("" +
-                "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
-                "FROM orders " +
-                "WHERE orderkey BETWEEN 10 AND 50");
-    }
-
-    @Test
-    public void testMultipleRangesPredicate()
-    {
-        assertQuery("" +
-                "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
-                "FROM orders " +
-                "WHERE orderkey BETWEEN 10 AND 50 OR orderkey BETWEEN 100 AND 150");
     }
 
     @Test
