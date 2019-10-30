@@ -131,7 +131,12 @@ public class KuduMetadata
         extra.append("compression=").append(compression);
 
         Type prestoType = TypeHelper.fromKuduColumn(column);
-        return new ColumnMetadata(column.getName(), prestoType, null, extra.toString(), false, properties);
+        return ColumnMetadata.builder()
+                .setName(column.getName())
+                .setType(prestoType)
+                .setExtraInfo(Optional.of(extra.toString()))
+                .setProperties(properties)
+                .build();
     }
 
     private ConnectorTableMetadata getTableMetadata(KuduTableHandle tableHandle)
@@ -171,11 +176,13 @@ public class KuduMetadata
     {
         KuduColumnHandle kuduColumnHandle = (KuduColumnHandle) columnHandle;
         if (kuduColumnHandle.isVirtualRowId()) {
-            return new ColumnMetadata(KuduColumnHandle.ROW_ID, VarbinaryType.VARBINARY, null, true);
+            return ColumnMetadata.builder()
+                    .setName(KuduColumnHandle.ROW_ID)
+                    .setType(VarbinaryType.VARBINARY)
+                    .setHidden(true)
+                    .build();
         }
-        else {
-            return kuduColumnHandle.getColumnMetadata();
-        }
+        return kuduColumnHandle.getColumnMetadata();
     }
 
     @Override
@@ -313,7 +320,13 @@ public class KuduMetadata
             List<ColumnMetadata> copy = new ArrayList<>(tableMetadata.getColumns());
             Map<String, Object> columnProperties = new HashMap<>();
             columnProperties.put(KuduTableProperties.PRIMARY_KEY, true);
-            copy.add(0, new ColumnMetadata(rowId, VarcharType.VARCHAR, "key=true", null, true, columnProperties));
+            copy.add(0, ColumnMetadata.builder()
+                    .setName(rowId)
+                    .setType(VarcharType.VARCHAR)
+                    .setComment(Optional.of("key=true"))
+                    .setHidden(true)
+                    .setProperties(columnProperties)
+                    .build());
             List<ColumnMetadata> finalColumns = ImmutableList.copyOf(copy);
             Map<String, Object> propsCopy = new HashMap<>(tableMetadata.getProperties());
             propsCopy.put(KuduTableProperties.PARTITION_BY_HASH_COLUMNS, ImmutableList.of(rowId));

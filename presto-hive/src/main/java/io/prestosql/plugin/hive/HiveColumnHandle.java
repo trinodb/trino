@@ -120,7 +120,11 @@ public class HiveColumnHandle
 
     public ColumnMetadata getColumnMetadata()
     {
-        return new ColumnMetadata(name, type, null, isHidden());
+        return ColumnMetadata.builder()
+                .setName(name)
+                .setType(type)
+                .setHidden(isHidden())
+                .build();
     }
 
     @JsonProperty

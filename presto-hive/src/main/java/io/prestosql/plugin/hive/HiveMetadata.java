@@ -422,11 +422,12 @@ public class HiveMetadata
                 .collect(toImmutableList());
 
         List<ColumnMetadata> partitionSystemTableColumns = partitionColumns.stream()
-                .map(column -> new ColumnMetadata(
-                        column.getName(),
-                        column.getType(),
-                        column.getComment().orElse(null),
-                        column.isHidden()))
+                .map(column -> ColumnMetadata.builder()
+                        .setName(column.getName())
+                        .setType(column.getType())
+                        .setComment(column.getComment())
+                        .setHidden(column.isHidden())
+                        .build())
                 .collect(toImmutableList());
 
         Map<Integer, HiveColumnHandle> fieldIdToColumnHandle =
@@ -2266,12 +2267,13 @@ public class HiveMetadata
 
         Map<String, Optional<String>> columnComment = builder.build();
 
-        return handle -> new ColumnMetadata(
-                handle.getName(),
-                handle.getType(),
-                columnComment.get(handle.getName()).orElse(null),
-                columnExtraInfo(handle.isPartitionKey()),
-                handle.isHidden());
+        return handle -> ColumnMetadata.builder()
+                .setName(handle.getName())
+                .setType(handle.getType())
+                .setComment(columnComment.get(handle.getName()))
+                .setExtraInfo(Optional.ofNullable(columnExtraInfo(handle.isPartitionKey())))
+                .setHidden(handle.isHidden())
+                .build();
     }
 
     @Override

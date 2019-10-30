@@ -138,13 +138,13 @@ public class CreateTableTask
                         metadata,
                         parameterLookup);
 
-                columns.put(name, new ColumnMetadata(
-                        name,
-                        type,
-                        column.isNullable(), column.getComment().orElse(null),
-                        null,
-                        false,
-                        columnProperties));
+                columns.put(name, ColumnMetadata.builder()
+                        .setName(name)
+                        .setType(type)
+                        .setNullable(column.isNullable())
+                        .setComment(column.getComment())
+                        .setProperties(columnProperties)
+                        .build());
             }
             else if (element instanceof LikeClause) {
                 LikeClause likeClause = (LikeClause) element;

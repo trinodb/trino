@@ -22,6 +22,7 @@ import io.prestosql.spi.type.TypeManager;
 import javax.annotation.Nullable;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.drift.annotations.ThriftField.Requiredness.OPTIONAL;
@@ -72,11 +73,12 @@ public final class PrestoThriftColumnMetadata
 
     public ColumnMetadata toColumnMetadata(TypeManager typeManager)
     {
-        return new ColumnMetadata(
-                name,
-                typeManager.fromSqlType(type),
-                comment,
-                hidden);
+        return ColumnMetadata.builder()
+                .setName(name)
+                .setType(typeManager.fromSqlType(type))
+                .setComment(Optional.ofNullable(comment))
+                .setHidden(hidden)
+                .build();
     }
 
     @Override

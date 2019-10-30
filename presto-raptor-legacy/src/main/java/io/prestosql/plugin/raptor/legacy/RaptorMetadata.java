@@ -923,7 +923,11 @@ public class RaptorMetadata
 
     private static ColumnMetadata hiddenColumn(String name, Type type)
     {
-        return new ColumnMetadata(name, type, null, true);
+        return ColumnMetadata.builder()
+                .setName(name)
+                .setType(type)
+                .setHidden(true)
+                .build();
     }
 
     private void setTransactionId(long transactionId)

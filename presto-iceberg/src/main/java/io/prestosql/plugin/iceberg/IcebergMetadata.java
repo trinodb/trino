@@ -213,10 +213,11 @@ public class IcebergMetadata
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         IcebergColumnHandle column = (IcebergColumnHandle) columnHandle;
-        if (column.getComment().isPresent()) {
-            return new ColumnMetadata(column.getName(), column.getType(), column.getComment().get());
-        }
-        return new ColumnMetadata(column.getName(), column.getType());
+        return ColumnMetadata.builder()
+                .setName(column.getName())
+                .setType(column.getType())
+                .setComment(column.getComment())
+                .build();
     }
 
     @Override
@@ -471,10 +472,11 @@ public class IcebergMetadata
     {
         return table.schema().columns().stream()
                 .map(column -> {
-                    if (column.doc() != null) {
-                        return new ColumnMetadata(column.name(), toPrestoType(column.type(), typeManager), column.doc());
-                    }
-                    return new ColumnMetadata(column.name(), toPrestoType(column.type(), typeManager));
+                    return ColumnMetadata.builder()
+                            .setName(column.name())
+                            .setType(toPrestoType(column.type(), typeManager))
+                            .setComment(Optional.ofNullable(column.doc()))
+                            .build();
                 })
                 .collect(toImmutableList());
     }

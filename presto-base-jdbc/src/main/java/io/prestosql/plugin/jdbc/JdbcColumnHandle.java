@@ -22,7 +22,6 @@ import io.prestosql.spi.type.Type;
 
 import java.util.Objects;
 
-import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
 public final class JdbcColumnHandle
@@ -72,7 +71,11 @@ public final class JdbcColumnHandle
 
     public ColumnMetadata getColumnMetadata()
     {
-        return new ColumnMetadata(columnName, columnType, nullable, null, null, false, emptyMap());
+        return ColumnMetadata.builder()
+                .setName(columnName)
+                .setType(columnType)
+                .setNullable(nullable)
+                .build();
     }
 
     @Override

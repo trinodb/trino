@@ -3079,12 +3079,12 @@ public abstract class AbstractTestHive
             ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(session, getTableHandle(metadata, tableName));
 
             List<ColumnMetadata> expectedColumns = createTableColumns.stream()
-                    .map(column -> new ColumnMetadata(
-                            column.getName(),
-                            column.getType(),
-                            column.getComment(),
-                            columnExtraInfo(partitionedBy.contains(column.getName())),
-                            false))
+                    .map(column -> ColumnMetadata.builder()
+                            .setName(column.getName())
+                            .setType(column.getType())
+                            .setComment(Optional.ofNullable(column.getComment()))
+                            .setExtraInfo(Optional.ofNullable(columnExtraInfo(partitionedBy.contains(column.getName()))))
+                            .build())
                     .collect(toList());
             assertEquals(filterNonHiddenColumnMetadata(tableMetadata.getColumns()), expectedColumns);
 
