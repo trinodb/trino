@@ -123,6 +123,7 @@ public class PhoenixClient
                 connectionFactory,
                 ImmutableSet.of(),
                 config.isCaseInsensitiveNameMatching(),
+                false,
                 config.getCaseInsensitiveNameMatchingCacheTtl());
         this.configuration = new Configuration(false);
         getConnectionProperties(config).forEach((k, v) -> configuration.set((String) k, (String) v));

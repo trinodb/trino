@@ -23,6 +23,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static io.prestosql.plugin.jdbc.BaseJdbcClient.convertRangeInfoIntoIntoPredicate;
 import static io.prestosql.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
 import static io.prestosql.plugin.jdbc.TestingJdbcTypeHandle.JDBC_DOUBLE;
 import static io.prestosql.plugin.jdbc.TestingJdbcTypeHandle.JDBC_REAL;
@@ -110,5 +111,18 @@ public class TestJdbcClient
                 new JdbcColumnHandle("COL2", JDBC_DOUBLE, DOUBLE),
                 new JdbcColumnHandle("COL3", JDBC_DOUBLE, DOUBLE),
                 new JdbcColumnHandle("COL4", JDBC_REAL, REAL)));
+    }
+
+    @Test
+    public void testConvertRangeInfoIntoIntoPredicate()
+    {
+        RangeInfo range = new RangeInfo("id", Optional.empty(), Optional.of(10));
+        assertEquals(convertRangeInfoIntoIntoPredicate(range), "id < 10");
+
+        range = new RangeInfo("id", Optional.of(5), Optional.of(10));
+        assertEquals(convertRangeInfoIntoIntoPredicate(range), "id >= 5 AND id < 10");
+
+        range = new RangeInfo("id", Optional.of(5), Optional.empty());
+        assertEquals(convertRangeInfoIntoIntoPredicate(range), "id >= 5");
     }
 }

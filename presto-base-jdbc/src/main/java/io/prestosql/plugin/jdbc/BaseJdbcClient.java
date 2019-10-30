@@ -54,9 +54,11 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
@@ -124,6 +126,7 @@ public class BaseJdbcClient
     protected final String identifierQuote;
     protected final Set<String> jdbcTypesMappedToVarchar;
     protected final boolean caseInsensitiveNameMatching;
+    protected final boolean parallelReadEnabled;
     protected final Cache<JdbcIdentity, Map<String, String>> remoteSchemaNames;
     protected final Cache<RemoteTableNameCacheKey, Map<String, String>> remoteTableNames;
 
@@ -134,6 +137,7 @@ public class BaseJdbcClient
                 connectionFactory,
                 config.getJdbcTypesMappedToVarchar(),
                 requireNonNull(config, "config is null").isCaseInsensitiveNameMatching(),
+                requireNonNull(config, "config is null").isParallelReadEnabled(),
                 config.getCaseInsensitiveNameMatchingCacheTtl());
     }
 
@@ -142,6 +146,7 @@ public class BaseJdbcClient
             ConnectionFactory connectionFactory,
             Set<String> jdbcTypesMappedToVarchar,
             boolean caseInsensitiveNameMatching,
+            boolean parallelReadEnabled,
             Duration caseInsensitiveNameMatchingCacheTtl)
     {
         this.identifierQuote = requireNonNull(identifierQuote, "identifierQuote is null");
@@ -152,6 +157,7 @@ public class BaseJdbcClient
         requireNonNull(caseInsensitiveNameMatchingCacheTtl, "caseInsensitiveNameMatchingCacheTtl is null");
 
         this.caseInsensitiveNameMatching = caseInsensitiveNameMatching;
+        this.parallelReadEnabled = parallelReadEnabled;
         CacheBuilder<Object, Object> remoteNamesCacheBuilder = CacheBuilder.newBuilder()
                 .expireAfterWrite(caseInsensitiveNameMatchingCacheTtl.toMillis(), MILLISECONDS);
         this.remoteSchemaNames = remoteNamesCacheBuilder.build();
@@ -323,7 +329,40 @@ public class BaseJdbcClient
     @Override
     public ConnectorSplitSource getSplits(JdbcIdentity identity, JdbcTableHandle tableHandle)
     {
-        return new FixedSplitSource(ImmutableList.of(new JdbcSplit(Optional.empty())));
+        if (!parallelReadEnabled) {
+            return new FixedSplitSource(ImmutableList.of(new JdbcSplit(Optional.empty())));
+        }
+
+        Optional<List<RangeInfo>> ranges = getSplitRanges(identity, tableHandle);
+        // the underlying table does not meets the parallel read requirements OR it is just not implemented
+        if (!ranges.isPresent()) {
+            return new FixedSplitSource(ImmutableList.of(new JdbcSplit(Optional.empty())));
+        }
+
+        checkState(!ranges.get().isEmpty(), "The split ranges is empty");
+        List<JdbcSplit> splits = ranges.get().stream()
+                .map(BaseJdbcClient::convertRangeInfoIntoIntoPredicate)
+                .map(x -> new JdbcSplit(Optional.of(x)))
+                .collect(Collectors.toList());
+        return new FixedSplitSource(splits);
+    }
+
+    static String convertRangeInfoIntoIntoPredicate(RangeInfo rangeInfo)
+    {
+        StringBuilder sql = new StringBuilder();
+        String expression = rangeInfo.getExpression();
+        if (rangeInfo.getLowerBound().isPresent()) {
+            sql.append(expression).append(" >= ").append(rangeInfo.getLowerBound().get());
+        }
+
+        if (rangeInfo.getUpperBound().isPresent()) {
+            if (rangeInfo.getLowerBound().isPresent()) {
+                sql.append(" AND ");
+            }
+            sql.append(expression).append(" < ").append(rangeInfo.getUpperBound().get());
+        }
+
+        return sql.toString();
     }
 
     @Override
@@ -888,5 +927,18 @@ public class BaseJdbcClient
         name = name.replace("_", escape + "_");
         name = name.replace("%", escape + "%");
         return name;
+    }
+
+    /**
+     * Resolve the split ranges.
+     *
+     * Subclass override this method to provide DB-specific splitting logic.
+     * @param identity
+     * @param tableHandle
+     * @return
+     */
+    protected Optional<List<RangeInfo>> getSplitRanges(JdbcIdentity identity, JdbcTableHandle tableHandle)
+    {
+        return Optional.empty();
     }
 }

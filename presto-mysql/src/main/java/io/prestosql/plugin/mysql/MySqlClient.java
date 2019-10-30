@@ -30,6 +30,7 @@ import io.prestosql.plugin.jdbc.JdbcColumnHandle;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
+import io.prestosql.plugin.jdbc.RangeInfo;
 import io.prestosql.plugin.jdbc.WriteMapping;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -51,7 +52,9 @@ import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.BiFunction;
 
@@ -306,5 +309,83 @@ public class MySqlClient
         // Jackson tries to detect the character encoding automatically when using InputStream
         // so we pass an InputStreamReader instead.
         return JSON_FACTORY.createParser(new InputStreamReader(json.getInput(), UTF_8));
+    }
+
+    /**
+     * Split the table scan into splits when the table is a partitioned table.
+     *
+     * NOTE: Currently ONLY RANGE partition is supported
+     * @param identity
+     * @param tableHandle
+     * @return
+     */
+    @Override
+    protected Optional<List<RangeInfo>> getSplitRanges(JdbcIdentity identity, JdbcTableHandle tableHandle)
+    {
+        String sql = "SELECT PARTITION_METHOD, PARTITION_EXPRESSION, PARTITION_DESCRIPTION\n" +
+                "FROM INFORMATION_SCHEMA.PARTITIONS\n" +
+                "WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?\n" +
+                "ORDER BY PARTITION_ORDINAL_POSITION;";
+        List<String> ranges = new ArrayList<>();
+        String expression = null;
+
+        String schemaName = tableHandle.getSchemaName();
+        String tableName = tableHandle.getTableName();
+        try (Connection connection = connectionFactory.openConnection(identity);
+                PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setString(1, schemaName);
+            stmt.setString(2, tableName);
+
+            try (ResultSet resultSet = stmt.executeQuery()) {
+                while (resultSet.next()) {
+                    String partitionMethod = resultSet.getString(1);
+
+                    // Currently ONLY RANGE partition is supported
+                    if (!"RANGE".equalsIgnoreCase(partitionMethod)) {
+                        return Optional.empty();
+                    }
+
+                    expression = resultSet.getString(2);
+                    ranges.add(resultSet.getString(3));
+                }
+            }
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+
+        if (expression == null || ranges.isEmpty()) {
+            return Optional.empty();
+        }
+
+        List<RangeInfo> ret = convertPartitionDescriptionsToRangeInfos(expression, ranges);
+        return Optional.of(ret);
+    }
+
+    static List<RangeInfo> convertPartitionDescriptionsToRangeInfos(String expression, List<String> ranges)
+    {
+        List<RangeInfo> ret = new ArrayList<>(ranges.size());
+        for (int i = 0; i < ranges.size(); i++) {
+            Optional<Integer> lowerBound;
+            Optional<Integer> upperBound;
+
+            if (i == 0) {
+                lowerBound = Optional.empty();
+            }
+            else {
+                lowerBound = Optional.of(Integer.parseInt(ranges.get(i - 1)));
+            }
+
+            String item = ranges.get(i);
+            if ("MAXVALUE".equalsIgnoreCase(item)) {
+                upperBound = Optional.empty();
+            }
+            else {
+                upperBound = Optional.of(Integer.parseInt(item));
+            }
+
+            ret.add(new RangeInfo(expression, lowerBound, upperBound));
+        }
+        return ret;
     }
 }

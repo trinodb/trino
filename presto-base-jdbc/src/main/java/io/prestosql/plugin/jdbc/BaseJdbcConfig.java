@@ -32,6 +32,7 @@ public class BaseJdbcConfig
     private boolean caseInsensitiveNameMatching;
     private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
     private Set<String> jdbcTypesMappedToVarchar = ImmutableSet.of();
+    private boolean parallelReadEnabled;
 
     @NotNull
     public String getConnectionUrl()
@@ -81,6 +82,18 @@ public class BaseJdbcConfig
     public BaseJdbcConfig setJdbcTypesMappedToVarchar(String jdbcTypesMappedToVarchar)
     {
         this.jdbcTypesMappedToVarchar = ImmutableSet.copyOf(Splitter.on(",").omitEmptyStrings().trimResults().split(nullToEmpty(jdbcTypesMappedToVarchar)));
+        return this;
+    }
+
+    public boolean isParallelReadEnabled()
+    {
+        return parallelReadEnabled;
+    }
+
+    @Config("parallel-read-enabled")
+    public BaseJdbcConfig setParallelReadEnabled(boolean parallelReadEnabled)
+    {
+        this.parallelReadEnabled = parallelReadEnabled;
         return this;
     }
 }
