@@ -35,7 +35,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.sql.SQLException;
 import java.util.Map;
 
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
