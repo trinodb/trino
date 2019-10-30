@@ -21,7 +21,6 @@ import io.prestosql.spi.resourcegroups.ResourceGroupId;
 import io.prestosql.spi.session.SessionConfigurationContext;
 import org.testng.annotations.Test;
 
-import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
@@ -35,39 +34,45 @@ public abstract class AbstractTestSessionPropertyManager
             Optional.of(QueryType.DATA_DEFINITION.toString()),
             new ResourceGroupId(ImmutableList.of("global", "pipeline", "user_foo", "bar")));
 
-    protected abstract void assertProperties(Map<String, String> properties, SessionMatchSpec... spec)
+    protected abstract void assertProperties(SessionProperties sessionProperties, SessionMatchSpec... spec)
             throws Exception;
 
     @Test
     public void testResourceGroupMatch()
             throws Exception
     {
-        Map<String, String> properties = ImmutableMap.of("PROPERTY1", "VALUE1", "PROPERTY2", "VALUE2");
+        SessionProperties sessionProperties = new SessionProperties(
+                ImmutableMap.of("PROPERTY1", "VALUE1", "PROPERTY2", "VALUE2"),
+                ImmutableMap.of());
         SessionMatchSpec spec = new SessionMatchSpec(
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.of(Pattern.compile("global.pipeline.user_.*")),
-                properties);
+                sessionProperties.getSystemProperties(),
+                sessionProperties.getCatalogsProperties());
 
-        assertProperties(properties, spec);
+        assertProperties(sessionProperties, spec);
     }
 
     @Test
     public void testClientTagMatch()
             throws Exception
     {
-        ImmutableMap<String, String> properties = ImmutableMap.of("PROPERTY", "VALUE");
+        SessionProperties sessionProperties = new SessionProperties(
+                ImmutableMap.of("PROPERTY", "VALUE"),
+                ImmutableMap.of());
         SessionMatchSpec spec = new SessionMatchSpec(
                 Optional.empty(),
                 Optional.empty(),
                 Optional.of(ImmutableList.of("tag2")),
                 Optional.empty(),
                 Optional.empty(),
-                properties);
+                sessionProperties.getSystemProperties(),
+                sessionProperties.getCatalogsProperties());
 
-        assertProperties(properties, spec);
+        assertProperties(sessionProperties, spec);
     }
 
     @Test
@@ -80,16 +85,62 @@ public abstract class AbstractTestSessionPropertyManager
                 Optional.of(ImmutableList.of("tag2")),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableMap.of("PROPERTY1", "VALUE1", "PROPERTY3", "VALUE3"));
+                ImmutableMap.of("PROPERTY1", "VALUE1", "PROPERTY3", "VALUE3"),
+                ImmutableMap.of(
+                        "CATALOG1", ImmutableMap.of("PROPERTY_C1_P1", "VALUE_C1_P1"),
+                        "CATALOG2", ImmutableMap.of("PROPERTY_C2_P1", "VALUE_C2_P1")));
         SessionMatchSpec spec2 = new SessionMatchSpec(
                 Optional.empty(),
                 Optional.empty(),
                 Optional.of(ImmutableList.of("tag1", "tag2")),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableMap.of("PROPERTY1", "VALUE1", "PROPERTY2", "VALUE2"));
+                ImmutableMap.of("PROPERTY1", "VALUE1", "PROPERTY2", "VALUE2"),
+                ImmutableMap.of(
+                        "CATALOG1", ImmutableMap.of("PROPERTY_C1_P2", "VALUE_C1_P2"),
+                        "CATALOG2", ImmutableMap.of()));
+        SessionProperties expectedSessionProperties = new SessionProperties(
+                ImmutableMap.of("PROPERTY1", "VALUE1", "PROPERTY2", "VALUE2", "PROPERTY3", "VALUE3"),
+                ImmutableMap.of(
+                        "CATALOG1", ImmutableMap.of("PROPERTY_C1_P1", "VALUE_C1_P1", "PROPERTY_C1_P2", "VALUE_C1_P2"),
+                        "CATALOG2", ImmutableMap.of("PROPERTY_C2_P1", "VALUE_C2_P1")));
 
-        assertProperties(ImmutableMap.of("PROPERTY1", "VALUE1", "PROPERTY2", "VALUE2", "PROPERTY3", "VALUE3"), spec1, spec2);
+        assertProperties(expectedSessionProperties, spec1, spec2);
+    }
+
+    @Test
+    public void testOverrides()
+            throws Exception
+    {
+        SessionMatchSpec spec1 = new SessionMatchSpec(
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(ImmutableList.of("tag2")),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableMap.of("PROPERTY1", "VALUE1", "PROPERTY3", "VALUE3"),
+                ImmutableMap.of("CATALOG1", ImmutableMap.of("PROPERTY1", "VALUE1", "PROPERTY2", "VALUE2")));
+        SessionMatchSpec spec2 = new SessionMatchSpec(
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(ImmutableList.of("tag1", "tag2")),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableMap.of("PROPERTY1", "VALUE1_BIS", "PROPERTY2", "VALUE2"),
+                ImmutableMap.of("CATALOG1", ImmutableMap.of("PROPERTY1", "VALUE1_BIS", "PROPERTY2", "VALUE2_BIS")));
+        SessionMatchSpec spec3 = new SessionMatchSpec(
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(ImmutableList.of("tag1", "tag2")),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableMap.of("PROPERTY2", "VALUE2_TER", "PROPERTY3", "VALUE3_TER"),
+                ImmutableMap.of("CATALOG1", ImmutableMap.of("PROPERTY2", "VALUE2_TER")));
+        SessionProperties expectedSessionProperties = new SessionProperties(
+                ImmutableMap.of("PROPERTY1", "VALUE1_BIS", "PROPERTY2", "VALUE2_TER", "PROPERTY3", "VALUE3_TER"),
+                ImmutableMap.of("CATALOG1", ImmutableMap.of("PROPERTY1", "VALUE1_BIS", "PROPERTY2", "VALUE2_TER")));
+
+        assertProperties(expectedSessionProperties, spec1, spec2, spec3);
     }
 
     @Test
@@ -102,8 +153,9 @@ public abstract class AbstractTestSessionPropertyManager
                 Optional.empty(),
                 Optional.empty(),
                 Optional.of(Pattern.compile("global.interactive.user_.*")),
-                ImmutableMap.of("PROPERTY", "VALUE"));
+                ImmutableMap.of("PROPERTY", "VALUE"),
+                ImmutableMap.of("CATALOG1", ImmutableMap.of("PROPERTY_C1", "VALUE_C1")));
 
-        assertProperties(ImmutableMap.of(), spec);
+        assertProperties(SessionProperties.EMPTY, spec);
     }
 }

@@ -49,7 +49,7 @@ public class DbSessionPropertyManager
         // later properties override earlier properties
         Map<String, String> combinedProperties = new HashMap<>();
         for (SessionMatchSpec sessionMatchSpec : sessionMatchSpecs) {
-            combinedProperties.putAll(sessionMatchSpec.match(context));
+            combinedProperties.putAll(sessionMatchSpec.match(context).getSystemProperties());
         }
 
         return ImmutableMap.copyOf(combinedProperties);

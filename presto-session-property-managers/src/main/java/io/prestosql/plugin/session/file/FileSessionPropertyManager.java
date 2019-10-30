@@ -32,6 +32,7 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
 import static java.lang.String.format;
@@ -85,7 +86,7 @@ public class FileSessionPropertyManager
         // later properties override earlier properties
         Map<String, String> combinedProperties = new HashMap<>();
         for (SessionMatchSpec sessionMatchSpec : sessionMatchSpecs) {
-            combinedProperties.putAll(sessionMatchSpec.match(context));
+            combinedProperties.putAll(sessionMatchSpec.match(context).getSystemProperties());
         }
 
         return ImmutableMap.copyOf(combinedProperties);
@@ -94,6 +95,19 @@ public class FileSessionPropertyManager
     @Override
     public Map<String, Map<String, String>> getCatalogSessionProperties(SessionConfigurationContext context)
     {
-        return ImmutableMap.of();
+        // later properties override earlier properties
+        Map<String, Map<String, String>> combinedProperties = new HashMap<>();
+        sessionMatchSpecs.stream()
+                .map(sessionMatchSpec -> sessionMatchSpec.match(context).getCatalogsProperties())
+                .flatMap(catalogSessionProperties -> catalogSessionProperties.entrySet().stream())
+                .forEach(catalogPropertiesEntry ->
+                        combinedProperties.compute(catalogPropertiesEntry.getKey(), (catalog, properties) -> {
+                            Map<String, String> combinedCatalogProperties = Optional.ofNullable(properties).orElseGet(HashMap::new);
+                            combinedCatalogProperties.putAll(catalogPropertiesEntry.getValue());
+                            return combinedCatalogProperties;
+                        }));
+
+        combinedProperties.replaceAll((key, value) -> ImmutableMap.copyOf(value));
+        return ImmutableMap.copyOf(combinedProperties);
     }
 }

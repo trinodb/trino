@@ -16,6 +16,7 @@ package io.prestosql.plugin.session.db;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.plugin.session.AbstractTestSessionPropertyManager;
 import io.prestosql.plugin.session.SessionMatchSpec;
+import io.prestosql.plugin.session.SessionProperties;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
 import io.prestosql.spi.session.SessionConfigurationContext;
 import org.testng.annotations.AfterClass;
@@ -82,14 +83,14 @@ public class TestDbSessionPropertyManager
     }
 
     @Override
-    protected void assertProperties(Map<String, String> properties, SessionMatchSpec... specs)
+    protected void assertProperties(SessionProperties sessionProperties, SessionMatchSpec... specs)
     {
         insertSpecs(specs);
         long failureCountBefore = specsProvider.getDbLoadFailures().getTotalCount();
         specsProvider.refresh();
         long failureCountAfter = specsProvider.getDbLoadFailures().getTotalCount();
         assertEquals(failureCountAfter, failureCountBefore, "specs refresh should not fail");
-        assertEquals(manager.getSystemSessionProperties(CONTEXT), properties);
+        assertEquals(manager.getSystemSessionProperties(CONTEXT), sessionProperties.getSystemProperties());
     }
 
     private void insertSpecs(SessionMatchSpec[] specs)

@@ -46,8 +46,12 @@ Match Rules
 * ``group`` (optional): regex to match against the fully qualified name of the resource group the query is
   routed to.
 
-* ``sessionProperties``: map with string keys and values. Each entry is a system or catalog property name and
+* ``sessionProperties``: map with string keys and values. Each entry is a system property name and
   corresponding value. Values must be specified as strings, no matter the actual data type.
+
+* ``catalogSessionProperties``: map with string keys and map with string keys and values as values.
+  Each entry is a catalog name and corresponding map of property names and value.
+  Values must be specified as strings, no matter the actual data type.
 
 Example
 -------
@@ -60,7 +64,7 @@ Consider the following set of requirements:
   limit of 1 hour (tighter than the constraint on ``global``).
 
 * All ETL queries (tagged with 'etl') are routed to subgroups under the ``global.pipeline`` group, and must be
-  configured with certain properties to control writer behavior.
+  configured with certain properties to control writer behavior as well as hive connector behavior.
 
 These requirements can be expressed with the following rules:
 
@@ -85,6 +89,11 @@ These requirements can be expressed with the following rules:
         "sessionProperties": {
           "scale_writers": "true",
           "writer_min_size": "1GB"
+        },
+        "catalogSessionProperties": {
+          "hive": {
+            "insert_existing_partitions_behavior": "overwrite"
+          }
         }
       }
     ]
