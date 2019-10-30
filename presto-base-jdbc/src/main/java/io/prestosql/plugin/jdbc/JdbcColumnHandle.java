@@ -33,6 +33,15 @@ public final class JdbcColumnHandle
     private final Type columnType;
     private final boolean nullable;
 
+    // All and only required fields
+    public JdbcColumnHandle(
+            String columnName,
+            JdbcTypeHandle jdbcTypeHandle,
+            Type columnType)
+    {
+        this(columnName, jdbcTypeHandle, columnType, true);
+    }
+
     @JsonCreator
     public JdbcColumnHandle(
             @JsonProperty("columnName") String columnName,

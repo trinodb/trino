@@ -65,20 +65,20 @@ public class TestJdbcRecordSet
     public void testGetColumnTypes()
     {
         RecordSet recordSet = new JdbcRecordSet(jdbcClient, SESSION, split, table, ImmutableList.of(
-                new JdbcColumnHandle("text", JDBC_VARCHAR, VARCHAR, true),
-                new JdbcColumnHandle("text_short", JDBC_VARCHAR, createVarcharType(32), true),
-                new JdbcColumnHandle("value", JDBC_BIGINT, BIGINT, true)));
+                new JdbcColumnHandle("text", JDBC_VARCHAR, VARCHAR),
+                new JdbcColumnHandle("text_short", JDBC_VARCHAR, createVarcharType(32)),
+                new JdbcColumnHandle("value", JDBC_BIGINT, BIGINT)));
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of(VARCHAR, createVarcharType(32), BIGINT));
 
         recordSet = new JdbcRecordSet(jdbcClient, SESSION, split, table, ImmutableList.of(
-                new JdbcColumnHandle("value", JDBC_BIGINT, BIGINT, true),
-                new JdbcColumnHandle("text", JDBC_VARCHAR, VARCHAR, true)));
+                new JdbcColumnHandle("value", JDBC_BIGINT, BIGINT),
+                new JdbcColumnHandle("text", JDBC_VARCHAR, VARCHAR)));
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of(BIGINT, VARCHAR));
 
         recordSet = new JdbcRecordSet(jdbcClient, SESSION, split, table, ImmutableList.of(
-                new JdbcColumnHandle("value", JDBC_BIGINT, BIGINT, true),
-                new JdbcColumnHandle("value", JDBC_BIGINT, BIGINT, true),
-                new JdbcColumnHandle("text", JDBC_VARCHAR, VARCHAR, true)));
+                new JdbcColumnHandle("value", JDBC_BIGINT, BIGINT),
+                new JdbcColumnHandle("value", JDBC_BIGINT, BIGINT),
+                new JdbcColumnHandle("text", JDBC_VARCHAR, VARCHAR)));
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of(BIGINT, BIGINT, VARCHAR));
 
         recordSet = new JdbcRecordSet(jdbcClient, SESSION, split, table, ImmutableList.of());
