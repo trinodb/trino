@@ -105,8 +105,9 @@ before_script:
 script:
   - |
     if [[ -v MAVEN_CHECKS ]]; then
-      ./mvnw install -DskipTests -B -T C1 -P ci -pl '!presto-server-rpm'
-      ./mvnw install -B -P ci -pl presto-server-rpm
+      ./mvnw install -DskipTests -B -T C1 -P ci -pl '!presto-server-rpm' &&
+      ./mvnw install -B -P ci -pl presto-server-rpm &&
+      true
     fi
   - |
     if [[ -v BUILD_PRESTO_DOCKER ]]; then
