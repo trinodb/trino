@@ -21,6 +21,7 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -92,6 +93,11 @@ public enum KinesisInternalFieldDescription
 
     ColumnMetadata getColumnMetadata(boolean hidden)
     {
-        return new ColumnMetadata(columnName, type, comment, hidden);
+        return ColumnMetadata.builder()
+                .setName(columnName)
+                .setType(type)
+                .setComment(Optional.ofNullable(comment))
+                .setHidden(hidden)
+                .build();
     }
 }

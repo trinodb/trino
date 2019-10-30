@@ -17,6 +17,7 @@ import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.type.Type;
 
 import java.util.Arrays;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -54,6 +55,11 @@ enum BuiltinColumns
 
     public ColumnMetadata getMetadata()
     {
-        return new ColumnMetadata(name, type, "", true);
+        return ColumnMetadata.builder()
+                .setName(name)
+                .setType(type)
+                .setComment(Optional.of(""))
+                .setHidden(true)
+                .build();
     }
 }

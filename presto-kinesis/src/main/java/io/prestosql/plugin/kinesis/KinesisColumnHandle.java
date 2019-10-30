@@ -114,7 +114,11 @@ public class KinesisColumnHandle
 
     ColumnMetadata getColumnMetadata()
     {
-        return new ColumnMetadata(name, type, null, hidden); // name/type/comment/hidden
+        return ColumnMetadata.builder()
+                .setName(name)
+                .setType(type)
+                .setHidden(hidden)
+                .build();
     }
 
     @Override
