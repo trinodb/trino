@@ -41,6 +41,10 @@ public final class JdbcColumnHandle
         this(columnName, jdbcTypeHandle, columnType, true);
     }
 
+    /**
+     * @deprecated Use {@link #builder()} instead.
+     */
+    @Deprecated
     @JsonCreator
     public JdbcColumnHandle(
             @JsonProperty("columnName") String columnName,
@@ -113,5 +117,66 @@ public final class JdbcColumnHandle
                 columnName,
                 columnType.getDisplayName(),
                 jdbcTypeHandle.getJdbcTypeName());
+    }
+
+    public static Builder builder()
+    {
+        return new Builder();
+    }
+
+    public static Builder builderFrom(JdbcColumnHandle handle)
+    {
+        return new Builder(handle);
+    }
+
+    public static final class Builder
+    {
+        private String columnName;
+        private JdbcTypeHandle jdbcTypeHandle;
+        private Type columnType;
+        private boolean nullable = true;
+
+        public Builder() {}
+
+        private Builder(JdbcColumnHandle handle)
+        {
+            this.columnName = handle.getColumnName();
+            this.jdbcTypeHandle = handle.getJdbcTypeHandle();
+            this.columnType = handle.getColumnType();
+            this.nullable = handle.isNullable();
+        }
+
+        public Builder setColumnName(String columnName)
+        {
+            this.columnName = columnName;
+            return this;
+        }
+
+        public Builder setJdbcTypeHandle(JdbcTypeHandle jdbcTypeHandle)
+        {
+            this.jdbcTypeHandle = jdbcTypeHandle;
+            return this;
+        }
+
+        public Builder setColumnType(Type columnType)
+        {
+            this.columnType = columnType;
+            return this;
+        }
+
+        public Builder setNullable(boolean nullable)
+        {
+            this.nullable = nullable;
+            return this;
+        }
+
+        public JdbcColumnHandle build()
+        {
+            return new JdbcColumnHandle(
+                    columnName,
+                    jdbcTypeHandle,
+                    columnType,
+                    nullable);
+        }
     }
 }

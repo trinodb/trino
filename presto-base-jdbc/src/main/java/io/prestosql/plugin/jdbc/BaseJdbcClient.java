@@ -254,7 +254,12 @@ public class BaseJdbcClient
                 // skip unsupported column types
                 if (columnMapping.isPresent()) {
                     boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
-                    columns.add(new JdbcColumnHandle(columnName, typeHandle, columnMapping.get().getType(), nullable));
+                    columns.add(JdbcColumnHandle.builder()
+                            .setColumnName(columnName)
+                            .setJdbcTypeHandle(typeHandle)
+                            .setColumnType(columnMapping.get().getType())
+                            .setNullable(nullable)
+                            .build());
                 }
             }
             if (columns.isEmpty()) {
