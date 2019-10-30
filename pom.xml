@@ -102,6 +102,7 @@
         <module>presto-raptor-legacy</module>
         <module>presto-base-jdbc</module>
         <module>presto-mysql</module>
+        <module>presto-memsql</module>
         <module>presto-phoenix</module>
         <module>presto-postgresql</module>
         <module>presto-redshift</module>
