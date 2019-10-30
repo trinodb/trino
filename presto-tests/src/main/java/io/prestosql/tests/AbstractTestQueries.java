@@ -1048,6 +1048,9 @@ public abstract class AbstractTestQueries
         assertQueryFails(
                 "SELECT (SELECT t.* FROM (VALUES 1)) FROM (SELECT name, regionkey FROM nation) t(a, b)",
                 ".* Multiple columns returned by subquery are not yet supported. Found 2");
+        // alias/table name shadowing
+        assertQuery("SELECT(SELECT region.* FROM (VALUES 1) region) FROM region", "SELECT 1 FROM region");
+        assertQuery("SELECT(SELECT r.* FROM (VALUES 1) r) FROM region r", "SELECT 1 FROM region");
 
         // EXISTS subquery
         assertQuery("SELECT EXISTS(SELECT t.* FROM region) FROM nation t", "SELECT true FROM nation");
@@ -1061,6 +1064,7 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT r.name, t.a FROM region r, LATERAL (SELECT r.* LIMIT 2) t(a, b, c)", "SELECT name, regionkey FROM region");
         assertQueryFails("SELECT * FROM region r, LATERAL (SELECT r.* LIMIT 0)", UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
         assertQuery("SELECT * FROM region r, LATERAL (SELECT r.* WHERE true)", "SELECT *, * FROM region");
+        assertQuery("SELECT region.* FROM region, LATERAL (SELECT region.*) region", "SELECT *, * FROM region");
         assertQueryFails("SELECT * FROM region r, LATERAL (SELECT r.* WHERE false)", UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
         assertQueryFails("SELECT * FROM region r, LATERAL (SELECT r.* WHERE r.name = 'ASIA')", UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
 
