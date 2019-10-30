@@ -21,6 +21,7 @@ import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.type.Type;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -31,18 +32,25 @@ public final class JdbcColumnHandle
     private final JdbcTypeHandle jdbcTypeHandle;
     private final Type columnType;
     private final boolean nullable;
+    private final Optional<String> comment;
 
     // All and only required fields
-    public JdbcColumnHandle(
-            String columnName,
-            JdbcTypeHandle jdbcTypeHandle,
-            Type columnType)
+    public JdbcColumnHandle(String columnName, JdbcTypeHandle jdbcTypeHandle, Type columnType)
     {
-        this(columnName, jdbcTypeHandle, columnType, true);
+        this(columnName, jdbcTypeHandle, columnType, true, Optional.empty());
     }
 
     /**
      * @deprecated Use {@link #builder()} instead.
+     */
+    @Deprecated
+    public JdbcColumnHandle(String columnName, JdbcTypeHandle jdbcTypeHandle, Type columnType, boolean nullable)
+    {
+        this(columnName, jdbcTypeHandle, columnType, nullable, Optional.empty());
+    }
+
+    /**
+     * @deprecated This constructor is intended to be used by JSON deserialization only. Use {@link #builder()} instead.
      */
     @Deprecated
     @JsonCreator
@@ -50,12 +58,14 @@ public final class JdbcColumnHandle
             @JsonProperty("columnName") String columnName,
             @JsonProperty("jdbcTypeHandle") JdbcTypeHandle jdbcTypeHandle,
             @JsonProperty("columnType") Type columnType,
-            @JsonProperty("nullable") boolean nullable)
+            @JsonProperty("nullable") boolean nullable,
+            @JsonProperty("comment") Optional<String> comment)
     {
         this.columnName = requireNonNull(columnName, "columnName is null");
         this.jdbcTypeHandle = requireNonNull(jdbcTypeHandle, "jdbcTypeHandle is null");
         this.columnType = requireNonNull(columnType, "columnType is null");
         this.nullable = nullable;
+        this.comment = requireNonNull(comment, "comment is null");
     }
 
     @JsonProperty
@@ -82,12 +92,19 @@ public final class JdbcColumnHandle
         return nullable;
     }
 
+    @JsonProperty
+    public Optional<String> getComment()
+    {
+        return comment;
+    }
+
     public ColumnMetadata getColumnMetadata()
     {
         return ColumnMetadata.builder()
                 .setName(columnName)
                 .setType(columnType)
                 .setNullable(nullable)
+                .setComment(comment)
                 .build();
     }
 
@@ -135,6 +152,7 @@ public final class JdbcColumnHandle
         private JdbcTypeHandle jdbcTypeHandle;
         private Type columnType;
         private boolean nullable = true;
+        private Optional<String> comment = Optional.empty();
 
         public Builder() {}
 
@@ -144,6 +162,7 @@ public final class JdbcColumnHandle
             this.jdbcTypeHandle = handle.getJdbcTypeHandle();
             this.columnType = handle.getColumnType();
             this.nullable = handle.isNullable();
+            this.comment = handle.getComment();
         }
 
         public Builder setColumnName(String columnName)
@@ -170,13 +189,20 @@ public final class JdbcColumnHandle
             return this;
         }
 
+        public Builder setComment(Optional<String> comment)
+        {
+            this.comment = comment;
+            return this;
+        }
+
         public JdbcColumnHandle build()
         {
             return new JdbcColumnHandle(
                     columnName,
                     jdbcTypeHandle,
                     columnType,
-                    nullable);
+                    nullable,
+                    comment);
         }
     }
 }
