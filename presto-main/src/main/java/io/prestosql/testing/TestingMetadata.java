@@ -261,12 +261,7 @@ public class TestingMetadata
         SchemaTableName tableName = getTableName(tableHandle);
         ColumnMetadata columnMetadata = getColumnMetadata(session, tableHandle, source);
         List<ColumnMetadata> columns = new ArrayList<>(tableMetadata.getColumns());
-        columns.set(columns.indexOf(columnMetadata), ColumnMetadata.builder() // TODO copy original ColumnMetadata
-                .setName(target)
-                .setType(columnMetadata.getType())
-                .setComment(Optional.ofNullable(columnMetadata.getComment()))
-                .setHidden(columnMetadata.isHidden())
-                .build());
+        columns.set(columns.indexOf(columnMetadata), ColumnMetadata.builderFrom(columnMetadata).setName(target).build());
         tables.put(tableName, new ConnectorTableMetadata(tableName, ImmutableList.copyOf(columns), tableMetadata.getProperties(), tableMetadata.getComment()));
     }
 
