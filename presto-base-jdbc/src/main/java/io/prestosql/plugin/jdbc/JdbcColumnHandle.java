@@ -76,22 +76,25 @@ public final class JdbcColumnHandle
     }
 
     @Override
-    public boolean equals(Object obj)
+    public boolean equals(Object o)
     {
-        if (this == obj) {
+        if (this == o) {
             return true;
         }
-        if ((obj == null) || (getClass() != obj.getClass())) {
+        if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        JdbcColumnHandle o = (JdbcColumnHandle) obj;
-        return Objects.equals(this.columnName, o.columnName);
+        JdbcColumnHandle that = (JdbcColumnHandle) o;
+        return nullable == that.nullable &&
+                Objects.equals(columnName, that.columnName) &&
+                Objects.equals(jdbcTypeHandle, that.jdbcTypeHandle) &&
+                Objects.equals(columnType, that.columnType);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(columnName);
+        return Objects.hash(columnName, jdbcTypeHandle, columnType, nullable);
     }
 
     @Override
