@@ -52,9 +52,6 @@ export_canonical_path PRODUCT_TESTS_JAR
 
 export HIVE_PROXY_PORT=${HIVE_PROXY_PORT:-1180}
 
-export LDAP_SERVER_HOST=${LDAP_SERVER_HOST:-doesntmatter}
-export LDAP_SERVER_IP=${LDAP_SERVER_IP:-127.0.1.1}
-
 if [[ -z "${PRESTO_JDBC_DRIVER_JAR:-}" ]]; then
     source "${PRODUCT_TESTS_ROOT}/target/classes/presto.env"
     PRESTO_JDBC_DRIVER_JAR="${PROJECT_ROOT}/presto-jdbc/target/presto-jdbc-${PRESTO_VERSION}.jar"
