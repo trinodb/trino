@@ -353,7 +353,7 @@ public class RecordingHiveMetastore
     {
         return loadValue(
                 partitionCache,
-                hivePartitionName(databaseName, tableName, partitionValues),
+                hivePartitionName(hiveTableName(databaseName, tableName), partitionValues),
                 () -> delegate.getPartition(identity, databaseName, tableName, partitionValues));
     }
 
@@ -431,7 +431,7 @@ public class RecordingHiveMetastore
     private Set<HivePartitionName> getHivePartitionNames(String databaseName, String tableName, Set<String> partitionNames)
     {
         return partitionNames.stream()
-                .map(partitionName -> HivePartitionName.hivePartitionName(databaseName, tableName, partitionName))
+                .map(partitionName -> hivePartitionName(hiveTableName(databaseName, tableName), partitionName))
                 .collect(ImmutableSet.toImmutableSet());
     }
 

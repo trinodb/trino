@@ -370,7 +370,7 @@ public class CachingHiveMetastore
             delegate.updatePartitionStatistics(identity, databaseName, tableName, partitionName, update);
         }
         finally {
-            partitionStatisticsCache.invalidate(new WithIdentity<>(identity, hivePartitionName(databaseName, tableName, partitionName)));
+            partitionStatisticsCache.invalidate(new WithIdentity<>(identity, hivePartitionName(hiveTableName(databaseName, tableName), partitionName)));
         }
     }
 
@@ -578,7 +578,7 @@ public class CachingHiveMetastore
     @Override
     public Optional<Partition> getPartition(HiveIdentity identity, String databaseName, String tableName, List<String> partitionValues)
     {
-        return get(partitionCache, new WithIdentity<>(updateIdentity(identity), hivePartitionName(databaseName, tableName, partitionValues)));
+        return get(partitionCache, new WithIdentity<>(updateIdentity(identity), hivePartitionName(hiveTableName(databaseName, tableName), partitionValues)));
     }
 
     @Override
