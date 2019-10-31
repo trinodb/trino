@@ -31,6 +31,8 @@ Hive Connector Changes
   and ``textfile_skip_footer_line_count`` to ``skip_footer_line_count``. (:issue:`1090`)
 * Add support for LZOP compressed (``.lzo``) files. Previously, queries accessing LZOP compressed
   files would fail, unless all files were small. (:issue:`1701`)
+* Add support for bucket-aware read of tables using bucketing version 2. (:issue:`538`)
+* Add support for writing to tables using bucketing version 2. (:issue:`538`)
 * Allow caching directory listings for all tables or schemas. (:issue:`1668`)
 * Add support for dynamic filtering for broadcast joins. (:issue:`1686`)
 
