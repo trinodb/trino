@@ -69,7 +69,7 @@ public final class LocalMemoryManager
                 QUERY_MAX_TOTAL_MEMORY_PER_NODE_CONFIG);
         ImmutableMap.Builder<MemoryPoolId, MemoryPool> builder = ImmutableMap.builder();
         long generalPoolSize = maxMemory.toBytes();
-        if (config.isReservedPoolEnabled()) {
+        if (!config.isReservedPoolDisabled()) {
             builder.put(RESERVED_POOL, new MemoryPool(RESERVED_POOL, config.getMaxQueryTotalMemoryPerNode()));
             generalPoolSize -= config.getMaxQueryTotalMemoryPerNode().toBytes();
         }

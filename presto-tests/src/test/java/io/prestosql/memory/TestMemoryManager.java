@@ -170,7 +170,7 @@ public class TestMemoryManager
             throws Exception
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("experimental.reserved-pool-enabled", "false")
+                .put("experimental.reserved-pool-disabled", "true")
                 .put("query.low-memory-killer.delay", "5s")
                 .put("query.low-memory-killer.policy", "total-reservation")
                 .build();
