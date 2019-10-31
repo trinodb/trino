@@ -87,15 +87,6 @@ public class HdfsParquetDataSource
         readBytes += bufferLength;
 
         long start = System.nanoTime();
-        readInternal(position, buffer, bufferOffset, bufferLength);
-        long currentReadTimeNanos = System.nanoTime() - start;
-
-        readTimeNanos += currentReadTimeNanos;
-        stats.readDataBytesPerSecond(bufferLength, currentReadTimeNanos);
-    }
-
-    private void readInternal(long position, byte[] buffer, int bufferOffset, int bufferLength)
-    {
         try {
             inputStream.readFully(position, buffer, bufferOffset, bufferLength);
         }
@@ -106,6 +97,10 @@ public class HdfsParquetDataSource
         catch (Exception e) {
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, format("Error reading from %s at position %s", id, position), e);
         }
+        long currentReadTimeNanos = System.nanoTime() - start;
+
+        readTimeNanos += currentReadTimeNanos;
+        stats.readDataBytesPerSecond(bufferLength, currentReadTimeNanos);
     }
 
     public static HdfsParquetDataSource buildHdfsParquetDataSource(FSDataInputStream inputStream, Path path, long fileSize, FileFormatDataSourceStats stats)
