@@ -466,6 +466,7 @@ public class TpchMetadata
                 localProperties);
     }
 
+    @Override
     public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
     {
         TpchTableHandle handle = (TpchTableHandle) table;
