@@ -16,7 +16,6 @@ package io.prestosql.plugin.hive.metastore.cache;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
-import com.google.inject.Scopes;
 import io.airlift.concurrent.BoundedExecutor;
 import io.prestosql.plugin.hive.HiveCatalogName;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
@@ -27,6 +26,7 @@ import java.util.concurrent.Executor;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.prestosql.plugin.hive.metastore.cache.CachingHiveMetastore.cachingHiveMetastore;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -37,9 +37,15 @@ public class CachingHiveMetastoreModule
     public void configure(Binder binder)
     {
         configBinder(binder).bindConfig(CachingHiveMetastoreConfig.class);
-        binder.bind(HiveMetastore.class).to(CachingHiveMetastore.class).in(Scopes.SINGLETON);
         newExporter(binder).export(HiveMetastore.class)
                 .as(generator -> generator.generatedNameOf(CachingHiveMetastore.class));
+    }
+
+    @Provides
+    @Singleton
+    public HiveMetastore createCachingHiveMetastore(@ForCachingHiveMetastore HiveMetastore delegate, @ForCachingHiveMetastore Executor executor, CachingHiveMetastoreConfig config)
+    {
+        return cachingHiveMetastore(delegate, executor, config);
     }
 
     @Provides
