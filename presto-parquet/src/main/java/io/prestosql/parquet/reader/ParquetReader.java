@@ -13,13 +13,13 @@
  */
 package io.prestosql.parquet.reader;
 
-import io.airlift.units.DataSize;
 import io.prestosql.memory.context.AggregatedMemoryContext;
 import io.prestosql.memory.context.LocalMemoryContext;
 import io.prestosql.parquet.Field;
 import io.prestosql.parquet.GroupField;
 import io.prestosql.parquet.ParquetCorruptionException;
 import io.prestosql.parquet.ParquetDataSource;
+import io.prestosql.parquet.ParquetReaderOptions;
 import io.prestosql.parquet.PrimitiveField;
 import io.prestosql.parquet.RichColumnDescriptor;
 import io.prestosql.spi.block.ArrayBlock;
@@ -78,7 +78,7 @@ public class ParquetReader
     private final PrimitiveColumnReader[] columnReaders;
     private final long[] maxBytesPerCell;
     private long maxCombinedBytesPerRow;
-    private final long maxReadBlockBytes;
+    private final ParquetReaderOptions options;
     private int maxBatchSize = MAX_VECTOR_LENGTH;
 
     private AggregatedMemoryContext currentRowGroupMemoryContext;
@@ -89,15 +89,15 @@ public class ParquetReader
             List<BlockMetaData> blocks,
             ParquetDataSource dataSource,
             AggregatedMemoryContext systemMemoryContext,
-            DataSize maxReadBlockSize)
+            ParquetReaderOptions options)
     {
         this.fileCreatedBy = requireNonNull(fileCreatedBy, "fileCreatedBy is null");
         this.blocks = blocks;
         this.dataSource = requireNonNull(dataSource, "dataSource is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
         this.currentRowGroupMemoryContext = systemMemoryContext.newAggregatedMemoryContext();
-        this.maxReadBlockBytes = requireNonNull(maxReadBlockSize, "maxReadBlockSize is null").toBytes();
         columns = messageColumnIO.getLeaves();
+        this.options = requireNonNull(options, "options is null");
         columnReaders = new PrimitiveColumnReader[columns.size()];
         maxBytesPerCell = new long[columns.size()];
     }
@@ -225,7 +225,7 @@ public class ParquetReader
         if (maxBytesPerCell[fieldId] < bytesPerCell) {
             // update batch size
             maxCombinedBytesPerRow = maxCombinedBytesPerRow - maxBytesPerCell[fieldId] + bytesPerCell;
-            maxBatchSize = toIntExact(min(maxBatchSize, max(1, maxReadBlockBytes / maxCombinedBytesPerRow)));
+            maxBatchSize = toIntExact(min(maxBatchSize, max(1, options.getMaxReadBlockSize().toBytes() / maxCombinedBytesPerRow)));
             maxBytesPerCell[fieldId] = bytesPerCell;
         }
         return columnChunk;

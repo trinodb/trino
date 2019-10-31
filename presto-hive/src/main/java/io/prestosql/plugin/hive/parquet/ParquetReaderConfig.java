@@ -16,39 +16,42 @@ package io.prestosql.plugin.hive.parquet;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.DataSize;
+import io.prestosql.parquet.ParquetReaderOptions;
 
 import javax.validation.constraints.NotNull;
 
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
-
 public class ParquetReaderConfig
 {
-    private boolean failOnCorruptedStatistics = true;
-    private DataSize maxReadBlockSize = new DataSize(16, MEGABYTE);
+    private ParquetReaderOptions options = new ParquetReaderOptions();
 
     public boolean isFailOnCorruptedStatistics()
     {
-        return failOnCorruptedStatistics;
+        return options.isFailOnCorruptedStatistics();
     }
 
     @Config("hive.parquet.fail-on-corrupted-statistics")
     @ConfigDescription("Fail when scanning Parquet files with corrupted statistics")
     public ParquetReaderConfig setFailOnCorruptedStatistics(boolean failOnCorruptedStatistics)
     {
-        this.failOnCorruptedStatistics = failOnCorruptedStatistics;
+        options = options.withFailOnCorruptedStatistics(failOnCorruptedStatistics);
         return this;
     }
 
     @NotNull
     public DataSize getMaxReadBlockSize()
     {
-        return maxReadBlockSize;
+        return options.getMaxReadBlockSize();
     }
 
     @Config("hive.parquet.max-read-block-size")
     public ParquetReaderConfig setMaxReadBlockSize(DataSize maxReadBlockSize)
     {
-        this.maxReadBlockSize = maxReadBlockSize;
+        options = options.withMaxReadBlockSize(maxReadBlockSize);
         return this;
+    }
+
+    public ParquetReaderOptions toParquetReaderOptions()
+    {
+        return options;
     }
 }

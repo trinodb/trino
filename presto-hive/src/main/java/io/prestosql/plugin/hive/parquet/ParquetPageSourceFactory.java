@@ -17,11 +17,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
-import io.airlift.units.DataSize;
 import io.prestosql.memory.context.AggregatedMemoryContext;
 import io.prestosql.parquet.Field;
 import io.prestosql.parquet.ParquetCorruptionException;
 import io.prestosql.parquet.ParquetDataSource;
+import io.prestosql.parquet.ParquetReaderOptions;
 import io.prestosql.parquet.RichColumnDescriptor;
 import io.prestosql.parquet.predicate.Predicate;
 import io.prestosql.parquet.reader.MetadataReader;
@@ -96,13 +96,17 @@ public class ParquetPageSourceFactory
     private final TypeManager typeManager;
     private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats stats;
+    private final ParquetReaderOptions options;
 
     @Inject
-    public ParquetPageSourceFactory(TypeManager typeManager, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats)
+    public ParquetPageSourceFactory(TypeManager typeManager, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats, ParquetReaderConfig config)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.stats = requireNonNull(stats, "stats is null");
+        requireNonNull(config, "config is null");
+
+        options = config.toParquetReaderOptions();
     }
 
     @Override
@@ -132,8 +136,9 @@ public class ParquetPageSourceFactory
                 fileSize,
                 columns,
                 isUseParquetColumnNames(session),
-                isFailOnCorruptedParquetStatistics(session),
-                getParquetMaxReadBlockSize(session),
+                options
+                        .withFailOnCorruptedStatistics(isFailOnCorruptedParquetStatistics(session))
+                        .withMaxReadBlockSize(getParquetMaxReadBlockSize(session)),
                 effectivePredicate,
                 stats));
     }
@@ -148,8 +153,7 @@ public class ParquetPageSourceFactory
             long fileSize,
             List<HiveColumnHandle> columns,
             boolean useParquetColumnNames,
-            boolean failOnCorruptedParquetStatistics,
-            DataSize maxReadBlockSize,
+            ParquetReaderOptions options,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             FileFormatDataSourceStats stats)
     {
@@ -193,7 +197,7 @@ public class ParquetPageSourceFactory
             ParquetDataSource finalDataSource = dataSource;
             ImmutableList.Builder<BlockMetaData> blocks = ImmutableList.builder();
             for (BlockMetaData block : footerBlocks.build()) {
-                if (predicateMatches(parquetPredicate, block, finalDataSource, descriptorsByPath, parquetTupleDomain, failOnCorruptedParquetStatistics)) {
+                if (predicateMatches(parquetPredicate, block, finalDataSource, descriptorsByPath, parquetTupleDomain, options.isFailOnCorruptedStatistics())) {
                     blocks.add(block);
                 }
             }
@@ -204,7 +208,7 @@ public class ParquetPageSourceFactory
                     blocks.build(),
                     dataSource,
                     systemMemoryContext,
-                    maxReadBlockSize);
+                    options);
 
             ImmutableList.Builder<Type> prestoTypes = ImmutableList.builder();
             ImmutableList.Builder<Optional<Field>> internalFields = ImmutableList.builder();
