@@ -170,7 +170,7 @@ public class ParquetPageSourceFactory
             ParquetMetadata parquetMetadata = MetadataReader.readFooter(inputStream, path, fileSize);
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
-            dataSource = buildHdfsParquetDataSource(inputStream, path, fileSize, stats);
+            dataSource = buildHdfsParquetDataSource(inputStream, path, fileSize, stats, options);
 
             List<Optional<org.apache.parquet.schema.Type>> parquetFields = columns.stream()
                     .map(column -> getParquetType(column, fileSchema, useParquetColumnNames))

@@ -53,6 +53,32 @@ public class ParquetReaderConfig
         return this;
     }
 
+    @NotNull
+    public DataSize getMaxMergeDistance()
+    {
+        return options.getMaxMergeDistance();
+    }
+
+    @Config("parquet.max-merge-distance")
+    public ParquetReaderConfig setMaxMergeDistance(DataSize distance)
+    {
+        options = options.withMaxMergeDistance(distance);
+        return this;
+    }
+
+    @NotNull
+    public DataSize getMaxBufferSize()
+    {
+        return options.getMaxBufferSize();
+    }
+
+    @Config("parquet.max-buffer-size")
+    public ParquetReaderConfig setMaxBufferSize(DataSize size)
+    {
+        options = options.withMaxBufferSize(size);
+        return this;
+    }
+
     public ParquetReaderOptions toParquetReaderOptions()
     {
         return options;

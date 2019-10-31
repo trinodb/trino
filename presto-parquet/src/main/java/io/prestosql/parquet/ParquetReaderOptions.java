@@ -21,22 +21,32 @@ import static java.util.Objects.requireNonNull;
 public class ParquetReaderOptions
 {
     private static final DataSize DEFAULT_MAX_READ_BLOCK_SIZE = new DataSize(16, MEGABYTE);
+    private static final DataSize DEFAULT_MAX_MERGE_DISTANCE = new DataSize(1, MEGABYTE);
+    private static final DataSize DEFAULT_MAX_BUFFER_SIZE = new DataSize(8, MEGABYTE);
 
     private final boolean failOnCorruptedStatistics;
     private final DataSize maxReadBlockSize;
+    private final DataSize maxMergeDistance;
+    private final DataSize maxBufferSize;
 
     public ParquetReaderOptions()
     {
         failOnCorruptedStatistics = true;
         maxReadBlockSize = DEFAULT_MAX_READ_BLOCK_SIZE;
+        maxMergeDistance = DEFAULT_MAX_MERGE_DISTANCE;
+        maxBufferSize = DEFAULT_MAX_BUFFER_SIZE;
     }
 
     private ParquetReaderOptions(
             boolean failOnCorruptedStatistics,
-            DataSize maxReadBlockSize)
+            DataSize maxReadBlockSize,
+            DataSize maxMergeDistance,
+            DataSize maxBufferSize)
     {
         this.failOnCorruptedStatistics = failOnCorruptedStatistics;
         this.maxReadBlockSize = requireNonNull(maxReadBlockSize, "maxMergeDistance is null");
+        this.maxMergeDistance = requireNonNull(maxMergeDistance, "maxMergeDistance is null");
+        this.maxBufferSize = requireNonNull(maxBufferSize, "maxBufferSize is null");
     }
 
     public boolean isFailOnCorruptedStatistics()
@@ -49,17 +59,49 @@ public class ParquetReaderOptions
         return maxReadBlockSize;
     }
 
+    public DataSize getMaxMergeDistance()
+    {
+        return maxMergeDistance;
+    }
+
+    public DataSize getMaxBufferSize()
+    {
+        return maxBufferSize;
+    }
+
     public ParquetReaderOptions withFailOnCorruptedStatistics(boolean failOnCorruptedStatistics)
     {
         return new ParquetReaderOptions(
                 failOnCorruptedStatistics,
-                maxReadBlockSize);
+                maxReadBlockSize,
+                maxMergeDistance,
+                maxBufferSize);
     }
 
     public ParquetReaderOptions withMaxReadBlockSize(DataSize maxReadBlockSize)
     {
         return new ParquetReaderOptions(
                 failOnCorruptedStatistics,
-                maxReadBlockSize);
+                maxReadBlockSize,
+                maxMergeDistance,
+                maxBufferSize);
+    }
+
+    public ParquetReaderOptions withMaxMergeDistance(DataSize maxMergeDistance)
+    {
+        return new ParquetReaderOptions(
+                failOnCorruptedStatistics,
+                maxReadBlockSize,
+                maxMergeDistance,
+                maxBufferSize);
+    }
+
+    public ParquetReaderOptions withMaxBufferSize(DataSize maxBufferSize)
+    {
+        return new ParquetReaderOptions(
+                failOnCorruptedStatistics,
+                maxReadBlockSize,
+                maxMergeDistance,
+                maxBufferSize);
     }
 }
