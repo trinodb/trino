@@ -45,7 +45,6 @@ import io.prestosql.spi.type.Type;
 import org.weakref.jmx.Managed;
 
 import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -100,10 +99,9 @@ public class CachingHiveMetastore
     private final LoadingCache<String, Set<String>> rolesCache;
     private final LoadingCache<HivePrincipal, Set<RoleGrant>> roleGrantsCache;
 
-    @Inject
-    public CachingHiveMetastore(@ForCachingHiveMetastore HiveMetastore delegate, @ForCachingHiveMetastore Executor executor, CachingHiveMetastoreConfig config)
+    public static HiveMetastore cachingHiveMetastore(HiveMetastore delegate, Executor executor, CachingHiveMetastoreConfig config)
     {
-        this(
+        return cachingHiveMetastore(
                 delegate,
                 executor,
                 config.getMetastoreCacheTtl(),
@@ -111,9 +109,14 @@ public class CachingHiveMetastore
                 config.getMetastoreCacheMaximumSize());
     }
 
-    public CachingHiveMetastore(HiveMetastore delegate, Executor executor, Duration cacheTtl, Optional<Duration> refreshInterval, long maximumSize)
+    public static HiveMetastore cachingHiveMetastore(HiveMetastore delegate, Executor executor, Duration cacheTtl, Optional<Duration> refreshInterval, long maximumSize)
     {
-        this(
+        if (cacheTtl.toMillis() == 0 || maximumSize == 0) {
+            // caching is disabled
+            return delegate;
+        }
+
+        return new CachingHiveMetastore(
                 delegate,
                 executor,
                 OptionalLong.of(cacheTtl.toMillis()),
@@ -134,7 +137,7 @@ public class CachingHiveMetastore
                 maximumSize);
     }
 
-    private CachingHiveMetastore(HiveMetastore delegate, Executor executor, OptionalLong expiresAfterWriteMillis, OptionalLong refreshMills, long maximumSize)
+    protected CachingHiveMetastore(HiveMetastore delegate, Executor executor, OptionalLong expiresAfterWriteMillis, OptionalLong refreshMills, long maximumSize)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         requireNonNull(executor, "executor is null");

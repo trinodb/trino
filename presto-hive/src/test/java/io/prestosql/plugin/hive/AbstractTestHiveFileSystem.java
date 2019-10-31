@@ -33,7 +33,6 @@ import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.PrincipalPrivileges;
 import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.plugin.hive.metastore.cache.CachingHiveMetastore;
-import io.prestosql.plugin.hive.metastore.cache.CachingHiveMetastoreConfig;
 import io.prestosql.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.prestosql.plugin.hive.metastore.thrift.MetastoreLocator;
 import io.prestosql.plugin.hive.metastore.thrift.TestingMetastoreLocator;
@@ -73,6 +72,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
@@ -457,7 +457,7 @@ public abstract class AbstractTestHiveFileSystem
 
         public TestingHiveMetastore(HiveMetastore delegate, Executor executor, Path basePath, HdfsEnvironment hdfsEnvironment)
         {
-            super(delegate, executor, new CachingHiveMetastoreConfig());
+            super(delegate, executor, OptionalLong.empty(), OptionalLong.empty(), 0);
             this.basePath = basePath;
             this.hdfsEnvironment = hdfsEnvironment;
         }

@@ -37,6 +37,7 @@ import java.util.concurrent.TimeUnit;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.prestosql.plugin.hive.metastore.cache.CachingHiveMetastore.cachingHiveMetastore;
 import static io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClient.BAD_DATABASE;
 import static io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_DATABASE;
 import static io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_PARTITION1;
@@ -66,7 +67,7 @@ public class TestCachingHiveMetastore
         mockClient = new MockThriftMetastoreClient();
         ThriftHiveMetastore thriftHiveMetastore = createThriftHiveMetastore();
         ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("test-%s")));
-        metastore = new CachingHiveMetastore(
+        metastore = (CachingHiveMetastore) cachingHiveMetastore(
                 new BridgingHiveMetastore(thriftHiveMetastore),
                 executor,
                 new Duration(5, TimeUnit.MINUTES),
@@ -288,7 +289,7 @@ public class TestCachingHiveMetastore
 
     private CachingHiveMetastore createMetastoreWithDirectExecutor(CachingHiveMetastoreConfig config)
     {
-        return new CachingHiveMetastore(
+        return (CachingHiveMetastore) cachingHiveMetastore(
                 new BridgingHiveMetastore(createThriftHiveMetastore()),
                 directExecutor(),
                 config);
