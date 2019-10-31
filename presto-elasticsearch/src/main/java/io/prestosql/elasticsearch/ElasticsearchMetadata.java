@@ -265,12 +265,10 @@ public class ElasticsearchMetadata
 
     private static ColumnMetadata makeColumnMetadata(String name, Type type)
     {
-        return new ColumnMetadata(
-                name,
-                type,
-                null,
-                null,
-                false,
-                ImmutableMap.of(ORIGINAL_NAME, name));
+        return ColumnMetadata.builder()
+                .setName(name)
+                .setType(type)
+                .setProperties(ImmutableMap.of(ORIGINAL_NAME, name))
+                .build();
     }
 }
