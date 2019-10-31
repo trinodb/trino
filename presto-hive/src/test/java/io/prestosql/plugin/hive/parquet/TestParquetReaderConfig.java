@@ -39,8 +39,8 @@ public class TestParquetReaderConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("hive.parquet.fail-on-corrupted-statistics", "false")
-                .put("hive.parquet.max-read-block-size", "66kB")
+                .put("parquet.fail-on-corrupted-statistics", "false")
+                .put("parquet.max-read-block-size", "66kB")
                 .build();
 
         ParquetReaderConfig expected = new ParquetReaderConfig()
