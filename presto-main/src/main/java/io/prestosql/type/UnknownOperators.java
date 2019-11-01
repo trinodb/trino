@@ -43,7 +43,7 @@ public final class UnknownOperators
     @SqlNullable
     public static Boolean equal(@SqlType("unknown") boolean left, @SqlType("unknown") boolean right)
     {
-        throw new AssertionError("value of unknown type should all be NULL");
+        throw new AssertionError("value of unknown type should always be NULL");
     }
 
     @ScalarOperator(NOT_EQUAL)
@@ -51,49 +51,49 @@ public final class UnknownOperators
     @SqlNullable
     public static Boolean notEqual(@SqlType("unknown") boolean left, @SqlType("unknown") boolean right)
     {
-        throw new AssertionError("value of unknown type should all be NULL");
+        throw new AssertionError("value of unknown type should always be NULL");
     }
 
     @ScalarOperator(LESS_THAN)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean lessThan(@SqlType("unknown") boolean left, @SqlType("unknown") boolean right)
     {
-        throw new AssertionError("value of unknown type should all be NULL");
+        throw new AssertionError("value of unknown type should always be NULL");
     }
 
     @ScalarOperator(LESS_THAN_OR_EQUAL)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean lessThanOrEqual(@SqlType("unknown") boolean left, @SqlType("unknown") boolean right)
     {
-        throw new AssertionError("value of unknown type should all be NULL");
+        throw new AssertionError("value of unknown type should always be NULL");
     }
 
     @ScalarOperator(GREATER_THAN)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean greaterThan(@SqlType("unknown") boolean left, @SqlType("unknown") boolean right)
     {
-        throw new AssertionError("value of unknown type should all be NULL");
+        throw new AssertionError("value of unknown type should always be NULL");
     }
 
     @ScalarOperator(GREATER_THAN_OR_EQUAL)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean greaterThanOrEqual(@SqlType("unknown") boolean left, @SqlType("unknown") boolean right)
     {
-        throw new AssertionError("value of unknown type should all be NULL");
+        throw new AssertionError("value of unknown type should always be NULL");
     }
 
     @ScalarOperator(BETWEEN)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean between(@SqlType("unknown") boolean value, @SqlType("unknown") boolean min, @SqlType("unknown") boolean max)
     {
-        throw new AssertionError("value of unknown type should all be NULL");
+        throw new AssertionError("value of unknown type should always be NULL");
     }
 
     @ScalarOperator(HASH_CODE)
     @SqlType(StandardTypes.BIGINT)
     public static long hashCode(@SqlType("unknown") boolean value)
     {
-        throw new AssertionError("value of unknown type should all be NULL");
+        throw new AssertionError("value of unknown type should always be NULL");
     }
 
     @ScalarOperator(XX_HASH_64)
