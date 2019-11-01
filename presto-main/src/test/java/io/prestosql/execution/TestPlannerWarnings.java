@@ -26,7 +26,6 @@ import io.prestosql.plugin.tpch.TpchConnectorFactory;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.PrestoWarning;
 import io.prestosql.spi.WarningCode;
-import io.prestosql.sql.planner.LogicalPlanner;
 import io.prestosql.sql.planner.Plan;
 import io.prestosql.sql.planner.RuleStatsRecorder;
 import io.prestosql.sql.planner.iterative.IterativeOptimizer;
@@ -47,6 +46,8 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.prestosql.sql.planner.LogicalPlanner.Stage.CREATED;
+import static io.prestosql.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.prestosql.sql.planner.plan.Patterns.project;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
@@ -100,7 +101,7 @@ public class TestPlannerWarnings
                     createPlan(queryRunner, transactionSession, sql, warningCollector, rules.get());
                 }
                 else {
-                    queryRunner.createPlan(transactionSession, sql, LogicalPlanner.Stage.CREATED, false, warningCollector);
+                    queryRunner.createPlan(transactionSession, sql, CREATED, false, warningCollector);
                 }
                 return null;
             });
@@ -127,7 +128,7 @@ public class TestPlannerWarnings
                 queryRunner.getCostCalculator(),
                 ImmutableSet.copyOf(rules));
 
-        return queryRunner.createPlan(session, sql, ImmutableList.of(optimizer), LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, warningCollector);
+        return queryRunner.createPlan(session, sql, ImmutableList.of(optimizer), OPTIMIZED_AND_VALIDATED, warningCollector);
     }
 
     public static List<PrestoWarning> createTestWarnings(int numberOfWarnings)

@@ -14,13 +14,13 @@
 package io.prestosql.sql.query;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.sql.planner.LogicalPlanner;
 import io.prestosql.sql.planner.assertions.BasePlanTest;
 import io.prestosql.sql.planner.plan.FilterNode;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static io.prestosql.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.tableScan;
@@ -153,7 +153,7 @@ public class TestFilteredAggregations
     private void assertPlanContainsNoFilter(String sql)
     {
         assertFalse(
-                searchFrom(plan(sql, LogicalPlanner.Stage.OPTIMIZED).getRoot())
+                searchFrom(plan(sql, OPTIMIZED).getRoot())
                         .where(isInstanceOfAny(FilterNode.class))
                         .matches(),
                 "Unexpected node for query: " + sql);

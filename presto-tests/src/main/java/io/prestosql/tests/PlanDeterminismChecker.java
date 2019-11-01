@@ -15,7 +15,6 @@ package io.prestosql.tests;
 
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.sql.planner.LogicalPlanner;
 import io.prestosql.sql.planner.Plan;
 import io.prestosql.sql.planner.planprinter.PlanPrinter;
 import io.prestosql.testing.LocalQueryRunner;
@@ -23,6 +22,7 @@ import io.prestosql.testing.LocalQueryRunner;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 
+import static io.prestosql.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static org.testng.Assert.assertEquals;
 
 public class PlanDeterminismChecker
@@ -62,7 +62,7 @@ public class PlanDeterminismChecker
     private String getPlanText(Session session, String sql)
     {
         return localQueryRunner.inTransaction(session, transactionSession -> {
-            Plan plan = localQueryRunner.createPlan(transactionSession, sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, WarningCollector.NOOP);
+            Plan plan = localQueryRunner.createPlan(transactionSession, sql, OPTIMIZED_AND_VALIDATED, WarningCollector.NOOP);
             return PlanPrinter.textLogicalPlan(
                     plan.getRoot(),
                     plan.getTypes(),
