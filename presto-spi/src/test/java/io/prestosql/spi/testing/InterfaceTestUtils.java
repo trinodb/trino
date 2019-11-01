@@ -31,7 +31,9 @@ public final class InterfaceTestUtils
         for (Method method : iface.getMethods()) {
             try {
                 Method override = clazz.getDeclaredMethod(method.getName(), method.getParameterTypes());
-                assertEquals(override.getReturnType(), method.getReturnType());
+                if (!method.getReturnType().isAssignableFrom(override.getReturnType())) {
+                    fail(format("%s is not assignable from %s for method %s", method.getReturnType(), override.getReturnType(), method));
+                }
             }
             catch (NoSuchMethodException e) {
                 fail(format("%s does not override [%s]", clazz.getName(), method));
