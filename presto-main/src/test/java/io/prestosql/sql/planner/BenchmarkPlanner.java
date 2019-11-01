@@ -48,6 +48,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.tpch.TpchConnectorFactory.TPCH_COLUMN_NAMING_PROPERTY;
+import static io.prestosql.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 
@@ -68,7 +69,7 @@ public class BenchmarkPlanner
         private String iterativeOptimizerEnabled = "true";
 
         @Param({"optimized", "created"})
-        private String stage = LogicalPlanner.Stage.OPTIMIZED.toString();
+        private String stage = OPTIMIZED.toString();
 
         private LocalQueryRunner queryRunner;
         private List<String> queries;

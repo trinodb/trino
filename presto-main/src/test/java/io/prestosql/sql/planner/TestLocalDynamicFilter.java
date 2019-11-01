@@ -41,6 +41,7 @@ import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
@@ -195,7 +196,7 @@ public class TestLocalDynamicFilter
         SubPlan subplan = subplan(
                 "SELECT count() FROM lineitem, orders WHERE lineitem.orderkey = orders.orderkey " +
                         "AND orders.custkey < 10",
-                LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED,
+                OPTIMIZED_AND_VALIDATED,
                 false);
         JoinNode joinNode = searchJoins(subplan.getChildren().get(0).getFragment()).findOnlyElement();
         LocalDynamicFilter filter = LocalDynamicFilter.create(METADATA, joinNode, 1).get();
@@ -217,7 +218,7 @@ public class TestLocalDynamicFilter
         SubPlan subplan = subplan(
                 "SELECT count() FROM nation, region WHERE nation.regionkey = region.regionkey " +
                         "AND region.comment = 'abc'",
-                LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED,
+                OPTIMIZED_AND_VALIDATED,
                 false,
                 session);
         JoinNode joinNode = searchJoins(subplan.getChildren().get(0).getFragment()).findOnlyElement();
@@ -233,7 +234,7 @@ public class TestLocalDynamicFilter
                 "SELECT count() FROM lineitem, partsupp " +
                         "WHERE lineitem.partkey = partsupp.partkey AND lineitem.suppkey = partsupp.suppkey " +
                         "AND partsupp.availqty < 10",
-                LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED,
+                OPTIMIZED_AND_VALIDATED,
                 false);
         JoinNode joinNode = searchJoins(subplan.getChildren().get(0).getFragment()).findOnlyElement();
         LocalDynamicFilter filter = LocalDynamicFilter.create(METADATA, joinNode, 1).get();
@@ -262,7 +263,7 @@ public class TestLocalDynamicFilter
                 "SELECT count() FROM lineitem, orders, part " +
                         "WHERE lineitem.orderkey = orders.orderkey AND lineitem.partkey = part.partkey " +
                         "AND orders.custkey < 10 AND part.name = 'abc'",
-                LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED,
+                OPTIMIZED_AND_VALIDATED,
                 false);
         List<JoinNode> joinNodes = searchJoins(subplan.getChildren().get(0).getFragment()).findAll();
         assertEquals(joinNodes.size(), 2);
@@ -287,7 +288,7 @@ public class TestLocalDynamicFilter
                         "((SELECT partkey FROM part) UNION (SELECT suppkey FROM supplier)) " +
                         "SELECT count() FROM union_table, nation WHERE union_table.key = nation.nationkey " +
                         "AND nation.comment = 'abc'",
-                LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED,
+                OPTIMIZED_AND_VALIDATED,
                 true);
         JoinNode joinNode = searchJoins(subplan.getFragment()).findOnlyElement();
         LocalDynamicFilter filter = LocalDynamicFilter.create(METADATA, joinNode, 1).get();

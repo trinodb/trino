@@ -40,6 +40,8 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
+import static io.prestosql.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
+import static io.prestosql.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -106,7 +108,7 @@ public class BasePlanTest
 
     protected void assertPlan(String sql, PlanMatchPattern pattern)
     {
-        assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, pattern);
+        assertPlan(sql, OPTIMIZED_AND_VALIDATED, pattern);
     }
 
     protected void assertPlan(String sql, Session session, PlanMatchPattern pattern)
@@ -123,7 +125,7 @@ public class BasePlanTest
 
     protected void assertPlan(String sql, PlanMatchPattern pattern, List<PlanOptimizer> optimizers)
     {
-        assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED, pattern, optimizers);
+        assertPlan(sql, OPTIMIZED, pattern, optimizers);
     }
 
     protected void assertPlan(String sql, LogicalPlanner.Stage stage, PlanMatchPattern pattern, Predicate<PlanOptimizer> optimizerPredicate)
@@ -165,13 +167,13 @@ public class BasePlanTest
                         queryRunner.getCostCalculator(),
                         ImmutableSet.of(new RemoveRedundantIdentityProjections())));
 
-        assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED, pattern, optimizers);
+        assertPlan(sql, OPTIMIZED, pattern, optimizers);
     }
 
     protected void assertPlanWithSession(@Language("SQL") String sql, Session session, boolean forceSingleNode, PlanMatchPattern pattern)
     {
         queryRunner.inTransaction(session, transactionSession -> {
-            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, forceSingleNode, WarningCollector.NOOP);
+            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, OPTIMIZED_AND_VALIDATED, forceSingleNode, WarningCollector.NOOP);
             PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getStatsCalculator(), actualPlan, pattern);
             return null;
         });
@@ -180,7 +182,7 @@ public class BasePlanTest
     protected void assertPlanWithSession(@Language("SQL") String sql, Session session, boolean forceSingleNode, PlanMatchPattern pattern, Consumer<Plan> planValidator)
     {
         queryRunner.inTransaction(session, transactionSession -> {
-            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, forceSingleNode, WarningCollector.NOOP);
+            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, OPTIMIZED_AND_VALIDATED, forceSingleNode, WarningCollector.NOOP);
             PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getStatsCalculator(), actualPlan, pattern);
             planValidator.accept(actualPlan);
             return null;
@@ -189,7 +191,7 @@ public class BasePlanTest
 
     protected Plan plan(String sql)
     {
-        return plan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED);
+        return plan(sql, OPTIMIZED_AND_VALIDATED);
     }
 
     protected Plan plan(String sql, LogicalPlanner.Stage stage)

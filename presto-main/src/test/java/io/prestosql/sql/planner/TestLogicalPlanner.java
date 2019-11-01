@@ -1149,7 +1149,7 @@ public class TestLogicalPlanner
     {
         String query = "SELECT count(*) FROM orders ORDER BY 1";
         assertFalse(
-                searchFrom(plan(query, LogicalPlanner.Stage.OPTIMIZED).getRoot())
+                searchFrom(plan(query, OPTIMIZED).getRoot())
                         .where(isInstanceOfAny(SortNode.class))
                         .matches(),
                 format("Unexpected sort node for query: '%s'", query));
@@ -1167,7 +1167,7 @@ public class TestLogicalPlanner
     {
         String query = "SELECT count(*) FROM orders ORDER BY 1 LIMIT 10";
         assertFalse(
-                searchFrom(plan(query, LogicalPlanner.Stage.OPTIMIZED).getRoot())
+                searchFrom(plan(query, OPTIMIZED).getRoot())
                         .where(isInstanceOfAny(TopNNode.class, SortNode.class))
                         .matches(),
                 format("Unexpected TopN node for query: '%s'", query));
@@ -1198,7 +1198,7 @@ public class TestLogicalPlanner
     {
         String query = "SELECT distinct(c) FROM (SELECT count(*) as c FROM orders) LIMIT 10";
         assertFalse(
-                searchFrom(plan(query, LogicalPlanner.Stage.OPTIMIZED).getRoot())
+                searchFrom(plan(query, OPTIMIZED).getRoot())
                         .where(isInstanceOfAny(DistinctLimitNode.class))
                         .matches(),
                 format("Unexpected DistinctLimit node for query: '%s'", query));

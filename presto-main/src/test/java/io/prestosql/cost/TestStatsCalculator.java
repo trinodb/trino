@@ -24,6 +24,7 @@ import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.testing.LocalQueryRunner;
 import org.testng.annotations.Test;
 
+import static io.prestosql.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.node;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
@@ -58,7 +59,7 @@ public class TestStatsCalculator
 
     private void assertPlan(String sql, PlanMatchPattern pattern)
     {
-        assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, pattern);
+        assertPlan(sql, OPTIMIZED_AND_VALIDATED, pattern);
     }
 
     private void assertPlan(String sql, LogicalPlanner.Stage stage, PlanMatchPattern pattern)
