@@ -55,6 +55,17 @@ public class TestSqlServerIntegrationSmokeTest
     }
 
     @Test
+    public void testInsertInPresenceOfNotSupportedColumn()
+    {
+        sqlServer.execute("CREATE TABLE test_insert_not_supported_column_present(x bigint, y sql_variant, z varchar(10))");
+        // Check that column y is not supported.
+        assertQuery("SELECT column_name FROM information_schema.columns WHERE table_name = 'test_insert_not_supported_column_present'", "VALUES 'x', 'z'");
+        assertUpdate("INSERT INTO test_insert_not_supported_column_present (x, z) VALUES (123, 'test')", 1);
+        assertQuery("SELECT x, z FROM test_insert_not_supported_column_present", "SELECT 123, 'test'");
+        assertUpdate("DROP TABLE test_insert_not_supported_column_present");
+    }
+
+    @Test
     public void testView()
     {
         sqlServer.execute("CREATE VIEW test_view AS SELECT * FROM orders");
