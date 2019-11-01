@@ -526,6 +526,53 @@ Property Name                                Description
                                              This is mutually exclusive with a global JSON key file.
 ============================================ =================================================================
 
+Alluxio Configuration
+---------------------
+
+Presto can read and write tables stored in data orchestration layer
+`Alluxio <https://www.alluxio.io/?utm_source=prestosql&utm_medium=prestodocs>`_,
+using Alluxio as a distributed block-level read/write caching engine.
+It is required to first have the table or database location using an alluxio
+prefix in the metastore service (read the
+`steps <https://docs.alluxio.io/os/user/2.0/en/compute/Hive.html>`_).
+then Presto queries will transparently retrieve and cache files
+or objects from a variety of disparate storage systems including HDFS and S3.
+
+Alluxio Client-side Configuration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To configure Alluxio client-side properties on Presto, append Alluxio
+configuration directory (i.e. ``${ALLUXIO_HOME}/conf``) to Presto JVM classpath,
+so Alluxio properties file ``alluxio-site.properties`` can be loaded as a
+resource. Update ``etc/jvm.config`` under Presto folder to include
+
+.. code-block:: none
+
+  -Xbootclasspath/a:<path-to-alluxio-conf>
+
+The advantage of this approach is that all the Alluxio properties are set in
+the single ``alluxio-site.properties`` file. A complete list of Alluxio
+configuration properties can be found
+`here <https://docs.alluxio.io/os/user/2.0/en/compute/Presto.html#customize-alluxio-user-properties>`_.
+
+Alternatively, add Alluxio configuration properties to the Hadoop configuration
+files (``core-site.xml``, ``hdfs-site.xml``), and use Presto property
+``hive.config.resources`` in file ``etc/catalog/hive.properties`` to point to
+the file location for every Presto worker.
+
+.. code-block:: none
+
+  hive.config.resources=core-site.xml,hdfs-site.xml
+
+Deploy Alluxio with Presto
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To achieve the best performance running Presto on Alluxio, it is recommended
+to collocate Presto workers with Alluxio workers to enable "short-circuit" reads
+and writes between Presto and Alluxio without using the network.
+Check out more `performance tuning tips for Presto with Alluxio <https://www.alluxio.io/blog/top-5-performance-tuning-tips-for-running-presto-on-alluxio-1/?utm_source=prestosql&utm_medium=prestodocs>`_.
+
+
 Table Statistics
 ----------------
 
