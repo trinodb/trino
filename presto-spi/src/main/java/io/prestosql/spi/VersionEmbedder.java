@@ -13,6 +13,7 @@
  */
 package io.prestosql.spi;
 
+import java.util.concurrent.Callable;
 import java.util.concurrent.Executor;
 
 import static java.util.Objects.requireNonNull;
@@ -23,6 +24,8 @@ public interface VersionEmbedder
      * Encodes Presto server version information in the stack
      */
     Runnable embedVersion(Runnable runnable);
+
+    <T> Callable<T> embedVersion(Callable<T> runnable);
 
     default Executor embedVersion(Executor delegate)
     {
