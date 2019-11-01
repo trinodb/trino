@@ -311,7 +311,7 @@ Property Name                                Description
                                              by the JVM system property ``java.io.tmpdir``.
 
 ``hive.s3.pin-client-to-current-region``     Pin S3 requests to the same region as the EC2
-                                             instance where Presto is running, 
+                                             instance where Presto is running,
                                              defaults to ``false``.
 
 ``hive.s3.ssl.enabled``                      Use HTTPS to communicate with the S3 API, defaults to ``true``.
@@ -319,7 +319,7 @@ Property Name                                Description
 ``hive.s3.sse.enabled``                      Use S3 server-side encryption, defaults to ``false``.
 
 ``hive.s3.sse.type``                         The type of key management for S3 server-side encryption.
-                                             Use ``S3`` for S3 managed or ``KMS`` for KMS-managed keys, 
+                                             Use ``S3`` for S3 managed or ``KMS`` for KMS-managed keys,
                                              defaults to ``S3``.
 
 ``hive.s3.sse.kms-key-id``                   The KMS Key ID to use for S3 server-side encryption with
@@ -527,6 +527,48 @@ Property Name                                Description
 ``hive.gcs.use-access-token``                Use client-provided OAuth token to access Google Cloud Storage.
                                              This is mutually exclusive with a global JSON key file.
 ============================================ =================================================================
+
+Alluxio Configuration
+---------------------
+
+Presto can read and write tables stored in data orchestration layer
+`Alluxio <https://www.alluxio.io/?utm_source=prestosql&utm_medium=prestodocs>`_,
+using Alluxio as a distributed block-level read/write caching engine.
+The tables must be created in the Hive metastore with the ``alluxio://`` location prefix
+(see `Running Apache Hive with Alluxio <https://docs.alluxio.io/os/user/2.0/en/compute/Hive.html>`_
+for details and examples).
+Presto queries will then transparently retrieve and cache files
+or objects from a variety of disparate storage systems including HDFS and S3.
+
+Alluxio Client-side Configuration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To configure Alluxio client-side properties on Presto, append the Alluxio
+configuration directory (``${ALLUXIO_HOME}/conf``) to the Presto JVM classpath,
+so that the Alluxio properties file ``alluxio-site.properties`` can be loaded as a resource.
+Update the Presto :ref:`presto_jvm_config` file ``etc/jvm.config`` to include the following:
+
+.. code-block:: none
+
+  -Xbootclasspath/a:<path-to-alluxio-conf>
+
+The advantage of this approach is that all the Alluxio properties are set in
+the single ``alluxio-site.properties`` file. For details, see `Customize Alluxio User Properties
+<https://docs.alluxio.io/os/user/2.0/en/compute/Presto.html#customize-alluxio-user-properties>`_.
+
+Alternatively, add Alluxio configuration properties to the Hadoop configuration
+files (``core-site.xml``, ``hdfs-site.xml``) and configure the Hive connector
+to use the `Hadoop configuration files <#hdfs-configuration>`__ via the
+``hive.config.resources`` connector property.
+
+Deploy Alluxio with Presto
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To achieve the best performance running Presto on Alluxio, it is recommended
+to collocate Presto workers with Alluxio workers. This allows reads and writes
+to bypass the network (*short-circuit*). See `Performance Tuning Tips for Presto with Alluxio
+<https://www.alluxio.io/blog/top-5-performance-tuning-tips-for-running-presto-on-alluxio-1/?utm_source=prestosql&utm_medium=prestodocs>`_
+for more details.
 
 Table Statistics
 ----------------
