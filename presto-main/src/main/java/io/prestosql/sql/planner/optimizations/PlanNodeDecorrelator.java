@@ -77,9 +77,9 @@ public class PlanNodeDecorrelator
 
     public Optional<DecorrelatedNode> decorrelateFilters(PlanNode node, List<Symbol> correlation)
     {
-        // TODO: when correlations list empty this should return immediately. However this isn't correct
-        // right now, because for nested subqueries correlation list is empty while there might exists usages
-        // of the outer most correlated symbols
+        if (correlation.isEmpty()) {
+            return Optional.of(new DecorrelatedNode(ImmutableList.of(), node));
+        }
 
         Optional<DecorrelationResult> decorrelationResultOptional = node.accept(new DecorrelatingVisitor(metadata, correlation), null);
         return decorrelationResultOptional.flatMap(decorrelationResult -> decorrelatedNode(
