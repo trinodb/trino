@@ -31,6 +31,7 @@ import io.prestosql.spi.QueryId;
 import io.prestosql.spi.type.TimeZoneNotSupportedException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.net.URI;
@@ -67,6 +68,7 @@ import static io.prestosql.spi.StandardErrorCode.INCOMPATIBLE_CLIENT;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.Response.Status.OK;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
@@ -190,6 +192,31 @@ public class TestServer
 
         assertNull(queryResults.getNextUri());
         assertEquals(queryResults.getError().getErrorCode(), INCOMPATIBLE_CLIENT.toErrorCode().getCode());
+    }
+
+    @Test(dataProvider = "testVersionOnErrorDataProvider")
+    public void testVersionOnError(String query)
+    {
+        QueryResults queryResults = postQuery(request -> request
+                .setBodyGenerator(createStaticBodyGenerator(query, UTF_8)))
+                .map(JsonResponse::getValue)
+                .filter(result -> result.getError() != null)
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Error expected"));
+
+        assertNull(queryResults.getNextUri());
+        QueryError queryError = queryResults.getError();
+        assertThat(queryError.getFailureInfo().toException())
+                .hasStackTraceContaining("at io.prestosql.$gen.Presto_null__testversion____");
+    }
+
+    @DataProvider
+    public Object[][] testVersionOnErrorDataProvider()
+    {
+        return new Object[][] {
+                {"SELECT 1 / 0"}, // fails during optimization
+                {"select 1 / a from (values 0) t(a)"}, // fails during execution
+        };
     }
 
     private Stream<JsonResponse<QueryResults>> postQuery(Function<Request.Builder, Request.Builder> requestConfigurer)
