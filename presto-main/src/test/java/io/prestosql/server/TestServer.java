@@ -214,6 +214,8 @@ public class TestServer
     public Object[][] testVersionOnErrorDataProvider()
     {
         return new Object[][] {
+                {"SELECT query that fails parsing"}, // fails during parsing
+                {"SELECT foo FROM no.such.table"}, // fails during analysis
                 {"SELECT 1 / 0"}, // fails during optimization
                 {"select 1 / a from (values 0) t(a)"}, // fails during execution
         };
