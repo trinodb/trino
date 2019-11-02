@@ -469,6 +469,7 @@ public class ScanFilterAndProjectOperator
             return create(session, memoryTrackingContext, yieldSignal, splits, true);
         }
 
+        @Override
         public WorkProcessorSourceOperator createAdapterOperator(
                 Session session,
                 MemoryTrackingContext memoryTrackingContext,

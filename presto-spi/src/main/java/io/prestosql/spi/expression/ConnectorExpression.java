@@ -37,5 +37,6 @@ public abstract class ConnectorExpression
     @Override
     public abstract boolean equals(Object obj);
 
+    @Override
     public abstract String toString();
 }

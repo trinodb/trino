@@ -80,6 +80,7 @@ public class TestPrestoLdapCli
     {}
 
     @AfterTestWithContext
+    @Override
     public void stopPresto()
             throws InterruptedException
     {

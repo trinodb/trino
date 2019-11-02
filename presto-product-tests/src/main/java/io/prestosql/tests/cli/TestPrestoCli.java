@@ -87,6 +87,7 @@ public class TestPrestoCli
     {}
 
     @AfterTestWithContext
+    @Override
     public void stopPresto()
             throws InterruptedException
     {

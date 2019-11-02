@@ -514,6 +514,7 @@ public final class ExpressionVerifier
         return process(actual.getInnerExpression(), expected.getInnerExpression());
     }
 
+    @Override
     protected Boolean visitLikePredicate(LikePredicate actual, Node expectedExpression)
     {
         if (!(expectedExpression instanceof LikePredicate)) {

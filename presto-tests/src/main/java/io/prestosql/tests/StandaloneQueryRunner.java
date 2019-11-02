@@ -195,6 +195,7 @@ public final class StandaloneQueryRunner
         while (activeNodesWithConnector.isEmpty());
     }
 
+    @Override
     public void installPlugin(Plugin plugin)
     {
         server.installPlugin(plugin);
@@ -205,6 +206,7 @@ public final class StandaloneQueryRunner
         createCatalog(catalogName, connectorName, ImmutableMap.of());
     }
 
+    @Override
     public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
         CatalogName catalog = server.createCatalog(catalogName, connectorName, properties);

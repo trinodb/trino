@@ -142,6 +142,7 @@ public class TestEffectivePredicateExtractor
             return delegate.getType(signature);
         }
 
+        @Override
         public Type fromSqlType(String sqlType)
         {
             return delegate.fromSqlType(sqlType);

@@ -54,18 +54,21 @@ public class KuduOutputTableHandle
         this.generateUUID = generateUUID;
     }
 
+    @Override
     @JsonProperty
     public boolean isGenerateUUID()
     {
         return generateUUID;
     }
 
+    @Override
     @JsonProperty
     public List<Type> getColumnTypes()
     {
         return columnTypes;
     }
 
+    @Override
     @JsonProperty
     public List<Type> getOriginalColumnTypes()
     {

@@ -17,16 +17,4 @@ interface UpdateablePriorityQueue<E>
         extends Queue<E>, Iterable<E>
 {
     boolean addOrUpdate(E element, long priority);
-
-    boolean contains(E element);
-
-    boolean remove(E element);
-
-    E poll();
-
-    E peek();
-
-    int size();
-
-    boolean isEmpty();
 }

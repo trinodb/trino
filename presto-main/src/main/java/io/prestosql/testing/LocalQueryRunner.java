@@ -472,11 +472,13 @@ public class LocalQueryRunner
         return nodePartitioningManager;
     }
 
+    @Override
     public PageSourceManager getPageSourceManager()
     {
         return pageSourceManager;
     }
 
+    @Override
     public SplitManager getSplitManager()
     {
         return splitManager;

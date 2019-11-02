@@ -174,6 +174,7 @@ public class TreePrinter
                 return null;
             }
 
+            @Override
             protected Void visitOrderBy(OrderBy node, Integer indentLevel)
             {
                 for (SortItem sortItem : node.getSortItems()) {

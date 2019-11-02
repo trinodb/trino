@@ -32,6 +32,7 @@ class ResourceUsage
         this.memoryUsageBytes = memoryUsageBytes;
     }
 
+    @Override
     public ResourceUsage clone()
     {
         return new ResourceUsage(cpuUsageMillis, memoryUsageBytes);

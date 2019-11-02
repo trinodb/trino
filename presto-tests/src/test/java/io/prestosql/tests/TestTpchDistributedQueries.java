@@ -134,6 +134,8 @@ public class TestTpchDistributedQueries
         assertTrue(sampleSizeFound, "Table sample returned unexpected number of rows");
     }
 
+    @Test
+    @Override
     public void testShowTables()
     {
         assertQuerySucceeds(createSession("sf1"), "SHOW TABLES");

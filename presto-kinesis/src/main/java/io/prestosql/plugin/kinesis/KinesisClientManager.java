@@ -61,11 +61,13 @@ public class KinesisClientManager
         return client;
     }
 
+    @Override
     public AmazonDynamoDBClient getDynamoDbClient()
     {
         return dynamoDbClient;
     }
 
+    @Override
     public AmazonS3Client getS3Client()
     {
         return amazonS3Client;

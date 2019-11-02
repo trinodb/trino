@@ -19,5 +19,8 @@ public interface PartitionFunction
 {
     int getPartitionCount();
 
+    /**
+     * @param page the arguments to bucketing function in order (no extra columns)
+     */
     int getPartition(Page page, int position);
 }
