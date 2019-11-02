@@ -15,8 +15,6 @@ package io.prestosql.plugin.kinesis;
 
 import com.amazonaws.services.kinesis.model.PutRecordsRequest;
 import com.amazonaws.services.kinesis.model.PutRecordsRequestEntry;
-import com.amazonaws.services.kinesis.model.PutRecordsResult;
-import io.airlift.log.Logger;
 import io.prestosql.Session;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.SessionPropertyManager;
@@ -64,8 +62,6 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestMinimalFunctionality
 {
-    private static final Logger log = Logger.get(TestMinimalFunctionality.class);
-
     public static final Session SESSION = Session.builder(new SessionPropertyManager())
             .setIdentity(Identity.ofUser("user"))
             .setSource("source")
@@ -86,14 +82,12 @@ public class TestMinimalFunctionality
     })
     @BeforeClass
     public void start(String accessKey, String secretKey)
-            throws Exception
     {
         embeddedKinesisStream = new EmbeddedKinesisStream(TestUtils.noneToBlank(accessKey), TestUtils.noneToBlank(secretKey));
     }
 
     @AfterClass
     public void stop()
-            throws Exception
     {
         embeddedKinesisStream.close();
     }
@@ -127,7 +121,6 @@ public class TestMinimalFunctionality
     }
 
     private void createMessages(String streamName, long count)
-            throws Exception
     {
         PutRecordsRequest putRecordsRequest = new PutRecordsRequest();
         putRecordsRequest.setStreamName(streamName);
@@ -140,14 +133,12 @@ public class TestMinimalFunctionality
         }
 
         putRecordsRequest.setRecords(putRecordsRequestEntryList);
-        PutRecordsResult result = embeddedKinesisStream.getKinesisClient().putRecords(putRecordsRequest);
+        embeddedKinesisStream.getKinesisClient().putRecords(putRecordsRequest);
     }
 
     @Test
     public void testStreamExists()
-            throws Exception
     {
-        // TODO: Was QualifiedTableName, is this OK:
         QualifiedObjectName name = new QualifiedObjectName("kinesis", "default", streamName);
 
         transaction(queryRunner.getTransactionManager(), new AllowAllAccessControl())
@@ -160,7 +151,6 @@ public class TestMinimalFunctionality
 
     @Test
     public void testStreamHasData()
-            throws Exception
     {
         MaterializedResult result = queryRunner.execute("SELECT COUNT(1) FROM " + streamName);
 
@@ -178,13 +168,11 @@ public class TestMinimalFunctionality
         expected = MaterializedResult.resultBuilder(SESSION, BigintType.BIGINT)
                 .row(count)
                 .build();
-        Thread.sleep(5000);
         assertEquals(result, expected);
     }
 
     @AfterMethod
     public void tearDown()
-            throws Exception
     {
         embeddedKinesisStream.delteStream(streamName);
         queryRunner.close();
