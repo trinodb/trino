@@ -909,7 +909,7 @@ public class GlueHiveMetastore
     @Override
     public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal principal)
     {
-        throw new PrestoException(NOT_SUPPORTED, "listTablePrivileges is not supported by Glue");
+        return ImmutableSet.of();
     }
 
     @Override
