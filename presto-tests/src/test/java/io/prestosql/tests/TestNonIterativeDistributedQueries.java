@@ -23,6 +23,6 @@ public class TestNonIterativeDistributedQueries
 {
     public TestNonIterativeDistributedQueries()
     {
-        super(() -> TpchQueryRunnerBuilder.builder().setSingleExtraProperty("experimental.iterative-optimizer-enabled", "false").build());
+        super(() -> TpchQueryRunnerBuilder.builder().setSingleExtraProperty("iterative-optimizer-enabled", "false").build());
     }
 }
