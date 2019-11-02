@@ -374,7 +374,7 @@ public final class SystemSessionProperties
                         false),
                 dataSizeProperty(
                         AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT,
-                        "How much memory can should be allocated per aggragation operator in unspilling process",
+                        "How much memory should be allocated per aggregation operator in unspilling process",
                         featuresConfig.getAggregationOperatorUnspillMemoryLimit(),
                         false),
                 booleanProperty(
