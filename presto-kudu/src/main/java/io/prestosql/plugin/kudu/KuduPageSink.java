@@ -77,7 +77,7 @@ public class KuduPageSink
             KuduClientSession clientSession,
             KuduInsertTableHandle tableHandle)
     {
-        this(connectorSession, clientSession, tableHandle, tableHandle);
+        this(connectorSession, clientSession, tableHandle.getTable(clientSession), tableHandle);
     }
 
     public KuduPageSink(
@@ -85,13 +85,13 @@ public class KuduPageSink
             KuduClientSession clientSession,
             KuduOutputTableHandle tableHandle)
     {
-        this(connectorSession, clientSession, tableHandle, tableHandle);
+        this(connectorSession, clientSession, tableHandle.getTable(clientSession), tableHandle);
     }
 
     private KuduPageSink(
             ConnectorSession connectorSession,
             KuduClientSession clientSession,
-            KuduTableHandle tableHandle,
+            KuduTable table,
             KuduTableMapping mapping)
     {
         requireNonNull(clientSession, "clientSession is null");
@@ -100,7 +100,7 @@ public class KuduPageSink
         this.originalColumnTypes = mapping.getOriginalColumnTypes();
         this.generateUUID = mapping.isGenerateUUID();
 
-        this.table = tableHandle.getTable(clientSession);
+        this.table = table;
         this.session = clientSession.newSession();
         this.session.setFlushMode(SessionConfiguration.FlushMode.AUTO_FLUSH_BACKGROUND);
         uuid = UUID.randomUUID().toString();

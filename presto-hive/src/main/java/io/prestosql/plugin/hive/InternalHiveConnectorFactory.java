@@ -41,6 +41,7 @@ import io.prestosql.spi.connector.ConnectorNodePartitioningProvider;
 import io.prestosql.spi.connector.ConnectorPageSinkProvider;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
 import io.prestosql.spi.connector.ConnectorSplitManager;
+import io.prestosql.spi.connector.classloader.ClassLoaderSafeConnectorAccessControl;
 import io.prestosql.spi.connector.classloader.ClassLoaderSafeConnectorPageSinkProvider;
 import io.prestosql.spi.connector.classloader.ClassLoaderSafeConnectorPageSourceProvider;
 import io.prestosql.spi.connector.classloader.ClassLoaderSafeConnectorSplitManager;
@@ -104,7 +105,9 @@ public final class InternalHiveConnectorFactory
             HiveSessionProperties hiveSessionProperties = injector.getInstance(HiveSessionProperties.class);
             HiveTableProperties hiveTableProperties = injector.getInstance(HiveTableProperties.class);
             HiveAnalyzeProperties hiveAnalyzeProperties = injector.getInstance(HiveAnalyzeProperties.class);
-            ConnectorAccessControl accessControl = new SystemTableAwareAccessControl(injector.getInstance(ConnectorAccessControl.class));
+            ConnectorAccessControl accessControl = new ClassLoaderSafeConnectorAccessControl(
+                    new SystemTableAwareAccessControl(injector.getInstance(ConnectorAccessControl.class)),
+                    classLoader);
             Set<Procedure> procedures = injector.getInstance(Key.get(new TypeLiteral<Set<Procedure>>() {}));
 
             return new HiveConnector(

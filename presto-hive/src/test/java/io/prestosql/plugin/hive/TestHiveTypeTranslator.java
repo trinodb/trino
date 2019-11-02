@@ -94,7 +94,7 @@ public class TestHiveTypeTranslator
         assertInvalidTypeTranslation(
                 RowType.anonymous(ImmutableList.of(INTEGER, VARBINARY)),
                 NOT_SUPPORTED.toErrorCode(),
-                "Anonymous row type is not supported in Hive. Please give each field a name: row(integer,varbinary)");
+                "Anonymous row type is not supported in Hive. Please give each field a name: row(integer, varbinary)");
     }
 
     private void assertTypeTranslation(Type type, HiveType hiveType)

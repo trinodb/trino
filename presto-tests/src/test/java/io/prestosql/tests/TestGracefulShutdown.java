@@ -23,6 +23,7 @@ import io.prestosql.execution.TaskManager;
 import io.prestosql.server.BasicQueryInfo;
 import io.prestosql.server.testing.TestingPrestoServer;
 import io.prestosql.server.testing.TestingPrestoServer.TestShutdownAction;
+import io.prestosql.testing.DistributedQueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;

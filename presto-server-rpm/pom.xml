@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>325-SNAPSHOT</version>
+        <version>327-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-server-rpm</artifactId>
@@ -19,6 +19,19 @@
     </properties>
 
     <dependencies>
+        <!-- for testing -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <dependency>
             <groupId>io.prestosql</groupId>
             <artifactId>presto-jdbc</artifactId>
@@ -172,7 +185,7 @@
                                 </rule>
 
                                 <rule>
-                                    <destination>/usr/lib/presto/lib/plugin</destination>
+                                    <destination>/usr/lib/presto/plugin</destination>
                                     <base>${server.tar.package}/plugin</base>
                                     <includes>
                                         <include>*/*</include>
@@ -220,75 +233,12 @@
             <build>
                 <plugins>
                     <plugin>
-                        <groupId>io.fabric8</groupId>
-                        <artifactId>docker-maven-plugin</artifactId>
-                        <version>0.31.0</version>
-                        <configuration>
-                            <logDate>none</logDate>
-                            <images>
-                                <image>
-                                    <name>prestodev/centos7-oj8</name>
-                                    <run>
-                                        <ports>
-                                            <!--suppress UnresolvedMavenProperty -->
-                                            <port>${presto.port}:8080</port>
-                                        </ports>
-                                        <volumes>
-                                            <bind>
-                                                <volume>${project.build.directory}:/target</volume>
-                                            </bind>
-                                        </volumes>
-                                        <cmd>
-                                            <exec>
-                                                <args>sh</args>
-                                                <args>-xeuc</args>
-                                                <args><![CDATA[
-rpm -i /target/${project.build.finalName}.x86_64.rpm
-mkdir /etc/presto/catalog
-cat <<EOT > /etc/presto/catalog/hive.properties
-connector.name=hive-hadoop2
-hive.metastore.uri=thrift://localhost:9083
-EOT
-/etc/init.d/presto start
-# allow tail to work with Docker's non-local file system
-tail ---disable-inotify -F /var/log/presto/server.log
-                                                ]]></args>
-                                            </exec>
-                                        </cmd>
-                                        <wait>
-                                            <time>60000</time>
-                                            <log>.*SERVER STARTED.*</log>
-                                        </wait>
-                                    </run>
-                                </image>
-                            </images>
-                        </configuration>
-                        <executions>
-                            <execution>
-                                <id>start</id>
-                                <phase>pre-integration-test</phase>
-                                <goals>
-                                    <goal>start</goal>
-                                </goals>
-                            </execution>
-                            <execution>
-                                <id>stop</id>
-                                <phase>post-integration-test</phase>
-                                <goals>
-                                    <goal>stop</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
-
-                    <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-failsafe-plugin</artifactId>
                         <version>2.22.2</version>
                         <configuration>
                             <systemPropertyVariables>
-                                <!--suppress UnresolvedMavenProperty -->
-                                <presto.port>${presto.port}</presto.port>
+                                <rpm>${project.build.directory}/${project.build.finalName}.x86_64.rpm</rpm>
                             </systemPropertyVariables>
                         </configuration>
                         <executions>

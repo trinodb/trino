@@ -39,6 +39,7 @@ import java.util.Map;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -443,22 +444,22 @@ public class TestMapOperators
                                 null)));
 
         // invalid cast
-        assertInvalidCast("CAST(JSON '{\"[]\": 1}' AS MAP<ARRAY<BIGINT>, BIGINT>)", "Cannot cast JSON to map(array(bigint),bigint)");
+        assertInvalidFunction("CAST(JSON '{\"[]\": 1}' AS MAP<ARRAY<BIGINT>, BIGINT>)", TYPE_MISMATCH, "line 1:1: Cannot cast json to map(array(bigint), bigint)");
 
-        assertInvalidCast("CAST(JSON '[1, 2]' AS MAP<BIGINT, BIGINT>)", "Cannot cast to map(bigint,bigint). Expected a json object, but got [\n[1,2]");
-        assertInvalidCast("CAST(JSON '{\"a\": 1, \"b\": 2}' AS MAP<VARCHAR, MAP<VARCHAR, BIGINT>>)", "Cannot cast to map(varchar,map(varchar,bigint)). Expected a json object, but got 1\n{\"a\":1,\"b\":2}");
-        assertInvalidCast("CAST(JSON '{\"a\": 1, \"b\": []}' AS MAP<VARCHAR, BIGINT>)", "Cannot cast to map(varchar,bigint). Unexpected token when cast to bigint: [\n{\"a\":1,\"b\":[]}");
-        assertInvalidCast("CAST(JSON '{\"1\": {\"a\": 1}, \"2\": []}' AS MAP<VARCHAR, MAP<VARCHAR, BIGINT>>)", "Cannot cast to map(varchar,map(varchar,bigint)). Expected a json object, but got [\n{\"1\":{\"a\":1},\"2\":[]}");
+        assertInvalidCast("CAST(JSON '[1, 2]' AS MAP<BIGINT, BIGINT>)", "Cannot cast to map(bigint, bigint). Expected a json object, but got [\n[1,2]");
+        assertInvalidCast("CAST(JSON '{\"a\": 1, \"b\": 2}' AS MAP<VARCHAR, MAP<VARCHAR, BIGINT>>)", "Cannot cast to map(varchar, map(varchar, bigint)). Expected a json object, but got 1\n{\"a\":1,\"b\":2}");
+        assertInvalidCast("CAST(JSON '{\"a\": 1, \"b\": []}' AS MAP<VARCHAR, BIGINT>)", "Cannot cast to map(varchar, bigint). Unexpected token when cast to bigint: [\n{\"a\":1,\"b\":[]}");
+        assertInvalidCast("CAST(JSON '{\"1\": {\"a\": 1}, \"2\": []}' AS MAP<VARCHAR, MAP<VARCHAR, BIGINT>>)", "Cannot cast to map(varchar, map(varchar, bigint)). Expected a json object, but got [\n{\"1\":{\"a\":1},\"2\":[]}");
 
-        assertInvalidCast("CAST(unchecked_to_json('\"a\": 1, \"b\": 2') AS MAP<VARCHAR, BIGINT>)", "Cannot cast to map(varchar,bigint). Expected a json object, but got a\n\"a\": 1, \"b\": 2");
-        assertInvalidCast("CAST(unchecked_to_json('{\"a\": 1} 2') AS MAP<VARCHAR, BIGINT>)", "Cannot cast to map(varchar,bigint). Unexpected trailing token: 2\n{\"a\": 1} 2");
-        assertInvalidCast("CAST(unchecked_to_json('{\"a\": 1') AS MAP<VARCHAR, BIGINT>)", "Cannot cast to map(varchar,bigint).\n{\"a\": 1");
+        assertInvalidCast("CAST(unchecked_to_json('\"a\": 1, \"b\": 2') AS MAP<VARCHAR, BIGINT>)", "Cannot cast to map(varchar, bigint). Expected a json object, but got a\n\"a\": 1, \"b\": 2");
+        assertInvalidCast("CAST(unchecked_to_json('{\"a\": 1} 2') AS MAP<VARCHAR, BIGINT>)", "Cannot cast to map(varchar, bigint). Unexpected trailing token: 2\n{\"a\": 1} 2");
+        assertInvalidCast("CAST(unchecked_to_json('{\"a\": 1') AS MAP<VARCHAR, BIGINT>)", "Cannot cast to map(varchar, bigint).\n{\"a\": 1");
 
-        assertInvalidCast("CAST(JSON '{\"a\": \"b\"}' AS MAP<VARCHAR, BIGINT>)", "Cannot cast to map(varchar,bigint). Cannot cast 'b' to BIGINT\n{\"a\":\"b\"}");
-        assertInvalidCast("CAST(JSON '{\"a\": 1234567890123.456}' AS MAP<VARCHAR, INTEGER>)", "Cannot cast to map(varchar,integer). Out of range for integer: 1.234567890123456E12\n{\"a\":1.234567890123456E12}");
+        assertInvalidCast("CAST(JSON '{\"a\": \"b\"}' AS MAP<VARCHAR, BIGINT>)", "Cannot cast to map(varchar, bigint). Cannot cast 'b' to BIGINT\n{\"a\":\"b\"}");
+        assertInvalidCast("CAST(JSON '{\"a\": 1234567890123.456}' AS MAP<VARCHAR, INTEGER>)", "Cannot cast to map(varchar, integer). Out of range for integer: 1.234567890123456E12\n{\"a\":1.234567890123456E12}");
 
-        assertInvalidCast("CAST(JSON '{\"1\":1, \"01\": 2}' AS MAP<BIGINT, BIGINT>)", "Cannot cast to map(bigint,bigint). Duplicate keys are not allowed\n{\"01\":2,\"1\":1}");
-        assertInvalidCast("CAST(JSON '[{\"1\":1, \"01\": 2}]' AS ARRAY<MAP<BIGINT, BIGINT>>)", "Cannot cast to array(map(bigint,bigint)). Duplicate keys are not allowed\n[{\"01\":2,\"1\":1}]");
+        assertInvalidCast("CAST(JSON '{\"1\":1, \"01\": 2}' AS MAP<BIGINT, BIGINT>)", "Cannot cast to map(bigint, bigint). Duplicate keys are not allowed\n{\"01\":2,\"1\":1}");
+        assertInvalidCast("CAST(JSON '[{\"1\":1, \"01\": 2}]' AS ARRAY<MAP<BIGINT, BIGINT>>)", "Cannot cast to array(map(bigint, bigint)). Duplicate keys are not allowed\n[{\"01\":2,\"1\":1}]");
 
         // some other key/value type combinations
         assertFunction("CAST(JSON '{\"puppies\":\"kittens\"}' AS MAP<VARCHAR, VARCHAR>)",

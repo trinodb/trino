@@ -19,7 +19,7 @@ Driver Name
 -----------
 
 The driver class name is ``io.prestosql.jdbc.PrestoDriver``.
-Most users will not need this information as drivers are loaded automatically.
+Most users do not need this information as drivers are loaded automatically.
 
 Connecting
 ----------
@@ -50,7 +50,7 @@ The above URL can be used as follows to create a connection:
 Connection Parameters
 ---------------------
 
-The driver supports various parameters that may be set as URL parameters
+The driver supports various parameters that may be set as URL parameters,
 or as properties passed to ``DriverManager``. Both of the following
 examples are equivalent:
 
@@ -68,7 +68,7 @@ examples are equivalent:
     String url = "jdbc:presto://example.net:8080/hive/sales?user=test&password=secret&SSL=true";
     Connection connection = DriverManager.getConnection(url);
 
-These methods may be mixed; some parameters may be specified in the URL
+These methods may be mixed; some parameters may be specified in the URL,
 while others are specified using properties. However, the same parameter
 may not be specified using both methods.
 
@@ -85,13 +85,13 @@ Name                                   Description
 ``applicationNamePrefix``              Prefix to append to any specified ``ApplicationName`` client info
                                        property, which is used to set the source name for the Presto query.
                                        If neither this property nor ``ApplicationName`` are set, the source
-                                       for the query will be ``presto-jdbc``.
+                                       for the query is ``presto-jdbc``.
 ``accessToken``                        Access token for token based authentication.
 ``SSL``                                Use HTTPS for connections
 ``SSLKeyStorePath``                    The location of the Java KeyStore file that contains the certificate
                                        and private key to use for authentication.
 ``SSLKeyStorePassword``                The password for the KeyStore.
-``SSLTrustStorePath``                  The location of the Java TrustStore file that will be used
+``SSLTrustStorePath``                  The location of the Java TrustStore file to use.
                                        to validate HTTPS server certificates.
 ``SSLTrustStorePassword``              The password for the TrustStore.
 ``KerberosRemoteServiceName``          Presto coordinator Kerberos service name. This parameter is

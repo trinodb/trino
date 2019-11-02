@@ -23,13 +23,16 @@ import org.apache.kudu.client.KuduTable;
 
 import java.util.List;
 
+import static java.util.Objects.requireNonNull;
+
 public class KuduOutputTableHandle
-        extends KuduTableHandle
         implements ConnectorOutputTableHandle, KuduTableMapping
 {
+    private final SchemaTableName schemaTableName;
     private final boolean generateUUID;
     private final List<Type> columnTypes;
     private final List<Type> originalColumnTypes;
+    private transient KuduTable table;
 
     @JsonCreator
     public KuduOutputTableHandle(
@@ -48,10 +51,17 @@ public class KuduOutputTableHandle
             boolean generateUUID,
             KuduTable table)
     {
-        super(schemaTableName, table);
-        this.columnTypes = ImmutableList.copyOf(columnTypes);
-        this.originalColumnTypes = ImmutableList.copyOf(originalColumnTypes);
+        this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
+        this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
+        this.originalColumnTypes = ImmutableList.copyOf(requireNonNull(originalColumnTypes, "originalColumnTypes is null"));
         this.generateUUID = generateUUID;
+        this.table = table;
+    }
+
+    @JsonProperty
+    public SchemaTableName getSchemaTableName()
+    {
+        return schemaTableName;
     }
 
     @Override
@@ -73,5 +83,13 @@ public class KuduOutputTableHandle
     public List<Type> getOriginalColumnTypes()
     {
         return originalColumnTypes;
+    }
+
+    public KuduTable getTable(KuduClientSession session)
+    {
+        if (table == null) {
+            table = session.openTable(schemaTableName);
+        }
+        return table;
     }
 }

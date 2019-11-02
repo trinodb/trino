@@ -13,6 +13,7 @@
  */
 package io.prestosql.parquet.reader;
 
+import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.Slice;
 import io.prestosql.parquet.DataPage;
 import io.prestosql.parquet.DataPageV1;
@@ -26,38 +27,34 @@ import org.apache.parquet.format.DictionaryPageHeader;
 import org.apache.parquet.format.PageHeader;
 import org.apache.parquet.format.Util;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.prestosql.parquet.ParquetTypeUtils.getParquetEncoding;
 import static java.util.Objects.requireNonNull;
 
 public class ParquetColumnChunk
-        extends ByteArrayInputStream
 {
     private final Optional<String> fileCreatedBy;
     private final ColumnChunkDescriptor descriptor;
+    private final BasicSliceInput input;
 
     public ParquetColumnChunk(
             Optional<String> fileCreatedBy,
             ColumnChunkDescriptor descriptor,
-            byte[] data,
-            int offset)
+            Slice data)
     {
-        super(data);
         this.fileCreatedBy = requireNonNull(fileCreatedBy, "fileCreatedBy is null");
         this.descriptor = descriptor;
-        this.pos = offset;
+        this.input = data.getInput();
     }
 
     protected PageHeader readPageHeader()
             throws IOException
     {
-        return Util.readPageHeader(this);
+        return Util.readPageHeader(input);
     }
 
     public PageReader readAllPages()
@@ -84,7 +81,7 @@ public class ParquetColumnChunk
                     valueCount += readDataPageV2(pageHeader, uncompressedPageSize, compressedPageSize, pages);
                     break;
                 default:
-                    skip(compressedPageSize);
+                    input.skip(compressedPageSize);
                     break;
             }
         }
@@ -93,9 +90,7 @@ public class ParquetColumnChunk
 
     private Slice getSlice(int size)
     {
-        Slice slice = wrappedBuffer(buf, pos, size);
-        pos += size;
-        return slice;
+        return input.readSlice(size);
     }
 
     private DictionaryPage readDictionaryPage(PageHeader pageHeader, int uncompressedPageSize, int compressedPageSize)

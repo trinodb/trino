@@ -16,6 +16,7 @@ package io.prestosql.array;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.MapHashTables;
 import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -89,6 +90,9 @@ public final class ReferenceCountMap
         }
         else if (key.getClass().isArray()) {
             extraIdentity = getLength(key);
+        }
+        else if (key instanceof MapHashTables) {
+            extraIdentity = (int) ((MapHashTables) key).getRetainedSizeInBytes();
         }
         else {
             throw new IllegalArgumentException(format("Unsupported type for %s", key));

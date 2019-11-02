@@ -184,7 +184,7 @@ public class TestSelectAll
         assertions.assertFails("SELECT (SELECT t.* FROM (VALUES 0, 1)) FROM (VALUES 2) t(a)", UNSUPPORTED_DECORRELATION_MESSAGE);
         // filter in subquery
         assertions.assertQuery("SELECT (SELECT t.* FROM (VALUES 0) WHERE true) FROM (VALUES 1) t(a)", "VALUES 1");
-        assertions.assertFails("SELECT (SELECT t.* FROM (VALUES 0) WHERE 0 = 0) FROM (VALUES 1) t(a)", UNSUPPORTED_DECORRELATION_MESSAGE);
+        assertions.assertQuery("SELECT (SELECT t.* FROM (VALUES 0) WHERE 0 = 0) FROM (VALUES 1) t(a)", "VALUES 1");
         assertions.assertFails("SELECT (SELECT t.* FROM (VALUES 0) t2(b) WHERE b > 1) FROM (VALUES 1) t(a)", UNSUPPORTED_DECORRELATION_MESSAGE);
         assertions.assertFails("SELECT (SELECT t.* FROM (VALUES 0) WHERE false) FROM (VALUES 1) t(a)", UNSUPPORTED_DECORRELATION_MESSAGE);
         // limit in subquery
@@ -212,7 +212,7 @@ public class TestSelectAll
         assertions.assertFails("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT t.* LIMIT 0)", UNSUPPORTED_DECORRELATION_MESSAGE);
         // filter in lateral relation
         assertions.assertQuery("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT t.* WHERE true)", "VALUES (0, 0), (1, 1)");
-        assertions.assertFails("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT t.* WHERE 0 = 0)", UNSUPPORTED_DECORRELATION_MESSAGE);
+        assertions.assertQuery("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT t.* WHERE 0 = 0)", "VALUES (0, 0), (1, 1)");
         assertions.assertFails("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT t.* WHERE false)", UNSUPPORTED_DECORRELATION_MESSAGE);
         assertions.assertFails("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT t.* WHERE t.a = 0)", UNSUPPORTED_DECORRELATION_MESSAGE);
         // FROM in lateral relation

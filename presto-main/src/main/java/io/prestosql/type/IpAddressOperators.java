@@ -172,12 +172,10 @@ public final class IpAddressOperators
             arraycopy(address, 0, bytes, 12, 4);
             return wrappedBuffer(bytes);
         }
-        else if (slice.length() == 16) {
+        if (slice.length() == 16) {
             return slice;
         }
-        else {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, "Invalid IP address binary length: " + slice.length());
-        }
+        throw new PrestoException(INVALID_CAST_ARGUMENT, "Invalid IP address binary length: " + slice.length());
     }
 
     @ScalarOperator(CAST)

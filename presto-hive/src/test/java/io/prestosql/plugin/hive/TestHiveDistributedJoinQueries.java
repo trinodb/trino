@@ -13,7 +13,7 @@
  */
 package io.prestosql.plugin.hive;
 
-import io.prestosql.tests.AbstractTestJoinQueries;
+import io.prestosql.testing.AbstractTestJoinQueries;
 
 import static io.airlift.tpch.TpchTable.getTables;
 import static io.prestosql.plugin.hive.HiveQueryRunner.createQueryRunner;

@@ -49,11 +49,11 @@ public class SimplifyCountOverConstant
     private static final Pattern<AggregationNode> PATTERN = aggregation()
             .with(source().matching(project().capturedAs(CHILD)));
 
-    private final ResolvedFunction resolvedFunction;
+    private final ResolvedFunction countFunction;
 
     public SimplifyCountOverConstant(Metadata metadata)
     {
-        resolvedFunction = metadata.resolveFunction(QualifiedName.of("count"), ImmutableList.of());
+        countFunction = metadata.resolveFunction(QualifiedName.of("count"), ImmutableList.of());
     }
 
     @Override
@@ -77,7 +77,7 @@ public class SimplifyCountOverConstant
             if (isCountOverConstant(aggregation, child.getAssignments())) {
                 changed = true;
                 aggregations.put(symbol, new AggregationNode.Aggregation(
-                        resolvedFunction,
+                        countFunction,
                         ImmutableList.of(),
                         false,
                         Optional.empty(),

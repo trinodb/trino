@@ -15,8 +15,8 @@ package io.prestosql.plugin.memory;
 
 import io.airlift.units.Duration;
 import io.prestosql.server.testing.TestingPrestoServer;
-import io.prestosql.tests.AbstractTestQueryFramework;
-import io.prestosql.tests.DistributedQueryRunner;
+import io.prestosql.testing.AbstractTestQueryFramework;
+import io.prestosql.testing.DistributedQueryRunner;
 import org.testng.annotations.Test;
 
 import static io.airlift.testing.Assertions.assertLessThan;

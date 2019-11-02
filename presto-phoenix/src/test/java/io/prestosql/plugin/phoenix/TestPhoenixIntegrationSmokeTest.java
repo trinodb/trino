@@ -13,7 +13,7 @@
  */
 package io.prestosql.plugin.phoenix;
 
-import io.prestosql.tests.AbstractTestIntegrationSmokeTest;
+import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 

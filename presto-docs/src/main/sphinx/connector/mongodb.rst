@@ -2,11 +2,11 @@
 MongoDB Connector
 =================
 
-This connector allows the use of MongoDB collections as tables in Presto.
+The ``mongodb`` connector allows the use of `MongoDB <https://www.mongodb.com/>`_ collections as tables in Presto.
 
 .. note::
 
-    MongoDB 2.6+ is supported although it is highly recommend to use 3.0 or later.
+    MongoDB 2.6+ is supported, although it is highly recommend to use 3.0 or later.
 
 Configuration
 -------------
@@ -25,7 +25,7 @@ Multiple MongoDB Clusters
 
 You can have as many catalogs as you need, so if you have additional
 MongoDB clusters, simply add another properties file to ``etc/catalog``
-with a different name (making sure it ends in ``.properties``). For
+with a different name, making sure it ends in ``.properties``). For
 example, if you name the property file ``sales.properties``, Presto
 will create a catalog named ``sales`` using the configured connector.
 
@@ -37,7 +37,7 @@ The following configuration properties are available:
 ===================================== ==============================================================
 Property Name                         Description
 ===================================== ==============================================================
-``mongodb.seeds``                     List of all mongod servers
+``mongodb.seeds``                     List of all MongoDB servers
 ``mongodb.schema-collection``         A collection which contains schema information
 ``mongodb.credentials``               List of credentials
 ``mongodb.min-connections-per-host``  The minimum size of the connection pool per host
@@ -56,14 +56,14 @@ Property Name                         Description
 ``mongodb.seeds``
 ^^^^^^^^^^^^^^^^^
 
-Comma-separated list of ``hostname[:port]`` all mongod servers in the same replica set or a list of mongos servers in the same sharded cluster. If port is not specified, port 27017 will be used.
+Comma-separated list of ``hostname[:port]`` all MongoDB servers in the same replica set, or a list of MongoDB servers in the same sharded cluster. If a port is not specified, port 27017 will be used.
 
 This property is required; there is no default and at least one seed must be defined.
 
 ``mongodb.schema-collection``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-As the MongoDB is a document database, there's no fixed schema information in the system. So a special collection in each MongoDB database should defines the schema of all tables. Please refer the :ref:`table-definition-label` section for the details.
+As MongoDB is a document database, there is no fixed schema information in the system. So a special collection in each MongoDB database should define the schema of all tables. Please refer the :ref:`table-definition-label` section for the details.
 
 At startup, this connector tries guessing fields' types, but it might not be correct for your collection. In that case, you need to modify it manually. ``CREATE TABLE`` and ``CREATE TABLE AS SELECT`` will create an entry for you.
 
@@ -72,29 +72,29 @@ This property is optional; the default is ``_schema``.
 ``mongodb.credentials``
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-A comma separated list of ``username:password@collection`` credentials
+A comma separated list of ``username:password@collection`` credentials.
 
 This property is optional; no default value.
 
 ``mongodb.min-connections-per-host``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The minimum number of connections per host for this MongoClient instance. Those connections will be kept in a pool when idle, and the pool will ensure over time that it contains at least this minimum number.
+The minimum number of connections per host for this MongoClient instance. Those connections are kept in a pool when idle, and the pool ensures over time that it contains at least this minimum number.
 
 This property is optional; the default is ``0``.
 
 ``mongodb.connections-per-host``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The maximum number of connections allowed per host for this MongoClient instance. Those connections will be kept in a pool when idle. Once the pool is exhausted, any operation requiring a connection will block waiting for an available connection.
+The maximum number of connections allowed per host for this MongoClient instance. Those connections are kept in a pool when idle. Once the pool is exhausted, any operation requiring a connection blocks waiting for an available connection.
 
 This property is optional; the default is ``100``.
 
 ``mongodb.max-wait-time``
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The maximum wait time in milliseconds that a thread may wait for a connection to become available.
-A value of ``0`` means that it will not wait. A negative value means to wait indefinitely for a connection to become available.
+The maximum wait time in milliseconds, that a thread may wait for a connection to become available.
+A value of ``0`` means that it does not wait. A negative value means to wait indefinitely for a connection to become available.
 
 This property is optional; the default is ``120000``.
 
@@ -146,11 +146,11 @@ This property is optional; the default is ``ACKNOWLEDGED``.
 ``mongodb.required-replica-set``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The required replica set name. With this option set, the MongoClient instance will
+The required replica set name. With this option set, the MongoClient instance performs the following actions::
 
 #. Connect in replica set mode, and discover all members of the set based on the given servers
 #. Make sure that the set name reported by all members matches the required set name.
-#. Refuse to service any requests if any member of the seed list is not part of a replica set with the required name.
+#. Refuse to service any requests, if any member of the seed list is not part of a replica set with the required name.
 
 This property is optional; no default value.
 
@@ -158,9 +158,9 @@ This property is optional; no default value.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Limits the number of elements returned in one batch. A cursor typically fetches a batch of result objects and stores them locally.
-If batchSize is 0, Driver's default will be used.
+If batchSize is 0, Driver's default are used.
 If batchSize is positive, it represents the size of each batch of objects retrieved. It can be adjusted to optimize performance and limit data transfer.
-If batchSize is negative, it will limit of number objects returned, that fit within the max batch size limit (usually 4MB), and cursor will be closed. For example if batchSize is -10, then the server will return a maximum of 10 documents and as many as can fit in 4MB, then close the cursor.
+If batchSize is negative, it limits the number of objects returned, that fit within the max batch size limit (usually 4MB), and the cursor is closed. For example if batchSize is -10, then the server returns a maximum of 10 documents, and as many as can fit in 4MB, then closes the cursor.
 
 .. note:: Do not use a batch size of ``1``.
 

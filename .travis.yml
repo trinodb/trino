@@ -16,7 +16,7 @@ matrix:
   include:
     - env: MAVEN_CHECKS=true BUILD_PRESTO_DOCKER=true
     - env: WEBUI_CHECKS=true
-    - env: TEST_SPECIFIC_MODULES=presto-main
+    - env: TEST_SPECIFIC_MODULES=presto-main,presto-testing
     - env: TEST_SPECIFIC_MODULES=presto-tests
     # Product tests are long. Start them early to reduce overall build latency.
     - env: PRODUCT_TESTS_SUITE=suite-1
@@ -35,7 +35,7 @@ matrix:
     - env: TEST_SPECIFIC_MODULES=presto-redis
     - env: TEST_SPECIFIC_MODULES=presto-sqlserver,presto-postgresql,presto-mysql
     - env: TEST_SPECIFIC_MODULES=presto-phoenix,presto-iceberg
-    - env: TEST_OTHER_MODULES=!presto-main,!presto-tests,!presto-raptor-legacy,!presto-accumulo,!presto-cassandra,!presto-hive,!presto-orc,!presto-parquet,!presto-mongodb,!presto-kafka,!presto-elasticsearch,!presto-redis,!presto-sqlserver,!presto-postgresql,!presto-mysql,!presto-phoenix,!presto-iceberg,!presto-kudu,!presto-docs,!presto-server,!presto-server-rpm
+    - env: TEST_OTHER_MODULES=!presto-main,!presto-testing,!presto-tests,!presto-raptor-legacy,!presto-accumulo,!presto-cassandra,!presto-hive,!presto-orc,!presto-parquet,!presto-mongodb,!presto-kafka,!presto-elasticsearch,!presto-redis,!presto-sqlserver,!presto-postgresql,!presto-mysql,!presto-phoenix,!presto-iceberg,!presto-kudu,!presto-docs,!presto-server,!presto-server-rpm
     - env: HIVE_TESTS=true
     - env: KUDU_TESTS=true
 
@@ -49,9 +49,22 @@ matrix:
     # suite-4 does not exist
     - if: type != pull_request
       env: PRODUCT_TESTS_SUITE=suite-5 PRODUCT_TESTS_CONFIG=config-hdp3
+    - if: type != pull_request
+      env: HIVE_TESTS=true PRODUCT_TESTS_CONFIG=config-hdp3
+
+    # CDH 5
+    - if: type != pull_request
+      env: PRODUCT_TESTS_SUITE=suite-1 PRODUCT_TESTS_CONFIG=config-cdh5
+    - if: type != pull_request
+      env: PRODUCT_TESTS_SUITE=suite-2 PRODUCT_TESTS_CONFIG=config-cdh5
+    - if: type != pull_request
+      env: PRODUCT_TESTS_SUITE=suite-3 PRODUCT_TESTS_CONFIG=config-cdh5
+    # suite-4 does not exist
+    - if: type != pull_request
+      env: PRODUCT_TESTS_SUITE=suite-5 PRODUCT_TESTS_CONFIG=config-cdh5
 # TODO
 #    - if: type != pull_request
-#      env: HIVE_TESTS=true PRODUCT_TESTS_CONFIG=config-hdp3
+#      env: HIVE_TESTS=true PRODUCT_TESTS_CONFIG=config-cdh5
 
 dist: xenial
 jdk: openjdk8
@@ -114,6 +127,11 @@ script:
   - |
     if [[ -v BUILD_PRESTO_DOCKER ]]; then
       docker/build-local.sh
+    fi
+  - |
+    if [[ -v MAVEN_CHECKS ]]; then
+      env MAVEN_OPTS="${MAVEN_INSTALL_OPTS}" ./mvnw clean test-compile -DskipTests -Dair.check.skip-all -B -T C1 -P errorprone-compiler-presto \
+        -pl '!presto-server-rpm,!presto-server,!presto-docs'
     fi
   - |
     if [[ -v WEBUI_CHECKS ]]; then

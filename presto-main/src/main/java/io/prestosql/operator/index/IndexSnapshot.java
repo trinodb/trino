@@ -44,9 +44,7 @@ public class IndexSnapshot
             if (missingKeys.getJoinPosition(position, page, page) < 0) {
                 return UNLOADED_INDEX_KEY;
             }
-            else {
-                return NO_MORE_POSITIONS;
-            }
+            return NO_MORE_POSITIONS;
         }
         return joinPosition;
     }

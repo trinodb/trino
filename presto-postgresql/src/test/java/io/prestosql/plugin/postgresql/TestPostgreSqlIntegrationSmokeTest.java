@@ -13,7 +13,7 @@
  */
 package io.prestosql.plugin.postgresql;
 
-import io.prestosql.tests.AbstractTestIntegrationSmokeTest;
+import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -288,6 +288,21 @@ public class TestPostgreSqlIntegrationSmokeTest
                 "VALUES (NULL, CAST('2012-12-31' AS DATE), 1), (CAST('2013-01-01' AS DATE), CAST('2013-01-02' AS DATE), 2)");
 
         assertUpdate("DROP TABLE test_insert_not_null");
+    }
+
+    @Test
+    public void testColumnComment()
+            throws Exception
+    {
+        try (AutoCloseable ignoreTable = withTable("tpch.test_column_comment",
+                "(col1 bigint, col2 bigint, col3 bigint)")) {
+            execute("COMMENT ON COLUMN tpch.test_column_comment.col1 IS 'test comment'");
+            execute("COMMENT ON COLUMN tpch.test_column_comment.col2 IS ''"); // it will be NULL, PostgreSQL doesn't store empty comment
+
+            assertQuery(
+                    "SELECT column_name, comment FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = 'test_column_comment'",
+                    "VALUES ('col1', 'test comment'), ('col2', null), ('col3', null)");
+        }
     }
 
     private AutoCloseable withSchema(String schema)

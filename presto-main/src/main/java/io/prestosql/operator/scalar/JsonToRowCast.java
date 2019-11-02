@@ -16,11 +16,13 @@ package io.prestosql.operator.scalar;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.SqlOperator;
+import io.prestosql.metadata.TypeVariableConstraint;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
@@ -41,7 +43,6 @@ import java.util.Optional;
 import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.metadata.Signature.withVariadicBound;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
@@ -66,7 +67,9 @@ public class JsonToRowCast
     private JsonToRowCast()
     {
         super(OperatorType.CAST,
-                ImmutableList.of(withVariadicBound("T", "row")),
+                ImmutableList.of(
+                        // this is technically a recursive constraint for cast, but TypeRegistry.canCast has explicit handling for json to row cast
+                        new TypeVariableConstraint("T", false, false, "row", ImmutableSet.of(), ImmutableSet.of(JSON.getTypeSignature()))),
                 ImmutableList.of(),
                 new TypeSignature("T"),
                 ImmutableList.of(JSON.getTypeSignature()),

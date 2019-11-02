@@ -226,38 +226,32 @@ public final class ThriftMetastoreUtil
 
     public static Stream<RoleGrant> listApplicableRoles(HivePrincipal principal, Function<HivePrincipal, Set<RoleGrant>> listRoleGrants)
     {
-        Queue<HivePrincipal> queue = new ArrayDeque<>();
-        queue.add(principal);
-        Queue<RoleGrant> output = new ArrayDeque<>();
-        Set<RoleGrant> seenRoles = new HashSet<>();
         return Streams.stream(new AbstractIterator<RoleGrant>()
         {
+            private final Queue<RoleGrant> output = new ArrayDeque<>();
+            private final Set<RoleGrant> seenRoles = new HashSet<>();
+            private final Queue<HivePrincipal> queue = new ArrayDeque<>();
+
+            {
+                queue.add(principal);
+            }
+
             @Override
             protected RoleGrant computeNext()
             {
+                while (output.isEmpty() && !queue.isEmpty()) {
+                    Set<RoleGrant> grants = listRoleGrants.apply(queue.remove());
+                    for (RoleGrant grant : grants) {
+                        if (seenRoles.add(grant)) {
+                            output.add(grant);
+                            queue.add(new HivePrincipal(ROLE, grant.getRoleName()));
+                        }
+                    }
+                }
                 if (!output.isEmpty()) {
                     return output.remove();
                 }
-                if (queue.isEmpty()) {
-                    return endOfData();
-                }
-
-                while (!queue.isEmpty()) {
-                    Set<RoleGrant> grants = listRoleGrants.apply(queue.remove());
-                    if (!grants.isEmpty()) {
-                        for (RoleGrant grant : grants) {
-                            if (seenRoles.add(grant)) {
-                                output.add(grant);
-                                queue.add(new HivePrincipal(ROLE, grant.getRoleName()));
-                            }
-                        }
-                        break;
-                    }
-                }
-                if (output.isEmpty()) {
-                    return endOfData();
-                }
-                return output.remove();
+                return endOfData();
             }
         });
     }
@@ -285,11 +279,6 @@ public final class ThriftMetastoreUtil
                         .map(role -> new HivePrincipal(ROLE, role)));
     }
 
-    public static Stream<HivePrivilegeInfo> listEnabledTablePrivileges(SemiTransactionalHiveMetastore metastore, String databaseName, String tableName, ConnectorIdentity identity)
-    {
-        return listTablePrivileges(metastore, new HiveIdentity(identity), databaseName, tableName, listEnabledPrincipals(metastore, identity));
-    }
-
     public static Stream<HivePrivilegeInfo> listApplicableTablePrivileges(SemiTransactionalHiveMetastore metastore, String databaseName, String tableName, ConnectorIdentity identity)
     {
         String user = identity.getUser();
@@ -303,7 +292,7 @@ public final class ThriftMetastoreUtil
 
     private static Stream<HivePrivilegeInfo> listTablePrivileges(SemiTransactionalHiveMetastore metastore, HiveIdentity identity, String databaseName, String tableName, Stream<HivePrincipal> principals)
     {
-        return principals.flatMap(principal -> metastore.listTablePrivileges(identity, databaseName, tableName, principal).stream());
+        return principals.flatMap(principal -> metastore.listTablePrivileges(identity, databaseName, tableName, Optional.of(principal)).stream());
     }
 
     public static boolean isRoleEnabled(ConnectorIdentity identity, Function<HivePrincipal, Set<RoleGrant>> listRoleGrants, String role)
@@ -316,13 +305,7 @@ public final class ThriftMetastoreUtil
             return false;
         }
 
-        HivePrincipal principal;
-        if (!identity.getRole().isPresent() || identity.getRole().get().getType() == SelectedRole.Type.ALL) {
-            principal = new HivePrincipal(USER, identity.getUser());
-        }
-        else {
-            principal = new HivePrincipal(ROLE, identity.getRole().get().getRole().get());
-        }
+        HivePrincipal principal = HivePrincipal.from(identity);
 
         if (principal.getType() == ROLE && principal.getName().equals(role)) {
             return true;
@@ -340,17 +323,10 @@ public final class ThriftMetastoreUtil
 
     public static Stream<String> listEnabledRoles(ConnectorIdentity identity, Function<HivePrincipal, Set<RoleGrant>> listRoleGrants)
     {
-        Optional<SelectedRole> role = identity.getRole();
-        if (role.isPresent() && role.get().getType() == SelectedRole.Type.NONE) {
+        if (identity.getRole().isPresent() && identity.getRole().get().getType() == SelectedRole.Type.NONE) {
             return Stream.of(PUBLIC_ROLE_NAME);
         }
-        HivePrincipal principal;
-        if (!role.isPresent() || role.get().getType() == SelectedRole.Type.ALL) {
-            principal = new HivePrincipal(USER, identity.getUser());
-        }
-        else {
-            principal = new HivePrincipal(ROLE, role.get().getRole().get());
-        }
+        HivePrincipal principal = HivePrincipal.from(identity);
 
         Stream<String> roles = Stream.of(PUBLIC_ROLE_NAME);
 
@@ -363,7 +339,9 @@ public final class ThriftMetastoreUtil
                 listApplicableRoles(principal, listRoleGrants)
                         .map(RoleGrant::getRoleName)
                         // The admin role must be enabled explicitly. If it is, it was added above.
-                        .filter(Predicate.isEqual(ADMIN_ROLE_NAME).negate()));
+                        .filter(Predicate.isEqual(ADMIN_ROLE_NAME).negate()))
+                // listApplicableRoles may return role which was already added explicitly above.
+                .distinct();
     }
 
     public static org.apache.hadoop.hive.metastore.api.Partition toMetastoreApiPartition(PartitionWithStatistics partitionWithStatistics)
@@ -703,7 +681,7 @@ public final class ThriftMetastoreUtil
 
     private static Column fromMetastoreApiFieldSchema(FieldSchema fieldSchema)
     {
-        return new Column(fieldSchema.getName(), HiveType.valueOf(fieldSchema.getType()), Optional.ofNullable(emptyToNull(fieldSchema.getComment())));
+        return new Column(fieldSchema.getName(), HiveType.valueOf(fieldSchema.getType()), Optional.ofNullable(fieldSchema.getComment()));
     }
 
     private static void fromMetastoreApiStorageDescriptor(
@@ -816,6 +794,12 @@ public final class ThriftMetastoreUtil
         statistics.getRowCount().ifPresent(count -> result.put(NUM_ROWS, Long.toString(count)));
         statistics.getInMemoryDataSizeInBytes().ifPresent(size -> result.put(RAW_DATA_SIZE, Long.toString(size)));
         statistics.getOnDiskDataSizeInBytes().ifPresent(size -> result.put(TOTAL_SIZE, Long.toString(size)));
+
+        // CDH 5.16 metastore ignores stats unless STATS_GENERATED_VIA_STATS_TASK is set
+        // https://github.com/cloudera/hive/blob/cdh5.16.2-release/metastore/src/java/org/apache/hadoop/hive/metastore/MetaStoreUtils.java#L227-L231
+        if (!parameters.containsKey("STATS_GENERATED_VIA_STATS_TASK")) {
+            result.put("STATS_GENERATED_VIA_STATS_TASK", "workaround for potential lack of HIVE-12730");
+        }
 
         return result.build();
     }

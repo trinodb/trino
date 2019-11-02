@@ -240,7 +240,7 @@ To run with custom versions of presto / presto-cli / product tests, just set the
 environment variables:
 
 ```
-export PRESTO_SERVER_DIR=/tmp/presto-server-dir      #unpacked presto-server.tar.gz
+export PRESTO_SERVER=/tmp/presto-server.tgz
 export PRESTO_CLI_JAR=/tmp/artifacts/presto-cli-executable.jar
 export PRODUCT_TESTS_JAR=/tmp/artifacts/presto-product-tests-executable.jar
 export PRESTO_JDBC_DRIVER_JAR=libs/PrestoJDBC42.jar
@@ -253,7 +253,7 @@ and then set environment variable like below. Your configuration file will be lo
 it is able to override any configuration entry.
 
 ```
-export TEMPTO_EXTRA_CONFIG_FILE=/docker/volumes/conf/EXTRA_TEMPTO_CONFIG.yml
+export TEMPTO_EXTRA_CONFIG_FILE=/docker/presto-product-tests/conf/EXTRA_TEMPTO_CONFIG.yml
 ```
 
 All of the variables are optional and fall back to local sources / build artifacts if unspecified.

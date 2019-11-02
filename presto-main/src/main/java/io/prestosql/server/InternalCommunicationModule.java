@@ -27,6 +27,7 @@ import java.util.Locale;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static io.prestosql.server.InternalCommunicationConfig.INTERNAL_COMMUNICATION_KERBEROS_ENABLED;
 import static io.prestosql.server.security.KerberosConfig.HTTP_SERVER_AUTHENTICATION_KRB5_KEYTAB;
 
@@ -45,6 +46,8 @@ public class InternalCommunicationModule
         });
 
         install(installModuleIf(InternalCommunicationConfig.class, InternalCommunicationConfig::isKerberosEnabled, kerberosInternalCommunicationModule()));
+        binder.bind(InternalAuthenticationManager.class);
+        httpClientBinder(binder).bindGlobalFilter(InternalAuthenticationManager.class);
     }
 
     private Module kerberosInternalCommunicationModule()

@@ -10,10 +10,11 @@ Kafka Connector
 Overview
 --------
 
-This connector allows the use of Apache Kafka topics as tables in Presto.
+This connector allows the use of `Apache Kafka <https://kafka.apache.org/>`_ 
+topics as tables in Presto.
 Each message is presented as a row in Presto.
 
-Topics can be live: rows will appear as data arrives and disappear as
+Topics can be live. Rows appear as data arrives, and disappear as
 segments get dropped. This can result in strange behavior if accessing the
 same table multiple times in a single query (e.g., performing a self join).
 
@@ -41,7 +42,7 @@ You can have as many catalogs as you need, so if you have additional
 Kafka clusters, simply add another properties file to ``etc/catalog``
 with a different name (making sure it ends in ``.properties``). For
 example, if you name the property file ``sales.properties``, Presto
-will create a catalog named ``sales`` using the configured connector.
+creates a catalog named ``sales`` using the configured connector.
 
 Configuration Properties
 ------------------------
@@ -63,21 +64,22 @@ Property Name                   Description
 ``kafka.table-names``
 ^^^^^^^^^^^^^^^^^^^^^
 
-Comma-separated list of all tables provided by this catalog. A table name
-can be unqualified (simple name) and will be put into the default schema
-(see below) or qualified with a schema name (``<schema-name>.<table-name>``).
+Comma-separated list of all tables provided by this catalog. A table name can be
+unqualified (simple name), and is then placed into the default schema (see
+below), or it can be qualified with a schema name
+(``<schema-name>.<table-name>``).
 
 For each table defined here, a table description file (see below) may
 exist. If no table description file exists, the table name is used as the
 topic name on Kafka and no data columns are mapped into the table. The
-table will still contain all internal columns (see below).
+table still contains all internal columns (see below).
 
 This property is required; there is no default and at least one table must be defined.
 
 ``kafka.default-schema``
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-Defines the schema which will contain all tables that were defined without
+Defines the schema which contains all tables that were defined without
 a qualifying schema name.
 
 This property is optional; the default is ``default``.
@@ -269,7 +271,7 @@ The Kafka connector contains the following decoders:
 ``raw`` Decoder
 ^^^^^^^^^^^^^^^
 
-The raw decoder supports reading of raw (byte based) values from Kafka message
+The raw decoder supports reading of raw (byte-based) values from Kafka message
 or key and converting it into Presto columns.
 
 For fields, the following attributes are supported:
@@ -319,7 +321,7 @@ If start and end position are given, then:
  * For fixed width types the size must be equal to number of bytes used by specified ``dataFormat``.
  * For ``VARCHAR`` all bytes between start (inclusive) and end (exclusive) are used.
 
-If no ``mapping`` attribute is specified it is equivalent to setting start position to 0 and leaving end position undefined.
+If no ``mapping`` attribute is specified, it is equivalent to setting start position to 0 and leaving end position undefined.
 
 Decoding scheme of numeric data types (``BIGINT``, ``INTEGER``, ``SMALLINT``, ``TINYINT``, ``DOUBLE``) is straightforward.
 A sequence of bytes is read from input message and decoded according to either:
@@ -345,7 +347,7 @@ For fields, the ``type`` and ``mapping`` attributes must be defined:
 
 ``dataFormat`` and ``formatHint`` are not supported and must be omitted.
 
-Table below lists supported Presto types which can be used in ``type`` and decoding scheme:
+Table below lists supported Presto types, which can be used in ``type`` and decoding scheme:
 
 +-------------------------------------+--------------------------------------------------------------------------------+
 | Presto data type                    | Decoding rules                                                                 |
@@ -382,8 +384,8 @@ The JSON decoder supports multiple field decoders, with ``_default`` being
 used for standard table columns and a number of decoders for date and time
 based types.
 
-Table below lists Presto data types which can be used as in ``type`` and matching field decoders
-which can be specified via ``dataFormat`` attribute
+The table below lists Presto data types, which can be used as in ``type``, and matching field decoders,
+which can be specified via ``dataFormat`` attribute.
 
 +-------------------------------------+--------------------------------------------------------------------------------+
 | Presto data type                    | Allowed ``dataFormat`` values                                                  |
@@ -409,8 +411,8 @@ which can be specified via ``dataFormat`` attribute
 Default Field decoder
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This is the standard field decoder supporting all the Presto physical data
-types. A field value will be coerced by JSON conversion rules into
+This is the standard field decoder, supporting all the Presto physical data
+types. A field value is transformed under JSON conversion rules into
 boolean, long, double or string values. For non-date/time based columns,
 this decoder should be used.
 
@@ -442,13 +444,13 @@ Presto does not support schema-less Avro decoding.
 For key/message, using ``avro`` decoder, the ``dataSchema`` must be defined.
 This should point to the location of a valid Avro schema file of the message which needs to be decoded. This location can be a remote web server
 (e.g.: ``dataSchema: 'http://example.org/schema/avro_data.avsc'``) or local file system(e.g.: ``dataSchema: '/usr/local/schema/avro_data.avsc'``).
-The decoder will fail if this location is not accessible from the Presto coordinator node.
+The decoder fails if this location is not accessible from the Presto coordinator node.
 
 For fields, the following attributes are supported:
 
 * ``name`` - Name of the column in the Presto table.
 * ``type`` - Presto type of column.
-* ``mapping`` - slash-separated list of field names to select a field from the Avro schema. If field specified in ``mapping`` does not exist in the original Avro schema then a read operation will return NULL.
+* ``mapping`` - slash-separated list of field names to select a field from the Avro schema. If field specified in ``mapping`` does not exist in the original Avro schema then a read operation returns NULL.
 
 Table below lists supported Presto types which can be used in ``type`` for the equivalent Avro field type/s.
 
@@ -474,14 +476,14 @@ reflected in Presto's topic definition file. Newly added/renamed fields *must* h
 The schema evolution behavior is as follows:
 
 * Column added in new schema:
-  Data created with an older schema will produce a *default* value when table is using the new schema.
+  Data created with an older schema produces a *default* value, when the table is using the new schema.
 
 * Column removed in new schema:
-  Data created with an older schema will no longer output the data from the column that was removed.
+  Data created with an older schema no longer outputs the data from the column that was removed.
 
 * Column is renamed in the new schema:
   This is equivalent to removing the column and adding a new one, and data created with an older schema
-  will produce a *default* value when table is using the new schema.
+  produces a *default* value when table is using the new schema.
 
 * Changing type of column in the new schema:
   If the type coercion is supported by Avro, then the conversion happens. An error is thrown for incompatible types.

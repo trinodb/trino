@@ -98,6 +98,22 @@ python3 -m http.server 4000
 In order to see any changes from the source files in the HTML output, simply
 re-run the make command and refresh the browser.
 
+## Using sphinx-autobuild
+
+The optional setup of using
+[sphinx-autobuild](https://pypi.org/project/sphinx-autobuild/) allows you to
+have a running server with the docs and get incremental updates after saving any
+changes. This is the fastest and best way to work on the documentation.
+
+To use it, simply install sphinx-autobuild, and then run
+
+```bash
+make clean livehtml
+```
+
+From now on the docs are available at
+[http://localhost:8000](http://localhost:8000).
+
 ## Known Issues
 
 - Older Sphinx versions do not support the `-j auto` SPHINXOPTS in the makefile.
@@ -105,3 +121,7 @@ re-run the make command and refresh the browser.
   embedded in the Maven plugin used for the default build.
 - Formats like `man` and others beyond the default `html` might have formatting
   and content issues and are not actively maintained.
+- Different installation methods for Sphinx result in different versions, and
+  hence in sometimes different problems. Especially when also using
+  sphinx-autobuild we recommend using the `pip`-based installation.
+

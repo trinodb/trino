@@ -5,6 +5,9 @@ set -euo pipefail
 source "${BASH_SOURCE%/*}/lib.sh"
 
 function retry() {
+  local END
+  local EXIT_CODE
+
   END=$(($(date +%s) + 600))
 
   while (( $(date +%s) < $END )); do
@@ -32,6 +35,10 @@ function check_hadoop() {
     docker exec ${HADOOP_MASTER_CONTAINER} netstat -lpn | grep -iq 0.0.0.0:10000
 }
 
+function check_any_container_is_up() {
+  environment_compose ps -q | grep .
+}
+
 function run_in_application_runner_container() {
   local CONTAINER_NAME
   CONTAINER_NAME=$(environment_compose run -p 5007:5007 -d application-runner "$@")
@@ -41,20 +48,20 @@ function run_in_application_runner_container() {
 }
 
 function check_presto() {
-  run_in_application_runner_container /docker/volumes/conf/docker/files/presto-cli.sh --execute "SHOW CATALOGS" | grep -iq hive
+  run_in_application_runner_container /docker/presto-product-tests/conf/docker/files/presto-cli.sh --execute "SHOW CATALOGS" | grep -iq hive
 }
 
 function run_product_tests() {
   local REPORT_DIR="${PRODUCT_TESTS_ROOT}/target/test-reports"
   rm -rf "${REPORT_DIR}"
   mkdir -p "${REPORT_DIR}"
-  run_in_application_runner_container /docker/volumes/conf/docker/files/run-tempto.sh "$@" &
+  run_in_application_runner_container /docker/presto-product-tests/conf/docker/files/run-tempto.sh "$@" &
   PRODUCT_TESTS_PROCESS_ID=$!
   wait ${PRODUCT_TESTS_PROCESS_ID}
   local PRODUCT_TESTS_EXIT_CODE=$?
 
   #make the files in $REPORT_DIR modifiable by everyone, as they were created by root (by docker)
-  run_in_application_runner_container chmod -R 777 "/docker/volumes/test-reports"
+  run_in_application_runner_container chmod -R 777 "/docker/test-reports"
 
   return ${PRODUCT_TESTS_EXIT_CODE}
 }
@@ -108,6 +115,10 @@ environment_compose config
 SERVICES=$(environment_compose config --services | grep -vx 'application-runner\|.*-base')
 environment_compose up --no-color --abort-on-container-exit ${SERVICES} &
 
+# Wait for `environment_compose up` to create docker network *without* creating any new containers.
+# Otherwise docker-compose may created network twice and subsequently fail.
+retry check_any_container_is_up
+
 # wait until hadoop processes are started
 retry check_hadoop
 
@@ -115,10 +126,11 @@ retry check_hadoop
 retry check_presto
 
 # run product tests
-set +e
+set +e -x
 run_product_tests "$@"
 EXIT_CODE=$?
 set -e
+echo "Product tests exited with ${EXIT_CODE}"
 
 # execution finished successfully
 # disable trap, run cleanup manually

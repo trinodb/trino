@@ -31,6 +31,7 @@ public class DesugarLike
         super(createRewrite(metadata, typeAnalyzer));
     }
 
+    @Override
     public Set<Rule<?>> rules()
     {
         return ImmutableSet.of(

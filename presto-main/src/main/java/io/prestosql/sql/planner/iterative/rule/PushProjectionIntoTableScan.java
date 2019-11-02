@@ -13,6 +13,8 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.prestosql.matching.Capture;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
@@ -30,6 +32,7 @@ import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.NodeRef;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -37,9 +40,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.matching.Capture.newCapture;
+import static io.prestosql.spi.expression.PartialTranslator.extractPartialTranslations;
+import static io.prestosql.sql.planner.ReferenceAwareExpressionNodeInliner.replaceExpression;
 import static io.prestosql.sql.planner.plan.Patterns.project;
 import static io.prestosql.sql.planner.plan.Patterns.source;
 import static io.prestosql.sql.planner.plan.Patterns.tableScan;
@@ -71,36 +77,44 @@ public class PushProjectionIntoTableScan
     {
         TableScanNode tableScan = captures.get(TABLE_SCAN);
 
-        List<ConnectorExpression> projections;
-        try {
-            projections = project.getAssignments()
-                    .getExpressions().stream()
-                    .map(expression -> ConnectorExpressionTranslator.translate(
-                            context.getSession(),
-                            expression,
-                            typeAnalyzer,
-                            context.getSymbolAllocator().getTypes()))
-                    .collect(toImmutableList());
+        Map<Symbol, Expression> inputExpressions = project.getAssignments().getMap();
+
+        ImmutableList.Builder<NodeRef<Expression>> nodeReferencesBuilder = ImmutableList.builder();
+        ImmutableList.Builder<ConnectorExpression> partialProjectionsBuilder = ImmutableList.builder();
+
+        // Extract translatable components from projection expressions. Prepare a mapping from these internal
+        // expression nodes to corresponding ConnectorExpression translations.
+        for (Map.Entry<Symbol, Expression> expression : inputExpressions.entrySet()) {
+            Map<NodeRef<Expression>, ConnectorExpression> partialTranslations = extractPartialTranslations(
+                    expression.getValue(),
+                    context.getSession(),
+                    typeAnalyzer,
+                    context.getSymbolAllocator().getTypes());
+
+            partialTranslations.forEach((nodeRef, expr) -> {
+                nodeReferencesBuilder.add(nodeRef);
+                partialProjectionsBuilder.add(expr);
+            });
         }
-        catch (UnsupportedOperationException e) {
-            // some expression not supported by translator, skip
-            // TODO: Support pushing down the expressions that could be translated
-            // TODO: A possible approach might be:
-            //    1. For expressions that could not be translated, extract column references
-            //    2. Provide those column references as part of the call to applyProjection
-            //    3. Re-assemble a projection based on the new projections + un-translateble projections
-            //       rewritten in terms of the new assignments for the columns passed in #2
-            return Result.empty();
-        }
+
+        List<NodeRef<Expression>> nodesForPartialProjections = nodeReferencesBuilder.build();
+        List<ConnectorExpression> connectorPartialProjections = partialProjectionsBuilder.build();
 
         Map<String, ColumnHandle> assignments = tableScan.getAssignments()
                 .entrySet().stream()
                 .collect(toImmutableMap(entry -> entry.getKey().getName(), Map.Entry::getValue));
 
-        Optional<ProjectionApplicationResult<TableHandle>> result = metadata.applyProjection(context.getSession(), tableScan.getTable(), projections, assignments);
+        Optional<ProjectionApplicationResult<TableHandle>> result = metadata.applyProjection(context.getSession(), tableScan.getTable(), connectorPartialProjections, assignments);
+
         if (!result.isPresent()) {
             return Result.empty();
         }
+
+        List<ConnectorExpression> newConnectorPartialProjections = result.get().getProjections();
+        checkState(newConnectorPartialProjections.size() == connectorPartialProjections.size(),
+                "Mismatch between input and output projections from the connector: expected %s but got %s",
+                connectorPartialProjections.size(),
+                newConnectorPartialProjections.size());
 
         List<Symbol> newScanOutputs = new ArrayList<>();
         Map<Symbol, ColumnHandle> newScanAssignments = new HashMap<>();
@@ -113,16 +127,23 @@ public class PushProjectionIntoTableScan
             variableMappings.put(assignment.getVariable(), symbol);
         }
 
-        // TODO: ensure newProjections.size == original projections.size
-
-        List<Expression> newProjections = result.get().getProjections().stream()
+        // Translate partial connector projections back to new partial projections
+        List<Expression> newPartialProjections = newConnectorPartialProjections.stream()
                 .map(expression -> ConnectorExpressionTranslator.translate(expression, variableMappings, new LiteralEncoder(metadata)))
                 .collect(toImmutableList());
 
-        Assignments.Builder newProjectionAssignments = Assignments.builder();
-        for (int i = 0; i < project.getOutputSymbols().size(); i++) {
-            newProjectionAssignments.put(project.getOutputSymbols().get(i), newProjections.get(i));
+        // Map internal node references to new partial projections
+        ImmutableMap.Builder<NodeRef<Expression>, Expression> nodesToNewPartialProjectionsBuilder = ImmutableMap.builder();
+        for (int i = 0; i < nodesForPartialProjections.size(); i++) {
+            nodesToNewPartialProjectionsBuilder.put(nodesForPartialProjections.get(i), newPartialProjections.get(i));
         }
+        Map<NodeRef<Expression>, Expression> nodesToNewPartialProjections = nodesToNewPartialProjectionsBuilder.build();
+
+        // Stitch partial translations to form new complete projections
+        Assignments.Builder newProjectionAssignments = Assignments.builder();
+        project.getAssignments().entrySet().forEach(entry -> {
+            newProjectionAssignments.put(entry.getKey(), replaceExpression(entry.getValue(), nodesToNewPartialProjections));
+        });
 
         return Result.ofPlanNode(
                 new ProjectNode(

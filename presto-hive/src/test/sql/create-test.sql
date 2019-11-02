@@ -63,7 +63,6 @@ COMMENT 'Presto test bucketed table'
 PARTITIONED BY (ds STRING)
 CLUSTERED BY (t_string, t_int) INTO 32 BUCKETS
 STORED AS RCFILE
-TBLPROPERTIES ('bucketing_version'='1') -- TODO https://github.com/prestosql/presto/issues/538 remove
 ;
 
 CREATE TABLE presto_test_bucketed_by_bigint_boolean (
@@ -80,7 +79,6 @@ COMMENT 'Presto test bucketed table'
 PARTITIONED BY (ds STRING)
 CLUSTERED BY (t_bigint, t_boolean) INTO 32 BUCKETS
 STORED AS RCFILE
-TBLPROPERTIES ('bucketing_version'='1') -- TODO https://github.com/prestosql/presto/issues/538 remove
 ;
 
 CREATE TABLE presto_test_bucketed_by_double_float (
@@ -97,7 +95,6 @@ COMMENT 'Presto test bucketed table'
 PARTITIONED BY (ds STRING)
 CLUSTERED BY (t_double, t_float) INTO 32 BUCKETS
 STORED AS RCFILE
-TBLPROPERTIES ('bucketing_version'='1') -- TODO https://github.com/prestosql/presto/issues/538 remove
 ;
 
 CREATE TABLE presto_test_partition_schema_change (
@@ -150,14 +147,14 @@ CREATE TABLE tmp_presto_test (
 ;
 INSERT INTO TABLE tmp_presto_test
 SELECT
-  CASE n % 19 WHEN 0 THEN NULL WHEN 1 THEN '' ELSE 'test' END
-, 1 + n
-, 2 + n
-, 3 + n
-, 4 + n + CASE WHEN n % 13 = 0 THEN NULL ELSE 0 END
-, 5.1 + n
-, 6.2 + n
-, CASE n % 3 WHEN 0 THEN false WHEN 1 THEN true ELSE NULL END
+  CASE n % 19 WHEN 0 THEN NULL WHEN 1 THEN '' ELSE 'test' END -- t_string
+, 1 + n -- t_tinyint
+, 2 + n -- t_smallint
+, 3 + n -- t_int
+, 4 + n + CASE WHEN n % 13 = 0 THEN NULL ELSE 0 END -- t_bigint
+, 5.1 + n -- t_float
+, 6.2 + n -- t_double
+, CASE n % 3 WHEN 0 THEN false WHEN 1 THEN true ELSE NULL END -- t_boolean
 FROM presto_test_sequence
 LIMIT 100
 ;
@@ -201,8 +198,6 @@ SELECT 'test' FROM presto_test_sequence LIMIT 100;
 
 INSERT INTO TABLE presto_test_offline_partition PARTITION (ds='2012-12-30')
 SELECT 'test' FROM presto_test_sequence LIMIT 100;
-
-ALTER TABLE presto_test_offline_partition PARTITION (ds='2012-12-30') ENABLE OFFLINE;
 
 SET hive.enforce.bucketing = true;
 

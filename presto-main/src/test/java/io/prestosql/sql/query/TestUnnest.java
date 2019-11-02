@@ -120,6 +120,9 @@ public class TestUnnest
         assertions.assertQuery(
                 "SELECT * FROM (VALUES 'a', 'b') LEFT JOIN UNNEST(ARRAY[]) ON TRUE",
                 "VALUES ('a', null), ('b', null)");
+        assertions.assertQuery(
+                "SELECT id, e FROM (VALUES (1, ARRAY[3,4]), (2, NULL), (3, ARRAY[4]), (4, NULL), (5, ARRAY[]), (6, ARRAY[7,8])) x(id, a) LEFT JOIN UNNEST(a) AS y(e) ON true",
+                "VALUES (1,3), (1,4), (2,NULL), (3,4), (4,NULL), (5,NULL), (6,7), (6,8)");
         // misalignment
         assertions.assertQuery(
                 "SELECT * FROM (VALUES 1) LEFT OUTER JOIN UNNEST (MAP(ARRAY[1, 2], ARRAY['a', 'b']), ARRAY[ROW(3, 'c', true)]) WITH ORDINALITY ON TRUE",
@@ -132,36 +135,39 @@ public class TestUnnest
     @Test
     public void testRightJoinUnnest()
     {
+        // The SQL standard doesn't allow lateral references in UNNEST subquery of RIGHT join.
         assertions.assertQuery(
-                "SELECT * FROM (VALUES ARRAY[1, null]) a(x) RIGHT OUTER JOIN UNNEST(x) ON true",
-                "VALUES (ARRAY[1, null], 1), (ARRAY[1, null], null)");
-        assertions.assertQueryReturnsEmptyResult(
-                "SELECT * FROM (VALUES ARRAY[]) a(x) RIGHT OUTER JOIN UNNEST(x) ON true");
+                "SELECT * FROM (VALUES ARRAY[1, null]) a(x) RIGHT OUTER JOIN UNNEST(ARRAY[2, null]) ON true",
+                "VALUES (ARRAY[1, null], 2), (ARRAY[1, null], null)");
         assertions.assertQuery(
-                "SELECT * FROM (VALUES ARRAY[1, null]) a(x) RIGHT OUTER JOIN UNNEST(x) WITH ORDINALITY ON true",
-                "VALUES (ARRAY[1, null], 1, BIGINT '1'), (ARRAY[1, null], null, BIGINT '2')");
+                "SELECT * FROM (VALUES ARRAY[]) a(x) RIGHT OUTER JOIN UNNEST(ARRAY[2, null]) ON true",
+                "VALUES (ARRAY[], 2), (ARRAY[], null)");
+        assertions.assertQuery(
+                "SELECT * FROM (VALUES ARRAY[1, null]) a(x) RIGHT OUTER JOIN UNNEST(ARRAY[2, null]) WITH ORDINALITY ON true",
+                "VALUES (ARRAY[1, null], 2, BIGINT '1'), (ARRAY[1, null], null, BIGINT '2')");
         assertions.assertFails(
-                "SELECT * FROM (VALUES ARRAY[1, null]) a(x) RIGHT OUTER JOIN UNNEST(x) b(y) ON b.y = 1",
+                "SELECT * FROM (VALUES ARRAY[1, null]) a(x) RIGHT OUTER JOIN UNNEST(ARRAY[2, null]) b(y) ON b.y = 1",
                 "line .*: UNNEST in conditional JOIN is not supported");
     }
 
     @Test
     public void testFullJoinUnnest()
     {
+        // The SQL standard doesn't allow lateral references in UNNEST subquery of FULL join.
         assertions.assertQuery(
-                "SELECT * FROM (VALUES ARRAY[1, null]) a(x) FULL OUTER JOIN UNNEST(x) ON true",
-                "VALUES (ARRAY[1, null], 1), (ARRAY[1, null], null)");
+                "SELECT * FROM (VALUES ARRAY[1, null]) a(x) FULL OUTER JOIN UNNEST(ARRAY[2, null]) ON true",
+                "VALUES (ARRAY[1, null], 2), (ARRAY[1, null], null)");
         assertions.assertQuery(
-                "SELECT * FROM (VALUES ARRAY[1, null]) a(x) FULL OUTER JOIN UNNEST(x) WITH ORDINALITY ON true",
-                "VALUES (ARRAY[1, null], 1, BIGINT '1'), (ARRAY[1, null], null, BIGINT '2')");
+                "SELECT * FROM (VALUES ARRAY[1, null]) a(x) FULL OUTER JOIN UNNEST(ARRAY[2, null]) WITH ORDINALITY ON true",
+                "VALUES (ARRAY[1, null], 2, BIGINT '1'), (ARRAY[1, null], null, BIGINT '2')");
         assertions.assertQuery(
-                "SELECT * FROM (VALUES ARRAY[]) a(x) FULL OUTER JOIN UNNEST(x) ON true",
-                "VALUES (ARRAY[], null)");
+                "SELECT * FROM (VALUES ARRAY[]) a(x) FULL OUTER JOIN UNNEST(ARRAY[2, null]) ON true",
+                "VALUES (ARRAY[], 2), (ARRAY[], null)");
         assertions.assertQuery(
-                "SELECT * FROM (VALUES ARRAY[]) a(x) FULL OUTER JOIN UNNEST(x) WITH ORDINALITY ON true",
-                "VALUES (ARRAY[], null, CAST(NULL AS bigint))");
+                "SELECT * FROM (VALUES ARRAY[]) a(x) FULL OUTER JOIN UNNEST(ARRAY[2, null]) WITH ORDINALITY ON true",
+                "VALUES (ARRAY[], 2, BIGINT '1'), (ARRAY[], null, BIGINT '2')");
         assertions.assertFails(
-                "SELECT * FROM (VALUES ARRAY[1, null]) a(x) FULL OUTER JOIN UNNEST(x) b(y) ON b.y = 1",
+                "SELECT * FROM (VALUES ARRAY[1, null]) a(x) FULL OUTER JOIN UNNEST(ARRAY[2, null]) b(y) ON b.y = 1",
                 "line .*: UNNEST in conditional JOIN is not supported");
     }
 

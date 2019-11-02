@@ -6,8 +6,8 @@ services:
             - keytabs:/etc/presto/conf/
             - ../../../conf/docker/two-kerberos-hives/presto-master/etc/krb5.conf:/etc/krb5.conf
             - ../../../conf/docker/two-kerberos-hives/presto-master/etc/presto/auth_to_local.xml:/etc/presto/auth_to_local.xml
-            - ../../../conf/docker/two-kerberos-hives/presto-master/etc/presto/hive1.properties:/docker/volumes/conf/presto/etc/catalog/hive1.properties
-            - ../../../conf/docker/two-kerberos-hives/presto-master/etc/presto/hive2.properties:/docker/volumes/conf/presto/etc/catalog/hive2.properties
+            - ../../../conf/docker/two-kerberos-hives/presto-master/etc/presto/hive1.properties:/docker/presto-product-tests/conf/presto/etc/catalog/hive1.properties
+            - ../../../conf/docker/two-kerberos-hives/presto-master/etc/presto/hive2.properties:/docker/presto-product-tests/conf/presto/etc/catalog/hive2.properties
 
     hadoop-master:
         volumes:

@@ -156,6 +156,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -213,6 +214,7 @@ import static io.prestosql.sql.analyzer.ExpressionTreeUtils.extractAggregateFunc
 import static io.prestosql.sql.analyzer.ExpressionTreeUtils.extractExpressions;
 import static io.prestosql.sql.analyzer.ExpressionTreeUtils.extractWindowFunctions;
 import static io.prestosql.sql.analyzer.Scope.BasisType.TABLE;
+import static io.prestosql.sql.analyzer.ScopeReferenceExtractor.getReferencesToScope;
 import static io.prestosql.sql.analyzer.ScopeReferenceExtractor.hasReferencesToScope;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -223,6 +225,8 @@ import static io.prestosql.sql.tree.FrameBound.Type.FOLLOWING;
 import static io.prestosql.sql.tree.FrameBound.Type.PRECEDING;
 import static io.prestosql.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
 import static io.prestosql.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
+import static io.prestosql.sql.tree.Join.Type.FULL;
+import static io.prestosql.sql.tree.Join.Type.RIGHT;
 import static io.prestosql.sql.tree.WindowFrame.Type.RANGE;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static io.prestosql.util.MoreLists.mappedCopy;
@@ -319,7 +323,7 @@ class StatementAnalyzer
             }
 
             // analyze the query that creates the data
-            Scope queryScope = process(insert.getQuery(), scope);
+            Scope queryScope = analyze(insert.getQuery(), createScope(scope));
 
             analysis.setUpdateType("INSERT");
 
@@ -502,7 +506,7 @@ class StatementAnalyzer
             accessControl.checkCanCreateTable(session.toSecurityContext(), targetTable);
 
             // analyze the query that creates the table
-            Scope queryScope = process(node.getQuery(), scope);
+            Scope queryScope = analyze(node.getQuery(), createScope(scope));
 
             ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
 
@@ -1273,6 +1277,13 @@ class StatementAnalyzer
 
             Scope left = process(node.getLeft(), scope);
             Scope right = process(node.getRight(), isLateralRelation(node.getRight()) ? Optional.of(left) : scope);
+
+            if (isLateralRelation(node.getRight()) && (node.getType().equals(RIGHT) || node.getType().equals(FULL))) {
+                Stream<Expression> leftScopeReferences = getReferencesToScope(node.getRight(), analysis, left);
+                leftScopeReferences.findFirst().ifPresent(reference -> {
+                    throw semanticException(INVALID_COLUMN_REFERENCE, reference, "LATERAL reference not allowed in %s JOIN", node.getType().name());
+                });
+            }
 
             if (criteria instanceof JoinUsing) {
                 return analyzeJoinUsing(node, ((JoinUsing) criteria).getColumns(), scope, left, right);

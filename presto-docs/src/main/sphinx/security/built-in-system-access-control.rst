@@ -4,7 +4,7 @@ Built-in System Access Control
 
 A system access control plugin enforces authorization at a global level,
 before any connector level authorization. You can either use one of the built-in
-plugins in Presto or provide your own by following the guidelines in
+plugins in Presto, or provide your own by following the guidelines in
 :doc:`/develop/system-access-control`. Presto offers three built-in plugins:
 
 ================================================== ============================================================
@@ -75,7 +75,7 @@ Refresh
 --------
 
 By default, when a change is made to the ``security.config-file``, Presto must be restarted
-to load the changes. There is an optional property to refresh the properties without requiring a 
+to load the changes. There is an optional property to refresh the properties without requiring a
 Presto restart. The refresh period is specified in the ``etc/access-control.properties``:
 
 .. code-block:: none
@@ -87,7 +87,7 @@ Catalog Rules
 -------------
 
 These rules govern the catalogs particular users can access. The user is
-granted access to a catalog based on the first matching rule read from top to
+granted access to a catalog, based on the first matching rule read from top to
 bottom. If no rule matches, access is denied. Each rule is composed of the
 following fields:
 
@@ -140,9 +140,9 @@ Principal Rules
 ---------------
 
 These rules serve to enforce a specific matching between a principal and a
-specified user name. The principal is granted authorization as a user based
+specified user name. The principal is granted authorization as a user, based
 on the first matching rule read from top to bottom. If no rules are specified,
-no checks will be performed. If no rule matches, user authorization is denied.
+no checks are performed. If no rule matches, user authorization is denied.
 Each rule is composed of the following fields:
 
 * ``principal`` (required): regex to match and group against principal.
@@ -157,7 +157,7 @@ Each rule is composed of the following fields:
 .. note::
 
     You would at least specify one criterion in a principal rule. If you specify
-    both criteria in a principal rule, it will return the desired conclusion when
+    both criteria in a principal rule, it returns the desired conclusion when
     either of criteria is satisfied.
 
 The following implements an exact matching of the full principal name for LDAP
@@ -185,7 +185,7 @@ and Kerberos authentication:
       ]
     }
 
-If you want to allow users to use the extractly same name as their Kerberos principal
+If you want to allow users to use the exact same name as their Kerberos principal
 name, and allow ``alice`` and ``bob`` to use a group principal named as
 ``group@example.net``, you can use the following rules.
 

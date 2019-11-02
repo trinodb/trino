@@ -15,7 +15,7 @@ package io.prestosql.plugin.sqlserver;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.tpch.TpchTable;
-import io.prestosql.tests.AbstractTestDistributedQueries;
+import io.prestosql.testing.AbstractTestDistributedQueries;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 

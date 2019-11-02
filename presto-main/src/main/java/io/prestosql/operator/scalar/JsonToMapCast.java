@@ -38,12 +38,12 @@ import java.lang.invoke.MethodHandle;
 
 import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.metadata.Signature.comparableTypeParameter;
-import static io.prestosql.metadata.Signature.typeVariable;
+import static io.prestosql.metadata.Signature.castableFromTypeParameter;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.prestosql.spi.type.TypeSignature.mapType;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.util.Failures.checkCondition;
 import static io.prestosql.util.JsonUtil.BlockBuilderAppender.createBlockBuilderAppender;
@@ -64,7 +64,9 @@ public class JsonToMapCast
     private JsonToMapCast()
     {
         super(OperatorType.CAST,
-                ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")),
+                ImmutableList.of(
+                        castableFromTypeParameter("K", VARCHAR.getTypeSignature()),
+                        castableFromTypeParameter("V", JSON.getTypeSignature())),
                 ImmutableList.of(),
                 mapType(new TypeSignature("K"), new TypeSignature("V")),
                 ImmutableList.of(JSON.getTypeSignature()),

@@ -57,7 +57,7 @@ limitations and differences:
 * The ``admin`` role must be enabled to execute ``CREATE ROLE`` or ``DROP ROLE``.
 * ``GRANT role TO user GRANTED BY someone`` is not supported.
 * ``REVOKE role FROM user GRANTED BY someone`` is not supported.
-* By default, all a user's roles except ``admin`` are enabled in a new user session.
+* By default, all a user's roles, except ``admin``, are enabled in a new user session.
 * One particular role can be selected by executing ``SET ROLE role``.
 * ``SET ROLE ALL`` enables all of a user's roles except ``admin``.
 * The ``admin`` role must be enabled explicitly by executing ``SET ROLE admin``.
@@ -83,8 +83,8 @@ Lists)` to provide additional security for data.
 
 .. warning::
 
-  Access to the Presto coordinator should be secured (e.g. using Kerberos or password
-  authentication) when using Kerberos authentication to Hadoop services.
+  Access to the Presto coordinator should be secured e.g., using Kerberos or password
+  authentication, when using Kerberos authentication to Hadoop services.
   Failure to secure access to the Presto coordinator could result in unauthorized
   access to sensitive data on the Hadoop cluster. Refer to :doc:`/security` for
   further information.
@@ -96,7 +96,7 @@ Kerberos Support
 ================
 
 In order to use the Hive connector with a Hadoop cluster that uses ``kerberos``
-authentication, you will need to configure the connector to work with two
+authentication, you need to configure the connector to work with two
 services on the Hadoop cluster:
 
 * The Hive metastore Thrift service
@@ -130,7 +130,7 @@ Property Name                                      Description
 
 ``hive.metastore.service.principal``               The Kerberos principal of the Hive metastore service.
 
-``hive.metastore.client.principal``                The Kerberos principal that Presto will use when connecting
+``hive.metastore.client.principal``                The Kerberos principal that Presto uses when connecting
                                                    to the Hive metastore service.
 
 ``hive.metastore.client.keytab``                   Hive metastore client keytab location.
@@ -140,10 +140,10 @@ Property Name                                      Description
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 One of ``NONE`` or ``KERBEROS``. When using the default value of ``NONE``,
-Kerberos authentication is disabled and no other properties need to be
+Kerberos authentication is disabled, and no other properties need to be
 configured.
 
-When set to ``KERBEROS`` the Hive connector will connect to the Hive metastore
+When set to ``KERBEROS`` the Hive connector connects to the Hive metastore
 Thrift service using SASL and authenticate using Kerberos.
 
 This property is optional; the default is ``NONE``.
@@ -160,10 +160,10 @@ See :ref:`hive-security-metastore-impersonation` for more information.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The Kerberos principal of the Hive metastore service. The Presto coordinator
-will use this to authenticate the Hive metastore.
+uses this to authenticate the Hive metastore.
 
 The ``_HOST`` placeholder can be used in this property value. When connecting
-to the Hive metastore, the Hive connector will substitute in the hostname of
+to the Hive metastore, the Hive connector substitutes in the hostname of
 the **metastore** server it is connecting to. This is useful if the metastore
 runs on multiple hosts.
 
@@ -174,11 +174,11 @@ This property is optional; no default value.
 ``hive.metastore.client.principal``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The Kerberos principal that Presto will use when connecting to the Hive
+The Kerberos principal that Presto uses when connecting to the Hive
 metastore.
 
 The ``_HOST`` placeholder can be used in this property value. When connecting
-to the Hive metastore, the Hive connector will substitute in the hostname of
+to the Hive metastore, the Hive connector substitutes in the hostname of
 the **worker** node Presto is running on. This is useful if each worker node
 has its own Kerberos principal.
 
@@ -193,7 +193,7 @@ This property is optional; no default value.
     the principal specified by ``hive.metastore.client.principal`` must have
     sufficient privileges to remove files and directories within the
     ``hive/warehouse`` directory. If the principal does not, only the metadata
-    will be removed, and the data will continue to consume disk space.
+    is removed, and the data continues to consume disk space.
 
     This occurs because the Hive metastore is responsible for deleting the
     internal table data. When the metastore is configured to use Kerberos
@@ -232,10 +232,10 @@ Example configuration with ``KERBEROS`` authentication
     hive.metastore.client.keytab=/etc/presto/hive.keytab
 
 When the authentication type for the Hive metastore Thrift service is
-``KERBEROS``, Presto will connect as the Kerberos principal specified by the
-property ``hive.metastore.client.principal``. Presto will authenticate this
+``KERBEROS``, Presto connects as the Kerberos principal specified by the
+property ``hive.metastore.client.principal``. Presto authenticates this
 principal using the keytab specified by the ``hive.metastore.client.keytab``
-property, and will verify that the identity of the metastore matches
+property, and verifies that the identity of the metastore matches
 ``hive.metastore.service.principal``.
 
 Keytab files must be distributed to every node in the cluster that runs Presto.
@@ -257,7 +257,7 @@ Property Name                                      Description
 
 ``hive.hdfs.impersonation.enabled``                Enable HDFS end-user impersonation.
 
-``hive.hdfs.presto.principal``                     The Kerberos principal that Presto will use when connecting
+``hive.hdfs.presto.principal``                     The Kerberos principal that Presto uses when connecting
                                                    to HDFS.
 
 ``hive.hdfs.presto.keytab``                        HDFS client keytab location.
@@ -269,7 +269,7 @@ Property Name                                      Description
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 One of ``NONE`` or ``KERBEROS``. When using the default value of ``NONE``,
-Kerberos authentication is disabled and no other properties need to be
+Kerberos authentication is disabled, and no other properties need to be
 configured.
 
 When set to ``KERBEROS``, the Hive connector authenticates to HDFS using
@@ -290,10 +290,10 @@ This property is optional; the default is ``false``.
 ``hive.hdfs.presto.principal``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The Kerberos principal that Presto will use when connecting to HDFS.
+The Kerberos principal Presto uses when connecting to HDFS.
 
 The ``_HOST`` placeholder can be used in this property value. When connecting
-to HDFS, the Hive connector will substitute in the hostname of the **worker**
+to HDFS, the Hive connector substitutes in the hostname of the **worker**
 node Presto is running on. This is useful if each worker node has its own
 Kerberos principal.
 
@@ -343,8 +343,8 @@ Example configuration with ``KERBEROS`` authentication
     hive.hdfs.presto.keytab=/etc/presto/hdfs.keytab
 
 When the authentication type is ``KERBEROS``, Presto accesses HDFS as the
-principal specified by the ``hive.hdfs.presto.principal`` property. Presto will
-authenticate this principal using the keytab specified by the
+principal specified by the ``hive.hdfs.presto.principal`` property. Presto
+authenticates this principal using the keytab specified by the
 ``hive.hdfs.presto.keytab`` keytab.
 
 Keytab files must be distributed to every node in the cluster that runs Presto.
@@ -457,16 +457,16 @@ Additional Information About Keytab Files
 
 Keytab files contain encryption keys that are used to authenticate principals
 to the Kerberos :abbr:`KDC (Key Distribution Center)`. These encryption keys
-must be stored securely; you should take the same precautions to protect them
-that you would to protect ssh private keys.
+must be stored securely; you need to take the same precautions to protect them
+that you take to protect ssh private keys.
 
 In particular, access to keytab files should be limited to the accounts that
 actually need to use them to authenticate. In practice, this is the user that
 the Presto process runs as. The ownership and permissions on keytab files
-should be set to prevent other users from reading or modifying the files.
+need to be set to prevent other users from reading or modifying the files.
 
 Keytab files need to be distributed to every node running Presto. Under common
-deployment situations, the Hive connector configuration will be the same on all
+deployment situations, the Hive connector configuration is the same on all
 nodes. This means that the keytab needs to be in the same location on every
 node.
 

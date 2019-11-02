@@ -38,6 +38,7 @@ import io.prestosql.sql.tree.SymbolReference;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -52,7 +53,7 @@ public final class ConnectorExpressionTranslator
         return new ConnectorToSqlExpressionTranslator(variableMappings, literalEncoder).translate(expression);
     }
 
-    public static ConnectorExpression translate(Session session, Expression expression, TypeAnalyzer types, TypeProvider inputTypes)
+    public static Optional<ConnectorExpression> translate(Session session, Expression expression, TypeAnalyzer types, TypeProvider inputTypes)
     {
         return new SqlToConnectorExpressionTranslator(types.getTypes(session, inputTypes, expression))
                 .process(expression);
@@ -82,7 +83,7 @@ public final class ConnectorExpressionTranslator
             if (expression instanceof FieldDereference) {
                 FieldDereference dereference = (FieldDereference) expression;
 
-                RowType type = (RowType) expression.getType();
+                RowType type = (RowType) dereference.getTarget().getType();
                 String name = type.getFields().get(dereference.getField()).getName().get();
                 return new DereferenceExpression(translate(dereference.getTarget()), new Identifier(name));
             }
@@ -91,73 +92,78 @@ public final class ConnectorExpressionTranslator
         }
     }
 
-    private static class SqlToConnectorExpressionTranslator
-            extends AstVisitor<ConnectorExpression, Void>
+    static class SqlToConnectorExpressionTranslator
+            extends AstVisitor<Optional<ConnectorExpression>, Void>
     {
         private final Map<NodeRef<Expression>, Type> types;
 
-        private SqlToConnectorExpressionTranslator(Map<NodeRef<Expression>, Type> types)
+        public SqlToConnectorExpressionTranslator(Map<NodeRef<Expression>, Type> types)
         {
             this.types = requireNonNull(types, "types is null");
         }
 
         @Override
-        protected ConnectorExpression visitSymbolReference(SymbolReference node, Void context)
+        protected Optional<ConnectorExpression> visitSymbolReference(SymbolReference node, Void context)
         {
-            return new Variable(node.getName(), typeOf(node));
+            return Optional.of(new Variable(node.getName(), typeOf(node)));
         }
 
         @Override
-        protected ConnectorExpression visitBooleanLiteral(BooleanLiteral node, Void context)
+        protected Optional<ConnectorExpression> visitBooleanLiteral(BooleanLiteral node, Void context)
         {
-            return new Constant(node.getValue(), typeOf(node));
+            return Optional.of(new Constant(node.getValue(), typeOf(node)));
         }
 
         @Override
-        protected ConnectorExpression visitStringLiteral(StringLiteral node, Void context)
+        protected Optional<ConnectorExpression> visitStringLiteral(StringLiteral node, Void context)
         {
-            return new Constant(node.getSlice(), typeOf(node));
+            return Optional.of(new Constant(node.getSlice(), typeOf(node)));
         }
 
         @Override
-        protected ConnectorExpression visitDoubleLiteral(DoubleLiteral node, Void context)
+        protected Optional<ConnectorExpression> visitDoubleLiteral(DoubleLiteral node, Void context)
         {
-            return new Constant(node.getValue(), typeOf(node));
+            return Optional.of(new Constant(node.getValue(), typeOf(node)));
         }
 
         @Override
-        protected ConnectorExpression visitDecimalLiteral(DecimalLiteral node, Void context)
+        protected Optional<ConnectorExpression> visitDecimalLiteral(DecimalLiteral node, Void context)
         {
-            return new Constant(Decimals.parse(node.getValue()).getObject(), typeOf(node));
+            return Optional.of(new Constant(Decimals.parse(node.getValue()).getObject(), typeOf(node)));
         }
 
         @Override
-        protected ConnectorExpression visitCharLiteral(CharLiteral node, Void context)
+        protected Optional<ConnectorExpression> visitCharLiteral(CharLiteral node, Void context)
         {
-            return new Constant(node.getSlice(), typeOf(node));
+            return Optional.of(new Constant(node.getSlice(), typeOf(node)));
         }
 
         @Override
-        protected ConnectorExpression visitBinaryLiteral(BinaryLiteral node, Void context)
+        protected Optional<ConnectorExpression> visitBinaryLiteral(BinaryLiteral node, Void context)
         {
-            return new Constant(node.getValue(), typeOf(node));
+            return Optional.of(new Constant(node.getValue(), typeOf(node)));
         }
 
         @Override
-        protected ConnectorExpression visitLongLiteral(LongLiteral node, Void context)
+        protected Optional<ConnectorExpression> visitLongLiteral(LongLiteral node, Void context)
         {
-            return new Constant(node.getValue(), typeOf(node));
+            return Optional.of(new Constant(node.getValue(), typeOf(node)));
         }
 
         @Override
-        protected ConnectorExpression visitNullLiteral(NullLiteral node, Void context)
+        protected Optional<ConnectorExpression> visitNullLiteral(NullLiteral node, Void context)
         {
-            return new Constant(null, typeOf(node));
+            return Optional.of(new Constant(null, typeOf(node)));
         }
 
         @Override
-        protected ConnectorExpression visitDereferenceExpression(DereferenceExpression node, Void context)
+        protected Optional<ConnectorExpression> visitDereferenceExpression(DereferenceExpression node, Void context)
         {
+            Optional<ConnectorExpression> translatedBase = process(node.getBase());
+            if (!translatedBase.isPresent()) {
+                return Optional.empty();
+            }
+
             RowType rowType = (RowType) typeOf(node.getBase());
             String fieldName = node.getField().getValue();
             List<RowType.Field> fields = rowType.getFields();
@@ -172,13 +178,13 @@ public final class ConnectorExpressionTranslator
 
             checkState(index >= 0, "could not find field name: %s", node.getField());
 
-            return new FieldDereference(typeOf(node), process(node.getBase()), index);
+            return Optional.of(new FieldDereference(typeOf(node), translatedBase.get(), index));
         }
 
         @Override
-        protected ConnectorExpression visitExpression(Expression node, Void context)
+        protected Optional<ConnectorExpression> visitExpression(Expression node, Void context)
         {
-            throw new UnsupportedOperationException("not yet implemented: expression translator for " + node.getClass().getName());
+            return Optional.empty();
         }
 
         private Type typeOf(Expression node)

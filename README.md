@@ -1,4 +1,6 @@
-# Presto [![Build Status](https://travis-ci.com/prestosql/presto.svg?branch=master)](https://travis-ci.com/prestosql/presto)
+# Presto
+[![Build Status](https://travis-ci.com/prestosql/presto.svg?branch=master)](https://travis-ci.com/prestosql/presto)
+[![Build Status](https://github.com/prestosql/presto/workflows/CI/badge.svg)](https://github.com/prestosql/presto/actions?query=workflow%3ACI+event%3Apush+branch%3Amaster)
 
 Presto is a distributed SQL query engine for big data.
 
@@ -94,6 +96,7 @@ with some modifications.
 
 Enable the following inspections:
 
+- ``Java | Internationalization | Implicit usage of platform's default charset``,
 - ``Java | Class structure | Utility class is not 'final'``,
 - ``Java | Class structure | Utility class with 'public' constructor``,
 - ``Java | Class structure | Utility class without 'private' constructor``.

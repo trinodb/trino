@@ -17,6 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.HttpHeaders;
+import io.prestosql.server.InternalAuthenticationManager;
 
 import javax.inject.Inject;
 import javax.servlet.Filter;
@@ -49,12 +50,14 @@ public class AuthenticationFilter
 
     private final List<Authenticator> authenticators;
     private final boolean httpsForwardingEnabled;
+    private final InternalAuthenticationManager internalAuthenticationManager;
 
     @Inject
-    public AuthenticationFilter(List<Authenticator> authenticators, SecurityConfig securityConfig)
+    public AuthenticationFilter(List<Authenticator> authenticators, SecurityConfig securityConfig, InternalAuthenticationManager internalAuthenticationManager)
     {
         this.authenticators = ImmutableList.copyOf(requireNonNull(authenticators, "authenticators is null"));
         this.httpsForwardingEnabled = requireNonNull(securityConfig, "securityConfig is null").getEnableForwardingHttps();
+        this.internalAuthenticationManager = requireNonNull(internalAuthenticationManager, "internalAuthenticationManager is null");
     }
 
     @Override
@@ -69,6 +72,16 @@ public class AuthenticationFilter
     {
         HttpServletRequest request = (HttpServletRequest) servletRequest;
         HttpServletResponse response = (HttpServletResponse) servletResponse;
+
+        if (internalAuthenticationManager.isInternalRequest(request)) {
+            Principal principal = internalAuthenticationManager.authenticateInternalRequest(request);
+            if (principal == null) {
+                response.sendError(SC_UNAUTHORIZED);
+                return;
+            }
+            nextFilter.doFilter(withPrincipal(request, principal), response);
+            return;
+        }
 
         // skip authentication if non-secure or not configured
         if (!doesRequestSupportAuthentication(request)) {

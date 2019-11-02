@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
 import io.prestosql.plugin.tpch.TpchPlugin;
+import io.prestosql.testing.AbstractTestQueries;
+import io.prestosql.testing.DistributedQueryRunner;
 
 import java.nio.file.Paths;
 

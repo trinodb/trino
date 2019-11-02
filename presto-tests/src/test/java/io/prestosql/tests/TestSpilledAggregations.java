@@ -13,6 +13,8 @@
  */
 package io.prestosql.tests;
 
+import io.prestosql.testing.AbstractTestAggregations;
+
 public class TestSpilledAggregations
         extends AbstractTestAggregations
 {

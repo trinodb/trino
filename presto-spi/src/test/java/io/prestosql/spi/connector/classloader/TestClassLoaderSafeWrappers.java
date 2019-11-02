@@ -13,6 +13,7 @@
  */
 package io.prestosql.spi.connector.classloader;
 
+import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorNodePartitioningProvider;
 import io.prestosql.spi.connector.ConnectorPageSink;
@@ -30,6 +31,7 @@ public class TestClassLoaderSafeWrappers
     @Test
     public void testAllMethodsOverridden()
     {
+        assertAllMethodsOverridden(ConnectorAccessControl.class, ClassLoaderSafeConnectorAccessControl.class);
         assertAllMethodsOverridden(ConnectorMetadata.class, ClassLoaderSafeConnectorMetadata.class);
         assertAllMethodsOverridden(ConnectorPageSink.class, ClassLoaderSafeConnectorPageSink.class);
         assertAllMethodsOverridden(ConnectorPageSinkProvider.class, ClassLoaderSafeConnectorPageSinkProvider.class);

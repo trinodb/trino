@@ -2,9 +2,9 @@
 Kinesis Connector
 =================
 
-Kinesis is Amazon's fully managed cloud-based service for real-time processing of large, distributed data streams.
+`Kinesis <https://aws.amazon.com/kinesis/>`_ is Amazon's fully managed cloud-based service for real-time processing of large, distributed data streams.
 
-This connector allows the use of Kinesis streams as tables in Presto, such that each data-blob (message)
+This connector allows the use of Kinesis streams as tables in Presto, such that each data-blob/message
 in a Kinesis stream is presented as a row in Presto. A flexible table mapping approach lets us
 treat fields of the messages as columns in the table.
 
@@ -12,11 +12,11 @@ Under the hood, a Kinesis
 `shard iterator <https://docs.aws.amazon.com/kinesis/latest/APIReference/API_GetShardIterator.html>`_
 is used to retrieve the records, along with a series of
 `GetRecords <https://docs.aws.amazon.com/kinesis/latest/APIReference/API_GetRecords.html>`_ calls.
-The shard iterator starts by default 24 hours before the current time and works its way forward.
+The shard iterator starts by default 24 hours before the current time, and works its way forward.
 To be able to query a stream, table mappings are needed. These table definitions can be
-stored on Amazon S3 (preferred) or stored in a local directory on each Presto node.
+stored on Amazon S3 (preferred), or stored in a local directory on each Presto node.
 
-This connector is a read-only connector. It can only fetch data from Kinesis streams,
+This connector is a **read-only** connector. It can only fetch data from Kinesis streams,
 but cannot create streams or push data into existing streams.
 
 To configure the Kinesis connector, create a catalog properties file ``etc/catalog/kinesis.properties``
@@ -33,30 +33,29 @@ Configuration Properties
 
 The following configuration properties are available:
 
-=================================  =======================================================================
-Property Name                      Description
-=================================  =======================================================================
-``kinesis.access-key``             Access key to aws account or blank to use default provider chain
-``kinesis.secret-key``             Secret key to aws account or blank to use default provider chain
-``kinesis.aws-region``             AWS region to be used to read kinesis stream from
-``kinesis.default-schema``         Default schema name for tables
-``kinesis.table-description-dir``  Directory containing table description files
-``kinesis.table-descriptions-s3``  Amazon S3 bucket URL with table description files
-``kinesis.hide-internal-columns``  Controls whether internal columns are part of the table schema or not
-``kinesis.batch-size``             Maximum number of records to return in one batch
-``kinesis.fetch-attempts``         Read attempts made when no records returned and not caught up
-``kinesis.max-batches``            Maximum batches to read from Kinesis in one single query
-``kinesis.sleep-time``             Time for thread to sleep waiting to make next attempt to fetch batch
-``kinesis.iter-from-timestamp``    Begin iterating from a given timestamp instead of the trim horizon
-``kinesis.iter-offset-seconds``    Number of seconds before current time to start iterating
-=================================  =======================================================================
+======================================  =======================================================================
+Property Name                           Description
+======================================  =======================================================================
+``kinesis.access-key``                  Access key to AWS account or blank to use default provider chain
+``kinesis.secret-key``                  Secret key to AWS account or blank to use default provider chain
+``kinesis.aws-region``                  AWS region to be used to read kinesis stream from
+``kinesis.default-schema``              Default schema name for tables
+``kinesis.table-description-location``  Directory containing table description files
+``kinesis.hide-internal-columns``       Controls whether internal columns are part of the table schema or not
+``kinesis.batch-size``                  Maximum number of records to return in one batch
+``kinesis.fetch-attempts``              Read attempts made when no records returned and not caught up
+``kinesis.max-batches``                 Maximum batches to read from Kinesis in one single query
+``kinesis.sleep-time``                  Time for thread to sleep waiting to make next attempt to fetch batch
+``kinesis.iterator-from-timestamp``     Begin iterating from a given timestamp instead of the trim horizon
+``kinesis.iterator-offset-seconds``     Number of seconds before current time to start iterating
+======================================  =======================================================================
 
 ``kinesis.access-key``
 ^^^^^^^^^^^^^^^^^^^^^^
 
 Defines the access key ID for AWS root account or IAM roles, which is used to sign programmatic requests to AWS Kinesis.
 
-This property is optional; if not defined, connector will try to follow ``Default-Credential-Provider-Chain`` provided by AWS in the following order:
+This property is optional; if not defined, the connector tries to follow ``Default-Credential-Provider-Chain`` provided by AWS in the following order:
 
 * Environment Variable: Load credentials from environment variables ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY``.
 * Java System Variable: Load from java system as ``aws.accessKeyId`` and ``aws.secretKey``.
@@ -84,30 +83,22 @@ for a current list of available regions.
 ``kinesis.default-schema``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Defines the schema which will contain all tables that were defined without a qualifying schema name.
+Defines the schema which contains all tables that were defined without a qualifying schema name.
 
 This property is optional; the default is ``default``.
 
-``kinesis.table-description-dir``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``kinesis.table-description-location``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-References a folder within Presto deployment that holds one or more JSON files (must end with ``.json``) which contain table description files.
+References an S3 URL or a folder within Presto deployment that holds one or more JSON files ending with ``.json``, which contain table description files.
+The S3 bucket and folder will be checked every 10 minutes for updates and changed files.
 
 This property is optional; the default is ``etc/kinesis``.
-
-``kinesis.table-descriptions-s3``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-An S3 URL giving the location of the JSON table description files. When this is given, S3 will be used as
-the source of table description files and ``kinesis.table-description-dir`` is ignored. The S3 bucket and folder will
-be checked every 10 minutes for updates and changed files.
-
-This property is optional; by default, ``kinesis.table-description-dir`` will be the source of the table definitions.
 
 ``kinesis.batch-size``
 ^^^^^^^^^^^^^^^^^^^^^^
 
-Defines maximum number of records to return in one request to Kinesis Streams. Maximum limit is ``10000`` records.
+Defines the maximum number of records to return in one request to Kinesis Streams. Maximum limit is ``10000`` records.
 
 This field is optional; the default value is ``10000``.
 
@@ -119,7 +110,7 @@ The maximum number of batches to read in a single query. The default value is ``
 ``kinesis.fetch-attempts``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Defines number of attempts made to read a batch from Kinesis Streams when no records are returned and the *millis behind latest*
+Defines the number of attempts made to read a batch from Kinesis Streams, when no records are returned and the *millis behind latest*
 parameter shows we are not yet caught up. When records are returned no additional attempts are necessary.
 ``GetRecords`` has been observed to return no records even though the shard is not empty.
 That is why multiple attempts need to be made.
@@ -137,14 +128,14 @@ This field is optional; the default value is ``1000ms``.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Use an initial shard iterator type of ``AT_TIMESTAMP`` starting ``kinesis.iterator-offset-seconds`` before the current time.
-When this is false, an iterator type of ``TRIM_HORIZON`` will be used, meaning it will start from the oldest record in the stream.
+When this is false, an iterator type of ``TRIM_HORIZON`` is used, meaning it starts from the oldest record in the stream.
 
 The default is true.
 
 ``kinesis.iterator-offset-seconds``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-When ``kinesis.iterator-from-timestamp`` is true, the shard iterator will start at ``kinesis.iter-offset-seconds`` before the current time.
+When ``kinesis.iterator-from-timestamp`` is true, the shard iterator starts at ``kinesis.iterator-offset-seconds`` before the current time.
 
 The default is ``86400`` seconds (24 hours).
 
@@ -152,7 +143,7 @@ The default is ``86400`` seconds (24 hours).
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 In addition to the data columns defined in a table description file, the connector maintains a number of additional columns for each table.
-If these columns are hidden, they can still be used in queries but do not show up in ``DESCRIBE <table-name>`` or ``SELECT *``.
+If these columns are hidden, they can still be used in queries, but they do not show up in ``DESCRIBE <table-name>`` or ``SELECT *``.
 
 This property is optional; the default is true.
 
@@ -181,7 +172,7 @@ Column name               Type          Description
 ``_partition_key``        ``VARCHAR``   Partition Key bytes as a UTF-8 encoded string.
 ========================= ============= ==================================================================================
 
-For tables without a table definition file, the ``_message_valid`` column will always be true.
+For tables without a table definition file, the ``_message_valid`` column is always ``true``.
 
 Table Definition
 ----------------
@@ -194,13 +185,8 @@ The name of the file can be arbitrary but must end in ``.json``. The structure o
   {
         "tableName": ...,
         "schemaName": ...,
-        "key": {
-            "dataFormat": ...,
-            "fields": [
-                ...
-            ]
-        },
-        "value": {
+        "streamName": ...,
+        "message": {
             "dataFormat": ...,
             "fields": [
                 ...
@@ -212,7 +198,7 @@ The name of the file can be arbitrary but must end in ``.json``. The structure o
 Field           Required  Type         Description
 ==============  ========  ===========  ==================================================================================
 ``tableName``   required  string       Presto table name defined by this file.
-``schemaName``  optional  string       Schema which will contain the table. If omitted, the default schema name is used.
+``schemaName``  optional  string       Schema which contains the table. If omitted, the default schema name is used.
 ``streamName``  required  string       Name of the Kinesis Stream that is mapped
 ``message``     optional  JSON object  Field definitions for data columns mapped to the message itself.
 ==============  ========  ===========  ==================================================================================
@@ -258,6 +244,6 @@ Field           Required  Type         Description
 The name field is exposed to Presto as the column name, while the mapping field is the portion of the message that gets
 mapped to that column. For JSON object messages, this refers to the field name of an object, and can be a path that drills
 into the object structure of the message. Additionally, you can map a field of the JSON object to a string column type,
-and if it is a more complex type (JSON array or JSON object) then the JSON itself will become the field value.
+and if it is a more complex type (JSON array or JSON object) then the JSON itself becomes the field value.
 
 There is no limit on field descriptions for either key or message.

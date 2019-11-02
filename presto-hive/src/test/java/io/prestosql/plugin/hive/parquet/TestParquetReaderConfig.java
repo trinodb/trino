@@ -32,20 +32,26 @@ public class TestParquetReaderConfig
     {
         assertRecordedDefaults(recordDefaults(ParquetReaderConfig.class)
                 .setFailOnCorruptedStatistics(true)
-                .setMaxReadBlockSize(new DataSize(16, MEGABYTE)));
+                .setMaxReadBlockSize(new DataSize(16, MEGABYTE))
+                .setMaxMergeDistance(new DataSize(1, MEGABYTE))
+                .setMaxBufferSize(new DataSize(8, MEGABYTE)));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("hive.parquet.fail-on-corrupted-statistics", "false")
-                .put("hive.parquet.max-read-block-size", "66kB")
+                .put("parquet.fail-on-corrupted-statistics", "false")
+                .put("parquet.max-read-block-size", "66kB")
+                .put("parquet.max-buffer-size", "1431kB")
+                .put("parquet.max-merge-distance", "342kB")
                 .build();
 
         ParquetReaderConfig expected = new ParquetReaderConfig()
                 .setFailOnCorruptedStatistics(false)
-                .setMaxReadBlockSize(new DataSize(66, KILOBYTE));
+                .setMaxReadBlockSize(new DataSize(66, KILOBYTE))
+                .setMaxBufferSize(new DataSize(1431, KILOBYTE))
+                .setMaxMergeDistance(new DataSize(342, KILOBYTE));
 
         assertFullMapping(properties, expected);
     }

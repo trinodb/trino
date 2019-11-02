@@ -1012,7 +1012,7 @@ public class ThriftHiveMetastore
     public void addPartitions(HiveIdentity identity, String databaseName, String tableName, List<PartitionWithStatistics> partitionsWithStatistics)
     {
         List<Partition> partitions = partitionsWithStatistics.stream()
-                .map(ThriftMetastoreUtil::toMetastoreApiPartition)
+                .map(partitionWithStatistics -> ThriftMetastoreUtil.toMetastoreApiPartition(partitionWithStatistics))
                 .collect(toImmutableList());
         addPartitionsWithoutStatistics(identity, databaseName, tableName, partitions);
         for (PartitionWithStatistics partitionWithStatistics : partitionsWithStatistics) {
@@ -1232,7 +1232,7 @@ public class ThriftHiveMetastore
                     .stopOnIllegalExceptions()
                     .run("grantTablePrivileges", stats.getGrantTablePrivileges().wrap(() -> {
                         try (ThriftMetastoreClient metastoreClient = createMetastoreClient()) {
-                            Set<HivePrivilegeInfo> existingPrivileges = listTablePrivileges(databaseName, tableName, tableOwner, grantee);
+                            Set<HivePrivilegeInfo> existingPrivileges = listTablePrivileges(databaseName, tableName, tableOwner, Optional.of(grantee));
 
                             Set<PrivilegeGrantInfo> privilegesToGrant = new HashSet<>(requestedPrivileges);
                             Iterator<PrivilegeGrantInfo> iterator = privilegesToGrant.iterator();
@@ -1283,7 +1283,7 @@ public class ThriftHiveMetastore
                     .stopOnIllegalExceptions()
                     .run("revokeTablePrivileges", stats.getRevokeTablePrivileges().wrap(() -> {
                         try (ThriftMetastoreClient metastoreClient = createMetastoreClient()) {
-                            Set<HivePrivilege> existingHivePrivileges = listTablePrivileges(databaseName, tableName, tableOwner, grantee).stream()
+                            Set<HivePrivilege> existingHivePrivileges = listTablePrivileges(databaseName, tableName, tableOwner, Optional.of(grantee)).stream()
                                     .map(HivePrivilegeInfo::getHivePrivilege)
                                     .collect(toImmutableSet());
 
@@ -1309,7 +1309,7 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal principal)
+    public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, String tableOwner, Optional<HivePrincipal> principal)
     {
         try {
             return retry()
@@ -1318,20 +1318,21 @@ public class ThriftHiveMetastore
                         try (ThriftMetastoreClient client = createMetastoreClient()) {
                             ImmutableSet.Builder<HivePrivilegeInfo> privileges = ImmutableSet.builder();
                             List<HiveObjectPrivilege> hiveObjectPrivilegeList;
-                            // principal can be null when we want to list all privileges for admins
-                            if (principal == null) {
+                            if (!principal.isPresent()) {
+                                HivePrincipal ownerPrincipal = new HivePrincipal(USER, tableOwner);
+                                privileges.add(new HivePrivilegeInfo(OWNERSHIP, true, ownerPrincipal, ownerPrincipal));
                                 hiveObjectPrivilegeList = client.listPrivileges(
                                         null,
                                         null,
                                         new HiveObjectRef(TABLE, databaseName, tableName, null, null));
                             }
                             else {
-                                if (principal.getType() == USER && tableOwner.equals(principal.getName())) {
-                                    privileges.add(new HivePrivilegeInfo(OWNERSHIP, true, principal, principal));
+                                if (principal.get().getType() == USER && tableOwner.equals(principal.get().getName())) {
+                                    privileges.add(new HivePrivilegeInfo(OWNERSHIP, true, principal.get(), principal.get()));
                                 }
                                 hiveObjectPrivilegeList = client.listPrivileges(
-                                        principal.getName(),
-                                        fromPrestoPrincipalType(principal.getType()),
+                                        principal.get().getName(),
+                                        fromPrestoPrincipalType(principal.get().getType()),
                                         new HiveObjectRef(TABLE, databaseName, tableName, null, null));
                             }
                             for (HiveObjectPrivilege hiveObjectPrivilege : hiveObjectPrivilegeList) {

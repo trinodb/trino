@@ -21,18 +21,18 @@ import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
 import io.prestosql.metadata.MetadataManager;
 import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.server.SliceDeserializer;
-import io.prestosql.server.SliceSerializer;
+import io.prestosql.server.ExpressionSerialization.ExpressionDeserializer;
+import io.prestosql.server.ExpressionSerialization.ExpressionSerializer;
+import io.prestosql.server.SliceSerialization.SliceDeserializer;
+import io.prestosql.server.SliceSerialization.SliceSerializer;
 import io.prestosql.spi.block.SortOrder;
 import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.sql.Serialization;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.OrderingScheme;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.SymbolAllocator;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FrameBound;
-import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.WindowFrame;
 import io.prestosql.type.TypeSignatureDeserializer;
@@ -67,11 +67,10 @@ public class TestWindowNode
         ObjectMapperProvider provider = new ObjectMapperProvider();
         provider.setJsonSerializers(ImmutableMap.of(
                 Slice.class, new SliceSerializer(),
-                Expression.class, new Serialization.ExpressionSerializer()));
+                Expression.class, new ExpressionSerializer()));
         provider.setJsonDeserializers(ImmutableMap.of(
                 Slice.class, new SliceDeserializer(),
-                Expression.class, new Serialization.ExpressionDeserializer(sqlParser),
-                FunctionCall.class, new Serialization.FunctionCallDeserializer(sqlParser),
+                Expression.class, new ExpressionDeserializer(sqlParser),
                 TypeSignature.class, new TypeSignatureDeserializer()));
         objectMapper = provider.get();
     }

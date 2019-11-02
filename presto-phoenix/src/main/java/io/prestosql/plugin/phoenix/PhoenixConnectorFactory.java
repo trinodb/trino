@@ -17,6 +17,7 @@ import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.json.JsonModule;
+import io.prestosql.plugin.base.jmx.MBeanServerModule;
 import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorContext;
@@ -28,6 +29,7 @@ import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.classloader.ClassLoaderSafeConnectorMetadata;
 import io.prestosql.spi.connector.classloader.ClassLoaderSafeConnectorPageSinkProvider;
 import io.prestosql.spi.connector.classloader.ClassLoaderSafeConnectorSplitManager;
+import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
 
@@ -61,7 +63,11 @@ public class PhoenixConnectorFactory
         requireNonNull(requiredConfig, "requiredConfig is null");
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            Bootstrap app = new Bootstrap(new JsonModule(), new PhoenixClientModule(context.getTypeManager()));
+            Bootstrap app = new Bootstrap(
+                    new JsonModule(),
+                    new MBeanServerModule(),
+                    new MBeanModule(),
+                    new PhoenixClientModule(context.getTypeManager(), catalogName));
 
             Injector injector = app
                     .strictConfig()

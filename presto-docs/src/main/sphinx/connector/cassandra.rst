@@ -2,12 +2,13 @@
 Cassandra Connector
 ===================
 
-The Cassandra connector allows querying data stored in Cassandra.
+The Cassandra connector allows querying data stored in
+`Apache Cassandra <https://cassandra.apache.org/>`_.
 
 Compatibility
 -------------
 
-Connector is compatible with all Cassandra versions starting from 2.1.5.
+Connector is compatible with all Cassandra versions newer than 2.1.5.
 
 Configuration
 -------------
@@ -15,24 +16,24 @@ Configuration
 To configure the Cassandra connector, create a catalog properties file
 ``etc/catalog/cassandra.properties`` with the following contents,
 replacing ``host1,host2`` with a comma-separated list of the Cassandra
-nodes used to discovery the cluster topology:
+nodes, used to discovery the cluster topology:
 
 .. code-block:: none
 
     connector.name=cassandra
     cassandra.contact-points=host1,host2
 
-You will also need to set ``cassandra.native-protocol-port`` if your
-Cassandra nodes are not using the default port (9042).
+You also need to set ``cassandra.native-protocol-port``, if your
+Cassandra nodes are not using the default port 9042.
 
 Multiple Cassandra Clusters
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 You can have as many catalogs as you need, so if you have additional
 Cassandra clusters, simply add another properties file to ``etc/catalog``
-with a different name (making sure it ends in ``.properties``). For
+with a different name, making sure it ends in ``.properties``. For
 example, if you name the property file ``sales.properties``, Presto
-will create a catalog named ``sales`` using the configured connector.
+creates a catalog named ``sales`` using the configured connector.
 
 Configuration Properties
 ------------------------
@@ -43,11 +44,11 @@ The following configuration properties are available:
 Property Name                                      Description
 ================================================== ======================================================================
 ``cassandra.contact-points``                       Comma-separated list of hosts in a Cassandra cluster. The Cassandra
-                                                   driver will use these contact points to discover cluster topology.
+                                                   driver uses these contact points to discover cluster topology.
                                                    At least one Cassandra host is required.
 
-``cassandra.native-protocol-port``                 The Cassandra server port running the native client protocol
-                                                   (defaults to ``9042``).
+``cassandra.native-protocol-port``                 The Cassandra server port running the native client protocol,
+                                                   defaults to ``9042``.
 
 ``cassandra.consistency-level``                    Consistency levels in Cassandra refer to the level of consistency
                                                    to be used for both read and write operations.  More information
@@ -58,15 +59,15 @@ Property Name                                      Description
                                                    ``THREE``, ``LOCAL_ONE``, ``ANY``, ``SERIAL``, ``LOCAL_SERIAL``.
 
 ``cassandra.allow-drop-table``                     Set to ``true`` to allow dropping Cassandra tables from Presto
-                                                   via :doc:`/sql/drop-table` (defaults to ``false``).
+                                                   via :doc:`/sql/drop-table`, defaults to ``false``.
 
 ``cassandra.username``                             Username used for authentication to the Cassandra cluster.
                                                    This is a global setting used for all connections, regardless
-                                                   of the user who is connected to Presto.
+                                                   of the user connected to Presto.
 
 ``cassandra.password``                             Password used for authentication to the Cassandra cluster.
                                                    This is a global setting used for all connections, regardless
-                                                   of the user who is connected to Presto.
+                                                   of the user connected to Presto.
 
 ``cassandra.protocol-version``                     It is possible to override the protocol version for older Cassandra clusters.
                                                    By default, the values from the highest protocol version the driver can use.
@@ -97,19 +98,19 @@ Property Name                                                 Description
                                                               connecting to Cassandra versions < 2.1.5, which lacks
                                                               the ``system.size_estimates`` table.
 
-``cassandra.client.read-timeout``                             Maximum time the Cassandra driver will wait for an
+``cassandra.client.read-timeout``                             Maximum time the Cassandra driver waits for an
                                                               answer to a query from one Cassandra node. Note that the underlying
                                                               Cassandra driver may retry a query against more than one node in
                                                               the event of a read timeout. Increasing this may help with queries
                                                               that use an index.
 
-``cassandra.client.connect-timeout``                          Maximum time the Cassandra driver will wait to establish
+``cassandra.client.connect-timeout``                          Maximum time the Cassandra driver waits to establish
                                                               a connection to a Cassandra node. Increasing this may help with
                                                               heavily loaded Cassandra clusters.
 
 ``cassandra.client.so-linger``                                Number of seconds to linger on close if unsent data is queued.
                                                               If set to zero, the socket will be closed immediately.
-                                                              When this option is non-zero, a socket will linger that many
+                                                              When this option is non-zero, a socket lingers that many
                                                               seconds for an acknowledgement that all data was written to a
                                                               peer. This option can be used to avoid consuming sockets on a
                                                               Cassandra server by immediately closing connections when they
@@ -120,8 +121,8 @@ Property Name                                                 Description
                                                               queries fail with *"not enough replicas"*. The other possible
                                                               values are ``DOWNGRADING_CONSISTENCY`` and ``FALLTHROUGH``.
 
-``cassandra.load-policy.use-dc-aware``                        Set to ``true`` to use ``DCAwareRoundRobinPolicy``
-                                                              (defaults to ``false``).
+``cassandra.load-policy.use-dc-aware``                        Set to ``true`` to use ``DCAwareRoundRobinPolicy``,
+                                                              defaults to ``false``.
 
 ``cassandra.load-policy.dc-aware.local-dc``                   The name of the local datacenter for ``DCAwareRoundRobinPolicy``.
 
@@ -133,20 +134,20 @@ Property Name                                                 Description
 
 ``cassandra.load-policy.use-token-aware``                     Set to ``true`` to use ``TokenAwarePolicy`` (defaults to ``false``).
 
-``cassandra.load-policy.shuffle-replicas``                    Set to ``true`` to use ``TokenAwarePolicy`` with shuffling of replicas
-                                                              (defaults to ``false``).
+``cassandra.load-policy.shuffle-replicas``                    Set to ``true`` to use ``TokenAwarePolicy`` with shuffling of replicas,
+                                                              defaults to ``false``.
 
-``cassandra.load-policy.use-white-list``                      Set to ``true`` to use ``WhiteListPolicy`` (defaults to ``false``).
+``cassandra.load-policy.use-white-list``                      Set to ``true`` to use ``WhiteListPolicy``, defaults to ``false``.
 
 ``cassandra.load-policy.white-list.addresses``                Comma-separated list of hosts for ``WhiteListPolicy``.
 
-``cassandra.no-host-available-retry-timeout``                 Retry timeout for ``NoHostAvailableException`` (defaults to ``1m``).
+``cassandra.no-host-available-retry-timeout``                 Retry timeout for ``NoHostAvailableException``, defaults to ``1m``.
 
-``cassandra.speculative-execution.limit``                     The number of speculative executions (defaults to ``1``).
+``cassandra.speculative-execution.limit``                     The number of speculative executions, defaults to ``1``.
 
-``cassandra.speculative-execution.delay``                     The delay between each speculative execution (defaults to ``500ms``).
+``cassandra.speculative-execution.delay``                     The delay between each speculative execution, defaults to ``500ms``.
 
-``cassandra.tls.enabled``                                     Whether TLS security is enabled (defaults to ``false``).
+``cassandra.tls.enabled``                                     Whether TLS security is enabled, defaults to ``false``.
 
 ``cassandra.tls.keystore-path``                               Path to the PEM or JKS key store.
 

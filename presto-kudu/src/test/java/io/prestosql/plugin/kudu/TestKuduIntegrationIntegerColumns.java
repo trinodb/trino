@@ -13,11 +13,8 @@
  */
 package io.prestosql.plugin.kudu;
 
+import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.MaterializedResult;
-import io.prestosql.testing.QueryRunner;
-import io.prestosql.tests.AbstractTestQueryFramework;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;
@@ -27,21 +24,7 @@ import static org.testng.Assert.fail;
 public class TestKuduIntegrationIntegerColumns
         extends AbstractTestQueryFramework
 {
-    private QueryRunner queryRunner;
-
-    static class TestInt
-    {
-        final String type;
-        final int bits;
-
-        TestInt(String type, int bits)
-        {
-            this.type = type;
-            this.bits = bits;
-        }
-    }
-
-    static final TestInt[] testList = {
+    private static final TestInt[] TEST_INTS = {
             new TestInt("TINYINT", 8),
             new TestInt("SMALLINT", 16),
             new TestInt("INTEGER", 32),
@@ -56,7 +39,7 @@ public class TestKuduIntegrationIntegerColumns
     @Test
     public void testCreateTableWithIntegerColumn()
     {
-        for (TestInt test : testList) {
+        for (TestInt test : TEST_INTS) {
             doTestCreateTableWithIntegerColumn(test);
         }
     }
@@ -64,22 +47,23 @@ public class TestKuduIntegrationIntegerColumns
     private void doTestCreateTableWithIntegerColumn(TestInt test)
     {
         String dropTable = "DROP TABLE IF EXISTS test_int";
-        String createTable = "CREATE TABLE test_int (\n";
-        createTable += "  id INT WITH (primary_key=true),\n";
-        createTable += "  intcol " + test.type + "\n";
-        createTable += ") WITH (\n" +
+        String createTable = "" +
+                "CREATE TABLE test_int (\n" +
+                "  id INT WITH (primary_key=true),\n" +
+                "  intcol " + test.type + "\n" +
+                ") WITH (\n" +
                 " partition_by_hash_columns = ARRAY['id'],\n" +
                 " partition_by_hash_buckets = 2\n" +
                 ")";
 
-        queryRunner.execute(dropTable);
-        queryRunner.execute(createTable);
+        assertUpdate(dropTable);
+        assertUpdate(createTable);
 
         long maxValue = Long.MAX_VALUE;
         long casted = maxValue >> (64 - test.bits);
-        queryRunner.execute("INSERT INTO test_int VALUES(1, CAST(" + casted + " AS " + test.type + "))");
+        assertUpdate("INSERT INTO test_int VALUES(1, CAST(" + casted + " AS " + test.type + "))", 1);
 
-        MaterializedResult result = queryRunner.execute("SELECT id, intcol FROM test_int");
+        MaterializedResult result = computeActual("SELECT id, intcol FROM test_int");
         assertEquals(result.getRowCount(), 1);
         Object obj = result.getMaterializedRows().get(0).getField(1);
         switch (test.bits) {
@@ -105,18 +89,15 @@ public class TestKuduIntegrationIntegerColumns
         }
     }
 
-    @BeforeClass
-    public void setUp()
+    static class TestInt
     {
-        queryRunner = getQueryRunner();
-    }
+        final String type;
+        final int bits;
 
-    @AfterClass(alwaysRun = true)
-    public final void destroy()
-    {
-        if (queryRunner != null) {
-            queryRunner.close();
-            queryRunner = null;
+        TestInt(String type, int bits)
+        {
+            this.type = type;
+            this.bits = bits;
         }
     }
 }

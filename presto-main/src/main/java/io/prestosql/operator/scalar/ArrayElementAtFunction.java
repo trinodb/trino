@@ -127,8 +127,6 @@ public final class ArrayElementAtFunction
         if (index > 0) {
             return toIntExact(index - 1);
         }
-        else {
-            return toIntExact(arrayLength + index);
-        }
+        return toIntExact(arrayLength + index);
     }
 }

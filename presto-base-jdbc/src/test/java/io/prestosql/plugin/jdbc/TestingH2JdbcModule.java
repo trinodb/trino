@@ -37,13 +37,15 @@ class TestingH2JdbcModule
     }
 
     @Provides
-    public JdbcClient provideJdbcClient(BaseJdbcConfig config, @StatsCollecting ConnectionFactory connectionFactory)
+    @ForBaseJdbc
+    public JdbcClient provideJdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory)
     {
         return new BaseJdbcClient(config, "\"", connectionFactory);
     }
 
     @Provides
     @Singleton
+    @ForBaseJdbc
     public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider)
     {
         return new DriverConnectionFactory(new Driver(), config, credentialProvider);

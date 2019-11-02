@@ -13,7 +13,7 @@
  */
 package io.prestosql.plugin.phoenix;
 
-import io.prestosql.tests.AbstractTestDistributedQueries;
+import io.prestosql.testing.AbstractTestDistributedQueries;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;

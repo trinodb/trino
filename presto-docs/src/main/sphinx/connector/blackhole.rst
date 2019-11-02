@@ -9,17 +9,17 @@ for data reading. However, it also has some other features that allow testing Pr
 in a more controlled manner. Metadata for any tables created via this connector
 is kept in memory on the coordinator and discarded when Presto restarts.
 Created tables are by default always empty, and any data written to them
-will be ignored and data reads will return no rows.
+is ignored and data reads return no rows.
 
 During table creation, a desired rows number can be specified.
-In such case, writes will behave in the same way, but reads will
-always return specified number of some constant rows.
+In such cases, writes behave in the same way, but reads
+always return the specified number of some constant rows.
 You shouldn't rely on the content of such rows.
 
 .. warning::
 
-    This connector will not work properly with multiple coordinators,
-    since each coordinator will have a different metadata.
+    This connector does not work properly with multiple coordinators,
+    since each coordinator has different metadata.
 
 Configuration
 -------------
@@ -48,9 +48,9 @@ Select from the blackhole connector::
 
     SELECT count(*) FROM blackhole.test.nation;
 
-The above query will always return zero.
+The above query always returns zero.
 
-Create a table with constant number of rows (500 * 1000 * 2000)::
+Create a table with a constant number of rows (500 * 1000 * 2000)::
 
     CREATE TABLE blackhole.test.nation (
       nationkey bigint,
@@ -66,9 +66,9 @@ Now query it::
 
     SELECT count(*) FROM blackhole.test.nation;
 
-The above query will return 1,000,000,000.
+The above query returns 1,000,000,000.
 
-Length of variable length columns can be controlled using ``field_length``
+Length of variable length columns can be controlled using the ``field_length``
 table property (default value is equal to 16)::
 
     CREATE TABLE blackhole.test.nation (
@@ -84,7 +84,7 @@ table property (default value is equal to 16)::
 
 The consuming and producing rate can be slowed down
 using the ``page_processing_delay`` table property.
-Setting this property to ``5s`` will lead to a 5 second
+Setting this property to ``5s`` leads to a 5 second
 delay before consuming or producing a new page::
 
     CREATE TABLE blackhole.test.delay (

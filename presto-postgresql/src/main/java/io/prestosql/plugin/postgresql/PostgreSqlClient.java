@@ -40,7 +40,6 @@ import io.prestosql.plugin.jdbc.LongWriteFunction;
 import io.prestosql.plugin.jdbc.ReadFunction;
 import io.prestosql.plugin.jdbc.SliceReadFunction;
 import io.prestosql.plugin.jdbc.SliceWriteFunction;
-import io.prestosql.plugin.jdbc.StatsCollecting;
 import io.prestosql.plugin.jdbc.WriteMapping;
 import io.prestosql.plugin.postgresql.PostgreSqlConfig.ArrayMapping;
 import io.prestosql.spi.PrestoException;
@@ -144,7 +143,7 @@ public class PostgreSqlClient
     public PostgreSqlClient(
             BaseJdbcConfig config,
             PostgreSqlConfig postgreSqlConfig,
-            @StatsCollecting ConnectionFactory connectionFactory,
+            ConnectionFactory connectionFactory,
             TypeManager typeManager)
     {
         super(config, "\"", connectionFactory);
@@ -238,11 +237,13 @@ public class PostgreSqlClient
                     // skip unsupported column types
                     if (columnMapping.isPresent()) {
                         boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
+                        Optional<String> comment = Optional.ofNullable(resultSet.getString("REMARKS"));
                         columns.add(JdbcColumnHandle.builder()
                                 .setColumnName(columnName)
                                 .setJdbcTypeHandle(typeHandle)
                                 .setColumnType(columnMapping.get().getType())
                                 .setNullable(nullable)
+                                .setComment(comment)
                                 .build());
                     }
                 }

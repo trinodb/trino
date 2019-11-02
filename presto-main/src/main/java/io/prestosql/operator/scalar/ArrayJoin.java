@@ -41,6 +41,7 @@ import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.metadata.FunctionKind.SCALAR;
+import static io.prestosql.metadata.Signature.castableToTypeParameter;
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
@@ -122,7 +123,7 @@ public final class ArrayJoin
         super(new FunctionMetadata(
                 new Signature(
                         FUNCTION_NAME,
-                        ImmutableList.of(typeVariable("T")),
+                        ImmutableList.of(castableToTypeParameter("T", VARCHAR.getTypeSignature())),
                         ImmutableList.of(),
                         VARCHAR.getTypeSignature(),
                         ImmutableList.of(arrayType(new TypeSignature("T")), VARCHAR.getTypeSignature()),

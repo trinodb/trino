@@ -20,9 +20,9 @@ import io.airlift.tpch.TpchTable;
 import io.prestosql.Session;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.plugin.tpch.TpchPlugin;
+import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.tests.DistributedQueryRunner;
-import io.prestosql.tests.TestingPrestoClient;
+import io.prestosql.testing.TestingPrestoClient;
 
 import java.util.Map;
 

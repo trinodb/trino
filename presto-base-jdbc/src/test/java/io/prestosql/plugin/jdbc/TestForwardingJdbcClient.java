@@ -16,6 +16,7 @@ package io.prestosql.plugin.jdbc;
 import org.testng.annotations.Test;
 
 import static io.prestosql.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
+import static io.prestosql.spi.testing.InterfaceTestUtils.assertProperForwardingMethodsAreCalled;
 
 public class TestForwardingJdbcClient
 {
@@ -23,5 +24,11 @@ public class TestForwardingJdbcClient
     public void testEverythingImplemented()
     {
         assertAllMethodsOverridden(JdbcClient.class, ForwardingJdbcClient.class);
+    }
+
+    @Test
+    public void testProperForwardingMethodsAreCalled()
+    {
+        assertProperForwardingMethodsAreCalled(JdbcClient.class, jdbcClient -> ForwardingJdbcClient.of(() -> jdbcClient));
     }
 }

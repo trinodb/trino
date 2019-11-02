@@ -166,16 +166,16 @@ public class SqlStandardAccessControlMetadata
     private List<GrantInfo> buildGrants(ConnectorSession session, Set<HivePrincipal> principals, boolean isAdminRoleSet, SchemaTableName tableName)
     {
         if (isAdminRoleSet) {
-            return buildGrants(session, tableName, null);
+            return buildGrants(session, tableName, Optional.empty());
         }
         ImmutableList.Builder<GrantInfo> result = ImmutableList.builder();
         for (HivePrincipal grantee : principals) {
-            result.addAll(buildGrants(session, tableName, grantee));
+            result.addAll(buildGrants(session, tableName, Optional.of(grantee)));
         }
         return result.build();
     }
 
-    private List<GrantInfo> buildGrants(ConnectorSession session, SchemaTableName tableName, HivePrincipal principal)
+    private List<GrantInfo> buildGrants(ConnectorSession session, SchemaTableName tableName, Optional<HivePrincipal> principal)
     {
         ImmutableList.Builder<GrantInfo> result = ImmutableList.builder();
         Set<HivePrivilegeInfo> hivePrivileges = metastore.listTablePrivileges(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName(), principal);

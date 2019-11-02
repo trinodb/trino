@@ -13,10 +13,8 @@
  */
 package io.prestosql.plugin.kudu;
 
+import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.tests.AbstractTestQueryFramework;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;
@@ -25,34 +23,15 @@ import static org.testng.Assert.fail;
 public class TestKuduIntegrationSchemaNotExisting
         extends AbstractTestQueryFramework
 {
-    private static String oldPrefix;
-    private QueryRunner queryRunner;
-
-    private static final String SCHEMA_NAME = "test_presto_schema";
-
-    private static final String CREATE_SCHEMA = "create schema kudu." + SCHEMA_NAME;
-
-    private static final String DROP_SCHEMA = "drop schema if exists kudu." + SCHEMA_NAME;
-
-    private static final String CREATE_TABLE = "create table if not exists kudu." + SCHEMA_NAME + ".test_presto_table (\n" +
-            "id INT WITH (primary_key=true),\n" +
-            "user_name VARCHAR\n" +
-            ") WITH (\n" +
-            " partition_by_hash_columns = ARRAY['id'],\n" +
-            " partition_by_hash_buckets = 2\n" +
-            ")";
-
-    private static final String DROP_TABLE = "drop table if exists kudu." + SCHEMA_NAME + ".test_presto_table";
-
     public TestKuduIntegrationSchemaNotExisting()
     {
-        super(() -> createKuduQueryRunner());
+        super(TestKuduIntegrationSchemaNotExisting::createKuduQueryRunner);
     }
 
     private static QueryRunner createKuduQueryRunner()
             throws Exception
     {
-        oldPrefix = System.getProperty("kudu.schema-emulation.prefix");
+        String oldPrefix = System.getProperty("kudu.schema-emulation.prefix");
         System.setProperty("kudu.schema-emulation.prefix", "");
         try {
             return KuduQueryRunnerFactory.createKuduQueryRunner("test_dummy");
@@ -66,33 +45,27 @@ public class TestKuduIntegrationSchemaNotExisting
     @Test
     public void testCreateTableWithoutSchema()
     {
+        String createTable = "" +
+                "CREATE TABLE IF NOT EXISTS kudu.test_presto_schema.test_presto_table (\n" +
+                "id INT WITH (primary_key=true),\n" +
+                "user_name VARCHAR\n" +
+                ") WITH (\n" +
+                " partition_by_hash_columns = ARRAY['id'],\n" +
+                " partition_by_hash_buckets = 2\n" +
+                ")";
+
         try {
-            queryRunner.execute(CREATE_TABLE);
+            assertUpdate(createTable);
             fail();
         }
         catch (Exception e) {
-            assertEquals("Schema " + SCHEMA_NAME + " not found", e.getMessage());
+            assertEquals("Schema test_presto_schema not found", e.getMessage());
         }
 
-        queryRunner.execute(CREATE_SCHEMA);
-        queryRunner.execute(CREATE_TABLE);
-    }
+        assertUpdate("CREATE SCHEMA kudu.test_presto_schema");
+        assertUpdate(createTable);
 
-    @BeforeClass
-    public void setUp()
-    {
-        queryRunner = getQueryRunner();
-    }
-
-    @AfterClass(alwaysRun = true)
-    public final void destroy()
-    {
-        System.setProperty("kudu.schema-emulation.prefix", oldPrefix);
-        if (queryRunner != null) {
-            queryRunner.execute(DROP_TABLE);
-            queryRunner.execute(DROP_SCHEMA);
-            queryRunner.close();
-            queryRunner = null;
-        }
+        assertUpdate("DROP TABLE IF EXISTS kudu.test_presto_schema.test_presto_table");
+        assertUpdate("DROP SCHEMA IF EXISTS kudu.test_presto_schema");
     }
 }

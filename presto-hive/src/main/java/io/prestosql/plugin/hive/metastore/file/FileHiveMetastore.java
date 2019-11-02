@@ -979,18 +979,22 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal principal)
+    public synchronized Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, String tableOwner, Optional<HivePrincipal> principal)
     {
         Table table = getRequiredTable(databaseName, tableName);
         Path permissionsDirectory = getPermissionsDirectory(table);
-        if (principal == null) {
-            return readAllPermissions(permissionsDirectory);
+        if (!principal.isPresent()) {
+            HivePrincipal owner = new HivePrincipal(USER, tableOwner);
+            return ImmutableSet.<HivePrivilegeInfo>builder()
+                    .addAll(readAllPermissions(permissionsDirectory))
+                    .add(new HivePrivilegeInfo(OWNERSHIP, true, owner, owner))
+                    .build();
         }
         ImmutableSet.Builder<HivePrivilegeInfo> result = ImmutableSet.builder();
-        if (principal.getType() == USER && table.getOwner().equals(principal.getName())) {
-            result.add(new HivePrivilegeInfo(OWNERSHIP, true, principal, principal));
+        if (principal.get().getType() == USER && table.getOwner().equals(principal.get().getName())) {
+            result.add(new HivePrivilegeInfo(OWNERSHIP, true, principal.get(), principal.get()));
         }
-        result.addAll(readPermissionsFile(getPermissionsPath(permissionsDirectory, principal)));
+        result.addAll(readPermissionsFile(getPermissionsPath(permissionsDirectory, principal.get())));
         return result.build();
     }
 
@@ -1003,7 +1007,7 @@ public class FileHiveMetastore
     @Override
     public synchronized void revokeTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
-        Set<HivePrivilegeInfo> currentPrivileges = listTablePrivileges(databaseName, tableName, tableOwner, grantee);
+        Set<HivePrivilegeInfo> currentPrivileges = listTablePrivileges(databaseName, tableName, tableOwner, Optional.of(grantee));
         currentPrivileges.removeAll(privileges);
 
         setTablePrivileges(grantee, databaseName, tableName, currentPrivileges);
@@ -1031,14 +1035,14 @@ public class FileHiveMetastore
 
             Path permissionsDirectory = getPermissionsDirectory(table);
 
-            metadataFileSystem.mkdirs(permissionsDirectory);
-            if (!metadataFileSystem.isDirectory(permissionsDirectory)) {
+            boolean created = metadataFileSystem.mkdirs(permissionsDirectory);
+            if (!created && !metadataFileSystem.isDirectory(permissionsDirectory)) {
                 throw new PrestoException(HIVE_METASTORE_ERROR, "Could not create permissions directory");
             }
 
             Path permissionFilePath = getPermissionsPath(permissionsDirectory, grantee);
             List<PermissionMetadata> permissions = privileges.stream()
-                    .map(PermissionMetadata::new)
+                    .map(hivePrivilegeInfo -> new PermissionMetadata(hivePrivilegeInfo.getHivePrivilege(), hivePrivilegeInfo.isGrantOption(), grantee))
                     .collect(toList());
             writeFile("permissions", permissionFilePath, permissionsCodec, permissions, true);
         }

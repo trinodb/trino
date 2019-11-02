@@ -129,6 +129,7 @@ public class LookupJoinOperatorFactory
         joinBridgeManager.incrementProbeFactoryCount();
     }
 
+    @Override
     public int getOperatorId()
     {
         return operatorId;

@@ -3,7 +3,7 @@ MySQL Connector
 ===============
 
 The MySQL connector allows querying and creating tables in an external
-MySQL database. This can be used to join data between different
+`MySQL <https://www.mysql.com/>`_ instance. This can be used to join data between different
 systems like MySQL and Hive, or between two different MySQL instances.
 
 Configuration
@@ -27,9 +27,9 @@ Multiple MySQL Servers
 
 You can have as many catalogs as you need, so if you have additional
 MySQL servers, simply add another properties file to ``etc/catalog``
-with a different name (making sure it ends in ``.properties``). For
+with a different name, making sure it ends in ``.properties``. For
 example, if you name the property file ``sales.properties``, Presto
-will create a catalog named ``sales`` using the configured connector.
+creates a catalog named ``sales`` using the configured connector.
 
 Querying MySQL
 --------------

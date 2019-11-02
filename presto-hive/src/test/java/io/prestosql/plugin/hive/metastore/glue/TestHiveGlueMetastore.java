@@ -13,35 +13,47 @@
  */
 package io.prestosql.plugin.hive.metastore.glue;
 
+import com.google.common.collect.ImmutableList;
+import io.airlift.concurrent.BoundedExecutor;
 import io.prestosql.plugin.hive.AbstractTestHiveLocal;
+import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 
 import java.io.File;
+import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.Executor;
 
 import static io.prestosql.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static java.util.Locale.ENGLISH;
 import static java.util.UUID.randomUUID;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
+/*
+ * GlueHiveMetastore currently uses AWS Default Credential Provider Chain,
+ * See https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/credentials.html#credentials-default
+ * on ways to set your AWS credentials which will be needed to run this test.
+ */
 public class TestHiveGlueMetastore
         extends AbstractTestHiveLocal
 {
+    private static final HiveIdentity HIVE_CONTEXT = new HiveIdentity(SESSION);
+
     public TestHiveGlueMetastore()
     {
         super("test_glue" + randomUUID().toString().toLowerCase(ENGLISH).replace("-", ""));
     }
 
-    /**
-     * GlueHiveMetastore currently uses AWS Default Credential Provider Chain,
-     * See https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/credentials.html#credentials-default
-     * on ways to set your AWS credentials which will be needed to run this test.
-     */
     @Override
     protected HiveMetastore createMetastore(File tempDir)
     {
         GlueHiveMetastoreConfig glueConfig = new GlueHiveMetastoreConfig();
         glueConfig.setDefaultWarehouseDir(tempDir.toURI().toString());
 
-        return new GlueHiveMetastore(HDFS_ENVIRONMENT, glueConfig);
+        Executor executor = new BoundedExecutor(this.executor, 10);
+        return new GlueHiveMetastore(HDFS_ENVIRONMENT, glueConfig, executor);
     }
 
     @Override
@@ -86,5 +98,19 @@ public class TestHiveGlueMetastore
             throws Exception
     {
         testStorePartitionWithStatistics(STATISTICS_PARTITIONED_TABLE_COLUMNS, BASIC_STATISTICS_1, BASIC_STATISTICS_2, BASIC_STATISTICS_1, EMPTY_TABLE_STATISTICS);
+    }
+
+    @Override
+    public void testGetPartitions() throws Exception
+    {
+        try {
+            createDummyPartitionedTable(tablePartitionFormat, CREATE_TABLE_COLUMNS_PARTITIONED);
+            Optional<List<String>> partitionNames = getMetastoreClient().getPartitionNames(HIVE_CONTEXT, tablePartitionFormat.getSchemaName(), tablePartitionFormat.getTableName());
+            assertTrue(partitionNames.isPresent());
+            assertEquals(partitionNames.get(), ImmutableList.of("ds=2016-01-01", "ds=2016-01-02"));
+        }
+        finally {
+            dropTable(tablePartitionFormat);
+        }
     }
 }

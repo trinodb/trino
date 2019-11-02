@@ -29,7 +29,7 @@ public class TestAvroSchemaEvolution
         extends ProductTest
 {
     private static final String TABLE_NAME = "product_tests_avro_table";
-    private static final String ORIGINAL_SCHEMA = "file:///docker/volumes/presto-product-tests/avro/original_schema.avsc";
+    private static final String ORIGINAL_SCHEMA = "file:///docker/avro/original_schema.avsc";
     private static final String CREATE_TABLE = format("" +
                     "CREATE TABLE %s (dummy_col VARCHAR)" +
                     "WITH (" +
@@ -38,11 +38,11 @@ public class TestAvroSchemaEvolution
                     ")",
             TABLE_NAME,
             ORIGINAL_SCHEMA);
-    private static final String RENAMED_COLUMN_SCHEMA = "file:///docker/volumes/presto-product-tests/avro/rename_column_schema.avsc";
-    private static final String REMOVED_COLUMN_SCHEMA = "file:///docker/volumes/presto-product-tests/avro/remove_column_schema.avsc";
-    private static final String ADDED_COLUMN_SCHEMA = "file:///docker/volumes/presto-product-tests/avro/add_column_schema.avsc";
-    private static final String CHANGE_COLUMN_TYPE_SCHEMA = "file:///docker/volumes/presto-product-tests/avro/change_column_type_schema.avsc";
-    private static final String INCOMPATIBLE_TYPE_SCHEMA = "file:///docker/volumes/presto-product-tests/avro/incompatible_type_schema.avsc";
+    private static final String RENAMED_COLUMN_SCHEMA = "file:///docker/avro/rename_column_schema.avsc";
+    private static final String REMOVED_COLUMN_SCHEMA = "file:///docker/avro/remove_column_schema.avsc";
+    private static final String ADDED_COLUMN_SCHEMA = "file:///docker/avro/add_column_schema.avsc";
+    private static final String CHANGE_COLUMN_TYPE_SCHEMA = "file:///docker/avro/change_column_type_schema.avsc";
+    private static final String INCOMPATIBLE_TYPE_SCHEMA = "file:///docker/avro/incompatible_type_schema.avsc";
     private static final String SELECT_STAR = "SELECT * FROM " + TABLE_NAME;
     private static final String COLUMNS_IN_TABLE = "SHOW COLUMNS IN " + TABLE_NAME;
 

@@ -22,8 +22,12 @@ check_if_correct_java_version() {
 # candidate for JAVA_HOME).
   JAVA_VERSION=$(java_version "$1")
   JAVA_UPDATE=$(echo $JAVA_VERSION | cut -d'_' -f2)
-  if [[ ("$JAVA_VERSION" > "1.8") && ($JAVA_UPDATE -ge 161) ]]; then
-    echo "JAVA8_HOME=$1" > /tmp/presto_env.sh
+  JAVA_MAJOR=$(echo $JAVA_VERSION | cut -d'.' -f1)
+  if [[ ("$JAVA_MAJOR" -ge "11") ]]; then
+    echo "PRESTO_JAVA_HOME=$1" > /tmp/presto_env.sh
+    return 0
+  elif [[ ("$JAVA_VERSION" > "1.8") && ($JAVA_UPDATE -ge 161) ]]; then
+    echo "PRESTO_JAVA_HOME=$1" > /tmp/presto_env.sh
     return 0
   else
     return 1
@@ -31,9 +35,10 @@ check_if_correct_java_version() {
 }
 
 # if Java version of $JAVA_HOME is not 1.8 update 161 (8u161) and is not Oracle Java, then try to find it again below
-if ! check_if_correct_java_version "$JAVA8_HOME" && ! check_if_correct_java_version "$JAVA_HOME"; then
+if ! check_if_correct_java_version "$PRESTO_JAVA_HOME" && ! check_if_correct_java_version "$JAVA_HOME"; then
   java_found=false
   for candidate in \
+      /usr/lib/jvm/java-11-* \
       /usr/lib/jvm/jdk1.8* \
       /usr/lib/jvm/jre1.8* \
       /usr/lib/jvm/java-8-oracle* \

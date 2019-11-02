@@ -13,13 +13,16 @@
  */
 package io.prestosql.parquet.reader;
 
-import io.airlift.units.DataSize;
+import io.airlift.slice.Slice;
 import io.prestosql.memory.context.AggregatedMemoryContext;
-import io.prestosql.memory.context.LocalMemoryContext;
+import io.prestosql.parquet.ChunkKey;
+import io.prestosql.parquet.ChunkReader;
+import io.prestosql.parquet.DiskRange;
 import io.prestosql.parquet.Field;
 import io.prestosql.parquet.GroupField;
 import io.prestosql.parquet.ParquetCorruptionException;
 import io.prestosql.parquet.ParquetDataSource;
+import io.prestosql.parquet.ParquetReaderOptions;
 import io.prestosql.parquet.PrimitiveField;
 import io.prestosql.parquet.RichColumnDescriptor;
 import io.prestosql.spi.block.ArrayBlock;
@@ -45,7 +48,9 @@ import org.apache.parquet.io.PrimitiveColumnIO;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -69,7 +74,7 @@ public class ParquetReader
     private final ParquetDataSource dataSource;
     private final AggregatedMemoryContext systemMemoryContext;
 
-    private int currentBlock;
+    private int currentRowGroup = -1;
     private BlockMetaData currentBlockMetadata;
     private long currentGroupRowCount;
     private long nextRowInGroup;
@@ -78,10 +83,11 @@ public class ParquetReader
     private final PrimitiveColumnReader[] columnReaders;
     private final long[] maxBytesPerCell;
     private long maxCombinedBytesPerRow;
-    private final long maxReadBlockBytes;
+    private final ParquetReaderOptions options;
     private int maxBatchSize = MAX_VECTOR_LENGTH;
 
     private AggregatedMemoryContext currentRowGroupMemoryContext;
+    private final Map<ChunkKey, ChunkReader> chunkReaders;
 
     public ParquetReader(
             Optional<String> fileCreatedBy,
@@ -89,23 +95,38 @@ public class ParquetReader
             List<BlockMetaData> blocks,
             ParquetDataSource dataSource,
             AggregatedMemoryContext systemMemoryContext,
-            DataSize maxReadBlockSize)
+            ParquetReaderOptions options)
+            throws IOException
     {
         this.fileCreatedBy = requireNonNull(fileCreatedBy, "fileCreatedBy is null");
         this.blocks = blocks;
         this.dataSource = requireNonNull(dataSource, "dataSource is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
         this.currentRowGroupMemoryContext = systemMemoryContext.newAggregatedMemoryContext();
-        this.maxReadBlockBytes = requireNonNull(maxReadBlockSize, "maxReadBlockSize is null").toBytes();
         columns = messageColumnIO.getLeaves();
+        this.options = requireNonNull(options, "options is null");
         columnReaders = new PrimitiveColumnReader[columns.size()];
         maxBytesPerCell = new long[columns.size()];
+
+        Map<ChunkKey, DiskRange> ranges = new HashMap<>();
+        for (int rowGroup = 0; rowGroup < blocks.size(); rowGroup++) {
+            BlockMetaData metadata = blocks.get(rowGroup);
+            for (PrimitiveColumnIO column : columns) {
+                int columnId = column.getId();
+                ColumnChunkMetaData chunkMetadata = getColumnChunkMetaData(metadata, column.getColumnDescriptor());
+                DiskRange range = new DiskRange(chunkMetadata.getStartingPos(), toIntExact(chunkMetadata.getTotalSize()));
+                ranges.put(new ChunkKey(columnId, rowGroup), range);
+            }
+        }
+
+        chunkReaders = dataSource.planRead(ranges);
     }
 
     @Override
     public void close()
             throws IOException
     {
+        freeCurrentRowGroupBuffers();
         currentRowGroupMemoryContext.close();
         dataSource.close();
     }
@@ -131,16 +152,31 @@ public class ParquetReader
         currentRowGroupMemoryContext.close();
         currentRowGroupMemoryContext = systemMemoryContext.newAggregatedMemoryContext();
 
-        if (currentBlock == blocks.size()) {
+        freeCurrentRowGroupBuffers();
+        currentRowGroup++;
+        if (currentRowGroup == blocks.size()) {
             return false;
         }
-        currentBlockMetadata = blocks.get(currentBlock);
-        currentBlock = currentBlock + 1;
+        currentBlockMetadata = blocks.get(currentRowGroup);
 
         nextRowInGroup = 0L;
         currentGroupRowCount = currentBlockMetadata.getRowCount();
         initializeColumnReaders();
         return true;
+    }
+
+    private void freeCurrentRowGroupBuffers()
+    {
+        if (currentRowGroup < 0) {
+            return;
+        }
+
+        for (int column = 0; column < columns.size(); column++) {
+            ChunkReader reader = chunkReaders.get(new ChunkKey(column, currentRowGroup));
+            if (reader != null) {
+                reader.free();
+            }
+        }
     }
 
     private ColumnChunk readArray(GroupField field)
@@ -208,14 +244,15 @@ public class ParquetReader
         PrimitiveColumnReader columnReader = columnReaders[fieldId];
         if (columnReader.getPageReader() == null) {
             validateParquet(currentBlockMetadata.getRowCount() > 0, "Row group has 0 rows");
-            ColumnChunkMetaData metadata = getColumnChunkMetaData(columnDescriptor);
-            long startingPosition = metadata.getStartingPos();
-            int totalSize = toIntExact(metadata.getTotalSize());
-            byte[] buffer = allocateBlock(totalSize);
-            dataSource.readFully(startingPosition, buffer);
+            ColumnChunkMetaData metadata = getColumnChunkMetaData(currentBlockMetadata, columnDescriptor);
+
+            Slice data = chunkReaders.get(new ChunkKey(fieldId, currentRowGroup)).read();
+            // todo this just an estimate and doesn't reflect actual retained memory
+            currentRowGroupMemoryContext.newLocalMemoryContext(ParquetReader.class.getSimpleName())
+                    .setBytes(data.length());
+
             ColumnChunkDescriptor descriptor = new ColumnChunkDescriptor(columnDescriptor, metadata);
-            @SuppressWarnings("resource")
-            ParquetColumnChunk columnChunk = new ParquetColumnChunk(fileCreatedBy, descriptor, buffer, 0);
+            ParquetColumnChunk columnChunk = new ParquetColumnChunk(fileCreatedBy, descriptor, data);
             columnReader.setPageReader(columnChunk.readAllPages());
         }
         ColumnChunk columnChunk = columnReader.readPrimitive(field);
@@ -225,24 +262,16 @@ public class ParquetReader
         if (maxBytesPerCell[fieldId] < bytesPerCell) {
             // update batch size
             maxCombinedBytesPerRow = maxCombinedBytesPerRow - maxBytesPerCell[fieldId] + bytesPerCell;
-            maxBatchSize = toIntExact(min(maxBatchSize, max(1, maxReadBlockBytes / maxCombinedBytesPerRow)));
+            maxBatchSize = toIntExact(min(maxBatchSize, max(1, options.getMaxReadBlockSize().toBytes() / maxCombinedBytesPerRow)));
             maxBytesPerCell[fieldId] = bytesPerCell;
         }
         return columnChunk;
     }
 
-    private byte[] allocateBlock(int length)
-    {
-        byte[] buffer = new byte[length];
-        LocalMemoryContext blockMemoryContext = currentRowGroupMemoryContext.newLocalMemoryContext(ParquetReader.class.getSimpleName());
-        blockMemoryContext.setBytes(buffer.length);
-        return buffer;
-    }
-
-    private ColumnChunkMetaData getColumnChunkMetaData(ColumnDescriptor columnDescriptor)
+    private ColumnChunkMetaData getColumnChunkMetaData(BlockMetaData blockMetaData, ColumnDescriptor columnDescriptor)
             throws IOException
     {
-        for (ColumnChunkMetaData metadata : currentBlockMetadata.getColumns()) {
+        for (ColumnChunkMetaData metadata : blockMetaData.getColumns()) {
             if (metadata.getPath().equals(ColumnPath.get(columnDescriptor.getPath()))) {
                 return metadata;
             }

@@ -29,7 +29,7 @@ public class JdbcSplitManager
     private final JdbcClient jdbcClient;
 
     @Inject
-    public JdbcSplitManager(@InternalBaseJdbc JdbcClient jdbcClient)
+    public JdbcSplitManager(JdbcClient jdbcClient)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "client is null");
     }

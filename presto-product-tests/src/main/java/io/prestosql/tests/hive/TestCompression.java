@@ -24,6 +24,7 @@ import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.prestosql.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.ORDERS;
 import static io.prestosql.tests.TestGroups.HIVE_COMPRESSION;
+import static io.prestosql.tests.TestGroups.SKIP_ON_CDH;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static io.prestosql.tests.utils.QueryExecutors.onPresto;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -38,7 +39,7 @@ public class TestCompression
         return immutableTable(ORDERS);
     }
 
-    @Test(groups = HIVE_COMPRESSION)
+    @Test(groups = {HIVE_COMPRESSION, SKIP_ON_CDH /* no lzo support in CDH image */})
     public void testReadLzop()
     {
         onHive().executeQuery("DROP TABLE IF EXISTS test_read_lzop");

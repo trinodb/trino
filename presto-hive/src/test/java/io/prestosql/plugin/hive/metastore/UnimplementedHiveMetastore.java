@@ -204,7 +204,7 @@ class UnimplementedHiveMetastore
     }
 
     @Override
-    public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal prestoPrincipal)
+    public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, String tableOwner, Optional<HivePrincipal> prestoPrincipal)
     {
         throw new UnsupportedOperationException();
     }

@@ -275,6 +275,7 @@ public class PlanOptimizers
                         .addAll(new UnwrapCastInComparison(metadata, typeAnalyzer).rules())
                         .addAll(new RemoveDuplicateConditions(metadata).rules())
                         .addAll(new CanonicalizeExpressions(metadata, typeAnalyzer).rules())
+                        .add(new RemoveTrivialFilters())
                         .build());
 
         PlanOptimizer predicatePushDown = new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(metadata, typeAnalyzer, true));

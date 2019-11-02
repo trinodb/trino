@@ -13,6 +13,7 @@
  */
 package io.prestosql.tests;
 
+import io.prestosql.testing.AbstractTestOrderByQueries;
 import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
 
 public class TestOrderByQueries

@@ -17,6 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.function.OperatorType;
+import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 
 import java.util.List;
@@ -31,9 +32,9 @@ public class OperatorNotFoundException
 {
     private final OperatorType operatorType;
     private final TypeSignature returnType;
-    private final List<TypeSignature> argumentTypes;
+    private final List<Type> argumentTypes;
 
-    public OperatorNotFoundException(OperatorType operatorType, List<? extends TypeSignature> argumentTypes)
+    public OperatorNotFoundException(OperatorType operatorType, List<? extends Type> argumentTypes)
     {
         super(OPERATOR_NOT_FOUND, formatErrorMessage(operatorType, argumentTypes, Optional.empty()));
         this.operatorType = requireNonNull(operatorType, "operatorType is null");
@@ -41,7 +42,7 @@ public class OperatorNotFoundException
         this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
     }
 
-    public OperatorNotFoundException(OperatorType operatorType, List<? extends TypeSignature> argumentTypes, TypeSignature returnType)
+    public OperatorNotFoundException(OperatorType operatorType, List<? extends Type> argumentTypes, TypeSignature returnType)
     {
         super(OPERATOR_NOT_FOUND, formatErrorMessage(operatorType, argumentTypes, Optional.of(returnType)));
         this.operatorType = requireNonNull(operatorType, "operatorType is null");
@@ -49,7 +50,7 @@ public class OperatorNotFoundException
         this.returnType = requireNonNull(returnType, "returnType is null");
     }
 
-    private static String formatErrorMessage(OperatorType operatorType, List<? extends TypeSignature> argumentTypes, Optional<TypeSignature> returnType)
+    private static String formatErrorMessage(OperatorType operatorType, List<? extends Type> argumentTypes, Optional<TypeSignature> returnType)
     {
         String operatorString;
         switch (operatorType) {
@@ -74,7 +75,7 @@ public class OperatorNotFoundException
         return returnType;
     }
 
-    public List<TypeSignature> getArgumentTypes()
+    public List<Type> getArgumentTypes()
     {
         return argumentTypes;
     }

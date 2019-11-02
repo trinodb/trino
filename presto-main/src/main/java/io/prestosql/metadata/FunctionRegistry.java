@@ -1029,11 +1029,7 @@ public class FunctionRegistry
         }
         catch (PrestoException e) {
             if (e.getErrorCode().getCode() == FUNCTION_NOT_FOUND.toErrorCode().getCode()) {
-                throw new OperatorNotFoundException(
-                        operatorType,
-                        argumentTypes.stream()
-                                .map(Type::getTypeSignature)
-                                .collect(toImmutableList()));
+                throw new OperatorNotFoundException(operatorType, argumentTypes);
             }
             else {
                 throw e;
@@ -1052,7 +1048,7 @@ public class FunctionRegistry
         }
         catch (PrestoException e) {
             if (e.getErrorCode().getCode() == FUNCTION_IMPLEMENTATION_MISSING.toErrorCode().getCode()) {
-                throw new OperatorNotFoundException(operatorType, ImmutableList.of(fromType.getTypeSignature()), toType.getTypeSignature());
+                throw new OperatorNotFoundException(operatorType, ImmutableList.of(fromType), toType.getTypeSignature());
             }
             throw e;
         }

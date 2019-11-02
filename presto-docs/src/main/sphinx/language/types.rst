@@ -60,11 +60,15 @@ Floating-Point
     A real is a 32-bit inexact, variable-precision implementing the
     IEEE Standard 754 for Binary Floating-Point Arithmetic.
 
+    Example literals: ``REAL '10.3'``, ``REAL '10.3e0'``, ``REAL '1.03e1'``
+
 ``DOUBLE``
 ^^^^^^^^^^
 
     A double is a 64-bit inexact, variable-precision implementing the
     IEEE Standard 754 for Binary Floating-Point Arithmetic.
+
+    Example literals: ``DOUBLE '10.3'``, ``DOUBLE '1.03e1'``, ``10.3e0``, ``1.03e1``
 
 Fixed-Precision
 ---------------
@@ -210,7 +214,7 @@ Structural
 
     By default, row fields are not named, but names can be assigned.
 
-    Example: ``CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))``
+    Example: ``CAST(ROW(1, 2e0) AS ROW(x BIGINT, y DOUBLE))``
 
     Named row fields are accessed with field reference operator ``.``.
 

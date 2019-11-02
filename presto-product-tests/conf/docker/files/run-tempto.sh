@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-DOCKER_TEMPTO_CONF_DIR="/docker/volumes/conf/tempto"
+DOCKER_TEMPTO_CONF_DIR="/docker/presto-product-tests/conf/tempto"
 TEMPTO_CONFIG_FILES="tempto-configuration.yaml" # this comes from classpath
 TEMPTO_CONFIG_FILES="${TEMPTO_CONFIG_FILES},${DOCKER_TEMPTO_CONF_DIR}/tempto-configuration-for-docker-default.yaml"
 
@@ -22,8 +22,8 @@ java \
   `#-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5007` \
   "-Djava.util.logging.config.file=${DOCKER_TEMPTO_CONF_DIR}/logging.properties" \
   -Duser.timezone=Asia/Kathmandu \
-  -cp "/docker/volumes/jdbc/driver.jar:/docker/volumes/presto-product-tests/presto-product-tests-executable.jar" \
+  -cp "/docker/presto-jdbc.jar:/docker/presto-product-tests-executable.jar" \
   io.prestosql.tests.TemptoProductTestRunner \
-  --report-dir "/docker/volumes/test-reports" \
+  --report-dir "/docker/test-reports" \
   --config "${TEMPTO_CONFIG_FILES}" \
   "$@"

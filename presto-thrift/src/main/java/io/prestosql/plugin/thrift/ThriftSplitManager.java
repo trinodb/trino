@@ -32,7 +32,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
+import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
 import javax.annotation.concurrent.NotThreadSafe;
@@ -69,14 +69,18 @@ public class ThriftSplitManager
     }
 
     @Override
-    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layout, SplitSchedulingStrategy splitSchedulingStrategy)
+    public ConnectorSplitSource getSplits(
+            ConnectorTransactionHandle transaction,
+            ConnectorSession session,
+            ConnectorTableHandle table,
+            SplitSchedulingStrategy splitSchedulingStrategy)
     {
-        ThriftTableLayoutHandle layoutHandle = (ThriftTableLayoutHandle) layout;
+        ThriftTableHandle tableHandle = (ThriftTableHandle) table;
         return new ThriftSplitSource(
                 client.get(thriftHeaderProvider.getHeaders(session)),
-                new PrestoThriftSchemaTableName(layoutHandle.getSchemaName(), layoutHandle.getTableName()),
-                layoutHandle.getColumns().map(ThriftSplitManager::columnNames),
-                tupleDomainToThriftTupleDomain(layoutHandle.getConstraint()));
+                new PrestoThriftSchemaTableName(tableHandle.getSchemaName(), tableHandle.getTableName()),
+                tableHandle.getDesiredColumns().map(ThriftSplitManager::columnNames),
+                tupleDomainToThriftTupleDomain(tableHandle.getConstraint()));
     }
 
     private static Set<String> columnNames(Set<ColumnHandle> columns)

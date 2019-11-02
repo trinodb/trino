@@ -30,6 +30,8 @@ import java.util.Optional;
 
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
+import static io.prestosql.metadata.Signature.castableFromTypeParameter;
+import static io.prestosql.metadata.Signature.castableToTypeParameter;
 import static io.prestosql.metadata.Signature.comparableTypeParameter;
 import static io.prestosql.metadata.Signature.orderableTypeParameter;
 import static io.prestosql.metadata.Signature.typeVariable;
@@ -42,6 +44,7 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.TypeSignature.arrayType;
 import static io.prestosql.spi.type.TypeSignature.functionType;
@@ -49,15 +52,18 @@ import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.spi.type.TypeSignature.rowType;
 import static io.prestosql.spi.type.TypeSignatureParameter.anonymousField;
 import static io.prestosql.spi.type.TypeSignatureParameter.numericParameter;
+import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -433,8 +439,8 @@ public class TestSignatureBinder
                 .returnType(new TypeSignature("T2"))
                 .argumentTypes(new TypeSignature("T1"))
                 .typeVariableConstraints(ImmutableList.of(
-                        new TypeVariableConstraint("T1", true, false, "varchar"),
-                        new TypeVariableConstraint("T2", true, false, "varchar")))
+                        new TypeVariableConstraint("T1", true, false, null, ImmutableSet.of(), ImmutableSet.of()),
+                        new TypeVariableConstraint("T2", true, false, null, ImmutableSet.of(), ImmutableSet.of())))
                 .build();
 
         assertThat(function)
@@ -736,42 +742,30 @@ public class TestSignatureBinder
     @Test
     public void testVariadic()
     {
-        Signature mapVariadicBoundFunction = functionSignature()
+        Signature rowVariadicBoundFunction = functionSignature()
                 .returnType(BIGINT.getTypeSignature())
                 .argumentTypes(new TypeSignature("T"))
-                .typeVariableConstraints(ImmutableList.of(withVariadicBound("T", "map")))
+                .typeVariableConstraints(ImmutableList.of(withVariadicBound("T", "row")))
                 .build();
 
-        assertThat(mapVariadicBoundFunction)
-                .boundTo(type(mapType(BIGINT.getTypeSignature(), BIGINT.getTypeSignature())))
+        assertThat(rowVariadicBoundFunction)
+                .boundTo(RowType.anonymous(ImmutableList.of(BIGINT, BIGINT)))
                 .produces(new BoundVariables(
-                        ImmutableMap.of("T", type(mapType(BIGINT.getTypeSignature(), BIGINT.getTypeSignature()))),
+                        ImmutableMap.of("T", RowType.anonymous(ImmutableList.of(BIGINT, BIGINT))),
                         ImmutableMap.of()));
 
-        assertThat(mapVariadicBoundFunction)
+        assertThat(rowVariadicBoundFunction)
                 .boundTo(new ArrayType(BIGINT))
                 .fails();
 
-        assertThat(mapVariadicBoundFunction)
+        assertThat(rowVariadicBoundFunction)
                 .boundTo(new ArrayType(BIGINT))
                 .withCoercion()
                 .fails();
 
-        Signature decimalVariadicBoundFunction = functionSignature()
-                .returnType(BIGINT.getTypeSignature())
-                .argumentTypes(new TypeSignature("T"))
-                .typeVariableConstraints(ImmutableList.of(withVariadicBound("T", "decimal")))
-                .build();
-
-        assertThat(decimalVariadicBoundFunction)
-                .boundTo(createDecimalType(2, 1))
-                .produces(new BoundVariables(
-                        ImmutableMap.of("T", createDecimalType(2, 1)),
-                        ImmutableMap.of()));
-
-        assertThat(decimalVariadicBoundFunction)
-                .boundTo(BIGINT)
-                .fails();
+        assertThrows(IllegalArgumentException.class, () -> withVariadicBound("T", "array"));
+        assertThrows(IllegalArgumentException.class, () -> withVariadicBound("T", "map"));
+        assertThrows(IllegalArgumentException.class, () -> withVariadicBound("T", "decimal"));
     }
 
     @Test
@@ -789,19 +783,14 @@ public class TestSignatureBinder
                 .produces(new BoundVariables(
                         ImmutableMap.of("T", RowType.from(ImmutableList.of(RowType.field("a", BIGINT)))),
                         ImmutableMap.of()));
+    }
 
-        Signature arrayFunction = functionSignature()
-                .returnType(BOOLEAN.getTypeSignature())
-                .argumentTypes(new TypeSignature("T"), new TypeSignature("T"))
-                .typeVariableConstraints(ImmutableList.of(withVariadicBound("T", "array")))
-                .build();
-
-        assertThat(arrayFunction)
-                .boundTo(UNKNOWN, new ArrayType(BIGINT))
-                .withCoercion()
-                .produces(new BoundVariables(
-                        ImmutableMap.of("T", new ArrayType(BIGINT)),
-                        ImmutableMap.of()));
+    @Test
+    public void testInvalidVariadicBound()
+    {
+        assertThrows(IllegalArgumentException.class, () -> withVariadicBound("T", "array"));
+        assertThrows(IllegalArgumentException.class, () -> withVariadicBound("T", "map"));
+        assertThrows(IllegalArgumentException.class, () -> withVariadicBound("T", "decimal"));
     }
 
     @Test
@@ -1064,6 +1053,86 @@ public class TestSignatureBinder
                         .setTypeVariable("T", INTEGER)
                         .setTypeVariable("E", VARCHAR)
                         .build());
+    }
+
+    @Test
+    public void testCanCoerceTo()
+    {
+        Signature arrayJoin = functionSignature()
+                .returnType(VARCHAR.getTypeSignature())
+                .argumentTypes(arrayType(new TypeSignature("E")))
+                .typeVariableConstraints(castableToTypeParameter("E", VARCHAR.getTypeSignature()))
+                .build();
+        assertThat(arrayJoin)
+                .boundTo(new ArrayType(INTEGER))
+                .produces(BoundVariables.builder()
+                        .setTypeVariable("E", INTEGER)
+                        .build());
+        assertThat(arrayJoin)
+                .boundTo(new ArrayType(VARBINARY))
+                .fails();
+
+        Signature castArray = functionSignature()
+                .returnType(arrayType(new TypeSignature("T")))
+                .argumentTypes(arrayType(new TypeSignature("F")))
+                .typeVariableConstraints(typeVariable("T"),
+                        castableToTypeParameter("F", new TypeSignature("T")))
+                .build();
+        assertThat(castArray)
+                .boundTo(ImmutableList.of(new ArrayType(INTEGER)), new ArrayType(VARCHAR))
+                .produces(BoundVariables.builder()
+                        .setTypeVariable("F", INTEGER)
+                        .setTypeVariable("T", VARCHAR)
+                        .build());
+        assertThat(castArray)
+                .boundTo(new ArrayType(INTEGER), new ArrayType(TIMESTAMP))
+                .fails();
+
+        Signature multiCast = functionSignature()
+                .returnType(VARCHAR.getTypeSignature())
+                .argumentTypes(arrayType(new TypeSignature("E")))
+                .typeVariableConstraints(castableToTypeParameter("E", VARCHAR.getTypeSignature(), INTEGER.getTypeSignature()))
+                .build();
+        assertThat(multiCast)
+                .boundTo(new ArrayType(TINYINT))
+                .produces(BoundVariables.builder()
+                        .setTypeVariable("E", TINYINT)
+                        .build());
+        assertThat(multiCast)
+                .boundTo(new ArrayType(TIMESTAMP))
+                .fails();
+    }
+
+    @Test
+    public void testCanCoerceFrom()
+    {
+        Signature arrayJoin = functionSignature()
+                .returnType(BOOLEAN.getTypeSignature())
+                .argumentTypes(arrayType(new TypeSignature("E")), JSON.getTypeSignature())
+                .typeVariableConstraints(castableFromTypeParameter("E", JSON.getTypeSignature()))
+                .build();
+        assertThat(arrayJoin)
+                .boundTo(new ArrayType(INTEGER), JSON)
+                .produces(BoundVariables.builder()
+                        .setTypeVariable("E", INTEGER)
+                        .build());
+        assertThat(arrayJoin)
+                .boundTo(new ArrayType(VARBINARY))
+                .fails();
+
+        Signature multiCast = functionSignature()
+                .returnType(BOOLEAN.getTypeSignature())
+                .argumentTypes(arrayType(new TypeSignature("E")), JSON.getTypeSignature())
+                .typeVariableConstraints(castableFromTypeParameter("E", VARCHAR.getTypeSignature(), JSON.getTypeSignature()))
+                .build();
+        assertThat(multiCast)
+                .boundTo(new ArrayType(TINYINT), JSON)
+                .produces(BoundVariables.builder()
+                        .setTypeVariable("E", TINYINT)
+                        .build());
+        assertThat(multiCast)
+                .boundTo(new ArrayType(TIMESTAMP), JSON)
+                .fails();
     }
 
     @Test

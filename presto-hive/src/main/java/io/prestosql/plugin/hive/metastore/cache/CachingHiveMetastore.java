@@ -68,7 +68,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMultimap;
-import static com.google.common.collect.Iterables.transform;
 import static com.google.common.collect.Streams.stream;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
@@ -612,7 +611,9 @@ public class CachingHiveMetastore
     public Map<String, Optional<Partition>> getPartitionsByNames(HiveIdentity identity, String databaseName, String tableName, List<String> partitionNames)
     {
         HiveTableName hiveTableName = hiveTableName(databaseName, tableName);
-        Iterable<WithIdentity<HivePartitionName>> names = transform(partitionNames, name -> new WithIdentity<>(updateIdentity(identity), hivePartitionName(hiveTableName, name)));
+        List<WithIdentity<HivePartitionName>> names = partitionNames.stream()
+                .map(name -> new WithIdentity<>(updateIdentity(identity), hivePartitionName(hiveTableName, name)))
+                .collect(toImmutableList());
 
         Map<WithIdentity<HivePartitionName>, Optional<Partition>> all = getAll(partitionCache, names);
         ImmutableMap.Builder<String, Optional<Partition>> partitionsByName = ImmutableMap.builder();
@@ -786,7 +787,7 @@ public class CachingHiveMetastore
             delegate.grantTablePrivileges(databaseName, tableName, tableOwner, grantee, privileges);
         }
         finally {
-            tablePrivilegesCache.invalidate(new UserTableKey(grantee, databaseName, tableName, tableOwner));
+            tablePrivilegesCache.invalidate(new UserTableKey(Optional.of(grantee), databaseName, tableName, tableOwner));
         }
     }
 
@@ -797,12 +798,12 @@ public class CachingHiveMetastore
             delegate.revokeTablePrivileges(databaseName, tableName, tableOwner, grantee, privileges);
         }
         finally {
-            tablePrivilegesCache.invalidate(new UserTableKey(grantee, databaseName, tableName, tableOwner));
+            tablePrivilegesCache.invalidate(new UserTableKey(Optional.of(grantee), databaseName, tableName, tableOwner));
         }
     }
 
     @Override
-    public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal principal)
+    public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, String tableOwner, Optional<HivePrincipal> principal)
     {
         return get(tablePrivilegesCache, new UserTableKey(principal, databaseName, tableName, tableOwner));
     }
@@ -813,7 +814,7 @@ public class CachingHiveMetastore
         return delegate.isImpersonationEnabled();
     }
 
-    private Set<HivePrivilegeInfo> loadTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal principal)
+    private Set<HivePrivilegeInfo> loadTablePrivileges(String databaseName, String tableName, String tableOwner, Optional<HivePrincipal> principal)
     {
         return delegate.listTablePrivileges(databaseName, tableName, tableOwner, principal);
     }

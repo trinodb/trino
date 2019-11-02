@@ -15,11 +15,11 @@ package io.prestosql.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.DataSize;
 import io.prestosql.memory.context.AggregatedMemoryContext;
 import io.prestosql.parquet.Field;
 import io.prestosql.parquet.ParquetCorruptionException;
 import io.prestosql.parquet.ParquetDataSource;
+import io.prestosql.parquet.ParquetReaderOptions;
 import io.prestosql.parquet.RichColumnDescriptor;
 import io.prestosql.parquet.predicate.Predicate;
 import io.prestosql.parquet.reader.MetadataReader;
@@ -28,6 +28,7 @@ import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.parquet.ParquetPageSource;
+import io.prestosql.plugin.hive.parquet.ParquetReaderConfig;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSource;
@@ -87,14 +88,18 @@ public class IcebergPageSourceProvider
 {
     private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats fileFormatDataSourceStats;
+    private final ParquetReaderOptions options;
 
     @Inject
     public IcebergPageSourceProvider(
             HdfsEnvironment hdfsEnvironment,
-            FileFormatDataSourceStats fileFormatDataSourceStats)
+            FileFormatDataSourceStats fileFormatDataSourceStats,
+            ParquetReaderConfig config)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
+        requireNonNull(config, "config is null");
+        this.options = config.toParquetReaderOptions();
     }
 
     @Override
@@ -126,8 +131,9 @@ public class IcebergPageSourceProvider
                 start,
                 length,
                 regularColumns,
-                getParquetMaxReadBlockSize(session),
-                isFailOnCorruptedParquetStatistics(session),
+                options
+                        .withFailOnCorruptedStatistics(isFailOnCorruptedParquetStatistics(session))
+                        .withMaxReadBlockSize(getParquetMaxReadBlockSize(session)),
                 split.getPredicate(),
                 fileFormatDataSourceStats);
 
@@ -142,8 +148,7 @@ public class IcebergPageSourceProvider
             long start,
             long length,
             List<IcebergColumnHandle> regularColumns,
-            DataSize maxReadBlockSize,
-            boolean failOnCorruptedStatistics,
+            ParquetReaderOptions options,
             TupleDomain<IcebergColumnHandle> effectivePredicate,
             FileFormatDataSourceStats fileFormatDataSourceStats)
     {
@@ -155,7 +160,7 @@ public class IcebergPageSourceProvider
             FileStatus fileStatus = fileSystem.getFileStatus(path);
             long fileSize = fileStatus.getLen();
             FSDataInputStream inputStream = hdfsEnvironment.doAs(user, () -> fileSystem.open(path));
-            dataSource = buildHdfsParquetDataSource(inputStream, path, fileSize, fileFormatDataSourceStats);
+            dataSource = buildHdfsParquetDataSource(inputStream, path, fileSize, fileFormatDataSourceStats, options);
             ParquetMetadata parquetMetadata = MetadataReader.readFooter(fileSystem, path, fileSize);
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
@@ -184,7 +189,7 @@ public class IcebergPageSourceProvider
             for (BlockMetaData block : parquetMetadata.getBlocks()) {
                 long firstDataPage = block.getColumns().get(0).getFirstDataPageOffset();
                 if ((firstDataPage >= start) && (firstDataPage < (start + length)) &&
-                        predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain, failOnCorruptedStatistics)) {
+                        predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain, options.isFailOnCorruptedStatistics())) {
                     blocks.add(block);
                 }
             }
@@ -196,7 +201,7 @@ public class IcebergPageSourceProvider
                     blocks,
                     dataSource,
                     systemMemoryContext,
-                    maxReadBlockSize);
+                    options);
 
             ImmutableList.Builder<Type> prestoTypes = ImmutableList.builder();
             ImmutableList.Builder<Optional<Field>> internalFields = ImmutableList.builder();

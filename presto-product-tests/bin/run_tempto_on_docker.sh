@@ -16,4 +16,8 @@ if [[ ! -f "$DOCKER_CONF_LOCATION/$ENVIRONMENT/compose.sh" ]]; then
   usage
 fi
 
-environment_compose run -p 5007:5007 application-runner /docker/volumes/conf/docker/files/run-tempto.sh "$@"
+# create CLI history file (otherwise Docker creates it as a directory)
+export PRESTO_CLI_HISTORY_FILE="/tmp/presto_history_docker"
+touch "${PRESTO_CLI_HISTORY_FILE}"
+
+environment_compose run -p 5007:5007 application-runner /docker/presto-product-tests/conf/docker/files/run-tempto.sh "$@"

@@ -9,9 +9,9 @@ services:
   presto-master:
     image: 'prestodev/cdh5.15-hive-kerberized-kms:${DOCKER_IMAGES_VERSION}'
     volumes:
-      - ../../../conf/presto/etc/environment-specific-catalogs/singlenode-kerberos-kms-hdfs-no-impersonation/hive.properties:/docker/volumes/conf/presto/etc/catalog/hive.properties
+      - ../../../conf/presto/etc/environment-specific-catalogs/singlenode-kerberos-kms-hdfs-no-impersonation/hive.properties:/docker/presto-product-tests/conf/presto/etc/catalog/hive.properties
 
   application-runner:
     image: 'prestodev/cdh5.15-hive-kerberized-kms:${DOCKER_IMAGES_VERSION}'
     environment:
-    - TEMPTO_PROFILE_CONFIG_FILE=/docker/volumes/conf/tempto/tempto-configuration-for-docker-kerberos-kms.yaml
+    - TEMPTO_PROFILE_CONFIG_FILE=/docker/presto-product-tests/conf/tempto/tempto-configuration-for-docker-kerberos-kms.yaml

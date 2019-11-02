@@ -37,12 +37,13 @@ import java.util.TreeMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static io.prestosql.metadata.Signature.typeVariable;
+import static io.prestosql.metadata.Signature.castableToTypeParameter;
 import static io.prestosql.operator.scalar.JsonOperators.JSON_FACTORY;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.prestosql.spi.type.TypeSignature.mapType;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.util.Failures.checkCondition;
 import static io.prestosql.util.JsonUtil.JsonGeneratorWriter;
@@ -60,7 +61,9 @@ public class MapToJsonCast
     private MapToJsonCast()
     {
         super(OperatorType.CAST,
-                ImmutableList.of(typeVariable("K"), typeVariable("V")),
+                ImmutableList.of(
+                        castableToTypeParameter("K", VARCHAR.getTypeSignature()),
+                        castableToTypeParameter("V", JSON.getTypeSignature())),
                 ImmutableList.of(),
                 JSON.getTypeSignature(),
                 ImmutableList.of(mapType(new TypeSignature("K"), new TypeSignature("V"))),

@@ -14,9 +14,9 @@
 package io.prestosql.plugin.google.sheets;
 
 import io.prestosql.Session;
+import io.prestosql.testing.AbstractTestQueryFramework;
+import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.tests.AbstractTestQueryFramework;
-import io.prestosql.tests.DistributedQueryRunner;
 import org.testng.annotations.Test;
 
 import static io.prestosql.plugin.google.sheets.TestSheetsConfig.getProperties;
@@ -61,6 +61,7 @@ public class TestGoogleSheets
     public void testListTable()
     {
         assertQuery("show tables", "SELECT * FROM (VALUES 'metadata_table', 'number_text', 'table_with_duplicate_and_missing_column_names')");
+        assertQueryReturnsEmptyResult("SHOW TABLES IN gsheets.information_schema LIKE 'number_text'");
     }
 
     @Test

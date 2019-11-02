@@ -34,7 +34,7 @@ public class JdbcRecordSetProvider
     private final JdbcClient jdbcClient;
 
     @Inject
-    public JdbcRecordSetProvider(@InternalBaseJdbc JdbcClient jdbcClient)
+    public JdbcRecordSetProvider(JdbcClient jdbcClient)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
     }

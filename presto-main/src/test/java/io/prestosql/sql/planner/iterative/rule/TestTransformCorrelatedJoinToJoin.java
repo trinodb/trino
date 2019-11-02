@@ -14,9 +14,7 @@
 package io.prestosql.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.assertions.ExpressionMatcher;
 import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.tree.ComparisonExpression;
@@ -27,13 +25,9 @@ import java.util.Optional;
 
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.join;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.limit;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
-import static io.prestosql.sql.planner.plan.CorrelatedJoinNode.Type.FULL;
 import static io.prestosql.sql.planner.plan.CorrelatedJoinNode.Type.INNER;
 import static io.prestosql.sql.planner.plan.CorrelatedJoinNode.Type.LEFT;
-import static io.prestosql.sql.planner.plan.CorrelatedJoinNode.Type.RIGHT;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN;
@@ -155,170 +149,6 @@ public class TestTransformCorrelatedJoinToJoin
                                 filter(
                                         TRUE_LITERAL,
                                         values("b"))));
-    }
-
-    @Test
-    public void testRewriteRightCorrelatedJoin()
-    {
-        tester().assertThat(new TransformCorrelatedJoinToJoin(tester().getMetadata()))
-                .on(p -> {
-                    Symbol a = p.symbol("a");
-                    Symbol b = p.symbol("b");
-                    return p.correlatedJoin(
-                            ImmutableList.of(a),
-                            p.values(a),
-                            RIGHT,
-                            TRUE_LITERAL,
-                            p.filter(
-                                    new ComparisonExpression(
-                                            GREATER_THAN,
-                                            b.toSymbolReference(),
-                                            a.toSymbolReference()),
-                                    p.values(b)));
-                })
-                .matches(
-                        join(
-                                JoinNode.Type.INNER,
-                                ImmutableList.of(),
-                                Optional.of("b > a"),
-                                values("a"),
-                                filter(
-                                        TRUE_LITERAL,
-                                        values("b"))));
-
-        tester().assertThat(new TransformCorrelatedJoinToJoin(tester().getMetadata()))
-                .on(p -> {
-                    Symbol a = p.symbol("a");
-                    Symbol b = p.symbol("b");
-                    return p.correlatedJoin(
-                            ImmutableList.of(a),
-                            p.values(a),
-                            RIGHT,
-                            new ComparisonExpression(
-                                    LESS_THAN,
-                                    b.toSymbolReference(),
-                                    new LongLiteral("3")),
-                            p.topN(
-                                    2,
-                                    ImmutableList.of(a),
-                                    p.values(b)));
-                })
-                .matches(
-                        project(
-                                ImmutableMap.of(
-                                        "a", new ExpressionMatcher("if(b < 3, a, null)"),
-                                        "b", new ExpressionMatcher("b")),
-                                join(
-                                        JoinNode.Type.INNER,
-                                        ImmutableList.of(),
-                                        Optional.empty(),
-                                        values("a"),
-                                        limit(
-                                                2,
-                                                values("b")))));
-
-        tester().assertThat(new TransformCorrelatedJoinToJoin(tester().getMetadata()))
-                .on(p -> {
-                    Symbol a = p.symbol("a");
-                    Symbol b = p.symbol("b");
-                    return p.correlatedJoin(
-                            ImmutableList.of(a),
-                            p.values(a),
-                            RIGHT,
-                            new ComparisonExpression(
-                                    LESS_THAN,
-                                    b.toSymbolReference(),
-                                    new LongLiteral("3")),
-                            p.filter(
-                                    new ComparisonExpression(
-                                            GREATER_THAN,
-                                            b.toSymbolReference(),
-                                            a.toSymbolReference()),
-                                    p.values(b)));
-                })
-                .matches(
-                        project(
-                                ImmutableMap.of(
-                                        "a", new ExpressionMatcher("if(b < 3, a, null)"),
-                                        "b", new ExpressionMatcher("b")),
-                                join(
-                                        JoinNode.Type.INNER,
-                                        ImmutableList.of(),
-                                        Optional.of("b > a"),
-                                        values("a"),
-                                        filter(
-                                                TRUE_LITERAL,
-                                                values("b")))));
-    }
-
-    @Test
-    public void testRewriteFullCorrelatedJoin()
-    {
-        tester().assertThat(new TransformCorrelatedJoinToJoin(tester().getMetadata()))
-                .on(p -> {
-                    Symbol a = p.symbol("a");
-                    Symbol b = p.symbol("b");
-                    return p.correlatedJoin(
-                            ImmutableList.of(a),
-                            p.values(a),
-                            FULL,
-                            TRUE_LITERAL,
-                            p.filter(
-                                    new ComparisonExpression(
-                                            GREATER_THAN,
-                                            b.toSymbolReference(),
-                                            a.toSymbolReference()),
-                                    p.values(b)));
-                })
-                .matches(
-                        join(
-                                JoinNode.Type.LEFT,
-                                ImmutableList.of(),
-                                Optional.of("b > a"),
-                                values("a"),
-                                filter(
-                                        TRUE_LITERAL,
-                                        values("b"))));
-
-        tester().assertThat(new TransformCorrelatedJoinToJoin(tester().getMetadata()))
-                .on(p -> {
-                    Symbol a = p.symbol("a");
-                    Symbol b = p.symbol("b");
-                    return p.correlatedJoin(
-                            ImmutableList.of(a),
-                            p.values(a),
-                            FULL,
-                            new ComparisonExpression(
-                                    LESS_THAN,
-                                    b.toSymbolReference(),
-                                    new LongLiteral("3")),
-                            p.topN(
-                                    2,
-                                    ImmutableList.of(a),
-                                    p.values(b)));
-                })
-                .doesNotFire();
-
-        tester().assertThat(new TransformCorrelatedJoinToJoin(tester().getMetadata()))
-                .on(p -> {
-                    Symbol a = p.symbol("a");
-                    Symbol b = p.symbol("b");
-                    return p.correlatedJoin(
-                            ImmutableList.of(a),
-                            p.values(a),
-                            FULL,
-                            new ComparisonExpression(
-                                    LESS_THAN,
-                                    b.toSymbolReference(),
-                                    new LongLiteral("3")),
-                            p.filter(
-                                    new ComparisonExpression(
-                                            GREATER_THAN,
-                                            b.toSymbolReference(),
-                                            a.toSymbolReference()),
-                                    p.values(b)));
-                })
-                .doesNotFire();
     }
 
     @Test

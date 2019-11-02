@@ -44,10 +44,10 @@ import io.prestosql.sql.planner.planprinter.IoPlanPrinter.FormattedMarker;
 import io.prestosql.sql.planner.planprinter.IoPlanPrinter.FormattedRange;
 import io.prestosql.sql.planner.planprinter.IoPlanPrinter.IoPlan;
 import io.prestosql.sql.planner.planprinter.IoPlanPrinter.IoPlan.TableColumnInfo;
+import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
+import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
-import io.prestosql.tests.AbstractTestIntegrationSmokeTest;
-import io.prestosql.tests.DistributedQueryRunner;
 import io.prestosql.type.TypeDeserializer;
 import org.apache.hadoop.fs.Path;
 import org.intellij.lang.annotations.Language;
@@ -114,12 +114,12 @@ import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.BROA
 import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.prestosql.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
+import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.SHOW_COLUMNS;
 import static io.prestosql.testing.TestingAccessControlManager.privilege;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
-import static io.prestosql.tests.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.prestosql.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -694,7 +694,7 @@ public class TestHiveIntegrationSmokeTest
         String queryId = (String) computeScalar("SELECT query_id FROM system.runtime.queries WHERE query LIKE 'CREATE TABLE test_show_properties%'");
         String nodeVersion = (String) computeScalar("SELECT node_version FROM system.runtime.nodes WHERE coordinator");
         assertQuery("SELECT * FROM \"test_show_properties$properties\"",
-                "SELECT 'ship_priority,order_status', '0.5', '" + queryId + "', '" + nodeVersion + "', 'false'");
+                "SELECT 'workaround for potential lack of HIVE-12730', 'ship_priority,order_status', '0.5', '" + queryId + "', '" + nodeVersion + "', 'false'");
         assertUpdate("DROP TABLE test_show_properties");
     }
 
@@ -2182,7 +2182,7 @@ public class TestHiveIntegrationSmokeTest
                         "   \"c 2\" varchar,\n" +
                         "   \"c'3\" array(bigint),\n" +
                         "   c4 map(bigint, varchar) COMMENT 'comment test4',\n" +
-                        "   c5 double COMMENT 'comment test5'\n)\n" +
+                        "   c5 double COMMENT ''\n)\n" +
                         "COMMENT 'test'\n" +
                         "WITH (\n" +
                         "   bucket_count = 5,\n" +
@@ -3768,39 +3768,39 @@ public class TestHiveIntegrationSmokeTest
             assertQuery(
                     "SELECT * FROM information_schema.table_privileges WHERE table_schema = 'bar'",
                     "VALUES " +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'one', 'SELECT', 'YES', null)," +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'one', 'DELETE', 'YES', null)," +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'one', 'INSERT', 'YES', null)," +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'one', 'UPDATE', 'YES', null)," +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'two', 'SELECT', 'YES', null)," +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'two', 'DELETE', 'YES', null)," +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'two', 'INSERT', 'YES', null)," +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'two', 'UPDATE', 'YES', null)," +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'three', 'SELECT', 'YES', null)," +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'three', 'DELETE', 'YES', null)," +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'three', 'INSERT', 'YES', null)," +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'three', 'UPDATE', 'YES', null)");
+                            "('admin', 'USER', 'hive', 'USER', 'hive', 'bar', 'one', 'SELECT', 'YES', null)," +
+                            "('admin', 'USER', 'hive', 'USER', 'hive', 'bar', 'one', 'DELETE', 'YES', null)," +
+                            "('admin', 'USER', 'hive', 'USER', 'hive', 'bar', 'one', 'INSERT', 'YES', null)," +
+                            "('admin', 'USER', 'hive', 'USER', 'hive', 'bar', 'one', 'UPDATE', 'YES', null)," +
+                            "('admin', 'USER', 'hive', 'USER', 'hive', 'bar', 'two', 'SELECT', 'YES', null)," +
+                            "('admin', 'USER', 'hive', 'USER', 'hive', 'bar', 'two', 'DELETE', 'YES', null)," +
+                            "('admin', 'USER', 'hive', 'USER', 'hive', 'bar', 'two', 'INSERT', 'YES', null)," +
+                            "('admin', 'USER', 'hive', 'USER', 'hive', 'bar', 'two', 'UPDATE', 'YES', null)," +
+                            "('admin', 'USER', 'hive', 'USER', 'hive', 'bar', 'three', 'SELECT', 'YES', null)," +
+                            "('admin', 'USER', 'hive', 'USER', 'hive', 'bar', 'three', 'DELETE', 'YES', null)," +
+                            "('admin', 'USER', 'hive', 'USER', 'hive', 'bar', 'three', 'INSERT', 'YES', null)," +
+                            "('admin', 'USER', 'hive', 'USER', 'hive', 'bar', 'three', 'UPDATE', 'YES', null)");
             assertQuery(
                     "SELECT * FROM information_schema.table_privileges WHERE table_schema = 'bar' AND table_name = 'two'",
                     "VALUES " +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'two', 'SELECT', 'YES', null)," +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'two', 'DELETE', 'YES', null)," +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'two', 'INSERT', 'YES', null)," +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'two', 'UPDATE', 'YES', null)");
+                            "('admin', 'USER', 'hive', 'USER', 'hive', 'bar', 'two', 'SELECT', 'YES', null)," +
+                            "('admin', 'USER', 'hive', 'USER', 'hive', 'bar', 'two', 'DELETE', 'YES', null)," +
+                            "('admin', 'USER', 'hive', 'USER', 'hive', 'bar', 'two', 'INSERT', 'YES', null)," +
+                            "('admin', 'USER', 'hive', 'USER', 'hive', 'bar', 'two', 'UPDATE', 'YES', null)");
             assertQuery(
                     "SELECT * FROM information_schema.table_privileges WHERE table_name = 'two'",
                     "VALUES " +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'two', 'SELECT', 'YES', null)," +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'two', 'DELETE', 'YES', null)," +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'two', 'INSERT', 'YES', null)," +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'two', 'UPDATE', 'YES', null)");
+                            "('admin', 'USER', 'hive', 'USER', 'hive', 'bar', 'two', 'SELECT', 'YES', null)," +
+                            "('admin', 'USER', 'hive', 'USER', 'hive', 'bar', 'two', 'DELETE', 'YES', null)," +
+                            "('admin', 'USER', 'hive', 'USER', 'hive', 'bar', 'two', 'INSERT', 'YES', null)," +
+                            "('admin', 'USER', 'hive', 'USER', 'hive', 'bar', 'two', 'UPDATE', 'YES', null)");
             assertQuery(
                     "SELECT * FROM information_schema.table_privileges WHERE table_name = 'three'",
                     "VALUES " +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'three', 'SELECT', 'YES', null)," +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'three', 'DELETE', 'YES', null)," +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'three', 'INSERT', 'YES', null)," +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'three', 'UPDATE', 'YES', null)");
+                            "('admin', 'USER', 'hive', 'USER', 'hive', 'bar', 'three', 'SELECT', 'YES', null)," +
+                            "('admin', 'USER', 'hive', 'USER', 'hive', 'bar', 'three', 'DELETE', 'YES', null)," +
+                            "('admin', 'USER', 'hive', 'USER', 'hive', 'bar', 'three', 'INSERT', 'YES', null)," +
+                            "('admin', 'USER', 'hive', 'USER', 'hive', 'bar', 'three', 'UPDATE', 'YES', null)");
         }
         finally {
             computeActual("DROP SCHEMA IF EXISTS foo");

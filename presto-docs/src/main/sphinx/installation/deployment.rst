@@ -6,8 +6,8 @@ Installing Presto
 -----------------
 
 Download the Presto server tarball, :maven_download:`server`, and unpack it.
-The tarball will contain a single top-level directory,
-|presto_server_release|, which we will call the *installation* directory.
+The tarball contains a single top-level directory,
+|presto_server_release|, which we call the *installation* directory.
 
 Presto needs a *data* directory for storing logs, etc.
 We recommend creating a data directory outside of the installation directory,
@@ -17,7 +17,7 @@ Configuring Presto
 ------------------
 
 Create an ``etc`` directory inside the installation directory.
-This will hold the following configuration:
+This holds the following configuration:
 
 * Node Properties: environmental configuration specific to each node
 * JVM Config: command line options for the Java Virtual Machine
@@ -54,7 +54,7 @@ The above properties are described below:
   each installation must have a unique identifier.
 
 * ``node.data-dir``:
-  The location (filesystem path) of the data directory. Presto will store
+  The location (filesystem path) of the data directory. Presto stores
   logs and other data here.
 
 .. _presto_jvm_config:
@@ -85,8 +85,8 @@ The following provides a good starting point for creating ``etc/jvm.config``:
     -Djdk.attach.allowAttachSelf=true
     -Djdk.nio.maxCachedBufferSize=2000000
 
-Because an ``OutOfMemoryError`` will typically leave the JVM in an
-inconsistent state, we write a heap dump (for debugging) and forcibly
+Because an ``OutOfMemoryError`` typically leaves the JVM in an
+inconsistent state, we write a heap dump, for debugging, and forcibly
 terminate the process when this occurs.
 
 
@@ -125,8 +125,8 @@ And this is a minimal configuration for the workers:
     query.max-total-memory-per-node=2GB
     discovery.uri=http://example.net:8080
 
-Alternatively, if you are setting up a single machine for testing that
-will function as both a coordinator and worker, use this configuration:
+Alternatively, if you are setting up a single machine for testing, that
+functions as both a coordinator and worker, use this configuration:
 
 .. code-block:: none
 
@@ -142,8 +142,8 @@ will function as both a coordinator and worker, use this configuration:
 These properties require some explanation:
 
 * ``coordinator``:
-  Allow this Presto instance to function as a coordinator
-  (accept queries from clients and manage query execution).
+  Allow this Presto instance to function as a coordinator, so to
+  accept queries from clients and manage query execution.
 
 * ``node-scheduler.include-coordinator``:
   Allow scheduling work on the coordinator.
@@ -157,18 +157,18 @@ These properties require some explanation:
   communication, internal and external.
 
 * ``query.max-memory``:
-  The maximum amount of distributed memory that a query may use.
+  The maximum amount of distributed memory, that a query may use.
 
 * ``query.max-memory-per-node``:
-  The maximum amount of user memory that a query may use on any one machine.
+  The maximum amount of user memory, that a query may use on any one machine.
 
 * ``query.max-total-memory-per-node``:
-  The maximum amount of user and system memory that a query may use on any one machine,
+  The maximum amount of user and system memory, that a query may use on any one machine,
   where system memory is the memory used during execution by readers, writers, and network buffers, etc.
 
 * ``discovery-server.enabled``:
   Presto uses the Discovery service to find all the nodes in the cluster.
-  Every Presto instance will register itself with the Discovery service
+  Every Presto instance registers itself with the Discovery service
   on startup. In order to simplify deployment and avoid running an additional
   service, the Presto coordinator can run an embedded version of the
   Discovery service. It shares the HTTP server with Presto and thus uses
@@ -187,7 +187,7 @@ You may also wish to set the following properties:
   Specifies the port for the JMX RMI registry. JMX clients should connect to this port.
 
 * ``jmx.rmiserver.port``:
-  Specifies the port for the JMX RMI server. Presto exports many metrics
+  Specifies the port for the JMX RMI server. Presto exports many metrics,
   that are useful for monitoring via JMX.
 
 The above configuration properties are a minimal set to help you get started.
@@ -200,7 +200,7 @@ Log Levels
 The optional log levels file, ``etc/log.properties``, allows setting the
 minimum log level for named logger hierarchies. Every logger has a name,
 which is typically the fully qualified name of the class that uses the logger.
-Loggers have a hierarchy based on the dots in the name (like Java packages).
+Loggers have a hierarchy based on the dots in the name, like Java packages.
 For example, consider the following log levels file:
 
 .. code-block:: none
@@ -209,8 +209,8 @@ For example, consider the following log levels file:
 
 This would set the minimum level to ``INFO`` for both
 ``io.prestosql.server`` and ``io.prestosql.plugin.hive``.
-The default minimum level is ``INFO``
-(thus the above example does not actually change anything).
+The default minimum level is ``INFO``,
+thus the above example does not actually change anything.
 There are four levels: ``DEBUG``, ``INFO``, ``WARN`` and ``ERROR``.
 
 Catalog Properties
@@ -218,9 +218,9 @@ Catalog Properties
 
 Presto accesses data via *connectors*, which are mounted in catalogs.
 The connector provides all of the schemas and tables inside of the catalog.
-For example, the Hive connector maps each Hive database to a schema,
-so if the Hive connector is mounted as the ``hive`` catalog, and Hive
-contains a table ``clicks`` in database ``web``, that table would be accessed
+For example, the Hive connector maps each Hive database to a schema.
+If the Hive connector is mounted as the ``hive`` catalog, and Hive
+contains a table ``clicks`` in database ``web``, that table can be accessed
 in Presto as ``hive.web.clicks``.
 
 Catalogs are registered by creating a catalog properties file
@@ -247,8 +247,8 @@ Presto can be started as a daemon by running the following:
     bin/launcher start
 
 Alternatively, it can be run in the foreground, with the logs and other
-output being written to stdout/stderr (both streams should be captured
-if using a supervision system like daemontools):
+output written to stdout/stderr. Bboth streams should be captured
+if using a supervision system like daemontools:
 
 .. code-block:: none
 
@@ -262,12 +262,12 @@ After launching, you can find the log files in ``var/log``:
 
 * ``launcher.log``:
   This log is created by the launcher and is connected to the stdout
-  and stderr streams of the server. It will contain a few log messages
-  that occur while the server logging is being initialized and any
+  and stderr streams of the server. It contains a few log messages
+  that occur while the server logging is being initialized, and any
   errors or diagnostics produced by the JVM.
 
 * ``server.log``:
-  This is the main log file used by Presto. It will typically contain
+  This is the main log file used by Presto. It typically contains
   the relevant information if the server fails during initialization.
   It is automatically rotated and compressed.
 
