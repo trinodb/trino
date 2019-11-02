@@ -163,6 +163,7 @@ public final class OuterLookupSource
             return new OuterLookupSource(lookupSourceSupplier.get(), outerPositionTracker);
         }
 
+        @Override
         public OuterPositionIterator getOuterPositionIterator()
         {
             return outerPositionTracker.getOuterPositionIterator();

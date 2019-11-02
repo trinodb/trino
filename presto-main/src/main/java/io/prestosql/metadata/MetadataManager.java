@@ -1045,6 +1045,7 @@ public final class MetadataManager
                         result.getRemainingFilter()));
     }
 
+    @Override
     public Optional<ProjectionApplicationResult<TableHandle>> applyProjection(Session session, TableHandle table, List<ConnectorExpression> projections, Map<String, ColumnHandle> assignments)
     {
         CatalogName catalogName = table.getCatalogName();

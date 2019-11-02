@@ -56,6 +56,7 @@ class ChildAggregatedMemoryContext
         return parentMemoryContext;
     }
 
+    @Override
     void closeContext()
     {
         parentMemoryContext.updateBytes(FORCE_FREE_TAG, -getBytes());

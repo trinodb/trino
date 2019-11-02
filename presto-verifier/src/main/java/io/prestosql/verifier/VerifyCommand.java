@@ -95,6 +95,7 @@ public class VerifyCommand
     @Arguments(description = "Config filename")
     public String configFilename;
 
+    @Override
     public void run()
     {
         if (configFilename != null) {

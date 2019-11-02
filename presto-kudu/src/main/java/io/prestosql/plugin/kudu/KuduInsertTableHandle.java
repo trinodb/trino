@@ -46,17 +46,20 @@ public class KuduInsertTableHandle
         this.columnTypes = ImmutableList.copyOf(columnTypes);
     }
 
+    @Override
     @JsonProperty
     public List<Type> getColumnTypes()
     {
         return columnTypes;
     }
 
+    @Override
     public List<Type> getOriginalColumnTypes()
     {
         return columnTypes;
     }
 
+    @Override
     public boolean isGenerateUUID()
     {
         return false;

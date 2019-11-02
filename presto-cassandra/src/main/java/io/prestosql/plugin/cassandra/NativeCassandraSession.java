@@ -310,6 +310,7 @@ public class NativeCassandraSession
                         caseInsensitiveTableName, tableNames));
     }
 
+    @Override
     public boolean isMaterializedView(SchemaTableName schemaTableName)
     {
         KeyspaceMetadata keyspace = getKeyspaceByCaseInsensitiveName(schemaTableName.getSchemaName());

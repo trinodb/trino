@@ -55,6 +55,7 @@ public final class SortingProperty<E>
         return column;
     }
 
+    @Override
     public Set<E> getColumns()
     {
         return Collections.singleton(column);
