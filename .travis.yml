@@ -116,6 +116,12 @@ script:
       docker/build-local.sh
     fi
   - |
+    if [[ -v MAVEN_CHECKS ]]; then
+      # TODO enable this for presto-parser
+      env MAVEN_OPTS="${MAVEN_INSTALL_OPTS}" ./mvnw clean compile test-compile -DskipTests -B -T C1 -P errorprone-compiler-presto \
+        -pl '!presto-server-rpm,!presto-server,!presto-docs,!presto-thrift-api,!presto-parser'
+    fi
+  - |
     if [[ -v WEBUI_CHECKS ]]; then
       presto-main/bin/check_webui.sh
     fi
