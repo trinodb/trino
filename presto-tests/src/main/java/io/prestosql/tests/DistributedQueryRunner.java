@@ -190,7 +190,7 @@ public class DistributedQueryRunner
         if (coordinator) {
             propertiesBuilder.put("node-scheduler.include-coordinator", "true");
             propertiesBuilder.put("join-distribution-type", "PARTITIONED");
-            propertiesBuilder.put("experimental.iterative-optimizer-enabled", "true");
+            propertiesBuilder.put("iterative-optimizer-enabled", "true");
         }
         HashMap<String, String> properties = new HashMap<>(propertiesBuilder.build());
         properties.putAll(extraProperties);
