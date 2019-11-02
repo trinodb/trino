@@ -15,9 +15,9 @@ package io.prestosql.tests.statistics;
 
 import java.util.OptionalDouble;
 
+import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.tests.statistics.MetricComparison.Result.DIFFER;
 import static io.prestosql.tests.statistics.MetricComparison.Result.MATCH;
-import static io.prestosql.tests.statistics.MetricComparison.Result.NO_BASELINE;
 import static io.prestosql.tests.statistics.MetricComparison.Result.NO_ESTIMATE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -57,9 +57,7 @@ public class MetricComparison
         if (!estimatedValue.isPresent()) {
             return NO_ESTIMATE;
         }
-        if (!actualValue.isPresent()) {
-            return NO_BASELINE;
-        }
+        checkState(actualValue.isPresent(), "actual value is not present");
         return metricComparisonStrategy.matches(actualValue.getAsDouble(), estimatedValue.getAsDouble()) ? MATCH : DIFFER;
     }
 
@@ -74,7 +72,6 @@ public class MetricComparison
     public enum Result
     {
         NO_ESTIMATE,
-        NO_BASELINE,
         DIFFER,
         MATCH
     }
