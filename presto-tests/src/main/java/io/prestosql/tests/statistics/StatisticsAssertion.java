@@ -25,7 +25,6 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.tests.statistics.MetricComparator.getMetricComparisons;
 import static io.prestosql.tests.statistics.MetricComparison.Result.MATCH;
-import static io.prestosql.tests.statistics.MetricComparison.Result.NO_BASELINE;
 import static io.prestosql.tests.statistics.MetricComparison.Result.NO_ESTIMATE;
 import static io.prestosql.tests.statistics.MetricComparisonStrategies.noError;
 import static io.prestosql.tests.statistics.Metrics.distinctValuesCount;
@@ -117,12 +116,6 @@ public class StatisticsAssertion
         public Checks noEstimate(Metric metric)
         {
             checks.add(new MetricsCheck(metric, (actual, estimate) -> true, NO_ESTIMATE));
-            return this;
-        }
-
-        public Checks noBaseline(Metric metric)
-        {
-            checks.add(new MetricsCheck(metric, (actual, estimate) -> true, NO_BASELINE));
             return this;
         }
 
