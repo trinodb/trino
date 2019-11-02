@@ -58,6 +58,7 @@
         <dep.logback.version>1.2.3</dep.logback.version>
         <dep.jmxutils.version>1.21</dep.jmxutils.version>
         <dep.gcs.version>2.0.0</dep.gcs.version>
+        <dep.errorprone.version>2.3.3</dep.errorprone.version>
 
         <!--
           America/Bahia_Banderas has:
@@ -1223,7 +1224,7 @@
             <dependency>
                 <groupId>com.google.errorprone</groupId>
                 <artifactId>error_prone_annotations</artifactId>
-                <version>2.3.3</version>
+                <version>${dep.errorprone.version}</version>
             </dependency>
 
             <dependency>
@@ -1411,5 +1412,47 @@
                 </plugins>
             </build>
         </profile>
+
+        <profile>
+            <id>errorprone-compiler-presto</id><!-- airbase defines "errorprone-compiler" profile but set up this ourselves -->
+
+            <!-- TODO simplify the following configuration when using JDK 9+ for compilation. See https://errorprone.info/docs/installation -->
+            <properties>
+                <javac.version>9+181-r4173-1</javac.version>
+
+                <!-- with errorprone compiler, checkstyle is run on generated sources too and they may not match our checkstyle rules -->
+                <air.check.skip-checkstyle>true</air.check.skip-checkstyle>
+            </properties>
+
+            <!-- using github.com/google/error-prone-javac is required when running on JDK 8 -->
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <version>3.8.0</version>
+                        <configuration>
+                            <source>8</source>
+                            <target>8</target>
+                            <fork>true</fork>
+                            <compilerArgs>
+                                <arg>-J-Xbootclasspath/p:${settings.localRepository}/com/google/errorprone/javac/${javac.version}/javac-${javac.version}.jar</arg>
+                                <arg>-XDcompilePolicy=simple</arg>
+                                <!-- TODO enable more checks, i.e. remove "-XepDisableAllChecks" -->
+                                <arg>-Xplugin:ErrorProne -XepDisableWarningsInGeneratedCod -XepDisableAllChecks -Xep:MissingOverride:ERROR</arg>
+                            </compilerArgs>
+                            <annotationProcessorPaths>
+                                <path>
+                                    <groupId>com.google.errorprone</groupId>
+                                    <artifactId>error_prone_core</artifactId>
+                                    <version>${dep.errorprone.version}</version>
+                                </path>
+                            </annotationProcessorPaths>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
     </profiles>
 </project>
