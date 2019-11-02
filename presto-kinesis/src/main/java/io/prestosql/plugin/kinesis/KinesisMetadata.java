@@ -16,7 +16,6 @@ package io.prestosql.plugin.kinesis;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
-import io.airlift.log.Logger;
 import io.prestosql.decoder.dummy.DummyRowDecoder;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -41,10 +40,6 @@ import static java.util.Objects.requireNonNull;
 public class KinesisMetadata
         implements ConnectorMetadata
 {
-    private static final Logger log = Logger.get(KinesisMetadata.class);
-
-    private final KinesisHandleResolver handleResolver;
-
     private final Supplier<Map<SchemaTableName, KinesisStreamDescription>> tableDescriptionSupplier;
     private final Set<KinesisInternalFieldDescription> internalFieldDescriptions;
     private final boolean isHideInternalColumns;
@@ -52,13 +47,11 @@ public class KinesisMetadata
     @Inject
     public KinesisMetadata(
             KinesisConfig kinesisConfig,
-            KinesisHandleResolver handleResolver,
             Supplier<Map<SchemaTableName, KinesisStreamDescription>> tableDescriptionSupplier,
             Set<KinesisInternalFieldDescription> internalFieldDescriptions)
     {
         requireNonNull(kinesisConfig, "kinesisConfig is null");
         isHideInternalColumns = kinesisConfig.isHideInternalColumns();
-        this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
         this.tableDescriptionSupplier = requireNonNull(tableDescriptionSupplier);
         this.internalFieldDescriptions = requireNonNull(internalFieldDescriptions, "internalFieldDescriptions is null");
     }

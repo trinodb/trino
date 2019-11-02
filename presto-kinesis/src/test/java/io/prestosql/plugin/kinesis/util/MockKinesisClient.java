@@ -46,6 +46,8 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
+import static java.lang.Integer.parseInt;
+
 /**
  * Mock kinesis client for testing that is primarily used for reading from the
  * stream as we do here in Presto.
@@ -64,15 +66,13 @@ public class MockKinesisClient
             extends Shard
     {
         private List<Record> recs = new ArrayList<>();
-        private String streamName = "";
         private int index;
 
         public InternalShard(String streamName, int index)
         {
             super();
-            this.streamName = streamName;
             this.index = index;
-            this.setShardId(this.streamName + "_" + this.index);
+            this.setShardId(streamName + "_" + this.index);
         }
 
         public List<Record> getRecords()
@@ -85,17 +85,12 @@ public class MockKinesisClient
             List<Record> returnRecords = new ArrayList();
 
             for (Record record : this.recs) {
-                if (Integer.valueOf(record.getSequenceNumber()) >= iterator.recordIndex) {
+                if (parseInt(record.getSequenceNumber()) >= iterator.recordIndex) {
                     returnRecords.add(record);
                 }
             }
 
             return returnRecords;
-        }
-
-        public String getStreamName()
-        {
-            return streamName;
         }
 
         public int getIndex()
@@ -119,7 +114,6 @@ public class MockKinesisClient
         private String streamName = "";
         private String streamAmazonResourceName = "";
         private String streamStatus = "CREATING";
-        private int retentionPeriodHours = 24;
         private List<InternalShard> shards = new ArrayList();
         private int sequenceNo = 100;
         private int nextShard;
@@ -164,7 +158,7 @@ public class MockKinesisClient
             String[] comps = afterShardId.split("_");
             if (comps.length == 2) {
                 List<InternalShard> returnArray = new ArrayList();
-                int afterIndex = Integer.parseInt(comps[1]);
+                int afterIndex = parseInt(comps[1]);
                 if (shards.size() > afterIndex + 1) {
                     for (InternalShard shard : shards) {
                         if (shard.getIndex() > afterIndex) {
@@ -241,7 +235,7 @@ public class MockKinesisClient
             ShardIterator newInst = null;
             String[] comps = shardId.split("_");
             if (streamName.equals(comps[0]) && comps[1].matches("[0-9]+")) {
-                newInst = new ShardIterator(comps[0], Integer.parseInt(comps[1]), 0);
+                newInst = new ShardIterator(comps[0], parseInt(comps[1]), 0);
             }
 
             return newInst;
@@ -253,7 +247,7 @@ public class MockKinesisClient
             String[] comps = input.split("_");
             if (comps.length == 3) {
                 if (comps[1].matches("[0-9]+") && comps[2].matches("[0-9]+")) {
-                    newInst = new ShardIterator(comps[0], Integer.parseInt(comps[1]), Integer.parseInt(comps[2]));
+                    newInst = new ShardIterator(comps[0], parseInt(comps[1]), parseInt(comps[2]));
                 }
             }
 
@@ -390,7 +384,7 @@ public class MockKinesisClient
             if (theStream != null) {
                 String seqAsString = getShardIteratorRequest.getStartingSequenceNumber();
                 if (seqAsString != null && !seqAsString.isEmpty() && getShardIteratorRequest.getShardIteratorType().equals("AFTER_SEQUENCE_NUMBER")) {
-                    int sequence = Integer.parseInt(seqAsString);
+                    int sequence = parseInt(seqAsString);
                     iter.recordIndex = sequence + 1;
                 }
                 else {

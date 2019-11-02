@@ -80,6 +80,6 @@ public class TestKinesisPlugin
         assertNotNull(md);
 
         ConnectorTransactionHandle handle = c.beginTransaction(READ_COMMITTED, true);
-        assertTrue(handle != null && handle instanceof KinesisTransactionHandle);
+        assertTrue(handle instanceof KinesisTransactionHandle);
     }
 }
