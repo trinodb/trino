@@ -268,7 +268,7 @@ public class GlueHiveMetastore
         return ImmutableSet.of();
     }
 
-    private Table getTableOrElseThrow(HiveIdentity identity, String databaseName, String tableName)
+    private Table getExistingTable(HiveIdentity identity, String databaseName, String tableName)
     {
         return getTable(identity, databaseName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
@@ -304,7 +304,7 @@ public class GlueHiveMetastore
             throw new PrestoException(NOT_SUPPORTED, "Glue metastore does not support column level statistics");
         }
 
-        Table table = getTableOrElseThrow(identity, databaseName, tableName);
+        Table table = getExistingTable(identity, databaseName, tableName);
 
         try {
             TableInput tableInput = GlueInputConverter.convertTable(table);
@@ -500,7 +500,7 @@ public class GlueHiveMetastore
     @Override
     public void dropTable(HiveIdentity identity, String databaseName, String tableName, boolean deleteData)
     {
-        Table table = getTableOrElseThrow(identity, databaseName, tableName);
+        Table table = getExistingTable(identity, databaseName, tableName);
 
         try {
             glueClient.deleteTable(new DeleteTableRequest()
@@ -567,7 +567,7 @@ public class GlueHiveMetastore
     @Override
     public void addColumn(HiveIdentity identity, String databaseName, String tableName, String columnName, HiveType columnType, String columnComment)
     {
-        Table oldTable = getTableOrElseThrow(identity, databaseName, tableName);
+        Table oldTable = getExistingTable(identity, databaseName, tableName);
         Table newTable = Table.builder(oldTable)
                 .addDataColumn(new Column(columnName, columnType, Optional.ofNullable(columnComment)))
                 .build();
@@ -577,7 +577,7 @@ public class GlueHiveMetastore
     @Override
     public void renameColumn(HiveIdentity identity, String databaseName, String tableName, String oldColumnName, String newColumnName)
     {
-        Table oldTable = getTableOrElseThrow(identity, databaseName, tableName);
+        Table oldTable = getExistingTable(identity, databaseName, tableName);
         if (oldTable.getPartitionColumns().stream().anyMatch(c -> c.getName().equals(oldColumnName))) {
             throw new PrestoException(NOT_SUPPORTED, "Renaming partition columns is not supported");
         }
@@ -602,7 +602,7 @@ public class GlueHiveMetastore
     public void dropColumn(HiveIdentity identity, String databaseName, String tableName, String columnName)
     {
         verifyCanDropColumn(this, identity, databaseName, tableName, columnName);
-        Table oldTable = getTableOrElseThrow(identity, databaseName, tableName);
+        Table oldTable = getExistingTable(identity, databaseName, tableName);
 
         if (!oldTable.getColumn(columnName).isPresent()) {
             SchemaTableName name = new SchemaTableName(databaseName, tableName);
@@ -642,7 +642,7 @@ public class GlueHiveMetastore
     @Override
     public Optional<List<String>> getPartitionNames(HiveIdentity identity, String databaseName, String tableName)
     {
-        Table table = getTableOrElseThrow(identity, databaseName, tableName);
+        Table table = getExistingTable(identity, databaseName, tableName);
         List<Partition> partitions = getPartitions(databaseName, tableName, WILDCARD_EXPRESSION);
         return Optional.of(buildPartitionNames(table.getPartitionColumns(), partitions));
     }
@@ -661,7 +661,7 @@ public class GlueHiveMetastore
     @Override
     public Optional<List<String>> getPartitionNamesByParts(HiveIdentity identity, String databaseName, String tableName, List<String> parts)
     {
-        Table table = getTableOrElseThrow(identity, databaseName, tableName);
+        Table table = getExistingTable(identity, databaseName, tableName);
         String expression = buildGlueExpression(table.getPartitionColumns(), parts);
         List<Partition> partitions = getPartitions(databaseName, tableName, expression);
         return Optional.of(buildPartitionNames(table.getPartitionColumns(), partitions));
@@ -814,7 +814,7 @@ public class GlueHiveMetastore
     @Override
     public void dropPartition(HiveIdentity identity, String databaseName, String tableName, List<String> parts, boolean deleteData)
     {
-        Table table = getTableOrElseThrow(identity, databaseName, tableName);
+        Table table = getExistingTable(identity, databaseName, tableName);
         Partition partition = getPartition(identity, databaseName, tableName, parts)
                 .orElseThrow(() -> new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), parts));
 
