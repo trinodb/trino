@@ -180,12 +180,12 @@ public final class HiveSessionProperties
                         false),
                 booleanProperty(
                         ORC_OPTIMIZED_WRITER_VALIDATE,
-                        "Experimental: ORC: Force all validation for files",
+                        "ORC: Force all validation for files",
                         orcWriterConfig.getValidationPercentage() > 0.0,
                         false),
                 new PropertyMetadata<>(
                         ORC_OPTIMIZED_WRITER_VALIDATE_PERCENTAGE,
-                        "Experimental: ORC: sample percentage for validation for files",
+                        "ORC: sample percentage for validation for files",
                         DOUBLE,
                         Double.class,
                         orcWriterConfig.getValidationPercentage(),
@@ -202,28 +202,28 @@ public final class HiveSessionProperties
                         value -> value),
                 enumProperty(
                         ORC_OPTIMIZED_WRITER_VALIDATE_MODE,
-                        "Experimental: ORC: Level of detail in ORC validation",
+                        "ORC: Level of detail in ORC validation",
                         OrcWriteValidationMode.class,
                         orcWriterConfig.getValidationMode(),
                         false),
                 dataSizeProperty(
                         ORC_OPTIMIZED_WRITER_MIN_STRIPE_SIZE,
-                        "Experimental: ORC: Min stripe size",
+                        "ORC: Min stripe size",
                         orcWriterConfig.getStripeMinSize(),
                         false),
                 dataSizeProperty(
                         ORC_OPTIMIZED_WRITER_MAX_STRIPE_SIZE,
-                        "Experimental: ORC: Max stripe size",
+                        "ORC: Max stripe size",
                         orcWriterConfig.getStripeMaxSize(),
                         false),
                 integerProperty(
                         ORC_OPTIMIZED_WRITER_MAX_STRIPE_ROWS,
-                        "Experimental: ORC: Max stripe row count",
+                        "ORC: Max stripe row count",
                         orcWriterConfig.getStripeMaxRowCount(),
                         false),
                 dataSizeProperty(
                         ORC_OPTIMIZED_WRITER_MAX_DICTIONARY_MEMORY,
-                        "Experimental: ORC: Max dictionary memory",
+                        "ORC: Max dictionary memory",
                         orcWriterConfig.getDictionaryMaxMemory(),
                         false),
                 enumProperty(
@@ -250,7 +250,7 @@ public final class HiveSessionProperties
                         false),
                 booleanProperty(
                         PARQUET_USE_COLUMN_NAME,
-                        "Experimental: Parquet: Access Parquet columns using names from the file",
+                        "Parquet: Access Parquet columns using names from the file",
                         hiveConfig.isUseParquetColumnNames(),
                         false),
                 booleanProperty(
@@ -285,7 +285,7 @@ public final class HiveSessionProperties
                         true),
                 booleanProperty(
                         RCFILE_OPTIMIZED_WRITER_VALIDATE,
-                        "Experimental: RCFile: Validate writer files",
+                        "RCFile: Validate writer files",
                         hiveConfig.isRcfileWriterValidate(),
                         false),
                 booleanProperty(
@@ -295,7 +295,7 @@ public final class HiveSessionProperties
                         false),
                 booleanProperty(
                         STATISTICS_ENABLED,
-                        "Experimental: Expose table statistics",
+                        "Expose table statistics",
                         hiveConfig.isTableStatisticsEnabled(),
                         false),
                 integerProperty(
@@ -310,7 +310,7 @@ public final class HiveSessionProperties
                         false),
                 booleanProperty(
                         COLLECT_COLUMN_STATISTICS_ON_WRITE,
-                        "Experimental: Enables automatic column level statistics collection on write",
+                        "Enables automatic column level statistics collection on write",
                         hiveConfig.isCollectColumnStatisticsOnWrite(),
                         false),
                 booleanProperty(

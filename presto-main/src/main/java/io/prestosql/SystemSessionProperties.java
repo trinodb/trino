@@ -347,7 +347,7 @@ public final class SystemSessionProperties
                         false),
                 new PropertyMetadata<>(
                         SPILL_ENABLED,
-                        "Experimental: Enable spilling",
+                        "Enable spilling",
                         BOOLEAN,
                         Boolean.class,
                         featuresConfig.isSpillEnabled(),
@@ -374,7 +374,7 @@ public final class SystemSessionProperties
                         false),
                 dataSizeProperty(
                         AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT,
-                        "Experimental: How much memory can should be allocated per aggragation operator in unspilling process",
+                        "How much memory can should be allocated per aggragation operator in unspilling process",
                         featuresConfig.getAggregationOperatorUnspillMemoryLimit(),
                         false),
                 booleanProperty(
@@ -384,7 +384,7 @@ public final class SystemSessionProperties
                         false),
                 booleanProperty(
                         ITERATIVE_OPTIMIZER,
-                        "Experimental: enable iterative optimizer",
+                        "Enable iterative optimizer",
                         featuresConfig.isIterativeOptimizerEnabled(),
                         false),
                 durationProperty(
@@ -474,7 +474,7 @@ public final class SystemSessionProperties
                         false),
                 booleanProperty(
                         ENABLE_STATS_CALCULATOR,
-                        "Experimental: Enable statistics calculator",
+                        "Enable statistics calculator",
                         featuresConfig.isEnableStatsCalculator(),
                         false),
                 new PropertyMetadata<>(
