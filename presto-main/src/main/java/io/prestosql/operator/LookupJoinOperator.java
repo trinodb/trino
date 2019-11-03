@@ -684,7 +684,7 @@ public class LookupJoinOperator
 
             Page outputPage = getOutput();
             if (outputPage != null) {
-                return ofResult(outputPage, consumedInput && !isFinished());
+                return ofResult(outputPage, consumedInput);
             }
 
             if (consumedInput) {
