@@ -136,7 +136,7 @@ public class LookupJoinOperator
         joinProcessor.close();
     }
 
-    private class JoinProcessor
+    private static class JoinProcessor
             implements Transformation<Page, Page>
     {
         private final List<Type> probeTypes;
