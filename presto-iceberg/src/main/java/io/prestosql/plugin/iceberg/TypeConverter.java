@@ -85,7 +85,7 @@ import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getMapTypeI
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getStructTypeInfo;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getVarcharTypeInfo;
 
-public final class TypeConveter
+public final class TypeConverter
 {
     private static final Map<Class<? extends Type>, org.apache.iceberg.types.Type> PRESTO_TO_ICEBERG = ImmutableMap.<Class<? extends Type>, org.apache.iceberg.types.Type>builder()
             .put(BooleanType.class, Types.BooleanType.get())
@@ -101,7 +101,7 @@ public final class TypeConveter
             .put(VarcharType.class, Types.StringType.get())
             .build();
 
-    private TypeConveter() {}
+    private TypeConverter() {}
 
     public static Type toPrestoType(org.apache.iceberg.types.Type type, TypeManager typeManager)
     {
@@ -287,7 +287,7 @@ public final class TypeConveter
             return getStructTypeInfo(
                     fieldNames.build(),
                     type.getTypeParameters().stream()
-                            .map(TypeConveter::toHiveTypeInfo)
+                            .map(TypeConverter::toHiveTypeInfo)
                             .collect(toList()));
         }
         throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", type));

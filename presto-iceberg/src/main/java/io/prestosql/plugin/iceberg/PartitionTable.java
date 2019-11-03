@@ -62,7 +62,7 @@ import java.util.stream.Collectors;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.iceberg.IcebergUtil.getIdentityPartitions;
 import static io.prestosql.plugin.iceberg.IcebergUtil.getTableScan;
-import static io.prestosql.plugin.iceberg.TypeConveter.toPrestoType;
+import static io.prestosql.plugin.iceberg.TypeConverter.toPrestoType;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static java.util.Objects.requireNonNull;

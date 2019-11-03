@@ -32,7 +32,7 @@ import static java.util.Objects.requireNonNull;
 public class PartitionData
         implements StructLike
 {
-    private static final String PARTITON_VALUES_FIELD = "partitionValues";
+    private static final String PARTITION_VALUES_FIELD = "partitionValues";
     private static final JsonFactory FACTORY = new JsonFactory();
     private static final ObjectMapper MAPPER = new ObjectMapper(FACTORY);
 
@@ -77,7 +77,7 @@ public class PartitionData
             StringWriter writer = new StringWriter();
             JsonGenerator generator = FACTORY.createGenerator(writer);
             generator.writeStartObject();
-            generator.writeArrayFieldStart(PARTITON_VALUES_FIELD);
+            generator.writeArrayFieldStart(PARTITION_VALUES_FIELD);
             for (Object value : partitionValues) {
                 generator.writeObject(value);
             }
@@ -108,7 +108,7 @@ public class PartitionData
             return null;
         }
 
-        JsonNode partitionValues = jsonNode.get(PARTITON_VALUES_FIELD);
+        JsonNode partitionValues = jsonNode.get(PARTITION_VALUES_FIELD);
         Object[] objects = new Object[types.length];
         int index = 0;
         for (JsonNode partitionValue : partitionValues) {
