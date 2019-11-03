@@ -27,6 +27,7 @@ import org.apache.hadoop.net.DNSToSwitchMapping;
 import javax.inject.Inject;
 import javax.net.SocketFactory;
 
+import java.io.File;
 import java.util.List;
 import java.util.Set;
 
@@ -84,13 +85,15 @@ public class HdfsConfigurationInitializer
         this.configurationInitializers = ImmutableSet.copyOf(requireNonNull(configurationInitializers, "configurationInitializers is null"));
     }
 
-    private static Configuration readConfiguration(List<String> resourcePaths)
+    private static Configuration readConfiguration(List<File> resourcePaths)
     {
         Configuration result = new Configuration(false);
 
-        for (String resourcePath : resourcePaths) {
+        for (File resourcePath : resourcePaths) {
+            checkArgument(resourcePath.exists(), "File does not exist: %s", resourcePath);
+
             Configuration resourceProperties = new Configuration(false);
-            resourceProperties.addResource(new Path(resourcePath));
+            resourceProperties.addResource(new Path(resourcePath.toString()));
             copy(resourceProperties, result);
         }
 
