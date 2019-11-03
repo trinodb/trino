@@ -76,7 +76,7 @@ import static io.prestosql.plugin.hive.util.ConfigurationUtils.toJobConf;
 import static io.prestosql.plugin.hive.util.ParquetRecordWriterUtil.setParquetSchema;
 import static io.prestosql.plugin.iceberg.IcebergErrorCode.ICEBERG_TOO_MANY_OPEN_PARTITIONS;
 import static io.prestosql.plugin.iceberg.PartitionTransforms.getColumnTransform;
-import static io.prestosql.plugin.iceberg.TypeConveter.toHiveType;
+import static io.prestosql.plugin.iceberg.TypeConverter.toHiveType;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.Decimals.readBigDecimal;
