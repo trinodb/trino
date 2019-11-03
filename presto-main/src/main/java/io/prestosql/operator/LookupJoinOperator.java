@@ -661,9 +661,9 @@ public class LookupJoinOperator
         }
 
         @Override
-        public TransformationState<Page> process(@Nullable Page element)
+        public TransformationState<Page> process(@Nullable Page inputPage)
         {
-            if (element == null) {
+            if (inputPage == null) {
                 finish();
             }
 
@@ -677,8 +677,8 @@ public class LookupJoinOperator
             }
 
             boolean consumedInput = false;
-            if (needsInput() && element != null) {
-                addInput(element);
+            if (needsInput() && inputPage != null) {
+                addInput(inputPage);
                 consumedInput = true;
             }
 
