@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.hive.metastore;
 
+import io.prestosql.plugin.hive.HiveMetastoreClosure;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.spi.connector.SchemaTableName;
 
@@ -26,12 +27,12 @@ import static java.util.Objects.requireNonNull;
 public class HivePageSinkMetadataProvider
 {
     private final HiveIdentity identity;
-    private final HiveMetastore delegate;
+    private final HiveMetastoreClosure delegate;
     private final SchemaTableName schemaTableName;
     private final Optional<Table> table;
     private final Map<List<String>, Optional<Partition>> modifiedPartitions;
 
-    public HivePageSinkMetadataProvider(HivePageSinkMetadata pageSinkMetadata, HiveMetastore delegate, HiveIdentity identity)
+    public HivePageSinkMetadataProvider(HivePageSinkMetadata pageSinkMetadata, HiveMetastoreClosure delegate, HiveIdentity identity)
     {
         requireNonNull(pageSinkMetadata, "pageSinkMetadata is null");
         this.delegate = delegate;
@@ -54,8 +55,7 @@ public class HivePageSinkMetadataProvider
         }
         Optional<Partition> modifiedPartition = modifiedPartitions.get(partitionValues);
         if (modifiedPartition == null) {
-            return delegate.getTable(identity, table.get().getDatabaseName(), table.get().getTableName())
-                    .flatMap(existingTable -> delegate.getPartition(identity, existingTable, partitionValues));
+            return delegate.getPartition(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionValues);
         }
         else {
             return modifiedPartition;

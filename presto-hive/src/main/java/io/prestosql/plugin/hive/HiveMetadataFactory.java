@@ -143,7 +143,7 @@ public class HiveMetadataFactory
     {
         SemiTransactionalHiveMetastore metastore = new SemiTransactionalHiveMetastore(
                 hdfsEnvironment,
-                memoizeMetastore(this.metastore, perTransactionCacheMaximumSize), // per-transaction cache
+                new HiveMetastoreClosure(memoizeMetastore(this.metastore, perTransactionCacheMaximumSize)), // per-transaction cache
                 renameExecution,
                 skipDeletionForAlter,
                 skipTargetCleanupOnRollback);

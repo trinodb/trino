@@ -144,7 +144,10 @@ public class HivePageSinkProvider
                 handle.getLocationHandle(),
                 locationService,
                 session.getQueryId(),
-                new HivePageSinkMetadataProvider(handle.getPageSinkMetadata(), memoizeMetastore(metastore, perTransactionMetastoreCacheMaximumSize), new HiveIdentity(session)),
+                new HivePageSinkMetadataProvider(
+                        handle.getPageSinkMetadata(),
+                        new HiveMetastoreClosure(memoizeMetastore(metastore, perTransactionMetastoreCacheMaximumSize)),
+                        new HiveIdentity(session)),
                 typeManager,
                 hdfsEnvironment,
                 pageSorter,
