@@ -182,6 +182,7 @@ public class LookupJoinPageBuilder
         for (int index : probe.getOutputChannels()) {
             Block block = probe.getPage().getBlock(index);
             // Estimate the size of the current row
+            // TODO: improve estimation for unloaded blocks by making it similar as in PageProcessor
             estimatedProbeBlockBytes += block.getSizeInBytes() / block.getPositionCount();
         }
     }
