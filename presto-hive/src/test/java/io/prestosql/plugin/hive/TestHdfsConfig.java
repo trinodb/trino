@@ -19,6 +19,7 @@ import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
+import java.io.File;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -63,7 +64,7 @@ public class TestHdfsConfig
                 .build();
 
         HdfsConfig expected = new HdfsConfig()
-                .setResourceConfigFiles(ImmutableList.of("/foo.xml", "/bar.xml"))
+                .setResourceConfigFiles(ImmutableList.of(new File("/foo.xml"), new File("/bar.xml")))
                 .setVerifyChecksum(false)
                 .setIpcPingInterval(new Duration(34, TimeUnit.SECONDS))
                 .setDfsTimeout(new Duration(33, TimeUnit.SECONDS))
