@@ -107,7 +107,7 @@ public class TestJdbcQueryBuilder
                 new JdbcColumnHandle("col_11", JDBC_CHAR, charType));
 
         Connection connection = database.getConnection();
-        try (PreparedStatement preparedStatement = connection.prepareStatement("create table \"test_table\" (" + "" +
+        try (PreparedStatement preparedStatement = connection.prepareStatement("create table \"test_table\" (" +
                 "\"col_0\" BIGINT, " +
                 "\"col_1\" DOUBLE, " +
                 "\"col_2\" BOOLEAN, " +

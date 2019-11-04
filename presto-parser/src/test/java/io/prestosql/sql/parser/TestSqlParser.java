@@ -285,8 +285,8 @@ public class TestSqlParser
     @Test
     public void testLiterals()
     {
-        assertExpression("TIME" + " 'abc'", new TimeLiteral("abc"));
-        assertExpression("TIMESTAMP" + " 'abc'", new TimestampLiteral("abc"));
+        assertExpression("TIME 'abc'", new TimeLiteral("abc"));
+        assertExpression("TIMESTAMP 'abc'", new TimestampLiteral("abc"));
         assertExpression("INTERVAL '33' day", new IntervalLiteral("33", Sign.POSITIVE, IntervalField.DAY, Optional.empty()));
         assertExpression("INTERVAL '33' day to second", new IntervalLiteral("33", Sign.POSITIVE, IntervalField.DAY, Optional.of(IntervalField.SECOND)));
         assertExpression("CHAR 'abc'", new CharLiteral("abc"));
