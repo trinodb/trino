@@ -18,6 +18,8 @@ import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.Type;
 
 import static io.prestosql.parquet.ParquetTypeUtils.getShortDecimalValue;
+import static io.prestosql.spi.type.Decimals.isShortDecimal;
+import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
 
@@ -44,7 +46,13 @@ public class ShortDecimalColumnReader
             else {
                 decimalValue = getShortDecimalValue(valuesReader.readBytes().getBytes());
             }
-            type.writeLong(blockBuilder, decimalValue);
+
+            if (isShortDecimal(type)) {
+                type.writeLong(blockBuilder, decimalValue);
+            }
+            else {
+                type.writeSlice(blockBuilder, unscaledDecimal(decimalValue));
+            }
         }
         else if (isValueNull()) {
             blockBuilder.appendNull();
