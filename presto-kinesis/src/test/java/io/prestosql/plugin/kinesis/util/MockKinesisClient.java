@@ -60,7 +60,7 @@ import static java.lang.Integer.parseInt;
 public class MockKinesisClient
         extends AmazonKinesisClient
 {
-    private List<InternalStream> streams = new ArrayList();
+    private List<InternalStream> streams = new ArrayList<>();
 
     public static class InternalShard
             extends Shard
@@ -82,7 +82,7 @@ public class MockKinesisClient
 
         public List<Record> getRecordsFrom(ShardIterator iterator)
         {
-            List<Record> returnRecords = new ArrayList();
+            List<Record> returnRecords = new ArrayList<>();
 
             for (Record record : this.recs) {
                 if (parseInt(record.getSequenceNumber()) >= iterator.recordIndex) {
@@ -114,7 +114,7 @@ public class MockKinesisClient
         private String streamName = "";
         private String streamAmazonResourceName = "";
         private String streamStatus = "CREATING";
-        private List<InternalShard> shards = new ArrayList();
+        private List<InternalShard> shards = new ArrayList<>();
         private int sequenceNo = 100;
         private int nextShard;
 
@@ -157,7 +157,7 @@ public class MockKinesisClient
         {
             String[] comps = afterShardId.split("_");
             if (comps.length == 2) {
-                List<InternalShard> returnArray = new ArrayList();
+                List<InternalShard> returnArray = new ArrayList<>();
                 int afterIndex = parseInt(comps[1]);
                 if (shards.size() > afterIndex + 1) {
                     for (InternalShard shard : shards) {
@@ -170,7 +170,7 @@ public class MockKinesisClient
                 return returnArray;
             }
             else {
-                return new ArrayList();
+                return new ArrayList<>();
             }
         }
 
@@ -274,7 +274,7 @@ public class MockKinesisClient
 
     protected List<Shard> getShards(InternalStream theStream)
     {
-        List<Shard> externalList = new ArrayList();
+        List<Shard> externalList = new ArrayList<>();
         for (InternalShard intshard : theStream.getShards()) {
             externalList.add(intshard);
         }
@@ -284,7 +284,7 @@ public class MockKinesisClient
 
     protected List<Shard> getShards(InternalStream theStream, String fromShardId)
     {
-        List<Shard> externalList = new ArrayList();
+        List<Shard> externalList = new ArrayList<>();
         for (InternalShard intshard : theStream.getShardsFrom(fromShardId)) {
             externalList.add(intshard);
         }
@@ -331,7 +331,7 @@ public class MockKinesisClient
         InternalStream theStream = this.getStream(putRecordsRequest.getStreamName());
         if (theStream != null) {
             PutRecordsResult result = new PutRecordsResult();
-            List<PutRecordsResultEntry> resultList = new ArrayList();
+            List<PutRecordsResultEntry> resultList = new ArrayList<>();
             for (PutRecordsRequestEntry entry : putRecordsRequest.getRecords()) {
                 PutRecordResult putResult = theStream.putRecord(entry.getData(), entry.getPartitionKey());
                 resultList.add((new PutRecordsResultEntry()).withShardId(putResult.getShardId()).withSequenceNumber(putResult.getSequenceNumber()));
