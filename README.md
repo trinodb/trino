@@ -117,3 +117,8 @@ To simplify iteration, you can also run in `watch` mode, which automatically re-
     yarn --cwd presto-main/src/main/resources/webapp/src run watch
 
 To iterate quickly, simply re-build the project in IntelliJ after packaging is complete. Project resources will be hot-reloaded and changes are reflected on browser refresh.
+
+## Writing and Building Documentation
+
+More information about the documentation process can be found in the
+[README file in presto-docs](./presto-docs/README.md).
