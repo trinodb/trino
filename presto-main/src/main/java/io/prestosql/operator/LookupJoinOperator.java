@@ -677,7 +677,7 @@ public class LookupJoinOperator
             }
 
             boolean consumedInput = false;
-            if (needsInput()) {
+            if (needsInput() && element != null) {
                 addInput(element);
                 consumedInput = true;
             }
