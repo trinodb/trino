@@ -27,6 +27,7 @@ import io.prestosql.sql.tree.DoubleLiteral;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.GenericLiteral;
+import io.prestosql.sql.tree.IfExpression;
 import io.prestosql.sql.tree.InListExpression;
 import io.prestosql.sql.tree.InPredicate;
 import io.prestosql.sql.tree.IsNotNullPredicate;
@@ -210,6 +211,20 @@ public final class ExpressionVerifier
 
         return actual.getField().equals(expected.getField()) &&
                 process(actual.getBase(), expected.getBase());
+    }
+
+    @Override
+    protected Boolean visitIfExpression(IfExpression actual, Node expectedExpression)
+    {
+        if (!(expectedExpression instanceof IfExpression)) {
+            return false;
+        }
+
+        IfExpression expected = (IfExpression) expectedExpression;
+
+        return process(actual.getCondition(), expected.getCondition())
+                && process(actual.getTrueValue(), expected.getTrueValue())
+                && process(actual.getFalseValue(), expected.getFalseValue());
     }
 
     @Override
