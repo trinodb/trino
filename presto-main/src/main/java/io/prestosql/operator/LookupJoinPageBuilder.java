@@ -114,7 +114,7 @@ public class LookupJoinPageBuilder
                 else {
                     blocks[i] = new LazyBlock(
                             probeIndices.length,
-                            lazyBlock -> lazyBlock.setBlock(probeBlock.getPositions(probeIndices, 0, probeIndices.length)));
+                            () -> probeBlock.getPositions(probeIndices, 0, probeIndices.length));
                 }
             }
             else if (length == probeBlock.getPositionCount()) {
@@ -132,7 +132,7 @@ public class LookupJoinPageBuilder
                 else {
                     blocks[i] = new LazyBlock(
                             length,
-                            lazyBlock -> lazyBlock.setBlock(probeBlock.getRegion(probeIndices[0], length)));
+                            () -> probeBlock.getRegion(probeIndices[0], length));
                 }
             }
         }
