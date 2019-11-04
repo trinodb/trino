@@ -174,7 +174,7 @@ public class TestMinimalFunctionality
     @AfterMethod
     public void tearDown()
     {
-        embeddedKinesisStream.delteStream(streamName);
+        embeddedKinesisStream.deleteStream(streamName);
         queryRunner.close();
     }
 }

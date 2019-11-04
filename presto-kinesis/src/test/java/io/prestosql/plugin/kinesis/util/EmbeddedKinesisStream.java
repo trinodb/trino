@@ -67,7 +67,7 @@ public class EmbeddedKinesisStream
         return amazonKinesisClient;
     }
 
-    public void delteStream(String streamName)
+    public void deleteStream(String streamName)
     {
         DeleteStreamRequest deleteStreamRequest = new DeleteStreamRequest();
         deleteStreamRequest.setStreamName(streamName);
