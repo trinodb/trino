@@ -849,6 +849,7 @@ public abstract class AbstractTestParquetReader
                 expectedValues.add(SqlDecimal.of(value, precision, scale));
             }
             tester.testRoundTrip(javaIntObjectInspector, intValues, expectedValues.build(), createDecimalType(precision, scale), Optional.of(parquetSchema));
+            tester.testRoundTrip(javaIntObjectInspector, intValues, expectedValues.build(), createDecimalType(MAX_PRECISION, scale), Optional.of(parquetSchema));
         }
     }
 
@@ -865,6 +866,7 @@ public abstract class AbstractTestParquetReader
                 expectedValues.add(SqlDecimal.of(value, precision, scale));
             }
             tester.testRoundTrip(javaLongObjectInspector, longValues, expectedValues.build(), createDecimalType(precision, scale), Optional.of(parquetSchema));
+            tester.testRoundTrip(javaLongObjectInspector, longValues, expectedValues.build(), createDecimalType(MAX_PRECISION, scale), Optional.of(parquetSchema));
         }
     }
 
@@ -885,6 +887,10 @@ public abstract class AbstractTestParquetReader
                     writeValues.build(),
                     expectedValues.build(),
                     createDecimalType(precision, scale));
+            tester.testRoundTrip(new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(precision, scale)),
+                    writeValues.build(),
+                    expectedValues.build(),
+                    createDecimalType(MAX_PRECISION, scale));
         }
     }
 
