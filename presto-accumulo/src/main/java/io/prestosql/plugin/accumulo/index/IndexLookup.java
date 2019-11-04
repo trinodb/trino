@@ -347,8 +347,7 @@ public class IndexLookup
                 return columnRanges;
             }));
         }
-        tasks.forEach(future ->
-        {
+        tasks.forEach(future -> {
             try {
                 // If finalRanges is null, we have not yet added any column ranges
                 if (finalRanges.isEmpty()) {

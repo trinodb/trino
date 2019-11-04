@@ -408,8 +408,7 @@ public class FunctionRegistry
         specializedWindowCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
                 .expireAfterWrite(1, HOURS)
-                .build(CacheLoader.from(key ->
-                {
+                .build(CacheLoader.from(key -> {
                     if (key.getFunction() instanceof SqlAggregationFunction) {
                         return supplier(key.getFunction().getFunctionMetadata().getSignature(), specializedAggregationCache.getUnchecked(key));
                     }
