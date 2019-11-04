@@ -118,12 +118,7 @@ public class TransformExistsApplyToCorrelatedJoin
     {
         checkState(applyNode.getSubquery().getOutputSymbols().isEmpty(), "Expected subquery output symbols to be pruned");
 
-        Symbol exists = getOnlyElement(applyNode.getSubqueryAssignments().getSymbols());
         Symbol subqueryTrue = context.getSymbolAllocator().newSymbol("subqueryTrue", BOOLEAN);
-
-        Assignments.Builder assignments = Assignments.builder();
-        assignments.putIdentities(applyNode.getInput().getOutputSymbols());
-        assignments.put(exists, new CoalesceExpression(ImmutableList.of(subqueryTrue.toSymbolReference(), BooleanLiteral.FALSE_LITERAL)));
 
         PlanNode subquery = new ProjectNode(
                 context.getIdAllocator().getNextId(),
@@ -139,6 +134,11 @@ public class TransformExistsApplyToCorrelatedJoin
             return Optional.empty();
         }
 
+        Symbol exists = getOnlyElement(applyNode.getSubqueryAssignments().getSymbols());
+        Assignments.Builder assignments = Assignments.builder()
+                .putIdentities(applyNode.getInput().getOutputSymbols())
+                .put(exists, new CoalesceExpression(ImmutableList.of(subqueryTrue.toSymbolReference(), BooleanLiteral.FALSE_LITERAL)));
+
         return Optional.of(new ProjectNode(context.getIdAllocator().getNextId(),
                 new CorrelatedJoinNode(
                         applyNode.getId(),
@@ -151,19 +151,19 @@ public class TransformExistsApplyToCorrelatedJoin
                 assignments.build()));
     }
 
-    private PlanNode rewriteToDefaultAggregation(ApplyNode parent, Context context)
+    private PlanNode rewriteToDefaultAggregation(ApplyNode applyNode, Context context)
     {
         Symbol count = context.getSymbolAllocator().newSymbol(COUNT.toString(), BIGINT);
-        Symbol exists = getOnlyElement(parent.getSubqueryAssignments().getSymbols());
+        Symbol exists = getOnlyElement(applyNode.getSubqueryAssignments().getSymbols());
 
         return new CorrelatedJoinNode(
-                parent.getId(),
-                parent.getInput(),
+                applyNode.getId(),
+                applyNode.getInput(),
                 new ProjectNode(
                         context.getIdAllocator().getNextId(),
                         new AggregationNode(
                                 context.getIdAllocator().getNextId(),
-                                parent.getSubquery(),
+                                applyNode.getSubquery(),
                                 ImmutableMap.of(count, new Aggregation(
                                         countFunction,
                                         ImmutableList.of(),
@@ -177,9 +177,9 @@ public class TransformExistsApplyToCorrelatedJoin
                                 Optional.empty(),
                                 Optional.empty()),
                         Assignments.of(exists, new ComparisonExpression(GREATER_THAN, count.toSymbolReference(), new Cast(new LongLiteral("0"), toSqlType(BIGINT))))),
-                parent.getCorrelation(),
+                applyNode.getCorrelation(),
                 INNER,
                 TRUE_LITERAL,
-                parent.getOriginSubquery());
+                applyNode.getOriginSubquery());
     }
 }
