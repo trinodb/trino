@@ -1,10 +1,5 @@
 <configuration>
     <property>
-        <name>fs.default.name</name>
-        <value>hdfs://hadoop-master:9000</value>
-    </property>
-
-    <property>
         <name>fs.viewfs.mounttable.hadoop-viewfs.link./default</name>
         <value>hdfs://hadoop-master:9000/user/hive/warehouse</value>
     </property>
