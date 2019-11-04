@@ -32,6 +32,10 @@ function check_hadoop() {
     docker exec ${HADOOP_MASTER_CONTAINER} netstat -lpn | grep -iq 0.0.0.0:10000
 }
 
+function check_any_container_is_up() {
+  environment_compose ps -q | grep .
+}
+
 function run_in_application_runner_container() {
   local CONTAINER_NAME
   CONTAINER_NAME=$(environment_compose run -p 5007:5007 -d application-runner "$@")
@@ -107,6 +111,10 @@ trap terminate INT TERM EXIT
 environment_compose config
 SERVICES=$(environment_compose config --services | grep -vx 'application-runner\|.*-base')
 environment_compose up --no-color --abort-on-container-exit ${SERVICES} &
+
+# Wait for `environment_compose up` to create docker network *without* creating any new containers.
+# Otherwise docker-compose may created network twice and subsequently fail.
+retry check_any_container_is_up
 
 # wait until hadoop processes are started
 retry check_hadoop
