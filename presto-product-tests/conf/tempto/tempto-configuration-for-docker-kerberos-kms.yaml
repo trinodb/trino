@@ -7,7 +7,6 @@ hdfs:
 
 databases:
   hive:
-    host: hadoop-master
     jdbc_url: jdbc:hive2://${databases.hive.host}:10000/default;principal=hive/hadoop-master@LABS.TERADATA.COM;auth=kerberos;kerberosAuthType=fromSubject;
     jdbc_user: alice # Note: databases.hive.jdbc_user is not being used in kerberized environment as of now
     jdbc_password: na

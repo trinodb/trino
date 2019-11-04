@@ -1,9 +1,5 @@
 databases:
-  hive:
-    host: hadoop-master
   presto:
-    host: presto-master
-    configured_hdfs_user: hive
     cli_ldap_truststore_path: /etc/openldap/certs/cacerts.jks
     cli_ldap_truststore_password: testldap
     cli_ldap_user_name: DefaultGroupUser

@@ -1,6 +1,4 @@
 databases:
-  hive:
-    host: hadoop-master
   presto:
     host: presto-master.docker.cluster
     port: 7778
