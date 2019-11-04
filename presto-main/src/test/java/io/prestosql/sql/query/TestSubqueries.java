@@ -399,6 +399,50 @@ public class TestSubqueries
                 UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
     }
 
+    @Test
+    public void testCorrelatedJoin()
+    {
+        assertions.assertQuery(
+                "SELECT * FROM (VALUES 1, 2, 3, null) t1(a) INNER JOIN LATERAL (SELECT b FROM (VALUES 2, 3, null) t2(b) WHERE b > a) ON TRUE",
+                "VALUES (1, 2), (1, 3), (2, 3)");
+
+        assertions.assertQuery(
+                "SELECT * FROM (VALUES 1, 2, 3, null) t1(a) INNER JOIN LATERAL (SELECT b FROM (VALUES 2, 3, null) t2(b) WHERE b > a) ON b < 3",
+                "VALUES (1, 2)");
+
+        assertions.assertQueryReturnsEmptyResult("SELECT * FROM (SELECT 1 where 0 = 1) t(a) INNER JOIN LATERAL (SELECT 2 WHERE a = 1 ) t2(b) ON TRUE");
+
+        assertions.assertQuery(
+                "SELECT * FROM (VALUES 1, 2, 3, null) t1(a) LEFT JOIN LATERAL (SELECT b FROM (VALUES 2, 3, null) t2(b) WHERE b > a) ON TRUE",
+                "VALUES (1, 2), (1, 3), (2, 3), (3, null), (null, null)");
+
+        assertions.assertQuery(
+                "SELECT * FROM (VALUES 1, 2, 3, null) t1(a) LEFT JOIN LATERAL (SELECT b FROM (VALUES 2, 3, null) t2(b) WHERE b > a) ON b < 3",
+                "VALUES (1, 2), (2, null), (3, null), (null, null)");
+
+        assertions.assertQueryReturnsEmptyResult("SELECT * FROM (SELECT 1 where 0 = 1) t(a) LEFT JOIN LATERAL (SELECT 2 WHERE a = 1 ) t2(b) ON TRUE");
+
+        assertions.assertQuery(
+                "SELECT * FROM (VALUES 1, 2, 3, null) t1(a) RIGHT JOIN LATERAL (SELECT b FROM (VALUES 2, 3, null) t2(b) WHERE b > a) ON TRUE",
+                "VALUES (1, 2), (1, 3), (2, 3)");
+
+        assertions.assertQuery(
+                "SELECT * FROM (VALUES 1, 2, 3, null) t1(a) RIGHT JOIN LATERAL (SELECT b FROM (VALUES 2, 3, null) t2(b) WHERE b > a) ON b < 3",
+                "VALUES (1, 2), (null, 3), (null, 3)");
+
+        assertions.assertQueryReturnsEmptyResult("SELECT * FROM (SELECT 1 where 0 = 1) t(a) RIGHT JOIN LATERAL (SELECT 2 WHERE a = 1 ) t2(b) ON TRUE");
+
+        assertions.assertQuery(
+                "SELECT * FROM (VALUES 1, 2, 3, null) t1(a) FULL JOIN LATERAL (SELECT b FROM (VALUES 2, 3, null) t2(b) WHERE b > a) ON TRUE",
+                "VALUES (1, 2), (1, 3), (2, 3), (3, null), (null, null)");
+
+        assertions.assertFails(
+                "SELECT * FROM (VALUES 1, 2, 3, null) t1(a) FULL JOIN LATERAL (SELECT b FROM (VALUES 2, 3, null) t2(b) WHERE b > a) ON b < 3",
+                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+
+        assertions.assertQueryReturnsEmptyResult("SELECT * FROM (SELECT 1 where 0 = 1) t(a) FULL JOIN LATERAL (SELECT 2 WHERE a = 1 ) t2(b) ON TRUE");
+    }
+
     private void assertExistsRewrittenToAggregationBelowJoin(@Language("SQL") String actual, @Language("SQL") String expected, boolean extraAggregation)
     {
         PlanMatchPattern source = node(ValuesNode.class);
