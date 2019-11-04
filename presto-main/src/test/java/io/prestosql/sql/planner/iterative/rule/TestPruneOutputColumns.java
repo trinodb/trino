@@ -31,8 +31,7 @@ public class TestPruneOutputColumns
     public void testNotAllOutputsReferenced()
     {
         tester().assertThat(new PruneOutputColumns())
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
                     return p.output(
@@ -52,8 +51,7 @@ public class TestPruneOutputColumns
     public void testAllOutputsReferenced()
     {
         tester().assertThat(new PruneOutputColumns())
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
                     return p.output(

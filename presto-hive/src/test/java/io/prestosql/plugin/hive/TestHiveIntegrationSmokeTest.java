@@ -3666,8 +3666,7 @@ public class TestHiveIntegrationSmokeTest
 
     private Consumer<Plan> assertRemoteExchangesCount(int expectedRemoteExchangesCount)
     {
-        return plan ->
-        {
+        return plan -> {
             int actualRemoteExchangesCount = searchFrom(plan.getRoot())
                     .where(node -> node instanceof ExchangeNode && ((ExchangeNode) node).getScope() == ExchangeNode.Scope.REMOTE)
                     .findAll()

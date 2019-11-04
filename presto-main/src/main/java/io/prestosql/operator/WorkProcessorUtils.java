@@ -237,8 +237,7 @@ public final class WorkProcessorUtils
     {
         requireNonNull(processor, "processor is null");
         requireNonNull(mapper, "mapper is null");
-        return processor.flatTransform(element ->
-        {
+        return processor.flatTransform(element -> {
             if (element == null) {
                 return TransformationState.finished();
             }

@@ -43,8 +43,7 @@ public class TestPruneTableScanColumns
     public void testNotAllOutputsReferenced()
     {
         tester().assertThat(new PruneTableScanColumns())
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol orderdate = p.symbol("orderdate", DATE);
                     Symbol totalprice = p.symbol("totalprice", DOUBLE);
                     return p.project(

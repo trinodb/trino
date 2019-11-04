@@ -130,8 +130,7 @@ public class KafkaMetadata
 
         AtomicInteger index = new AtomicInteger(0);
 
-        kafkaTopicDescription.getKey().ifPresent(key ->
-        {
+        kafkaTopicDescription.getKey().ifPresent(key -> {
             List<KafkaTopicFieldDescription> fields = key.getFields();
             if (fields != null) {
                 for (KafkaTopicFieldDescription kafkaTopicFieldDescription : fields) {
@@ -140,8 +139,7 @@ public class KafkaMetadata
             }
         });
 
-        kafkaTopicDescription.getMessage().ifPresent(message ->
-        {
+        kafkaTopicDescription.getMessage().ifPresent(message -> {
             List<KafkaTopicFieldDescription> fields = message.getFields();
             if (fields != null) {
                 for (KafkaTopicFieldDescription kafkaTopicFieldDescription : fields) {
