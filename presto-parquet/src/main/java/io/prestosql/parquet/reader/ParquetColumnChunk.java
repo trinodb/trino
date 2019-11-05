@@ -119,10 +119,6 @@ public class ParquetColumnChunk
                 getSlice(compressedPageSize),
                 dataHeaderV1.getNum_values(),
                 uncompressedPageSize,
-                MetadataReader.readStats(
-                        fileCreatedBy,
-                        dataHeaderV1.getStatistics(),
-                        descriptor.getColumnDescriptor().getPrimitiveType()),
                 getParquetEncoding(Encoding.valueOf(dataHeaderV1.getRepetition_level_encoding().name())),
                 getParquetEncoding(Encoding.valueOf(dataHeaderV1.getDefinition_level_encoding().name())),
                 getParquetEncoding(Encoding.valueOf(dataHeaderV1.getEncoding().name()))));
