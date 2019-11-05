@@ -17,21 +17,25 @@ The engine used to create the documentation in HTML format is the Python-based
 
 The default build is using Apache Maven and Java like for the rest of the
 Presto build. You just need to have built the current version from the root.
-Subsequently you can build the site:
+Subsequently you can build the site using the Maven wrapper script.
 
 ```bash
-mvn -pl presto-docs clean install
+./mvnw -pl presto-docs clean install
 ```
 
 or
 
 ```bash
 cd presto-docs
-mvn clean install
+../mvnw clean install
 ```
 
+If you have Maven installed and available on the path, you can use `mvn`
+directly.
+
 This also performs other checks and it is the authoritative way to build the
-docs, however it is also considerably slower than using Sphinx directly.
+docs, however it is also considerably slower than using Sphinx directly. In some
+circumstances it can also hide errors that do show up with native Sphinx usage.
 
 ## Faster Build for Authoring
 
