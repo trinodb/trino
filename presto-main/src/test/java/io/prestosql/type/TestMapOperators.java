@@ -39,6 +39,7 @@ import java.util.Map;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -443,7 +444,7 @@ public class TestMapOperators
                                 null)));
 
         // invalid cast
-        assertInvalidCast("CAST(JSON '{\"[]\": 1}' AS MAP<ARRAY<BIGINT>, BIGINT>)", "Cannot cast JSON to map(array(bigint), bigint)");
+        assertInvalidFunction("CAST(JSON '{\"[]\": 1}' AS MAP<ARRAY<BIGINT>, BIGINT>)", TYPE_MISMATCH, "line 1:1: Cannot cast json to map(array(bigint), bigint)");
 
         assertInvalidCast("CAST(JSON '[1, 2]' AS MAP<BIGINT, BIGINT>)", "Cannot cast to map(bigint, bigint). Expected a json object, but got [\n[1,2]");
         assertInvalidCast("CAST(JSON '{\"a\": 1, \"b\": 2}' AS MAP<VARCHAR, MAP<VARCHAR, BIGINT>>)", "Cannot cast to map(varchar, map(varchar, bigint)). Expected a json object, but got 1\n{\"a\":1,\"b\":2}");

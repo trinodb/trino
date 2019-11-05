@@ -13,6 +13,7 @@
  */
 package io.prestosql.operator.annotations;
 
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.metadata.LongVariableConstraint;
@@ -51,6 +52,7 @@ import java.util.stream.Stream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.prestosql.operator.TypeSignatureParser.parseTypeSignature;
 import static io.prestosql.operator.annotations.ImplementationDependency.isImplementationDependencyAnnotation;
 import static io.prestosql.spi.function.OperatorType.BETWEEN;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
@@ -90,6 +92,8 @@ public final class FunctionsParserHelper
 
         Set<String> orderableRequired = new HashSet<>();
         Set<String> comparableRequired = new HashSet<>();
+        HashMultimap<String, String> castableTo = HashMultimap.create();
+        HashMultimap<String, String> castableFrom = HashMultimap.create();
         for (ImplementationDependency dependency : dependencies) {
             if (dependency instanceof OperatorImplementationDependency) {
                 OperatorImplementationDependency operatorDependency = (OperatorImplementationDependency) dependency;
@@ -119,6 +123,24 @@ public final class FunctionsParserHelper
                     throw new IllegalArgumentException("Operator dependency on " + operator + " is not allowed");
                 }
             }
+            else if (dependency instanceof CastImplementationDependency) {
+                CastImplementationDependency castImplementationDependency = (CastImplementationDependency) dependency;
+
+                TypeSignature fromType = castImplementationDependency.getFromType();
+                TypeSignature toType = castImplementationDependency.getToType();
+                if (typeParameterNames.contains(fromType.getBase())) {
+                    // fromType is a type parameter, so it must be castable to the toType, which might also be a type parameter
+                    castableTo.put(fromType.toString(), toType.toString());
+                }
+                else if (typeParameterNames.contains(toType.getBase())) {
+                    // toType is a type parameter, so it must be castable from the toType, which is not a type parameter
+                    castableFrom.put(toType.toString(), fromType.toString());
+                }
+                else {
+                    verifyTypeSignatureDoesNotContainAnyTypeParameters(fromType, fromType, typeParameterNames);
+                    verifyTypeSignatureDoesNotContainAnyTypeParameters(toType, toType, typeParameterNames);
+                }
+            }
         }
 
         ImmutableList.Builder<TypeVariableConstraint> typeVariableConstraints = ImmutableList.builder();
@@ -128,8 +150,12 @@ public final class FunctionsParserHelper
                     comparableRequired.contains(name),
                     orderableRequired.contains(name),
                     null,
-                    ImmutableSet.of(),
-                    ImmutableSet.of()));
+                    castableTo.get(name).stream()
+                            .map(type -> parseTypeSignature(type, typeParameterNames))
+                            .collect(toImmutableSet()),
+                    castableFrom.get(name).stream()
+                            .map(type -> parseTypeSignature(type, typeParameterNames))
+                            .collect(toImmutableSet())));
         }
         return typeVariableConstraints.build();
     }
