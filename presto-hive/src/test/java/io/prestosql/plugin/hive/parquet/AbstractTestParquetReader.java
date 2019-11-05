@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
 import com.google.common.primitives.Shorts;
 import io.airlift.units.DataSize;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.SqlDate;
@@ -868,6 +869,33 @@ public abstract class AbstractTestParquetReader
             tester.testRoundTrip(javaLongObjectInspector, longValues, expectedValues.build(), createDecimalType(precision, scale), Optional.of(parquetSchema));
             tester.testRoundTrip(javaLongObjectInspector, longValues, expectedValues.build(), createDecimalType(MAX_PRECISION, scale), Optional.of(parquetSchema));
         }
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = ".*Parquet DECIMAL field has different scale \\(2\\) from scale of schema DECIMAL \\(3\\)")
+    public void testDecimalMismatchedScale()
+            throws Exception
+    {
+        MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT32 test (DECIMAL(%d, %d)); }", 8, 2));
+        ImmutableList.Builder<SqlDecimal> values = new ImmutableList.Builder<>();
+        tester.testRoundTrip(javaIntObjectInspector, ImmutableList.of(123), values.build(), createDecimalType(8, 3), Optional.of(parquetSchema));
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = ".*Parquet DECIMAL field has larger precision \\(8\\) than precision of schema DECIMAL \\(4\\)")
+    public void testDecimalMismatchedPrecision()
+            throws Exception
+    {
+        MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT32 test (DECIMAL(%d, %d)); }", 8, 2));
+        ImmutableList.Builder<SqlDecimal> values = new ImmutableList.Builder<>();
+        tester.testRoundTrip(javaIntObjectInspector, ImmutableList.of(123), values.build(), createDecimalType(4, 2), Optional.of(parquetSchema));
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = ".*Expected DECIMAL Parquet field type, but is INT32")
+    public void testDecimalMismatchedType()
+            throws Exception
+    {
+        MessageType parquetSchema = parseMessageType(format("message int_col { optional INT32 num; }", 8, 2));
+        ImmutableList.Builder<SqlDecimal> values = new ImmutableList.Builder<>();
+        tester.testRoundTrip(javaIntObjectInspector, ImmutableList.of(123), values.build(), createDecimalType(8, 3), Optional.of(parquetSchema));
     }
 
     @Test

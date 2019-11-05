@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
 import static org.apache.parquet.schema.OriginalType.DECIMAL;
 import static org.apache.parquet.schema.Type.Repetition.REPEATED;
 
@@ -203,7 +204,33 @@ public final class ParquetTypeUtils
         return null;
     }
 
-    public static Optional<Type> createDecimalType(RichColumnDescriptor descriptor)
+    public static void validateParquetFieldTypeCompatibility(Type schemaType, RichColumnDescriptor descriptor)
+    {
+        // TODO: add checks for other types
+        if (schemaType instanceof DecimalType) {
+            DecimalType schemaDecimalType = (DecimalType) schemaType;
+            DecimalType parquetDecimalType = createDecimalType(descriptor)
+                    .orElseThrow(() -> new ParquetDecodingException(format(
+                            "Expected DECIMAL Parquet field type, but is %s",
+                            descriptor.getPrimitiveType().getPrimitiveTypeName())));
+
+            if (parquetDecimalType.getPrecision() > schemaDecimalType.getPrecision()) {
+                throw new ParquetDecodingException(format(
+                        "Parquet DECIMAL field has larger precision (%s) than precision of schema DECIMAL (%s)",
+                        parquetDecimalType.getPrecision(),
+                        schemaDecimalType.getPrecision()));
+            }
+
+            if (parquetDecimalType.getScale() != schemaDecimalType.getScale()) {
+                throw new ParquetDecodingException(format(
+                        "Parquet DECIMAL field has different scale (%s) from scale of schema DECIMAL (%s)",
+                        parquetDecimalType.getScale(),
+                        schemaDecimalType.getScale()));
+            }
+        }
+    }
+
+    public static Optional<DecimalType> createDecimalType(RichColumnDescriptor descriptor)
     {
         if (descriptor.getPrimitiveType().getOriginalType() != DECIMAL) {
             return Optional.empty();
@@ -211,7 +238,7 @@ public final class ParquetTypeUtils
         return Optional.of(createDecimalType(descriptor.getPrimitiveType().getDecimalMetadata()));
     }
 
-    private static Type createDecimalType(DecimalMetadata decimalMetadata)
+    private static DecimalType createDecimalType(DecimalMetadata decimalMetadata)
     {
         return DecimalType.createDecimalType(decimalMetadata.getPrecision(), decimalMetadata.getScale());
     }

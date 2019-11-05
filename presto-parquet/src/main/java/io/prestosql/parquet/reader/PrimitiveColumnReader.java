@@ -110,9 +110,9 @@ public abstract class PrimitiveColumnReader
 
     private static Optional<PrimitiveColumnReader> createDecimalColumnReader(RichColumnDescriptor descriptor)
     {
-        Optional<Type> type = createDecimalType(descriptor);
+        Optional<DecimalType> type = createDecimalType(descriptor);
         if (type.isPresent()) {
-            DecimalType decimalType = (DecimalType) type.get();
+            DecimalType decimalType = type.get();
             return Optional.of(DecimalColumnReaderFactory.createReader(descriptor, decimalType.getPrecision(), decimalType.getScale()));
         }
         return Optional.empty();

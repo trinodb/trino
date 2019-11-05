@@ -35,6 +35,7 @@ import java.util.Optional;
 import static io.prestosql.parquet.ParquetTypeUtils.getArrayElementColumn;
 import static io.prestosql.parquet.ParquetTypeUtils.getMapKeyValueColumn;
 import static io.prestosql.parquet.ParquetTypeUtils.lookupColumnByName;
+import static io.prestosql.parquet.ParquetTypeUtils.validateParquetFieldTypeCompatibility;
 import static org.apache.parquet.io.ColumnIOUtil.columnDefinitionLevel;
 import static org.apache.parquet.io.ColumnIOUtil.columnRepetitionLevel;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
@@ -91,6 +92,7 @@ public final class ParquetColumnIOConverter
         }
         PrimitiveColumnIO primitiveColumnIO = (PrimitiveColumnIO) columnIO;
         RichColumnDescriptor column = new RichColumnDescriptor(primitiveColumnIO.getColumnDescriptor(), columnIO.getType().asPrimitiveType());
+        validateParquetFieldTypeCompatibility(type, column);
         return Optional.of(new PrimitiveField(type, repetitionLevel, definitionLevel, required, column, primitiveColumnIO.getId()));
     }
 }
