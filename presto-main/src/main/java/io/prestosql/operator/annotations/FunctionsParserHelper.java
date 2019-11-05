@@ -127,7 +127,9 @@ public final class FunctionsParserHelper
                     name,
                     comparableRequired.contains(name),
                     orderableRequired.contains(name),
-                    null));
+                    null,
+                    ImmutableSet.of(),
+                    ImmutableSet.of()));
         }
         return typeVariableConstraints.build();
     }

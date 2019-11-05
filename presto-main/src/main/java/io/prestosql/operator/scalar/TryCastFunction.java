@@ -30,6 +30,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 
 import static io.prestosql.metadata.FunctionKind.SCALAR;
+import static io.prestosql.metadata.Signature.castableToTypeParameter;
 import static io.prestosql.metadata.Signature.typeVariable;
 import static java.lang.invoke.MethodHandles.catchException;
 import static java.lang.invoke.MethodHandles.constant;
@@ -46,7 +47,7 @@ public class TryCastFunction
         super(new FunctionMetadata(
                 new Signature(
                         "TRY_CAST",
-                        ImmutableList.of(typeVariable("F"), typeVariable("T")),
+                        ImmutableList.of(castableToTypeParameter("F", new TypeSignature("T")), typeVariable("T")),
                         ImmutableList.of(),
                         new TypeSignature("T"),
                         ImmutableList.of(new TypeSignature("F")),
