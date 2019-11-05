@@ -14,8 +14,8 @@ policy files can be downloaded from Oracle. Note that the JCE policy files vary
 based on the major version of Java you are running. Java 6 policy files will
 not work with Java 8, for example.
 
-The Java 8 policy files are available `here
+The Java 8 policy files are available `from Oracle
 <http://www.oracle.com/technetwork/java/javase/downloads/jce8-download-2133166.html>`_.
 Instructions for installing the policy files are included in a ``README`` file in
-the ZIP archive. You will need administrative access to install the policy
-files if you are installing them in a system JRE.
+the ZIP archive. You need administrative access to install the policy
+files, if you are installing them in a system JRE.

@@ -7,21 +7,20 @@ Tableau against Presto. It implements the functions in the
 `Tableau web connector API
 <https://community.tableau.com/community/developers/web-data-connectors>`_.
 
-When creating a new web data source, Tableau will ask for the URL of the web
+When creating a new web data source, Tableau asks for the URL of the web
 connector. Use the following URL, replacing ``example.net:8080`` with the
-hostname and port number of the Presto coordinator
-(the default port is ``8080``):
+hostname and port number of the Presto coordinator, the default port is ``8080``:
 
 .. code-block:: none
 
      http://example.net:8080/tableau/presto-connector.html
 
-When Tableau first loads the Presto web connector, it will render an HTML
-form. In this form you need to fill in details such as your user name,
+When Tableau first loads the Presto web connector, it renders an HTML
+form. In this form you need to fill in details, such as your user name,
 the catalog and the schema you want to query, the data source name,
-session parameters you want to set and finally the SQL query to run.
-After you click ``Submit``, the query will be submitted to the Presto
-coordinator and Tableau will then create an extract out of the results
+session parameters you want to set, and finally the SQL query to run.
+After you click ``Submit``, the query is submitted to the Presto
+coordinator and Tableau then creates an extract out of the results
 retrieved from the coordinator, page by page. After Tableau is done
 extracting the results of your query, you can then use this extract
 for further analysis with Tableau.
@@ -34,8 +33,8 @@ for further analysis with Tableau.
      in Presto. In particular, the Tableau web connector API currently supports
      the following Tableau data types:
      ``bool``, ``date``, ``datetime``, ``float``, ``int`` and ``string``.
-     Presto ``boolean`` and ``date`` types will be converted to the Tableau
+     Presto ``boolean`` and ``date`` types are converted to the Tableau
      data types ``bool`` and ``date``, respectively, on the Tableau client side.
      Any other Presto types such as ``array``, ``map``, ``row``, ``double``,
-     ``bigint``, etc., will be converted to a Tableau ``string`` as they do
+     ``bigint``, etc., are converted to a Tableau ``string`` as they do
      not map to any Tableau type.
