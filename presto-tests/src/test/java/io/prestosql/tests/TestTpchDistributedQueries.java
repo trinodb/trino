@@ -145,6 +145,16 @@ public class TestTpchDistributedQueries
         assertQueryFails("SHOW TABLES FROM sf0", "line 1:1: Schema 'sf0' does not exist");
     }
 
+    @Test
+    public void testRowSubscriptWithReservedKeyword()
+    {
+        // Subscript over field named after reserved keyword. This test needs to run in distributed
+        // mode, as it uncovers a problem during deserialization plan expressions
+        assertQuery(
+                "SELECT cast(row(1) AS row(\"cross\" bigint))[1]",
+                "VALUES 1");
+    }
+
     private Session createSession(String schemaName)
     {
         return testSessionBuilder()
