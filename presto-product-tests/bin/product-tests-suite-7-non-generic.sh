@@ -40,4 +40,9 @@ presto-product-tests/bin/run_on_docker.sh \
     -g two_hives \
     || exit_code=1
 
+presto-product-tests/bin/run_on_docker.sh \
+    singlenode-hdp3 \
+    -g hdp3_only,storage_formats \
+    || exit_code=1
+
 exit "${exit_code}"
