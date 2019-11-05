@@ -14,26 +14,24 @@
 package io.prestosql.type;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.spi.type.DecimalConversions;
 import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.TypeSignature;
 
 import static io.prestosql.metadata.FunctionKind.SCALAR;
-import static io.prestosql.metadata.Signature.withVariadicBound;
+import static io.prestosql.operator.TypeSignatureParser.parseTypeSignature;
 import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.type.Decimals.longTenToNth;
-import static io.prestosql.spi.type.StandardTypes.DECIMAL;
 
 public final class DecimalToDecimalCasts
 {
     public static final Signature SIGNATURE = Signature.builder()
             .kind(SCALAR)
             .operatorType(CAST)
-            .typeVariableConstraints(withVariadicBound("F", DECIMAL), withVariadicBound("T", DECIMAL))
-            .argumentTypes(new TypeSignature("F"))
-            .returnType(new TypeSignature("T"))
+            .argumentTypes(parseTypeSignature("decimal(from_precision,from_scale)", ImmutableSet.of("from_precision", "from_scale")))
+            .returnType(parseTypeSignature("decimal(to_precision,to_scale)", ImmutableSet.of("to_precision", "to_scale")))
             .build();
 
     // TODO: filtering mechanism could be used to return NoOp method when only precision is increased
@@ -44,8 +42,8 @@ public final class DecimalToDecimalCasts
                     .implementation(methodsGroup -> methodsGroup
                             .methods("shortToShortCast")
                             .withExtraParameters((context) -> {
-                                DecimalType argumentType = (DecimalType) context.getType("F");
-                                DecimalType resultType = (DecimalType) context.getType("T");
+                                DecimalType argumentType = (DecimalType) context.getParameterTypes().get(0);
+                                DecimalType resultType = (DecimalType) context.getReturnType();
                                 long rescale = longTenToNth(Math.abs(resultType.getScale() - argumentType.getScale()));
                                 return ImmutableList.of(
                                         argumentType.getPrecision(), argumentType.getScale(),
@@ -55,8 +53,8 @@ public final class DecimalToDecimalCasts
                     .implementation(methodsGroup -> methodsGroup
                             .methods("shortToLongCast", "longToShortCast", "longToLongCast")
                             .withExtraParameters((context) -> {
-                                DecimalType argumentType = (DecimalType) context.getType("F");
-                                DecimalType resultType = (DecimalType) context.getType("T");
+                                DecimalType argumentType = (DecimalType) context.getParameterTypes().get(0);
+                                DecimalType resultType = (DecimalType) context.getReturnType();
                                 return ImmutableList.of(
                                         argumentType.getPrecision(), argumentType.getScale(),
                                         resultType.getPrecision(), resultType.getScale());
