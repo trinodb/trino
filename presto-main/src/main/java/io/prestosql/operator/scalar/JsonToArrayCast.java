@@ -38,7 +38,7 @@ import java.lang.invoke.MethodHandle;
 
 import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.metadata.Signature.typeVariable;
+import static io.prestosql.metadata.Signature.castableFromTypeParameter;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
@@ -61,7 +61,7 @@ public class JsonToArrayCast
     private JsonToArrayCast()
     {
         super(OperatorType.CAST,
-                ImmutableList.of(typeVariable("T")),
+                ImmutableList.of(castableFromTypeParameter("T", JSON.getTypeSignature())),
                 ImmutableList.of(),
                 arrayType(new TypeSignature("T")),
                 ImmutableList.of(JSON.getTypeSignature()),

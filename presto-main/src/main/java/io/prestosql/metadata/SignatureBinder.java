@@ -25,6 +25,7 @@ import io.prestosql.spi.type.TypeSignatureParameter;
 import io.prestosql.sql.analyzer.TypeSignatureProvider;
 import io.prestosql.type.FunctionType;
 import io.prestosql.type.TypeCoercion;
+import io.prestosql.type.UnknownType;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -525,6 +526,9 @@ public class SignatureBinder
 
     private boolean canCast(Type fromType, Type toType)
     {
+        if (toType instanceof UnknownType) {
+            return true;
+        }
         try {
             metadata.getCoercion(fromType, toType);
             return true;
