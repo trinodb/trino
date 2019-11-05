@@ -14,7 +14,6 @@
 package io.prestosql.parquet;
 
 import io.airlift.slice.Slice;
-import org.apache.parquet.column.statistics.Statistics;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -23,7 +22,6 @@ public class DataPageV1
         extends DataPage
 {
     private final Slice slice;
-    private final Statistics<?> statistics;
     private final ParquetEncoding repetitionLevelEncoding;
     private final ParquetEncoding definitionLevelEncoding;
     private final ParquetEncoding valuesEncoding;
@@ -32,14 +30,12 @@ public class DataPageV1
             Slice slice,
             int valueCount,
             int uncompressedSize,
-            Statistics<?> statistics,
             ParquetEncoding repetitionLevelEncoding,
             ParquetEncoding definitionLevelEncoding,
             ParquetEncoding valuesEncoding)
     {
         super(uncompressedSize, valueCount);
         this.slice = requireNonNull(slice, "slice is null");
-        this.statistics = statistics;
         this.repetitionLevelEncoding = repetitionLevelEncoding;
         this.definitionLevelEncoding = definitionLevelEncoding;
         this.valuesEncoding = valuesEncoding;
@@ -48,11 +44,6 @@ public class DataPageV1
     public Slice getSlice()
     {
         return slice;
-    }
-
-    public Statistics<?> getStatistics()
-    {
-        return statistics;
     }
 
     public ParquetEncoding getDefinitionLevelEncoding()
@@ -75,7 +66,6 @@ public class DataPageV1
     {
         return toStringHelper(this)
                 .add("slice", slice)
-                .add("statistics", statistics)
                 .add("repetitionLevelEncoding", repetitionLevelEncoding)
                 .add("definitionLevelEncoding", definitionLevelEncoding)
                 .add("valuesEncoding", valuesEncoding)

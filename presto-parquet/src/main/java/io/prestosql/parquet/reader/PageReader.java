@@ -63,7 +63,6 @@ class PageReader
                         decompress(codec, dataPageV1.getSlice(), dataPageV1.getUncompressedSize()),
                         dataPageV1.getValueCount(),
                         dataPageV1.getUncompressedSize(),
-                        dataPageV1.getStatistics(),
                         dataPageV1.getRepetitionLevelEncoding(),
                         dataPageV1.getDefinitionLevelEncoding(),
                         dataPageV1.getValueEncoding());
