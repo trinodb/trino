@@ -10,14 +10,14 @@ Join Enumeration
 The order in which joins are executed in a query can have a significant impact
 on the query's performance. The aspect of join ordering that has the largest
 impact on performance is the size of the data being processed and transferred
-over the network. If a join that produces a lot of data is performed early in
-the execution, then subsequent stages will need to process large amounts of
+over the network. If a join, that produces a lot of data, is performed early in
+the execution, then subsequent stages need to process large amounts of
 data for longer than necessary, increasing the time and resources needed for
 the query.
 
 With cost based join enumeration, Presto uses
 :doc:`/optimizer/statistics` provided by connectors to estimate
-the costs for different join orders and automatically pick the
+the costs for different join orders and automatically picks the
 join order with the lowest computed costs.
 
 The join enumeration strategy is governed by the ``join_reordering_strategy``
@@ -37,8 +37,8 @@ Join Distribution Selection
 ---------------------------
 
 Presto uses a hash based join algorithm. That implies that for each join
-operator a hash table must be created from one join input (called build side).
-The other input (probe side) is then iterated and for each row the hash table is
+operator a hash table must be created from one join input, called build side.
+The other input, called probe side, is then iterated, and for each row the hash table is
 queried to find matching rows.
 
 There are two types of join distributions:
@@ -48,9 +48,9 @@ There are two types of join distributions:
    from all of the data (data is replicated to each node)
 
 Each type have their trade offs. Partitioned joins require redistributing both
-tables using a hash of the join key. This can be slower (sometimes
-substantially) than broadcast joins, but allows much larger joins. In
-particular, broadcast joins will be faster if the build side is much smaller
+tables using a hash of the join key. This can be slower, sometimes
+substantially slower, than broadcast joins, but allows much larger joins. In
+particular, broadcast joins are faster if the build side is much smaller
 than the probe side. However, broadcast joins require that the tables on the
 build side of the join after filtering fit in memory on each node, whereas
 distributed joins only need to fit in distributed memory across all nodes.

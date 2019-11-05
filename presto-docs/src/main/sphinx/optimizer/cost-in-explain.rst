@@ -34,9 +34,9 @@ For example:
 
 Generally, there is only one cost printed for each plan node.  However, when a
 ``Scan`` operator is combined with a ``Filter`` and/or ``Project`` operator,
-then multiple cost structures will be printed, each corresponding to an
+then multiple cost structures are printed, each corresponding to an
 individual logical part of the combined operator. For example, three cost
-structures will be printed for a ``ScanFilterProject`` operator, corresponding
+structures are printed for a ``ScanFilterProject`` operator, corresponding
 to the ``Scan``, ``Filter``, and ``Project`` parts of the operator, in that order.
 
 Estimated cost is also printed in :doc:`/sql/explain-analyze` in addition to actual
