@@ -221,8 +221,6 @@ public final class StringFunctions
         }
 
         int foundInstances = 0;
-        // set the initial index just before the start of the string
-        // this is to allow for the initial index increment
         int index = -1;
         do {
             // step forwards through string
@@ -247,8 +245,6 @@ public final class StringFunctions
         }
 
         int foundInstances = 0;
-        // set the initial index just after the end of the string
-        // this is to allow for the initial index decrement
         int index = string.length();
         do {
             // step backwards through string
@@ -260,7 +256,7 @@ public final class StringFunctions
         }
         while (foundInstances < instance);
 
-        return countCodePoints(string, 0, index) + 1;
+        return index + 1;
     }
 
     @Description("suffix starting at given index")

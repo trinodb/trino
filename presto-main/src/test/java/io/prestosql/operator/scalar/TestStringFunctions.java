@@ -329,6 +329,12 @@ public class TestStringFunctions
         assertFunction("STRPOS('highhigh', 'ig', -2)", BIGINT, 2L);
         assertFunction("STRPOS('foobarfoo', 'fb', -1)", BIGINT, 0L);
         assertFunction("STRPOS('foobarfoo', 'oo', -1)", BIGINT, 8L);
+
+        assertFunction("STRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u7231', -1)", BIGINT, 4L);
+        assertFunction("STRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u7231\u671B', '\u7231', -1)", BIGINT, 7L);
+        assertFunction("STRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u7231\u671B', '\u7231', -2)", BIGINT, 4L);
+        assertFunction("STRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u5E0C\u671B', -1)", BIGINT, 6L);
+        assertFunction("STRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', 'nice', -1)", BIGINT, 0L);
     }
 
     private void testStrPosAndPosition(String string, String substring, Long expected)
