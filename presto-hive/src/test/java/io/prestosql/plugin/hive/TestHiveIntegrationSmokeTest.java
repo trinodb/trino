@@ -694,7 +694,7 @@ public class TestHiveIntegrationSmokeTest
         String queryId = (String) computeScalar("SELECT query_id FROM system.runtime.queries WHERE query LIKE 'CREATE TABLE test_show_properties%'");
         String nodeVersion = (String) computeScalar("SELECT node_version FROM system.runtime.nodes WHERE coordinator");
         assertQuery("SELECT * FROM \"test_show_properties$properties\"",
-                "SELECT 'ship_priority,order_status','0.5','" + queryId + "','" + nodeVersion + "'");
+                "SELECT 'ship_priority,order_status', '0.5', '" + queryId + "', '" + nodeVersion + "', 'false'");
         assertUpdate("DROP TABLE test_show_properties");
     }
 
