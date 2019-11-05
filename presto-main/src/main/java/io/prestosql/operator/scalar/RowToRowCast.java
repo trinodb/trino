@@ -15,6 +15,7 @@ package io.prestosql.operator.scalar;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.Hashing;
 import com.google.common.io.BaseEncoding;
 import io.airlift.bytecode.BytecodeBlock;
@@ -29,6 +30,7 @@ import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.metadata.SqlOperator;
+import io.prestosql.metadata.TypeVariableConstraint;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.StandardErrorCode;
 import io.prestosql.spi.block.Block;
@@ -73,7 +75,10 @@ public class RowToRowCast
     private RowToRowCast()
     {
         super(CAST,
-                ImmutableList.of(withVariadicBound("F", "row"), withVariadicBound("T", "row")),
+                ImmutableList.of(
+                        // this is technically a recursive constraint for cast, but TypeRegistry.canCast has explicit handling for row to row cast
+                        new TypeVariableConstraint("F", false, false, "row", ImmutableSet.of(new TypeSignature("T")), ImmutableSet.of()),
+                        withVariadicBound("T", "row")),
                 ImmutableList.of(),
                 new TypeSignature("T"),
                 ImmutableList.of(new TypeSignature("F")),

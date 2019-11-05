@@ -19,11 +19,13 @@ import com.google.common.collect.ImmutableSet;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.NamedTypeSignature;
 import io.prestosql.spi.type.ParameterKind;
+import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.TypeSignatureParameter;
 import io.prestosql.sql.analyzer.TypeSignatureProvider;
 import io.prestosql.type.FunctionType;
+import io.prestosql.type.JsonType;
 import io.prestosql.type.TypeCoercion;
 import io.prestosql.type.UnknownType;
 
@@ -304,6 +306,9 @@ public class SignatureBinder
             for (TypeSignature castFromSignature : typeVariableConstraint.getCastableFrom()) {
                 appendTypeRelationshipConstraintSolver(resultBuilder, castFromSignature, actualTypeSignatureProvider, EXPLICIT_COERCION_FROM);
             }
+            if (typeVariableConstraint.getVariadicBound() != null && !typeVariableConstraint.getVariadicBound().equalsIgnoreCase(actualType.getTypeSignature().getBase())) {
+                return actualType == UNKNOWN;
+            }
             resultBuilder.add(new TypeParameterSolver(
                     formalTypeSignature.getBase(),
                     actualType,
@@ -528,6 +533,34 @@ public class SignatureBinder
     {
         if (toType instanceof UnknownType) {
             return true;
+        }
+        if (fromType instanceof RowType) {
+            if (toType instanceof RowType) {
+                List<Type> fromTypeParameters = fromType.getTypeParameters();
+                List<Type> toTypeParameters = toType.getTypeParameters();
+                if (fromTypeParameters.size() != toTypeParameters.size()) {
+                    return false;
+                }
+                for (int fieldIndex = 0; fieldIndex < fromTypeParameters.size(); fieldIndex++) {
+                    if (!canCast(fromTypeParameters.get(fieldIndex), toTypeParameters.get(fieldIndex))) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+            else if (toType instanceof JsonType) {
+                return fromType.getTypeParameters().stream()
+                        .allMatch(fromTypeParameter -> canCast(fromTypeParameter, toType));
+            }
+            else {
+                return false;
+            }
+        }
+        if (fromType instanceof JsonType) {
+            if (toType instanceof RowType) {
+                return toType.getTypeParameters().stream()
+                        .allMatch(toTypeParameter -> canCast(fromType, toTypeParameter));
+            }
         }
         try {
             metadata.getCoercion(fromType, toType);
