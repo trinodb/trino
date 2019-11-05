@@ -11,7 +11,7 @@ Internal SSL/TLS configuration
 SSL/TLS is configured in the ``config.properties`` file.  The SSL/TLS on the
 worker and coordinator nodes are configured using the same set of properties.
 Every node in the cluster must be configured. Nodes that have not been
-configured, or are configured incorrectly, will not be able to communicate with
+configured, or are configured incorrectly, are not able to communicate with
 other nodes in the cluster.
 
 To enable SSL/TLS for Presto internal communication, do the following:
@@ -24,7 +24,7 @@ To enable SSL/TLS for Presto internal communication, do the following:
 
     .. warning::
 
-        You can enable HTTPS while leaving HTTP enabled. In most cases this is a
+        You can enable HTTPS, while leaving HTTP enabled. In most cases this is a
         security hole. If you are certain you want to use this configuration, you
         should consider using an firewall to limit access to the HTTP endpoint to
         only those hosts that should be allowed to use it.
@@ -32,7 +32,7 @@ To enable SSL/TLS for Presto internal communication, do the following:
 2. Configure the cluster to communicate using the fully qualified domain name (fqdn)
    of the cluster nodes. This can be done in either of the following ways:
 
-   - If the DNS service is configured properly, we can just let the nodes to
+   - If the DNS service is configured properly, we can just let the nodes
      introduce themselves to the coordinator using the hostname taken from
      the system configuration (``hostname --fqdn``)
 
@@ -41,7 +41,7 @@ To enable SSL/TLS for Presto internal communication, do the following:
          node.internal-address-source=FQDN
 
    - It is also possible to specify each node's fully-qualified hostname manually.
-     This will be different for every host. Hosts should be in the same domain to
+     This is different for every host. Hosts should be in the same domain to
      make it easy to create the correct SSL/TLS certificates.
      e.g.: ``coordinator.example.com``, ``worker1.example.com``, ``worker2.example.com``.
 
@@ -54,7 +54,7 @@ To enable SSL/TLS for Presto internal communication, do the following:
    any other node within the same cluster. It is possible to create unique
    certificates for every node using the fully-qualified hostname of each host,
    create a keystore that contains all the public keys for all of the hosts,
-   and specify it for the client (see step #8 below). In most cases it will be
+   and specify it for the client (see step #8 below). In most cases it is
    simpler to use a wildcard in the certificate as shown below.
 
     .. code-block:: none
@@ -140,18 +140,18 @@ Enabling encryption impacts performance. The performance degradation can vary
 based on the environment, queries, and concurrency.
 
 For queries that do not require transferring too much data between the Presto
-nodes (e.g. ``SELECT count(*) FROM table``), the performance impact is negligible.
+nodes e.g. ``SELECT count(*) FROM table``, the performance impact is negligible.
 
 However, for CPU intensive queries which require a considerable amount of data
 to be transferred between the nodes (for example, distributed joins, aggregations and
-window functions, which require repartitioning), the performance impact might be
+window functions, which require repartitioning), the performance impact can be
 considerable. The slowdown may vary from 10% to even 100%+, depending on the network
 traffic and the CPU utilization.
 
 Advanced Performance Tuning
 ---------------------------
 
-In some cases, changing the source of random numbers will improve performance
+In some cases, changing the source of random numbers improves performance
 significantly.
 
 By default, TLS encryption uses the ``/dev/urandom`` system device as a source of entropy.
