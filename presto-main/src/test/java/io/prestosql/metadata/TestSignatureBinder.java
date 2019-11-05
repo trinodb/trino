@@ -63,6 +63,7 @@ import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -438,8 +439,8 @@ public class TestSignatureBinder
                 .returnType(new TypeSignature("T2"))
                 .argumentTypes(new TypeSignature("T1"))
                 .typeVariableConstraints(ImmutableList.of(
-                        new TypeVariableConstraint("T1", true, false, "varchar", ImmutableSet.of(), ImmutableSet.of()),
-                        new TypeVariableConstraint("T2", true, false, "varchar", ImmutableSet.of(), ImmutableSet.of())))
+                        new TypeVariableConstraint("T1", true, false, null, ImmutableSet.of(), ImmutableSet.of()),
+                        new TypeVariableConstraint("T2", true, false, null, ImmutableSet.of(), ImmutableSet.of())))
                 .build();
 
         assertThat(function)
@@ -741,42 +742,30 @@ public class TestSignatureBinder
     @Test
     public void testVariadic()
     {
-        Signature mapVariadicBoundFunction = functionSignature()
+        Signature rowVariadicBoundFunction = functionSignature()
                 .returnType(BIGINT.getTypeSignature())
                 .argumentTypes(new TypeSignature("T"))
-                .typeVariableConstraints(ImmutableList.of(withVariadicBound("T", "map")))
+                .typeVariableConstraints(ImmutableList.of(withVariadicBound("T", "row")))
                 .build();
 
-        assertThat(mapVariadicBoundFunction)
-                .boundTo(type(mapType(BIGINT.getTypeSignature(), BIGINT.getTypeSignature())))
+        assertThat(rowVariadicBoundFunction)
+                .boundTo(RowType.anonymous(ImmutableList.of(BIGINT, BIGINT)))
                 .produces(new BoundVariables(
-                        ImmutableMap.of("T", type(mapType(BIGINT.getTypeSignature(), BIGINT.getTypeSignature()))),
+                        ImmutableMap.of("T", RowType.anonymous(ImmutableList.of(BIGINT, BIGINT))),
                         ImmutableMap.of()));
 
-        assertThat(mapVariadicBoundFunction)
+        assertThat(rowVariadicBoundFunction)
                 .boundTo(new ArrayType(BIGINT))
                 .fails();
 
-        assertThat(mapVariadicBoundFunction)
+        assertThat(rowVariadicBoundFunction)
                 .boundTo(new ArrayType(BIGINT))
                 .withCoercion()
                 .fails();
 
-        Signature decimalVariadicBoundFunction = functionSignature()
-                .returnType(BIGINT.getTypeSignature())
-                .argumentTypes(new TypeSignature("T"))
-                .typeVariableConstraints(ImmutableList.of(withVariadicBound("T", "decimal")))
-                .build();
-
-        assertThat(decimalVariadicBoundFunction)
-                .boundTo(createDecimalType(2, 1))
-                .produces(new BoundVariables(
-                        ImmutableMap.of("T", createDecimalType(2, 1)),
-                        ImmutableMap.of()));
-
-        assertThat(decimalVariadicBoundFunction)
-                .boundTo(BIGINT)
-                .fails();
+        assertThrows(IllegalArgumentException.class, () -> withVariadicBound("T", "array"));
+        assertThrows(IllegalArgumentException.class, () -> withVariadicBound("T", "map"));
+        assertThrows(IllegalArgumentException.class, () -> withVariadicBound("T", "decimal"));
     }
 
     @Test
@@ -794,19 +783,14 @@ public class TestSignatureBinder
                 .produces(new BoundVariables(
                         ImmutableMap.of("T", RowType.from(ImmutableList.of(RowType.field("a", BIGINT)))),
                         ImmutableMap.of()));
+    }
 
-        Signature arrayFunction = functionSignature()
-                .returnType(BOOLEAN.getTypeSignature())
-                .argumentTypes(new TypeSignature("T"), new TypeSignature("T"))
-                .typeVariableConstraints(ImmutableList.of(withVariadicBound("T", "array")))
-                .build();
-
-        assertThat(arrayFunction)
-                .boundTo(UNKNOWN, new ArrayType(BIGINT))
-                .withCoercion()
-                .produces(new BoundVariables(
-                        ImmutableMap.of("T", new ArrayType(BIGINT)),
-                        ImmutableMap.of()));
+    @Test
+    public void testInvalidVariadicBound()
+    {
+        assertThrows(IllegalArgumentException.class, () -> withVariadicBound("T", "array"));
+        assertThrows(IllegalArgumentException.class, () -> withVariadicBound("T", "map"));
+        assertThrows(IllegalArgumentException.class, () -> withVariadicBound("T", "decimal"));
     }
 
     @Test

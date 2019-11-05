@@ -212,9 +212,9 @@ public class TestFunctionRegistry
                         functionSignature(
                                 ImmutableList.of("T1", "T2", "T3"),
                                 "boolean",
-                                ImmutableList.of(Signature.withVariadicBound("T1", "decimal"),
-                                        Signature.withVariadicBound("T2", "decimal"),
-                                        Signature.withVariadicBound("T3", "decimal"))))
+                                ImmutableList.of(Signature.withVariadicBound("T1", "row"),
+                                        Signature.withVariadicBound("T2", "row"),
+                                        Signature.withVariadicBound("T3", "row"))))
                 .forParameters(UNKNOWN, BIGINT, BIGINT)
                 .returns(functionSignature("bigint", "bigint", "bigint"));
     }

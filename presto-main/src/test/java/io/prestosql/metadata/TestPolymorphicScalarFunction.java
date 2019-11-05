@@ -39,7 +39,6 @@ import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.Decimals.MAX_SHORT_PRECISION;
-import static io.prestosql.spi.type.StandardTypes.VARCHAR;
 import static io.prestosql.spi.type.TypeSignatureParameter.typeVariable;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static java.util.Arrays.asList;
@@ -184,7 +183,7 @@ public class TestPolymorphicScalarFunction
         Signature signature = Signature.builder()
                 .name("foo")
                 .kind(SCALAR)
-                .typeVariableConstraints(comparableWithVariadicBound("V", VARCHAR))
+                .typeVariableConstraints(comparableWithVariadicBound("V", "ROW"))
                 .returnType(new TypeSignature("V"))
                 .argumentTypes(new TypeSignature("V"))
                 .build();

@@ -48,6 +48,9 @@ public class TypeVariableConstraint
         this.comparableRequired = comparableRequired;
         this.orderableRequired = orderableRequired;
         this.variadicBound = variadicBound;
+        if (variadicBound != null && !variadicBound.equalsIgnoreCase("row")) {
+            throw new IllegalArgumentException("variadicBound must be row but is " + variadicBound);
+        }
         this.castableTo = ImmutableSet.copyOf(requireNonNull(castableTo, "castableTo is null"));
         this.castableFrom = ImmutableSet.copyOf(requireNonNull(castableFrom, "castableFrom is null"));
     }
