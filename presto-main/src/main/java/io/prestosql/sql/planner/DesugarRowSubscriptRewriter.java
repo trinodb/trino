@@ -89,7 +89,7 @@ public final class DesugarRowSubscriptRewriter
 
                 // Do not cast if Row fields are named
                 if (fieldName.isPresent()) {
-                    result = new DereferenceExpression(base, new Identifier(fieldName.get()));
+                    result = new DereferenceExpression(base, new Identifier(fieldName.get(), true));
                 }
                 else {
                     // Cast to Row with named fields
