@@ -45,6 +45,7 @@ import static io.airlift.bytecode.Access.a;
 import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantBoolean;
+import static io.prestosql.metadata.Signature.castableToTypeParameter;
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
@@ -62,7 +63,7 @@ public class ArrayToArrayCast
     private ArrayToArrayCast()
     {
         super(CAST,
-                ImmutableList.of(typeVariable("F"), typeVariable("T")),
+                ImmutableList.of(castableToTypeParameter("F", new TypeSignature("T")), typeVariable("T")),
                 ImmutableList.of(),
                 arrayType(new TypeSignature("T")),
                 ImmutableList.of(arrayType(new TypeSignature("F"))),

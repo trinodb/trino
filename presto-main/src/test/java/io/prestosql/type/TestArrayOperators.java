@@ -567,9 +567,9 @@ public class TestArrayOperators
         assertFunction("ARRAY_JOIN(ARRAY [1.0, 2.100, NULL], 'x', 'N/A')", VARCHAR, "1.000x2.100xN/A");
         assertFunction("ARRAY_JOIN(ARRAY [1.0, DOUBLE '002.100', 3.3], 'x')", VARCHAR, "1.0x2.1x3.3");
 
-        assertInvalidFunction("ARRAY_JOIN(ARRAY [ARRAY [1], ARRAY [2]], '-')", INVALID_FUNCTION_ARGUMENT);
-        assertInvalidFunction("ARRAY_JOIN(ARRAY [MAP(ARRAY [1], ARRAY [2])], '-')", INVALID_FUNCTION_ARGUMENT);
-        assertInvalidFunction("ARRAY_JOIN(ARRAY [cast(row(1, 2) AS row(col0 bigint, col1 bigint))], '-')", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("ARRAY_JOIN(ARRAY [ARRAY [1], ARRAY [2]], '-')", FUNCTION_NOT_FOUND);
+        assertInvalidFunction("ARRAY_JOIN(ARRAY [MAP(ARRAY [1], ARRAY [2])], '-')", FUNCTION_NOT_FOUND);
+        assertInvalidFunction("ARRAY_JOIN(ARRAY [cast(row(1, 2) AS row(col0 bigint, col1 bigint))], '-')", FUNCTION_NOT_FOUND);
     }
 
     @Test
