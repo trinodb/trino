@@ -76,10 +76,12 @@ import io.trino.type.UnknownType;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.metadata.LiteralFunction.LITERAL_FUNCTION_NAME;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
@@ -95,6 +97,7 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.sql.relational.Expressions.call;
 import static io.trino.sql.relational.Expressions.constant;
 import static io.trino.sql.relational.Expressions.constantNull;
@@ -146,6 +149,67 @@ public final class SqlToRowExpressionTranslator
         return result;
     }
 
+    public static RowExpression translateDynamicFilterExpression(
+            Expression expression,
+            Map<NodeRef<Expression>, Type> types,
+            Map<Symbol, Integer> layout,
+            Metadata metadata,
+            Session session,
+            boolean optimize)
+    {
+        Visitor visitor = new DynamicFilterExpressionVisitor(metadata, types, layout);
+        RowExpression result = visitor.process(expression, null);
+
+        requireNonNull(result, "translated expression is null");
+
+        if (optimize) {
+            ExpressionOptimizer optimizer = new ExpressionOptimizer(metadata, session);
+            return optimizer.optimize(result);
+        }
+
+        return result;
+    }
+
+    private static class DynamicFilterExpressionVisitor
+            extends Visitor
+    {
+        private final Map<Expression, Type> expressionTypes;
+        private final Metadata metadata;
+
+        private DynamicFilterExpressionVisitor(
+                Metadata metadata,
+                Map<NodeRef<Expression>, Type> types,
+                Map<Symbol, Integer> layout)
+        {
+            super(metadata, types, layout);
+            // This changes Map<NodeRef<Expression>, Type> to Map<Expression, Type> so that getType can find DF expression symbols in types map
+            this.expressionTypes = types.entrySet().stream()
+                .collect(Collectors.toMap(entry -> entry.getKey().getNode(), Map.Entry::getValue, (t1, t2) -> t2));
+            this.metadata = metadata;
+        }
+
+        @Override
+        protected Type getType(Expression node)
+        {
+            if (node instanceof Cast) {
+                return metadata.getType(toTypeSignature(((Cast) node).getType()));
+            }
+            else if (node instanceof GenericLiteral) {
+                return metadata.fromSqlType(((GenericLiteral) node).getType());
+            }
+            else if (node instanceof FunctionCall && ((FunctionCall) node).getName().getSuffix().startsWith(LITERAL_FUNCTION_NAME)) {
+                // extract type from function name
+                String typeName = ((FunctionCall) node).getName().getSuffix().substring(LITERAL_FUNCTION_NAME.length());
+
+                // lookup the type
+                return metadata.fromSqlType(typeName);
+            }
+            else {
+                return expressionTypes.get(node);
+            }
+        }
+    }
+
     private static class Visitor
             extends AstVisitor<RowExpression, Void>
     {
@@ -165,7 +229,7 @@ public final class SqlToRowExpressionTranslator
             standardFunctionResolution = new StandardFunctionResolution(metadata);
         }
 
-        private Type getType(Expression node)
+        protected Type getType(Expression node)
         {
             return types.get(NodeRef.of(node));
         }

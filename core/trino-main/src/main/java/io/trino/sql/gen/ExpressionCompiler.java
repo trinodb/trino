@@ -22,6 +22,8 @@ import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.CompilationException;
 import io.airlift.jmx.CacheStatsMBean;
 import io.trino.metadata.Metadata;
+import io.trino.operator.DynamicPageFilter;
+import io.trino.operator.DynamicPageFilterCollector;
 import io.trino.operator.project.CursorProcessor;
 import io.trino.operator.project.PageFilter;
 import io.trino.operator.project.PageProcessor;
@@ -45,6 +47,7 @@ import static io.airlift.bytecode.Access.FINAL;
 import static io.airlift.bytecode.Access.PUBLIC;
 import static io.airlift.bytecode.Access.a;
 import static io.airlift.bytecode.ParameterizedType.type;
+import static io.trino.operator.DynamicPageFilterCollector.DynamicPageFilterCollectorFactory;
 import static io.trino.spi.StandardErrorCode.COMPILER_ERROR;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.gen.BytecodeUtils.invoke;
@@ -93,16 +96,28 @@ public class ExpressionCompiler
 
     public Supplier<PageProcessor> compilePageProcessor(Optional<RowExpression> filter, List<? extends RowExpression> projections, Optional<String> classNameSuffix)
     {
-        return compilePageProcessor(filter, projections, classNameSuffix, OptionalInt.empty());
+        return compilePageProcessor(filter, projections, classNameSuffix, OptionalInt.empty(), Optional.empty());
     }
 
-    private Supplier<PageProcessor> compilePageProcessor(
+    public Supplier<PageProcessor> compilePageProcessor(
             Optional<RowExpression> filter,
             List<? extends RowExpression> projections,
             Optional<String> classNameSuffix,
-            OptionalInt initialBatchSize)
+            OptionalInt initialBatchSize,
+            Optional<DynamicPageFilterCollectorFactory> dynamicPageFilterCollectorFactory)
     {
-        Optional<Supplier<PageFilter>> filterFunctionSupplier = filter.map(expression -> pageFunctionCompiler.compileFilter(expression, classNameSuffix));
+        Optional<Supplier<PageFilter>> filterFunctionSupplier;
+        if (dynamicPageFilterCollectorFactory.isPresent()) {
+            Optional<Supplier<PageFilter>> staticFilterFunctionSupplier = filter.map(expression -> pageFunctionCompiler.compileFilter(expression, classNameSuffix));
+            DynamicPageFilterCollector dynamicFilterCollector = dynamicPageFilterCollectorFactory.get()
+                    .create(pageFunctionCompiler, classNameSuffix);
+            dynamicFilterCollector.startCollectDynamicFilterAsync();
+            filterFunctionSupplier = Optional.of(() -> new DynamicPageFilter(staticFilterFunctionSupplier.map(Supplier::get), dynamicFilterCollector));
+        }
+        else {
+            filterFunctionSupplier = filter.map(expression -> pageFunctionCompiler.compileFilter(expression, classNameSuffix));
+        }
+
         List<Supplier<PageProjection>> pageProjectionSuppliers = projections.stream()
                 .map(projection -> pageFunctionCompiler.compileProjection(projection, classNameSuffix))
                 .collect(toImmutableList());
@@ -124,7 +139,7 @@ public class ExpressionCompiler
     @VisibleForTesting
     public Supplier<PageProcessor> compilePageProcessor(Optional<RowExpression> filter, List<? extends RowExpression> projections, int initialBatchSize)
     {
-        return compilePageProcessor(filter, projections, Optional.empty(), OptionalInt.of(initialBatchSize));
+        return compilePageProcessor(filter, projections, Optional.empty(), OptionalInt.of(initialBatchSize), Optional.empty());
     }
 
     private <T> Class<? extends T> compile(Optional<RowExpression> filter, List<RowExpression> projections, BodyCompiler bodyCompiler, Class<? extends T> superType)
