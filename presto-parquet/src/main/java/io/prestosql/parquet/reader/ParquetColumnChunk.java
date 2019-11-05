@@ -144,7 +144,7 @@ public class ParquetColumnChunk
                 uncompressedPageSize,
                 MetadataReader.readStats(
                         fileCreatedBy,
-                        dataHeaderV2.getStatistics(),
+                        Optional.ofNullable(dataHeaderV2.getStatistics()),
                         descriptor.getColumnDescriptor().getPrimitiveType()),
                 dataHeaderV2.isIs_compressed()));
         return dataHeaderV2.getNum_values();

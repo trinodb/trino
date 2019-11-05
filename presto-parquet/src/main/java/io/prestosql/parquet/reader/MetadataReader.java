@@ -138,7 +138,7 @@ public final class MetadataReader
                             CompressionCodecName.fromParquet(metaData.codec),
                             PARQUET_METADATA_CONVERTER.convertEncodingStats(metaData.encoding_stats),
                             readEncodings(metaData.encodings),
-                            readStats(Optional.ofNullable(fileMetaData.getCreated_by()), metaData.statistics, primitiveType),
+                            readStats(Optional.ofNullable(fileMetaData.getCreated_by()), Optional.ofNullable(metaData.statistics), primitiveType),
                             metaData.data_page_offset,
                             metaData.dictionary_page_offset,
                             metaData.num_values,
@@ -203,11 +203,13 @@ public final class MetadataReader
         }
     }
 
-    public static org.apache.parquet.column.statistics.Statistics<?> readStats(Optional<String> fileCreatedBy, Statistics statistics, PrimitiveType type)
+    public static org.apache.parquet.column.statistics.Statistics<?> readStats(Optional<String> fileCreatedBy, Optional<Statistics> statisticsFromFile, PrimitiveType type)
     {
+        Statistics statistics = statisticsFromFile.orElse(null);
         org.apache.parquet.column.statistics.Statistics<?> columnStatistics = new ParquetMetadataConverter().fromParquetStatistics(fileCreatedBy.orElse(null), statistics, type);
 
         if (type.getOriginalType() == OriginalType.UTF8
+                && statistics != null
                 && !statistics.isSetMin_value() && !statistics.isSetMax_value() // the min,max fields used for UTF8 since Parquet PARQUET-1025
                 && statistics.isSetMin() && statistics.isSetMax()  // the min,max fields used for UTF8 before Parquet PARQUET-1025
                 && columnStatistics.genericGetMin() == null && columnStatistics.genericGetMax() == null
