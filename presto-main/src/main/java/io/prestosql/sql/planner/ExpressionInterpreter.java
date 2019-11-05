@@ -181,8 +181,8 @@ public class ExpressionInterpreter
         Type actualType = analyzer.getExpressionTypes().get(NodeRef.of(expression));
         if (!new TypeCoercion(metadata::getType).canCoerce(actualType, expectedType)) {
             throw semanticException(TYPE_MISMATCH, expression, format("Cannot cast type %s to %s",
-                    actualType.getTypeSignature(),
-                    expectedType.getTypeSignature()));
+                    actualType.getDisplayName(),
+                    expectedType.getDisplayName()));
         }
 
         Map<NodeRef<Expression>, Type> coercions = ImmutableMap.<NodeRef<Expression>, Type>builder()
