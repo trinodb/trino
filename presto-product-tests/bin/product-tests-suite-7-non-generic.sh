@@ -42,7 +42,7 @@ presto-product-tests/bin/run_on_docker.sh \
 
 presto-product-tests/bin/run_on_docker.sh \
     singlenode-hdp3 \
-    -g hdp3_only,storage_formats \
+    -g hdp3_only,storage_formats,hive_transactional \
     || exit_code=1
 
 exit "${exit_code}"

@@ -19,13 +19,14 @@ import org.testng.annotations.Test;
 
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tempto.query.QueryExecutor.query;
+import static io.prestosql.tests.TestGroups.HIVE_TRANSACTIONAL;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static java.util.Locale.ENGLISH;
 
 public class TestHiveTransactionalTable
         extends ProductTest
 {
-    @Test(dataProvider = "transactionalTableType")
+    @Test(dataProvider = "transactionalTableType", groups = HIVE_TRANSACTIONAL)
     public void testSelectFromTransactionalTable(TransactionalTableType type)
     {
         String tableName = "test_select_from_transactional_table_" + type.name().toLowerCase(ENGLISH);
@@ -41,7 +42,7 @@ public class TestHiveTransactionalTable
         }
     }
 
-    @Test(dataProvider = "transactionalTableType")
+    @Test(dataProvider = "transactionalTableType", groups = HIVE_TRANSACTIONAL)
     public void testInsertIntoTransactionalTable(TransactionalTableType type)
     {
         String tableName = "test_insert_into_transactional_table_" + type.name().toLowerCase(ENGLISH);
