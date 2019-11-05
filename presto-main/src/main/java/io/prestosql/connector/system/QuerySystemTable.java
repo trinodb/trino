@@ -110,7 +110,7 @@ public class QuerySystemTable
                     queryInfo.getResourceGroupId().map(QuerySystemTable::resourceGroupIdToBlock).orElse(null),
 
                     toMillis(queryStats.getQueuedTime()),
-                    toMillis(queryStats.getAnalysisTime()),
+                    queryStats.getAnalysisTime().map(QuerySystemTable::toMillis).orElse(null),
                     toMillis(queryStats.getPlanningTime()),
 
                     toTimeStamp(queryStats.getCreateTime()),

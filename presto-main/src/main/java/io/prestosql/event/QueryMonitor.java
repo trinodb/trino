@@ -20,6 +20,7 @@ import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.airlift.stats.Distribution;
 import io.airlift.stats.Distribution.DistributionSnapshot;
+import io.airlift.units.Duration;
 import io.prestosql.SessionRepresentation;
 import io.prestosql.client.NodeVersion;
 import io.prestosql.connector.CatalogName;
@@ -227,7 +228,7 @@ public class QueryMonitor
                 ofMillis(queryStats.getElapsedTime().toMillis()),
                 ofMillis(queryStats.getQueuedTime().toMillis()),
                 Optional.of(ofMillis(queryStats.getResourceWaitingTime().toMillis())),
-                Optional.of(ofMillis(queryStats.getAnalysisTime().toMillis())),
+                queryStats.getAnalysisTime().map(Duration::toMillis).map(java.time.Duration::ofMillis),
                 queryStats.getPeakUserMemoryReservation().toBytes(),
                 queryStats.getPeakTotalMemoryReservation().toBytes(),
                 queryStats.getPeakTaskUserMemory().toBytes(),

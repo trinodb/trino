@@ -224,9 +224,9 @@ class QueryStateTimer
         return toDateTime(endNanos);
     }
 
-    public Duration getAnalysisTime()
+    public Optional<Duration> getAnalysisTime()
     {
-        return getDuration(analysisTime, beginAnalysisNanos);
+        return Optional.ofNullable(analysisTime.get());
     }
 
     public DateTime getLastHeartbeat()

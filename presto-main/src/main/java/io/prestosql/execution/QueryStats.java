@@ -28,6 +28,7 @@ import org.joda.time.DateTime;
 import javax.annotation.Nullable;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.Set;
 
@@ -49,7 +50,7 @@ public class QueryStats
     private final Duration resourceWaitingTime;
     private final Duration dispatchingTime;
     private final Duration executionTime;
-    private final Duration analysisTime;
+    private final Optional<Duration> analysisTime;
     private final Duration planningTime;
     private final Duration finishingTime;
 
@@ -114,7 +115,7 @@ public class QueryStats
             @JsonProperty("resourceWaitingTime") Duration resourceWaitingTime,
             @JsonProperty("dispatchingTime") Duration dispatchingTime,
             @JsonProperty("executionTime") Duration executionTime,
-            @JsonProperty("analysisTime") Duration analysisTime,
+            @JsonProperty("analysisTime") Optional<Duration> analysisTime,
             @JsonProperty("planningTime") Duration planningTime,
             @JsonProperty("finishingTime") Duration finishingTime,
 
@@ -299,7 +300,7 @@ public class QueryStats
     }
 
     @JsonProperty
-    public Duration getAnalysisTime()
+    public Optional<Duration> getAnalysisTime()
     {
         return analysisTime;
     }
