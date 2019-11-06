@@ -110,7 +110,7 @@ public class TypeSignatureTranslator
                 .map(field -> namedTypeParameter(new NamedTypeSignature(
                         field.getName()
                                 .map(TypeSignatureTranslator::canonicalize)
-                                .map(value -> new RowFieldName(value, false)),
+                                .map(value -> new RowFieldName(value)),
                         toTypeSignature(field.getType()))))
                 .collect(toImmutableList());
 

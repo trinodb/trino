@@ -594,7 +594,7 @@ class Query
             case NAMED_TYPE:
                 return ClientTypeSignatureParameter.ofNamedType(new NamedClientTypeSignature(
                         parameter.getNamedTypeSignature().getFieldName().map(value ->
-                                new RowFieldName(value.getName(), value.isDelimited())),
+                                new RowFieldName(value.getName())),
                         toClientTypeSignature(parameter.getNamedTypeSignature().getTypeSignature())));
             case LONG:
                 return ClientTypeSignatureParameter.ofLong(parameter.getLongLiteral());

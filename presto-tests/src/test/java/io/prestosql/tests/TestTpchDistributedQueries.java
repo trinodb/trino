@@ -155,6 +155,16 @@ public class TestTpchDistributedQueries
                 "VALUES 1");
     }
 
+    @Test
+    public void testRowTypeWithReservedKeyword()
+    {
+        // This test is here because it only reproduces the issue (https://github.com/prestosql/presto/issues/1962)
+        // when running in distributed mode
+        assertQuery(
+                "SELECT cast(row(1) AS row(\"cross\" bigint)).\"cross\"",
+                "VALUES 1");
+    }
+
     private Session createSession(String schemaName)
     {
         return testSessionBuilder()
