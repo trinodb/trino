@@ -30,6 +30,7 @@ import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.JoinNode.Type;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
+import io.prestosql.sql.tree.Cast;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.IfExpression;
 import io.prestosql.sql.tree.NullLiteral;
@@ -39,6 +40,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.matching.Pattern.nonEmpty;
 import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.prestosql.sql.planner.plan.CorrelatedJoinNode.Type.FULL;
 import static io.prestosql.sql.planner.plan.CorrelatedJoinNode.Type.INNER;
 import static io.prestosql.sql.planner.plan.CorrelatedJoinNode.Type.LEFT;
@@ -126,7 +128,10 @@ public class TransformCorrelatedJoinToJoin
             for (Symbol inputSymbol : Sets.intersection(
                     ImmutableSet.copyOf(correlatedJoinNode.getInput().getOutputSymbols()),
                     ImmutableSet.copyOf(correlatedJoinNode.getOutputSymbols()))) {
-                assignments.put(inputSymbol, new IfExpression(correlatedJoinNode.getFilter(), inputSymbol.toSymbolReference(), new NullLiteral()));
+                assignments.put(inputSymbol, new IfExpression(
+                        correlatedJoinNode.getFilter(),
+                        inputSymbol.toSymbolReference(),
+                        new Cast(new NullLiteral(), toSqlType(context.getSymbolAllocator().getTypes().get(inputSymbol)))));
             }
             ProjectNode projectNode = new ProjectNode(
                     context.getIdAllocator().getNextId(),

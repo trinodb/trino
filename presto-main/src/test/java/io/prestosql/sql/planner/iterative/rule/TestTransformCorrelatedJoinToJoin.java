@@ -206,7 +206,7 @@ public class TestTransformCorrelatedJoinToJoin
                 .matches(
                         project(
                                 ImmutableMap.of(
-                                        "a", new ExpressionMatcher("if(b < 3, a, null)"),
+                                        "a", new ExpressionMatcher("if(b < 3, a, CAST(null AS BIGINT))"),
                                         "b", new ExpressionMatcher("b")),
                                 join(
                                         JoinNode.Type.INNER,
@@ -239,7 +239,7 @@ public class TestTransformCorrelatedJoinToJoin
                 .matches(
                         project(
                                 ImmutableMap.of(
-                                        "a", new ExpressionMatcher("if(b < 3, a, null)"),
+                                        "a", new ExpressionMatcher("if(b < 3, a, CAST(null AS BIGINT))"),
                                         "b", new ExpressionMatcher("b")),
                                 join(
                                         JoinNode.Type.INNER,
