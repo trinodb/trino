@@ -281,7 +281,7 @@ public class TestStructColumnReader
     {
         ImmutableList.Builder<TypeSignatureParameter> typeSignatureParameters = ImmutableList.builder();
         for (String fieldName : fieldNames) {
-            typeSignatureParameters.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(fieldName, false)), TEST_DATA_TYPE.getTypeSignature())));
+            typeSignatureParameters.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(fieldName)), TEST_DATA_TYPE.getTypeSignature())));
         }
         return METADATA.getParameterizedType(StandardTypes.ROW, typeSignatureParameters.build());
     }
