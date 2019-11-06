@@ -405,8 +405,8 @@ public class TestJsonOperators
         // Since we will not reformat the JSON string before parse and cast with the optimization,
         // these extra whitespaces in JSON string is to make sure the cast will work in such cases.
         assertCastWithJsonParse("{\"a\"\n:1,  \"b\":\t2}", "MAP(VARCHAR,INTEGER)", mapType(VARCHAR, INTEGER), ImmutableMap.of("a", 1, "b", 2));
-        assertInvalidCastWithJsonParse("{\"[1, 1]\":[2, 2]}", "MAP(ARRAY(INTEGER),ARRAY(INTEGER))", "Cannot cast JSON to map(array(integer),array(integer))");
-        assertInvalidCastWithJsonParse("{true: false, false:false}", "MAP(BOOLEAN,BOOLEAN)", "Cannot cast to map(boolean,boolean).\n{true: false, false:false}");
+        assertInvalidCastWithJsonParse("{\"[1, 1]\":[2, 2]}", "MAP(ARRAY(INTEGER),ARRAY(INTEGER))", "Cannot cast JSON to map(array(integer), array(integer))");
+        assertInvalidCastWithJsonParse("{true: false, false:false}", "MAP(BOOLEAN,BOOLEAN)", "Cannot cast to map(boolean, boolean).\n{true: false, false:false}");
 
         assertCastWithJsonParse(
                 "{\"a\"  \n  :1,  \"b\":  \t  [2, 3]}",
@@ -423,11 +423,11 @@ public class TestJsonOperators
         assertInvalidCastWithJsonParse(
                 "{\"a\" :1,  \"b\": {} }",
                 "ROW(a INTEGER, b ARRAY(INTEGER))",
-                "Cannot cast to row(a integer,b array(integer)). Expected a json array, but got {\n{\"a\" :1,  \"b\": {} }");
+                "Cannot cast to row(a integer, b array(integer)). Expected a json array, but got {\n{\"a\" :1,  \"b\": {} }");
         assertInvalidCastWithJsonParse(
                 "[  1,  {}  ]",
                 "ROW(INTEGER, ARRAY(INTEGER))",
-                "Cannot cast to row(integer,array(integer)). Expected a json array, but got {\n[  1,  {}  ]");
+                "Cannot cast to row(integer, array(integer)). Expected a json array, but got {\n[  1,  {}  ]");
     }
 
     @Test

@@ -152,7 +152,7 @@ public class TestStructColumnReader
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp =
-            "ROW type does not have field names declared: row\\(varchar,varchar,varchar\\)")
+            "ROW type does not have field names declared: row\\(varchar, varchar, varchar\\)")
     public void testThrowsExceptionWhenFieldNameMissing()
             throws IOException
     {
