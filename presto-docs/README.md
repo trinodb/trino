@@ -42,7 +42,7 @@ circumstances it can also hide errors that do show up with native Sphinx usage.
 For faster local build times when writing documentation, we suggest to use the
 Sphinx and the included `make` script.
 
-Shinx installation instructions for various operating systems and packaging
+Sphinx installation instructions for various operating systems and packaging
 systems are [available on the Sphinx site](https://www.sphinx-doc.org/en/master/usage/installation.html).
 
 In addition you need `make` and Python.
