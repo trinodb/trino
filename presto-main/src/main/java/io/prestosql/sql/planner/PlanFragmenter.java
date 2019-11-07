@@ -674,9 +674,7 @@ public class PlanFragmenter
             if (ImmutableList.of(NOT_PARTITIONED).equals(partitionHandles)) {
                 return new GroupedExecutionProperties(false, false, ImmutableList.of());
             }
-            else {
-                return new GroupedExecutionProperties(true, false, ImmutableList.of(node.getId()));
-            }
+            return new GroupedExecutionProperties(true, false, ImmutableList.of(node.getId()));
         }
 
         private GroupedExecutionProperties processChildren(PlanNode node)

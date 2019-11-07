@@ -208,9 +208,7 @@ class TranslationMap
                     Symbol symbol = lambdaDeclarationToSymbolMap.get(NodeRef.of(referencedLambdaArgumentDeclaration));
                     return coerceIfNecessary(node, symbol.toSymbolReference());
                 }
-                else {
-                    return rewriteExpressionWithResolvedName(node);
-                }
+                return rewriteExpressionWithResolvedName(node);
             }
 
             private Expression rewriteExpressionWithResolvedName(Expression node)

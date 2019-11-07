@@ -40,9 +40,7 @@ public abstract class ScalarImplementationDependency
         if (invocationConvention.isPresent()) {
             return metadata.getFunctionInvokerProvider().createFunctionInvoker(resolvedFunction, invocationConvention).methodHandle();
         }
-        else {
-            return metadata.getScalarFunctionImplementation(resolvedFunction).getMethodHandle();
-        }
+        return metadata.getScalarFunctionImplementation(resolvedFunction).getMethodHandle();
     }
 
     @Override

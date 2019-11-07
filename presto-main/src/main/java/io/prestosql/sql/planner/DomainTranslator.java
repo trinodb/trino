@@ -402,7 +402,7 @@ public final class DomainTranslator
                 Type type = value.getType(); // common type for symbol and value
                 return createComparisonExtractionResult(normalized.getComparisonOperator(), symbol, type, value.getValue(), complement);
             }
-            else if (symbolExpression instanceof Cast) {
+            if (symbolExpression instanceof Cast) {
                 Cast castExpression = (Cast) symbolExpression;
                 if (!isImplicitCoercion(castExpression)) {
                     //
@@ -438,9 +438,7 @@ public final class DomainTranslator
 
                 return super.visitComparisonExpression(node, complement);
             }
-            else {
-                return super.visitComparisonExpression(node, complement);
-            }
+            return super.visitComparisonExpression(node, complement);
         }
 
         /**
@@ -609,10 +607,10 @@ public final class DomainTranslator
                     if (coercedValueIsGreaterThanOriginal) {
                         return new ComparisonExpression(GREATER_THAN_OR_EQUAL, symbolExpression, coercedLiteral);
                     }
-                    else if (coercedValueIsEqualToOriginal) {
+                    if (coercedValueIsEqualToOriginal) {
                         return new ComparisonExpression(comparisonOperator, symbolExpression, coercedLiteral);
                     }
-                    else if (coercedValueIsLessThanOriginal) {
+                    if (coercedValueIsLessThanOriginal) {
                         return new ComparisonExpression(GREATER_THAN, symbolExpression, coercedLiteral);
                     }
                 }
@@ -621,10 +619,10 @@ public final class DomainTranslator
                     if (coercedValueIsLessThanOriginal) {
                         return new ComparisonExpression(LESS_THAN_OR_EQUAL, symbolExpression, coercedLiteral);
                     }
-                    else if (coercedValueIsEqualToOriginal) {
+                    if (coercedValueIsEqualToOriginal) {
                         return new ComparisonExpression(comparisonOperator, symbolExpression, coercedLiteral);
                     }
-                    else if (coercedValueIsGreaterThanOriginal) {
+                    if (coercedValueIsGreaterThanOriginal) {
                         return new ComparisonExpression(LESS_THAN, symbolExpression, coercedLiteral);
                     }
                 }

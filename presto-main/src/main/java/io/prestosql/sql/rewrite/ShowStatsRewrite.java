@@ -129,13 +129,11 @@ public class ShowStatsRewrite
                 Constraint constraint = getConstraint(plan);
                 return rewriteShowStats(node, table, constraint);
             }
-            else if (node.getRelation() instanceof Table) {
+            if (node.getRelation() instanceof Table) {
                 Table table = (Table) node.getRelation();
                 return rewriteShowStats(node, table, Constraint.alwaysTrue());
             }
-            else {
-                throw new IllegalArgumentException("Expected either TableSubquery or Table as relation");
-            }
+            throw new IllegalArgumentException("Expected either TableSubquery or Table as relation");
         }
 
         private void validateShowStatsSubquery(ShowStats node, Query query, QuerySpecification querySpecification, Plan plan)
