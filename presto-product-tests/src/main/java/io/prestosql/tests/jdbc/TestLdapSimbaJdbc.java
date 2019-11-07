@@ -28,7 +28,6 @@ import static io.prestosql.tests.ImmutableLdapObjectDefinitions.ORPHAN_USER;
 import static io.prestosql.tests.ImmutableLdapObjectDefinitions.PARENT_GROUP_USER;
 import static io.prestosql.tests.TestGroups.LDAP;
 import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.prestosql.tests.TestGroups.SIMBA_JDBC;
 import static io.prestosql.tests.TpchTableResults.PRESTO_NATION_RESULT;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
@@ -56,59 +55,59 @@ public class TestLdapSimbaJdbc
     }
 
     @Requires(ImmutableNationTable.class)
-    @Test(groups = {LDAP, SIMBA_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    @Test(groups = {LDAP, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldRunQueryWithLdap()
             throws SQLException
     {
         assertThat(executeLdapQuery(NATION_SELECT_ALL_QUERY, ldapUserName, ldapUserPassword)).matches(PRESTO_NATION_RESULT);
     }
 
-    @Test(groups = {LDAP, SIMBA_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    @Test(groups = {LDAP, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldFailQueryForLdapUserInChildGroup()
     {
         String name = CHILD_GROUP_USER.getAttributes().get("cn");
         expectQueryToFailForUserNotInGroup(name);
     }
 
-    @Test(groups = {LDAP, SIMBA_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    @Test(groups = {LDAP, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldFailQueryForLdapUserInParentGroup()
     {
         String name = PARENT_GROUP_USER.getAttributes().get("cn");
         expectQueryToFailForUserNotInGroup(name);
     }
 
-    @Test(groups = {LDAP, SIMBA_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    @Test(groups = {LDAP, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldFailQueryForOrphanLdapUser()
     {
         String name = ORPHAN_USER.getAttributes().get("cn");
         expectQueryToFailForUserNotInGroup(name);
     }
 
-    @Test(groups = {LDAP, SIMBA_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    @Test(groups = {LDAP, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldFailQueryForWrongLdapPassword()
     {
         expectQueryToFail(ldapUserName, "wrong_password", INVALID_CREDENTIALS_ERROR);
     }
 
-    @Test(groups = {LDAP, SIMBA_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    @Test(groups = {LDAP, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldFailQueryForWrongLdapUser()
     {
         expectQueryToFail("invalid_user", ldapUserPassword, INVALID_CREDENTIALS_ERROR);
     }
 
-    @Test(groups = {LDAP, SIMBA_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    @Test(groups = {LDAP, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldFailQueryForEmptyUser()
     {
         expectQueryToFail("", ldapUserPassword, MALFORMED_CREDENTIALS_ERROR);
     }
 
-    @Test(groups = {LDAP, SIMBA_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    @Test(groups = {LDAP, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldFailQueryForLdapWithoutPassword()
     {
         expectQueryToFail(ldapUserName, "", MALFORMED_CREDENTIALS_ERROR);
     }
 
-    @Test(groups = {LDAP, SIMBA_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    @Test(groups = {LDAP, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldFailQueryForLdapWithoutSsl()
     {
         try {
@@ -120,7 +119,7 @@ public class TestLdapSimbaJdbc
         }
     }
 
-    @Test(groups = {LDAP, SIMBA_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    @Test(groups = {LDAP, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldFailForIncorrectTrustStore()
     {
         try {
@@ -135,7 +134,7 @@ public class TestLdapSimbaJdbc
         }
     }
 
-    @Test(groups = {LDAP, SIMBA_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    @Test(groups = {LDAP, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldFailForUserWithColon()
     {
         expectQueryToFail("UserWith:Colon", ldapUserPassword, ILLEGAL_USERNAME_ERROR);
