@@ -27,7 +27,8 @@ source "${BASH_SOURCE%/*}/../../../conf/product-tests-defaults.sh"
 source "${PRODUCT_TESTS_ROOT}/target/classes/presto.env"
 
 # create CLI history file (otherwise Docker creates it as a directory)
-touch /tmp/presto_history_docker
+export PRESTO_CLI_HISTORY_FILE="/tmp/presto_history_docker"
+touch "${PRESTO_CLI_HISTORY_FILE}"
 
 # The following variables are defined to enable running product tests with arbitrary/downloaded jars
 # and without building the project. The `presto.env` file should only be sourced if any of the variables
