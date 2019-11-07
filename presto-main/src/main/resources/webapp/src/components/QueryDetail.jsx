@@ -968,6 +968,29 @@ export class QueryDetail extends React.Component {
         );
     }
 
+    renderPreparedQuery() {
+        const query = this.state.query;
+        if (query.preparedQuery === null) {
+            return;
+        }
+
+        return (
+            <div className="col-xs-12">
+                <h3>
+                    Prepared Query
+                        <a className="btn copy-button" data-clipboard-target="#prepared-query-text" data-toggle="tooltip" data-placement="right" title="Copy to clipboard">
+                            <span className="glyphicon glyphicon-copy" aria-hidden="true" alt="Copy to clipboard"/>
+                        </a>
+                </h3>
+                <pre id="prepared-query">
+                    <code className="lang-sql" id="prepared-query-text">
+                        {query.preparedQuery}
+                    </code>
+                </pre>
+            </div>
+        );
+    }
+
     renderSessionProperties() {
         const query = this.state.query;
 
@@ -1549,6 +1572,7 @@ export class QueryDetail extends React.Component {
                             </code>
                         </pre>
                     </div>
+                    {this.renderPreparedQuery()}
                 </div>
                 {this.renderStages()}
                 {this.renderTasks()}
