@@ -173,18 +173,16 @@ public class FieldSetFilteringRecordSet
                 if (javaType == long.class) {
                     return TRUE.equals((Boolean) field1.getEqualsMethodHandle().invokeExact(cursor.getLong(field1.getField()), cursor.getLong(field2.getField())));
                 }
-                else if (javaType == double.class) {
+                if (javaType == double.class) {
                     return TRUE.equals((Boolean) field1.getEqualsMethodHandle().invokeExact(cursor.getDouble(field1.getField()), cursor.getDouble(field2.getField())));
                 }
-                else if (javaType == boolean.class) {
+                if (javaType == boolean.class) {
                     return TRUE.equals((Boolean) field1.getEqualsMethodHandle().invokeExact(cursor.getBoolean(field1.getField()), cursor.getBoolean(field2.getField())));
                 }
-                else if (javaType == Slice.class) {
+                if (javaType == Slice.class) {
                     return TRUE.equals((Boolean) field1.getEqualsMethodHandle().invokeExact(cursor.getSlice(field1.getField()), cursor.getSlice(field2.getField())));
                 }
-                else {
-                    return TRUE.equals((Boolean) field1.getEqualsMethodHandle().invoke(cursor.getObject(field1.getField()), cursor.getObject(field2.getField())));
-                }
+                return TRUE.equals((Boolean) field1.getEqualsMethodHandle().invoke(cursor.getObject(field1.getField()), cursor.getObject(field2.getField())));
             }
             catch (Throwable t) {
                 throwIfUnchecked(t);

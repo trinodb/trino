@@ -269,9 +269,7 @@ public final class ColorFunctions
         if (color >= 0) { // an rgb value encoded as in Color.getRGB
             return toAnsi(getRed(color), getGreen(color), getBlue(color));
         }
-        else {
-            return (int) (-color - 1);
-        }
+        return (int) (-color - 1);
     }
 
     @VisibleForTesting

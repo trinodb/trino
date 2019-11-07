@@ -216,25 +216,23 @@ public class LogicalPlanner
             }
             return createTableCreationPlan(analysis, ((CreateTableAsSelect) statement).getQuery());
         }
-        else if (statement instanceof Analyze) {
+        if (statement instanceof Analyze) {
             return createAnalyzePlan(analysis, (Analyze) statement);
         }
-        else if (statement instanceof Insert) {
+        if (statement instanceof Insert) {
             checkState(analysis.getInsert().isPresent(), "Insert handle is missing");
             return createInsertPlan(analysis, (Insert) statement);
         }
-        else if (statement instanceof Delete) {
+        if (statement instanceof Delete) {
             return createDeletePlan(analysis, (Delete) statement);
         }
-        else if (statement instanceof Query) {
+        if (statement instanceof Query) {
             return createRelationPlan(analysis, (Query) statement);
         }
-        else if (statement instanceof Explain && ((Explain) statement).isAnalyze()) {
+        if (statement instanceof Explain && ((Explain) statement).isAnalyze()) {
             return createExplainAnalyzePlan(analysis, (Explain) statement);
         }
-        else {
-            throw new PrestoException(NOT_SUPPORTED, "Unsupported statement type " + statement.getClass().getSimpleName());
-        }
+        throw new PrestoException(NOT_SUPPORTED, "Unsupported statement type " + statement.getClass().getSimpleName());
     }
 
     private RelationPlan createExplainAnalyzePlan(Analysis analysis, Explain statement)

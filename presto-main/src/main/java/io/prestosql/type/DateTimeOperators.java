@@ -167,9 +167,7 @@ public final class DateTimeOperators
         if (session.isLegacyTimestamp()) {
             return getChronology(session.getTimeZoneKey()).monthOfYear().add(left, right);
         }
-        else {
-            return MONTH_OF_YEAR_UTC.add(left, right);
-        }
+        return MONTH_OF_YEAR_UTC.add(left, right);
     }
 
     @ScalarOperator(ADD)
@@ -179,9 +177,7 @@ public final class DateTimeOperators
         if (session.isLegacyTimestamp()) {
             return getChronology(session.getTimeZoneKey()).monthOfYear().add(right, left);
         }
-        else {
-            return MONTH_OF_YEAR_UTC.add(right, left);
-        }
+        return MONTH_OF_YEAR_UTC.add(right, left);
     }
 
     @ScalarOperator(ADD)
@@ -265,9 +261,7 @@ public final class DateTimeOperators
         if (session.isLegacyTimestamp()) {
             return getChronology(session.getTimeZoneKey()).monthOfYear().add(left, -right);
         }
-        else {
-            return MONTH_OF_YEAR_UTC.add(left, -right);
-        }
+        return MONTH_OF_YEAR_UTC.add(left, -right);
     }
 
     @ScalarOperator(SUBTRACT)

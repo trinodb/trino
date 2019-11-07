@@ -120,9 +120,7 @@ public final class DateOperators
             ISOChronology chronology = getChronology(session.getTimeZoneKey());
             return utcMillis - chronology.getZone().getOffset(utcMillis);
         }
-        else {
-            return TimeUnit.DAYS.toMillis(value);
-        }
+        return TimeUnit.DAYS.toMillis(value);
     }
 
     @ScalarOperator(CAST)

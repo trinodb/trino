@@ -353,9 +353,7 @@ public class AggregationNode
             if (step.isInputRaw()) {
                 return Step.PARTIAL;
             }
-            else {
-                return Step.INTERMEDIATE;
-            }
+            return Step.INTERMEDIATE;
         }
 
         public static Step partialInput(Step step)
@@ -363,9 +361,7 @@ public class AggregationNode
             if (step.isOutputPartial()) {
                 return Step.INTERMEDIATE;
             }
-            else {
-                return Step.FINAL;
-            }
+            return Step.FINAL;
         }
     }
 
