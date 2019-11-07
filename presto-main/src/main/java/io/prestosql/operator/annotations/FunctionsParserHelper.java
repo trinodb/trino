@@ -203,7 +203,7 @@ public final class FunctionsParserHelper
     public static Optional<Constructor<?>> findConstructor(Class<?> clazz)
     {
         Constructor<?>[] constructors = clazz.getConstructors();
-        checkArgument(constructors.length <= 1, "Class [%s] must have no more than 1 public constructor");
+        checkArgument(constructors.length <= 1, "Class [%s] must have no more than 1 public constructor", clazz.getName());
         if (constructors.length == 0) {
             return Optional.empty();
         }
