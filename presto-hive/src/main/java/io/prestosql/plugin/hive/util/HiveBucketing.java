@@ -29,7 +29,6 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.StandardErrorCode;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.predicate.Domain;
-import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.ValueSet;
 import io.prestosql.spi.type.TypeManager;
@@ -38,14 +37,15 @@ import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.plugin.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
@@ -158,7 +158,9 @@ public final class HiveBucketing
 
     public static Optional<HiveBucketFilter> getHiveBucketFilter(Table table, TupleDomain<ColumnHandle> effectivePredicate)
     {
-        if (!table.getStorage().getBucketProperty().isPresent()) {
+        if (!table.getStorage().getBucketProperty().isPresent()
+                || effectivePredicate.isAll()
+                || effectivePredicate.isNone()) {
             return Optional.empty();
         }
 
@@ -167,80 +169,65 @@ public final class HiveBucketing
             return Optional.empty();
         }
 
-        Optional<Map<ColumnHandle, NullableValue>> bindings = TupleDomain.extractFixedValues(effectivePredicate);
-        if (!bindings.isPresent()) {
-            return Optional.empty();
-        }
-        OptionalInt singleBucket = getHiveBucket(table, bindings.get());
-        if (singleBucket.isPresent()) {
-            return Optional.of(new HiveBucketFilter(ImmutableSet.of(singleBucket.getAsInt())));
-        }
+        HiveBucketProperty bucketProperty = table.getStorage().getBucketProperty().get();
 
-        if (!effectivePredicate.getDomains().isPresent()) {
-            return Optional.empty();
-        }
-        Optional<Domain> domain = effectivePredicate.getDomains().get().entrySet().stream()
+        Optional<Domain> hiddenBucketColumnDomain = effectivePredicate.getDomains().get().entrySet().stream()
                 .filter(entry -> ((HiveColumnHandle) entry.getKey()).getName().equals(BUCKET_COLUMN_NAME))
                 .findFirst()
                 .map(Entry::getValue);
-        if (!domain.isPresent()) {
-            return Optional.empty();
-        }
-        ValueSet values = domain.get().getValues();
-        ImmutableSet.Builder<Integer> builder = ImmutableSet.builder();
-        int bucketCount = table.getStorage().getBucketProperty().get().getBucketCount();
-        for (int i = 0; i < bucketCount; i++) {
-            if (values.containsValue((long) i)) {
-                builder.add(i);
-            }
-        }
-        return Optional.of(new HiveBucketFilter(builder.build()));
-    }
-
-    private static OptionalInt getHiveBucket(Table table, Map<ColumnHandle, NullableValue> bindings)
-    {
-        if (bindings.isEmpty()) {
-            return OptionalInt.empty();
-        }
-
-        List<String> bucketColumns = table.getStorage().getBucketProperty().get().getBucketedBy();
-        Map<String, HiveType> hiveTypes = new HashMap<>();
-        for (Column column : table.getDataColumns()) {
-            hiveTypes.put(column.getName(), column.getType());
-        }
-
-        // Verify the bucket column types are supported
-        for (String column : bucketColumns) {
-            if (!SUPPORTED_TYPES_FOR_BUCKET_FILTER.contains(hiveTypes.get(column))) {
-                return OptionalInt.empty();
-            }
-        }
-
-        // Get bindings for bucket columns
-        Map<String, Object> bucketBindings = new HashMap<>();
-        for (Entry<ColumnHandle, NullableValue> entry : bindings.entrySet()) {
-            HiveColumnHandle colHandle = (HiveColumnHandle) entry.getKey();
-            if (!entry.getValue().isNull() && bucketColumns.contains(colHandle.getName())) {
-                bucketBindings.put(colHandle.getName(), entry.getValue().getValue());
-            }
-        }
-
-        // Check that we have bindings for all bucket columns
-        if (bucketBindings.size() != bucketColumns.size()) {
-            return OptionalInt.empty();
-        }
-
-        // Get bindings of bucket columns
-        ImmutableList.Builder<TypeInfo> typeInfos = ImmutableList.builder();
-        Object[] values = new Object[bucketColumns.size()];
-        for (int i = 0; i < bucketColumns.size(); i++) {
-            String column = bucketColumns.get(i);
-            typeInfos.add(hiveTypes.get(column).getTypeInfo());
-            values[i] = bucketBindings.get(column);
+        if (hiddenBucketColumnDomain.isPresent()) {
+            return getFilterByHiddenBucketColumnPredicate(bucketProperty.getBucketCount(), hiddenBucketColumnDomain.get());
         }
 
         BucketingVersion bucketingVersion = getBucketingVersion(table);
-        return OptionalInt.of(getHiveBucket(bucketingVersion, table.getStorage().getBucketProperty().get().getBucketCount(), typeInfos.build(), values));
+        Map<String, Column> dataColumns = table.getDataColumns().stream()
+                .collect(toImmutableMap(Column::getName, identity()));
+        Map<String, Domain> domains = effectivePredicate.getDomains().get().entrySet().stream()
+                .collect(toImmutableMap(entry -> ((HiveColumnHandle) entry.getKey()).getName(), entry -> entry.getValue()));
+        return getFilterByBucketColumnsPredicate(bucketProperty, bucketingVersion, dataColumns, domains);
+    }
+
+    private static Optional<HiveBucketFilter> getFilterByHiddenBucketColumnPredicate(int bucketCount, Domain hiddenBucketColumnDomain)
+    {
+        if (hiddenBucketColumnDomain.isSingleValue()) {
+            return Optional.of(new HiveBucketFilter(ImmutableSet.of(((Long) hiddenBucketColumnDomain.getSingleValue()).intValue())));
+        }
+        ValueSet values = hiddenBucketColumnDomain.getValues();
+        Set<Integer> buckets = IntStream.range(0, bucketCount)
+                .filter(i -> values.containsValue((long) i))
+                .mapToObj(Integer::new)
+                .collect(toImmutableSet());
+        return Optional.of(new HiveBucketFilter(buckets));
+    }
+
+    private static Optional<HiveBucketFilter> getFilterByBucketColumnsPredicate(
+            HiveBucketProperty bucketProperty,
+            BucketingVersion bucketingVersion,
+            Map<String, Column> dataColumns,
+            Map<String, Domain> domains)
+    {
+        List<String> bucketColumns = bucketProperty.getBucketedBy();
+
+        ImmutableList.Builder<TypeInfo> typeInfos = ImmutableList.builder();
+        Object[] values = new Object[bucketColumns.size()];
+        int i = 0;
+
+        for (String bucketColumn : bucketColumns) {
+            Domain domain = domains.get(bucketColumn);
+            Column column = dataColumns.get(bucketColumn);
+            if (domain == null
+                    || !domain.isNullableSingleValue()
+                    || column == null
+                    || !SUPPORTED_TYPES_FOR_BUCKET_FILTER.contains(column.getType())) {
+                return Optional.empty();
+            }
+            typeInfos.add(column.getType().getTypeInfo());
+            values[i] = domain.getNullableSingleValue();
+            i++;
+        }
+
+        int bucket = getHiveBucket(bucketingVersion, bucketProperty.getBucketCount(), typeInfos.build(), values);
+        return Optional.of(new HiveBucketFilter(ImmutableSet.of(bucket)));
     }
 
     public static BucketingVersion getBucketingVersion(Table table)
