@@ -88,11 +88,8 @@ public class TestInt128ArrayBlock
     @Test
     public void testIsDistinctFrom()
     {
-        long[] arr1 = {112L, 0L}; // DECIMAL '1.12'
-        long[] arr2 = {185L, 0L}; // DECIMAL '1.85'
-
-        Block left = new Int128ArrayBlock(1, Optional.empty(), arr1);
-        Block right = new Int128ArrayBlock(1, Optional.empty(), arr2);
+        Block left = new Int128ArrayBlock(1, Optional.empty(), new long[]{112L, 0L});
+        Block right = new Int128ArrayBlock(1, Optional.empty(), new long[]{185L, 0L});
 
         assertFalse(DecimalInequalityOperators.distinctBlockPositionLongLong(left, 0, left, 0));
         assertTrue(DecimalInequalityOperators.distinctBlockPositionLongLong(left, 0, right, 0));
