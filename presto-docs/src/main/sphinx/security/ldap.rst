@@ -204,7 +204,7 @@ Example:
 For OpenLDAP, for this query to work, make sure you enable the
 ``memberOf`` `overlay <http://www.openldap.org/doc/admin24/overlays.html>`_.
 
-You can  use this property for scenarios where you want to authorize a user
+You can use this property for scenarios where you want to authorize a user
 based on complex group authorization search queries. For example, if you want to
 authorize a user belonging to any one of multiple groups (in OpenLDAP), this
 property may be set as follows:
