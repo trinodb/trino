@@ -3,13 +3,14 @@ Thrift Connector
 ================
 
 The Thrift connector makes it possible to integrate with external storage systems
-without a custom Presto connector implementation.
+without a custom Presto connector implementation by using 
+`Apache Thrift <https://thrift.apache.org/>`_ on these servers. It is therefore generic and can provide access any backend, as long as it exposes the expected API by using Thrift.
 
 In order to use the Thrift connector with an external system, you need to implement
 the ``PrestoThriftService`` interface, found below. Next, you configure the Thrift connector
 to point to a set of machines, called Thrift servers, that implement the interface.
-As part of the interface implementation, the Thrift servers will provide metadata,
-splits and data. The connector will randomly choose a server to talk to from the available
+As part of the interface implementation, the Thrift servers provide metadata,
+splits and data. The connector randomly chooses a server to talk to from the available
 instances for metadata calls, or for data calls unless the splits include a list of addresses.
 All requests are assumed to be idempotent and can be retried freely among any server.
 
@@ -30,7 +31,7 @@ Multiple Thrift Systems
 
 You can have as many catalogs as you need, so if you have additional
 Thrift systems to connect to, simply add another properties file to ``etc/catalog``
-with a different name (making sure it ends in ``.properties``).
+with a different name, making sure it ends in ``.properties``.
 
 Configuration Properties
 ------------------------
