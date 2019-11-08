@@ -2,7 +2,7 @@
 Kudu Connector
 ==============
 
-The Kudu connector allows querying, inserting and deleting data in `Apache Kudu`_
+The Kudu connector allows querying, inserting and deleting data in `Apache Kudu`_.
 
 .. _Apache Kudu: https://kudu.apache.org/
 
@@ -16,9 +16,9 @@ The Kudu connector allows querying, inserting and deleting data in `Apache Kudu`
 Compatibility
 -------------
 
-Connector is compatible with all Apache Kudu versions starting from 1.0.
+The Kudu connector is compatible with all Apache Kudu versions starting from 1.0.
 
-If the connector uses features that are not available on the target server, an error will be returned.
+If the connector uses features that are not available on the target server, an error is returned.
 Apache Kudu 1.8.0 is currently used for testing.
 
 
@@ -101,7 +101,7 @@ Example
       partition_by_hash_buckets = 2
     );
 
-On creating a Kudu table you must/can specify addition information about
+On creating a Kudu table you must/can specify additional information about
 the primary key, encoding, and compression of columns and hash or range
 partitioning. Details see in section
 `Create Table`_.
@@ -309,7 +309,7 @@ Supported Presto SQL statements
 Create Table
 ------------
 
-On creating a Kudu Table you need to provide the columns and their types, of
+On creating a Kudu table, you need to provide the columns and their types, of
 course, but Kudu needs information about partitioning and optionally
 for column encoding and compression.
 
@@ -328,7 +328,7 @@ Simple Example:
       number_of_replicas = 3
     );
 
-The primary key consists of ``user_id`` and ``event_name``, the table is partitioned into
+The primary key consists of ``user_id`` and ``event_name``. The table is partitioned into
 five partitions by hash values of the column ``user_id``, and the ``number_of_replicas`` is
 explicitly set to 3.
 
@@ -336,7 +336,7 @@ The primary key columns must always be the first columns of the column list.
 All columns used in partitions must be part of the primary key.
 
 The table property ``number_of_replicas`` is optional. It defines the
-number of tablet replicas and must be an odd number. If it is not specified,
+number of tablet replicas, and must be an odd number. If it is not specified,
 the default replication factor from the Kudu master configuration is used.
 
 Kudu supports two different kinds of partitioning: hash and range partitioning.
@@ -344,7 +344,7 @@ Hash partitioning distributes rows by hash value into one of many buckets.
 Range partitions distributes rows using a totally-ordered range partition key.
 The concrete range partitions must be created explicitly.
 Kudu also supports multi-level partitioning. A table must have at least one
-partitioning (either hash or range). It can have at most one range partitioning,
+partitioning, either hash or range. It can have at most one range partitioning,
 but multiple hash partitioning 'levels'.
 
 For more details see `Partitioning Design`_.
@@ -410,7 +410,7 @@ Partitioning Design
 
 A table must have at least one partitioning (either hash or range).
 It can have at most one range partitioning, but multiple hash partitioning 'levels'.
-For more details see Apache Kudu documentation: `Partitioning`_
+For more details see Apache Kudu documentation: `Partitioning`_.
 
 If you create a Kudu table in Presto, the partitioning design is given by
 several table properties.
@@ -446,7 +446,7 @@ Example:
 This defines a hash partitioning with the columns ``col1`` and ``col2``
 distributed over 4 partitions.
 
-To define two separate hash partition groups use also the second pair
+To define two separate hash partition groups, also use the second pair
 of table properties named ``partition_by_second_hash_columns`` and
 ``partition_by_second_hash_buckets``.
 
@@ -465,8 +465,8 @@ Example:
       partition_by_second_hash_buckets = 3
     )
 
-This defines a two-level hash partitioning with the first hash partition group
-over the column ``col1`` distributed over 2 buckets and the second
+This defines a two-level hash partitioning, with the first hash partition group
+over the column ``col1`` distributed over 2 buckets, and the second
 hash partition group over the column ``col2`` distributed over 3 buckets.
 As a result you have table with 2 x 3 = 6 partitions.
 
@@ -534,11 +534,11 @@ This creates a table with a hash partition on column ``serialno`` with 4
 buckets and range partitioning on column ``event_time``. Additionally
 three range partitions are created:
 
-    1. for all event_times before the year 2017 (lower bound = ``null`` means it is unbound)
+    1. for all event_times before the year 2017, lower bound = ``null`` means it is unbound
     2. for the first half of the year 2017
     3. for the second half the year 2017
 
-This means any try to add rows with ``event_time`` of year 2018 or greater will fail, as no partition is defined.
+This means any attempt to add rows with ``event_time`` of year 2018 or greater fails, as no partition is defined.
 The next section shows how to define a new range partition for an existing table.
 
 Managing range partitions
@@ -598,11 +598,11 @@ Example:
 
     CALL kudu.system.add_range_partition('myschema', 'events', '{"lower": "2018-01-01", "upper": "2018-06-01"}')
 
-This would add a range partition for a table ``events`` in the schema
-``myschema`` with the lower bound ``2018-01-01`` (more exactly
-``2018-01-01T00:00:00.000``) and the upper bound ``2018-07-01``.
+This adds a range partition for a table ``events`` in the schema
+``myschema`` with the lower bound ``2018-01-01``, more exactly
+``2018-01-01T00:00:00.000``, and the upper bound ``2018-07-01``.
 
-Use the sql statement ``SHOW CREATE TABLE`` to query the existing
+Use the SQL statement ``SHOW CREATE TABLE`` to query the existing
 range partitions (they are shown in the table property
 ``range_partitions``).
 
@@ -624,5 +624,5 @@ See also `Column Properties`_.
 Known limitations
 -----------------
 
--  Only lower case table and column names in Kudu are supported
+-  Only lower case table and column names in Kudu are supported.
 -  Using a secured Kudu cluster has not been tested.
