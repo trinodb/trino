@@ -33,6 +33,7 @@ import javax.servlet.http.HttpServletRequest;
 
 import java.io.File;
 import java.io.IOException;
+import java.security.GeneralSecurityException;
 import java.security.Key;
 import java.security.Principal;
 import java.util.concurrent.ConcurrentHashMap;
@@ -196,23 +197,32 @@ public class JsonWebTokenAuthenticator
             throw new SignatureException("Unknown signing key ID");
         }
 
-        // try to load the key as a PEM encoded public key
+        String data;
         try {
-            return new LoadedKey(PemReader.loadPublicKey(file));
+            data = asCharSource(file, US_ASCII).read();
         }
-        catch (Exception ignored) {
+        catch (IOException e) {
+            throw new SignatureException("Unable to read signing key", e);
+        }
+
+        // try to load the key as a PEM encoded public key
+        if (PemReader.isPem(data)) {
+            try {
+                return new LoadedKey(PemReader.loadPublicKey(data));
+            }
+            catch (RuntimeException | GeneralSecurityException e) {
+                throw new SignatureException("Unable to decode PEM signing key id", e);
+            }
         }
 
         // try to load the key as a base64 encoded HMAC key
         try {
-            String base64Key = asCharSource(file, US_ASCII).read();
-            byte[] rawKey = getMimeDecoder().decode(base64Key.getBytes(US_ASCII));
+            byte[] rawKey = getMimeDecoder().decode(data.getBytes(US_ASCII));
             return new LoadedKey(rawKey);
         }
-        catch (IOException ignored) {
+        catch (RuntimeException e) {
+            throw new SignatureException("Unable to decode HMAC signing key", e);
         }
-
-        throw new SignatureException("Unknown signing key id");
     }
 
     private static class LoadedKey
