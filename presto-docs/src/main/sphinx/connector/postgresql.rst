@@ -3,8 +3,8 @@ PostgreSQL Connector
 ====================
 
 The PostgreSQL connector allows querying and creating tables in an
-external PostgreSQL database. This can be used to join data between
-different systems like PostgreSQL and Hive, or between two different
+external `PostgreSQL <https://www.postgresql.org/>`_ database. This can be used to join data between
+different systems like PostgreSQL and Hive, or between different
 PostgreSQL instances.
 
 Configuration
@@ -32,8 +32,8 @@ or want to connect to multiple PostgreSQL servers, you must configure
 multiple instances of the PostgreSQL connector.
 
 To add another catalog, simply add another properties file to ``etc/catalog``
-with a different name (making sure it ends in ``.properties``). For example,
-if you name the property file ``sales.properties``, Presto will create a
+with a different name, making sure it ends in ``.properties``. For example,
+if you name the property file ``sales.properties``, Presto creates a
 catalog named ``sales`` using the configured connector.
 
 Querying PostgreSQL

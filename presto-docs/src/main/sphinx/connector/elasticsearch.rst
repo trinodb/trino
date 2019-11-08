@@ -10,7 +10,7 @@ Elasticsearch Connector
 Overview
 --------
 
-The Elasticsearch Connector allows access to Elasticsearch data from Presto.
+The Elasticsearch Connector allows access to `Elasticsearch <https://www.elastic.co/products/elasticsearch>`_ data from Presto.
 This document describes how to setup the Elasticsearch Connector to run SQL queries against Elasticsearch.
 
 .. note::
@@ -67,7 +67,7 @@ This property is optional; the default is ``9200``.
 ``elasticsearch.default-schema-name``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Defines the schema that will contain all tables defined without
+Defines the schema that contains all tables defined without
 a qualifying schema name.
 
 This property is optional; the default is ``default``.
@@ -83,7 +83,7 @@ This property is optional; the default is ``1000``.
 ``elasticsearch.scroll-timeout``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This property defines the amount of time (ms) Elasticsearch will keep the `search context alive`_ for scroll requests
+This property defines the amount of time (ms) Elasticsearch keeps the `search context alive`_ for scroll requests
 
 This property is optional; the default is ``1m``.
 

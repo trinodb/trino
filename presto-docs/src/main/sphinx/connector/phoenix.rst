@@ -2,7 +2,9 @@
 Phoenix Connector
 =================
 
-The Phoenix connector allows querying data stored in HBase using Apache Phoenix.
+The Phoenix connector allows querying data stored in 
+`Apache HBase <https://hbase.apache.org/>`_ using 
+`Apache Phoenix <https://phoenix.apache.org/>`_.
 
 Compatibility
 -------------
@@ -23,7 +25,7 @@ nodes used for discovery of the HBase cluster:
     phoenix.connection-url=jdbc:phoenix:host1,host2,host3:2181:/hbase
     phoenix.config.resources=/path/to/hbase-site.xml
 
-The optional paths to Hadoop resource files such as ``hbase-site.xml`` are used
+The optional paths to Hadoop resource files, such as ``hbase-site.xml`` are used
 to load custom Phoenix client connection properties.
 
 Configuration Properties
