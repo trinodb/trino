@@ -74,4 +74,12 @@ public class KuduInsertTableHandle
     {
         return false;
     }
+
+    public KuduTable getTable(KuduClientSession session)
+    {
+        if (table == null) {
+            table = session.openTable(schemaTableName);
+        }
+        return table;
+    }
 }

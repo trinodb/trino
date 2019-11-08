@@ -199,6 +199,7 @@ public class KuduMetadata
         }
     }
 
+    @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         KuduTableHandle kuduTableHandle = (KuduTableHandle) tableHandle;
