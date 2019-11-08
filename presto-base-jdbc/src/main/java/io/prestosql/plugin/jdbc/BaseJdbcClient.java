@@ -56,6 +56,7 @@ import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -254,11 +255,14 @@ public class BaseJdbcClient
                 // skip unsupported column types
                 if (columnMapping.isPresent()) {
                     boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
+                    // Note: some databases (e.g. SQL Server) do not return column remarks/comment here.
+                    Optional<String> comment = Optional.ofNullable(emptyToNull(resultSet.getString("REMARKS")));
                     columns.add(JdbcColumnHandle.builder()
                             .setColumnName(columnName)
                             .setJdbcTypeHandle(typeHandle)
                             .setColumnType(columnMapping.get().getType())
                             .setNullable(nullable)
+                            .setComment(comment)
                             .build());
                 }
             }

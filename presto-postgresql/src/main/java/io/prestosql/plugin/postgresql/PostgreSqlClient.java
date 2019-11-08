@@ -238,11 +238,13 @@ public class PostgreSqlClient
                     // skip unsupported column types
                     if (columnMapping.isPresent()) {
                         boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
+                        Optional<String> comment = Optional.ofNullable(resultSet.getString("REMARKS"));
                         columns.add(JdbcColumnHandle.builder()
                                 .setColumnName(columnName)
                                 .setJdbcTypeHandle(typeHandle)
                                 .setColumnType(columnMapping.get().getType())
                                 .setNullable(nullable)
+                                .setComment(comment)
                                 .build());
                     }
                 }
