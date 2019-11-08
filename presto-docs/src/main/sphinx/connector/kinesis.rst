@@ -91,7 +91,8 @@ This property is optional; the default is ``default``.
 ``kinesis.table-description-dir``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-References a folder within Presto deployment that holds one or more JSON files,ending with ``.json``, which contain table description files.
+References a folder within Presto deployment that holds one or more JSON files, 
+ending with ``.json``, which contain table description files.
 
 This property is optional; the default is ``etc/kinesis``.
 

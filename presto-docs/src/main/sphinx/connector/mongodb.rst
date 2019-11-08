@@ -146,11 +146,11 @@ This property is optional; the default is ``ACKNOWLEDGED``.
 ``mongodb.required-replica-set``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The required replica set name. With this option set, the MongoClient instance::
+The required replica set name. With this option set, the MongoClient instance performs the following actions::
 
 #. Connect in replica set mode, and discover all members of the set based on the given servers
 #. Make sure that the set name reported by all members matches the required set name.
-#. Refuse to service any requests if any member of the seed list is not part of a replica set with the required name.
+#. Refuse to service any requests, if any member of the seed list is not part of a replica set with the required name.
 
 This property is optional; no default value.
 
@@ -160,7 +160,7 @@ This property is optional; no default value.
 Limits the number of elements returned in one batch. A cursor typically fetches a batch of result objects and stores them locally.
 If batchSize is 0, Driver's default are used.
 If batchSize is positive, it represents the size of each batch of objects retrieved. It can be adjusted to optimize performance and limit data transfer.
-If batchSize is negative, it limits the number of objects returned, that fit within the max batch size limit (usually 4MB), and the cursor is closed. For example if batchSize is -10, then the server returns a maximum of 10 documents,and as many as can fit in 4MB, then closes the cursor.
+If batchSize is negative, it limits the number of objects returned, that fit within the max batch size limit (usually 4MB), and the cursor is closed. For example if batchSize is -10, then the server returns a maximum of 10 documents, and as many as can fit in 4MB, then closes the cursor.
 
 .. note:: Do not use a batch size of ``1``.
 

@@ -73,7 +73,7 @@ GCS connector for Hadoop provides an implementation of a Hadoop FileSystem.
 Unfortunately GCS IAM permissions don't map to POSIX permissions required by Hadoop FileSystem,
 so the GCS connector presents fake POSIX file permissions.
 
-When Hive metastore accesses GCS, it see fakes POSIX permissions equal to ``0700`` by default.
+When Hive metastore accesses GCS, it see fake POSIX permissions equal to ``0700`` by default.
 If Presto and Hive metastore are running as different user accounts, this causes Hive metastore
 to deny Presto data access.
 There are two possible solutions to this problem:

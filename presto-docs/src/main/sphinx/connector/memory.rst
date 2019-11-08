@@ -52,12 +52,11 @@ Memory Connector Limitations
       connector throws an error on any read access to such
       corrupted table.
     * When a query fails for any reason during writing to memory table,
-      the table enters an undefined state.The table should be dropped
+      the table enters an undefined state. The table should be dropped
       and recreated manually. Reading attempts from the table may fail,
       or may return partial data.
     * When the coordinator fails/restarts, all metadata about tables is
-      lost, but tables' data is still present on the workers,
-      however they are inaccessible.
+      lost. The tables remain on the workers, but become inaccessible.
     * This connector does not work properly with multiple
       coordinators, since each coordinator has different
       metadata.

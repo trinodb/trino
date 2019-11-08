@@ -311,11 +311,12 @@ Property Name                                Description
                                              by the JVM system property ``java.io.tmpdir``.
 
 ``hive.s3.pin-client-to-current-region``     Pin S3 requests to the same region as the EC2
-                                             instance where Presto is running,defaults to ``false``.
+                                             instance where Presto is running, 
+                                             defaults to ``false``.
 
 ``hive.s3.ssl.enabled``                      Use HTTPS to communicate with the S3 API, defaults to ``true``.
 
-``hive.s3.sse.enabled``                      Use S3 server-side encryption,defaults to ``false``.
+``hive.s3.sse.enabled``                      Use S3 server-side encryption, defaults to ``false``.
 
 ``hive.s3.sse.type``                         The type of key management for S3 server-side encryption.
                                              Use ``S3`` for S3 managed or ``KMS`` for KMS-managed keys, 
@@ -353,7 +354,7 @@ it is highly recommended that you set ``hive.s3.use-instance-credentials``
 to ``true`` and use IAM Roles for EC2 to govern access to S3. If this is
 the case, your EC2 instances need to be assigned an IAM Role which
 grants appropriate access to the data stored in the S3 bucket(s) you wish
-to use. It's also possible to configure an IAM role with ``hive.s3.iam-role``
+to use. It is also possible to configure an IAM role with ``hive.s3.iam-role``
 that is used for accessing any S3 bucket. This is much cleaner than
 setting AWS access and secret keys in the ``hive.s3.aws-access-key``
 and ``hive.s3.aws-secret-key`` settings, and also allows EC2 to automatically
@@ -416,7 +417,7 @@ either the Amazon KMS or a software plugin to manage AES encryption keys.
 
 With `S3 server-side encryption <http://docs.aws.amazon.com/AmazonS3/latest/dev/serv-side-encryption.html>`_,
 called *SSE-S3* in the Amazon documentation, the S3 infrastructure takes care of all encryption and decryption
-work. Onee exception is SSL to the client, assuming you have ``hive.s3.ssl.enabled`` set to ``true``.
+work. One exception is SSL to the client, assuming you have ``hive.s3.ssl.enabled`` set to ``true``.
 S3 also manages all the encryption keys for you. To enable this, set ``hive.s3.sse.enabled`` to ``true``.
 
 With `S3 client-side encryption <http://docs.aws.amazon.com/AmazonS3/latest/dev/UsingClientSideEncryption.html>`_,
