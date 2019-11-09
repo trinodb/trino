@@ -60,6 +60,8 @@ public class JdbcModule
 
         newExporter(binder).export(Key.get(JdbcClient.class, InternalBaseJdbc.class))
                 .as(generator -> generator.generatedNameOf(JdbcClient.class, catalogName));
+        newExporter(binder).export(Key.get(ConnectionFactory.class, StatsCollecting.class))
+                .as(generator -> generator.generatedNameOf(ConnectionFactory.class, catalogName));
     }
 
     @Provides
