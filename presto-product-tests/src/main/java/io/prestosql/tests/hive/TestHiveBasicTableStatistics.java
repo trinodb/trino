@@ -25,7 +25,6 @@ import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.google.common.base.Verify.verify;
-import static io.prestosql.tests.TestGroups.HIVE_TABLE_STATISTICS;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static io.prestosql.tests.utils.QueryExecutors.onPresto;
 import static java.lang.String.format;
@@ -36,7 +35,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestHiveBasicTableStatistics
         extends HiveProductTest
 {
-    @Test(groups = HIVE_TABLE_STATISTICS)
+    @Test
     public void testCreateUnpartitioned()
     {
         String tableName = "test_basic_statistics_unpartitioned_ctas_presto";
@@ -54,7 +53,7 @@ public class TestHiveBasicTableStatistics
         }
     }
 
-    @Test(groups = HIVE_TABLE_STATISTICS)
+    @Test
     public void testCreateTableWithNoData()
     {
         String tableName = "test_basic_statistics_unpartitioned_ctas_presto_with_no_data";
@@ -71,7 +70,7 @@ public class TestHiveBasicTableStatistics
         }
     }
 
-    @Test(groups = HIVE_TABLE_STATISTICS)
+    @Test
     public void testInsertUnpartitioned()
     {
         String tableName = "test_basic_statistics_unpartitioned_insert_presto";
@@ -107,7 +106,7 @@ public class TestHiveBasicTableStatistics
         }
     }
 
-    @Test(groups = HIVE_TABLE_STATISTICS)
+    @Test
     public void testCreatePartitioned()
     {
         String tableName = "test_basic_statistics_partitioned_ctas_presto";
@@ -144,7 +143,7 @@ public class TestHiveBasicTableStatistics
         }
     }
 
-    @Test(groups = HIVE_TABLE_STATISTICS)
+    @Test
     public void testAnalyzePartitioned()
     {
         String tableName = "test_basic_statistics_analyze_partitioned";
@@ -187,7 +186,7 @@ public class TestHiveBasicTableStatistics
         }
     }
 
-    @Test(groups = HIVE_TABLE_STATISTICS)
+    @Test
     public void testAnalyzeUnpartitioned()
     {
         String tableName = "test_basic_statistics_analyze_unpartitioned";
@@ -220,7 +219,7 @@ public class TestHiveBasicTableStatistics
         }
     }
 
-    @Test(groups = HIVE_TABLE_STATISTICS)
+    @Test
     public void testInsertPartitioned()
     {
         String tableName = "test_basic_statistics_partitioned_insert_presto";
@@ -260,7 +259,7 @@ public class TestHiveBasicTableStatistics
         }
     }
 
-    @Test(groups = HIVE_TABLE_STATISTICS)
+    @Test
     public void testInsertBucketed()
     {
         String tableName = "test_basic_statistics_bucketed_insert_presto";
@@ -299,7 +298,7 @@ public class TestHiveBasicTableStatistics
         }
     }
 
-    @Test(groups = HIVE_TABLE_STATISTICS)
+    @Test
     public void testInsertBucketedPartitioned()
     {
         String tableName = "test_basic_statistics_bucketed_partitioned_insert_presto";
