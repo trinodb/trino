@@ -8,7 +8,7 @@ cleanup_docker_containers
 start_docker_containers
 
 # generate test data
-exec_in_hadoop_master_container sudo -Eu hive /usr/bin/hive -f /files/sql/create-test.sql
+exec_in_hadoop_master_container sudo -Eu hive beeline -u jdbc:hive2://localhost:10000/default -n hive -f /files/sql/create-test.sql
 
 stop_unnecessary_hadoop_services
 
