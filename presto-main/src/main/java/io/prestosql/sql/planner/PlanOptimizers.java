@@ -245,6 +245,7 @@ public class PlanOptimizers
                 new PruneWindowColumns(),
                 new PruneOffsetColumns(),
                 new PruneLimitColumns(),
+                new RemoveTrivialFilters(),
                 new PruneTableScanColumns());
 
         Set<Rule<?>> projectionPushdownRules = ImmutableSet.of(
@@ -321,7 +322,6 @@ public class PlanOptimizers
                                         new PushLimitThroughOuterJoin(),
                                         new PushLimitThroughSemiJoin(),
                                         new PushLimitThroughUnion(),
-                                        new RemoveTrivialFilters(),
                                         new RemoveRedundantLimit(),
                                         new RemoveRedundantSort(),
                                         new RemoveRedundantTopN(),
