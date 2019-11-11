@@ -20,10 +20,10 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.base.Throwables.propagateIfPossible;
@@ -61,7 +61,7 @@ public final class OutputHandler
     public void processRows(StatementClient client)
             throws IOException
     {
-        BlockingQueue<List<?>> rowQueue = new LinkedBlockingQueue<>(MAX_QUEUED_ROWS);
+        BlockingQueue<List<?>> rowQueue = new ArrayBlockingQueue<>(MAX_QUEUED_ROWS);
         CompletableFuture<Void> readerFuture = CompletableFuture.runAsync(() -> {
             while (client.isRunning()) {
                 Iterable<List<Object>> data = client.currentData().getData();
