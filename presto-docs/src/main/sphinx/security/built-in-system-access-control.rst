@@ -75,7 +75,7 @@ Refresh
 --------
 
 By default, when a change is made to the ``security.config-file``, Presto must be restarted
-to load the changes. There is an optional property to refresh the properties without requiring a 
+to load the changes. There is an optional property to refresh the properties without requiring a
 Presto restart. The refresh period is specified in the ``etc/access-control.properties``:
 
 .. code-block:: none
