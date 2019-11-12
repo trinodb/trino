@@ -108,6 +108,21 @@ public class TransformExistsApplyToCorrelatedJoin
             return Result.empty();
         }
 
+        /*
+        Empty correlation list indicates that the subquery contains no correlation symbols from the
+        immediate outer scope. The subquery might be either not correlated at all, or correlated with
+        symbols from further outer scope.
+        Currently, the two cases are indistinguishable.
+        To support the latter case, the ApplyNode with empty correlation list is rewritten to default
+        aggregation, which is inefficient in the rare case of uncorrelated EXISTS subquery,
+        but currently allows to successfully decorrelate a correlated EXISTS subquery.
+
+        TODO: remove this condition when exploratory optimizer is implemented or support for decorrelating joins is implemented in PlanNodeDecorrelator
+        */
+        if (parent.getCorrelation().isEmpty()) {
+            return Result.ofPlanNode(rewriteToDefaultAggregation(parent, context));
+        }
+
         Optional<PlanNode> nonDefaultAggregation = rewriteToNonDefaultAggregation(parent, context);
         return nonDefaultAggregation
                 .map(Result::ofPlanNode)
