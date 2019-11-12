@@ -905,10 +905,10 @@ public class TestLogicalPlanner
                 anyTree(
                         node(JoinNode.class,
                                 anyTree(
-                                    node(ValuesNode.class)),
+                                        node(ValuesNode.class)),
                                 anyTree(
                                         exchange(REMOTE, GATHER,
-                                                        node(TableScanNode.class))))));
+                                                node(TableScanNode.class))))));
 
         // replicated join is preserved if there are no equality criteria
         assertPlanWithSession(
@@ -1264,14 +1264,14 @@ public class TestLogicalPlanner
                 output(
                         anyTree(
                                 node(MarkDistinctNode.class,
-                                anyTree(
-                                        node(MarkDistinctNode.class,
-                                                exchange(LOCAL, REPARTITION,
-                                                        exchange(REMOTE, REPARTITION,
-                                                                project(ImmutableMap.of("hash_custkey", expression("combine_hash(bigint '0', COALESCE(\"$operator$hash_code\"(custkey), 0))"), "hash_nationkey", expression("combine_hash(bigint '0', COALESCE(\"$operator$hash_code\"(nationkey), 0))")),
-                                                                        tableScan("customer", ImmutableMap.of("custkey", "custkey", "nationkey", "nationkey")))),
-                                                        exchange(REMOTE, REPARTITION,
-                                                                node(ProjectNode.class,
-                                                                        node(TableScanNode.class))))))))));
+                                        anyTree(
+                                                node(MarkDistinctNode.class,
+                                                        exchange(LOCAL, REPARTITION,
+                                                                exchange(REMOTE, REPARTITION,
+                                                                        project(ImmutableMap.of("hash_custkey", expression("combine_hash(bigint '0', COALESCE(\"$operator$hash_code\"(custkey), 0))"), "hash_nationkey", expression("combine_hash(bigint '0', COALESCE(\"$operator$hash_code\"(nationkey), 0))")),
+                                                                                tableScan("customer", ImmutableMap.of("custkey", "custkey", "nationkey", "nationkey")))),
+                                                                exchange(REMOTE, REPARTITION,
+                                                                        node(ProjectNode.class,
+                                                                                node(TableScanNode.class))))))))));
     }
 }
