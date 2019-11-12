@@ -606,9 +606,10 @@ maximum value of ``127``).
 Avro Schema Evolution
 ---------------------
 
-Presto supports querying and manipulating Hive tables with Avro storage format which has the schema set
-based on an Avro schema file/literal. It is also possible to create tables in Presto which infer the schema
-from a valid Avro schema file located locally, or remotely in HDFS/Web server.
+Presto supports querying and manipulating Hive tables with the Avro storage
+format, which has the schema set based on an Avro schema file/literal. Presto is
+also capable of creating the tables in Presto by infering the schema from a
+valid Avro schema file located locally, or remotely in HDFS/Web server.
 
 To specify that the Avro schema should be used for interpreting table's data one must use ``avro_schema_url`` table property.
 The schema can be placed remotely in

@@ -14,7 +14,7 @@ This connector allows the use of `Apache Kafka <https://kafka.apache.org/>`_
 topics as tables in Presto.
 Each message is presented as a row in Presto.
 
-Topics can be live, rows appear as data arrives and disappear as
+Topics can be live. Rows appear as data arrives, and disappear as
 segments get dropped. This can result in strange behavior if accessing the
 same table multiple times in a single query (e.g., performing a self join).
 
@@ -64,9 +64,10 @@ Property Name                   Description
 ``kafka.table-names``
 ^^^^^^^^^^^^^^^^^^^^^
 
-Comma-separated list of all tables provided by this catalog. A table name
-can be unqualified (simple name) and  is placed into the default schema
-(see below) or qualified with a schema name (``<schema-name>.<table-name>``).
+Comma-separated list of all tables provided by this catalog. A table name can be
+unqualified (simple name), and is then placed into the default schema (see
+below), or it can be qualified with a schema name
+(``<schema-name>.<table-name>``).
 
 For each table defined here, a table description file (see below) may
 exist. If no table description file exists, the table name is used as the
@@ -410,8 +411,8 @@ which can be specified via ``dataFormat`` attribute.
 Default Field decoder
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This is the standard field decoder supporting all the Presto physical data
-types. A field value is transferred under JSON conversion rules into
+This is the standard field decoder, supporting all the Presto physical data
+types. A field value is transformed under JSON conversion rules into
 boolean, long, double or string values. For non-date/time based columns,
 this decoder should be used.
 

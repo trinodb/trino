@@ -560,7 +560,7 @@ Now run queries against live data:
      494227750388256769 | jmolas          | es   | 2014-07-29 14:07:32.000
     (10 rows)
 
-There is now a live feed into Kafka,which can be queried using Presto.
+There is now a live feed into Kafka, which can be queried using Presto.
 
 Epilogue: Time stamps
 ---------------------
