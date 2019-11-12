@@ -209,7 +209,7 @@ For example, consider the following log levels file:
 
 This would set the minimum level to ``INFO`` for both
 ``io.prestosql.server`` and ``io.prestosql.plugin.hive``.
-The default minimum level is ``INFO``, 
+The default minimum level is ``INFO``,
 thus the above example does not actually change anything.
 There are four levels: ``DEBUG``, ``INFO``, ``WARN`` and ``ERROR``.
 
@@ -218,7 +218,7 @@ Catalog Properties
 
 Presto accesses data via *connectors*, which are mounted in catalogs.
 The connector provides all of the schemas and tables inside of the catalog.
-For example, the Hive connector maps each Hive database to a schema. 
+For example, the Hive connector maps each Hive database to a schema.
 If the Hive connector is mounted as the ``hive`` catalog, and Hive
 contains a table ``clicks`` in database ``web``, that table can be accessed
 in Presto as ``hive.web.clicks``.
