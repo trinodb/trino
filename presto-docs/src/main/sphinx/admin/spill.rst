@@ -48,22 +48,6 @@ memory intensive queries. It is still possible that the query runner fails
 to divide intermediate data into chunks small enough so that every chunk fits into
 memory, leading to ``Out of memory`` errors while loading the data from disk.
 
-Revocable memory and reserved pool
-----------------------------------
-
-Both, reserved memory pool and revocable memory, are designed to cope with low memory conditions.
-When user memory pool is exhausted a single query is promoted to a reserved pool.
-In such a case, only that query is allowed to progress thus reducing cluster
-concurrency. Revocable memory tries to prevent that by triggering spill.
-Reserved pool is of ``query.max-total-memory-per-node`` size. This means that
-when ``query.max-total-memory-per-node`` is large, then the user memory pool might be
-much smaller than ``query_max_memory_per_node``. This causes excessive
-spilling for queries that consume large amounts of memory per node.
-Such queries could finish much quicker when spill is disabled, because they
-execute in reserved pool. However, this can significantly reduce cluster concurrency.
-In such situations we recommend to disable reserved memory
-pool via ``experimental.reserved-pool-disabled`` config property.
-
 Spill Disk Space
 ----------------
 

@@ -113,6 +113,7 @@ public class TestMemoryManager
             throws Exception
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("experimental.reserved-pool-disabled", "false")
                 .put("task.verbose-stats", "true")
                 .put("query.low-memory-killer.delay", "5s")
                 .put("query.low-memory-killer.policy", "total-reservation")
@@ -221,6 +222,7 @@ public class TestMemoryManager
             throws Exception
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("experimental.reserved-pool-disabled", "false")
                 .put("task.verbose-stats", "true")
                 .build();
 
@@ -247,6 +249,7 @@ public class TestMemoryManager
             throws Exception
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("experimental.reserved-pool-disabled", "false")
                 .put("task.verbose-stats", "true")
                 .build();
 
