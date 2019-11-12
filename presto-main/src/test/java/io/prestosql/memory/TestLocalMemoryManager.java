@@ -28,7 +28,6 @@ public class TestLocalMemoryManager
     public void testReservedMemoryPoolDisabled()
     {
         NodeMemoryConfig config = new NodeMemoryConfig()
-                .setReservedPoolDisabled(true)
                 .setHeapHeadroom(new DataSize(10, GIGABYTE))
                 .setMaxQueryMemoryPerNode(new DataSize(20, GIGABYTE))
                 .setMaxQueryTotalMemoryPerNode(new DataSize(20, GIGABYTE));
@@ -42,6 +41,7 @@ public class TestLocalMemoryManager
     public void testReservedMemoryPoolEnabled()
     {
         NodeMemoryConfig config = new NodeMemoryConfig()
+                .setReservedPoolDisabled(false)
                 .setHeapHeadroom(new DataSize(10, GIGABYTE))
                 .setMaxQueryMemoryPerNode(new DataSize(20, GIGABYTE))
                 .setMaxQueryTotalMemoryPerNode(new DataSize(20, GIGABYTE));
