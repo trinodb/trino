@@ -32,8 +32,6 @@ import com.amazonaws.event.ProgressEvent;
 import com.amazonaws.event.ProgressEventType;
 import com.amazonaws.event.ProgressListener;
 import com.amazonaws.metrics.RequestMetricCollector;
-import com.amazonaws.regions.Region;
-import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Builder;
 import com.amazonaws.services.s3.AmazonS3Client;
@@ -116,6 +114,7 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.toArray;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.prestosql.plugin.hive.aws.AwsCurrentRegionHolder.getCurrentRegionFromEC2Metadata;
 import static io.prestosql.plugin.hive.util.RetryDriver.retry;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
@@ -740,11 +739,8 @@ public class PrestoS3FileSystem
 
         // use local region when running inside of EC2
         if (pinS3ClientToCurrentRegion) {
-            Region region = Regions.getCurrentRegion();
-            if (region != null) {
-                clientBuilder.setRegion(region.getName());
-                regionOrEndpointSet = true;
-            }
+            clientBuilder.setRegion(getCurrentRegionFromEC2Metadata().getName());
+            regionOrEndpointSet = true;
         }
 
         String endpoint = hadoopConfig.get(S3_ENDPOINT);
