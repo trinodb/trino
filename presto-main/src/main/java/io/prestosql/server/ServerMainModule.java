@@ -87,6 +87,8 @@ import io.prestosql.operator.LookupJoinOperators;
 import io.prestosql.operator.OperatorStats;
 import io.prestosql.operator.PagesIndex;
 import io.prestosql.operator.index.IndexJoinLookupStats;
+import io.prestosql.server.ExpressionSerialization.ExpressionDeserializer;
+import io.prestosql.server.ExpressionSerialization.ExpressionSerializer;
 import io.prestosql.server.remotetask.HttpLocationFactory;
 import io.prestosql.spi.PageIndexerFactory;
 import io.prestosql.spi.PageSorter;
@@ -109,9 +111,6 @@ import io.prestosql.split.PageSinkProvider;
 import io.prestosql.split.PageSourceManager;
 import io.prestosql.split.PageSourceProvider;
 import io.prestosql.split.SplitManager;
-import io.prestosql.sql.Serialization.ExpressionDeserializer;
-import io.prestosql.sql.Serialization.ExpressionSerializer;
-import io.prestosql.sql.Serialization.FunctionCallDeserializer;
 import io.prestosql.sql.SqlEnvironmentConfig;
 import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.gen.ExpressionCompiler;
@@ -126,7 +125,6 @@ import io.prestosql.sql.planner.LocalExecutionPlanner;
 import io.prestosql.sql.planner.NodePartitioningManager;
 import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.transaction.TransactionManagerConfig;
 import io.prestosql.type.TypeDeserializer;
 import io.prestosql.type.TypeSignatureDeserializer;
@@ -379,7 +377,6 @@ public class ServerMainModule
         jsonBinder(binder).addDeserializerBinding(Slice.class).to(SliceDeserializer.class);
         jsonBinder(binder).addSerializerBinding(Expression.class).to(ExpressionSerializer.class);
         jsonBinder(binder).addDeserializerBinding(Expression.class).to(ExpressionDeserializer.class);
-        jsonBinder(binder).addDeserializerBinding(FunctionCall.class).to(FunctionCallDeserializer.class);
 
         // split monitor
         binder.bind(SplitMonitor.class).in(Scopes.SINGLETON);

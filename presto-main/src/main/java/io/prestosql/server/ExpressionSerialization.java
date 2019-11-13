@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.sql;
+package io.prestosql.server;
 
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -19,9 +19,9 @@ import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
+import io.prestosql.sql.ExpressionFormatter;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.FunctionCall;
 
 import javax.inject.Inject;
 
@@ -29,9 +29,9 @@ import java.io.IOException;
 
 import static io.prestosql.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 
-public final class Serialization
+public final class ExpressionSerialization
 {
-    private Serialization() {}
+    private ExpressionSerialization() {}
 
     public static class ExpressionSerializer
             extends JsonSerializer<Expression>
@@ -60,25 +60,6 @@ public final class Serialization
                 throws IOException
         {
             return rewriteIdentifiersToSymbolReferences(sqlParser.createExpression(jsonParser.readValueAs(String.class)));
-        }
-    }
-
-    public static class FunctionCallDeserializer
-            extends JsonDeserializer<FunctionCall>
-    {
-        private final SqlParser sqlParser;
-
-        @Inject
-        public FunctionCallDeserializer(SqlParser sqlParser)
-        {
-            this.sqlParser = sqlParser;
-        }
-
-        @Override
-        public FunctionCall deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)
-                throws IOException
-        {
-            return (FunctionCall) rewriteIdentifiersToSymbolReferences(sqlParser.createExpression(jsonParser.readValueAs(String.class)));
         }
     }
 }
