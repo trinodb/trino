@@ -38,6 +38,7 @@ import io.prestosql.dispatcher.DispatchQueryFactory;
 import io.prestosql.dispatcher.DispatcherConfig;
 import io.prestosql.dispatcher.FailedDispatchQueryFactory;
 import io.prestosql.dispatcher.LocalDispatchQueryFactory;
+import io.prestosql.dispatcher.QueuedStatementResource;
 import io.prestosql.event.QueryMonitor;
 import io.prestosql.event.QueryMonitorConfig;
 import io.prestosql.execution.AddColumnTask;
@@ -102,6 +103,7 @@ import io.prestosql.memory.TotalReservationLowMemoryKiller;
 import io.prestosql.memory.TotalReservationOnBlockedNodesLowMemoryKiller;
 import io.prestosql.metadata.CatalogManager;
 import io.prestosql.operator.ForScheduler;
+import io.prestosql.server.protocol.ExecutingStatementResource;
 import io.prestosql.server.remotetask.RemoteTaskStats;
 import io.prestosql.spi.memory.ClusterMemoryPoolManager;
 import io.prestosql.spi.resourcegroups.QueryType;
@@ -194,8 +196,8 @@ public class CoordinatorModule
         jsonCodecBinder(binder).bindJsonCodec(QueryResults.class);
         jsonCodecBinder(binder).bindJsonCodec(SelectedRole.class);
         configBinder(binder).bindConfig(DispatcherConfig.class);
-        jaxrsBinder(binder).bind(io.prestosql.dispatcher.QueuedStatementResource.class);
-        jaxrsBinder(binder).bind(io.prestosql.server.protocol.ExecutingStatementResource.class);
+        jaxrsBinder(binder).bind(QueuedStatementResource.class);
+        jaxrsBinder(binder).bind(ExecutingStatementResource.class);
         binder.bind(StatementHttpExecutionMBean.class).in(Scopes.SINGLETON);
         newExporter(binder).export(StatementHttpExecutionMBean.class).withGeneratedName();
 
@@ -276,6 +278,7 @@ public class CoordinatorModule
         binder.bind(ExplainAnalyzeContext.class).in(Scopes.SINGLETON);
 
         // execution scheduler
+        jsonCodecBinder(binder).bindJsonCodec(TaskUpdateRequest.class);
         binder.bind(RemoteTaskFactory.class).to(HttpRemoteTaskFactory.class).in(Scopes.SINGLETON);
         newExporter(binder).export(RemoteTaskFactory.class).withGeneratedName();
 

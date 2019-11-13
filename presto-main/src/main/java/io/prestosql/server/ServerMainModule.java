@@ -94,7 +94,6 @@ import io.prestosql.spi.PageIndexerFactory;
 import io.prestosql.spi.PageSorter;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockEncodingSerde;
-import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spiller.FileSingleStreamSpillerFactory;
@@ -370,11 +369,11 @@ public class ServerMainModule
         // system connector
         binder.install(new SystemConnectorModule());
 
-        // splits
-        jsonCodecBinder(binder).bindJsonCodec(TaskUpdateRequest.class);
-        jsonCodecBinder(binder).bindJsonCodec(ConnectorSplit.class);
+        // slice
         jsonBinder(binder).addSerializerBinding(Slice.class).to(SliceSerializer.class);
         jsonBinder(binder).addDeserializerBinding(Slice.class).to(SliceDeserializer.class);
+
+        // expression
         jsonBinder(binder).addSerializerBinding(Expression.class).to(ExpressionSerializer.class);
         jsonBinder(binder).addDeserializerBinding(Expression.class).to(ExpressionDeserializer.class);
 
