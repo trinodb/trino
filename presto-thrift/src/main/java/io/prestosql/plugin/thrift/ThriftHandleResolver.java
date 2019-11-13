@@ -18,7 +18,6 @@ import io.prestosql.spi.connector.ConnectorHandleResolver;
 import io.prestosql.spi.connector.ConnectorIndexHandle;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
 public class ThriftHandleResolver
@@ -28,12 +27,6 @@ public class ThriftHandleResolver
     public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {
         return ThriftTableHandle.class;
-    }
-
-    @Override
-    public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
-    {
-        return ThriftTableLayoutHandle.class;
     }
 
     @Override
