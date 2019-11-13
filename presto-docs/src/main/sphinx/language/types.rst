@@ -60,11 +60,15 @@ Floating-Point
     A real is a 32-bit inexact, variable-precision implementing the
     IEEE Standard 754 for Binary Floating-Point Arithmetic.
 
+    Example literals: ``REAL '10.3'``, ``REAL '10.3e0'``, ``REAL '1.03e1'``
+
 ``DOUBLE``
 ^^^^^^^^^^
 
     A double is a 64-bit inexact, variable-precision implementing the
     IEEE Standard 754 for Binary Floating-Point Arithmetic.
+
+    Example literals: ``DOUBLE '10.3'``, ``DOUBLE '1.03e1'``, ``10.3e0``, ``1.03e1``
 
 Fixed-Precision
 ---------------
