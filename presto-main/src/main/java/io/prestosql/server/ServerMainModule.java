@@ -89,6 +89,8 @@ import io.prestosql.operator.PagesIndex;
 import io.prestosql.operator.index.IndexJoinLookupStats;
 import io.prestosql.server.ExpressionSerialization.ExpressionDeserializer;
 import io.prestosql.server.ExpressionSerialization.ExpressionSerializer;
+import io.prestosql.server.SliceSerialization.SliceDeserializer;
+import io.prestosql.server.SliceSerialization.SliceSerializer;
 import io.prestosql.server.remotetask.HttpLocationFactory;
 import io.prestosql.spi.PageIndexerFactory;
 import io.prestosql.spi.PageSorter;
