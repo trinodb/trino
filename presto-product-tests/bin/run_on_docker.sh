@@ -45,14 +45,14 @@ function run_in_application_runner_container() {
 }
 
 function check_presto() {
-  run_in_application_runner_container /docker/volumes/conf/docker/files/presto-cli.sh --execute "SHOW CATALOGS" | grep -iq hive
+  run_in_application_runner_container /docker/presto-product-tests/conf/docker/files/presto-cli.sh --execute "SHOW CATALOGS" | grep -iq hive
 }
 
 function run_product_tests() {
   local REPORT_DIR="${PRODUCT_TESTS_ROOT}/target/test-reports"
   rm -rf "${REPORT_DIR}"
   mkdir -p "${REPORT_DIR}"
-  run_in_application_runner_container /docker/volumes/conf/docker/files/run-tempto.sh "$@" &
+  run_in_application_runner_container /docker/presto-product-tests/conf/docker/files/run-tempto.sh "$@" &
   PRODUCT_TESTS_PROCESS_ID=$!
   wait ${PRODUCT_TESTS_PROCESS_ID}
   local PRODUCT_TESTS_EXIT_CODE=$?

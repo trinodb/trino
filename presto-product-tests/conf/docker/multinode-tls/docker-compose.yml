@@ -4,7 +4,7 @@ services:
   presto-master:
     domainname: docker.cluster
     hostname: presto-master
-    command: /docker/volumes/conf/docker/files/presto-launcher-wrapper.sh multinode-tls-master run
+    command: /docker/presto-product-tests/conf/docker/files/presto-launcher-wrapper.sh multinode-tls-master run
     ports:
       - '7778:7778'
     networks:
@@ -18,7 +18,7 @@ services:
     extends:
       file: ../common/standard.yml
       service: java-8-base
-    command: /docker/volumes/conf/docker/files/presto-launcher-wrapper.sh multinode-tls-worker run
+    command: /docker/presto-product-tests/conf/docker/files/presto-launcher-wrapper.sh multinode-tls-worker run
     networks:
       default:
         aliases:
@@ -34,7 +34,7 @@ services:
     extends:
       file: ../common/standard.yml
       service: java-8-base
-    command: /docker/volumes/conf/docker/files/presto-launcher-wrapper.sh multinode-tls-worker run
+    command: /docker/presto-product-tests/conf/docker/files/presto-launcher-wrapper.sh multinode-tls-worker run
     networks:
       default:
         aliases:
@@ -46,5 +46,5 @@ services:
 
   application-runner:
     environment:
-      - TEMPTO_PROFILE_CONFIG_FILE=/docker/volumes/conf/tempto/tempto-configuration-for-docker-tls.yaml
-      - CLI_ARGUMENTS=--server https://presto-master.docker.cluster:7778 --keystore-path /docker/volumes/conf/presto/etc/docker.cluster.jks --keystore-password 123456
+      - TEMPTO_PROFILE_CONFIG_FILE=/docker/presto-product-tests/conf/tempto/tempto-configuration-for-docker-tls.yaml
+      - CLI_ARGUMENTS=--server https://presto-master.docker.cluster:7778 --keystore-path /docker/presto-product-tests/conf/presto/etc/docker.cluster.jks --keystore-password 123456

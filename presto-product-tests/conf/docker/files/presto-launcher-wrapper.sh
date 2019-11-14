@@ -6,7 +6,7 @@ CONFIG="$1"
 
 shift 1
 
-PRESTO_CONFIG_DIRECTORY="/docker/volumes/conf/presto/etc"
+PRESTO_CONFIG_DIRECTORY="/docker/presto-product-tests/conf/presto/etc"
 CONFIG_PROPERTIES_LOCATION="${PRESTO_CONFIG_DIRECTORY}/${CONFIG}.properties"
 
 if [[ ! -f "${CONFIG_PROPERTIES_LOCATION}" ]]; then

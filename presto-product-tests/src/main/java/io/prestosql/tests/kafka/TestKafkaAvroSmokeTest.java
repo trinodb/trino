@@ -52,14 +52,14 @@ public class TestKafkaAvroSmokeTest
 
     private static final String ALL_DATATYPES_AVRO_TABLE_NAME = "product_tests.all_datatypes_avro";
     private static final String ALL_DATATYPES_AVRO_TOPIC_NAME = "all_datatypes_avro";
-    private static final String ALL_DATATYPE_SCHEMA_PATH = "/docker/volumes/conf/presto/etc/catalog/kafka/all_datatypes_avro_schema.avsc";
+    private static final String ALL_DATATYPE_SCHEMA_PATH = "/docker/presto-product-tests/conf/presto/etc/catalog/kafka/all_datatypes_avro_schema.avsc";
 
     private static final String ALL_NULL_AVRO_TABLE_NAME = "product_tests.all_null_avro";
     private static final String ALL_NULL_AVRO_TOPIC_NAME = "all_null_avro";
 
     private static final String STRUCTURAL_AVRO_TABLE_NAME = "product_tests.structural_datatype_avro";
     private static final String STRUCTURAL_AVRO_TOPIC_NAME = "structural_datatype_avro";
-    private static final String STRUCTURAL_SCHEMA_PATH = "/docker/volumes/conf/presto/etc/catalog/kafka/structural_datatype_avro_schema.avsc";
+    private static final String STRUCTURAL_SCHEMA_PATH = "/docker/presto-product-tests/conf/presto/etc/catalog/kafka/structural_datatype_avro_schema.avsc";
 
     // kafka-connectors requires tables to be predefined in presto configuration
     // the requirements here will be used to verify that table actually exists and to

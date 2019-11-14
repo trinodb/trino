@@ -4,7 +4,7 @@ services:
   java-8-base:
     image: 'prestodev/centos6-oj8:${DOCKER_IMAGES_VERSION}'
     volumes:
-      - ../..:/docker/volumes/conf
+      - ../..:/docker/presto-product-tests/conf
       - ../../target:/docker/logs
 
   hadoop-master:
@@ -33,7 +33,7 @@ services:
     extends:
       service: java-8-base
     hostname: presto-master
-    command: /docker/volumes/conf/docker/files/presto-launcher-wrapper.sh singlenode run
+    command: /docker/presto-product-tests/conf/docker/files/presto-launcher-wrapper.sh singlenode run
     ports:
       - '8080:8080'
       - '5005:5005'

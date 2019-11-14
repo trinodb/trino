@@ -4,7 +4,7 @@
   "topicName": "structural_datatype_avro",
   "message": {
     "dataFormat": "avro",
-    "dataSchema": "/docker/volumes/conf/presto/etc/catalog/kafka/structural_datatype_avro_schema.avsc",
+    "dataSchema": "/docker/presto-product-tests/conf/presto/etc/catalog/kafka/structural_datatype_avro_schema.avsc",
     "fields": [
       {
         "name": "c_array",
