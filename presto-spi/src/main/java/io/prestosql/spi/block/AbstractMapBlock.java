@@ -240,12 +240,9 @@ public abstract class AbstractMapBlock
         int startEntryOffset = getOffset(position);
         int endEntryOffset = getOffset(position + 1);
         return clazz.cast(new SingleMapBlock(
-                mapType,
                 startEntryOffset * 2,
                 (endEntryOffset - startEntryOffset) * 2,
-                getRawKeyBlock(),
-                getRawValueBlock(),
-                getHashTables()));
+                this));
     }
 
     @Override
