@@ -23,7 +23,7 @@ import io.prestosql.spi.type.TypeSerde;
 import java.util.Optional;
 
 import static io.airlift.slice.Slices.wrappedIntArray;
-import static io.prestosql.spi.block.AbstractMapBlock.HASH_MULTIPLIER;
+import static io.prestosql.spi.block.MapHashTables.HASH_MULTIPLIER;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -55,9 +55,17 @@ public class SingleMapBlockEncoding
         int positionCount = singleMapBlock.getPositionCount();
         blockEncodingSerde.writeBlock(sliceOutput, singleMapBlock.getRawKeyBlock().getRegion(offset / 2, positionCount / 2));
         blockEncodingSerde.writeBlock(sliceOutput, singleMapBlock.getRawValueBlock().getRegion(offset / 2, positionCount / 2));
-        int[] hashTable = singleMapBlock.getHashTable();
-        sliceOutput.appendInt(positionCount / 2 * HASH_MULTIPLIER);
-        sliceOutput.writeBytes(wrappedIntArray(hashTable, offset / 2 * HASH_MULTIPLIER, positionCount / 2 * HASH_MULTIPLIER));
+
+        Optional<int[]> hashTable = singleMapBlock.tryGetHashTable();
+        if (hashTable.isPresent()) {
+            int hashTableLength = positionCount / 2 * HASH_MULTIPLIER;
+            sliceOutput.appendInt(hashTableLength);  // hashtable length
+            sliceOutput.writeBytes(wrappedIntArray(hashTable.get(), offset / 2 * HASH_MULTIPLIER, hashTableLength));
+        }
+        else {
+            // if the hashTable is null, we write the length -1
+            sliceOutput.appendInt(-1);
+        }
     }
 
     @Override
@@ -68,13 +76,22 @@ public class SingleMapBlockEncoding
         Block keyBlock = blockEncodingSerde.readBlock(sliceInput);
         Block valueBlock = blockEncodingSerde.readBlock(sliceInput);
 
-        int[] hashTable = new int[sliceInput.readInt()];
-        sliceInput.readBytes(wrappedIntArray(hashTable));
+        int hashTableLength = sliceInput.readInt();
+        int[] hashTable = null;
+        if (hashTableLength >= 0) {
+            hashTable = new int[hashTableLength];
+            sliceInput.readBytes(wrappedIntArray(hashTable));
+        }
 
-        if (keyBlock.getPositionCount() != valueBlock.getPositionCount() || keyBlock.getPositionCount() * HASH_MULTIPLIER != hashTable.length) {
-            throw new IllegalArgumentException(format("Deserialized SingleMapBlock violates invariants: key %d, value %d, hash %d",
+        if (keyBlock.getPositionCount() != valueBlock.getPositionCount()) {
+            throw new IllegalArgumentException(format("Deserialized SingleMapBlock violates invariants: key %d, value %d",
                     keyBlock.getPositionCount(),
-                    valueBlock.getPositionCount(),
+                    valueBlock.getPositionCount()));
+        }
+
+        if (hashTable != null && keyBlock.getPositionCount() * HASH_MULTIPLIER != hashTable.length) {
+            throw new IllegalArgumentException(format("Deserialized SingleMapBlock violates invariants: expected hashtable size %d, actual hashtable size %d",
+                    keyBlock.getPositionCount() * HASH_MULTIPLIER,
                     hashTable.length));
         }
 
@@ -86,7 +103,7 @@ public class SingleMapBlockEncoding
                 new int[] {0, keyBlock.getPositionCount()},
                 keyBlock,
                 valueBlock,
-                hashTable);
+                new MapHashTables(mapType, Optional.ofNullable(hashTable)));
 
         return new SingleMapBlock(0, keyBlock.getPositionCount() * 2, mapBlock);
     }
