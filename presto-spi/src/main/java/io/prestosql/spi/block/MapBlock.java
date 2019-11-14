@@ -43,7 +43,6 @@ public class MapBlock
     private final int[] hashTables; // hash to location in map;
 
     private final long baseSizeInBytes;
-    private volatile long keySizeInBytes = -1;
     private volatile long valueSizeInBytes = -1;
     private final long retainedSizeInBytes;
 
@@ -171,7 +170,8 @@ public class MapBlock
 
         int entryCount = offsets[startOffset + positionCount] - offsets[startOffset];
         this.baseSizeInBytes = Integer.BYTES * HASH_MULTIPLIER * (long) entryCount +
-                (Integer.BYTES + Byte.BYTES) * (long) this.positionCount;
+                (Integer.BYTES + Byte.BYTES) * (long) this.positionCount +
+                calculateSize(keyBlock);
 
         this.retainedSizeInBytes = INSTANCE_SIZE + sizeOf(offsets) + sizeOf(mapIsNull) + sizeOf(hashTables);
     }
@@ -222,18 +222,14 @@ public class MapBlock
     @Override
     public long getSizeInBytes()
     {
-        if (keySizeInBytes < 0) {
-            keySizeInBytes = calculateSize(keyBlock);
-        }
-
         if (valueSizeInBytes < 0) {
             if (!valueBlock.isLoaded()) {
-                return baseSizeInBytes + keySizeInBytes + valueBlock.getSizeInBytes();
+                return baseSizeInBytes + valueBlock.getSizeInBytes();
             }
             valueSizeInBytes = calculateSize(valueBlock);
         }
 
-        return baseSizeInBytes + keySizeInBytes + valueSizeInBytes;
+        return baseSizeInBytes + valueSizeInBytes;
     }
 
     private long calculateSize(Block block)
