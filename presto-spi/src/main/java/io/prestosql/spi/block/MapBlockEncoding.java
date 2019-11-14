@@ -59,7 +59,7 @@ public class MapBlockEncoding
         int entriesStartOffset = offsets[offsetBase];
         int entriesEndOffset = offsets[offsetBase + positionCount];
 
-        TypeSerde.writeType(sliceOutput, mapBlock.mapType);
+        TypeSerde.writeType(sliceOutput, mapBlock.getMapType());
 
         blockEncodingSerde.writeBlock(sliceOutput, mapBlock.getRawKeyBlock().getRegion(entriesStartOffset, entriesEndOffset - entriesStartOffset));
         blockEncodingSerde.writeBlock(sliceOutput, mapBlock.getRawValueBlock().getRegion(entriesStartOffset, entriesEndOffset - entriesStartOffset));

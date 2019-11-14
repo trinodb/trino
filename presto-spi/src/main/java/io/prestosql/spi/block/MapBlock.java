@@ -285,7 +285,7 @@ public class MapBlock
             return this;
         }
         return createMapBlockInternal(
-                mapType,
+                getMapType(),
                 startOffset,
                 positionCount,
                 Optional.ofNullable(mapIsNull),
