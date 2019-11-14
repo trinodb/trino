@@ -14,7 +14,6 @@
 
 package io.prestosql.spi.block;
 
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.MapType;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -25,9 +24,10 @@ import java.util.Optional;
 import java.util.function.BiConsumer;
 
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.block.BlockUtil.calculateBlockResetSize;
 import static io.prestosql.spi.block.MapBlock.createMapBlockInternal;
+import static io.prestosql.spi.block.MapHashTables.buildHashTable;
+import static io.prestosql.spi.block.MapHashTables.buildHashTableStrict;
 import static java.lang.String.format;
 import static java.lang.System.arraycopy;
 import static java.util.Objects.requireNonNull;
@@ -379,101 +379,5 @@ public class MapBlockBuilder
         int[] hashTable = new int[size];
         Arrays.fill(hashTable, -1);
         return hashTable;
-    }
-
-    /**
-     * This method assumes that {@code keyBlock} has no duplicated entries (in the specified range)
-     */
-    static void buildHashTable(Block keyBlock, int keyOffset, int keyCount, MapType mapType, int[] outputHashTable, int hashTableOffset, int hashTableSize)
-    {
-        for (int i = 0; i < keyCount; i++) {
-            int hash = getHashPosition(mapType, keyBlock, keyOffset + i, hashTableSize);
-            while (true) {
-                if (outputHashTable[hashTableOffset + hash] == -1) {
-                    outputHashTable[hashTableOffset + hash] = i;
-                    break;
-                }
-                hash++;
-                if (hash == hashTableSize) {
-                    hash = 0;
-                }
-            }
-        }
-    }
-
-    /**
-     * This method checks whether {@code keyBlock} has duplicated entries (in the specified range)
-     */
-    private static void buildHashTableStrict(
-            Block keyBlock,
-            int keyOffset,
-            int keyCount,
-            MapType mapType,
-            int[] outputHashTable,
-            int hashTableOffset,
-            int hashTableSize)
-            throws DuplicateMapKeyException
-    {
-        for (int i = 0; i < keyCount; i++) {
-            int hash = getHashPosition(mapType, keyBlock, keyOffset + i, hashTableSize);
-            while (true) {
-                if (outputHashTable[hashTableOffset + hash] == -1) {
-                    outputHashTable[hashTableOffset + hash] = i;
-                    break;
-                }
-
-                Boolean isDuplicateKey;
-                try {
-                    // assuming maps with indeterminate keys are not supported
-                    isDuplicateKey = (Boolean) mapType.getKeyBlockEquals().invokeExact(keyBlock, keyOffset + i, keyBlock, keyOffset + outputHashTable[hashTableOffset + hash]);
-                }
-                catch (RuntimeException e) {
-                    throw e;
-                }
-                catch (Throwable throwable) {
-                    throw new RuntimeException(throwable);
-                }
-
-                if (isDuplicateKey == null) {
-                    throw new PrestoException(NOT_SUPPORTED, "map key cannot be null or contain nulls");
-                }
-
-                if (isDuplicateKey) {
-                    throw new DuplicateMapKeyException(keyBlock, keyOffset + i);
-                }
-
-                hash++;
-                if (hash == hashTableSize) {
-                    hash = 0;
-                }
-            }
-        }
-    }
-
-    private static int getHashPosition(MapType mapType, Block keyBlock, int position, int hashTableSize)
-    {
-        if (keyBlock.isNull(position)) {
-            throw new IllegalArgumentException("map keys cannot be null");
-        }
-
-        long hashCode;
-        try {
-            hashCode = (long) mapType.getKeyBlockHashCode().invokeExact(keyBlock, position);
-        }
-        catch (RuntimeException e) {
-            throw e;
-        }
-        catch (Throwable throwable) {
-            throw new RuntimeException(throwable);
-        }
-
-        return computePosition(hashCode, hashTableSize);
-    }
-
-    // This function reduces the 64 bit hashcode to [0, hashTableSize) uniformly. It first reduces the hashcode to 32 bit
-    // integer x then normalize it to x / 2^32 * hashSize to reduce the range of x from [0, 2^32) to [0, hashTableSize)
-    static int computePosition(long hashcode, int hashTableSize)
-    {
-        return (int) ((Integer.toUnsignedLong(Long.hashCode(hashcode)) * hashTableSize) >> 32);
     }
 }
