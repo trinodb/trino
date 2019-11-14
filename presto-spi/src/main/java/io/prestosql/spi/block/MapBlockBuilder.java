@@ -189,7 +189,7 @@ public class MapBlockBuilder
      * a consistent state before {@link DuplicateMapKeyException} is thrown.
      * In other words, one can continue to use this BlockBuilder.
      */
-    public BlockBuilder closeEntryStrict()
+    public void closeEntryStrict()
             throws DuplicateMapKeyException
     {
         if (!currentEntryOpened) {
@@ -211,10 +211,9 @@ public class MapBlockBuilder
                 hashTables,
                 previousAggregatedEntryCount * HASH_MULTIPLIER,
                 entryCount * HASH_MULTIPLIER);
-        return this;
     }
 
-    private BlockBuilder closeEntry(int[] providedHashTable, int providedHashTableOffset)
+    private void closeEntry(int[] providedHashTable, int providedHashTableOffset)
     {
         if (!currentEntryOpened) {
             throw new IllegalStateException("Expected entry to be opened but was closed");
@@ -229,8 +228,6 @@ public class MapBlockBuilder
         int hashTableOffset = offsets[positionCount - 1] * HASH_MULTIPLIER;
         int hashTableSize = (offsets[positionCount] - offsets[positionCount - 1]) * HASH_MULTIPLIER;
         arraycopy(providedHashTable, providedHashTableOffset, hashTables, hashTableOffset, hashTableSize);
-
-        return this;
     }
 
     @Override

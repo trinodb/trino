@@ -86,8 +86,10 @@ public class MapBlockEncoding
         sliceInput.readBytes(wrappedIntArray(hashTable));
 
         if (keyBlock.getPositionCount() != valueBlock.getPositionCount() || keyBlock.getPositionCount() * HASH_MULTIPLIER != hashTable.length) {
-            throw new IllegalArgumentException(
-                    format("Deserialized MapBlock violates invariants: key %d, value %d, hash %d", keyBlock.getPositionCount(), valueBlock.getPositionCount(), hashTable.length));
+            throw new IllegalArgumentException(format("Deserialized MapBlock violates invariants: key %d, value %d, hash %d",
+                    keyBlock.getPositionCount(),
+                    valueBlock.getPositionCount(),
+                    hashTable.length));
         }
 
         int positionCount = sliceInput.readInt();
