@@ -13,7 +13,6 @@
  */
 package io.prestosql.type;
 
-import io.airlift.joni.Regex;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
@@ -32,7 +31,7 @@ public class JoniRegexpType
 
     public JoniRegexpType()
     {
-        super(new TypeSignature(NAME), Regex.class);
+        super(new TypeSignature(NAME), JoniRegexp.class);
     }
 
     @Override

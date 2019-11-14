@@ -24,6 +24,7 @@ import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.function.ScalarOperator;
 import io.prestosql.spi.function.SqlType;
+import io.prestosql.type.JoniRegexp;
 import io.prestosql.type.JoniRegexpType;
 
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -36,7 +37,7 @@ public final class JoniRegexpCasts
     @LiteralParameters("x")
     @ScalarOperator(OperatorType.CAST)
     @SqlType(JoniRegexpType.NAME)
-    public static Regex castVarcharToJoniRegexp(@SqlType("varchar(x)") Slice pattern)
+    public static JoniRegexp castVarcharToJoniRegexp(@SqlType("varchar(x)") Slice pattern)
     {
         return joniRegexp(pattern);
     }
@@ -44,12 +45,12 @@ public final class JoniRegexpCasts
     @ScalarOperator(OperatorType.CAST)
     @LiteralParameters("x")
     @SqlType(JoniRegexpType.NAME)
-    public static Regex castCharToJoniRegexp(@LiteralParameter("x") Long charLength, @SqlType("char(x)") Slice pattern)
+    public static JoniRegexp castCharToJoniRegexp(@LiteralParameter("x") Long charLength, @SqlType("char(x)") Slice pattern)
     {
         return joniRegexp(padSpaces(pattern, charLength.intValue()));
     }
 
-    public static Regex joniRegexp(Slice pattern)
+    public static JoniRegexp joniRegexp(Slice pattern)
     {
         Regex regex;
         try {
@@ -59,6 +60,6 @@ public final class JoniRegexpCasts
         catch (Exception e) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
         }
-        return regex;
+        return new JoniRegexp(pattern, regex);
     }
 }
