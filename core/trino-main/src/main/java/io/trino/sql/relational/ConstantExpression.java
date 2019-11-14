@@ -13,19 +13,33 @@
  */
 package io.trino.sql.relational;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.slice.Slice;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
 import java.util.Objects;
 
+import static io.trino.spi.type.TypeUtils.readNativeValue;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class ConstantExpression
         extends RowExpression
 {
+    @JsonCreator
+    public static ConstantExpression fromJson(
+            @JsonProperty Block value,
+            @JsonProperty Type type)
+    {
+        return new ConstantExpression(readNativeValue(type, value, 0), type);
+    }
+
     private final Object value;
     private final Type type;
 
@@ -42,6 +56,15 @@ public final class ConstantExpression
         return value;
     }
 
+    @JsonProperty("value")
+    public Block getBlockValue()
+    {
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
+        writeNativeValue(type, blockBuilder, value);
+        return blockBuilder.build();
+    }
+
+    @JsonProperty
     @Override
     public Type getType()
     {
