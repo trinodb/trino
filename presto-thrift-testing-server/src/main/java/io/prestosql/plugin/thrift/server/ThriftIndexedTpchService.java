@@ -100,16 +100,19 @@ public class ThriftIndexedTpchService
                 .orElseThrow(() -> new IllegalArgumentException(format("No such index: %s%s", splitInfo.getTableName(), splitInfo.getLookupColumnNames())));
         List<Type> lookupColumnTypes = types(splitInfo.getTableName(), splitInfo.getLookupColumnNames());
         RecordSet keyRecordSet = new ListBasedRecordSet(splitInfo.getKeys(), lookupColumnTypes);
-        RecordSet outputRecordSet = lookupIndexKeys(keyRecordSet, indexedTable, outputColumnNames);
+        RecordSet outputRecordSet = lookupIndexKeys(keyRecordSet, indexedTable, outputColumnNames, splitInfo.getLookupColumnNames());
         return new RecordPageSource(outputRecordSet);
     }
 
     /**
      * Get lookup result and re-map output columns based on requested order.
      */
-    private static RecordSet lookupIndexKeys(RecordSet keys, IndexedTable table, List<String> outputColumnNames)
+    private static RecordSet lookupIndexKeys(RecordSet keys, IndexedTable table, List<String> outputColumnNames, List<String> lookupColumnNames)
     {
-        RecordSet allColumnsOutputRecordSet = table.lookupKeys(keys);
+        RecordSet allColumnsOutputRecordSet = table.lookupKeys(
+                new MappedRecordSet(
+                        keys,
+                        computeRemap(lookupColumnNames, table.getKeyColumns())));
         List<Integer> outputRemap = computeRemap(table.getOutputColumns(), outputColumnNames);
         return new MappedRecordSet(allColumnsOutputRecordSet, outputRemap);
     }
