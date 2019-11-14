@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-DOCKER_TEMPTO_CONF_DIR="/docker/volumes/conf/tempto"
+DOCKER_TEMPTO_CONF_DIR="/docker/presto-product-tests/conf/tempto"
 TEMPTO_CONFIG_FILES="tempto-configuration.yaml" # this comes from classpath
 TEMPTO_CONFIG_FILES="${TEMPTO_CONFIG_FILES},${DOCKER_TEMPTO_CONF_DIR}/tempto-configuration-for-docker-default.yaml"
 

@@ -253,7 +253,7 @@ and then set environment variable like below. Your configuration file will be lo
 it is able to override any configuration entry.
 
 ```
-export TEMPTO_EXTRA_CONFIG_FILE=/docker/volumes/conf/EXTRA_TEMPTO_CONFIG.yml
+export TEMPTO_EXTRA_CONFIG_FILE=/docker/presto-product-tests/conf/EXTRA_TEMPTO_CONFIG.yml
 ```
 
 All of the variables are optional and fall back to local sources / build artifacts if unspecified.

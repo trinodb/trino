@@ -16,4 +16,4 @@ if [[ ! -f "$DOCKER_CONF_LOCATION/$ENVIRONMENT/compose.sh" ]]; then
   usage
 fi
 
-environment_compose run -p 5007:5007 application-runner /docker/volumes/conf/docker/files/run-tempto.sh "$@"
+environment_compose run -p 5007:5007 application-runner /docker/presto-product-tests/conf/docker/files/run-tempto.sh "$@"

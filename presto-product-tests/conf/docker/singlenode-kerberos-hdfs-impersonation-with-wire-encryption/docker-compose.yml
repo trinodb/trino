@@ -3,7 +3,7 @@ services:
 
   presto-master:
     volumes:
-      - ../../../conf/presto/etc/environment-specific-catalogs/singlenode-kerberos-hdfs-impersonation-with-wire-encryption/hive.properties:/docker/volumes/conf/presto/etc/catalog/hive.properties
+      - ../../../conf/presto/etc/environment-specific-catalogs/singlenode-kerberos-hdfs-impersonation-with-wire-encryption/hive.properties:/docker/presto-product-tests/conf/presto/etc/catalog/hive.properties
 
   hadoop-master:
     volumes:
