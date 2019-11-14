@@ -178,7 +178,7 @@ public class MapBlockBuilder
         int previousAggregatedEntryCount = offsets[positionCount - 1];
         int aggregatedEntryCount = offsets[positionCount];
         int entryCount = aggregatedEntryCount - previousAggregatedEntryCount;
-        buildHashTable(keyBlockBuilder, previousAggregatedEntryCount, entryCount, mapType, hashTables, previousAggregatedEntryCount * HASH_MULTIPLIER, entryCount * HASH_MULTIPLIER);
+        buildHashTable(keyBlockBuilder, previousAggregatedEntryCount, entryCount, getMapType(), hashTables, previousAggregatedEntryCount * HASH_MULTIPLIER, entryCount * HASH_MULTIPLIER);
         return this;
     }
 
@@ -207,7 +207,7 @@ public class MapBlockBuilder
                 keyBlockBuilder,
                 previousAggregatedEntryCount,
                 entryCount,
-                mapType,
+                getMapType(),
                 hashTables,
                 previousAggregatedEntryCount * HASH_MULTIPLIER,
                 entryCount * HASH_MULTIPLIER);
@@ -281,7 +281,7 @@ public class MapBlockBuilder
             throw new IllegalStateException("Current entry must be closed before the block can be built");
         }
         return createMapBlockInternal(
-                mapType,
+                getMapType(),
                 0,
                 positionCount,
                 Optional.of(mapIsNull),
@@ -368,7 +368,7 @@ public class MapBlockBuilder
     {
         int newSize = calculateBlockResetSize(getPositionCount());
         return new MapBlockBuilder(
-                mapType,
+                getMapType(),
                 blockBuilderStatus,
                 keyBlockBuilder.newBlockBuilderLike(blockBuilderStatus),
                 valueBlockBuilder.newBlockBuilderLike(blockBuilderStatus),

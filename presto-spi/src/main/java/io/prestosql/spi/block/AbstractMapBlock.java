@@ -38,7 +38,7 @@ public abstract class AbstractMapBlock
     // inverse of hash fill ratio, must be integer
     static final int HASH_MULTIPLIER = 2;
 
-    protected final MapType mapType;
+    private final MapType mapType;
 
     public AbstractMapBlock(MapType mapType)
     {
@@ -49,6 +49,11 @@ public abstract class AbstractMapBlock
     public final List<Block> getChildren()
     {
         return unmodifiableList(asList(getRawKeyBlock(), getRawValueBlock()));
+    }
+
+    protected MapType getMapType()
+    {
+        return mapType;
     }
 
     protected abstract Block getRawKeyBlock();
