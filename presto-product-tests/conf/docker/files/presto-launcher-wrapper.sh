@@ -14,7 +14,7 @@ if [[ ! -f "${CONFIG_PROPERTIES_LOCATION}" ]]; then
    exit 1
 fi
 
-/docker/volumes/presto-server/bin/launcher \
+/docker/presto-server/bin/launcher \
   -Dnode.id="${HOSTNAME}" \
   --etc-dir="${PRESTO_CONFIG_DIRECTORY}" \
   --config="${CONFIG_PROPERTIES_LOCATION}" \
