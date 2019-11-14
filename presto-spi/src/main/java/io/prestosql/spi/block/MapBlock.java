@@ -19,12 +19,11 @@ import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
-import java.util.Arrays;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.prestosql.spi.block.MapHashTables.buildHashTable;
+import static io.prestosql.spi.block.MapHashTables.HASH_MULTIPLIER;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -40,7 +39,7 @@ public class MapBlock
     private final int[] offsets;
     private final Block keyBlock;
     private final Block valueBlock;
-    private final int[] hashTables; // hash to location in map;
+    private final MapHashTables hashTables;
 
     private final long baseSizeInBytes;
     private volatile long valueSizeInBytes = -1;
@@ -60,20 +59,6 @@ public class MapBlock
         validateConstructorArguments(mapType, 0, offsets.length - 1, mapIsNull.orElse(null), offsets, keyBlock, valueBlock);
 
         int mapCount = offsets.length - 1;
-        int elementCount = keyBlock.getPositionCount();
-        int[] hashTables = new int[elementCount * HASH_MULTIPLIER];
-        Arrays.fill(hashTables, -1);
-        for (int i = 0; i < mapCount; i++) {
-            int keyOffset = offsets[i];
-            int keyCount = offsets[i + 1] - keyOffset;
-            if (keyCount < 0) {
-                throw new IllegalArgumentException(format("Offset is not monotonically ascending. offsets[%s]=%s, offsets[%s]=%s", i, offsets[i], i + 1, offsets[i + 1]));
-            }
-            if (mapIsNull.isPresent() && mapIsNull.get()[i] && keyCount != 0) {
-                throw new IllegalArgumentException("A null map must have zero entries");
-            }
-            buildHashTable(keyBlock, keyOffset, keyCount, mapType, hashTables, keyOffset * HASH_MULTIPLIER, keyCount * HASH_MULTIPLIER);
-        }
 
         return createMapBlockInternal(
                 mapType,
@@ -83,7 +68,7 @@ public class MapBlock
                 offsets,
                 keyBlock,
                 valueBlock,
-                hashTables);
+                new MapHashTables(mapType, Optional.empty()));
     }
 
     /**
@@ -99,9 +84,10 @@ public class MapBlock
             int[] offsets,
             Block keyBlock,
             Block valueBlock,
-            int[] hashTables)
+            MapHashTables hashTables)
     {
         validateConstructorArguments(mapType, startOffset, positionCount, mapIsNull.orElse(null), offsets, keyBlock, valueBlock);
+        requireNonNull(hashTables, "hashTables is null");
         return new MapBlock(mapType, startOffset, positionCount, mapIsNull.orElse(null), offsets, keyBlock, valueBlock, hashTables);
     }
 
@@ -151,13 +137,13 @@ public class MapBlock
             int[] offsets,
             Block keyBlock,
             Block valueBlock,
-            int[] hashTables)
+            MapHashTables hashTables)
     {
         super(mapType);
 
-        requireNonNull(hashTables, "hashTables is null");
-        if (hashTables.length < keyBlock.getPositionCount() * HASH_MULTIPLIER) {
-            throw new IllegalArgumentException(format("keyBlock/valueBlock size does not match hash table size: %s %s", keyBlock.getPositionCount(), hashTables.length));
+        int[] rawHashTables = hashTables.tryGet().orElse(null);
+        if (rawHashTables != null && rawHashTables.length < keyBlock.getPositionCount() * HASH_MULTIPLIER) {
+            throw new IllegalArgumentException(format("keyBlock/valueBlock size does not match hash table size: %s %s", keyBlock.getPositionCount(), rawHashTables.length));
         }
 
         this.startOffset = startOffset;
@@ -173,7 +159,7 @@ public class MapBlock
                 (Integer.BYTES + Byte.BYTES) * (long) this.positionCount +
                 calculateSize(keyBlock);
 
-        this.retainedSizeInBytes = INSTANCE_SIZE + sizeOf(offsets) + sizeOf(mapIsNull) + sizeOf(hashTables);
+        this.retainedSizeInBytes = INSTANCE_SIZE + sizeOf(offsets) + sizeOf(mapIsNull);
     }
 
     @Override
@@ -189,7 +175,7 @@ public class MapBlock
     }
 
     @Override
-    protected int[] getHashTables()
+    protected MapHashTables getHashTables()
     {
         return hashTables;
     }
@@ -243,7 +229,7 @@ public class MapBlock
     @Override
     public long getRetainedSizeInBytes()
     {
-        return retainedSizeInBytes + keyBlock.getRetainedSizeInBytes() + valueBlock.getRetainedSizeInBytes();
+        return retainedSizeInBytes + keyBlock.getRetainedSizeInBytes() + valueBlock.getRetainedSizeInBytes() + hashTables.getRetainedSizeInBytes();
     }
 
     @Override
@@ -253,7 +239,7 @@ public class MapBlock
         consumer.accept(valueBlock, valueBlock.getRetainedSizeInBytes());
         consumer.accept(offsets, sizeOf(offsets));
         consumer.accept(mapIsNull, sizeOf(mapIsNull));
-        consumer.accept(hashTables, sizeOf(hashTables));
+        consumer.accept(hashTables, hashTables.getRetainedSizeInBytes());
         consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
@@ -293,5 +279,11 @@ public class MapBlock
                 keyBlock,
                 loadedValueBlock,
                 hashTables);
+    }
+
+    @Override
+    protected void ensureHashTableLoaded()
+    {
+        hashTables.buildAllHashTablesIfNecessary(getRawKeyBlock(), offsets, mapIsNull);
     }
 }

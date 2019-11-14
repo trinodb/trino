@@ -19,13 +19,13 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.util.Optional;
 import java.util.function.BiConsumer;
 
-import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.SizeOf.sizeOfIntArray;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.prestosql.spi.block.AbstractMapBlock.HASH_MULTIPLIER;
+import static io.prestosql.spi.block.MapHashTables.HASH_MULTIPLIER;
 import static io.prestosql.spi.block.MapHashTables.computePosition;
 import static java.lang.String.format;
 
@@ -75,7 +75,7 @@ public class SingleMapBlock
     {
         consumer.accept(mapBlock.getRawKeyBlock(), mapBlock.getRawKeyBlock().getRetainedSizeInBytes());
         consumer.accept(mapBlock.getRawValueBlock(), mapBlock.getRawValueBlock().getRetainedSizeInBytes());
-        consumer.accept(mapBlock.getHashTables(), sizeOf(mapBlock.getHashTables()));
+        consumer.accept(mapBlock.getHashTables(), mapBlock.getHashTables().getRetainedSizeInBytes());
         consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
@@ -133,9 +133,9 @@ public class SingleMapBlock
                 mapBlock);
     }
 
-    int[] getHashTable()
+    public Optional<int[]> tryGetHashTable()
     {
-        return mapBlock.getHashTables();
+        return mapBlock.getHashTables().tryGet();
     }
 
     /**
@@ -147,7 +147,8 @@ public class SingleMapBlock
             return -1;
         }
 
-        int[] hashTable = mapBlock.getHashTables();
+        mapBlock.ensureHashTableLoaded();
+        int[] hashTable = mapBlock.getHashTables().get();
 
         long hashCode;
         try {
@@ -193,7 +194,8 @@ public class SingleMapBlock
             return -1;
         }
 
-        int[] hashTable = mapBlock.getHashTables();
+        mapBlock.ensureHashTableLoaded();
+        int[] hashTable = mapBlock.getHashTables().get();
 
         long hashCode;
         try {
@@ -236,7 +238,8 @@ public class SingleMapBlock
             return -1;
         }
 
-        int[] hashTable = mapBlock.getHashTables();
+        mapBlock.ensureHashTableLoaded();
+        int[] hashTable = mapBlock.getHashTables().get();
 
         long hashCode;
         try {
@@ -279,7 +282,8 @@ public class SingleMapBlock
             return -1;
         }
 
-        int[] hashTable = mapBlock.getHashTables();
+        mapBlock.ensureHashTableLoaded();
+        int[] hashTable = mapBlock.getHashTables().get();
 
         long hashCode;
         try {
@@ -322,7 +326,8 @@ public class SingleMapBlock
             return -1;
         }
 
-        int[] hashTable = mapBlock.getHashTables();
+        mapBlock.ensureHashTableLoaded();
+        int[] hashTable = mapBlock.getHashTables().get();
 
         long hashCode;
         try {
@@ -365,7 +370,8 @@ public class SingleMapBlock
             return -1;
         }
 
-        int[] hashTable = mapBlock.getHashTables();
+        mapBlock.ensureHashTableLoaded();
+        int[] hashTable = mapBlock.getHashTables().get();
 
         long hashCode;
         try {
