@@ -5,7 +5,7 @@ services:
     image: 'prestodev/centos6-oj8:${DOCKER_IMAGES_VERSION}'
     volumes:
       - ../..:/docker/volumes/conf
-      - ../../target:/docker/volumes/logs
+      - ../../target:/docker/logs
 
   hadoop-master:
     extends:
