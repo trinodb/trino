@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Primitives;
-import io.airlift.joni.Regex;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.prestosql.Session;
@@ -90,6 +89,7 @@ import io.prestosql.sql.tree.SubscriptExpression;
 import io.prestosql.sql.tree.SymbolReference;
 import io.prestosql.sql.tree.WhenClause;
 import io.prestosql.type.FunctionType;
+import io.prestosql.type.JoniRegexp;
 import io.prestosql.type.LikeFunctions;
 import io.prestosql.type.TypeCoercion;
 import io.prestosql.util.Failures;
@@ -156,7 +156,7 @@ public class ExpressionInterpreter
     private final Visitor visitor;
 
     // identity-based cache for LIKE expressions with constant pattern and escape char
-    private final IdentityHashMap<LikePredicate, Regex> likePatternCache = new IdentityHashMap<>();
+    private final IdentityHashMap<LikePredicate, JoniRegexp> likePatternCache = new IdentityHashMap<>();
     private final IdentityHashMap<InListExpression, Set<?>> inListCache = new IdentityHashMap<>();
 
     public static ExpressionInterpreter expressionInterpreter(Expression expression, Metadata metadata, Session session, Map<NodeRef<Expression>, Type> expressionTypes)
@@ -1022,7 +1022,7 @@ public class ExpressionInterpreter
             if (value instanceof Slice &&
                     pattern instanceof Slice &&
                     (escape == null || escape instanceof Slice)) {
-                Regex regex;
+                JoniRegexp regex;
                 if (escape == null) {
                     regex = LikeFunctions.compileLikePattern((Slice) pattern);
                 }
@@ -1063,7 +1063,7 @@ public class ExpressionInterpreter
                     optimizedEscape);
         }
 
-        private boolean evaluateLikePredicate(LikePredicate node, Slice value, Regex regex)
+        private boolean evaluateLikePredicate(LikePredicate node, Slice value, JoniRegexp regex)
         {
             if (type(node.getValue()) instanceof VarcharType) {
                 return LikeFunctions.likeVarchar(value, regex);
@@ -1074,9 +1074,9 @@ public class ExpressionInterpreter
             return LikeFunctions.likeChar((long) ((CharType) type).getLength(), value, regex);
         }
 
-        private Regex getConstantPattern(LikePredicate node)
+        private JoniRegexp getConstantPattern(LikePredicate node)
         {
-            Regex result = likePatternCache.get(node);
+            JoniRegexp result = likePatternCache.get(node);
 
             if (result == null) {
                 StringLiteral pattern = (StringLiteral) node.getPattern();
