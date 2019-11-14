@@ -24,7 +24,7 @@ import java.util.Optional;
 import java.util.function.BiConsumer;
 
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.prestosql.spi.block.MapBlockBuilder.buildHashTable;
+import static io.prestosql.spi.block.MapHashTables.buildHashTable;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

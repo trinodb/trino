@@ -26,7 +26,7 @@ import static io.airlift.slice.SizeOf.sizeOfIntArray;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.block.AbstractMapBlock.HASH_MULTIPLIER;
-import static io.prestosql.spi.block.MapBlockBuilder.computePosition;
+import static io.prestosql.spi.block.MapHashTables.computePosition;
 import static java.lang.String.format;
 
 public class SingleMapBlock
