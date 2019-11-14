@@ -166,7 +166,7 @@
                         </goals>
                         <configuration>
                             <!--
-                            Presto-product-tests has a dependency on SQL Server (mssql-jdbc) which is a signed jar.
+                            presto-product-tests has a dependency on SQL Server (mssql-jdbc) which is a signed jar.
                             Its invalidated when we repackage it into an uber jar. Hence to avoid
                             Error: A JNI error has occurred, please check your installation and try again
                             Exception in thread "main" java.lang.SecurityException: Invalid signature file digest for Manifest main attributes
