@@ -13,6 +13,8 @@
  */
 package io.trino.sql.relational;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.ResolvedFunction;
@@ -29,7 +31,7 @@ import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
 import static io.trino.spi.function.OperatorType.CAST;
 import static java.util.Objects.requireNonNull;
 
-public class SpecialForm
+public final class SpecialForm
         extends RowExpression
 {
     private final Form form;
@@ -42,7 +44,11 @@ public class SpecialForm
         this(form, returnType, ImmutableList.copyOf(arguments));
     }
 
-    public SpecialForm(Form form, Type returnType, List<RowExpression> arguments)
+    @JsonCreator
+    public SpecialForm(
+            @JsonProperty Form form,
+            @JsonProperty Type returnType,
+            @JsonProperty List<RowExpression> arguments)
     {
         this(form, returnType, arguments, ImmutableList.of());
     }
@@ -55,6 +61,7 @@ public class SpecialForm
         this.functionDependencies = ImmutableList.copyOf(requireNonNull(functionDependencies, "functionDependencies is null"));
     }
 
+    @JsonProperty
     public Form getForm()
     {
         return form;
@@ -91,11 +98,13 @@ public class SpecialForm
     }
 
     @Override
+    @JsonProperty("returnType")
     public Type getType()
     {
         return returnType;
     }
 
+    @JsonProperty
     public List<RowExpression> getArguments()
     {
         return arguments;
