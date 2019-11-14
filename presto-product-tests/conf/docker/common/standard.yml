@@ -54,7 +54,7 @@ services:
       - ${PRESTO_JDBC_DRIVER_JAR_DIR}:/docker/volumes/jdbc/
       - ${PRESTO_JDBC_DRIVER_JAR}:/docker/presto-jdbc.jar
       - ../../../conf/tempto/tempto-configuration-for-docker-default.yaml:/docker/volumes/tempto/tempto-configuration-local.yaml
-      - ../../../target/test-reports:/docker/volumes/test-reports
+      - ../../../target/test-reports:/docker/test-reports
       - /tmp/presto_history_docker:/root/.presto_history
     environment:
       - PRESTO_JDBC_DRIVER_CLASS
