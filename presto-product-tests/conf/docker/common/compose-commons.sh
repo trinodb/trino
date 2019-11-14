@@ -33,10 +33,10 @@ touch /tmp/presto_history_docker
 # and without building the project. The `presto.env` file should only be sourced if any of the variables
 # is undefined, otherwise running product tests without a build won't work.
 
-if [[ -z "${PRESTO_SERVER_DIR:-}" ]]; then
-    PRESTO_SERVER_DIR="${PROJECT_ROOT}/presto-server/target/presto-server-${PRESTO_VERSION}/"
+if [[ -z "${PRESTO_SERVER:-}" ]]; then
+    PRESTO_SERVER="${PROJECT_ROOT}/presto-server/target/presto-server-${PRESTO_VERSION}.tar.gz"
 fi
-export_canonical_path PRESTO_SERVER_DIR
+export_canonical_path PRESTO_SERVER
 
 if [[ -z "${PRESTO_CLI_JAR:-}" ]]; then
     PRESTO_CLI_JAR="${PROJECT_ROOT}/presto-cli/target/presto-cli-${PRESTO_VERSION}-executable.jar"

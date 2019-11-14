@@ -240,7 +240,7 @@ To run with custom versions of presto / presto-cli / product tests, just set the
 environment variables:
 
 ```
-export PRESTO_SERVER_DIR=/tmp/presto-server-dir      #unpacked presto-server.tar.gz
+export PRESTO_SERVER=/tmp/presto-server.tgz
 export PRESTO_CLI_JAR=/tmp/artifacts/presto-cli-executable.jar
 export PRODUCT_TESTS_JAR=/tmp/artifacts/presto-product-tests-executable.jar
 export PRESTO_JDBC_DRIVER_JAR=libs/PrestoJDBC42.jar
