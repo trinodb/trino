@@ -16,7 +16,7 @@ package io.prestosql.spi.block;
 
 import io.airlift.slice.Slice;
 import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.function.BiConsumer;
@@ -34,21 +34,20 @@ public class SingleMapBlock
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleMapBlock.class).instanceSize();
 
-    protected final MapType mapType;
     private final int offset;
-    private final int positionCount;
-    private final Block keyBlock;
-    private final Block valueBlock;
-    private final int[] hashTable;
+    private final int positionCount;    // The number of keys in this single map * 2
+    private final AbstractMapBlock mapBlock;
 
-    SingleMapBlock(MapType mapType, int offset, int positionCount, Block keyBlock, Block valueBlock, int[] hashTable)
+    SingleMapBlock(int offset, int positionCount, AbstractMapBlock mapBlock)
     {
-        this.mapType = mapType;
         this.offset = offset;
         this.positionCount = positionCount;
-        this.keyBlock = keyBlock;
-        this.valueBlock = valueBlock;
-        this.hashTable = hashTable;
+        this.mapBlock = mapBlock;
+    }
+
+    public Type getMapType()
+    {
+        return mapBlock.getMapType();
     }
 
     @Override
@@ -60,23 +59,23 @@ public class SingleMapBlock
     @Override
     public long getSizeInBytes()
     {
-        return keyBlock.getRegionSizeInBytes(offset / 2, positionCount / 2) +
-                valueBlock.getRegionSizeInBytes(offset / 2, positionCount / 2) +
+        return mapBlock.getRawKeyBlock().getRegionSizeInBytes(offset / 2, positionCount / 2) +
+                mapBlock.getRawValueBlock().getRegionSizeInBytes(offset / 2, positionCount / 2) +
                 sizeOfIntArray(positionCount / 2 * HASH_MULTIPLIER);
     }
 
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + keyBlock.getRetainedSizeInBytes() + valueBlock.getRetainedSizeInBytes() + sizeOf(hashTable);
+        return INSTANCE_SIZE + mapBlock.getRetainedSizeInBytes();
     }
 
     @Override
     public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
     {
-        consumer.accept(keyBlock, keyBlock.getRetainedSizeInBytes());
-        consumer.accept(valueBlock, valueBlock.getRetainedSizeInBytes());
-        consumer.accept(hashTable, sizeOf(hashTable));
+        consumer.accept(mapBlock.getRawKeyBlock(), mapBlock.getRawKeyBlock().getRetainedSizeInBytes());
+        consumer.accept(mapBlock.getRawValueBlock(), mapBlock.getRawValueBlock().getRetainedSizeInBytes());
+        consumer.accept(mapBlock.getHashTables(), sizeOf(mapBlock.getHashTables()));
         consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
@@ -95,13 +94,13 @@ public class SingleMapBlock
     @Override
     Block getRawKeyBlock()
     {
-        return keyBlock;
+        return mapBlock.getRawKeyBlock();
     }
 
     @Override
     Block getRawValueBlock()
     {
-        return valueBlock;
+        return mapBlock.getRawValueBlock();
     }
 
     @Override
@@ -113,33 +112,30 @@ public class SingleMapBlock
     @Override
     public boolean isLoaded()
     {
-        return keyBlock.isLoaded() && valueBlock.isLoaded();
+        return mapBlock.getRawKeyBlock().isLoaded() && mapBlock.getRawValueBlock().isLoaded();
     }
 
     @Override
     public Block getLoadedBlock()
     {
-        if (keyBlock != keyBlock.getLoadedBlock()) {
+        if (mapBlock.getRawKeyBlock() != mapBlock.getRawKeyBlock().getLoadedBlock()) {
             // keyBlock has to be loaded since MapBlock constructs hash table eagerly.
             throw new IllegalStateException();
         }
 
-        Block loadedValueBlock = valueBlock.getLoadedBlock();
-        if (loadedValueBlock == valueBlock) {
+        Block loadedValueBlock = mapBlock.getRawValueBlock().getLoadedBlock();
+        if (loadedValueBlock == mapBlock.getRawValueBlock()) {
             return this;
         }
         return new SingleMapBlock(
-                mapType,
                 offset,
                 positionCount,
-                keyBlock,
-                loadedValueBlock,
-                hashTable);
+                mapBlock);
     }
 
     int[] getHashTable()
     {
-        return hashTable;
+        return mapBlock.getHashTables();
     }
 
     /**
@@ -151,9 +147,11 @@ public class SingleMapBlock
             return -1;
         }
 
+        int[] hashTable = mapBlock.getHashTables();
+
         long hashCode;
         try {
-            hashCode = (long) mapType.getKeyNativeHashCode().invoke(nativeValue);
+            hashCode = (long) mapBlock.getMapType().getKeyNativeHashCode().invoke(nativeValue);
         }
         catch (Throwable throwable) {
             throw handleThrowable(throwable);
@@ -170,7 +168,7 @@ public class SingleMapBlock
             Boolean match;
             try {
                 // assuming maps with indeterminate keys are not supported
-                match = (Boolean) mapType.getKeyBlockNativeEquals().invoke(keyBlock, offset / 2 + keyPosition, nativeValue);
+                match = (Boolean) mapBlock.getMapType().getKeyBlockNativeEquals().invoke(mapBlock.getRawKeyBlock(), offset / 2 + keyPosition, nativeValue);
             }
             catch (Throwable throwable) {
                 throw handleThrowable(throwable);
@@ -195,9 +193,11 @@ public class SingleMapBlock
             return -1;
         }
 
+        int[] hashTable = mapBlock.getHashTables();
+
         long hashCode;
         try {
-            hashCode = (long) mapType.getKeyNativeHashCode().invokeExact(nativeValue);
+            hashCode = (long) mapBlock.getMapType().getKeyNativeHashCode().invokeExact(nativeValue);
         }
         catch (Throwable throwable) {
             throw handleThrowable(throwable);
@@ -214,7 +214,7 @@ public class SingleMapBlock
             Boolean match;
             try {
                 // assuming maps with indeterminate keys are not supported
-                match = (Boolean) mapType.getKeyBlockNativeEquals().invokeExact(keyBlock, offset / 2 + keyPosition, nativeValue);
+                match = (Boolean) mapBlock.getMapType().getKeyBlockNativeEquals().invokeExact(mapBlock.getRawKeyBlock(), offset / 2 + keyPosition, nativeValue);
             }
             catch (Throwable throwable) {
                 throw handleThrowable(throwable);
@@ -236,9 +236,11 @@ public class SingleMapBlock
             return -1;
         }
 
+        int[] hashTable = mapBlock.getHashTables();
+
         long hashCode;
         try {
-            hashCode = (long) mapType.getKeyNativeHashCode().invokeExact(nativeValue);
+            hashCode = (long) mapBlock.getMapType().getKeyNativeHashCode().invokeExact(nativeValue);
         }
         catch (Throwable throwable) {
             throw handleThrowable(throwable);
@@ -255,7 +257,7 @@ public class SingleMapBlock
             Boolean match;
             try {
                 // assuming maps with indeterminate keys are not supported
-                match = (Boolean) mapType.getKeyBlockNativeEquals().invokeExact(keyBlock, offset / 2 + keyPosition, nativeValue);
+                match = (Boolean) mapBlock.getMapType().getKeyBlockNativeEquals().invokeExact(mapBlock.getRawKeyBlock(), offset / 2 + keyPosition, nativeValue);
             }
             catch (Throwable throwable) {
                 throw handleThrowable(throwable);
@@ -277,9 +279,11 @@ public class SingleMapBlock
             return -1;
         }
 
+        int[] hashTable = mapBlock.getHashTables();
+
         long hashCode;
         try {
-            hashCode = (long) mapType.getKeyNativeHashCode().invokeExact(nativeValue);
+            hashCode = (long) mapBlock.getMapType().getKeyNativeHashCode().invokeExact(nativeValue);
         }
         catch (Throwable throwable) {
             throw handleThrowable(throwable);
@@ -296,7 +300,7 @@ public class SingleMapBlock
             Boolean match;
             try {
                 // assuming maps with indeterminate keys are not supported
-                match = (Boolean) mapType.getKeyBlockNativeEquals().invokeExact(keyBlock, offset / 2 + keyPosition, nativeValue);
+                match = (Boolean) mapBlock.getMapType().getKeyBlockNativeEquals().invokeExact(mapBlock.getRawKeyBlock(), offset / 2 + keyPosition, nativeValue);
             }
             catch (Throwable throwable) {
                 throw handleThrowable(throwable);
@@ -318,9 +322,11 @@ public class SingleMapBlock
             return -1;
         }
 
+        int[] hashTable = mapBlock.getHashTables();
+
         long hashCode;
         try {
-            hashCode = (long) mapType.getKeyNativeHashCode().invokeExact(nativeValue);
+            hashCode = (long) mapBlock.getMapType().getKeyNativeHashCode().invokeExact(nativeValue);
         }
         catch (Throwable throwable) {
             throw handleThrowable(throwable);
@@ -337,7 +343,7 @@ public class SingleMapBlock
             Boolean match;
             try {
                 // assuming maps with indeterminate keys are not supported
-                match = (Boolean) mapType.getKeyBlockNativeEquals().invokeExact(keyBlock, offset / 2 + keyPosition, nativeValue);
+                match = (Boolean) mapBlock.getMapType().getKeyBlockNativeEquals().invokeExact(mapBlock.getRawKeyBlock(), offset / 2 + keyPosition, nativeValue);
             }
             catch (Throwable throwable) {
                 throw handleThrowable(throwable);
@@ -359,9 +365,11 @@ public class SingleMapBlock
             return -1;
         }
 
+        int[] hashTable = mapBlock.getHashTables();
+
         long hashCode;
         try {
-            hashCode = (long) mapType.getKeyNativeHashCode().invokeExact(nativeValue);
+            hashCode = (long) mapBlock.getMapType().getKeyNativeHashCode().invokeExact(nativeValue);
         }
         catch (Throwable throwable) {
             throw handleThrowable(throwable);
@@ -378,7 +386,7 @@ public class SingleMapBlock
             Boolean match;
             try {
                 // assuming maps with indeterminate keys are not supported
-                match = (Boolean) mapType.getKeyBlockNativeEquals().invokeExact(keyBlock, offset / 2 + keyPosition, nativeValue);
+                match = (Boolean) mapBlock.getMapType().getKeyBlockNativeEquals().invokeExact(mapBlock.getRawKeyBlock(), offset / 2 + keyPosition, nativeValue);
             }
             catch (Throwable throwable) {
                 throw handleThrowable(throwable);

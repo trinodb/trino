@@ -20,6 +20,8 @@ import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSerde;
 
+import java.util.Optional;
+
 import static io.airlift.slice.Slices.wrappedIntArray;
 import static io.prestosql.spi.block.AbstractMapBlock.HASH_MULTIPLIER;
 import static java.lang.String.format;
@@ -47,7 +49,7 @@ public class SingleMapBlockEncoding
     public void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block)
     {
         SingleMapBlock singleMapBlock = (SingleMapBlock) block;
-        TypeSerde.writeType(sliceOutput, singleMapBlock.mapType);
+        TypeSerde.writeType(sliceOutput, singleMapBlock.getMapType());
 
         int offset = singleMapBlock.getOffset();
         int positionCount = singleMapBlock.getPositionCount();
@@ -76,6 +78,16 @@ public class SingleMapBlockEncoding
                     hashTable.length));
         }
 
-        return new SingleMapBlock(mapType, 0, keyBlock.getPositionCount() * 2, keyBlock, valueBlock, hashTable);
+        MapBlock mapBlock = MapBlock.createMapBlockInternal(
+                mapType,
+                0,
+                1,
+                Optional.empty(),
+                new int[] {0, keyBlock.getPositionCount()},
+                keyBlock,
+                valueBlock,
+                hashTable);
+
+        return new SingleMapBlock(0, keyBlock.getPositionCount() * 2, mapBlock);
     }
 }
