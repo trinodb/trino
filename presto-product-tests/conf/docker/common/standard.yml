@@ -40,7 +40,7 @@ services:
     depends_on:
        - hadoop-master
     volumes:
-       - ${PRESTO_SERVER_DIR}:/docker/presto-server
+       - ${PRESTO_SERVER}:/docker/presto-server.tar.gz
        - ../../../src/main/resources/avro:/docker/avro
 
   application-runner:

@@ -14,7 +14,9 @@ if [[ ! -f "${CONFIG_PROPERTIES_LOCATION}" ]]; then
    exit 1
 fi
 
-/docker/presto-server/bin/launcher \
+set -x
+tar xf /docker/presto-server.tar.gz -C /docker
+/docker/presto-server-*/bin/launcher \
   -Dnode.id="${HOSTNAME}" \
   --etc-dir="${PRESTO_CONFIG_DIRECTORY}" \
   --config="${CONFIG_PROPERTIES_LOCATION}" \
