@@ -70,8 +70,10 @@ public class SingleMapBlockEncoding
         sliceInput.readBytes(wrappedIntArray(hashTable));
 
         if (keyBlock.getPositionCount() != valueBlock.getPositionCount() || keyBlock.getPositionCount() * HASH_MULTIPLIER != hashTable.length) {
-            throw new IllegalArgumentException(
-                    format("Deserialized SingleMapBlock violates invariants: key %d, value %d, hash %d", keyBlock.getPositionCount(), valueBlock.getPositionCount(), hashTable.length));
+            throw new IllegalArgumentException(format("Deserialized SingleMapBlock violates invariants: key %d, value %d, hash %d",
+                    keyBlock.getPositionCount(),
+                    valueBlock.getPositionCount(),
+                    hashTable.length));
         }
 
         return new SingleMapBlock(mapType, 0, keyBlock.getPositionCount() * 2, keyBlock, valueBlock, hashTable);
