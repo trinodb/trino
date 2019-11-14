@@ -58,7 +58,7 @@ function run_product_tests() {
   local PRODUCT_TESTS_EXIT_CODE=$?
 
   #make the files in $REPORT_DIR modifiable by everyone, as they were created by root (by docker)
-  run_in_application_runner_container chmod -R 777 "/docker/volumes/test-reports"
+  run_in_application_runner_container chmod -R 777 "/docker/test-reports"
 
   return ${PRODUCT_TESTS_EXIT_CODE}
 }
