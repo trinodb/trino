@@ -411,12 +411,15 @@ public final class HiveUtil
     {
         String name = getDeserializerClassName(schema);
 
-        // for collection delimiter, Hive 1.x, 2.x uses "colelction.delim" but Hive 3.x uses "collection.delim"
-        // see also https://issues.apache.org/jira/browse/HIVE-16922
         if (name.equals("org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe")) {
+            // for collection delimiter, Hive 1.x, 2.x uses "colelction.delim" but Hive 3.x uses "collection.delim"
+            // see also https://issues.apache.org/jira/browse/HIVE-16922
             if (schema.containsKey("colelction.delim") && !schema.containsKey(COLLECTION_DELIM)) {
                 schema.put(COLLECTION_DELIM, schema.getProperty("colelction.delim"));
             }
+
+            schema.putIfAbsent("hive.serialization.extend.nesting.levels", "true");
+            schema.putIfAbsent("hive.serialization.extend.additional.nesting.levels", "true");
         }
 
         Deserializer deserializer = createDeserializer(getDeserializerClass(name));
