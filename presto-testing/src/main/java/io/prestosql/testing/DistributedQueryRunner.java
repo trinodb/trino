@@ -180,6 +180,7 @@ public class DistributedQueryRunner
     {
         long start = System.nanoTime();
         ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.<String, String>builder()
+                .put("internal-communication.shared-secret", "test-secret")
                 .put("query.client.timeout", "10m")
                 .put("exchange.http-client.idle-timeout", "1h")
                 .put("task.max-index-memory", "16kB") // causes index joins to fault load
