@@ -165,6 +165,9 @@ public final class MetastoreUtil
             }
         }
 
+        schema.putIfAbsent("hive.serialization.extend.nesting.levels", "true");
+        schema.putIfAbsent("hive.serialization.extend.additional.nesting.levels", "true");
+
         return schema;
     }
 

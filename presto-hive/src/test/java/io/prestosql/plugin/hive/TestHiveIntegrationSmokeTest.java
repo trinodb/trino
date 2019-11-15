@@ -70,6 +70,7 @@ import java.util.function.Function;
 import java.util.stream.LongStream;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Strings.repeat;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.io.Files.asCharSink;
@@ -349,6 +350,25 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate("DROP TABLE test_types_table");
 
         assertFalse(getQueryRunner().tableExists(getSession(), "test_types_table"));
+    }
+
+    @Test
+    public void testDeepNesting()
+    {
+        testWithAllStorageFormats(this::testDeepNesting);
+    }
+
+    private void testDeepNesting(Session session, HiveStorageFormat storageFormat)
+    {
+        int nesting = 15;
+        assertUpdate(session, format(
+                "CREATE TABLE test_deep_nesting WITH (format = '%s') AS " +
+                        "SELECT CAST(" + repeat("ROW(", nesting) + "42" + repeat(")", nesting) + " " +
+                        " AS " + repeat("ROW(f ", nesting) + "integer" + repeat(")", nesting) + ") x",
+                storageFormat), 1);
+        assertQuery(session, "SELECT count(*) FROM test_deep_nesting", "SELECT 1");
+        assertQuery(session, "SELECT x" + repeat(".f", nesting) + " FROM test_deep_nesting", "SELECT 42");
+        assertUpdate(session, "DROP TABLE test_deep_nesting");
     }
 
     @Test

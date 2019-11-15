@@ -312,6 +312,9 @@ public class HiveWriterFactory
                         .map(HiveTypeName::toString)
                         .collect(joining(":")));
 
+                schema.setProperty("hive.serialization.extend.nesting.levels", "true");
+                schema.setProperty("hive.serialization.extend.additional.nesting.levels", "true");
+
                 if (!partitionName.isPresent()) {
                     // new unpartitioned table
                     writeInfo = locationService.getTableWriteInfo(locationHandle, false);
