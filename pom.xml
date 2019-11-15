@@ -140,6 +140,7 @@
         <module>presto-iceberg</module>
         <module>presto-google-sheets</module>
         <module>presto-bigquery</module>
+        <module>presto-pinot</module>
     </modules>
 
     <dependencyManagement>
@@ -481,6 +482,12 @@
                 <artifactId>presto-thrift</artifactId>
                 <version>${project.version}</version>
                 <type>zip</type>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql</groupId>
+                <artifactId>presto-pinot</artifactId>
+                <version>${project.version}</version>
             </dependency>
 
             <dependency>

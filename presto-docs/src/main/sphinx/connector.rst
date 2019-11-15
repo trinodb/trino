@@ -28,6 +28,7 @@ from different data sources.
     connector/mongodb
     connector/mysql
     connector/phoenix
+    connector/pinot
     connector/postgresql
     connector/redis
     connector/redshift
