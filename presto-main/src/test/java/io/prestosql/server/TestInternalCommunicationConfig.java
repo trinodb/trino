@@ -28,6 +28,7 @@ public class TestInternalCommunicationConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(InternalCommunicationConfig.class)
+                .setSharedSecret(null)
                 .setHttpsRequired(false)
                 .setKeyStorePath(null)
                 .setKeyStorePassword(null)
@@ -41,6 +42,7 @@ public class TestInternalCommunicationConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+                .put("internal-communication.shared-secret", "secret")
                 .put("internal-communication.https.required", "true")
                 .put("internal-communication.https.keystore.path", "key-path")
                 .put("internal-communication.https.keystore.key", "key-key")
@@ -51,6 +53,7 @@ public class TestInternalCommunicationConfig
                 .build();
 
         InternalCommunicationConfig expected = new InternalCommunicationConfig()
+                .setSharedSecret("secret")
                 .setHttpsRequired(true)
                 .setKeyStorePath("key-path")
                 .setKeyStorePassword("key-key")
