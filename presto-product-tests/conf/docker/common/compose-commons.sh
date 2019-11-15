@@ -24,6 +24,7 @@ function export_canonical_path() {
 
 source "${BASH_SOURCE%/*}/../../../bin/locations.sh"
 source "${BASH_SOURCE%/*}/../../../conf/product-tests-defaults.sh"
+source "${PRODUCT_TESTS_ROOT}/target/classes/presto.env"
 
 # create CLI history file (otherwise Docker creates it as a directory)
 touch /tmp/presto_history_docker
@@ -33,19 +34,16 @@ touch /tmp/presto_history_docker
 # is undefined, otherwise running product tests without a build won't work.
 
 if [[ -z "${PRESTO_SERVER_DIR:-}" ]]; then
-    source "${PRODUCT_TESTS_ROOT}/target/classes/presto.env"
     PRESTO_SERVER_DIR="${PROJECT_ROOT}/presto-server/target/presto-server-${PRESTO_VERSION}/"
 fi
 export_canonical_path PRESTO_SERVER_DIR
 
 if [[ -z "${PRESTO_CLI_JAR:-}" ]]; then
-    source "${PRODUCT_TESTS_ROOT}/target/classes/presto.env"
     PRESTO_CLI_JAR="${PROJECT_ROOT}/presto-cli/target/presto-cli-${PRESTO_VERSION}-executable.jar"
 fi
 export_canonical_path PRESTO_CLI_JAR
 
 if [[ -z "${PRODUCT_TESTS_JAR:-}" ]]; then
-    source "${PRODUCT_TESTS_ROOT}/target/classes/presto.env"
     PRODUCT_TESTS_JAR="${PRODUCT_TESTS_ROOT}/target/presto-product-tests-${PRESTO_VERSION}-executable.jar"
 fi
 export_canonical_path PRODUCT_TESTS_JAR
@@ -53,7 +51,6 @@ export_canonical_path PRODUCT_TESTS_JAR
 export HIVE_PROXY_PORT=${HIVE_PROXY_PORT:-1180}
 
 if [[ -z "${PRESTO_JDBC_DRIVER_JAR:-}" ]]; then
-    source "${PRODUCT_TESTS_ROOT}/target/classes/presto.env"
     PRESTO_JDBC_DRIVER_JAR="${PROJECT_ROOT}/presto-jdbc/target/presto-jdbc-${PRESTO_VERSION}.jar"
 fi
 export_canonical_path PRESTO_JDBC_DRIVER_JAR
