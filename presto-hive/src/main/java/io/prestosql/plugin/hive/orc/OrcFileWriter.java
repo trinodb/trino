@@ -21,7 +21,7 @@ import io.prestosql.orc.OrcWriter;
 import io.prestosql.orc.OrcWriterOptions;
 import io.prestosql.orc.OrcWriterStats;
 import io.prestosql.orc.metadata.CompressionKind;
-import io.prestosql.plugin.hive.HiveFileWriter;
+import io.prestosql.plugin.hive.FileWriter;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
@@ -48,7 +48,7 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILE
 import static java.util.Objects.requireNonNull;
 
 public class OrcFileWriter
-        implements HiveFileWriter
+        implements FileWriter
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcFileWriter.class).instanceSize();
     private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
