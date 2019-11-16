@@ -437,9 +437,9 @@ public class HiveWriterFactory
 
         Path path = new Path(writeInfo.getWritePath(), fileNameWithExtension);
 
-        HiveFileWriter hiveFileWriter = null;
+        FileWriter hiveFileWriter = null;
         for (HiveFileWriterFactory fileWriterFactory : fileWriterFactories) {
-            Optional<HiveFileWriter> fileWriter = fileWriterFactory.createFileWriter(
+            Optional<FileWriter> fileWriter = fileWriterFactory.createFileWriter(
                     path,
                     dataColumns.stream()
                             .map(DataColumn::getName)

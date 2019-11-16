@@ -53,7 +53,7 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
 
 public class RecordFileWriter
-        implements HiveFileWriter
+        implements FileWriter
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(RecordFileWriter.class).instanceSize();
 

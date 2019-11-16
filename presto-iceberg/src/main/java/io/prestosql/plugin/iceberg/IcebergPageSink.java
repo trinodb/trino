@@ -16,9 +16,9 @@ package io.prestosql.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
+import io.prestosql.plugin.hive.FileWriter;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
-import io.prestosql.plugin.hive.HiveFileWriter;
 import io.prestosql.plugin.hive.HiveStorageFormat;
 import io.prestosql.plugin.hive.RecordFileWriter;
 import io.prestosql.plugin.iceberg.PartitionTransforms.ColumnTransform;
@@ -267,7 +267,7 @@ public class IcebergPageSink
                 pageForWriter = pageForWriter.getPositions(positions, 0, positions.length);
             }
 
-            HiveFileWriter writer = writers.get(index).getWriter();
+            FileWriter writer = writers.get(index).getWriter();
 
             long currentWritten = writer.getWrittenBytes();
             long currentMemory = writer.getSystemMemoryUsage();
@@ -321,13 +321,13 @@ public class IcebergPageSink
         outputPath = new Path(outputPath, randomUUID().toString());
         outputPath = new Path(fileFormat.addExtension(outputPath.toString()));
 
-        HiveFileWriter writer = createWriter(outputPath);
+        FileWriter writer = createWriter(outputPath);
 
         return new WriteContext(writer, outputPath, partitionData);
     }
 
     @SuppressWarnings("SwitchStatementWithTooFewBranches")
-    private HiveFileWriter createWriter(Path outputPath)
+    private FileWriter createWriter(Path outputPath)
     {
         switch (fileFormat) {
             case PARQUET:
@@ -336,7 +336,7 @@ public class IcebergPageSink
         throw new PrestoException(NOT_SUPPORTED, "File format not supported for Iceberg: " + fileFormat);
     }
 
-    private HiveFileWriter createParquetWriter(Path outputPath)
+    private FileWriter createParquetWriter(Path outputPath)
     {
         Properties properties = new Properties();
         properties.setProperty(IOConstants.COLUMNS, inputColumns.stream()
@@ -452,18 +452,18 @@ public class IcebergPageSink
 
     private static class WriteContext
     {
-        private final HiveFileWriter writer;
+        private final FileWriter writer;
         private final Path path;
         private final Optional<PartitionData> partitionData;
 
-        public WriteContext(HiveFileWriter writer, Path path, Optional<PartitionData> partitionData)
+        public WriteContext(FileWriter writer, Path path, Optional<PartitionData> partitionData)
         {
             this.writer = requireNonNull(writer, "writer is null");
             this.path = requireNonNull(path, "path is null");
             this.partitionData = requireNonNull(partitionData, "partitionData is null");
         }
 
-        public HiveFileWriter getWriter()
+        public FileWriter getWriter()
         {
             return writer;
         }

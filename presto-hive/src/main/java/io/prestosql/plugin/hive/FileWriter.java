@@ -17,7 +17,7 @@ import io.prestosql.spi.Page;
 
 import java.util.Optional;
 
-public interface HiveFileWriter
+public interface FileWriter
 {
     long getWrittenBytes();
 
