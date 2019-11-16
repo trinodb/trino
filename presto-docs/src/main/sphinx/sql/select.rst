@@ -53,6 +53,8 @@ Description
 
 Retrieve rows from zero or more tables.
 
+.. contents::
+
 WITH Clause
 -----------
 
@@ -666,11 +668,41 @@ output expressions:
 
     ORDER BY expression [ ASC | DESC ] [ NULLS { FIRST | LAST } ] [, ...]
 
-Each expression may be composed of output columns or it may be an ordinal
-number selecting an output column by position (starting at one). The
-``ORDER BY`` clause is evaluated after any ``GROUP BY`` or ``HAVING`` clause
+Each expression may be composed of output columns, or it may be an ordinal
+number selecting an output column by position, starting at one. The
+``ORDER BY`` clause is evaluated after any ``GROUP BY`` or ``HAVING`` clause,
 and before any ``OFFSET``, ``LIMIT`` or ``FETCH FIRST`` clause.
 The default null ordering is ``NULLS LAST``, regardless of the ordering direction.
+
+Note that, following the SQL specification, an ``ORDER BY`` clause only
+affects the order of rows for queries that immediately contain the clause.
+Presto follows that specification, and drops redundant usage of the clause to
+avoid negative performance impacts.
+
+In the following example, the clause only applies to the select statement.
+
+.. code-block:: SQL
+
+    INSERT INTO some_table
+    SELECT * FROM another_table
+    ORDER BY field
+
+Since tables in SQL are inherently unordered, and the ``ORDER BY`` clause in
+this case does not result in any difference, but negatively impacts performance
+of running the overall insert statement, Presto skips the sort operation.
+
+Another example where the ``ORDER BY`` clause is redundant, and does not affect
+the outcome of the overall statement, is a nested query:
+
+.. code-block:: SQL
+
+    SELECT *
+    FROM some_table
+        JOIN (SELECT * FROM another_table ORDER BY field) u
+        ON some_table.key = u.key
+
+More background information and details can be found in
+`a blog post about this optimization <https://prestosql.io/blog/2019/06/03/redundant-order-by.html>`_.
 
 .. _offset-clause:
 
