@@ -159,6 +159,7 @@ F
 - :func:`floor`
 - :func:`format`
 - ``format_datetime``
+- :func:`format_number`
 - :func:`from_base`
 - :func:`from_base64`
 - :func:`from_base64url`
