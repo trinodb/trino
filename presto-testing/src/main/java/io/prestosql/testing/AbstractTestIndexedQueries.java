@@ -33,10 +33,13 @@ public abstract class AbstractTestIndexedQueries
             .addIndex("orders", TpchMetadata.TINY_SCALE_FACTOR, ImmutableSet.of("orderstatus", "shippriority"))
             .build();
 
+    @Deprecated
     protected AbstractTestIndexedQueries(QueryRunnerSupplier supplier)
     {
         super(supplier);
     }
+
+    protected AbstractTestIndexedQueries() {}
 
     @Test
     public void testExampleSystemTable()

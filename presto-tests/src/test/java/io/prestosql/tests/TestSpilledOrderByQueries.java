@@ -14,12 +14,15 @@
 package io.prestosql.tests;
 
 import io.prestosql.testing.AbstractTestOrderByQueries;
+import io.prestosql.testing.QueryRunner;
 
 public class TestSpilledOrderByQueries
         extends AbstractTestOrderByQueries
 {
-    public TestSpilledOrderByQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(TestDistributedSpilledQueries::createQueryRunner);
+        return TestDistributedSpilledQueries.createSpillingQueryRunner();
     }
 }

@@ -61,12 +61,8 @@ public class TestSystemConnector
 
     private final ExecutorService executor = Executors.newSingleThreadScheduledExecutor(threadsNamed(TestSystemConnector.class.getSimpleName()));
 
-    protected TestSystemConnector()
-    {
-        super(TestSystemConnector::createQueryRunner);
-    }
-
-    public static QueryRunner createQueryRunner()
+    @Override
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
         Session defaultSession = testSessionBuilder()

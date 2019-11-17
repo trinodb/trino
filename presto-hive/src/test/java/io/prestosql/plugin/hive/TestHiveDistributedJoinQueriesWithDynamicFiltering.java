@@ -27,21 +27,23 @@ import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.testing.AbstractTestJoinQueries;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
+import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.ResultWithQueryId;
 import org.testng.annotations.Test;
 
 import static io.airlift.tpch.TpchTable.getTables;
 import static io.prestosql.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
-import static io.prestosql.plugin.hive.HiveQueryRunner.createQueryRunner;
 import static org.testng.Assert.assertEquals;
 
 public class TestHiveDistributedJoinQueriesWithDynamicFiltering
         extends AbstractTestJoinQueries
 {
-    public TestHiveDistributedJoinQueriesWithDynamicFiltering()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createQueryRunner(getTables()));
+        return HiveQueryRunner.createQueryRunner(getTables());
     }
 
     @Override

@@ -76,6 +76,8 @@ public abstract class AbstractTestDistributedQueries
         super(supplier);
     }
 
+    protected AbstractTestDistributedQueries() {}
+
     protected boolean supportsViews()
     {
         return true;

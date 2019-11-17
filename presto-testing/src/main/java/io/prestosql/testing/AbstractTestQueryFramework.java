@@ -66,23 +66,41 @@ import static org.testng.Assert.fail;
 
 public abstract class AbstractTestQueryFramework
 {
-    private QueryRunnerSupplier queryRunnerSupplier;
+    @Deprecated
+    private Optional<QueryRunnerSupplier> queryRunnerSupplier;
     private QueryRunner queryRunner;
     private H2QueryRunner h2QueryRunner;
     private SqlParser sqlParser;
 
+    @Deprecated
     protected AbstractTestQueryFramework(QueryRunnerSupplier supplier)
     {
-        this.queryRunnerSupplier = requireNonNull(supplier, "queryRunnerSupplier is null");
+        this.queryRunnerSupplier = Optional.of(requireNonNull(supplier, "queryRunnerSupplier is null"));
+    }
+
+    protected AbstractTestQueryFramework()
+    {
+        this.queryRunnerSupplier = Optional.empty();
     }
 
     @BeforeClass
     public void init()
             throws Exception
     {
-        queryRunner = queryRunnerSupplier.get();
+        if (queryRunnerSupplier.isPresent()) {
+            queryRunner = queryRunnerSupplier.get().get();
+        }
+        else {
+            queryRunner = createQueryRunner();
+        }
         h2QueryRunner = new H2QueryRunner();
         sqlParser = new SqlParser();
+    }
+
+    protected QueryRunner createQueryRunner()
+            throws Exception
+    {
+        throw new UnsupportedOperationException("Must implement createQueryRunner() when QueryRunnerSupplier is not provided");
     }
 
     @AfterClass(alwaysRun = true)

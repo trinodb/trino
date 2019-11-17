@@ -28,12 +28,14 @@ import static io.prestosql.testing.TestingSession.testSessionBuilder;
 public class TestDistributedSpilledQueries
         extends AbstractTestQueries
 {
-    public TestDistributedSpilledQueries()
+    @Override
+    protected DistributedQueryRunner createQueryRunner()
+            throws Exception
     {
-        super(TestDistributedSpilledQueries::createQueryRunner);
+        return createSpillingQueryRunner();
     }
 
-    public static DistributedQueryRunner createQueryRunner()
+    public static DistributedQueryRunner createSpillingQueryRunner()
             throws Exception
     {
         Session defaultSession = testSessionBuilder()

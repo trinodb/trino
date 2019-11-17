@@ -61,12 +61,8 @@ public class TestBeginQuery
 {
     private TestMetadata metadata;
 
-    protected TestBeginQuery()
-    {
-        super(TestBeginQuery::createQueryRunner);
-    }
-
-    private static QueryRunner createQueryRunner()
+    @Override
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
         Session session = testSessionBuilder()

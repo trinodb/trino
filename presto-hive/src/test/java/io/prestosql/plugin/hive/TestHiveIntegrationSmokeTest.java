@@ -48,6 +48,7 @@ import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
+import io.prestosql.testing.QueryRunner;
 import io.prestosql.type.TypeDeserializer;
 import org.apache.hadoop.fs.Path;
 import org.intellij.lang.annotations.Language;
@@ -90,7 +91,6 @@ import static io.prestosql.plugin.hive.HiveColumnHandle.PATH_COLUMN_NAME;
 import static io.prestosql.plugin.hive.HiveQueryRunner.HIVE_CATALOG;
 import static io.prestosql.plugin.hive.HiveQueryRunner.TPCH_SCHEMA;
 import static io.prestosql.plugin.hive.HiveQueryRunner.createBucketedSession;
-import static io.prestosql.plugin.hive.HiveQueryRunner.createQueryRunner;
 import static io.prestosql.plugin.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static io.prestosql.plugin.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
 import static io.prestosql.plugin.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
@@ -142,18 +142,18 @@ public class TestHiveIntegrationSmokeTest
     private final Session bucketedSession;
     private final TypeTranslator typeTranslator;
 
-    @SuppressWarnings("unused")
     public TestHiveIntegrationSmokeTest()
     {
-        this(() -> createQueryRunner(ORDERS, CUSTOMER), createBucketedSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))), HIVE_CATALOG, new HiveTypeTranslator());
+        this.catalog = HIVE_CATALOG;
+        this.bucketedSession = createBucketedSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin"))));
+        this.typeTranslator = new HiveTypeTranslator();
     }
 
-    protected TestHiveIntegrationSmokeTest(QueryRunnerSupplier queryRunnerSupplier, Session bucketedSession, String catalog, TypeTranslator typeTranslator)
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(queryRunnerSupplier);
-        this.catalog = requireNonNull(catalog, "catalog is null");
-        this.bucketedSession = requireNonNull(bucketedSession, "bucketSession is null");
-        this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
+        return HiveQueryRunner.createQueryRunner(ORDERS, CUSTOMER);
     }
 
     @Test

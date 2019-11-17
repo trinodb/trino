@@ -47,11 +47,6 @@ public class TestInformationSchemaConnector
     private static final AtomicLong LIST_TABLES_CALLS_COUNTER = new AtomicLong();
     private static final AtomicLong GET_COLUMNS_CALLS_COUNTER = new AtomicLong();
 
-    public TestInformationSchemaConnector()
-    {
-        super(TestInformationSchemaConnector::createQueryRunner);
-    }
-
     @Test
     public void testBasic()
     {
@@ -202,7 +197,8 @@ public class TestInformationSchemaConnector
                         .withGetColumnsCount(10008));
     }
 
-    private static DistributedQueryRunner createQueryRunner()
+    @Override
+    protected DistributedQueryRunner createQueryRunner()
             throws Exception
     {
         Session session = testSessionBuilder().build();

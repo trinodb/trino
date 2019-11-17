@@ -23,10 +23,13 @@ import static io.prestosql.testing.assertions.Assert.assertEquals;
 public abstract class AbstractTestIntegrationSmokeTest
         extends AbstractTestQueryFramework
 {
+    @Deprecated
     protected AbstractTestIntegrationSmokeTest(QueryRunnerSupplier supplier)
     {
         super(supplier);
     }
+
+    protected AbstractTestIntegrationSmokeTest() {}
 
     protected boolean isDateTypeSupported()
     {

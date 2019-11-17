@@ -44,14 +44,8 @@ import static org.testng.Assert.assertEquals;
 public class TestIcebergSystemTables
         extends AbstractTestQueryFramework
 {
-    private static HiveMetastore metastore;
-
-    public TestIcebergSystemTables()
-    {
-        super(TestIcebergSystemTables::createQueryRunner);
-    }
-
-    private static DistributedQueryRunner createQueryRunner()
+    @Override
+    protected DistributedQueryRunner createQueryRunner()
             throws Exception
     {
         Session session = testSessionBuilder()
@@ -65,7 +59,7 @@ public class TestIcebergSystemTables
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
 
-        metastore = new FileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test");
+        HiveMetastore metastore = new FileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test");
 
         queryRunner.installPlugin(new TestingIcebergPlugin(metastore));
         queryRunner.createCatalog("iceberg", "iceberg");
