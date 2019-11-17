@@ -32,6 +32,7 @@ import org.apache.parquet.column.statistics.IntStatistics;
 import org.apache.parquet.column.statistics.LongStatistics;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.io.api.Binary;
+import org.apache.parquet.schema.OriginalType;
 import org.apache.parquet.schema.PrimitiveType;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -56,6 +57,7 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
@@ -68,6 +70,7 @@ import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
+import static org.apache.parquet.schema.Type.Repetition.REQUIRED;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -272,6 +275,34 @@ public class TestTupleDomainParquetPredicate
     }
 
     @Test
+    public void testTimestamp()
+            throws ParquetCorruptionException
+    {
+        String column = "TimestampColumn";
+        assertEquals(getDomain(TIMESTAMP, 0, null, ID, column, true), all(TIMESTAMP));
+        assertEquals(getDomain(TIMESTAMP, 10, timestampColumnStats(1574026172386L, 1574026172386L, OriginalType.TIMESTAMP_MILLIS), ID, column, true), singleValue(TIMESTAMP, 1574026172386L));
+        assertEquals(getDomain(TIMESTAMP, 10, timestampColumnStats(1546318800000L, 1574026172386L, OriginalType.TIMESTAMP_MILLIS), ID, column, true), create(ValueSet.ofRanges(range(TIMESTAMP, 1546318800000L, true, 1574026172386L, true)), false));
+
+        // ignore corrupted statistics
+        assertEquals(getDomain(TIMESTAMP, 10, timestampColumnStats(1574026172386L, 1546318800000L, OriginalType.TIMESTAMP_MILLIS), ID, column, false), create(ValueSet.all(TIMESTAMP), false));
+        // fail on corrupted statistics
+        assertThatExceptionOfType(ParquetCorruptionException.class)
+                .isThrownBy(() -> getDomain(TIMESTAMP, 10, timestampColumnStats(1574026172386L, 1546318800000L, OriginalType.TIMESTAMP_MILLIS), ID, column, true))
+                .withMessage("Corrupted statistics for column \"TimestampColumn\" in Parquet file \"testFile\": [min: 2019-11-17T21:29:32.386, max: 2019-01-01T05:00:00.000, num_nulls: 0]");
+
+        assertEquals(getDomain(TIMESTAMP, 0, null, ID, column, true), all(TIMESTAMP));
+        assertEquals(getDomain(TIMESTAMP, 10, timestampColumnStats(1574026172386123L, 1574026172386123L, OriginalType.TIMESTAMP_MICROS), ID, column, true), singleValue(TIMESTAMP, 1574026172386L));
+        assertEquals(getDomain(TIMESTAMP, 10, timestampColumnStats(1546318800000123L, 1574026172386123L, OriginalType.TIMESTAMP_MICROS), ID, column, true), create(ValueSet.ofRanges(range(TIMESTAMP, 1546318800000L, true, 1574026172386L, true)), false));
+
+        // ignore corrupted statistics
+        assertEquals(getDomain(TIMESTAMP, 10, timestampColumnStats(1574026172386000L, 1546318800000000L, OriginalType.TIMESTAMP_MICROS), ID, column, false), create(ValueSet.all(TIMESTAMP), false));
+        // fail on corrupted statistics
+        assertThatExceptionOfType(ParquetCorruptionException.class)
+                .isThrownBy(() -> getDomain(TIMESTAMP, 10, timestampColumnStats(1574026172386123L, 1546318800000123L, OriginalType.TIMESTAMP_MICROS), ID, column, true))
+                .withMessage("Corrupted statistics for column \"TimestampColumn\" in Parquet file \"testFile\": [min: 2019-11-17T21:29:32.386123, max: 2019-01-01T05:00:00.000123, num_nulls: 0]");
+    }
+
+    @Test
     public void testVarcharMatchesWithStatistics()
             throws ParquetCorruptionException
     {
@@ -366,6 +397,13 @@ public class TestTupleDomainParquetPredicate
     private static LongStatistics longColumnStats(long minimum, long maximum)
     {
         LongStatistics statistics = new LongStatistics();
+        statistics.setMinMax(minimum, maximum);
+        return statistics;
+    }
+
+    private static LongStatistics timestampColumnStats(long minimum, long maximum, OriginalType type)
+    {
+        LongStatistics statistics = (LongStatistics) Statistics.createStats(new PrimitiveType(REQUIRED, INT64, "timestampColumn", type));
         statistics.setMinMax(minimum, maximum);
         return statistics;
     }

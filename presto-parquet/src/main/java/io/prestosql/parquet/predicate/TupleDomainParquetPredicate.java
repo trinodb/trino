@@ -59,6 +59,7 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
+import static org.apache.parquet.schema.OriginalType.TIMESTAMP_MICROS;
 
 public class TupleDomainParquetPredicate
         implements Predicate
@@ -237,8 +238,14 @@ public class TupleDomainParquetPredicate
                 failWithCorruptionException(failOnCorruptedParquetStatistics, column, id, longStatistics);
                 return Domain.create(ValueSet.all(type), hasNullValue);
             }
-            ParquetIntegerStatistics parquetIntegerStatistics = new ParquetIntegerStatistics(
-                    MICROSECONDS.toMillis(longStatistics.getMin()), MICROSECONDS.toMillis(longStatistics.getMax()));
+
+            long min = longStatistics.getMin();
+            long max = longStatistics.getMax();
+
+            ParquetIntegerStatistics parquetIntegerStatistics =
+                    statistics.type().getOriginalType() == TIMESTAMP_MICROS
+                            ? new ParquetIntegerStatistics(MICROSECONDS.toMillis(min), MICROSECONDS.toMillis(max))
+                            : new ParquetIntegerStatistics(min, max);
             return createDomain(type, hasNullValue, parquetIntegerStatistics);
         }
 
