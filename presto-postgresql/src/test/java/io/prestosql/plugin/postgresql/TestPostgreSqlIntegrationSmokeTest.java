@@ -14,6 +14,7 @@
 package io.prestosql.plugin.postgresql;
 
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
+import io.prestosql.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -35,20 +36,15 @@ import static org.testng.Assert.assertTrue;
 public class TestPostgreSqlIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private final TestingPostgreSqlServer postgreSqlServer;
+    private TestingPostgreSqlServer postgreSqlServer;
 
-    public TestPostgreSqlIntegrationSmokeTest()
+    @Override
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this(new TestingPostgreSqlServer());
-    }
-
-    public TestPostgreSqlIntegrationSmokeTest(TestingPostgreSqlServer postgreSqlServer)
-            throws Exception
-    {
-        super(() -> PostgreSqlQueryRunner.createPostgreSqlQueryRunner(postgreSqlServer, ORDERS));
-        this.postgreSqlServer = postgreSqlServer;
+        this.postgreSqlServer = new TestingPostgreSqlServer();
         execute("CREATE EXTENSION file_fdw");
+        return PostgreSqlQueryRunner.createPostgreSqlQueryRunner(postgreSqlServer, ORDERS);
     }
 
     @AfterClass(alwaysRun = true)

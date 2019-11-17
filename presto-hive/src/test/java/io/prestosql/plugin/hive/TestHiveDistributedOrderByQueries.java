@@ -14,15 +14,17 @@
 package io.prestosql.plugin.hive;
 
 import io.prestosql.testing.AbstractTestOrderByQueries;
+import io.prestosql.testing.QueryRunner;
 
 import static io.airlift.tpch.TpchTable.getTables;
-import static io.prestosql.plugin.hive.HiveQueryRunner.createQueryRunner;
 
 public class TestHiveDistributedOrderByQueries
         extends AbstractTestOrderByQueries
 {
-    public TestHiveDistributedOrderByQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createQueryRunner(getTables()));
+        return HiveQueryRunner.createQueryRunner(getTables());
     }
 }

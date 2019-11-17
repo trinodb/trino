@@ -55,12 +55,8 @@ public class TestSpatialJoins
             "(7.1, 7.2, 'z', 3), " +
             "(null, 1.2, 'null', 4)";
 
-    public TestSpatialJoins()
-    {
-        super(() -> createQueryRunner());
-    }
-
-    private static DistributedQueryRunner createQueryRunner()
+    @Override
+    protected DistributedQueryRunner createQueryRunner()
             throws Exception
     {
         DistributedQueryRunner queryRunner = new DistributedQueryRunner(testSessionBuilder()

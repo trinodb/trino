@@ -45,12 +45,8 @@ public class TestIcebergMetadataListing
 {
     private static HiveMetastore metastore;
 
-    public TestIcebergMetadataListing()
-    {
-        super(TestIcebergMetadataListing::createQueryRunner);
-    }
-
-    private static DistributedQueryRunner createQueryRunner()
+    @Override
+    protected DistributedQueryRunner createQueryRunner()
             throws Exception
     {
         Session session = testSessionBuilder()

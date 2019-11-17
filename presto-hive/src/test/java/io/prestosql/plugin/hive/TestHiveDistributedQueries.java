@@ -15,20 +15,22 @@ package io.prestosql.plugin.hive;
 
 import io.prestosql.testing.AbstractTestDistributedQueries;
 import io.prestosql.testing.MaterializedResult;
+import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.tpch.TpchTable.getTables;
-import static io.prestosql.plugin.hive.HiveQueryRunner.createQueryRunner;
 import static io.prestosql.sql.tree.ExplainType.Type.LOGICAL;
 import static org.testng.Assert.assertEquals;
 
 public class TestHiveDistributedQueries
         extends AbstractTestDistributedQueries
 {
-    public TestHiveDistributedQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createQueryRunner(getTables()));
+        return HiveQueryRunner.createQueryRunner(getTables());
     }
 
     @Override

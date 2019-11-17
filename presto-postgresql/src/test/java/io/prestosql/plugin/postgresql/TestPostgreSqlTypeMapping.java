@@ -20,6 +20,7 @@ import io.prestosql.Session;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.testing.AbstractTestQueryFramework;
+import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.TestingSession;
 import io.prestosql.testing.datatype.CreateAndInsertDataSetup;
 import io.prestosql.testing.datatype.CreateAndPrestoInsertDataSetup;
@@ -90,7 +91,7 @@ import static java.util.stream.Collectors.toList;
 public class TestPostgreSqlTypeMapping
         extends AbstractTestQueryFramework
 {
-    private final TestingPostgreSqlServer postgreSqlServer;
+    private TestingPostgreSqlServer postgreSqlServer;
 
     private LocalDateTime beforeEpoch;
     private LocalDateTime epoch;
@@ -110,18 +111,15 @@ public class TestPostgreSqlTypeMapping
     private ZoneId kathmandu;
     private LocalDateTime timeGapInKathmandu;
 
-    public TestPostgreSqlTypeMapping()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        this(new TestingPostgreSqlServer());
-    }
-
-    private TestPostgreSqlTypeMapping(TestingPostgreSqlServer postgreSqlServer)
-    {
-        super(() -> createPostgreSqlQueryRunner(
+        this.postgreSqlServer = new TestingPostgreSqlServer();
+        return createPostgreSqlQueryRunner(
                 postgreSqlServer,
                 ImmutableMap.of("jdbc-types-mapped-to-varchar", "Tsrange, Inet" /* make sure that types are compared case insensitively */),
-                ImmutableList.of()));
-        this.postgreSqlServer = postgreSqlServer;
+                ImmutableList.of());
     }
 
     @AfterClass(alwaysRun = true)

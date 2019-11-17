@@ -29,11 +29,6 @@ public class TestGoogleSheets
 {
     protected static final String GOOGLE_SHEETS = "gsheets";
 
-    public TestGoogleSheets()
-    {
-        super(() -> createQueryRunner());
-    }
-
     private static Session createSession()
     {
         return testSessionBuilder()
@@ -42,7 +37,8 @@ public class TestGoogleSheets
                 .build();
     }
 
-    private static QueryRunner createQueryRunner()
+    @Override
+    protected QueryRunner createQueryRunner()
     {
         QueryRunner queryRunner;
         try {

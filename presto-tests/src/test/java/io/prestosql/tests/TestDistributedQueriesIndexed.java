@@ -24,12 +24,8 @@ import static io.prestosql.testing.TestingSession.testSessionBuilder;
 public class TestDistributedQueriesIndexed
         extends AbstractTestIndexedQueries
 {
-    public TestDistributedQueriesIndexed()
-    {
-        super(TestDistributedQueriesIndexed::createQueryRunner);
-    }
-
-    private static DistributedQueryRunner createQueryRunner()
+    @Override
+    protected DistributedQueryRunner createQueryRunner()
             throws Exception
     {
         Session session = testSessionBuilder()
