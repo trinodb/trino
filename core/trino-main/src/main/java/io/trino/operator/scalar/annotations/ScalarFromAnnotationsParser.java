@@ -59,7 +59,7 @@ public final class ScalarFromAnnotationsParser
         for (ScalarHeaderAndMethods methods : findScalarsInFunctionSetClass(clazz)) {
             boolean deprecated = methods.getMethods().iterator().next().getAnnotationsByType(Deprecated.class).length > 0;
             // Non-static function only makes sense in classes annotated with @ScalarFunction or @ScalarOperator.
-            builder.add(parseParametricScalar(methods, Optional.empty(), deprecated));
+            builder.add(parseParametricScalar(methods, FunctionsParserHelper.findConstructor(clazz), deprecated));
         }
         return builder.build();
     }
