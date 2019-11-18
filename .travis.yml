@@ -53,6 +53,20 @@ matrix:
 #    - if: type != pull_request
 #      env: HIVE_TESTS=true PRODUCT_TESTS_CONFIG=config-hdp3
 
+    # CDH 5
+    - if: type != pull_request
+      env: PRODUCT_TESTS_SUITE=suite-1 PRODUCT_TESTS_CONFIG=config-cdh5
+    - if: type != pull_request
+      env: PRODUCT_TESTS_SUITE=suite-2 PRODUCT_TESTS_CONFIG=config-cdh5
+    - if: type != pull_request
+      env: PRODUCT_TESTS_SUITE=suite-3 PRODUCT_TESTS_CONFIG=config-cdh5
+    # suite-4 does not exist
+    - if: type != pull_request
+      env: PRODUCT_TESTS_SUITE=suite-5 PRODUCT_TESTS_CONFIG=config-cdh5
+# TODO
+#    - if: type != pull_request
+#      env: HIVE_TESTS=true PRODUCT_TESTS_CONFIG=config-cdh5
+
 dist: xenial
 jdk: openjdk8
 

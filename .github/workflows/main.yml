@@ -45,6 +45,7 @@ jobs:
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           ./mvnw install ${MAVEN_FAST_INSTALL} -pl presto-hive-hadoop2 -am
       - name: Run Hive Tests
+        # TODO run hive tests on hdp3, cdh5
         run: |
           source presto-product-tests/conf/product-tests-config-empty.sh &&
             presto-hive-hadoop2/bin/run_hive_tests.sh
@@ -143,6 +144,7 @@ jobs:
         config: [
           config-empty,
           config-hdp3,
+          config-cdh5,
         ]
         suite: [
           suite-1,
@@ -157,6 +159,10 @@ jobs:
           - config: config-hdp3
             suite: suite-6-non-generic
           - config: config-hdp3
+            suite: suite-7-non-generic
+          - config: config-cdh5
+            suite: suite-6-non-generic
+          - config: config-cdh5
             suite: suite-7-non-generic
     steps:
       - uses: actions/checkout@v1

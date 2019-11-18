@@ -7,6 +7,7 @@ exit_code=0
 presto-product-tests/bin/run_on_docker.sh \
     singlenode \
     -g hdfs_no_impersonation,hive_compression \
+    -x "${DISTRO_SKIP_GROUP}" \
     || exit_code=1
 
 presto-product-tests/bin/run_on_docker.sh \
