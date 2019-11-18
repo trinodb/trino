@@ -319,7 +319,7 @@ class StatementAnalyzer
             }
 
             // analyze the query that creates the data
-            Scope queryScope = process(insert.getQuery(), scope);
+            Scope queryScope = analyze(insert.getQuery(), createScope(scope));
 
             analysis.setUpdateType("INSERT");
 
@@ -502,7 +502,7 @@ class StatementAnalyzer
             accessControl.checkCanCreateTable(session.toSecurityContext(), targetTable);
 
             // analyze the query that creates the table
-            Scope queryScope = process(node.getQuery(), scope);
+            Scope queryScope = analyze(node.getQuery(), createScope(scope));
 
             ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
 
