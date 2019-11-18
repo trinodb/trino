@@ -362,8 +362,8 @@ public class Indexer
      */
     public static Collection<IteratorSetting> getMetricIterators(AccumuloTable table)
     {
-        String cardQualifier = new String(CARDINALITY_CQ);
-        String rowsFamily = new String(METRICS_TABLE_ROWS_CF.array());
+        String cardQualifier = new String(CARDINALITY_CQ, UTF_8);
+        String rowsFamily = new String(METRICS_TABLE_ROWS_CF.array(), UTF_8);
 
         // Build a string for all columns where the summing combiner should be applied,
         // i.e. all indexed columns
@@ -374,8 +374,8 @@ public class Indexer
         cardBuilder.deleteCharAt(cardBuilder.length() - 1);
 
         // Configuration rows for the Min/Max combiners
-        String firstRowColumn = rowsFamily + ":" + new String(METRICS_TABLE_FIRST_ROW_CQ.array());
-        String lastRowColumn = rowsFamily + ":" + new String(METRICS_TABLE_LAST_ROW_CQ.array());
+        String firstRowColumn = rowsFamily + ":" + new String(METRICS_TABLE_FIRST_ROW_CQ.array(), UTF_8);
+        String lastRowColumn = rowsFamily + ":" + new String(METRICS_TABLE_LAST_ROW_CQ.array(), UTF_8);
 
         // Summing combiner for cardinality columns
         IteratorSetting s1 = new IteratorSetting(1, SummingCombiner.class, ImmutableMap.of("columns", cardBuilder.toString(), "type", "STRING"));

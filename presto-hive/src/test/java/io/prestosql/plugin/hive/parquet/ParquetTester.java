@@ -93,6 +93,7 @@ import static io.prestosql.plugin.hive.util.HiveUtil.isStructuralType;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.stream;
 import static java.util.Collections.singletonList;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
@@ -468,7 +469,7 @@ public class ParquetTester
             return new SqlDecimal((BigInteger) fieldFromCursor, decimalType.getPrecision(), decimalType.getScale());
         }
         if (isVarcharType(type)) {
-            return new String(((Slice) fieldFromCursor).getBytes());
+            return new String(((Slice) fieldFromCursor).getBytes(), UTF_8);
         }
         if (VARBINARY.equals(type)) {
             return new SqlVarbinary(((Slice) fieldFromCursor).getBytes());

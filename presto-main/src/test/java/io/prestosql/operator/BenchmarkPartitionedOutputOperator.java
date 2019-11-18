@@ -66,6 +66,7 @@ import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggre
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -178,7 +179,7 @@ public class BenchmarkPartitionedOutputOperator
                     if (fieldTypes.get(j) == VARCHAR) {
                         byte[] data = new byte[ThreadLocalRandom.current().nextInt(128)];
                         ThreadLocalRandom.current().nextBytes(data);
-                        testRow.add(new String(data));
+                        testRow.add(new String(data, ISO_8859_1));
                     }
                     else {
                         throw new UnsupportedOperationException();

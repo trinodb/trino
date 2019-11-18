@@ -366,7 +366,7 @@ public class StringRowSerializer
     @Override
     public <T> T decode(Type type, byte[] value)
     {
-        String strValue = new String(value);
+        String strValue = new String(value, UTF_8);
         if (type.equals(BIGINT)) {
             return (T) (Long) Long.parseLong(strValue);
         }
@@ -401,7 +401,7 @@ public class StringRowSerializer
             return (T) value;
         }
         if (type.equals(VARCHAR)) {
-            return (T) new String(value);
+            return (T) strValue;
         }
         throw new PrestoException(NOT_SUPPORTED, "Unsupported type " + type);
     }
