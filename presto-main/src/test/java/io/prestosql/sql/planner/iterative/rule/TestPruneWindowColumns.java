@@ -55,7 +55,7 @@ import static io.prestosql.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
 public class TestPruneWindowColumns
         extends BaseRuleTest
 {
-    private static final ResolvedFunction RESOLVED_FUNCTION = createTestMetadataManager().resolveFunction(QualifiedName.of("min"), fromTypes(BIGINT));
+    private static final ResolvedFunction MIN_FUNCTION = createTestMetadataManager().resolveFunction(QualifiedName.of("min"), fromTypes(BIGINT));
 
     private static final List<String> inputSymbolNameList =
             ImmutableList.of("orderKey", "partitionKey", "hash", "startValue1", "startValue2", "endValue1", "endValue2", "input1", "input2", "unused");
@@ -108,7 +108,7 @@ public class TestPruneWindowColumns
                                                 .addFunction(
                                                         "output2",
                                                         functionCall("min", ImmutableList.of("input2")),
-                                                        RESOLVED_FUNCTION,
+                                                        MIN_FUNCTION,
                                                         frameProvider2)
                                                 .hashSymbol("hash"),
                                         strictProject(
@@ -164,12 +164,12 @@ public class TestPruneWindowColumns
                                                 .addFunction(
                                                         "output1",
                                                         functionCall("min", ImmutableList.of("input1")),
-                                                        RESOLVED_FUNCTION,
+                                                        MIN_FUNCTION,
                                                         frameProvider1)
                                                 .addFunction(
                                                         "output2",
                                                         functionCall("min", ImmutableList.of("input2")),
-                                                        RESOLVED_FUNCTION,
+                                                        MIN_FUNCTION,
                                                         frameProvider2)
                                                 .hashSymbol("hash"),
                                         strictProject(
@@ -213,7 +213,7 @@ public class TestPruneWindowColumns
                         ImmutableMap.of(
                                 output1,
                                 new WindowNode.Function(
-                                        RESOLVED_FUNCTION,
+                                        MIN_FUNCTION,
                                         ImmutableList.of(input1.toSymbolReference()),
                                         new WindowNode.Frame(
                                                 WindowFrame.Type.RANGE,
@@ -226,7 +226,7 @@ public class TestPruneWindowColumns
                                         false),
                                 output2,
                                 new WindowNode.Function(
-                                        RESOLVED_FUNCTION,
+                                        MIN_FUNCTION,
                                         ImmutableList.of(input2.toSymbolReference()),
                                         new WindowNode.Frame(
                                                 WindowFrame.Type.RANGE,
