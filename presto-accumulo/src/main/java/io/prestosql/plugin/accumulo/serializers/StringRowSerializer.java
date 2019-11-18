@@ -370,41 +370,39 @@ public class StringRowSerializer
         if (type.equals(BIGINT)) {
             return (T) (Long) Long.parseLong(strValue);
         }
-        else if (type.equals(BOOLEAN)) {
+        if (type.equals(BOOLEAN)) {
             return (T) (Boolean) Boolean.parseBoolean(strValue);
         }
-        else if (type.equals(DATE)) {
+        if (type.equals(DATE)) {
             return (T) (Long) Long.parseLong(strValue);
         }
-        else if (type.equals(DOUBLE)) {
+        if (type.equals(DOUBLE)) {
             return (T) (Double) Double.parseDouble(strValue);
         }
-        else if (type.equals(INTEGER)) {
+        if (type.equals(INTEGER)) {
             return (T) (Long) ((Integer) Integer.parseInt(strValue)).longValue();
         }
-        else if (type.equals(REAL)) {
+        if (type.equals(REAL)) {
             return (T) (Double) ((Float) Float.parseFloat(strValue)).doubleValue();
         }
-        else if (type.equals(SMALLINT)) {
+        if (type.equals(SMALLINT)) {
             return (T) (Long) ((Short) Short.parseShort(strValue)).longValue();
         }
-        else if (type.equals(TIME)) {
+        if (type.equals(TIME)) {
             return (T) (Long) Long.parseLong(strValue);
         }
-        else if (type.equals(TIMESTAMP)) {
+        if (type.equals(TIMESTAMP)) {
             return (T) (Long) Long.parseLong(strValue);
         }
-        else if (type.equals(TINYINT)) {
+        if (type.equals(TINYINT)) {
             return (T) (Long) ((Byte) Byte.parseByte(strValue)).longValue();
         }
-        else if (type.equals(VARBINARY)) {
+        if (type.equals(VARBINARY)) {
             return (T) value;
         }
-        else if (type.equals(VARCHAR)) {
+        if (type.equals(VARCHAR)) {
             return (T) new String(value);
         }
-        else {
-            throw new PrestoException(NOT_SUPPORTED, "Unsupported type " + type);
-        }
+        throw new PrestoException(NOT_SUPPORTED, "Unsupported type " + type);
     }
 }
