@@ -50,6 +50,7 @@ import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.hadoop.HadoopInputFile;
+import org.apache.iceberg.orc.OrcMetrics;
 import org.apache.iceberg.parquet.ParquetUtil;
 import org.apache.iceberg.transforms.Transform;
 
@@ -328,6 +329,9 @@ public class IcebergPageSink
         switch (fileFormat) {
             case PARQUET:
                 return ParquetUtil.fileMetrics(HadoopInputFile.fromPath(path, jobConf), MetricsConfig.getDefault());
+            case ORC:
+                // TODO: update Iceberg version after OrcMetrics is completed
+                return OrcMetrics.fromInputFile(HadoopInputFile.fromPath(path, jobConf), jobConf);
         }
         throw new PrestoException(NOT_SUPPORTED, "File format not supported for Iceberg: " + fileFormat);
     }
