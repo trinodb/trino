@@ -1012,7 +1012,7 @@ public class ThriftHiveMetastore
     public void addPartitions(HiveIdentity identity, String databaseName, String tableName, List<PartitionWithStatistics> partitionsWithStatistics)
     {
         List<Partition> partitions = partitionsWithStatistics.stream()
-                .map(ThriftMetastoreUtil::toMetastoreApiPartition)
+                .map(partitionWithStatistics -> ThriftMetastoreUtil.toMetastoreApiPartition(partitionWithStatistics))
                 .collect(toImmutableList());
         addPartitionsWithoutStatistics(identity, databaseName, tableName, partitions);
         for (PartitionWithStatistics partitionWithStatistics : partitionsWithStatistics) {
