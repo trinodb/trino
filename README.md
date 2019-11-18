@@ -94,6 +94,7 @@ with some modifications.
 
 Enable the following inspections:
 
+- ``Java | Internationalization | Implicit usage of platform's default charset``,
 - ``Java | Class structure | Utility class is not 'final'``,
 - ``Java | Class structure | Utility class with 'public' constructor``,
 - ``Java | Class structure | Utility class without 'private' constructor``.
