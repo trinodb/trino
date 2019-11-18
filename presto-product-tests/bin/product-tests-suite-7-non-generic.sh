@@ -30,6 +30,12 @@ presto-product-tests/bin/run_on_docker.sh \
     -g sqlserver \
     || exit_code=1
 
+# Environment not set up on CDH. (TODO run on HDP 2.6 and HDP 3.1)
+presto-product-tests/bin/run_on_docker.sh \
+    singlenode-kerberos-hdfs-impersonation-cross-realm \
+    -g storage_formats,cli,hdfs_impersonation \
+    || exit_code=1
+
 presto-product-tests/bin/run_on_docker.sh \
     two-mixed-hives \
     -g two_hives \
