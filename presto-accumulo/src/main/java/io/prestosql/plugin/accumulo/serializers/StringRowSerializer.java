@@ -367,13 +367,7 @@ public class StringRowSerializer
     public <T> T decode(Type type, byte[] value)
     {
         String strValue = new String(value);
-        if (Types.isArrayType(type)) {
-            throw new PrestoException(NOT_SUPPORTED, "arrays are not (yet?) supported for StringRowSerializer");
-        }
-        else if (Types.isMapType(type)) {
-            throw new PrestoException(NOT_SUPPORTED, "maps are not (yet?) supported for StringRowSerializer");
-        }
-        else if (type.equals(BIGINT)) {
+        if (type.equals(BIGINT)) {
             return (T) (Long) Long.parseLong(strValue);
         }
         else if (type.equals(BOOLEAN)) {
@@ -410,7 +404,7 @@ public class StringRowSerializer
             return (T) new String(value);
         }
         else {
-            throw new PrestoException(NOT_SUPPORTED, "StringLexicoder does not support decoding type " + type);
+            throw new PrestoException(NOT_SUPPORTED, "Unsupported type " + type);
         }
     }
 }
