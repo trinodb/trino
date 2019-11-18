@@ -25,6 +25,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.google.common.base.Verify.verify;
+import static io.prestosql.tests.TestGroups.SKIP_ON_CDH;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static io.prestosql.tests.utils.QueryExecutors.onPresto;
 import static java.lang.String.format;
@@ -143,7 +144,7 @@ public class TestHiveBasicTableStatistics
         }
     }
 
-    @Test
+    @Test(groups = SKIP_ON_CDH /* CDH 5 metastore automatically gathers raw data size statistics on its own */)
     public void testAnalyzePartitioned()
     {
         String tableName = "test_basic_statistics_analyze_partitioned";
