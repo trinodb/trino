@@ -239,29 +239,19 @@ public final class ThriftMetastoreUtil
             @Override
             protected RoleGrant computeNext()
             {
+                while (output.isEmpty() && !queue.isEmpty()) {
+                    Set<RoleGrant> grants = listRoleGrants.apply(queue.remove());
+                    for (RoleGrant grant : grants) {
+                        if (seenRoles.add(grant)) {
+                            output.add(grant);
+                            queue.add(new HivePrincipal(ROLE, grant.getRoleName()));
+                        }
+                    }
+                }
                 if (!output.isEmpty()) {
                     return output.remove();
                 }
-                if (queue.isEmpty()) {
-                    return endOfData();
-                }
-
-                while (!queue.isEmpty()) {
-                    Set<RoleGrant> grants = listRoleGrants.apply(queue.remove());
-                    if (!grants.isEmpty()) {
-                        for (RoleGrant grant : grants) {
-                            if (seenRoles.add(grant)) {
-                                output.add(grant);
-                                queue.add(new HivePrincipal(ROLE, grant.getRoleName()));
-                            }
-                        }
-                        break;
-                    }
-                }
-                if (output.isEmpty()) {
-                    return endOfData();
-                }
-                return output.remove();
+                return endOfData();
             }
         });
     }
