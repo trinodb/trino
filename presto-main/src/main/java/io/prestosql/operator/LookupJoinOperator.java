@@ -65,7 +65,7 @@ import static java.util.Objects.requireNonNull;
 public class LookupJoinOperator
         implements AdapterWorkProcessorOperator
 {
-    private final PageBuffer pageBuffer = new PageBuffer();
+    private final PageBuffer pageBuffer;
     private final WorkProcessor<Page> pages;
     private final JoinProcessor joinProcessor;
     private final JoinStatisticsCounter statisticsCounter;
@@ -96,6 +96,7 @@ public class LookupJoinOperator
                 processorContext.getDriverYieldSignal(),
                 processorContext.getSpillContext(),
                 processorContext.getMemoryTrackingContext());
+        pageBuffer = new PageBuffer(joinProcessor.lookupSourceProviderFuture);
         pages = sourcePages.orElse(pageBuffer.pages()).transform(joinProcessor);
     }
 
