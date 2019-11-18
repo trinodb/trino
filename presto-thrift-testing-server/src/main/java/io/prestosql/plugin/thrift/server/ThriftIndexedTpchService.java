@@ -40,6 +40,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.plugin.thrift.server.SplitInfo.indexSplit;
 import static io.prestosql.tests.AbstractTestIndexedQueries.INDEX_SPEC;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class ThriftIndexedTpchService
         extends ThriftTpchService
@@ -181,7 +182,7 @@ public class ThriftIndexedTpchService
                     }
                     else {
                         checkArgument(bytes != null);
-                        result.add(new String(bytes, startOffset, sizes[index]));
+                        result.add(new String(bytes, startOffset, sizes[index], UTF_8));
                         startOffset += sizes[index];
                     }
                 }

@@ -28,6 +28,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 
 public final class CassandraCqlUtils
@@ -92,7 +93,7 @@ public final class CassandraCqlUtils
 
     public static String quoteStringLiteralForJson(String string)
     {
-        return '"' + new String(JsonStringEncoder.getInstance().quoteAsUTF8(string)) + '"';
+        return '"' + new String(JsonStringEncoder.getInstance().quoteAsUTF8(string), UTF_8) + '"';
     }
 
     public static void appendSelectColumns(StringBuilder stringBuilder, List<? extends ColumnHandle> columns)
