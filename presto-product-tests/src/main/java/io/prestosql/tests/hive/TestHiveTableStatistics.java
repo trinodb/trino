@@ -463,7 +463,7 @@ public class TestHiveTableStatistics
     }
 
     // This covers also stats calculation for unpartitioned table
-    @Test(groups = SKIP_ON_CDH) // skip on cdh due to no support for date column and stats
+    @Test(groups = SKIP_ON_CDH /* CDH 5 metastore does not support date stats */)
     @Requires(AllTypesTable.class)
     public void testStatisticsForAllDataTypes()
     {
@@ -511,7 +511,7 @@ public class TestHiveTableStatistics
                 row(null, null, null, null, 2.0, null, null));
     }
 
-    @Test(groups = SKIP_ON_CDH) // skip on cdh due to no support for date column and stats
+    @Test(groups = SKIP_ON_CDH /* CDH 5 metastore does not support date stats */)
     @Requires(AllTypesTable.class)
     public void testStatisticsForAllDataTypesNoData()
     {
@@ -558,7 +558,7 @@ public class TestHiveTableStatistics
                 row(null, null, null, null, 0.0, null, null));
     }
 
-    @Test(groups = SKIP_ON_CDH) // skip on cdh due to no support for date column and stats
+    @Test(groups = SKIP_ON_CDH /* CDH 5 metastore does not support date stats */)
     @Requires(AllTypesTable.class)
     public void testStatisticsForAllDataTypesOnlyNulls()
     {
@@ -836,7 +836,7 @@ public class TestHiveTableStatistics
     }
 
     // This covers also stats calculation for unpartitioned table
-    @Test(groups = SKIP_ON_CDH) // skip on cdh due to no support for date column and stats
+    @Test(groups = SKIP_ON_CDH /* CDH 5 metastore does not support date stats */)
     @Requires(AllTypesTable.class)
     public void testAnalyzeForAllDataTypes()
     {
@@ -882,7 +882,7 @@ public class TestHiveTableStatistics
                 row(null, null, null, null, 2.0, null, null));
     }
 
-    @Test(groups = SKIP_ON_CDH) // skip on cdh due to no support for date column and stats
+    @Test(groups = SKIP_ON_CDH /* CDH 5 metastore does not support date stats */)
     @Requires(AllTypesTable.class)
     public void testAnalyzeForAllDataTypesNoData()
     {
@@ -927,7 +927,7 @@ public class TestHiveTableStatistics
                 row(null, null, null, null, 0.0, null, null));
     }
 
-    @Test(groups = SKIP_ON_CDH) // skip on cdh due to no support for date column and stats
+    @Test(groups = SKIP_ON_CDH /* CDH 5 metastore does not support date stats */)
     @Requires(AllTypesTable.class)
     public void testAnalyzeForAllDataTypesOnlyNulls()
     {
@@ -975,7 +975,7 @@ public class TestHiveTableStatistics
                 row(null, null, null, null, 1.0, null, null));
     }
 
-    @Test
+    @Test(groups = SKIP_ON_CDH /* CDH 5 metastore does not support date stats */)
     @Requires(AllTypesTable.class)
     public void testComputeTableStatisticsOnCreateTable()
     {
@@ -988,7 +988,7 @@ public class TestHiveTableStatistics
         assertComputeTableStatisticsOnCreateTable(allTypesAllNullTable, ALL_TYPES_ALL_NULL_TABLE_STATISTICS);
     }
 
-    @Test
+    @Test(groups = SKIP_ON_CDH /* CDH 5 metastore does not support date stats */)
     @Requires(AllTypesTable.class)
     public void testComputeTableStatisticsOnInsert()
     {
@@ -1065,7 +1065,7 @@ public class TestHiveTableStatistics
         }
     }
 
-    @Test
+    @Test(groups = SKIP_ON_CDH /* CDH 5 metastore does not support date stats */)
     @Requires(AllTypesTable.class)
     public void testComputePartitionStatisticsOnCreateTable()
     {
@@ -1163,7 +1163,7 @@ public class TestHiveTableStatistics
         }
     }
 
-    @Test
+    @Test(groups = SKIP_ON_CDH /* CDH 5 metastore does not support date stats */)
     @Requires(AllTypesTable.class)
     public void testComputePartitionStatisticsOnInsert()
     {
