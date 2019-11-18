@@ -226,12 +226,16 @@ public final class ThriftMetastoreUtil
 
     public static Stream<RoleGrant> listApplicableRoles(HivePrincipal principal, Function<HivePrincipal, Set<RoleGrant>> listRoleGrants)
     {
-        Queue<HivePrincipal> queue = new ArrayDeque<>();
-        queue.add(principal);
-        Queue<RoleGrant> output = new ArrayDeque<>();
-        Set<RoleGrant> seenRoles = new HashSet<>();
         return Streams.stream(new AbstractIterator<RoleGrant>()
         {
+            private final Queue<RoleGrant> output = new ArrayDeque<>();
+            private final Set<RoleGrant> seenRoles = new HashSet<>();
+            private final Queue<HivePrincipal> queue = new ArrayDeque<>();
+
+            {
+                queue.add(principal);
+            }
+
             @Override
             protected RoleGrant computeNext()
             {
