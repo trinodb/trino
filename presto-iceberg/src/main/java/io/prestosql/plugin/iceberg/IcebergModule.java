@@ -28,6 +28,8 @@ import io.prestosql.plugin.hive.HiveNodePartitioningProvider;
 import io.prestosql.plugin.hive.HiveTransactionManager;
 import io.prestosql.plugin.hive.LocationService;
 import io.prestosql.plugin.hive.NamenodeStats;
+import io.prestosql.plugin.hive.orc.OrcReaderConfig;
+import io.prestosql.plugin.hive.orc.OrcWriterConfig;
 import io.prestosql.plugin.hive.parquet.ParquetReaderConfig;
 import io.prestosql.plugin.hive.parquet.ParquetWriterConfig;
 import io.prestosql.spi.connector.ConnectorNodePartitioningProvider;
@@ -67,6 +69,9 @@ public class IcebergModule
         binder.bind(HdfsConfigurationInitializer.class).in(Scopes.SINGLETON);
         newSetBinder(binder, DynamicConfigurationProvider.class);
 
+        configBinder(binder).bindConfig(OrcReaderConfig.class);
+        configBinder(binder).bindConfig(OrcWriterConfig.class);
+
         configBinder(binder).bindConfig(ParquetReaderConfig.class);
         configBinder(binder).bindConfig(ParquetWriterConfig.class);
 
@@ -80,5 +85,6 @@ public class IcebergModule
         newExporter(binder).export(FileFormatDataSourceStats.class).withGeneratedName();
 
         binder.bind(IcebergFileWriterFactory.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(IcebergFileWriterFactory.class).withGeneratedName();
     }
 }

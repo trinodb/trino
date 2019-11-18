@@ -43,6 +43,11 @@
 
         <dependency>
             <groupId>io.prestosql</groupId>
+            <artifactId>presto-orc</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.prestosql</groupId>
             <artifactId>presto-parquet</artifactId>
         </dependency>
 
@@ -162,6 +167,18 @@
             <groupId>${dep.iceberg.groupId}</groupId>
             <artifactId>iceberg-hive</artifactId>
             <version>${dep.iceberg.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>${dep.iceberg.groupId}</groupId>
+            <artifactId>iceberg-orc</artifactId>
+            <version>${dep.iceberg.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.orc</groupId>
+                    <artifactId>orc-core</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
