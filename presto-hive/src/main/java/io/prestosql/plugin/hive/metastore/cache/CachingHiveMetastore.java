@@ -68,7 +68,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMultimap;
-import static com.google.common.collect.Iterables.transform;
 import static com.google.common.collect.Streams.stream;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
@@ -612,7 +611,9 @@ public class CachingHiveMetastore
     public Map<String, Optional<Partition>> getPartitionsByNames(HiveIdentity identity, String databaseName, String tableName, List<String> partitionNames)
     {
         HiveTableName hiveTableName = hiveTableName(databaseName, tableName);
-        Iterable<WithIdentity<HivePartitionName>> names = transform(partitionNames, name -> new WithIdentity<>(updateIdentity(identity), hivePartitionName(hiveTableName, name)));
+        List<WithIdentity<HivePartitionName>> names = partitionNames.stream()
+                .map(name -> new WithIdentity<>(updateIdentity(identity), hivePartitionName(hiveTableName, name)))
+                .collect(toImmutableList());
 
         Map<WithIdentity<HivePartitionName>, Optional<Partition>> all = getAll(partitionCache, names);
         ImmutableMap.Builder<String, Optional<Partition>> partitionsByName = ImmutableMap.builder();
