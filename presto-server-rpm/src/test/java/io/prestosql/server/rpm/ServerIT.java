@@ -36,10 +36,18 @@ public class ServerIT
 {
     @Parameters("rpm")
     @Test
-    public void testServer(String rpm)
+    public void testWithJava8(String rpm)
             throws Exception
     {
         testServer("prestodev/centos7-oj8", rpm);
+    }
+
+    @Parameters("rpm")
+    @Test
+    public void testWithJava11(String rpm)
+            throws Exception
+    {
+        testServer("prestodev/centos7-oj11", rpm);
     }
 
     private static void testServer(String baseImage, String rpmHostPath)
