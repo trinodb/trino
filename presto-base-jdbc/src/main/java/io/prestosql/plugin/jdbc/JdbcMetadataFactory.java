@@ -23,7 +23,7 @@ public class JdbcMetadataFactory
     private final boolean allowDropTable;
 
     @Inject
-    public JdbcMetadataFactory(@InternalBaseJdbc JdbcClient jdbcClient, JdbcMetadataConfig config)
+    public JdbcMetadataFactory(@TheJdbcClient JdbcClient jdbcClient, JdbcMetadataConfig config)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         requireNonNull(config, "config is null");

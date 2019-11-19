@@ -20,7 +20,7 @@ import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.DriverConnectionFactory;
-import io.prestosql.plugin.jdbc.InternalBaseJdbc;
+import io.prestosql.plugin.jdbc.TheJdbcClient;
 import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.jdbc.JdbcPageSinkProvider;
 import io.prestosql.plugin.jdbc.JdbcRecordSetProvider;
@@ -66,7 +66,7 @@ public class PhoenixClientModule
         binder.bind(PhoenixClient.class).in(Scopes.SINGLETON);
         binder.bind(JdbcClient.class)
                 // TODO support JMX stats collection for phoenix connector
-                .annotatedWith(InternalBaseJdbc.class)
+                .annotatedWith(TheJdbcClient.class)
                 .to(PhoenixClient.class)
                 .in(Scopes.SINGLETON);
         binder.bind(PhoenixMetadata.class).in(Scopes.SINGLETON);
