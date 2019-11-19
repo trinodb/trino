@@ -94,10 +94,4 @@ public class TestHiveDistributedJoinQueriesWithDynamicFiltering
                 .filter(summary -> nodeId.equals(summary.getPlanNodeId()))
                 .collect(MoreCollectors.onlyElement());
     }
-
-    private Long countRows(String tableName)
-    {
-        MaterializedResult result = getQueryRunner().execute("SELECT COUNT() FROM " + tableName);
-        return (Long) result.getOnlyValue();
-    }
 }
