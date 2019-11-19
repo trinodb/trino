@@ -58,10 +58,7 @@ public class PageSourceManager
         CatalogName catalogName = split.getCatalogName();
 
         ConnectorPageSourceProvider provider = getPageSourceProvider(catalogName);
-        TupleDomain<ColumnHandle> constraint = TupleDomain.all();
-        if (dynamicFilter != null) {
-            constraint = dynamicFilter.get(); // should not block
-        }
+        TupleDomain<ColumnHandle> constraint = dynamicFilter.get();
         if (constraint.isAll()) {
             return provider.createPageSource(
                     table.getTransaction(),

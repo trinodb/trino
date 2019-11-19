@@ -34,6 +34,7 @@ import io.prestosql.spi.block.LazyBlock;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.FixedPageSource;
 import io.prestosql.spi.connector.RecordPageSource;
+import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.sql.gen.ExpressionCompiler;
 import io.prestosql.sql.gen.PageFunctionCompiler;
 import io.prestosql.sql.planner.plan.PlanNodeId;
@@ -110,7 +111,7 @@ public class TestScanFilterAndProjectOperator
                 pageProcessor,
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(),
-                null,
+                TupleDomain::all,
                 ImmutableList.of(VARCHAR),
                 new DataSize(0, BYTE),
                 0);
@@ -154,7 +155,7 @@ public class TestScanFilterAndProjectOperator
                 pageProcessor,
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(),
-                null,
+                TupleDomain::all,
                 ImmutableList.of(BIGINT),
                 new DataSize(64, KILOBYTE),
                 2);
@@ -199,7 +200,7 @@ public class TestScanFilterAndProjectOperator
                 () -> pageProcessor,
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(),
-                null,
+                TupleDomain::all,
                 ImmutableList.of(BIGINT),
                 new DataSize(0, BYTE),
                 0);
@@ -234,7 +235,7 @@ public class TestScanFilterAndProjectOperator
                 pageProcessor,
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(),
-                null,
+                TupleDomain::all,
                 ImmutableList.of(VARCHAR),
                 new DataSize(0, BYTE),
                 0);
@@ -287,7 +288,7 @@ public class TestScanFilterAndProjectOperator
                 pageProcessor,
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(),
-                null,
+                TupleDomain::all,
                 ImmutableList.of(BIGINT),
                 new DataSize(0, BYTE),
                 0);
@@ -353,7 +354,7 @@ public class TestScanFilterAndProjectOperator
                 pageProcessor,
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(),
-                null,
+                TupleDomain::all,
                 ImmutableList.of(BIGINT),
                 new DataSize(0, BYTE),
                 0);

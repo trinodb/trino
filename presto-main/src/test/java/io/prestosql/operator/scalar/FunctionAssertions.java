@@ -788,7 +788,7 @@ public final class FunctionAssertions
                     pageProcessor,
                     TEST_TABLE_HANDLE,
                     ImmutableList.of(),
-                    null,
+                    TupleDomain::all,
                     ImmutableList.of(projection.getType()),
                     new DataSize(0, BYTE),
                     0);

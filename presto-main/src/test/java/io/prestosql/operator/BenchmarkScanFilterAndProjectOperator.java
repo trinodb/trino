@@ -28,6 +28,7 @@ import io.prestosql.operator.project.PageProcessor;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.FixedPageSource;
+import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.gen.ExpressionCompiler;
 import io.prestosql.sql.gen.PageFunctionCompiler;
@@ -173,7 +174,7 @@ public class BenchmarkScanFilterAndProjectOperator
                     () -> pageProcessor,
                     TEST_TABLE_HANDLE,
                     columnHandles,
-                    null,
+                    TupleDomain::all,
                     types,
                     FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_SIZE,
                     FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_ROW_COUNT);
