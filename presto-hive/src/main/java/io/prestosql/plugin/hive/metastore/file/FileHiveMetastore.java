@@ -1038,7 +1038,7 @@ public class FileHiveMetastore
 
             Path permissionFilePath = getPermissionsPath(permissionsDirectory, grantee);
             List<PermissionMetadata> permissions = privileges.stream()
-                    .map(PermissionMetadata::new)
+                    .map(hivePrivilegeInfo -> new PermissionMetadata(hivePrivilegeInfo.getHivePrivilege(), hivePrivilegeInfo.isGrantOption(), grantee))
                     .collect(toList());
             writeFile("permissions", permissionFilePath, permissionsCodec, permissions, true);
         }
