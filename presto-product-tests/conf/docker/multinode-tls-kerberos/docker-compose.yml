@@ -13,6 +13,7 @@ services:
         aliases:
          - presto-master.docker.cluster
     volumes:
+      - ../../../conf/presto/etc/multinode-master-jvm.config:/docker/volumes/conf/presto/etc/jvm.config
       - ../../../conf/presto/etc/environment-specific-catalogs/singlenode-kerberos-hdfs-no-impersonation/hive.properties:/docker/presto-product-tests/conf/presto/etc/catalog/hive.properties
 
   presto-worker-1:
@@ -31,6 +32,8 @@ services:
       - presto-master
     volumes_from:
       - presto-master
+    volumes:
+      - ../../../conf/presto/etc/multinode-worker-jvm.config:/docker/volumes/conf/presto/etc/jvm.config
 
   presto-worker-2:
     domainname: docker.cluster
@@ -48,6 +51,8 @@ services:
       - presto-master
     volumes_from:
       - presto-master
+    volumes:
+      - ../../../conf/presto/etc/multinode-worker-jvm.config:/docker/volumes/conf/presto/etc/jvm.config
 
   application-runner:
     environment:
