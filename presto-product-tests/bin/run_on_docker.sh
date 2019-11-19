@@ -5,6 +5,9 @@ set -euo pipefail
 source "${BASH_SOURCE%/*}/lib.sh"
 
 function retry() {
+  local END
+  local EXIT_CODE
+
   END=$(($(date +%s) + 600))
 
   while (( $(date +%s) < $END )); do
