@@ -96,11 +96,14 @@ final class PrestoSystemRequirements
         }
 
         JavaVersion version = JavaVersion.parse(javaVersion);
-        if (version.getMajor() == 8 && version.getUpdate().isPresent() && version.getUpdate().getAsInt() >= 161) {
+
+        if (version.getMajor() >= 11) {
             return;
         }
 
-        if (version.getMajor() >= 9) {
+        if ((version.getMajor() == 8 && version.getUpdate().isPresent() && version.getUpdate().getAsInt() >= 161) ||
+                (version.getMajor() > 8 && version.getMajor() < 11)) {
+            warnRequirement("Future versions of Presto will require Java 11+ (found: %s)", javaVersion);
             return;
         }
 
