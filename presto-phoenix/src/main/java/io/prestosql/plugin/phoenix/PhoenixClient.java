@@ -26,6 +26,7 @@ import io.prestosql.plugin.jdbc.JdbcSplit;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
 import io.prestosql.plugin.jdbc.QueryBuilder;
+import io.prestosql.plugin.jdbc.TheConnectionFactory;
 import io.prestosql.plugin.jdbc.WriteMapping;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -115,7 +116,7 @@ public class PhoenixClient
     private final Configuration configuration;
 
     @Inject
-    public PhoenixClient(PhoenixConfig config, ConnectionFactory connectionFactory)
+    public PhoenixClient(PhoenixConfig config, @TheConnectionFactory ConnectionFactory connectionFactory)
             throws SQLException
     {
         super(

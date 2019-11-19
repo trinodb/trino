@@ -27,10 +27,12 @@ import io.prestosql.plugin.jdbc.ForwardingJdbcClient;
 import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.jdbc.JdbcPageSinkProvider;
 import io.prestosql.plugin.jdbc.JdbcRecordSetProvider;
+import io.prestosql.plugin.jdbc.TheConnectionFactory;
 import io.prestosql.plugin.jdbc.TheJdbcClient;
 import io.prestosql.plugin.jdbc.credential.ConfigFileBasedCredentialProvider;
 import io.prestosql.plugin.jdbc.credential.CredentialConfig;
 import io.prestosql.plugin.jdbc.credential.ExtraCredentialProvider;
+import io.prestosql.plugin.jdbc.jmx.StatisticsAwareConnectionFactory;
 import io.prestosql.plugin.jdbc.jmx.StatisticsAwareJdbcClient;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorPageSinkProvider;
@@ -85,11 +87,15 @@ public class PhoenixClientModule
 
         binder.bind(Key.get(JdbcClient.class, TheJdbcClient.class))
                 .to(Key.get(JdbcClient.class, StatsCollecting.class));
+        binder.bind(Key.get(ConnectionFactory.class, TheConnectionFactory.class))
+                .to(Key.get(ConnectionFactory.class, StatsCollecting.class));
 
         checkConfiguration(buildConfigObject(PhoenixConfig.class).getConnectionUrl());
 
         newExporter(binder).export(Key.get(JdbcClient.class, StatsCollecting.class))
                 .as(generator -> generator.generatedNameOf(JdbcClient.class, catalogName));
+        newExporter(binder).export(Key.get(ConnectionFactory.class, StatsCollecting.class))
+                .as(generator -> generator.generatedNameOf(ConnectionFactory.class, catalogName));
     }
 
     private void checkConfiguration(String connectionUrl)
@@ -127,6 +133,14 @@ public class PhoenixClientModule
                 return statisticsAwareJdbcClient;
             }
         };
+    }
+
+    @Provides
+    @Singleton
+    @StatsCollecting
+    public static ConnectionFactory createConnectionFactoryWithStats(ConnectionFactory connectionFactory)
+    {
+        return new StatisticsAwareConnectionFactory(connectionFactory);
     }
 
     @Provides
