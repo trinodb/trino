@@ -53,6 +53,10 @@ public class PageBuffer
     public WorkProcessor<Page> pages()
     {
         return WorkProcessor.create(() -> {
+            if (isFinished() && isEmpty()) {
+                return finished();
+            }
+
             if (!initialFuture.isDone()) {
                 return blocked(initialFuture);
             }
@@ -61,10 +65,6 @@ public class PageBuffer
                 Page result = page;
                 page = null;
                 return ofResult(result);
-            }
-
-            if (isFinished()) {
-                return finished();
             }
 
             return yield();
