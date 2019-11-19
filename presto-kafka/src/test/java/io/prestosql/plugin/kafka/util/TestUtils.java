@@ -22,7 +22,7 @@ import io.prestosql.plugin.kafka.KafkaPlugin;
 import io.prestosql.plugin.kafka.KafkaTopicDescription;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.tests.TestingPrestoClient;
+import io.prestosql.testing.TestingPrestoClient;
 
 import java.io.IOException;
 import java.util.AbstractMap;

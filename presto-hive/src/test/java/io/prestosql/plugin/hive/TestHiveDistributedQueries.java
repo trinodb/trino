@@ -13,8 +13,8 @@
  */
 package io.prestosql.plugin.hive;
 
+import io.prestosql.testing.AbstractTestDistributedQueries;
 import io.prestosql.testing.MaterializedResult;
-import io.prestosql.tests.AbstractTestDistributedQueries;
 import org.testng.annotations.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;

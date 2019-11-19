@@ -15,7 +15,7 @@ package io.prestosql.execution.resourcegroups.db;
 
 import io.prestosql.plugin.resourcegroups.db.H2ResourceGroupsDao;
 import io.prestosql.spi.QueryId;
-import io.prestosql.tests.DistributedQueryRunner;
+import io.prestosql.testing.DistributedQueryRunner;
 import org.testng.annotations.Test;
 
 import static io.prestosql.execution.QueryState.FAILED;

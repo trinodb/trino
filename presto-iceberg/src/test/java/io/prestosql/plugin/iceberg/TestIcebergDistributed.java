@@ -14,7 +14,7 @@
 package io.prestosql.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.tests.AbstractTestDistributedQueries;
+import io.prestosql.testing.AbstractTestDistributedQueries;
 
 import static io.prestosql.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 

@@ -13,7 +13,7 @@
  */
 package io.prestosql.plugin.jdbc;
 
-import io.prestosql.tests.AbstractTestIntegrationSmokeTest;
+import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static io.prestosql.plugin.jdbc.H2QueryRunner.createH2QueryRunner;

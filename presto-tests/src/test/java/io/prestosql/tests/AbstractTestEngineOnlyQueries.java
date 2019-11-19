@@ -15,6 +15,7 @@ package io.prestosql.tests;
 
 import io.prestosql.Session;
 import io.prestosql.spi.type.TimeZoneKey;
+import io.prestosql.testing.AbstractTestQueryFramework;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 

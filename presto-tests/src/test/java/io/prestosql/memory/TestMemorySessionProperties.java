@@ -14,7 +14,7 @@
 package io.prestosql.memory;
 
 import io.prestosql.Session;
-import io.prestosql.tests.AbstractTestQueryFramework;
+import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
 import org.testng.annotations.Test;
 

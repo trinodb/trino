@@ -16,7 +16,7 @@ package io.prestosql.plugin.raptor.legacy;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.testing.mysql.TestingMySqlServer;
 import io.prestosql.plugin.tpch.TpchPlugin;
-import io.prestosql.tests.DistributedQueryRunner;
+import io.prestosql.testing.DistributedQueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 

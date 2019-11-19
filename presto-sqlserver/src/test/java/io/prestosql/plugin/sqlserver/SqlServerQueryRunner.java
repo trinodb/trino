@@ -23,8 +23,8 @@ import io.prestosql.Session;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.spi.security.Identity;
+import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.tests.DistributedQueryRunner;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -33,8 +33,8 @@ import java.util.Set;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.prestosql.testing.QueryAssertions.copyTable;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
-import static io.prestosql.tests.QueryAssertions.copyTable;
 import static java.util.Locale.ENGLISH;
 
 public final class SqlServerQueryRunner

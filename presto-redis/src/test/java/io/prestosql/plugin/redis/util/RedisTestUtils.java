@@ -22,7 +22,7 @@ import io.prestosql.plugin.redis.RedisPlugin;
 import io.prestosql.plugin.redis.RedisTableDescription;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.tests.TestingPrestoClient;
+import io.prestosql.testing.TestingPrestoClient;
 
 import java.io.IOException;
 import java.io.InputStream;

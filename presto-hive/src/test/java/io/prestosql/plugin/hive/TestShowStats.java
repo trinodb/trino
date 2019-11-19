@@ -14,7 +14,7 @@
 package io.prestosql.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.tests.AbstractTestQueryFramework;
+import io.prestosql.testing.AbstractTestQueryFramework;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 

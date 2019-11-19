@@ -14,7 +14,7 @@
 package io.prestosql.plugin.jdbc;
 
 import io.airlift.tpch.TpchTable;
-import io.prestosql.tests.AbstractTestQueries;
+import io.prestosql.testing.AbstractTestQueries;
 
 import static io.prestosql.plugin.jdbc.H2QueryRunner.createH2QueryRunner;
 

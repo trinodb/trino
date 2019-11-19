@@ -14,7 +14,9 @@
 package io.prestosql.tests;
 
 import io.prestosql.Session;
-import io.prestosql.tests.tpch.IndexedTpchPlugin;
+import io.prestosql.testing.AbstractTestIndexedQueries;
+import io.prestosql.testing.DistributedQueryRunner;
+import io.prestosql.testing.tpch.IndexedTpchPlugin;
 
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;

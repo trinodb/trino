@@ -15,9 +15,9 @@ package io.prestosql.plugin.mysql;
 
 import io.airlift.testing.mysql.TestingMySqlServer;
 import io.prestosql.Session;
+import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
-import io.prestosql.tests.AbstractTestIntegrationSmokeTest;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;

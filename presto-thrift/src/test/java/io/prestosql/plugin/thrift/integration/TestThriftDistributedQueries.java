@@ -14,7 +14,7 @@
 package io.prestosql.plugin.thrift.integration;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.tests.AbstractTestQueries;
+import io.prestosql.testing.AbstractTestQueries;
 
 import static io.prestosql.plugin.thrift.integration.ThriftQueryRunner.createThriftQueryRunner;
 

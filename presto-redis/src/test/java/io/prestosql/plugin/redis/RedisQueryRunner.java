@@ -26,8 +26,8 @@ import io.prestosql.plugin.redis.util.EmbeddedRedis;
 import io.prestosql.plugin.redis.util.RedisTestUtils;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.tests.DistributedQueryRunner;
-import io.prestosql.tests.TestingPrestoClient;
+import io.prestosql.testing.DistributedQueryRunner;
+import io.prestosql.testing.TestingPrestoClient;
 
 import java.util.Map;
 

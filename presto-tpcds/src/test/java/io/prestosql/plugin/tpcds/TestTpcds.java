@@ -14,8 +14,8 @@
 package io.prestosql.plugin.tpcds;
 
 import io.prestosql.Session;
+import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.MaterializedResult;
-import io.prestosql.tests.AbstractTestQueryFramework;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;

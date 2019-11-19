@@ -18,7 +18,7 @@ import io.prestosql.Session;
 import io.prestosql.plugin.tpch.ColumnNaming;
 import io.prestosql.plugin.tpch.TpchConnectorFactory;
 import io.prestosql.testing.LocalQueryRunner;
-import io.prestosql.tests.statistics.StatisticsAssertion;
+import io.prestosql.testing.statistics.StatisticsAssertion;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -28,15 +28,15 @@ import static io.prestosql.SystemSessionProperties.PREFER_PARTIAL_AGGREGATION;
 import static io.prestosql.plugin.tpch.TpchConnectorFactory.TPCH_COLUMN_NAMING_PROPERTY;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
-import static io.prestosql.tests.statistics.MetricComparisonStrategies.absoluteError;
-import static io.prestosql.tests.statistics.MetricComparisonStrategies.defaultTolerance;
-import static io.prestosql.tests.statistics.MetricComparisonStrategies.noError;
-import static io.prestosql.tests.statistics.MetricComparisonStrategies.relativeError;
-import static io.prestosql.tests.statistics.Metrics.OUTPUT_ROW_COUNT;
-import static io.prestosql.tests.statistics.Metrics.distinctValuesCount;
-import static io.prestosql.tests.statistics.Metrics.highValue;
-import static io.prestosql.tests.statistics.Metrics.lowValue;
-import static io.prestosql.tests.statistics.Metrics.nullsFraction;
+import static io.prestosql.testing.statistics.MetricComparisonStrategies.absoluteError;
+import static io.prestosql.testing.statistics.MetricComparisonStrategies.defaultTolerance;
+import static io.prestosql.testing.statistics.MetricComparisonStrategies.noError;
+import static io.prestosql.testing.statistics.MetricComparisonStrategies.relativeError;
+import static io.prestosql.testing.statistics.Metrics.OUTPUT_ROW_COUNT;
+import static io.prestosql.testing.statistics.Metrics.distinctValuesCount;
+import static io.prestosql.testing.statistics.Metrics.highValue;
+import static io.prestosql.testing.statistics.Metrics.lowValue;
+import static io.prestosql.testing.statistics.Metrics.nullsFraction;
 
 public class TestTpchLocalStats
 {

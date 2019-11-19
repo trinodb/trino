@@ -24,6 +24,7 @@ import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.planprinter.IoPlanPrinter;
 import io.prestosql.sql.planner.planprinter.IoPlanPrinter.EstimatedStatsAndCost;
+import io.prestosql.testing.AbstractTestQueries;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
 import io.prestosql.type.TypeDeserializer;

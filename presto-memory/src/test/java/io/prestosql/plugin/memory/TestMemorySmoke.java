@@ -18,11 +18,11 @@ import io.prestosql.Session;
 import io.prestosql.execution.QueryStats;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.sql.analyzer.FeaturesConfig;
+import io.prestosql.testing.AbstractTestQueryFramework;
+import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
-import io.prestosql.tests.AbstractTestQueryFramework;
-import io.prestosql.tests.DistributedQueryRunner;
-import io.prestosql.tests.ResultWithQueryId;
+import io.prestosql.testing.ResultWithQueryId;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 

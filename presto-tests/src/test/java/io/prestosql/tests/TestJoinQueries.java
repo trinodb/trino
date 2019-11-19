@@ -13,6 +13,7 @@
  */
 package io.prestosql.tests;
 
+import io.prestosql.testing.AbstractTestJoinQueries;
 import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
 
 public class TestJoinQueries

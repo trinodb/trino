@@ -24,6 +24,7 @@ import io.prestosql.server.protocol.Slug;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.ConnectorFactory;
+import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
 import io.prestosql.transaction.TransactionBuilder;
 import org.intellij.lang.annotations.Language;

@@ -13,8 +13,8 @@
  */
 package io.prestosql.plugin.cassandra;
 
+import io.prestosql.testing.AbstractTestDistributedQueries;
 import io.prestosql.testing.MaterializedResult;
-import io.prestosql.tests.AbstractTestDistributedQueries;
 import org.testng.annotations.Test;
 
 import static io.prestosql.spi.type.VarcharType.VARCHAR;

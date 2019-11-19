@@ -13,9 +13,9 @@
  */
 package io.prestosql.plugin.kudu;
 
+import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.tests.AbstractTestQueryFramework;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;

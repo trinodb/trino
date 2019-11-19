@@ -15,7 +15,7 @@ package io.prestosql.plugin.redis;
 
 import io.airlift.tpch.TpchTable;
 import io.prestosql.plugin.redis.util.EmbeddedRedis;
-import io.prestosql.tests.AbstractTestQueries;
+import io.prestosql.testing.AbstractTestQueries;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 

@@ -37,10 +37,10 @@ import io.prestosql.spi.Plugin;
 import io.prestosql.split.PageSourceManager;
 import io.prestosql.split.SplitManager;
 import io.prestosql.sql.planner.NodePartitioningManager;
+import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.TestingAccessControlManager;
-import io.prestosql.tests.DistributedQueryRunner;
 import io.prestosql.transaction.TransactionManager;
 
 import java.util.ArrayList;

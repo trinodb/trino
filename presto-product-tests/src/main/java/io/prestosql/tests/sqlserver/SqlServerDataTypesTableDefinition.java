@@ -23,7 +23,6 @@ import java.util.Collections;
 import java.util.List;
 
 import static io.prestosql.tests.sqlserver.TestConstants.CONNECTOR_NAME;
-import static java.util.Collections.emptyIterator;
 import static java.util.Collections.nCopies;
 
 public final class SqlServerDataTypesTableDefinition
