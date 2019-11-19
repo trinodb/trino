@@ -172,7 +172,7 @@
                                 </rule>
 
                                 <rule>
-                                    <destination>/usr/lib/presto/lib/plugin</destination>
+                                    <destination>/usr/lib/presto/plugin</destination>
                                     <base>${server.tar.package}/plugin</base>
                                     <includes>
                                         <include>*/*</include>
