@@ -279,11 +279,6 @@ public final class ThriftMetastoreUtil
                         .map(role -> new HivePrincipal(ROLE, role)));
     }
 
-    public static Stream<HivePrivilegeInfo> listEnabledTablePrivileges(SemiTransactionalHiveMetastore metastore, String databaseName, String tableName, ConnectorIdentity identity)
-    {
-        return listTablePrivileges(metastore, new HiveIdentity(identity), databaseName, tableName, listEnabledPrincipals(metastore, identity));
-    }
-
     public static Stream<HivePrivilegeInfo> listApplicableTablePrivileges(SemiTransactionalHiveMetastore metastore, String databaseName, String tableName, ConnectorIdentity identity)
     {
         String user = identity.getUser();
