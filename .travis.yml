@@ -14,44 +14,11 @@ env:
 
 matrix:
   include:
-    - env: MAVEN_CHECKS=true BUILD_PRESTO_DOCKER=true
-    - env: WEBUI_CHECKS=true
-    - env: TEST_SPECIFIC_MODULES=presto-main,presto-testing
-    - env: TEST_SPECIFIC_MODULES=presto-tests
-    # Product tests are long. Start them early to reduce overall build latency.
-    - env: PRODUCT_TESTS_SUITE=suite-1
-    - env: PRODUCT_TESTS_SUITE=suite-2
-    - env: PRODUCT_TESTS_SUITE=suite-3
-    # suite-4 does not exist
-    - env: PRODUCT_TESTS_SUITE=suite-5
-    - env: PRODUCT_TESTS_SUITE=suite-6-non-generic
-    - env: PRODUCT_TESTS_SUITE=suite-7-non-generic
-    - env: TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P ci-only"
-    - env: TEST_SPECIFIC_MODULES=presto-raptor-legacy
-    - env: TEST_SPECIFIC_MODULES=presto-accumulo
-    - env: TEST_SPECIFIC_MODULES=presto-cassandra
-    - env: TEST_SPECIFIC_MODULES=presto-hive,presto-orc,presto-parquet
-    - env: TEST_SPECIFIC_MODULES=presto-mongodb,presto-kafka,presto-elasticsearch
-    - env: TEST_SPECIFIC_MODULES=presto-redis
-    - env: TEST_SPECIFIC_MODULES=presto-sqlserver,presto-postgresql,presto-mysql
-    - env: TEST_SPECIFIC_MODULES=presto-phoenix,presto-iceberg
-    - env: TEST_OTHER_MODULES=!presto-main,!presto-testing,!presto-tests,!presto-raptor-legacy,!presto-accumulo,!presto-cassandra,!presto-hive,!presto-orc,!presto-parquet,!presto-mongodb,!presto-kafka,!presto-elasticsearch,!presto-redis,!presto-sqlserver,!presto-postgresql,!presto-mysql,!presto-phoenix,!presto-iceberg,!presto-kudu,!presto-docs,!presto-server,!presto-server-rpm
-    - env: HIVE_TESTS=true
-    - env: KUDU_TESTS=true
-
-    # HDP 3
-    - if: type != pull_request
-      env: PRODUCT_TESTS_SUITE=suite-1 PRODUCT_TESTS_CONFIG=config-hdp3
-    - if: type != pull_request
-      env: PRODUCT_TESTS_SUITE=suite-2 PRODUCT_TESTS_CONFIG=config-hdp3
-    - if: type != pull_request
-      env: PRODUCT_TESTS_SUITE=suite-3 PRODUCT_TESTS_CONFIG=config-hdp3
-    # suite-4 does not exist
-    - if: type != pull_request
-      env: PRODUCT_TESTS_SUITE=suite-5 PRODUCT_TESTS_CONFIG=config-hdp3
-# TODO
-#    - if: type != pull_request
-#      env: HIVE_TESTS=true PRODUCT_TESTS_CONFIG=config-hdp3
+    - env: PRODUCT_TESTS_SUITE=suite-3 I=1
+    - env: PRODUCT_TESTS_SUITE=suite-3 I=2
+    - env: PRODUCT_TESTS_SUITE=suite-3 I=3
+    - env: PRODUCT_TESTS_SUITE=suite-3 I=4
+    - env: PRODUCT_TESTS_SUITE=suite-3 I=5
 
 dist: xenial
 jdk: openjdk8
