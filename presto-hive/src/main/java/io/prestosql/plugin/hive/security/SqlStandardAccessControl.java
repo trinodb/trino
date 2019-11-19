@@ -16,6 +16,7 @@ package io.prestosql.plugin.hive.security;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.plugin.hive.HiveCatalogName;
 import io.prestosql.plugin.hive.HiveTransactionHandle;
+import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.Database;
 import io.prestosql.plugin.hive.metastore.HivePrincipal;
 import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
@@ -47,7 +48,7 @@ import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.isRo
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.isRoleEnabled;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.listApplicableRoles;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.listApplicableTablePrivileges;
-import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.listEnabledTablePrivileges;
+import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.listEnabledPrincipals;
 import static io.prestosql.spi.security.AccessDeniedException.denyAddColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyCommentTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateRole;
@@ -432,7 +433,9 @@ public class SqlStandardAccessControl
         }
 
         SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) context.getTransactionHandle()));
-        return listEnabledTablePrivileges(metastore, tableName.getSchemaName(), tableName.getTableName(), context.getIdentity())
+        return metastore.listTablePrivileges(new HiveIdentity(context.getIdentity()), tableName.getSchemaName(), tableName.getTableName(), Optional.empty()).stream()
+                .filter(privilegeInfo -> listEnabledPrincipals(metastore, context.getIdentity())
+                        .anyMatch(privilegeInfo.getGrantee()::equals))
                 .filter(privilegeInfo -> !grantOptionRequired || privilegeInfo.isGrantOption())
                 .anyMatch(privilegeInfo -> privilegeInfo.getHivePrivilege().equals(requiredPrivilege));
     }
@@ -481,7 +484,8 @@ public class SqlStandardAccessControl
         }
 
         SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) context.getTransactionHandle()));
-        return listEnabledTablePrivileges(metastore, tableName.getSchemaName(), tableName.getTableName(), context.getIdentity())
-                .anyMatch(privilegeInfo -> true);
+        return metastore.listTablePrivileges(new HiveIdentity(context.getIdentity()), tableName.getSchemaName(), tableName.getTableName(), Optional.empty()).stream()
+                .anyMatch(privilegeInfo -> listEnabledPrincipals(metastore, context.getIdentity())
+                        .anyMatch(privilegeInfo.getGrantee()::equals));
     }
 }
