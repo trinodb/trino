@@ -58,13 +58,16 @@ public class JdbcModule
         binder.bind(JdbcConnector.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(JdbcMetadataConfig.class);
 
-        newExporter(binder).export(Key.get(JdbcClient.class, InternalBaseJdbc.class))
+        binder.bind(Key.get(JdbcClient.class, TheJdbcClient.class))
+                .to(Key.get(JdbcClient.class, StatsCollecting.class));
+
+        newExporter(binder).export(Key.get(JdbcClient.class, StatsCollecting.class))
                 .as(generator -> generator.generatedNameOf(JdbcClient.class, catalogName));
     }
 
     @Provides
     @Singleton
-    @InternalBaseJdbc
+    @StatsCollecting
     public JdbcClient createJdbcClientWithStats(JdbcClient client)
     {
         StatisticsAwareJdbcClient statisticsAwareJdbcClient = new StatisticsAwareJdbcClient(client);
