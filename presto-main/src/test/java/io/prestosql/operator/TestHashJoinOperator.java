@@ -97,6 +97,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
@@ -1223,6 +1224,72 @@ public class TestHashJoinOperator
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes)).build();
         assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true, false).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
+    }
+
+    @Test(dataProvider = "hashJoinTestValues")
+    public void testInnerJoinWithBlockingLookupSourceAndEmptyProbe(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+            throws Exception
+    {
+        TaskContext taskContext = createTaskContext();
+        OperatorFactory joinOperatorFactory = createJoinOperatorFactoryWithBlockingLookupSource(taskContext, parallelBuild, probeHashEnabled, buildHashEnabled);
+
+        DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
+        try (Operator joinOperator = joinOperatorFactory.createOperator(driverContext)) {
+            joinOperatorFactory.noMoreOperators();
+            assertFalse(joinOperator.needsInput());
+            joinOperator.finish();
+            // lookup join operator will yield once before finishing
+            assertNull(joinOperator.getOutput());
+            assertNull(joinOperator.getOutput());
+            assertTrue(joinOperator.isBlocked().isDone());
+            assertTrue(joinOperator.isFinished());
+        }
+    }
+
+    @Test(dataProvider = "hashJoinTestValues")
+    public void testInnerJoinWithBlockingLookupSource(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+            throws Exception
+    {
+        TaskContext taskContext = createTaskContext();
+        OperatorFactory joinOperatorFactory = createJoinOperatorFactoryWithBlockingLookupSource(taskContext, parallelBuild, probeHashEnabled, buildHashEnabled);
+
+        DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
+        try (Operator joinOperator = joinOperatorFactory.createOperator(driverContext)) {
+            joinOperatorFactory.noMoreOperators();
+            assertFalse(joinOperator.needsInput());
+            assertNull(joinOperator.getOutput());
+            // lookup join operator got blocked waiting for build side
+            assertFalse(joinOperator.isBlocked().isDone());
+            assertFalse(joinOperator.isFinished());
+        }
+    }
+
+    private OperatorFactory createJoinOperatorFactoryWithBlockingLookupSource(TaskContext taskContext, boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+    {
+        // build factory
+        List<Type> buildTypes = ImmutableList.of(VARCHAR);
+        RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), buildTypes);
+        BuildSideSetup buildSideSetup = setupBuildSide(parallelBuild, taskContext, Ints.asList(0), buildPages, Optional.empty(), false, SINGLE_STREAM_SPILLER_FACTORY);
+        JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager = buildSideSetup.getLookupSourceFactoryManager();
+
+        // probe factory
+        List<Type> probeTypes = ImmutableList.of(VARCHAR);
+        RowPagesBuilder probePages = rowPagesBuilder(probeHashEnabled, Ints.asList(0), probeTypes);
+        OperatorFactory joinOperatorFactory = new LookupJoinOperators().innerJoin(
+                0,
+                new PlanNodeId("test"),
+                lookupSourceFactoryManager,
+                probePages.getTypes(),
+                Ints.asList(0),
+                getHashChannelAsInt(probePages),
+                Optional.empty(),
+                OptionalInt.of(1),
+                PARTITIONING_SPILLER_FACTORY);
+
+        // build drivers and operators
+        instantiateBuildDrivers(buildSideSetup, taskContext);
+
+        return joinOperatorFactory;
     }
 
     @DataProvider
