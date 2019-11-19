@@ -14,19 +14,24 @@
 package io.prestosql.plugin.phoenix;
 
 import com.google.inject.Binder;
+import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.airlift.log.Logger;
+import io.prestosql.plugin.base.util.LoggingInvocationHandler;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.DriverConnectionFactory;
-import io.prestosql.plugin.jdbc.TheJdbcClient;
+import io.prestosql.plugin.jdbc.ForwardingJdbcClient;
 import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.jdbc.JdbcPageSinkProvider;
 import io.prestosql.plugin.jdbc.JdbcRecordSetProvider;
+import io.prestosql.plugin.jdbc.TheJdbcClient;
 import io.prestosql.plugin.jdbc.credential.ConfigFileBasedCredentialProvider;
 import io.prestosql.plugin.jdbc.credential.CredentialConfig;
 import io.prestosql.plugin.jdbc.credential.ExtraCredentialProvider;
+import io.prestosql.plugin.jdbc.jmx.StatisticsAwareJdbcClient;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorPageSinkProvider;
 import io.prestosql.spi.connector.ConnectorRecordSetProvider;
@@ -44,16 +49,22 @@ import java.util.Optional;
 import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.reflect.Reflection.newProxy;
 import static io.prestosql.plugin.phoenix.PhoenixErrorCode.PHOENIX_CONFIG_ERROR;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
+import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class PhoenixClientModule
         extends AbstractConfigurationAwareModule
 {
     private final TypeManager typeManager;
+    private final String catalogName;
 
-    public PhoenixClientModule(TypeManager typeManager)
+    public PhoenixClientModule(TypeManager typeManager, String catalogName)
     {
-        this.typeManager = typeManager;
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
     }
 
     @Override
@@ -65,8 +76,6 @@ public class PhoenixClientModule
         binder.bind(ConnectorPageSinkProvider.class).to(JdbcPageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(PhoenixClient.class).in(Scopes.SINGLETON);
         binder.bind(JdbcClient.class)
-                // TODO support JMX stats collection for phoenix connector
-                .annotatedWith(TheJdbcClient.class)
                 .to(PhoenixClient.class)
                 .in(Scopes.SINGLETON);
         binder.bind(PhoenixMetadata.class).in(Scopes.SINGLETON);
@@ -74,7 +83,13 @@ public class PhoenixClientModule
         binder.bind(PhoenixColumnProperties.class).in(Scopes.SINGLETON);
         binder.bind(TypeManager.class).toInstance(typeManager);
 
+        binder.bind(Key.get(JdbcClient.class, TheJdbcClient.class))
+                .to(Key.get(JdbcClient.class, StatsCollecting.class));
+
         checkConfiguration(buildConfigObject(PhoenixConfig.class).getConnectionUrl());
+
+        newExporter(binder).export(Key.get(JdbcClient.class, StatsCollecting.class))
+                .as(generator -> generator.generatedNameOf(JdbcClient.class, catalogName));
     }
 
     private void checkConfiguration(String connectionUrl)
@@ -86,6 +101,32 @@ public class PhoenixClientModule
         catch (SQLException e) {
             throw new PrestoException(PHOENIX_CONFIG_ERROR, e);
         }
+    }
+
+    @Provides
+    @Singleton
+    @StatsCollecting
+    public JdbcClient createJdbcClientWithStats(JdbcClient client)
+    {
+        StatisticsAwareJdbcClient statisticsAwareJdbcClient = new StatisticsAwareJdbcClient(client);
+
+        Logger logger = Logger.get(format("io.prestosql.plugin.jdbc.%s.jdbcclient", catalogName));
+
+        JdbcClient loggingInvocationsJdbcClient = newProxy(JdbcClient.class, new LoggingInvocationHandler(
+                statisticsAwareJdbcClient,
+                new LoggingInvocationHandler.ReflectiveParameterNamesProvider(),
+                logger::debug));
+
+        return new ForwardingJdbcClient() {
+            @Override
+            protected JdbcClient getDelegate()
+            {
+                if (logger.isDebugEnabled()) {
+                    return loggingInvocationsJdbcClient;
+                }
+                return statisticsAwareJdbcClient;
+            }
+        };
     }
 
     @Provides
