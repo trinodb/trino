@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.plugin.resourcegroups.ResourceGroupManagerPlugin;
 import io.prestosql.server.ResourceGroupInfo;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
-import io.prestosql.tests.DistributedQueryRunner;
+import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
 import org.testng.annotations.Test;
 

@@ -15,7 +15,7 @@ package io.prestosql.plugin.kafka;
 
 import io.airlift.tpch.TpchTable;
 import io.prestosql.plugin.kafka.util.EmbeddedKafka;
-import io.prestosql.tests.AbstractTestQueries;
+import io.prestosql.testing.AbstractTestQueries;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 

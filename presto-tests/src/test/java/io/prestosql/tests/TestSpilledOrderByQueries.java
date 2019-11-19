@@ -13,6 +13,8 @@
  */
 package io.prestosql.tests;
 
+import io.prestosql.testing.AbstractTestOrderByQueries;
+
 public class TestSpilledOrderByQueries
         extends AbstractTestOrderByQueries
 {

@@ -28,9 +28,9 @@ import io.prestosql.spi.connector.RecordPageSource;
 import io.prestosql.spi.connector.RecordSet;
 import io.prestosql.spi.type.Type;
 import io.prestosql.split.MappedRecordSet;
-import io.prestosql.tests.tpch.TpchIndexedData;
-import io.prestosql.tests.tpch.TpchIndexedData.IndexedTable;
-import io.prestosql.tests.tpch.TpchScaledTable;
+import io.prestosql.testing.tpch.TpchIndexedData;
+import io.prestosql.testing.tpch.TpchIndexedData.IndexedTable;
+import io.prestosql.testing.tpch.TpchScaledTable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -38,7 +38,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.plugin.thrift.server.SplitInfo.indexSplit;
-import static io.prestosql.tests.AbstractTestIndexedQueries.INDEX_SPEC;
+import static io.prestosql.testing.AbstractTestIndexedQueries.INDEX_SPEC;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 

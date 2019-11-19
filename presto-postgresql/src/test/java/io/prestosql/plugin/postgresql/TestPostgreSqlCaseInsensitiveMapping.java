@@ -15,7 +15,7 @@ package io.prestosql.plugin.postgresql;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.tests.AbstractTestQueryFramework;
+import io.prestosql.testing.AbstractTestQueryFramework;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 

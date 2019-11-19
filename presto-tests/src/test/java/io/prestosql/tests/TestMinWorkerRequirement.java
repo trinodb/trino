@@ -14,6 +14,7 @@
 package io.prestosql.tests;
 
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
 import org.testng.annotations.Test;
 

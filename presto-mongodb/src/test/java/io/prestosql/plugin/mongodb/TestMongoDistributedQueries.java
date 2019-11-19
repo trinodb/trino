@@ -14,7 +14,7 @@
 package io.prestosql.plugin.mongodb;
 
 import io.airlift.tpch.TpchTable;
-import io.prestosql.tests.AbstractTestQueries;
+import io.prestosql.testing.AbstractTestQueries;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;

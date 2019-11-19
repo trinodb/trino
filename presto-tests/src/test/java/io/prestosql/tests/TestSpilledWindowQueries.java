@@ -13,6 +13,8 @@
  */
 package io.prestosql.tests;
 
+import io.prestosql.testing.AbstractTestWindowQueries;
+
 public class TestSpilledWindowQueries
         extends AbstractTestWindowQueries
 {

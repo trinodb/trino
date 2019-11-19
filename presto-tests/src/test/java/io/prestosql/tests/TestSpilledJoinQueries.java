@@ -13,6 +13,8 @@
  */
 package io.prestosql.tests;
 
+import io.prestosql.testing.AbstractTestJoinQueries;
+
 public class TestSpilledJoinQueries
         extends AbstractTestJoinQueries
 {

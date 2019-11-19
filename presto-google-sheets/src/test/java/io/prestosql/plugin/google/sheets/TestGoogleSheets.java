@@ -14,9 +14,9 @@
 package io.prestosql.plugin.google.sheets;
 
 import io.prestosql.Session;
+import io.prestosql.testing.AbstractTestQueryFramework;
+import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.tests.AbstractTestQueryFramework;
-import io.prestosql.tests.DistributedQueryRunner;
 import org.testng.annotations.Test;
 
 import static io.prestosql.plugin.google.sheets.TestSheetsConfig.getProperties;

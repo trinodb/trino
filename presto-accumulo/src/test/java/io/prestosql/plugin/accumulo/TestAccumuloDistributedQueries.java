@@ -15,8 +15,8 @@ package io.prestosql.plugin.accumulo;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.testing.AbstractTestDistributedQueries;
 import io.prestosql.testing.MaterializedResult;
-import io.prestosql.tests.AbstractTestDistributedQueries;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 

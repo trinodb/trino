@@ -14,8 +14,8 @@
 package io.prestosql.plugin.accumulo;
 
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
-import io.prestosql.tests.AbstractTestIntegrationSmokeTest;
 
 import static org.testng.Assert.assertEquals;
 

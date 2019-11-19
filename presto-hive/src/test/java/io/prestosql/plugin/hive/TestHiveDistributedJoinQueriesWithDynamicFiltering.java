@@ -24,10 +24,10 @@ import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
+import io.prestosql.testing.AbstractTestJoinQueries;
+import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
-import io.prestosql.tests.AbstractTestJoinQueries;
-import io.prestosql.tests.DistributedQueryRunner;
-import io.prestosql.tests.ResultWithQueryId;
+import io.prestosql.testing.ResultWithQueryId;
 import org.testng.annotations.Test;
 
 import static io.airlift.tpch.TpchTable.getTables;

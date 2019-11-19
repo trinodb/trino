@@ -16,19 +16,19 @@ package io.prestosql.plugin.tpcds.statistics;
 import io.prestosql.Session;
 import io.prestosql.plugin.tpcds.TpcdsConnectorFactory;
 import io.prestosql.testing.LocalQueryRunner;
-import io.prestosql.tests.statistics.StatisticsAssertion;
+import io.prestosql.testing.statistics.StatisticsAssertion;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static io.prestosql.SystemSessionProperties.COLLECT_PLAN_STATISTICS_FOR_ALL_QUERIES;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
-import static io.prestosql.tests.statistics.MetricComparisonStrategies.absoluteError;
-import static io.prestosql.tests.statistics.MetricComparisonStrategies.defaultTolerance;
-import static io.prestosql.tests.statistics.MetricComparisonStrategies.noError;
-import static io.prestosql.tests.statistics.MetricComparisonStrategies.relativeError;
-import static io.prestosql.tests.statistics.Metrics.OUTPUT_ROW_COUNT;
-import static io.prestosql.tests.statistics.Metrics.distinctValuesCount;
+import static io.prestosql.testing.statistics.MetricComparisonStrategies.absoluteError;
+import static io.prestosql.testing.statistics.MetricComparisonStrategies.defaultTolerance;
+import static io.prestosql.testing.statistics.MetricComparisonStrategies.noError;
+import static io.prestosql.testing.statistics.MetricComparisonStrategies.relativeError;
+import static io.prestosql.testing.statistics.Metrics.OUTPUT_ROW_COUNT;
+import static io.prestosql.testing.statistics.Metrics.distinctValuesCount;
 import static java.util.Collections.emptyMap;
 
 public class TestTpcdsLocalStats

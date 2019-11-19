@@ -16,8 +16,8 @@ package io.prestosql.plugin.ml;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.plugin.tpch.TpchConnectorFactory;
+import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.LocalQueryRunner;
-import io.prestosql.tests.AbstractTestQueryFramework;
 import org.testng.annotations.Test;
 
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;

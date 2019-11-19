@@ -14,7 +14,7 @@
 package io.prestosql.plugin.kafka;
 
 import io.prestosql.plugin.kafka.util.EmbeddedKafka;
-import io.prestosql.tests.AbstractTestIntegrationSmokeTest;
+import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 

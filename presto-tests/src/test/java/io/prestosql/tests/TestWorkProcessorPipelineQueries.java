@@ -16,7 +16,10 @@ package io.prestosql.tests;
 import io.prestosql.Session;
 import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.QueryManager;
+import io.prestosql.testing.AbstractTestQueryFramework;
+import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
+import io.prestosql.testing.ResultWithQueryId;
 import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
@@ -24,7 +27,7 @@ import org.testng.annotations.Test;
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.SystemSessionProperties.WORK_PROCESSOR_PIPELINES;
 import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
-import static io.prestosql.tests.QueryAssertions.assertEqualsIgnoreOrder;
+import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static org.testng.Assert.assertTrue;
 
 public class TestWorkProcessorPipelineQueries

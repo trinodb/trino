@@ -41,7 +41,7 @@ import static io.prestosql.operator.aggregation.AggregationFromAnnotationsParser
 import static io.prestosql.plugin.ml.type.ClassifierType.BIGINT_CLASSIFIER;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.tests.StructuralTestUtil.mapBlockOf;
+import static io.prestosql.testing.StructuralTestUtil.mapBlockOf;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
