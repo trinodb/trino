@@ -2191,23 +2191,28 @@ public abstract class AbstractTestJoinQueries
                 "    orderkey % 2 = 0");
     }
 
-    @Test
+    @Test(timeOut = 120_000)
     public void testInnerJoinWithEmptyBuildSide()
     {
-        MaterializedResult actual = computeActual(
-                noJoinReordering(),
-                "WITH small_part AS (SELECT * FROM part WHERE name = 'a') " +
-                        "SELECT lineitem.orderkey FROM lineitem INNER JOIN small_part ON lineitem.partkey = small_part.partkey");
-
-        assertEquals(actual.getRowCount(), 0);
-    }
-
-    @Test
-    public void testRightJoinWithEmptyBuildSide()
-    {
+        // TODO: increase lineitem schema size when build side short-circuit is fixed
         assertQuery(
                 noJoinReordering(),
-                "WITH small_part AS (SELECT * FROM part WHERE name = 'a') SELECT lineitem.orderkey FROM lineitem RIGHT JOIN small_part ON lineitem.partkey = small_part.partkey");
+                "WITH empty_table AS (SELECT partkey as value FROM part WHERE name = 'a'), " +
+                        "slow_table AS (SELECT partkey as value FROM tpch.\"sf0.1\".lineitem) " +
+                        "SELECT slow_table.value FROM slow_table INNER JOIN empty_table ON slow_table.value = empty_table.value",
+                "SELECT 0 WHERE false");
+    }
+
+    @Test(timeOut = 120_000)
+    public void testRightJoinWithEmptyBuildSide()
+    {
+        // TODO: increase lineitem schema size when build side short-circuit is fixed
+        assertQuery(
+                noJoinReordering(),
+                "WITH empty_table AS (SELECT partkey as value FROM part WHERE name = 'a'), " +
+                        "slow_table AS (SELECT count(*) as value FROM tpch.\"sf0.1\".lineitem) " +
+                        "SELECT slow_table.value FROM slow_table RIGHT JOIN empty_table ON slow_table.value = empty_table.value",
+                "SELECT 0 WHERE false");
     }
 
     @Test
@@ -2228,12 +2233,16 @@ public abstract class AbstractTestJoinQueries
                 "WITH small_part AS (SELECT * FROM part WHERE name = 'a') SELECT lineitem.orderkey FROM lineitem LEFT JOIN small_part ON lineitem.partkey = small_part.partkey");
     }
 
-    @Test
+    @Test(timeOut = 120_000)
     public void testInnerJoinWithEmptyProbeSide()
     {
+        // TODO: increase lineitem schema size when probe side short-circuit is fixed
         assertQuery(
                 noJoinReordering(),
-                "WITH small_part AS (SELECT * FROM part WHERE name = 'a') SELECT lineitem.orderkey FROM small_part INNER JOIN lineitem ON small_part.partkey = lineitem.partkey");
+                "WITH empty_table AS (SELECT partkey as value FROM part WHERE name = 'a'), " +
+                        "slow_table AS (SELECT count(*) as value FROM tpch.\"sf0.1\".lineitem) " +
+                        "SELECT slow_table.value FROM empty_table INNER JOIN slow_table ON slow_table.value = empty_table.value",
+                "SELECT 0 WHERE false");
     }
 
     @Test
