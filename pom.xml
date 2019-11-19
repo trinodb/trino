@@ -112,6 +112,7 @@
         <module>presto-geospatial</module>
         <module>presto-geospatial-toolkit</module>
         <module>presto-benchmark</module>
+        <module>presto-testing</module>
         <module>presto-testing-docker</module>
         <module>presto-tests</module>
         <module>presto-product-tests</module>
@@ -392,6 +393,12 @@
             <dependency>
                 <groupId>io.prestosql</groupId>
                 <artifactId>presto-server-rpm</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql</groupId>
+                <artifactId>presto-testing</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

@@ -97,7 +97,7 @@ jobs:
       - name: Maven Tests
         run: |
           mvn test -B -e -Dair.check.skip-all -pl '
-            !presto-main,
+            !presto-main,!presto-testing,
             !presto-tests,
             !presto-raptor-legacy,
             !presto-accumulo,
@@ -115,7 +115,7 @@ jobs:
     strategy:
       matrix:
         modules: [
-          "presto-main",
+          "presto-main,presto-testing",
           "presto-tests",
           "presto-raptor-legacy",
           "presto-accumulo",
