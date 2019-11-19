@@ -19,6 +19,7 @@ import com.mongodb.MongoCredential;
 import com.mongodb.ServerAddress;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.DefunctConfig;
+import io.airlift.units.Duration;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
@@ -29,6 +30,7 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.mongodb.MongoCredential.createCredential;
+import static java.util.concurrent.TimeUnit.HOURS;
 
 @DefunctConfig("mongodb.connection-per-host")
 public class MongoClientConfig
@@ -47,6 +49,7 @@ public class MongoClientConfig
     private int socketTimeout;
     private boolean socketKeepAlive;
     private boolean sslEnabled;
+    private Duration tableSchemaCacheExpireAfterWrite = new Duration(1, HOURS);
 
     // query configurations
     private int cursorBatchSize; // use driver default
@@ -292,6 +295,18 @@ public class MongoClientConfig
     public MongoClientConfig setSslEnabled(boolean sslEnabled)
     {
         this.sslEnabled = sslEnabled;
+        return this;
+    }
+
+    public Duration getTableSchemaCacheExpireAfterWrite()
+    {
+        return this.tableSchemaCacheExpireAfterWrite;
+    }
+
+    @Config("mongodb.table-schema-cache-expire-time")
+    public MongoClientConfig setTableSchemaCacheExpireAfterWrite(Duration tableSchemaCacheExpireAfterWrite)
+    {
+        this.tableSchemaCacheExpireAfterWrite = tableSchemaCacheExpireAfterWrite;
         return this;
     }
 }

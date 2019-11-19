@@ -15,9 +15,11 @@ package io.prestosql.plugin.mongodb;
 
 import com.google.common.collect.ImmutableMap;
 import com.mongodb.MongoCredential;
+import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
@@ -44,7 +46,8 @@ public class TestMongoClientConfig
                 .setReadPreference(ReadPreferenceType.PRIMARY)
                 .setWriteConcern(WriteConcernType.ACKNOWLEDGED)
                 .setRequiredReplicaSetName(null)
-                .setImplicitRowFieldPrefix("_pos"));
+                .setImplicitRowFieldPrefix("_pos")
+                .setTableSchemaCacheExpireAfterWrite(new Duration(1, TimeUnit.HOURS)));
     }
 
     @Test
@@ -66,6 +69,7 @@ public class TestMongoClientConfig
                 .put("mongodb.write-concern", "UNACKNOWLEDGED")
                 .put("mongodb.required-replica-set", "replica_set")
                 .put("mongodb.implicit-row-field-prefix", "_prefix")
+                .put("mongodb.table-schema-cache-expire-time", "30m")
                 .build();
 
         MongoClientConfig expected = new MongoClientConfig()
@@ -83,7 +87,8 @@ public class TestMongoClientConfig
                 .setReadPreference(ReadPreferenceType.NEAREST)
                 .setWriteConcern(WriteConcernType.UNACKNOWLEDGED)
                 .setRequiredReplicaSetName("replica_set")
-                .setImplicitRowFieldPrefix("_prefix");
+                .setImplicitRowFieldPrefix("_prefix")
+                .setTableSchemaCacheExpireAfterWrite(new Duration(30, TimeUnit.MINUTES));
 
         assertFullMapping(properties, expected);
     }

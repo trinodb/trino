@@ -29,6 +29,7 @@ import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.result.DeleteResult;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.airlift.units.Duration;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.SchemaNotFoundException;
@@ -55,6 +56,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -69,7 +71,6 @@ import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
@@ -117,8 +118,9 @@ public class MongoSession
         this.cursorBatchSize = config.getCursorBatchSize();
         this.implicitPrefix = requireNonNull(config.getImplicitRowFieldPrefix(), "config.getImplicitRowFieldPrefix() is null");
 
+        Duration expireAfterWrite = requireNonNull(config.getTableSchemaCacheExpireAfterWrite(), "config.getTableSchemaCacheExpireAfterWrite() is null");
         this.tableCache = CacheBuilder.newBuilder()
-                .expireAfterWrite(1, HOURS)  // TODO: Configure
+                .expireAfterWrite(expireAfterWrite.toMillis(), TimeUnit.MILLISECONDS)
                 .refreshAfterWrite(1, MINUTES)
                 .build(CacheLoader.from(this::loadTableSchema));
     }
