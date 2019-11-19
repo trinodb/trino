@@ -530,7 +530,7 @@ public class TestOrcPageSourceMemoryTracking
                     pageProcessor,
                     TEST_TABLE_HANDLE,
                     columns.stream().map(columnHandle -> (ColumnHandle) columnHandle).collect(toList()),
-                    null,
+                    TupleDomain::all,
                     types,
                     new DataSize(0, BYTE),
                     0);
