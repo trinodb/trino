@@ -126,10 +126,11 @@ retry check_hadoop
 retry check_presto
 
 # run product tests
-set +e
+set +e -x
 run_product_tests "$@"
 EXIT_CODE=$?
 set -e
+echo "Product tests exited with ${EXIT_CODE}"
 
 # execution finished successfully
 # disable trap, run cleanup manually
