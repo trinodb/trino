@@ -3,9 +3,9 @@ name: CI
 on: [push, pull_request]
 
 env:
-  MAVEN_OPTS: -Xmx512M -XX:+ExitOnOutOfMemoryError
-  MAVEN_INSTALL_OPTS: -Xmx2G -XX:+ExitOnOutOfMemoryError
-  MAVEN_FAST_INSTALL: -B -e -V -T C1 -DskipTests -Dair.check.skip-all
+  MAVEN_OPTS: "-Xmx512M -XX:+ExitOnOutOfMemoryError"
+  MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
+  MAVEN_FAST_INSTALL: "-B -e -V -T C1 -DskipTests -Dair.check.skip-all"
 
 jobs:
   maven-checks:
@@ -15,16 +15,16 @@ jobs:
       - uses: actions/setup-java@v1
         with:
           java-version: 8
-      - name: Install Maven Wrapper
+      - name: Install Maven
         run: ./mvnw -v
       - name: Maven Checks
         run: |
-          MAVEN_OPTS=$MAVEN_INSTALL_OPTS
-          mvn install -B -e -V -T C1 -DskipTests -P ci -pl '!presto-server-rpm'
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          ./mvnw install -B -e -V -T C1 -DskipTests -P ci -pl '!presto-server-rpm'
       - name: Test Server RPM
         run: |
-          MAVEN_OPTS=$MAVEN_INSTALL_OPTS
-          mvn install -B -e -P ci -pl presto-server-rpm
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          ./mvnw install -B -e -P ci -pl presto-server-rpm
       - name: Test Docker Image
         run: docker/build-local.sh
 
@@ -44,8 +44,8 @@ jobs:
           java-version: 8
       - name: Install Hive Module
         run: |
-          MAVEN_OPTS=$MAVEN_INSTALL_OPTS
-          mvn install $MAVEN_FAST_INSTALL -pl presto-hive-hadoop2 -am
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          ./mvnw install ${MAVEN_FAST_INSTALL} -pl presto-hive-hadoop2 -am
       - name: Run Hive Tests
         run: |
           source presto-product-tests/conf/product-tests-config-empty.sh &&
@@ -60,8 +60,8 @@ jobs:
           java-version: 8
       - name: Install Kudu Module
         run: |
-          MAVEN_OPTS=$MAVEN_INSTALL_OPTS
-          mvn install $MAVEN_FAST_INSTALL -pl presto-kudu -am
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          ./mvnw install ${MAVEN_FAST_INSTALL} -pl presto-kudu -am
       - name: Run Kudu Tests -- disable InferSchema
         run: presto-kudu/bin/run_kudu_tests.sh "null"
       - name: Run Kudu Tests -- enable InferSchema, empty prefix
@@ -78,10 +78,10 @@ jobs:
           java-version: 8
       - name: Maven Install
         run: |
-          MAVEN_OPTS=$MAVEN_INSTALL_OPTS
-          mvn install $MAVEN_FAST_INSTALL -pl presto-tests -am
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          ./mvnw install ${MAVEN_FAST_INSTALL} -pl presto-tests -am
       - name: Maven Tests
-        run: mvn test -B -e -Dair.check.skip-all -pl presto-tests -P ci-only
+        run: ./mvnw test -B -e -Dair.check.skip-all -pl presto-tests -P ci-only
 
   test-other-modules:
     runs-on: ubuntu-latest
@@ -92,11 +92,11 @@ jobs:
           java-version: 8
       - name: Maven Install
         run: |
-          MAVEN_OPTS=$MAVEN_INSTALL_OPTS
-          mvn install $MAVEN_FAST_INSTALL -pl '!presto-docs,!presto-server,!presto-server-rpm'
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!presto-docs,!presto-server,!presto-server-rpm'
       - name: Maven Tests
         run: |
-          mvn test -B -e -Dair.check.skip-all -pl '
+          ./mvnw test -B -e -Dair.check.skip-all -pl '
             !presto-main,!presto-testing,
             !presto-tests,
             !presto-raptor-legacy,
@@ -133,10 +133,10 @@ jobs:
           java-version: 8
       - name: Maven Install
         run: |
-          MAVEN_OPTS=$MAVEN_INSTALL_OPTS
-          mvn install $MAVEN_FAST_INSTALL -pl '${{ matrix.modules }}' -am
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          ./mvnw install ${MAVEN_FAST_INSTALL} -pl '${{ matrix.modules }}' -am
       - name: Maven Tests
-        run: mvn test -B -e -Dair.check.skip-all -pl '${{ matrix.modules }}'
+        run: ./mvnw test -B -e -Dair.check.skip-all -pl '${{ matrix.modules }}'
 
   product-tests:
     runs-on: ubuntu-latest
@@ -167,8 +167,8 @@ jobs:
           java-version: 8
       - name: Maven Install
         run: |
-          MAVEN_OPTS=$MAVEN_INSTALL_OPTS
-          mvn install $MAVEN_FAST_INSTALL -pl '!presto-docs,!presto-server-rpm'
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!presto-docs,!presto-server-rpm'
       - name: Product Tests
         run: |
           source presto-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
