@@ -17,7 +17,7 @@ import io.prestosql.plugin.jdbc.BaseJdbcClient;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
-import io.prestosql.plugin.jdbc.StatsCollecting;
+import io.prestosql.plugin.jdbc.TheConnectionFactory;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.SchemaTableName;
 
@@ -37,7 +37,7 @@ public class RedshiftClient
         extends BaseJdbcClient
 {
     @Inject
-    public RedshiftClient(BaseJdbcConfig config, @StatsCollecting ConnectionFactory connectionFactory)
+    public RedshiftClient(BaseJdbcConfig config, @TheConnectionFactory ConnectionFactory connectionFactory)
     {
         super(config, "\"", connectionFactory);
     }
