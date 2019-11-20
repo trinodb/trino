@@ -297,7 +297,7 @@ public final class ThriftMetastoreUtil
 
     private static Stream<HivePrivilegeInfo> listTablePrivileges(SemiTransactionalHiveMetastore metastore, HiveIdentity identity, String databaseName, String tableName, Stream<HivePrincipal> principals)
     {
-        return principals.flatMap(principal -> metastore.listTablePrivileges(identity, databaseName, tableName, principal).stream());
+        return principals.flatMap(principal -> metastore.listTablePrivileges(identity, databaseName, tableName, Optional.of(principal)).stream());
     }
 
     public static boolean isRoleEnabled(ConnectorIdentity identity, Function<HivePrincipal, Set<RoleGrant>> listRoleGrants, String role)

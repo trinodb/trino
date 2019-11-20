@@ -19,6 +19,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -26,27 +27,26 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public class UserTableKey
 {
-    private final HivePrincipal principal;
+    private final Optional<HivePrincipal> principal;
     private final String database;
     private final String table;
     private final String owner;
 
     @JsonCreator
     public UserTableKey(
-            @JsonProperty("principal") HivePrincipal principal,
+            @JsonProperty("principal") Optional<HivePrincipal> principal,
             @JsonProperty("database") String database,
             @JsonProperty("table") String table,
             @JsonProperty("owner") String owner)
     {
-        // principal can be null when we want to list all privileges for admins
-        this.principal = principal;
+        this.principal = requireNonNull(principal, "principal is null");
         this.database = requireNonNull(database, "database is null");
         this.table = requireNonNull(table, "table is null");
         this.owner = requireNonNull(owner, "owner is null");
     }
 
     @JsonProperty
-    public HivePrincipal getPrincipal()
+    public Optional<HivePrincipal> getPrincipal()
     {
         return principal;
     }

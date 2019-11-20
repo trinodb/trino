@@ -979,18 +979,18 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal principal)
+    public synchronized Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, String tableOwner, Optional<HivePrincipal> principal)
     {
         Table table = getRequiredTable(databaseName, tableName);
         Path permissionsDirectory = getPermissionsDirectory(table);
-        if (principal == null) {
+        if (!principal.isPresent()) {
             return readAllPermissions(permissionsDirectory);
         }
         ImmutableSet.Builder<HivePrivilegeInfo> result = ImmutableSet.builder();
-        if (principal.getType() == USER && table.getOwner().equals(principal.getName())) {
-            result.add(new HivePrivilegeInfo(OWNERSHIP, true, principal, principal));
+        if (principal.get().getType() == USER && table.getOwner().equals(principal.get().getName())) {
+            result.add(new HivePrivilegeInfo(OWNERSHIP, true, principal.get(), principal.get()));
         }
-        result.addAll(readPermissionsFile(getPermissionsPath(permissionsDirectory, principal)));
+        result.addAll(readPermissionsFile(getPermissionsPath(permissionsDirectory, principal.get())));
         return result.build();
     }
 
@@ -1003,7 +1003,7 @@ public class FileHiveMetastore
     @Override
     public synchronized void revokeTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
-        Set<HivePrivilegeInfo> currentPrivileges = listTablePrivileges(databaseName, tableName, tableOwner, grantee);
+        Set<HivePrivilegeInfo> currentPrivileges = listTablePrivileges(databaseName, tableName, tableOwner, Optional.of(grantee));
         currentPrivileges.removeAll(privileges);
 
         setTablePrivileges(grantee, databaseName, tableName, currentPrivileges);
