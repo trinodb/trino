@@ -15,25 +15,16 @@ package io.prestosql.operator.aggregation;
 
 import io.airlift.slice.Slices;
 import io.prestosql.spi.type.Type;
-import io.prestosql.sql.tree.QualifiedName;
 
 import java.util.concurrent.ThreadLocalRandom;
 
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.Decimals.MAX_PRECISION;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 
 public class TestApproximateCountDistinctLongDecimal
         extends AbstractTestApproximateCountDistinct
 {
     private static final Type LONG_DECIMAL = createDecimalType(MAX_PRECISION);
-
-    @Override
-    protected InternalAggregationFunction getAggregationFunction()
-    {
-        return metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of("approx_distinct"), fromTypes(LONG_DECIMAL, DOUBLE)));
-    }
 
     @Override
     protected Type getValueType()

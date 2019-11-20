@@ -21,6 +21,7 @@ import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.Type;
+import io.prestosql.sql.tree.QualifiedName;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -37,12 +38,11 @@ import java.util.concurrent.ThreadLocalRandom;
 import static io.airlift.testing.Assertions.assertLessThan;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static org.testng.Assert.assertEquals;
 
 public abstract class AbstractTestApproximateCountDistinct
 {
-    protected abstract InternalAggregationFunction getAggregationFunction();
-
     protected abstract Type getValueType();
 
     protected abstract Object randomValue();
@@ -153,6 +153,12 @@ public abstract class AbstractTestApproximateCountDistinct
     {
         Object result = AggregationTestUtils.partialAggregation(getAggregationFunction(), createPage(values, maxStandardError));
         return (long) result;
+    }
+
+    private InternalAggregationFunction getAggregationFunction()
+    {
+        return metadata.getAggregateFunctionImplementation(
+                metadata.resolveFunction(QualifiedName.of("approx_distinct"), fromTypes(getValueType(), DOUBLE)));
     }
 
     private Page createPage(List<?> values, double maxStandardError)
