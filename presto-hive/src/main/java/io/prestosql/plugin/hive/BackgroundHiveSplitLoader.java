@@ -74,6 +74,7 @@ import java.util.regex.Pattern;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
@@ -176,7 +177,8 @@ public class BackgroundHiveSplitLoader
     {
         this.hiveSplitSource = splitSource;
         for (int i = 0; i < loaderConcurrency; i++) {
-            ResumableTasks.submit(executor, new HiveSplitLoaderTask());
+            ListenableFuture<?> future = ResumableTasks.submit(executor, new HiveSplitLoaderTask());
+            addExceptionCallback(future, hiveSplitSource::fail); // best effort; hiveSplitSource could be already completed
         }
     }
 
@@ -201,7 +203,7 @@ public class BackgroundHiveSplitLoader
                 try {
                     future = loadSplits();
                 }
-                catch (Exception e) {
+                catch (Throwable e) {
                     if (e instanceof IOException) {
                         e = new PrestoException(HIVE_FILESYSTEM_ERROR, e);
                     }
