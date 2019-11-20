@@ -15,24 +15,14 @@ package io.prestosql.operator.aggregation;
 
 import io.airlift.slice.Slices;
 import io.prestosql.spi.type.Type;
-import io.prestosql.sql.tree.QualifiedName;
 
 import java.util.concurrent.ThreadLocalRandom;
 
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.type.IpAddressType.IPADDRESS;
 
 public class TestApproximateCountDistinctIpAddress
         extends AbstractTestApproximateCountDistinct
 {
-    @Override
-    protected InternalAggregationFunction getAggregationFunction()
-    {
-        return metadata.getAggregateFunctionImplementation(
-                metadata.resolveFunction(QualifiedName.of("approx_distinct"), fromTypes(IPADDRESS, DOUBLE)));
-    }
-
     @Override
     protected Type getValueType()
     {

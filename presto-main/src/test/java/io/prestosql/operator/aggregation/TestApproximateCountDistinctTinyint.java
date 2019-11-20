@@ -14,23 +14,14 @@
 package io.prestosql.operator.aggregation;
 
 import io.prestosql.spi.type.Type;
-import io.prestosql.sql.tree.QualifiedName;
 
 import java.util.concurrent.ThreadLocalRandom;
 
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
-import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 
 public class TestApproximateCountDistinctTinyint
         extends AbstractTestApproximateCountDistinct
 {
-    @Override
-    protected InternalAggregationFunction getAggregationFunction()
-    {
-        return metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of("approx_distinct"), fromTypes(TINYINT, DOUBLE)));
-    }
-
     @Override
     protected Type getValueType()
     {
