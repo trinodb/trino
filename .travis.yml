@@ -130,7 +130,7 @@ script:
     fi
   - |
     if [[ -v MAVEN_CHECKS ]]; then
-      env MAVEN_OPTS="${MAVEN_INSTALL_OPTS}" ./mvnw clean compile test-compile -DskipTests -B -T C1 -P errorprone-compiler-presto \
+      env MAVEN_OPTS="${MAVEN_INSTALL_OPTS}" ./mvnw clean test-compile -DskipTests -Dair.check.skip-all -B -T C1 -P errorprone-compiler-presto \
         -pl '!presto-server-rpm,!presto-server,!presto-docs'
     fi
   - |
