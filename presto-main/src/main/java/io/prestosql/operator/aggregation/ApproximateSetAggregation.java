@@ -17,15 +17,18 @@ import io.airlift.slice.Slice;
 import io.airlift.stats.cardinality.HyperLogLog;
 import io.prestosql.operator.aggregation.state.HyperLogLogState;
 import io.prestosql.operator.aggregation.state.StateCompiler;
+import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.function.AccumulatorStateSerializer;
 import io.prestosql.spi.function.AggregationFunction;
 import io.prestosql.spi.function.AggregationState;
+import io.prestosql.spi.function.BlockIndex;
+import io.prestosql.spi.function.BlockPosition;
 import io.prestosql.spi.function.CombineFunction;
 import io.prestosql.spi.function.InputFunction;
-import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.OutputFunction;
 import io.prestosql.spi.function.SqlType;
+import io.prestosql.spi.function.TypeParameter;
 import io.prestosql.spi.type.StandardTypes;
 
 @AggregationFunction("approx_set")
@@ -42,7 +45,19 @@ public final class ApproximateSetAggregation
     }
 
     @InputFunction
-    public static void input(@AggregationState HyperLogLogState state, @SqlType(StandardTypes.DOUBLE) double value)
+    public static void input(
+            @AggregationState HyperLogLogState state,
+            @BlockPosition @SqlType("unknown") Block block,
+            @BlockIndex int index)
+    {
+        // do nothing
+    }
+
+    @InputFunction
+    @TypeParameter("T")
+    public static void input(
+            @AggregationState HyperLogLogState state,
+            @SqlType("T") double value)
     {
         HyperLogLog hll = getOrCreateHyperLogLog(state);
         state.addMemoryUsage(-hll.estimatedInMemorySize());
@@ -51,8 +66,10 @@ public final class ApproximateSetAggregation
     }
 
     @InputFunction
-    @LiteralParameters("x")
-    public static void input(@AggregationState HyperLogLogState state, @SqlType("varchar(x)") Slice value)
+    @TypeParameter("T")
+    public static void input(
+            @AggregationState HyperLogLogState state,
+            @SqlType("T") Slice value)
     {
         HyperLogLog hll = getOrCreateHyperLogLog(state);
         state.addMemoryUsage(-hll.estimatedInMemorySize());
@@ -61,11 +78,26 @@ public final class ApproximateSetAggregation
     }
 
     @InputFunction
-    public static void input(@AggregationState HyperLogLogState state, @SqlType(StandardTypes.BIGINT) long value)
+    @TypeParameter("T")
+    public static void input(
+            @AggregationState HyperLogLogState state,
+            @SqlType("T") long value)
     {
         HyperLogLog hll = getOrCreateHyperLogLog(state);
         state.addMemoryUsage(-hll.estimatedInMemorySize());
         hll.add(value);
+        state.addMemoryUsage(hll.estimatedInMemorySize());
+    }
+
+    @InputFunction
+    public static void input(
+            @AggregationState HyperLogLogState state,
+            @SqlType(StandardTypes.BOOLEAN) boolean value)
+    {
+        HyperLogLog hll = getOrCreateHyperLogLog(state);
+        state.addMemoryUsage(-hll.estimatedInMemorySize());
+        long hash = value ? 1 : -1;
+        hll.addHash(hash);
         state.addMemoryUsage(hll.estimatedInMemorySize());
     }
 

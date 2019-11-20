@@ -456,7 +456,7 @@ public class FunctionRegistry
                 .aggregates(GeometricMeanAggregations.class)
                 .aggregates(RealGeometricMeanAggregations.class)
                 .aggregates(MergeHyperLogLogAggregation.class)
-                .aggregates(ApproximateSetAggregation.class)
+                .aggregate(ApproximateSetAggregation.class)
                 .functions(QDIGEST_AGG, QDIGEST_AGG_WITH_WEIGHT, QDIGEST_AGG_WITH_WEIGHT_AND_ERROR)
                 .function(MergeQuantileDigestFunction.MERGE)
                 .aggregates(DoubleHistogramAggregation.class)

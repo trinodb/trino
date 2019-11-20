@@ -8,8 +8,7 @@
  approx_percentile | bigint | bigint, double | aggregate | true | |
  approx_percentile | double | double, double, double | aggregate | true | |
  approx_percentile | double | double, double | aggregate | true | |
- approx_set | HyperLogLog | bigint | aggregate | true | |
- approx_set | HyperLogLog | double | aggregate | true | |
+ approx_set | HyperLogLog | T | aggregate | true | |
  arbitrary | T | T | aggregate | true | return an arbitrary non-null input value |
  asin | double | double | scalar | true | arc sine |
  atan | double | double | scalar | true | arc tangent |
