@@ -1454,6 +1454,7 @@
                         <version>3.8.0</version>
                         <!--suppress MavenModelInspection -->
                         <configuration combine.children="merge">
+                            <fork>true</fork>
                             <compilerArgs>
                                 <arg>-J-Xbootclasspath/p:${settings.localRepository}/com/google/errorprone/javac/${javac.version}/javac-${javac.version}.jar</arg>
                                 <arg>-XDcompilePolicy=simple</arg>
