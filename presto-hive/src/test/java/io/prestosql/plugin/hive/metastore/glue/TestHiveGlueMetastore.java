@@ -121,6 +121,7 @@ public class TestHiveGlueMetastore
     }
 
     @Test
+    @Override
     public void testGetPartitions() throws Exception
     {
         try {
