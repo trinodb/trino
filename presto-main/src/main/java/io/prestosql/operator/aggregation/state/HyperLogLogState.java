@@ -21,8 +21,6 @@ import io.prestosql.spi.function.AccumulatorStateMetadata;
 public interface HyperLogLogState
         extends AccumulatorState
 {
-    int NUMBER_OF_BUCKETS = 4096;
-
     HyperLogLog getHyperLogLog();
 
     void setHyperLogLog(HyperLogLog value);
