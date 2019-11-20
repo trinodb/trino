@@ -42,6 +42,7 @@ import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.util.Progressable;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.net.URI;
@@ -55,6 +56,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -78,7 +80,9 @@ import static io.prestosql.spi.predicate.TupleDomain.withColumnDomains;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertThrows;
 
 public class TestBackgroundHiveSplitLoader
@@ -299,6 +303,72 @@ public class TestBackgroundHiveSplitLoader
         assertEquals(getBucketNumber("234_99"), OptionalInt.empty());
         assertEquals(getBucketNumber("0234.txt"), OptionalInt.empty());
         assertEquals(getBucketNumber("0234.txt"), OptionalInt.empty());
+    }
+
+    @Test(dataProvider = "testPropagateExceptionDataProvider", timeOut = 60_000)
+    public void testPropagateException(boolean error, int threads)
+    {
+        AtomicBoolean iteratorUsedAfterException = new AtomicBoolean();
+
+        BackgroundHiveSplitLoader backgroundHiveSplitLoader = new BackgroundHiveSplitLoader(
+                SIMPLE_TABLE,
+                () -> new Iterator<HivePartitionMetadata>()
+                {
+                    private boolean threw;
+
+                    @Override
+                    public boolean hasNext()
+                    {
+                        iteratorUsedAfterException.compareAndSet(false, threw);
+                        return !threw;
+                    }
+
+                    @Override
+                    public HivePartitionMetadata next()
+                    {
+                        iteratorUsedAfterException.compareAndSet(false, threw);
+                        threw = true;
+                        if (error) {
+                            throw new Error("loading error occurred");
+                        }
+                        throw new RuntimeException("loading error occurred");
+                    }
+                },
+                TupleDomain.all(),
+                createBucketSplitInfo(Optional.empty(), Optional.empty()),
+                SESSION,
+                new TestingHdfsEnvironment(TEST_FILES),
+                new NamenodeStats(),
+                new CachingDirectoryLister(new HiveConfig()),
+                EXECUTOR,
+                threads,
+                false);
+
+        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
+        backgroundHiveSplitLoader.start(hiveSplitSource);
+
+        assertThatThrownBy(() -> drain(hiveSplitSource))
+                .hasMessageEndingWith("loading error occurred");
+
+        assertThatThrownBy(hiveSplitSource::isFinished)
+                .hasMessageEndingWith("loading error occurred");
+
+        if (threads == 1) {
+            assertFalse(iteratorUsedAfterException.get());
+        }
+    }
+
+    @DataProvider
+    public Object[][] testPropagateExceptionDataProvider()
+    {
+        return new Object[][] {
+                {false, 1},
+                {true, 1},
+                {false, 2},
+                {true, 2},
+                {false, 4},
+                {true, 4},
+        };
     }
 
     private static List<String> drain(HiveSplitSource source)
