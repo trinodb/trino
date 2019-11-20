@@ -5292,16 +5292,6 @@ public abstract class AbstractTestQueries
                 "SELECT r.name, a FROM region r LEFT JOIN LATERAL (SELECT name FROM nation WHERE r.regionkey = nation.regionkey) n(a) ON r.name > a ORDER BY r.name LIMIT 1",
                 "SELECT 'AFRICA', NULL");
         assertQuery(
-                "SELECT r.name, a FROM region r RIGHT JOIN LATERAL (SELECT name FROM nation WHERE r.regionkey = nation.regionkey) n(a) ON r.name > a ORDER BY a LIMIT 1",
-                "SELECT NULL, 'ALGERIA'");
-        // FULL correlated join with non-trivial correlation filter and non-trivial join condition currently not supported
-        assertQueryFails(
-                "SELECT * FROM (VALUES 1) a(x) FULL JOIN LATERAL(SELECT y FROM (VALUES 2) b(y) WHERE y > x) ON x=y",
-                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG /*"VALUES (1, NULL), (NULL, 2)"*/);
-        assertQueryFails(
-                "SELECT * FROM (VALUES 1, 2, 3) a(x) FULL JOIN LATERAL(SELECT z FROM (VALUES 1, 2, 3, 5) b(z) WHERE z != x) ON x != 1 AND z != 5",
-                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG /*"VALUES (1, NULL), (2, 3), (2, 1), (3, 2), (3, 1), (NULL, 5)"*/);
-        assertQuery(
                 "SELECT * FROM (VALUES 1, 2) a(x) JOIN LATERAL(SELECT y FROM (VALUES 2, 3) b(y) WHERE y > x) c(z) ON z > 2*x",
                 "VALUES (1, 3)");
 
