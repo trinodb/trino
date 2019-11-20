@@ -44,7 +44,6 @@ import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.util.Progressable;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -235,7 +234,6 @@ public class TestBackgroundHiveSplitLoader
 
     @Test
     public void testNoHangIfPartitionIsOffline()
-            throws Exception
     {
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoaderOfflinePartitions();
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
@@ -596,14 +594,12 @@ public class TestBackgroundHiveSplitLoader
 
                 @Override
                 public boolean hasNext()
-                        throws IOException
                 {
                     return iterator.hasNext();
                 }
 
                 @Override
                 public LocatedFileStatus next()
-                        throws IOException
                 {
                     return iterator.next();
                 }
