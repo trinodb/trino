@@ -1319,6 +1319,8 @@ public class ThriftHiveMetastore
                             ImmutableSet.Builder<HivePrivilegeInfo> privileges = ImmutableSet.builder();
                             List<HiveObjectPrivilege> hiveObjectPrivilegeList;
                             if (!principal.isPresent()) {
+                                HivePrincipal ownerPrincipal = new HivePrincipal(USER, tableOwner);
+                                privileges.add(new HivePrivilegeInfo(OWNERSHIP, true, ownerPrincipal, ownerPrincipal));
                                 hiveObjectPrivilegeList = client.listPrivileges(
                                         null,
                                         null,

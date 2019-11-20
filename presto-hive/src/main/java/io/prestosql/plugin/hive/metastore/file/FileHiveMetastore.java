@@ -984,7 +984,11 @@ public class FileHiveMetastore
         Table table = getRequiredTable(databaseName, tableName);
         Path permissionsDirectory = getPermissionsDirectory(table);
         if (!principal.isPresent()) {
-            return readAllPermissions(permissionsDirectory);
+            HivePrincipal owner = new HivePrincipal(USER, tableOwner);
+            return ImmutableSet.<HivePrivilegeInfo>builder()
+                    .addAll(readAllPermissions(permissionsDirectory))
+                    .add(new HivePrivilegeInfo(OWNERSHIP, true, owner, owner))
+                    .build();
         }
         ImmutableSet.Builder<HivePrivilegeInfo> result = ImmutableSet.builder();
         if (principal.get().getType() == USER && table.getOwner().equals(principal.get().getName())) {
