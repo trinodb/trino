@@ -824,7 +824,7 @@ public class SemiTransactionalHiveMetastore
         return delegate.listRoleGrants(principal);
     }
 
-    public synchronized Set<HivePrivilegeInfo> listTablePrivileges(HiveIdentity identity, String databaseName, String tableName, HivePrincipal principal)
+    public synchronized Set<HivePrivilegeInfo> listTablePrivileges(HiveIdentity identity, String databaseName, String tableName, Optional<HivePrincipal> principal)
     {
         checkReadable();
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
@@ -835,16 +835,17 @@ public class SemiTransactionalHiveMetastore
         switch (tableAction.getType()) {
             case ADD:
             case ALTER:
-                if (principal.getType() == PrincipalType.ROLE) {
+                if (principal.isPresent() && principal.get().getType() == PrincipalType.ROLE) {
                     return ImmutableSet.of();
                 }
-                if (!principal.getName().equals(tableAction.getData().getTable().getOwner())) {
+                String owner = tableAction.getData().getTable().getOwner();
+                if (principal.isPresent() && !principal.get().getName().equals(owner)) {
                     return ImmutableSet.of();
                 }
-                Collection<HivePrivilegeInfo> privileges = tableAction.getData().getPrincipalPrivileges().getUserPrivileges().get(principal.getName());
+                Collection<HivePrivilegeInfo> privileges = tableAction.getData().getPrincipalPrivileges().getUserPrivileges().get(owner);
                 return ImmutableSet.<HivePrivilegeInfo>builder()
                         .addAll(privileges)
-                        .add(new HivePrivilegeInfo(OWNERSHIP, true, new HivePrincipal(USER, principal.getName()), new HivePrincipal(USER, principal.getName())))
+                        .add(new HivePrivilegeInfo(OWNERSHIP, true, new HivePrincipal(USER, owner), new HivePrincipal(USER, owner)))
                         .build();
             case INSERT_EXISTING:
                 return delegate.listTablePrivileges(databaseName, tableName, getTableOwner(identity, databaseName, tableName), principal);
