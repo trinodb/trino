@@ -1624,11 +1624,6 @@ public class LocalExecutionPlanner
 
             List<JoinNode.EquiJoinClause> clauses = node.getCriteria();
 
-            // TODO: Execution must be plugged in here
-            if (!node.getDynamicFilters().isEmpty()) {
-                log.debug("[Join] Dynamic filters: %s", node.getDynamicFilters());
-            }
-
             List<Symbol> leftSymbols = Lists.transform(clauses, JoinNode.EquiJoinClause::getLeft);
             List<Symbol> rightSymbols = Lists.transform(clauses, JoinNode.EquiJoinClause::getRight);
 
@@ -2108,6 +2103,7 @@ public class LocalExecutionPlanner
             if (node.getDynamicFilters().isEmpty()) {
                 return Optional.empty();
             }
+            log.debug("[Join] Dynamic filters: %s", node.getDynamicFilters());
             LocalDynamicFiltersCollector collector = context.getDynamicFiltersCollector();
             return LocalDynamicFilter
                     .create(metadata, node, partitionCount)
