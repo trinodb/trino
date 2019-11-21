@@ -108,15 +108,15 @@ public class PushDownDereferences
     }
 
     /**
-     * Extract dereferences and push them down to new ProjectNode below
+     * ExtractFromFilter extracts dereferences and push them down to new ProjectNode below
      * Transforms:
      * <pre>
-     *  TargetNode(expression(a.x))
+     *  FilterNode(expression(a.x))
      *  </pre>
      * to:
      * <pre>
      *   ProjectNode(original symbols)
-     *    TargetNode(expression(symbol))
+     *    FilterNode(expression(symbol))
      *      Project(symbol := a.x)
      * </pre>
      */
@@ -159,6 +159,22 @@ public class PushDownDereferences
         }
     }
 
+    /**
+     * ExtractFromJoin extracts dereferences in filter expression and push them down
+     * Transforms:
+     * <pre>
+     *  JoinNode(filter: a.x < 5)
+     *    Source(a)
+     *    Source(b)
+     *  </pre>
+     * to:
+     * <pre>
+     *  JoinNode(filter: a_x < 5)
+     *    Project(a_x := a.x)
+     *      Source(a)
+     *    Source(b)
+     * </pre>
+     */
     static class ExtractFromJoin
             implements Rule<JoinNode>
     {
@@ -254,7 +270,7 @@ public class PushDownDereferences
         public Result apply(ProjectNode node, Captures captures, Context context)
         {
             N child = captures.get(targetCapture);
-            Map<DereferenceExpression, Symbol> pushdownDereferences = getPushdownDereferences(context, node, captures.get(targetCapture), typeAnalyzer);
+            Map<DereferenceExpression, Symbol> pushdownDereferences = getPushdownDereferences(context, node, child, typeAnalyzer);
 
             if (pushdownDereferences.isEmpty()) {
                 return Result.empty();
