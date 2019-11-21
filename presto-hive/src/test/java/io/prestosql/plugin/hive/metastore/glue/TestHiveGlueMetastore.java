@@ -18,21 +18,16 @@ import io.airlift.concurrent.BoundedExecutor;
 import io.prestosql.plugin.hive.AbstractTestHiveLocal;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 
 import java.io.File;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
 
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.prestosql.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static java.util.Locale.ENGLISH;
 import static java.util.UUID.randomUUID;
-import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -41,23 +36,9 @@ public class TestHiveGlueMetastore
 {
     private static final HiveIdentity HIVE_CONTEXT = new HiveIdentity(SESSION);
 
-    private ExecutorService executorService;
-
     public TestHiveGlueMetastore()
     {
         super("test_glue" + randomUUID().toString().toLowerCase(ENGLISH).replace("-", ""));
-    }
-
-    @BeforeClass
-    public void setUp()
-    {
-        executorService = newCachedThreadPool(daemonThreadsNamed("hive-glue-%s"));
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void tearDown()
-    {
-        executorService.shutdownNow();
     }
 
     /**
@@ -71,7 +52,7 @@ public class TestHiveGlueMetastore
         GlueHiveMetastoreConfig glueConfig = new GlueHiveMetastoreConfig();
         glueConfig.setDefaultWarehouseDir(tempDir.toURI().toString());
 
-        Executor executor = new BoundedExecutor(executorService, 10);
+        Executor executor = new BoundedExecutor(this.executor, 10);
         return new GlueHiveMetastore(HDFS_ENVIRONMENT, glueConfig, executor);
     }
 
