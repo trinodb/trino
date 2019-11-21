@@ -31,6 +31,11 @@ import static java.util.UUID.randomUUID;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
+/*
+ * GlueHiveMetastore currently uses AWS Default Credential Provider Chain,
+ * See https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/credentials.html#credentials-default
+ * on ways to set your AWS credentials which will be needed to run this test.
+ */
 public class TestHiveGlueMetastore
         extends AbstractTestHiveLocal
 {
@@ -41,11 +46,6 @@ public class TestHiveGlueMetastore
         super("test_glue" + randomUUID().toString().toLowerCase(ENGLISH).replace("-", ""));
     }
 
-    /**
-     * GlueHiveMetastore currently uses AWS Default Credential Provider Chain,
-     * See https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/credentials.html#credentials-default
-     * on ways to set your AWS credentials which will be needed to run this test.
-     */
     @Override
     protected HiveMetastore createMetastore(File tempDir)
     {
