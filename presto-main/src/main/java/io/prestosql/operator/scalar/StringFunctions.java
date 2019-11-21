@@ -47,6 +47,7 @@ import static io.airlift.slice.SliceUtf8.toUpperCase;
 import static io.airlift.slice.SliceUtf8.tryGetCodePointAt;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.prestosql.spi.type.Chars.byteCountWithoutTrailingSpace;
 import static io.prestosql.spi.type.Chars.padSpaces;
 import static io.prestosql.spi.type.Chars.trimTrailingSpaces;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -103,6 +104,14 @@ public final class StringFunctions
     public static long charLength(@LiteralParameter("x") long x, @SqlType("char(x)") Slice slice)
     {
         return x;
+    }
+
+    @Description("returns length of a character string without trailing spaces")
+    @ScalarFunction(value = "$space_trimmed_length", hidden = true)
+    @SqlType(StandardTypes.BIGINT)
+    public static long spaceTrimmedLength(@SqlType("varchar") Slice slice)
+    {
+        return countCodePoints(slice, 0, byteCountWithoutTrailingSpace(slice, 0, slice.length()));
     }
 
     @Description("greedily removes occurrences of a pattern in a string")

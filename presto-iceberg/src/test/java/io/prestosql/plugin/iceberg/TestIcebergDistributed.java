@@ -65,4 +65,10 @@ public class TestIcebergDistributed
     {
         assertQueryFails("ALTER TABLE orders RENAME TO rename_orders", "Rename not supported for Iceberg tables");
     }
+
+    @Override
+    public void testInsertWithCoercion()
+    {
+        // Iceberg does not support parameterized varchar
+    }
 }

@@ -107,8 +107,17 @@ import static io.prestosql.spi.connector.ConnectorViewDefinition.ViewColumn;
 import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
 import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
 import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.CharType.createCharType;
+import static io.prestosql.spi.type.DateType.DATE;
+import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.RealType.REAL;
+import static io.prestosql.spi.type.RowType.anonymousRow;
+import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
@@ -1048,20 +1057,41 @@ public class TestAnalyzer
         assertFails("INSERT INTO t6 (a, A) SELECT * FROM t6")
                 .hasErrorCode(DUPLICATE_COLUMN_NAME);
 
-        // b is bigint, while a is double, coercion from b to a is possible
+        // b is bigint, while a is double, coercion is possible either way
         analyze("INSERT INTO t7 (b) SELECT (a) FROM t7 ");
-        assertFails("INSERT INTO t7 (a) SELECT (b) FROM t7")
-                .hasErrorCode(TYPE_MISMATCH);
+        analyze("INSERT INTO t7 (a) SELECT (b) FROM t7");
 
-        // d is array of bigints, while c is array of doubles, coercion from d to c is possible
+        // d is array of bigints, while c is array of doubles, coercion is possible either way
         analyze("INSERT INTO t7 (d) SELECT (c) FROM t7 ");
-        assertFails("INSERT INTO t7 (c) SELECT (d) FROM t7 ")
-                .hasErrorCode(TYPE_MISMATCH);
+        analyze("INSERT INTO t7 (c) SELECT (d) FROM t7 ");
 
         analyze("INSERT INTO t7 (d) VALUES (ARRAY[null])");
 
         analyze("INSERT INTO t6 (d) VALUES (1), (2), (3)");
         analyze("INSERT INTO t6 (a,b,c,d) VALUES (1, 'a', 1, 1), (2, 'b', 2, 2), (3, 'c', 3, 3), (4, 'd', 4, 4)");
+
+        // coercion is allowed between compatible types
+        analyze("INSERT INTO t8 (tinyint_column, integer_column, decimal_column, real_column) VALUES (1e0, 1e0, 1e0, 1e0)");
+        analyze("INSERT INTO t8 (char_column, bounded_varchar_column, unbounded_varchar_column) VALUES (CAST('aa     ' AS varchar), CAST('aa     ' AS varchar), CAST('aa     ' AS varchar))");
+        analyze("INSERT INTO t8 (tinyint_array_column) SELECT (bigint_array_column) FROM t8");
+        analyze("INSERT INTO t8 (row_column) VALUES (ROW(ROW(1e0, CAST('aa     ' AS varchar))))");
+        analyze("INSERT INTO t8 (date_column) VALUES (TIMESTAMP '2019-11-18 22:13:40')");
+
+        // coercion is not allowed between incompatible types
+        assertFails("INSERT INTO t8 (integer_column) VALUES ('text')")
+                .hasErrorCode(TYPE_MISMATCH);
+        assertFails("INSERT INTO t8 (integer_column) VALUES (true)")
+                .hasErrorCode(TYPE_MISMATCH);
+        assertFails("INSERT INTO t8 (integer_column) VALUES (ROW(ROW(1e0)))")
+                .hasErrorCode(TYPE_MISMATCH);
+        assertFails("INSERT INTO t8 (integer_column) VALUES (TIMESTAMP '2019-11-18 22:13:40')")
+                .hasErrorCode(TYPE_MISMATCH);
+        assertFails("INSERT INTO t8 (unbounded_varchar_column) VALUES (1)")
+                .hasErrorCode(TYPE_MISMATCH);
+
+        // coercion with potential loss is not allowed for nested bounded character string types
+        assertFails("INSERT INTO t8 (nested_bounded_varchar_column) VALUES (ROW(ROW(CAST('aa' AS varchar(10)))))")
+                .hasErrorCode(TYPE_MISMATCH);
     }
 
     @Test
@@ -2104,6 +2134,24 @@ public class TestAnalyzer
                 Optional.of("user"),
                 false);
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v5"), viewData5, false));
+
+        // type analysis for INSERT
+        SchemaTableName table8 = new SchemaTableName("s1", "t8");
+        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
+                new ConnectorTableMetadata(table8, ImmutableList.of(
+                        new ColumnMetadata("tinyint_column", TINYINT),
+                        new ColumnMetadata("integer_column", INTEGER),
+                        new ColumnMetadata("decimal_column", createDecimalType(5, 3)),
+                        new ColumnMetadata("real_column", REAL),
+                        new ColumnMetadata("char_column", createCharType(3)),
+                        new ColumnMetadata("bounded_varchar_column", createVarcharType(3)),
+                        new ColumnMetadata("unbounded_varchar_column", VARCHAR),
+                        new ColumnMetadata("tinyint_array_column", new ArrayType(TINYINT)),
+                        new ColumnMetadata("bigint_array_column", new ArrayType(BIGINT)),
+                        new ColumnMetadata("nested_bounded_varchar_column", anonymousRow(createVarcharType(3))),
+                        new ColumnMetadata("row_column", anonymousRow(TINYINT, createUnboundedVarcharType())),
+                        new ColumnMetadata("date_column", DATE))),
+                false));
 
         // for identifier chain resolving tests
         catalogManager.registerCatalog(createTestingCatalog(CATALOG_FOR_IDENTIFIER_CHAIN_TESTS, CATALOG_FOR_IDENTIFIER_CHAIN_TESTS_NAME));

@@ -47,10 +47,12 @@ import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeNotFoundException;
+import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.analyzer.Analysis.SelectExpression;
 import io.prestosql.sql.analyzer.Scope.AsteriskedIdentifierChainBasis;
 import io.prestosql.sql.parser.ParsingException;
@@ -399,13 +401,52 @@ class StatementAnalyzer
                 return false;
             }
 
+            /*
+            TODO enable coercions based on type compatibility for INSERT of structural types containing nested bounded character types.
+            It might require defining a new range of cast operators and changes in FunctionRegistry to ensure proper handling
+            of nested types.
+            Currently, INSERT for such structural types is only allowed in the case of strict type coercibility.
+            INSERT for other types is allowed in all cases described by the Standard. It is obtained
+            by emulating a "guarded cast" in LogicalPlanner, and without any changes to the actual operators.
+            */
             for (int i = 0; i < tableTypes.size(); i++) {
-                if (!typeCoercion.canCoerce(queryTypes.get(i), tableTypes.get(i))) {
+                if (hasNestedBoundedCharacterType(tableTypes.get(i))) {
+                    if (!typeCoercion.canCoerce(queryTypes.get(i), tableTypes.get(i))) {
+                        return false;
+                    }
+                }
+                else if (!typeCoercion.isCompatible(queryTypes.get(i), tableTypes.get(i))) {
                     return false;
                 }
             }
 
             return true;
+        }
+
+        private boolean hasNestedBoundedCharacterType(Type type)
+        {
+            if (type instanceof ArrayType) {
+                return hasBoundedCharacterType(((ArrayType) type).getElementType());
+            }
+
+            if (type instanceof MapType) {
+                return hasBoundedCharacterType(((MapType) type).getKeyType()) || hasBoundedCharacterType(((MapType) type).getValueType());
+            }
+
+            if (type instanceof RowType) {
+                for (Type fieldType : type.getTypeParameters()) {
+                    if (hasBoundedCharacterType(fieldType)) {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        private boolean hasBoundedCharacterType(Type type)
+        {
+            return type instanceof CharType || (type instanceof VarcharType && !((VarcharType) type).isUnbounded()) || hasNestedBoundedCharacterType(type);
         }
 
         @Override
