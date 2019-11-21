@@ -348,15 +348,12 @@ public class TestBackgroundHiveSplitLoader
                                 Optional.empty(),
                                 ImmutableMap.of()));
 
-        ConnectorSession connectorSession = getHiveSession(new HiveConfig()
-                .setMaxSplitSize(new DataSize(1.0, GIGABYTE)));
-
         return new BackgroundHiveSplitLoader(
                 table,
                 hivePartitionMetadatas,
                 compactEffectivePredicate,
                 createBucketSplitInfo(bucketHandle, hiveBucketFilter),
-                connectorSession,
+                SESSION,
                 new TestingHdfsEnvironment(files),
                 new NamenodeStats(),
                 new CachingDirectoryLister(new HiveConfig()),
