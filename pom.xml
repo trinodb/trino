@@ -1460,7 +1460,7 @@
                                 <arg>-J-Xbootclasspath/p:${settings.localRepository}/com/google/errorprone/javac/${javac.version}/javac-${javac.version}.jar</arg>
                                 <arg>-XDcompilePolicy=simple</arg>
                                 <!-- TODO enable more checks, i.e. remove "-XepDisableAllChecks" -->
-                                <arg>-Xplugin:ErrorProne -XepDisableWarningsInGeneratedCod -XepDisableAllChecks -Xep:MissingOverride:ERROR</arg>
+                                <arg>-Xplugin:ErrorProne -XepExcludedPaths:.*/target/generated-(|test-)sources/.* -XepDisableAllChecks -Xep:MissingOverride:ERROR</arg>
                             </compilerArgs>
                             <annotationProcessorPaths>
                                 <path>
@@ -1474,6 +1474,5 @@
                 </plugins>
             </build>
         </profile>
-
     </profiles>
 </project>
