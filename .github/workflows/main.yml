@@ -5,7 +5,7 @@ on: [push, pull_request]
 env:
   MAVEN_OPTS: "-Xmx512M -XX:+ExitOnOutOfMemoryError"
   MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
-  MAVEN_FAST_INSTALL: "-B -e -V -T C1 -DskipTests -Dair.check.skip-all"
+  MAVEN_FAST_INSTALL: "-B -e -V -DskipTests -Dair.check.skip-all"
 
 jobs:
   maven-checks:
