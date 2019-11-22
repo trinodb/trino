@@ -335,7 +335,8 @@ public final class BytecodeUtils
 
     public static BytecodeExpression invoke(Binding binding, String name)
     {
-        return invokeDynamic(BOOTSTRAP_METHOD, ImmutableList.of(binding.getBindingId()), name, binding.getType());
+        // ensure that name doesn't have a special characters
+        return invokeDynamic(BOOTSTRAP_METHOD, ImmutableList.of(binding.getBindingId()), name.replaceAll("[^(A-Za-z0-9_$)]", "_"), binding.getType());
     }
 
     public static BytecodeExpression invoke(Binding binding, Signature signature)
