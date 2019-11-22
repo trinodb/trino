@@ -67,8 +67,12 @@ public class TestFileBasedAccessControl
         accessControl.checkCanSelectFromColumns(user("joe"), new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of());
         accessControl.checkCanCreateViewWithSelectFromColumns(user("bob"), new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of());
         accessControl.checkCanDropTable(user("admin"), new SchemaTableName("bobschema", "bobtable"));
+        accessControl.checkCanRenameTable(user("admin"), new SchemaTableName("bobschema", "bobtable"), new SchemaTableName("aliceschema", "newbobtable"));
+        accessControl.checkCanRenameTable(user("alice"), new SchemaTableName("aliceschema", "alicetable"), new SchemaTableName("aliceschema", "newalicetable"));
         assertDenied(() -> accessControl.checkCanInsertIntoTable(user("alice"), new SchemaTableName("bobschema", "bobtable")));
         assertDenied(() -> accessControl.checkCanDropTable(user("bob"), new SchemaTableName("bobschema", "bobtable")));
+        assertDenied(() -> accessControl.checkCanRenameTable(user("bob"), new SchemaTableName("bobschema", "bobtable"), new SchemaTableName("bobschema", "newbobtable")));
+        assertDenied(() -> accessControl.checkCanRenameTable(user("alice"), new SchemaTableName("aliceschema", "alicetable"), new SchemaTableName("bobschema", "newalicetable")));
         assertDenied(() -> accessControl.checkCanInsertIntoTable(user("bob"), new SchemaTableName("test", "test")));
         assertDenied(() -> accessControl.checkCanSelectFromColumns(user("admin"), new SchemaTableName("secret", "secret"), ImmutableSet.of()));
         assertDenied(() -> accessControl.checkCanSelectFromColumns(user("joe"), new SchemaTableName("secret", "secret"), ImmutableSet.of()));
