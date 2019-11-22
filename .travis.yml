@@ -131,7 +131,7 @@ script:
   - |
     if [[ -v MAVEN_CHECKS ]]; then
       env MAVEN_OPTS="${MAVEN_INSTALL_OPTS}" ./mvnw clean compile test-compile -DskipTests -B -T C1 -P errorprone-compiler-presto \
-        -pl '!presto-server-rpm,!presto-server,!presto-docs,!presto-thrift-api'
+        -pl '!presto-server-rpm,!presto-server,!presto-docs'
     fi
   - |
     if [[ -v WEBUI_CHECKS ]]; then
