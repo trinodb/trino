@@ -14,6 +14,7 @@
 package io.prestosql.plugin.hive;
 
 import org.apache.hadoop.net.NetUtils;
+import org.testng.SkipException;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Parameters;
 
@@ -56,5 +57,15 @@ public class TestHive
     {
         checkState(hiveVersionMajor > 0, "hiveVersionMajor not set");
         return hiveVersionMajor;
+    }
+
+    @Override
+    public void testGetPartitionSplitsTableOfflinePartition()
+    {
+        if (getHiveVersionMajor() >= 2) {
+            throw new SkipException("ALTER TABLE .. ENABLE OFFLINE was removed in Hive 2.0 and this is a prerequisite for this test");
+        }
+
+        super.testGetPartitionSplitsTableOfflinePartition();
     }
 }
