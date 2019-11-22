@@ -19,12 +19,23 @@ import org.testng.annotations.Parameters;
 
 import java.net.UnknownHostException;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+
 public class TestHive
         extends AbstractTestHive
 {
-    @Parameters({"hive.hadoop2.metastoreHost", "hive.hadoop2.metastorePort", "hive.hadoop2.databaseName", "hive.hadoop2.timeZone"})
+    private int hiveVersionMajor;
+
+    @Parameters({
+            "hive.hadoop2.metastoreHost",
+            "hive.hadoop2.metastorePort",
+            "hive.hadoop2.databaseName",
+            "hive.hadoop2.hiveVersionMajor",
+            "hive.hadoop2.timeZone",
+    })
     @BeforeClass
-    public void initialize(String host, int port, String databaseName, String timeZone)
+    public void initialize(String host, int port, String databaseName, int hiveVersionMajor, String timeZone)
             throws UnknownHostException
     {
         String hadoopMasterIp = System.getProperty("hadoop-master-ip");
@@ -36,5 +47,14 @@ public class TestHive
         }
 
         setup(host, port, databaseName, timeZone);
+
+        checkArgument(hiveVersionMajor > 0, "Invalid hiveVersionMajor: %s", hiveVersionMajor);
+        this.hiveVersionMajor = hiveVersionMajor;
+    }
+
+    private int getHiveVersionMajor()
+    {
+        checkState(hiveVersionMajor > 0, "hiveVersionMajor not set");
+        return hiveVersionMajor;
     }
 }
