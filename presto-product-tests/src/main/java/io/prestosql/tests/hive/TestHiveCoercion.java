@@ -115,13 +115,13 @@ public class TestHiveCoercion
                         "    int_to_bigint              INT," +
                         "    bigint_to_varchar          BIGINT," +
                         "    float_to_double            " + floatType + "," +
-                        "    double_to_float            DOUBLE," +
+                        //"    double_to_float            DOUBLE," + // this coercion is not permitted in Hive 3. TODO test this on Hive < 3.
                         "    shortdecimal_to_shortdecimal          DECIMAL(10,2)," +
                         "    shortdecimal_to_longdecimal           DECIMAL(10,2)," +
                         "    longdecimal_to_shortdecimal           DECIMAL(20,12)," +
                         "    longdecimal_to_longdecimal            DECIMAL(20,12)," +
-                        "    float_to_decimal           " + floatType + "," +
-                        "    double_to_decimal          DOUBLE," +
+                        //"    float_to_decimal           " + floatType + "," + // this coercion is not permitted in Hive 3. TODO test this on Hive < 3.
+                        //"    double_to_decimal          DOUBLE," + // this coercion is not permitted in Hive 3. TODO test this on Hive < 3.
                         "    decimal_to_float           DECIMAL(10,5)," +
                         "    decimal_to_double          DECIMAL(10,5)" +
                         ") " +
@@ -303,13 +303,13 @@ public class TestHiveCoercion
                         "  INTEGER '2323', " +
                         "  12345, " +
                         "  REAL '0.5', " +
-                        "  DOUBLE '0.5', " +
+                        //"  DOUBLE '0.5', " +
                         "  DECIMAL '12345678.12', " +
                         "  DECIMAL '12345678.12', " +
                         "  DECIMAL '12345678.123456123456', " +
                         "  DECIMAL '12345678.123456123456', " +
-                        "  %2$s '12345.12345', " +
-                        "  DOUBLE '12345.12345', " +
+                        //"  %2$s '12345.12345', " +
+                        //"  DOUBLE '12345.12345', " +
                         "  DECIMAL '12345.12345', " +
                         "  DECIMAL '12345.12345', " +
                         "  1), " +
@@ -325,13 +325,13 @@ public class TestHiveCoercion
                         "  INTEGER '-2323', " +
                         "  -12345, " +
                         "  REAL '-1.5', " +
-                        "  DOUBLE '-1.5', " +
+                        //"  DOUBLE '-1.5', " +
                         "  DECIMAL '-12345678.12', " +
                         "  DECIMAL '-12345678.12', " +
                         "  DECIMAL '-12345678.123456123456', " +
                         "  DECIMAL '-12345678.123456123456', " +
-                        "  %2$s '-12345.12345', " +
-                        "  DOUBLE '-12345.12345', " +
+                        //"  %2$s '-12345.12345', " +
+                        //"  DOUBLE '-12345.12345', " +
                         "  DECIMAL '-12345.12345', " +
                         "  DECIMAL '-12345.12345', " +
                         "  1)",
@@ -359,13 +359,13 @@ public class TestHiveCoercion
                             2323L,
                             "12345",
                             0.5,
-                            0.5,
+                            //0.5,
                             new BigDecimal("12345678.1200"),
                             new BigDecimal("12345678.1200"),
                             new BigDecimal("12345678.12"),
                             new BigDecimal("12345678.12345612345600"),
-                            new BigDecimal(floatToDecimalVal),
-                            new BigDecimal("12345.12345"),
+                            //new BigDecimal(floatToDecimalVal),
+                            //new BigDecimal("12345.12345"),
                             Float.parseFloat(decimalToFloatVal),
                             12345.12345,
                             1),
@@ -381,13 +381,13 @@ public class TestHiveCoercion
                             -2323L,
                             "-12345",
                             -1.5,
-                            -1.5,
+                            //-1.5,
                             new BigDecimal("-12345678.1200"),
                             new BigDecimal("-12345678.1200"),
                             new BigDecimal("-12345678.12"),
                             new BigDecimal("-12345678.12345612345600"),
-                            new BigDecimal("-" + floatToDecimalVal),
-                            new BigDecimal("-12345.12345"),
+                            //new BigDecimal("-" + floatToDecimalVal),
+                            //new BigDecimal("-12345.12345"),
                             -Float.parseFloat(decimalToFloatVal),
                             -12345.12345,
                             1));
@@ -406,13 +406,13 @@ public class TestHiveCoercion
                             2323L,
                             "12345",
                             0.5,
-                            0.5,
+                            //0.5,
                             new BigDecimal("12345678.1200"),
                             new BigDecimal("12345678.1200"),
                             new BigDecimal("12345678.12"),
                             new BigDecimal("12345678.12345612345600"),
-                            new BigDecimal(floatToDecimalVal),
-                            new BigDecimal("12345.12345"),
+                            //new BigDecimal(floatToDecimalVal),
+                            //new BigDecimal("12345.12345"),
                             Float.parseFloat(decimalToFloatVal),
                             12345.12345,
                             1),
@@ -428,13 +428,13 @@ public class TestHiveCoercion
                             -2323L,
                             "-12345",
                             -1.5,
-                            -1.5,
+                            //-1.5,
                             new BigDecimal("-12345678.1200"),
                             new BigDecimal("-12345678.1200"),
                             new BigDecimal("-12345678.12"),
                             new BigDecimal("-12345678.12345612345600"),
-                            new BigDecimal("-" + floatToDecimalVal),
-                            new BigDecimal("-12345.12345"),
+                            //new BigDecimal("-" + floatToDecimalVal),
+                            //new BigDecimal("-12345.12345"),
                             -Float.parseFloat(decimalToFloatVal),
                             -12345.12345,
                             1));
@@ -477,13 +477,13 @@ public class TestHiveCoercion
                 row("int_to_bigint", "bigint"),
                 row("bigint_to_varchar", "varchar"),
                 row("float_to_double", "double"),
-                row("double_to_float", floatType),
+                //row("double_to_float", floatType),
                 row("shortdecimal_to_shortdecimal", "decimal(18,4)"),
                 row("shortdecimal_to_longdecimal", "decimal(20,4)"),
                 row("longdecimal_to_shortdecimal", "decimal(12,2)"),
                 row("longdecimal_to_longdecimal", "decimal(38,14)"),
-                row("float_to_decimal", "decimal(10,5)"),
-                row("double_to_decimal", "decimal(10,5)"),
+                //row("float_to_decimal", "decimal(10,5)"),
+                //row("double_to_decimal", "decimal(10,5)"),
                 row("decimal_to_float", floatType),
                 row("decimal_to_double", "double"),
                 row("id", "bigint"));
@@ -507,13 +507,13 @@ public class TestHiveCoercion
                     BIGINT,
                     VARCHAR,
                     DOUBLE,
-                    floatType,
+                    //floatType,
                     DECIMAL,
                     DECIMAL,
                     DECIMAL,
                     DECIMAL,
-                    DECIMAL,
-                    DECIMAL,
+                    //DECIMAL,
+                    //DECIMAL,
                     floatType,
                     DOUBLE,
                     BIGINT);
@@ -531,13 +531,13 @@ public class TestHiveCoercion
                     BIGINT,
                     VARCHAR,
                     DOUBLE,
-                    floatType,
+                    //floatType,
                     DECIMAL,
                     DECIMAL,
                     DECIMAL,
                     DECIMAL,
-                    DECIMAL,
-                    DECIMAL,
+                    //DECIMAL,
+                    //DECIMAL,
                     floatType,
                     DOUBLE,
                     BIGINT);
@@ -562,13 +562,13 @@ public class TestHiveCoercion
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN int_to_bigint int_to_bigint bigint", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN bigint_to_varchar bigint_to_varchar string", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN float_to_double float_to_double double", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN double_to_float double_to_float %s", tableName, floatType));
+        //onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN double_to_float double_to_float %s", tableName, floatType));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN shortdecimal_to_shortdecimal shortdecimal_to_shortdecimal DECIMAL(18,4)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN shortdecimal_to_longdecimal shortdecimal_to_longdecimal DECIMAL(20,4)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN longdecimal_to_shortdecimal longdecimal_to_shortdecimal DECIMAL(12,2)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN longdecimal_to_longdecimal longdecimal_to_longdecimal DECIMAL(38,14)", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN float_to_decimal float_to_decimal DECIMAL(10,5)", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN double_to_decimal double_to_decimal DECIMAL(10,5)", tableName));
+        //onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN float_to_decimal float_to_decimal DECIMAL(10,5)", tableName));
+        //onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN double_to_decimal double_to_decimal DECIMAL(10,5)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN decimal_to_float decimal_to_float %s", tableName, floatType));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN decimal_to_double decimal_to_double double", tableName));
     }
