@@ -147,14 +147,14 @@ CREATE TABLE tmp_presto_test (
 ;
 INSERT INTO TABLE tmp_presto_test
 SELECT
-  CASE n % 19 WHEN 0 THEN NULL WHEN 1 THEN '' ELSE 'test' END
-, 1 + n
-, 2 + n
-, 3 + n
-, 4 + n + CASE WHEN n % 13 = 0 THEN NULL ELSE 0 END
-, 5.1 + n
-, 6.2 + n
-, CASE n % 3 WHEN 0 THEN false WHEN 1 THEN true ELSE NULL END
+  CASE n % 19 WHEN 0 THEN NULL WHEN 1 THEN '' ELSE 'test' END -- t_string
+, 1 + n -- t_tinyint
+, 2 + n -- t_smallint
+, 3 + n -- t_int
+, 4 + n + CASE WHEN n % 13 = 0 THEN NULL ELSE 0 END -- t_bigint
+, 5.1 + n -- t_float
+, 6.2 + n -- t_double
+, CASE n % 3 WHEN 0 THEN false WHEN 1 THEN true ELSE NULL END -- t_boolean
 FROM presto_test_sequence
 LIMIT 100
 ;
