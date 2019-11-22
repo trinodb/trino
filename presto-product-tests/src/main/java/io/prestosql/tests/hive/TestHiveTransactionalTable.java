@@ -74,16 +74,14 @@ public class TestHiveTransactionalTable
             @Override
             String getTableProperties()
             {
-                // TODO (https://github.com/prestosql/presto/issues/538) remove bucketing_version
-                return "'transactional'='true', 'bucketing_version'='1'";
+                return "'transactional'='true'";
             }
         },
         INSERT_ONLY {
             @Override
             String getTableProperties()
             {
-                // TODO (https://github.com/prestosql/presto/issues/538) remove bucketing_version
-                return "'transactional'='true', 'transactional_properties'='insert_only', 'bucketing_version'='1'";
+                return "'transactional'='true', 'transactional_properties'='insert_only'";
             }
         },
         /**/;
