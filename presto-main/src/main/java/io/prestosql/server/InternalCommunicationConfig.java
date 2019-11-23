@@ -109,11 +109,13 @@ public class InternalCommunicationConfig
         return this;
     }
 
+    @Deprecated
     public boolean isKerberosEnabled()
     {
         return kerberosEnabled;
     }
 
+    @Deprecated
     @Config(INTERNAL_COMMUNICATION_KERBEROS_ENABLED)
     public InternalCommunicationConfig setKerberosEnabled(boolean kerberosEnabled)
     {
@@ -121,11 +123,13 @@ public class InternalCommunicationConfig
         return this;
     }
 
+    @Deprecated
     public boolean isKerberosUseCanonicalHostname()
     {
         return kerberosUseCanonicalHostname;
     }
 
+    @Deprecated
     @Config("internal-communication.kerberos.use-canonical-hostname")
     public InternalCommunicationConfig setKerberosUseCanonicalHostname(boolean kerberosUseCanonicalHostname)
     {
