@@ -49,6 +49,7 @@ public class TestMemorySmoke
     private static final int LINEITEM_COUNT = 60175;
     private static final int ORDERS_COUNT = 15000;
     private static final int PART_COUNT = 2000;
+    private static final int CUSTOMER_COUNT = 1500;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -261,6 +262,61 @@ public class TestMemorySmoke
                 1, ORDERS_COUNT, PART_COUNT);
     }
 
+    @Test
+    public void testCrossJoinDynamicFiltering()
+    {
+        assertUpdate("CREATE TABLE probe (k VARCHAR, v INTEGER)");
+        assertUpdate("CREATE TABLE build (vmin INTEGER, vmax INTEGER)");
+        assertUpdate("INSERT INTO probe VALUES ('a', 0), ('b', 1), ('c', 2), ('d', 3)", 4);
+        assertUpdate("INSERT INTO build VALUES (1, 2)", 1);
+
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v >= vmin", withBroadcastJoin(), 3, 3, 1);
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v > vmin", withBroadcastJoin(), 2, 2, 1);
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v <= vmax", withBroadcastJoin(), 3, 3, 1);
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v < vmax", withBroadcastJoin(), 2, 2, 1);
+
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v >= vmin AND v < vmax", withBroadcastJoin(), 1, 1, 1);
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v > vmin AND v <= vmax", withBroadcastJoin(), 1, 1, 1);
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v > vmin AND v < vmax", withBroadcastJoin(), 0, 0, 1);
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v > vmin AND vmax < 0", withBroadcastJoin(), 0, 0, 1);
+
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v BETWEEN vmin AND vmax", withBroadcastJoin(), 2, 2, 1);
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v >= vmin AND v <= vmax", withBroadcastJoin(), 2, 2, 1);
+        assertDynamicFiltering("SELECT * FROM probe, build WHERE v BETWEEN vmin AND vmax", withBroadcastJoin(), 2, 2, 1);
+        assertDynamicFiltering("SELECT * FROM probe, build WHERE v >= vmin AND v <= vmax", withBroadcastJoin(), 2, 2, 1);
+
+        // TODO: support complex inequality join clauses: https://github.com/prestosql/presto/issues/5755
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v BETWEEN vmin AND vmax - 1", withBroadcastJoin(), 1, 3, 1);
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v BETWEEN vmin + 1 AND vmax", withBroadcastJoin(), 1, 3, 1);
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v BETWEEN vmin + 1 AND vmax - 1", withBroadcastJoin(), 0, 4, 1);
+        assertDynamicFiltering("SELECT * FROM probe, build WHERE v BETWEEN vmin AND vmax - 1", withBroadcastJoin(), 1, 3, 1);
+        assertDynamicFiltering("SELECT * FROM probe, build WHERE v BETWEEN vmin + 1 AND vmax", withBroadcastJoin(), 1, 3, 1);
+        assertDynamicFiltering("SELECT * FROM probe, build WHERE v BETWEEN vmin + 1 AND vmax - 1", withBroadcastJoin(), 0, 4, 1);
+
+        // TODO: make sure it works after https://github.com/prestosql/presto/issues/5777 is fixed
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v >= vmin AND v <= vmax - 1", withBroadcastJoin(), 1, 1, 1);
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v >= vmin + 1 AND v <= vmax", withBroadcastJoin(), 1, 1, 1);
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v >= vmin + 1 AND v <= vmax - 1", withBroadcastJoin(), 0, 0, 1);
+
+        // TODO: support complex inequality join clauses: https://github.com/prestosql/presto/issues/5755
+        assertDynamicFiltering("SELECT * FROM probe, build WHERE v >= vmin AND v <= vmax - 1", withBroadcastJoin(), 1, 3, 1);
+        assertDynamicFiltering("SELECT * FROM probe, build WHERE v >= vmin + 1 AND v <= vmax", withBroadcastJoin(), 1, 3, 1);
+        assertDynamicFiltering("SELECT * FROM probe, build WHERE v >= vmin + 1 AND v <= vmax - 1", withBroadcastJoin(), 0, 4, 1);
+
+        assertDynamicFiltering("SELECT * FROM probe WHERE v <= (SELECT max(vmax) FROM build)", withBroadcastJoin(), 3, 3, 1);
+    }
+
+    @Test
+    public void testCrossJoinLargeBuildSideDynamicFiltering()
+    {
+        // Probe-side is fully scanned because the build-side is too large for dynamic filtering:
+        assertDynamicFiltering(
+                "SELECT * FROM orders o, customer c WHERE o.custkey < c.custkey AND c.name < 'Customer#000001000' AND o.custkey > 1000",
+                withBroadcastJoin(),
+                0,
+                ORDERS_COUNT, CUSTOMER_COUNT);
+    }
+
     private void assertDynamicFiltering(@Language("SQL") String selectQuery, Session session, int expectedRowCount, int... expectedOperatorRowsRead)
     {
         DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
@@ -305,7 +361,7 @@ public class TestMemorySmoke
         QueryStats stats = runner.getCoordinator().getQueryManager().getFullQueryInfo(queryId).getQueryStats();
         return stats.getOperatorSummaries()
                 .stream()
-                .filter(summary -> summary.getOperatorType().equals("ScanFilterAndProjectOperator"))
+                .filter(summary -> summary.getOperatorType().contains("Scan"))
                 .map(OperatorStats::getInputPositions)
                 .map(Math::toIntExact)
                 .collect(toImmutableList());

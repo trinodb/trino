@@ -13,10 +13,13 @@
  */
 package io.prestosql.sql.planner.optimizations;
 
+import com.google.common.collect.BiMap;
+import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.common.collect.Streams;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
@@ -54,6 +57,7 @@ import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.planner.plan.UnionNode;
 import io.prestosql.sql.planner.plan.UnnestNode;
 import io.prestosql.sql.planner.plan.WindowNode;
+import io.prestosql.sql.tree.BetweenPredicate;
 import io.prestosql.sql.tree.BooleanLiteral;
 import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.Expression;
@@ -75,11 +79,14 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.SystemSessionProperties.isEnableDynamicFiltering;
 import static io.prestosql.SystemSessionProperties.isPredicatePushdownUseTableProperties;
 import static io.prestosql.sql.DynamicFilters.createDynamicFilterExpression;
@@ -96,11 +103,23 @@ import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.LEFT;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.RIGHT;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.prestosql.sql.tree.ComparisonExpression.Operator.EQUAL;
+import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
+import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
+import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN;
+import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static java.util.Objects.requireNonNull;
 
 public class PredicatePushDown
         implements PlanOptimizer
 {
+    private static final Set<ComparisonExpression.Operator> DYNAMIC_FILTERING_SUPPORTED_COMPARISONS = ImmutableSet.of(
+            EQUAL,
+            GREATER_THAN,
+            GREATER_THAN_OR_EQUAL,
+            LESS_THAN,
+            LESS_THAN_OR_EQUAL);
+
     private final Metadata metadata;
     private final TypeOperators typeOperators;
     private final LiteralEncoder literalEncoder;
@@ -509,7 +528,8 @@ public class PredicatePushDown
                 }
             }
 
-            DynamicFiltersResult dynamicFiltersResult = createDynamicFilters(node, equiJoinClauses, session, idAllocator);
+            List<Expression> joinFilter = joinFilterBuilder.build();
+            DynamicFiltersResult dynamicFiltersResult = createDynamicFilters(node, equiJoinClauses, joinFilter, session, idAllocator);
             Map<DynamicFilterId, Symbol> dynamicFilters = dynamicFiltersResult.getDynamicFilters();
             leftPredicate = combineConjuncts(metadata, leftPredicate, combineConjuncts(metadata, dynamicFiltersResult.getPredicates()));
 
@@ -525,7 +545,7 @@ public class PredicatePushDown
                 rightSource = context.rewrite(node.getRight(), rightPredicate);
             }
 
-            Optional<Expression> newJoinFilter = Optional.of(combineConjuncts(metadata, joinFilterBuilder.build()));
+            Optional<Expression> newJoinFilter = Optional.of(combineConjuncts(metadata, joinFilter));
             if (newJoinFilter.get() == TRUE_LITERAL) {
                 newJoinFilter = Optional.empty();
             }
@@ -580,31 +600,81 @@ public class PredicatePushDown
             return output;
         }
 
-        private DynamicFiltersResult createDynamicFilters(JoinNode node, List<JoinNode.EquiJoinClause> equiJoinClauses, Session session, PlanNodeIdAllocator idAllocator)
+        // TODO: collect min/max ranges for inequality dynamic filters (https://github.com/prestosql/presto/issues/5754)
+        // TODO: support for complex inequalities, e.g. left < right + 10 (https://github.com/prestosql/presto/issues/5755)
+        private DynamicFiltersResult createDynamicFilters(
+                JoinNode node,
+                List<JoinNode.EquiJoinClause> equiJoinClauses,
+                List<Expression> joinFilterClauses,
+                Session session, PlanNodeIdAllocator idAllocator)
         {
             if ((node.getType() != INNER && node.getType() != RIGHT) || !isEnableDynamicFiltering(session) || !dynamicFiltering) {
                 return new DynamicFiltersResult(ImmutableMap.of(), ImmutableList.of());
             }
 
+            List<ComparisonExpression> clauses = Streams.concat(
+                    equiJoinClauses
+                            .stream()
+                            .map(clause -> new ComparisonExpression(EQUAL, clause.getLeft().toSymbolReference(), clause.getRight().toSymbolReference())),
+                    joinFilterClauses.stream()
+                            .flatMap(Rewriter::tryConvertBetweenIntoComparisons)
+                            .filter(clause -> joinComparisonExpression(clause, node.getLeft().getOutputSymbols(), node.getRight().getOutputSymbols(), DYNAMIC_FILTERING_SUPPORTED_COMPARISONS))
+                            .map(ComparisonExpression.class::cast)
+                            .filter(comparison -> comparison.getLeft() instanceof SymbolReference && comparison.getRight() instanceof SymbolReference)
+                            .map(comparison -> {
+                                Symbol leftSymbol = Symbol.from(comparison.getLeft());
+                                Symbol rightSymbol = Symbol.from(comparison.getRight());
+                                boolean alignedComparison = node.getLeft().getOutputSymbols().contains(leftSymbol);
+                                return new ComparisonExpression(
+                                        alignedComparison ? comparison.getOperator() : comparison.getOperator().flip(),
+                                        (alignedComparison ? leftSymbol : rightSymbol).toSymbolReference(),
+                                        (alignedComparison ? rightSymbol : leftSymbol).toSymbolReference());
+                            }))
+                    .collect(toImmutableList());
+
             // New equiJoinClauses could potentially not contain symbols used in current dynamic filters.
             // Since we use PredicatePushdown to push dynamic filters themselves,
             // instead of separate ApplyDynamicFilters rule we derive dynamic filters within PredicatePushdown itself.
             // Even if equiJoinClauses.equals(node.getCriteria), current dynamic filters may not match equiJoinClauses
-            ImmutableMap.Builder<DynamicFilterId, Symbol> dynamicFiltersBuilder = ImmutableMap.builder();
-            ImmutableList.Builder<Expression> predicatesBuilder = ImmutableList.builder();
-            // reuse existing dynamic filters to make planning more stable
-            Map<Symbol, DynamicFilterId> buildSymbolToDynamicFilter = new HashMap<>(node.getDynamicFilters().entrySet().stream()
-                    .collect(toImmutableMap(Map.Entry::getValue, Map.Entry::getKey)));
-            for (JoinNode.EquiJoinClause clause : equiJoinClauses) {
-                Symbol probeSymbol = clause.getLeft();
-                Symbol buildSymbol = clause.getRight();
-                DynamicFilterId id = buildSymbolToDynamicFilter.computeIfAbsent(
+
+            // Collect build symbols:
+            Set<Symbol> buildSymbols = clauses.stream()
+                    .map(ComparisonExpression::getRight)
+                    .map(Symbol::from)
+                    .collect(toImmutableSet());
+
+            // Allocate new dynamic filter IDs for for each build symbol:
+            BiMap<Symbol, DynamicFilterId> buildSymbolToDynamicFilter = HashBiMap.create(node.getDynamicFilters()).inverse();
+            for (Symbol buildSymbol : buildSymbols) {
+                buildSymbolToDynamicFilter.computeIfAbsent(
                         buildSymbol,
                         key -> new DynamicFilterId("df_" + idAllocator.getNextId().toString()));
-                predicatesBuilder.add(createDynamicFilterExpression(metadata, id, symbolAllocator.getTypes().get(probeSymbol), probeSymbol.toSymbolReference()));
-                dynamicFiltersBuilder.put(id, buildSymbol);
             }
-            return new DynamicFiltersResult(dynamicFiltersBuilder.build(), predicatesBuilder.build());
+
+            // Multiple probe symbols may depend on a single build symbol / dynamic filter ID:
+            List<Expression> predicates = clauses
+                    .stream()
+                    .map(clause -> {
+                        Symbol probeSymbol = Symbol.from(clause.getLeft());
+                        Symbol buildSymbol = Symbol.from(clause.getRight());
+                        Type type = symbolAllocator.getTypes().get(probeSymbol);
+                        DynamicFilterId id = requireNonNull(buildSymbolToDynamicFilter.get(buildSymbol), () -> "missing dynamic filter for symbol " + buildSymbol);
+                        return createDynamicFilterExpression(metadata, id, type, probeSymbol.toSymbolReference(), clause.getOperator());
+                    })
+                    .collect(toImmutableList());
+            // Return a mapping from build symbols to corresponding dynamic filter IDs:
+            return new DynamicFiltersResult(buildSymbolToDynamicFilter.inverse(), predicates);
+        }
+
+        private static Stream<Expression> tryConvertBetweenIntoComparisons(Expression clause)
+        {
+            if (clause instanceof BetweenPredicate) {
+                BetweenPredicate between = (BetweenPredicate) clause;
+                return Stream.of(
+                        new ComparisonExpression(GREATER_THAN_OR_EQUAL, between.getValue(), between.getMin()),
+                        new ComparisonExpression(LESS_THAN_OR_EQUAL, between.getValue(), between.getMax()));
+            }
+            return Stream.of(clause);
         }
 
         private static class DynamicFiltersResult
@@ -614,8 +684,8 @@ public class PredicatePushDown
 
             public DynamicFiltersResult(Map<DynamicFilterId, Symbol> dynamicFilters, List<Expression> predicates)
             {
-                this.dynamicFilters = dynamicFilters;
-                this.predicates = predicates;
+                this.dynamicFilters = ImmutableMap.copyOf(dynamicFilters);
+                this.predicates = ImmutableList.copyOf(predicates);
             }
 
             public Map<DynamicFilterId, Symbol> getDynamicFilters()
@@ -1136,10 +1206,15 @@ public class PredicatePushDown
 
         private boolean joinEqualityExpression(Expression expression, Collection<Symbol> leftSymbols, Collection<Symbol> rightSymbols)
         {
+            return joinComparisonExpression(expression, leftSymbols, rightSymbols, ImmutableSet.of(EQUAL));
+        }
+
+        private boolean joinComparisonExpression(Expression expression, Collection<Symbol> leftSymbols, Collection<Symbol> rightSymbols, Set<ComparisonExpression.Operator> operators)
+        {
             // At this point in time, our join predicates need to be deterministic
             if (expression instanceof ComparisonExpression && isDeterministic(expression, metadata)) {
                 ComparisonExpression comparison = (ComparisonExpression) expression;
-                if (comparison.getOperator() == ComparisonExpression.Operator.EQUAL) {
+                if (operators.contains(comparison.getOperator())) {
                     Set<Symbol> symbols1 = extractUnique(comparison.getLeft());
                     Set<Symbol> symbols2 = extractUnique(comparison.getRight());
                     if (symbols1.isEmpty() || symbols2.isEmpty()) {
@@ -1221,7 +1296,7 @@ public class PredicatePushDown
             Expression sourceEffectivePredicate = filterDeterministicConjuncts(metadata, effectivePredicateExtractor.extract(session, node.getSource(), types, typeAnalyzer));
             Expression filteringSourceEffectivePredicate = filterDeterministicConjuncts(metadata, effectivePredicateExtractor.extract(session, node.getFilteringSource(), types, typeAnalyzer));
             Expression joinExpression = new ComparisonExpression(
-                    ComparisonExpression.Operator.EQUAL,
+                    EQUAL,
                     node.getSourceJoinSymbol().toSymbolReference(),
                     node.getFilteringSourceJoinSymbol().toSymbolReference());
 
@@ -1287,7 +1362,12 @@ public class PredicatePushDown
             if (dynamicFilterId.isEmpty() && isEnableDynamicFiltering(session) && dynamicFiltering) {
                 dynamicFilterId = Optional.of(new DynamicFilterId("df_" + idAllocator.getNextId().toString()));
                 Symbol sourceSymbol = node.getSourceJoinSymbol();
-                sourceConjuncts.add(createDynamicFilterExpression(metadata, dynamicFilterId.get(), symbolAllocator.getTypes().get(sourceSymbol), sourceSymbol.toSymbolReference()));
+                sourceConjuncts.add(createDynamicFilterExpression(
+                        metadata,
+                        dynamicFilterId.get(),
+                        symbolAllocator.getTypes().get(sourceSymbol),
+                        sourceSymbol.toSymbolReference(),
+                        EQUAL));
             }
 
             PlanNode rewrittenSource = context.rewrite(node.getSource(), combineConjuncts(metadata, sourceConjuncts));
