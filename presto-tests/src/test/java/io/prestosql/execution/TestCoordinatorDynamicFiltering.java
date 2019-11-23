@@ -39,6 +39,7 @@ import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.EmptyPageSource;
 import io.prestosql.spi.predicate.Domain;
+import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.ValueSet;
 import io.prestosql.spi.transaction.IsolationLevel;
@@ -159,6 +160,31 @@ public class TestCoordinatorDynamicFiltering
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         SUPP_KEY_HANDLE,
                         singleValue(BIGINT, 1L))));
+    }
+
+    @Test(timeOut = 30_000)
+    public void testInequalityJoinWithSelectiveBuildSide()
+    {
+        assertQueryDynamicFilters(
+                "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey <= supplier.suppkey AND supplier.name IN ('Supplier#000000001', 'Supplier#000000002')",
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        SUPP_KEY_HANDLE,
+                        Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(BIGINT, 2L)), false))));
+        assertQueryDynamicFilters(
+                "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey < supplier.suppkey AND supplier.name IN ('Supplier#000000001', 'Supplier#000000002')",
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        SUPP_KEY_HANDLE,
+                        Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 2L)), false))));
+        assertQueryDynamicFilters(
+                "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey >= supplier.suppkey AND supplier.name IN ('Supplier#000000001', 'Supplier#000000002')",
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        SUPP_KEY_HANDLE,
+                        Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(BIGINT, 1L)), false))));
+        assertQueryDynamicFilters(
+                "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey > supplier.suppkey AND supplier.name IN ('Supplier#000000001', 'Supplier#000000002')",
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        SUPP_KEY_HANDLE,
+                        Domain.create(ValueSet.ofRanges(Range.greaterThan(BIGINT, 1L)), false))));
     }
 
     @Test(timeOut = 30_000)

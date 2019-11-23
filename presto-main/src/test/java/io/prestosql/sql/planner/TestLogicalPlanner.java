@@ -80,6 +80,7 @@ import static io.prestosql.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static io.prestosql.spi.predicate.Domain.singleValue;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.DynamicFilterPattern;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.any;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyNot;
@@ -125,6 +126,9 @@ import static io.prestosql.sql.planner.plan.JoinNode.DistributionType.PARTITIONE
 import static io.prestosql.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.LEFT;
+import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.prestosql.sql.tree.ComparisonExpression.Operator.EQUAL;
+import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 import static io.prestosql.sql.tree.SortItem.NullOrdering.LAST;
 import static io.prestosql.sql.tree.SortItem.Ordering.ASCENDING;
 import static io.prestosql.sql.tree.SortItem.Ordering.DESCENDING;
@@ -298,8 +302,11 @@ public class TestLogicalPlanner
                         node(DistinctLimitNode.class,
                                 anyTree(
                                         filter("O_ORDERKEY < L_ORDERKEY",
-                                                join(INNER, ImmutableList.of(), Optional.empty(),
-                                                        tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")),
+                                                join(INNER,
+                                                        ImmutableList.of(),
+                                                        ImmutableList.of(new DynamicFilterPattern("O_ORDERKEY", LESS_THAN, "L_ORDERKEY")),
+                                                        filter(TRUE_LITERAL,
+                                                                tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))),
                                                         any(tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))))
                                                         .withExactOutputs(ImmutableList.of("O_ORDERKEY", "L_ORDERKEY")))))));
 
@@ -341,8 +348,11 @@ public class TestLogicalPlanner
         assertPlan("SELECT 1 FROM orders o JOIN lineitem l ON o.orderkey < l.orderkey",
                 anyTree(
                         filter("O_ORDERKEY < L_ORDERKEY",
-                                join(INNER, ImmutableList.of(), Optional.empty(),
-                                        tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")),
+                                join(INNER,
+                                        ImmutableList.of(),
+                                        ImmutableList.of(new DynamicFilterPattern("O_ORDERKEY", LESS_THAN, "L_ORDERKEY")),
+                                        filter(TRUE_LITERAL,
+                                                tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))),
                                         any(tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey")))))));
     }
 
@@ -355,9 +365,16 @@ public class TestLogicalPlanner
                                 join(INNER,
                                         ImmutableList.of(equiJoinClause("O_SHIPPRIORITY", "L_LINENUMBER")),
                                         Optional.of("O_ORDERKEY < L_ORDERKEY"),
-                                        anyTree(tableScan("orders", ImmutableMap.of(
-                                                "O_SHIPPRIORITY", "shippriority",
-                                                "O_ORDERKEY", "orderkey"))),
+                                        Optional.of(ImmutableList.of(
+                                                new DynamicFilterPattern("O_SHIPPRIORITY", EQUAL, "L_LINENUMBER"),
+                                                new DynamicFilterPattern("O_ORDERKEY", LESS_THAN, "L_ORDERKEY"))),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        project(
+                                                filter(TRUE_LITERAL,
+                                                        tableScan("orders", ImmutableMap.of(
+                                                                "O_SHIPPRIORITY", "shippriority",
+                                                                "O_ORDERKEY", "orderkey")))),
                                         anyTree(tableScan("lineitem", ImmutableMap.of(
                                                 "L_LINENUMBER", "linenumber",
                                                 "L_ORDERKEY", "orderkey")))))));
@@ -370,7 +387,8 @@ public class TestLogicalPlanner
                 anyTree(
                         filter("O_ORDERKEY < L_ORDERKEY",
                                 join(INNER, ImmutableList.of(), Optional.empty(),
-                                        tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")),
+                                        filter(TRUE_LITERAL,
+                                                tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))),
                                         any(
                                                 filter("NOT (L_ORDERKEY IS NULL)",
                                                         tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))))))));
@@ -423,8 +441,7 @@ public class TestLogicalPlanner
                 anyTree(
                         join(INNER, ImmutableList.of(equiJoinClause("X", "Y")),
                                 project(
-                                        node(
-                                                FilterNode.class,
+                                        filter(TRUE_LITERAL,
                                                 tableScan("orders", ImmutableMap.of("X", "orderkey")))),
                                 project(
                                         node(EnforceSingleRowNode.class,

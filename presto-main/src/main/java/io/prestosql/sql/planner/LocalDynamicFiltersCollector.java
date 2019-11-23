@@ -90,32 +90,32 @@ class LocalDynamicFiltersCollector
     // Called during TableScan planning (no need to be synchronized as local planning is single threaded)
     public DynamicFilter createDynamicFilter(List<Descriptor> descriptors, Map<Symbol, ColumnHandle> columnsMap, TypeProvider typeProvider)
     {
-        Multimap<DynamicFilterId, Symbol> symbolsMap = extractSourceSymbols(descriptors);
+        Multimap<DynamicFilterId, Descriptor> descriptorMap = extractSourceSymbols(descriptors);
 
         // Iterate over dynamic filters that are collected (correspond to one of the futures), and required for filtering (correspond to one of the descriptors).
         // It is possible that some dynamic filters are collected in a different stage - and will not available here.
         // It is also possible that not all local dynamic filters are needed for this specific table scan.
-        List<ListenableFuture<TupleDomain<ColumnHandle>>> predicateFutures = symbolsMap.keySet().stream()
+        List<ListenableFuture<TupleDomain<ColumnHandle>>> predicateFutures = descriptorMap.keySet().stream()
                 .filter(futures.keySet()::contains)
                 .map(filterId -> {
                     // Probe-side columns that can be filtered with this dynamic filter resulting domain.
-                    Map<ColumnHandle, Type> probeColumnTypes = symbolsMap.get(filterId).stream()
-                            .collect(toImmutableMap(
-                                    probeSymbol -> requireNonNull(columnsMap.get(probeSymbol), () -> format("Missing probe column for %s", probeSymbol)),
-                                    typeProvider::get));
                     return Futures.transform(
                             requireNonNull(futures.get(filterId), () -> format("Missing dynamic filter %s", filterId)),
                             // Construct a probe-side predicate by duplicating the resulting domain over the corresponding columns.
                             domain -> TupleDomain.withColumnDomains(
-                                    probeColumnTypes.entrySet().stream()
+                                    descriptorMap.get(filterId).stream()
                                             .collect(toImmutableMap(
-                                                    Map.Entry::getKey,
-                                                    entry -> {
-                                                        Type targetType = entry.getValue();
-                                                        if (!domain.getType().equals(targetType)) {
-                                                            return applySaturatedCasts(metadata, typeOperators, session, domain, targetType);
+                                                    descriptor -> {
+                                                        Symbol probeSymbol = Symbol.from(descriptor.getInput());
+                                                        return requireNonNull(columnsMap.get(probeSymbol), () -> format("Missing probe column for %s", probeSymbol));
+                                                    },
+                                                    descriptor -> {
+                                                        Type targetType = typeProvider.get(Symbol.from(descriptor.getInput()));
+                                                        Domain updatedDomain = descriptor.applyComparison(domain);
+                                                        if (!updatedDomain.getType().equals(targetType)) {
+                                                            return applySaturatedCasts(metadata, typeOperators, session, updatedDomain, targetType);
                                                         }
-                                                        return domain;
+                                                        return updatedDomain;
                                                     }))),
                             directExecutor());
                 })

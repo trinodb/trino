@@ -1735,8 +1735,15 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitJoin(JoinNode node, LocalExecutionPlanContext context)
         {
+            // Register dynamic filters, allowing the scan operators to wait for the collection completion.
+            // Skip dynamic filters that are not used locally (e.g. in case of distributed joins).
+            Set<DynamicFilterId> localDynamicFilters = node.getDynamicFilters().keySet().stream()
+                    .filter(getConsumedDynamicFilterIds(node.getLeft())::contains)
+                    .collect(toImmutableSet());
+            context.getDynamicFiltersCollector().register(localDynamicFilters);
+
             if (node.isCrossJoin()) {
-                return createNestedLoopJoin(node, context);
+                return createNestedLoopJoin(node, localDynamicFilters, context);
             }
 
             List<JoinNode.EquiJoinClause> clauses = node.getCriteria();
@@ -1749,7 +1756,7 @@ public class LocalExecutionPlanner
                 case LEFT:
                 case RIGHT:
                 case FULL:
-                    return createLookupJoin(node, node.getLeft(), leftSymbols, node.getLeftHashSymbol(), node.getRight(), rightSymbols, node.getRightHashSymbol(), context);
+                    return createLookupJoin(node, node.getLeft(), leftSymbols, node.getLeftHashSymbol(), node.getRight(), rightSymbols, node.getRightHashSymbol(), localDynamicFilters, context);
                 default:
                     throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
             }
@@ -1879,7 +1886,7 @@ public class LocalExecutionPlanner
             return symbols.stream().map(Symbol::toSymbolReference).collect(toImmutableSet());
         }
 
-        private PhysicalOperation createNestedLoopJoin(JoinNode node, LocalExecutionPlanContext context)
+        private PhysicalOperation createNestedLoopJoin(JoinNode node, Set<DynamicFilterId> localDynamicFilters, LocalExecutionPlanContext context)
         {
             PhysicalOperation probeSource = node.getLeft().accept(this, context);
 
@@ -1902,14 +1909,19 @@ public class LocalExecutionPlanner
                     node.getId(),
                     nestedLoopJoinBridgeManager);
 
-            checkArgument(buildContext.getDriverInstanceCount().orElse(1) == 1, "Expected local execution to not be parallel");
+            int partitionCount = buildContext.getDriverInstanceCount().orElse(1);
+            checkArgument(partitionCount == 1, "Expected local execution to not be parallel");
+
+            ImmutableList.Builder<OperatorFactory> factoriesBuilder = ImmutableList.builder();
+            factoriesBuilder.addAll(buildSource.getOperatorFactories());
+            createDynamicFilter(buildSource, node, context, partitionCount, localDynamicFilters)
+                    .ifPresent(filter -> factoriesBuilder.add(createDynamicFilterSourceOperatorFactory(filter, node, buildSource, buildContext)));
+            factoriesBuilder.add(nestedLoopBuildOperatorFactory);
+
             context.addDriverFactory(
                     buildContext.isInputDriver(),
                     false,
-                    ImmutableList.<OperatorFactory>builder()
-                            .addAll(buildSource.getOperatorFactories())
-                            .add(nestedLoopBuildOperatorFactory)
-                            .build(),
+                    factoriesBuilder.build(),
                     buildContext.getDriverInstanceCount(),
                     buildSource.getPipelineExecutionStrategy());
 
@@ -2059,15 +2071,9 @@ public class LocalExecutionPlanner
                 PlanNode buildNode,
                 List<Symbol> buildSymbols,
                 Optional<Symbol> buildHashSymbol,
+                Set<DynamicFilterId> localDynamicFilters,
                 LocalExecutionPlanContext context)
         {
-            // Register dynamic filters, allowing the scan operators to wait for the collection completion.
-            // Skip dynamic filters that are not used locally (e.g. in case of distributed joins).
-            Set<DynamicFilterId> localDynamicFilters = node.getDynamicFilters().keySet().stream()
-                    .filter(getConsumedDynamicFilterIds(probeNode)::contains)
-                    .collect(toImmutableSet());
-            context.getDynamicFiltersCollector().register(localDynamicFilters);
-
             // Plan probe
             PhysicalOperation probeSource = probeNode.accept(this, context);
 
