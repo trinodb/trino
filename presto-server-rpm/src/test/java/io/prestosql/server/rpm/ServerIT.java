@@ -23,6 +23,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Duration;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -73,7 +74,7 @@ public class ServerIT
             container.withExposedPorts(8080)
                     .withFileSystemBind(rpmHostPath, rpm, BindMode.READ_ONLY)
                     .withCommand("sh", "-xeuc", command)
-                    .waitingFor(forLogMessage(".*SERVER STARTED.*", 1))
+                    .waitingFor(forLogMessage(".*SERVER STARTED.*", 1).withStartupTimeout(Duration.ofMinutes(5)))
                     .start();
 
             assertServer(container.getContainerIpAddress(), container.getMappedPort(8080));
