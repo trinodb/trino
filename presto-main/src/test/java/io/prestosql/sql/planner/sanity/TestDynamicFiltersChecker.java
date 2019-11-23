@@ -144,7 +144,7 @@ public class TestDynamicFiltersChecker
         validatePlan(root);
     }
 
-    @Test(expectedExceptions = VerifyException.class, expectedExceptionsMessageRegExp = "Dynamic filters \\[Descriptor\\{id=DF, input=\"ORDERS_OK\"\\}\\] present in filter predicate whose source is not a table scan.")
+    @Test(expectedExceptions = VerifyException.class, expectedExceptionsMessageRegExp = "Dynamic filters \\[Descriptor\\{id=DF, input=\"ORDERS_OK\", operator=EQUAL\\}\\] present in filter predicate whose source is not a table scan.")
     public void testDynamicFilterNotAboveTableScan()
     {
         PlanNode root = builder.output(
@@ -306,7 +306,7 @@ public class TestDynamicFiltersChecker
         validatePlan(root);
     }
 
-    @Test(expectedExceptions = VerifyException.class, expectedExceptionsMessageRegExp = "Dynamic filters \\[Descriptor\\{id=DF, input=\"ORDERS_OK\"\\}\\] present in filter predicate whose source is not a table scan.")
+    @Test(expectedExceptions = VerifyException.class, expectedExceptionsMessageRegExp = "Dynamic filters \\[Descriptor\\{id=DF, input=\"ORDERS_OK\", operator=EQUAL\\}\\] present in filter predicate whose source is not a table scan.")
     public void testDynamicFilterNotAboveTableScanWithSemiJoin()
     {
         PlanNode root = builder.semiJoin(

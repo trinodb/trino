@@ -248,7 +248,7 @@ public class DynamicFilterService
             Map<Symbol, ColumnHandle> columnHandles,
             TypeProvider typeProvider)
     {
-        Multimap<DynamicFilterId, Symbol> symbolsMap = extractSourceSymbols(dynamicFilterDescriptors);
+        Multimap<DynamicFilterId, DynamicFilters.Descriptor> symbolsMap = extractSourceSymbols(dynamicFilterDescriptors);
         Set<DynamicFilterId> dynamicFilters = ImmutableSet.copyOf(symbolsMap.keySet());
         DynamicFilterContext context = dynamicFilterContexts.get(queryId);
         if (context == null) {
@@ -385,22 +385,26 @@ public class DynamicFilterService
     private TupleDomain<ColumnHandle> translateSummaryToTupleDomain(
             DynamicFilterId filterId,
             DynamicFilterContext dynamicFilterContext,
-            Multimap<DynamicFilterId, Symbol> symbolsMap,
+            Multimap<DynamicFilterId, DynamicFilters.Descriptor> descriptorMultimap,
             Map<Symbol, ColumnHandle> columnHandles,
             TypeProvider typeProvider)
     {
-        Collection<Symbol> probeSymbols = symbolsMap.get(filterId);
-        checkState(probeSymbols != null, "No probe symbols for dynamic filter %s", filterId);
+        Collection<DynamicFilters.Descriptor> descriptors = descriptorMultimap.get(filterId);
+        checkState(descriptors != null, "No descriptors for dynamic filter %s", filterId);
         Domain summary = dynamicFilterContext.getDynamicFilterSummaries().get(filterId);
-        return TupleDomain.withColumnDomains(probeSymbols.stream()
+        return TupleDomain.withColumnDomains(descriptors.stream()
                 .collect(toImmutableMap(
-                        probeSymbol -> requireNonNull(columnHandles.get(probeSymbol), () -> format("Missing probe column for %s", probeSymbol)),
-                        probeSymbol -> {
-                            Type targetType = typeProvider.get(probeSymbol);
-                            if (!summary.getType().equals(targetType)) {
-                                return applySaturatedCasts(metadata, typeOperators, dynamicFilterContext.getSession(), summary, targetType);
+                        descriptor -> {
+                            Symbol probeSymbol = Symbol.from(descriptor.getInput());
+                            return requireNonNull(columnHandles.get(probeSymbol), () -> format("Missing probe column for %s", probeSymbol));
+                        },
+                        descriptor -> {
+                            Type targetType = typeProvider.get(Symbol.from(descriptor.getInput()));
+                            Domain updatedSummary = descriptor.applyComparison(summary);
+                            if (!updatedSummary.getType().equals(targetType)) {
+                                return applySaturatedCasts(metadata, typeOperators, dynamicFilterContext.getSession(), updatedSummary, targetType);
                             }
-                            return summary;
+                            return updatedSummary;
                         })));
     }
 

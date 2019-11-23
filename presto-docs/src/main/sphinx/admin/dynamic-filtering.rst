@@ -46,7 +46,7 @@ Analysis and confirmation
 Dynamic filtering depends on a number of factors:
 
 * Planner support for dynamic filtering for a given join operation in Presto.
-  Currently inner and right joins with equality join conditions and semi-joins with IN conditions are supported.
+  Currently inner and right joins with comparison join conditions and semi-joins with IN conditions are supported.
 * Connector support for utilizing dynamic filters pushed into the table scan at runtime.
   For example, the Hive connector can push dynamic filters into ORC and Parquet readers
   to perform stripe or row-group pruning.
@@ -87,7 +87,7 @@ down to the connector in the query plan.
            │   Estimates: {rows: 0 (0B), cpu: 0, memory: 0B, network: 0B}
            │   Distribution: REPLICATED
            │   dynamicFilterAssignments = {d_date_sk -> df_370}
-           ├─ ScanFilterProject[table = hive:default:store_sales, grouped = false, filterPredicate = true, dynamicFilter = {df_370 -> ""ss_sold_date_sk""}]
+           ├─ ScanFilterProject[table = hive:default:store_sales, grouped = false, filterPredicate = true, dynamicFilter = {""ss_sold_date_sk"" = #df_370}]
            │      Layout: [ss_sold_date_sk:bigint, $hashvalue:bigint]
            │      Estimates: {rows: 0 (0B), cpu: 0, memory: 0B, network: 0B}/{rows: 0 (0B), cpu: 0, memory: 0B, network: 0B}/{rows: 0 (0B), cpu: 0, memory: 0B, network: 0B}
            │      $hashvalue := combine_hash(bigint '0', COALESCE(""$operator$hash_code""(""ss_sold_date_sk""), 0))

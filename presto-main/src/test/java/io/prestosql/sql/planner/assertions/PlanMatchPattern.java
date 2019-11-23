@@ -60,6 +60,7 @@ import io.prestosql.sql.planner.plan.UnionNode;
 import io.prestosql.sql.planner.plan.UnnestNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.planner.plan.WindowNode;
+import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FrameBound;
 import io.prestosql.sql.tree.FunctionCall;
@@ -91,6 +92,7 @@ import static io.prestosql.sql.planner.assertions.MatchResult.match;
 import static io.prestosql.sql.planner.assertions.StrictAssignedSymbolsMatcher.actualAssignments;
 import static io.prestosql.sql.planner.assertions.StrictSymbolsMatcher.actualOutputs;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
+import static io.prestosql.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.prestosql.sql.tree.SortItem.NullOrdering.FIRST;
 import static io.prestosql.sql.tree.SortItem.NullOrdering.UNDEFINED;
 import static io.prestosql.sql.tree.SortItem.Ordering.ASCENDING;
@@ -484,6 +486,19 @@ public final class PlanMatchPattern
             PlanMatchPattern left,
             PlanMatchPattern right)
     {
+        List<DynamicFilterPattern> pattern = expectedDynamicFilter.entrySet().stream()
+                .map(entry -> new DynamicFilterPattern(entry.getKey(), EQUAL, entry.getValue()))
+                .collect(toImmutableList());
+        return join(joinType, expectedEquiCriteria, Optional.empty(), Optional.of(pattern), Optional.empty(), Optional.empty(), left, right);
+    }
+
+    public static PlanMatchPattern join(
+            Type joinType,
+            List<ExpectedValueProvider<EquiJoinClause>> expectedEquiCriteria,
+            List<DynamicFilterPattern> expectedDynamicFilter,
+            PlanMatchPattern left,
+            PlanMatchPattern right)
+    {
         return join(joinType, expectedEquiCriteria, Optional.empty(), Optional.of(expectedDynamicFilter), Optional.empty(), Optional.empty(), left, right);
     }
 
@@ -491,14 +506,12 @@ public final class PlanMatchPattern
             JoinNode.Type joinType,
             List<ExpectedValueProvider<JoinNode.EquiJoinClause>> expectedEquiCriteria,
             Optional<String> expectedFilter,
-            Optional<Map<String, String>> expectedDynamicFilter,
+            Optional<List<DynamicFilterPattern>> expectedDynamicFilter,
             Optional<JoinNode.DistributionType> expectedDistributionType,
             Optional<Boolean> expectedSpillable,
             PlanMatchPattern left,
             PlanMatchPattern right)
     {
-        Optional<Map<SymbolAlias, SymbolAlias>> expectedDynamicFilterAliases = expectedDynamicFilter.map(dynamicFilter -> dynamicFilter.entrySet().stream()
-                .collect(toImmutableMap(entry -> new SymbolAlias(entry.getKey()), entry -> new SymbolAlias(entry.getValue()))));
         return node(JoinNode.class, left, right).with(
                 new JoinMatcher(
                         joinType,
@@ -506,7 +519,7 @@ public final class PlanMatchPattern
                         expectedFilter.map(predicate -> rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(predicate, new ParsingOptions()))),
                         expectedDistributionType,
                         expectedSpillable,
-                        expectedDynamicFilterAliases));
+                        expectedDynamicFilter));
     }
 
     public static PlanMatchPattern spatialJoin(String expectedFilter, PlanMatchPattern left, PlanMatchPattern right)
@@ -1049,6 +1062,38 @@ public final class PlanMatchPattern
         }
 
         return new GroupingSetDescriptor(groupingKeys, 1, globalGroupingSets);
+    }
+
+    public static class DynamicFilterPattern
+    {
+        private final SymbolAlias probe;
+        private final ComparisonExpression.Operator operator;
+        private final SymbolAlias build;
+
+        public DynamicFilterPattern(String probeAlias, ComparisonExpression.Operator operator, String buildAlias)
+        {
+            this.probe = new SymbolAlias(requireNonNull(probeAlias, "probeAlias is null"));
+            this.operator = requireNonNull(operator, "operator is null");
+            this.build = new SymbolAlias(requireNonNull(buildAlias, "buildAlias is null"));
+        }
+
+        ComparisonExpression getComparisonExpression(SymbolAliases aliases)
+        {
+            return new ComparisonExpression(
+                    operator,
+                    probe.toSymbol(aliases).toSymbolReference(),
+                    build.toSymbol(aliases).toSymbolReference());
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("probe", probe)
+                    .add("operator", operator)
+                    .add("build", build)
+                    .toString();
+        }
     }
 
     public static class GroupingSetDescriptor

@@ -23,7 +23,9 @@ import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.TestingColumnHandle;
 import io.prestosql.spi.predicate.Domain;
+import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.predicate.ValueSet;
 import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.DynamicFilters;
 import io.prestosql.sql.planner.plan.DynamicFilterId;
@@ -37,6 +39,8 @@ import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
+import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -48,7 +52,7 @@ public class TestLocalDynamicFiltersCollector
     private final Session session = TEST_SESSION;
 
     @Test
-    public void testSingle()
+    public void testSingleEquality()
     {
         LocalDynamicFiltersCollector collector = new LocalDynamicFiltersCollector(metadata, typeOperators, session);
         DynamicFilterId filterId = new DynamicFilterId("filter");
@@ -180,6 +184,42 @@ public class TestLocalDynamicFiltersCollector
         assertFalse(filter.isAwaitable());
         assertTrue(isBlocked.isDone());
         assertEquals(filter.getCurrentPredicate(), TupleDomain.withColumnDomains(ImmutableMap.of(column1, domain, column2, domain)));
+    }
+
+    @Test
+    public void testComparison()
+    {
+        LocalDynamicFiltersCollector collector = new LocalDynamicFiltersCollector(metadata, typeOperators, session);
+        DynamicFilterId filterId1 = new DynamicFilterId("filter1");
+        DynamicFilterId filterId2 = new DynamicFilterId("filter2");
+        collector.register(ImmutableSet.of(filterId1, filterId2));
+        SymbolAllocator symbolAllocator = new SymbolAllocator();
+
+        Symbol symbol = symbolAllocator.newSymbol("symbol", BIGINT);
+        ColumnHandle column = new TestingColumnHandle("column");
+        DynamicFilter filter = collector.createDynamicFilter(
+                ImmutableList.of(
+                        new DynamicFilters.Descriptor(filterId1, symbol.toSymbolReference(), GREATER_THAN),
+                        new DynamicFilters.Descriptor(filterId2, symbol.toSymbolReference(), LESS_THAN)),
+                ImmutableMap.of(symbol, column),
+                symbolAllocator.getTypes());
+
+        // Filter is blocked and not completed.
+        CompletableFuture<?> isBlocked = filter.isBlocked();
+        assertFalse(filter.isComplete());
+        assertFalse(isBlocked.isDone());
+        assertEquals(filter.getCurrentPredicate(), TupleDomain.all());
+
+        collector.collectDynamicFilterDomains(ImmutableMap.of(
+                filterId1, Domain.multipleValues(BIGINT, ImmutableList.of(1L, 2L, 3L)),
+                filterId2, Domain.multipleValues(BIGINT, ImmutableList.of(4L, 5L, 6L))));
+
+        // Unblocked and completed.
+        assertTrue(filter.isComplete());
+        assertTrue(isBlocked.isDone());
+        assertEquals(filter.getCurrentPredicate(), TupleDomain.withColumnDomains(ImmutableMap.of(
+                column,
+                Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 1L, false, 6L, false)), false))));
     }
 
     @Test
