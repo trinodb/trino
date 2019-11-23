@@ -5,6 +5,23 @@ Secure Internal Communication
 The Presto cluster can be configured to use secured communication. Communication
 between Presto nodes can be secured with SSL/TLS.
 
+Internal Authentication
+-----------------------
+
+Requests between Presto nodes are authenticated using a shared secret.  The shared
+secret must be configured on all nodes in the cluster:
+
+    .. code-block:: none
+
+        internal-communication.shared-secret=<secret>
+
+A large random key is recommended, and can be generated with the following Linux
+command:
+
+    .. code-block:: none
+
+        openssl rand 512 | base64
+
 Internal SSL/TLS configuration
 ------------------------------
 
