@@ -77,6 +77,12 @@ abstract class Unnester
         currentPosition++;
     }
 
+    public final void advance()
+    {
+        checkState(currentPosition >= 0 && currentPosition < getInputEntryCount(), "position out of bounds");
+        currentPosition++;
+    }
+
     /**
      * Build output and flush output state for the @{code unnestBlockBuilders}.
      */

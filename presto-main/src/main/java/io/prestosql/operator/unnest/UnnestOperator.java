@@ -233,7 +233,10 @@ public class UnnestOperator
         // and appending nulls for unnested chennels
         if (outer && maxEntries == 0) {
             replicatedBlockBuilders.forEach(blockBuilder -> blockBuilder.appendRepeated(currentPosition, 1));
-            unnesters.forEach(unnester -> unnester.appendNulls(1));
+            unnesters.forEach(unnester -> {
+                unnester.appendNulls(1);
+                unnester.advance();
+            });
             if (withOrdinality) {
                 ordinalityBlockBuilder.appendNull();
             }

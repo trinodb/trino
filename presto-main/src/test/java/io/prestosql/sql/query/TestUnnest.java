@@ -120,6 +120,9 @@ public class TestUnnest
         assertions.assertQuery(
                 "SELECT * FROM (VALUES 'a', 'b') LEFT JOIN UNNEST(ARRAY[]) ON TRUE",
                 "VALUES ('a', null), ('b', null)");
+        assertions.assertQuery(
+                "SELECT id, e FROM (VALUES (1, ARRAY[3,4]), (2, NULL), (3, ARRAY[4]), (4, NULL), (5, ARRAY[]), (6, ARRAY[7,8])) x(id, a) LEFT JOIN UNNEST(a) AS y(e) ON true",
+                "VALUES (1,3), (1,4), (2,NULL), (3,4), (4,NULL), (5,NULL), (6,7), (6,8)");
         // misalignment
         assertions.assertQuery(
                 "SELECT * FROM (VALUES 1) LEFT OUTER JOIN UNNEST (MAP(ARRAY[1, 2], ARRAY['a', 'b']), ARRAY[ROW(3, 'c', true)]) WITH ORDINALITY ON TRUE",
