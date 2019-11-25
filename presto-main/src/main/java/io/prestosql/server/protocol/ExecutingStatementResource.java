@@ -82,7 +82,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static javax.ws.rs.core.MediaType.TEXT_PLAIN_TYPE;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 
-@Path("/")
+@Path("/v1/statement/executing")
 public class ExecutingStatementResource
 {
     private static final Logger log = Logger.get(ExecutingStatementResource.class);
@@ -145,7 +145,7 @@ public class ExecutingStatementResource
     }
 
     @GET
-    @Path("/v1/statement/executing/{queryId}/{slug}/{token}")
+    @Path("{queryId}/{slug}/{token}")
     @Produces(MediaType.APPLICATION_JSON)
     public void getQueryResults(
             @PathParam("queryId") QueryId queryId,
@@ -271,7 +271,7 @@ public class ExecutingStatementResource
     }
 
     @DELETE
-    @Path("/v1/statement/executing/{queryId}/{slug}/{token}")
+    @Path("{queryId}/{slug}/{token}")
     @Produces(MediaType.APPLICATION_JSON)
     public Response cancelQuery(
             @PathParam("queryId") QueryId queryId,
@@ -301,7 +301,7 @@ public class ExecutingStatementResource
     }
 
     @DELETE
-    @Path("/v1/statement/executing/partialCancel/{queryId}/{stage}/{slug}/{token}")
+    @Path("partialCancel/{queryId}/{stage}/{slug}/{token}")
     public void partialCancel(
             @PathParam("queryId") QueryId queryId,
             @PathParam("stage") int stage,

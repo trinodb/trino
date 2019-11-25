@@ -83,7 +83,7 @@ import static javax.ws.rs.core.MediaType.TEXT_PLAIN_TYPE;
 import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 
-@Path("/")
+@Path("/v1/statement")
 public class QueuedStatementResource
 {
     private static final Logger log = Logger.get(QueuedStatementResource.class);
@@ -145,7 +145,6 @@ public class QueuedStatementResource
     }
 
     @POST
-    @Path("/v1/statement")
     @Produces(APPLICATION_JSON)
     public Response postStatement(
             String statement,
@@ -165,7 +164,7 @@ public class QueuedStatementResource
     }
 
     @GET
-    @Path("/v1/statement/queued/{queryId}/{slug}/{token}")
+    @Path("queued/{queryId}/{slug}/{token}")
     @Produces(APPLICATION_JSON)
     public void getStatus(
             @PathParam("queryId") QueryId queryId,
@@ -200,7 +199,7 @@ public class QueuedStatementResource
     }
 
     @DELETE
-    @Path("/v1/statement/queued/{queryId}/{slug}/{token}")
+    @Path("queued/{queryId}/{slug}/{token}")
     @Produces(APPLICATION_JSON)
     public Response cancelQuery(
             @PathParam("queryId") QueryId queryId,
