@@ -53,9 +53,7 @@ public class KuduRecordCursorWithVirtualRowId
             PartialRow partialRow = buildPrimaryKey();
             return Slices.wrappedBuffer(KeyEncoderAccessor.encodePrimaryKey(partialRow));
         }
-        else {
-            return super.getSlice(field);
-        }
+        return super.getSlice(field);
     }
 
     private PartialRow buildPrimaryKey()

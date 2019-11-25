@@ -45,8 +45,6 @@ public class KuduPageSourceProvider
         if (columns.contains(KuduColumnHandle.ROW_ID_HANDLE)) {
             return new KuduUpdatablePageSource(recordSet);
         }
-        else {
-            return new RecordPageSource(recordSet);
-        }
+        return new RecordPageSource(recordSet);
     }
 }

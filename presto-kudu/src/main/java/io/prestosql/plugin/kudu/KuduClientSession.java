@@ -91,9 +91,7 @@ public class KuduClientSession
             if (prefix.isEmpty()) {
                 return client.getTablesList().getTablesList();
             }
-            else {
-                return client.getTablesList(prefix).getTablesList();
-            }
+            return client.getTablesList(prefix).getTablesList();
         }
         catch (KuduException e) {
             throw new PrestoException(GENERIC_INTERNAL_ERROR, e);
@@ -545,37 +543,35 @@ public class KuduClientSession
         if (javaValue instanceof Long) {
             return KuduPredicate.newComparisonPredicate(columnSchema, op, (Long) javaValue);
         }
-        else if (javaValue instanceof Integer) {
+        if (javaValue instanceof Integer) {
             return KuduPredicate.newComparisonPredicate(columnSchema, op, (Integer) javaValue);
         }
-        else if (javaValue instanceof Short) {
+        if (javaValue instanceof Short) {
             return KuduPredicate.newComparisonPredicate(columnSchema, op, (Short) javaValue);
         }
-        else if (javaValue instanceof Byte) {
+        if (javaValue instanceof Byte) {
             return KuduPredicate.newComparisonPredicate(columnSchema, op, (Byte) javaValue);
         }
-        else if (javaValue instanceof String) {
+        if (javaValue instanceof String) {
             return KuduPredicate.newComparisonPredicate(columnSchema, op, (String) javaValue);
         }
-        else if (javaValue instanceof Double) {
+        if (javaValue instanceof Double) {
             return KuduPredicate.newComparisonPredicate(columnSchema, op, (Double) javaValue);
         }
-        else if (javaValue instanceof Float) {
+        if (javaValue instanceof Float) {
             return KuduPredicate.newComparisonPredicate(columnSchema, op, (Float) javaValue);
         }
-        else if (javaValue instanceof Boolean) {
+        if (javaValue instanceof Boolean) {
             return KuduPredicate.newComparisonPredicate(columnSchema, op, (Boolean) javaValue);
         }
-        else if (javaValue instanceof byte[]) {
+        if (javaValue instanceof byte[]) {
             return KuduPredicate.newComparisonPredicate(columnSchema, op, (byte[]) javaValue);
         }
-        else if (javaValue == null) {
+        if (javaValue == null) {
             throw new IllegalStateException("Unexpected null java value for column " + columnSchema.getName());
         }
-        else {
-            throw new IllegalStateException("Unexpected java value for column "
-                    + columnSchema.getName() + ": " + javaValue + "(" + javaValue.getClass() + ")");
-        }
+        throw new IllegalStateException("Unexpected java value for column "
+                + columnSchema.getName() + ": " + javaValue + "(" + javaValue.getClass() + ")");
     }
 
     private KuduSplit toKuduSplit(KuduTableHandle tableHandle, KuduScanToken token,
