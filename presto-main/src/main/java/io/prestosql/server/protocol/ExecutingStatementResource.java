@@ -301,7 +301,7 @@ public class ExecutingStatementResource
     }
 
     @DELETE
-    @Path("/v1/statement/partialCancel/{queryId}/{stage}/{slug}/{token}")
+    @Path("/v1/statement/executing/partialCancel/{queryId}/{stage}/{slug}/{token}")
     public void partialCancel(
             @PathParam("queryId") QueryId queryId,
             @PathParam("stage") int stage,

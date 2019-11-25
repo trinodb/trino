@@ -564,7 +564,7 @@ class Query
     {
         return uriInfo.getBaseUriBuilder()
                 .scheme(scheme)
-                .replacePath("/v1/statement/partialCancel")
+                .replacePath("/v1/statement/executing/partialCancel")
                 .path(queryId.toString())
                 .path(String.valueOf(stage))
                 .path(slug.makeSlug(EXECUTING_QUERY, nextToken))
