@@ -122,9 +122,7 @@ public class KuduRecordCursor
                 return null;
             }
         }
-        else {
-            return null;
-        }
+        return null;
     }
 
     private int getRowLength()
@@ -133,9 +131,7 @@ public class KuduRecordCursor
         if (rawData != null) {
             return rawData.length();
         }
-        else {
-            return columnTypes.size();
-        }
+        return columnTypes.size();
     }
 
     @Override
