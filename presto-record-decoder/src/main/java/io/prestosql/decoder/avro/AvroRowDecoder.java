@@ -36,12 +36,13 @@ public class AvroRowDecoder
         implements RowDecoder
 {
     public static final String NAME = "avro";
-    private final DatumReader<GenericRecord> avroRecordReader;
+    private final AvroRecordReader avroRecordReader;
     private final Map<DecoderColumnHandle, AvroColumnDecoder> columnDecoders;
 
-    public AvroRowDecoder(DatumReader<GenericRecord> avroRecordReader, Set<DecoderColumnHandle> columns)
+    public AvroRowDecoder(AvroRecordReader avroRecordReader,
+        Set<DecoderColumnHandle> columns)
     {
-        this.avroRecordReader = requireNonNull(avroRecordReader, "avroRecordReader is null");
+        this.avroRecordReader = avroRecordReader;
         requireNonNull(columns, "columns is null");
         columnDecoders = columns.stream()
                 .collect(toImmutableMap(identity(), this::createColumnDecoder));
@@ -55,31 +56,10 @@ public class AvroRowDecoder
     @Override
     public Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(byte[] data, Map<String, String> dataMap)
     {
-        GenericRecord avroRecord;
-        DataFileStream<GenericRecord> dataFileReader = null;
-        try {
-            // Assumes producer uses DataFileWriter or data comes in this particular format.
-            // TODO: Support other forms for producers
-            dataFileReader = new DataFileStream<>(new ByteArrayInputStream(data), avroRecordReader);
-            if (!dataFileReader.hasNext()) {
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, "No avro record found");
-            }
-            avroRecord = dataFileReader.next();
-            if (dataFileReader.hasNext()) {
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unexpected extra record found");
-            }
-        }
-        catch (Exception e) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Decoding Avro record failed.", e);
-        }
-        finally {
-            closeQuietly(dataFileReader);
-        }
-
         return Optional.of(columnDecoders.entrySet().stream()
                 .collect(toImmutableMap(
                         Map.Entry::getKey,
-                        entry -> entry.getValue().decodeField(avroRecord))));
+                        entry -> entry.getValue().decodeField(avroRecordReader.read(data)))));
     }
 
     private void closeQuietly(DataFileStream<GenericRecord> stream)

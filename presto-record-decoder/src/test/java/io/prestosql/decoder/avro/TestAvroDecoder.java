@@ -16,6 +16,10 @@ package io.prestosql.decoder.avro;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
+import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
+import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
+import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import io.prestosql.decoder.DecoderColumnHandle;
 import io.prestosql.decoder.DecoderTestColumnHandle;
 import io.prestosql.decoder.FieldValueProvider;
@@ -80,6 +84,7 @@ public class TestAvroDecoder
     private static final Type VARCHAR_MAP_TYPE = METADATA.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
     private static final Type DOUBLE_MAP_TYPE = METADATA.getType(mapType(VARCHAR.getTypeSignature(), DOUBLE.getTypeSignature()));
     private static final Type REAL_MAP_TYPE = METADATA.getType(mapType(VARCHAR.getTypeSignature(), REAL.getTypeSignature()));
+    private static final SchemaRegistryClient SCHEMA_REGISTRY = new MockSchemaRegistryClient();
 
     private static String getAvroSchema(String name, String dataType)
     {
@@ -150,6 +155,22 @@ public class TestAvroDecoder
                 .orElseThrow(AssertionError::new);
     }
 
+    private static Map<DecoderColumnHandle, FieldValueProvider> decodeRowWithConfluentSchemaRegistry(byte[] avroData, Set<DecoderColumnHandle> columns, Map<String, String> dataParams) {
+        AvroRecordReader avroRecordReader = new AvroConfluentSchemaRegistryRecordReader(SCHEMA_REGISTRY);
+        RowDecoder rowDecoder =  new AvroRowDecoder(avroRecordReader, columns); //DECODER_FACTORY.create(dataParams, columns);
+        return rowDecoder.decodeRow(avroData, null)
+            .orElseThrow(AssertionError::new);
+    }
+
+    private byte[] buildAvroDataFromConfluentSchemaRegistry(Schema schema, String string_field, String string_field_value)
+        throws IOException, RestClientException {
+        KafkaAvroSerializer kafkaAvroSerializer = new KafkaAvroSerializer(SCHEMA_REGISTRY);
+        kafkaAvroSerializer.register("test-value", schema);
+        GenericRecord record = new GenericData.Record(schema);
+        record.put(string_field, string_field_value);
+        return kafkaAvroSerializer.serialize("test", record);
+    }
+
     private static byte[] buildAvroData(Schema schema, String name, Object value)
     {
         return buildAvroData(schema, ImmutableMap.of(name, value));
@@ -157,9 +178,13 @@ public class TestAvroDecoder
 
     private static byte[] buildAvroData(Schema schema, Map<String, Object> values)
     {
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        buildAvroRecord(schema, outputStream, values);
-        return outputStream.toByteArray();
+        try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+            buildAvroRecord(schema, outputStream, values);
+            return outputStream.toByteArray();
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 
     private static GenericData.Record buildAvroRecord(Schema schema, ByteArrayOutputStream outputStream, Map<String, Object> values)
@@ -204,6 +229,31 @@ public class TestAvroDecoder
                 originalData,
                 ImmutableSet.of(originalColumn, newlyAddedColumn),
                 ImmutableMap.of(DATA_SCHEMA, addedColumnSchema));
+
+        assertEquals(decodedRow.size(), 2);
+        checkValue(decodedRow, originalColumn, "string_field_value");
+        checkIsNull(decodedRow, newlyAddedColumn);
+    }
+
+    @Test
+    public void testConfluentSchemaRegistry()
+        throws Exception
+    {
+        DecoderTestColumnHandle originalColumn = new DecoderTestColumnHandle(0, "row0", VARCHAR, "string_field", null, null, false, false, false);
+        DecoderTestColumnHandle newlyAddedColumn = new DecoderTestColumnHandle(1, "row1", VARCHAR, "string_field_added", null, null, false, false, false);
+
+        // the decoded avro data file does not have string_field_added
+        Schema schema = new Schema.Parser().parse(
+              getAvroSchema("string_field", "\"string\""));
+        byte[] originalData = buildAvroDataFromConfluentSchemaRegistry(schema,
+            "string_field", "string_field_value");
+        String addedColumnSchema = getAvroSchema(ImmutableMap.of(
+            "string_field", "\"string\"",
+            "string_field_added", "[\"null\", \"string\"]"));
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = decodeRowWithConfluentSchemaRegistry(
+            originalData,
+            ImmutableSet.of(originalColumn, newlyAddedColumn),
+            ImmutableMap.of(DATA_SCHEMA, addedColumnSchema));
 
         assertEquals(decodedRow.size(), 2);
         checkValue(decodedRow, originalColumn, "string_field_value");
