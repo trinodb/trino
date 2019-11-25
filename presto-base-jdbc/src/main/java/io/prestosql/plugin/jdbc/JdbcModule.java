@@ -58,9 +58,9 @@ public class JdbcModule
         binder.bind(JdbcConnector.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(JdbcMetadataConfig.class);
 
-        binder.bind(Key.get(JdbcClient.class, TheJdbcClient.class))
+        binder.bind(JdbcClient.class)
                 .to(Key.get(JdbcClient.class, StatsCollecting.class));
-        binder.bind(Key.get(ConnectionFactory.class, TheConnectionFactory.class))
+        binder.bind(ConnectionFactory.class)
                 .to(Key.get(ConnectionFactory.class, StatsCollecting.class));
 
         newExporter(binder).export(Key.get(JdbcClient.class, StatsCollecting.class))
@@ -72,7 +72,7 @@ public class JdbcModule
     @Provides
     @Singleton
     @StatsCollecting
-    public JdbcClient createJdbcClientWithStats(JdbcClient client)
+    public JdbcClient createJdbcClientWithStats(@ForBaseJdbc JdbcClient client)
     {
         StatisticsAwareJdbcClient statisticsAwareJdbcClient = new StatisticsAwareJdbcClient(client);
 
@@ -83,7 +83,8 @@ public class JdbcModule
                 new ReflectiveParameterNamesProvider(),
                 logger::debug));
 
-        return new ForwardingJdbcClient() {
+        return new ForwardingJdbcClient()
+        {
             @Override
             protected JdbcClient getDelegate()
             {
@@ -98,7 +99,7 @@ public class JdbcModule
     @Provides
     @Singleton
     @StatsCollecting
-    public static ConnectionFactory createConnectionFactoryWithStats(ConnectionFactory connectionFactory)
+    public static ConnectionFactory createConnectionFactoryWithStats(@ForBaseJdbc ConnectionFactory connectionFactory)
     {
         return new StatisticsAwareConnectionFactory(connectionFactory);
     }

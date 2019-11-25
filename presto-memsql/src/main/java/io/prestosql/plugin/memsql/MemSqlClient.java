@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableSet;
 import io.prestosql.plugin.jdbc.BaseJdbcClient;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
-import io.prestosql.plugin.jdbc.TheConnectionFactory;
 
 import javax.inject.Inject;
 
@@ -33,7 +32,7 @@ public class MemSqlClient
         extends BaseJdbcClient
 {
     @Inject
-    public MemSqlClient(BaseJdbcConfig config, @TheConnectionFactory ConnectionFactory connectionFactory)
+    public MemSqlClient(BaseJdbcConfig config, ConnectionFactory connectionFactory)
     {
         super(config, "`", connectionFactory);
     }

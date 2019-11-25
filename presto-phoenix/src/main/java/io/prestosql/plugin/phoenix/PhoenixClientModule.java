@@ -14,7 +14,6 @@
 package io.prestosql.plugin.phoenix;
 
 import com.google.inject.Binder;
-import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
@@ -27,8 +26,6 @@ import io.prestosql.plugin.jdbc.ForwardingJdbcClient;
 import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.jdbc.JdbcPageSinkProvider;
 import io.prestosql.plugin.jdbc.JdbcRecordSetProvider;
-import io.prestosql.plugin.jdbc.TheConnectionFactory;
-import io.prestosql.plugin.jdbc.TheJdbcClient;
 import io.prestosql.plugin.jdbc.credential.ConfigFileBasedCredentialProvider;
 import io.prestosql.plugin.jdbc.credential.CredentialConfig;
 import io.prestosql.plugin.jdbc.credential.ExtraCredentialProvider;
@@ -77,24 +74,16 @@ public class PhoenixClientModule
         binder.bind(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSinkProvider.class).to(JdbcPageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(PhoenixClient.class).in(Scopes.SINGLETON);
-        binder.bind(JdbcClient.class)
-                .to(PhoenixClient.class)
-                .in(Scopes.SINGLETON);
         binder.bind(PhoenixMetadata.class).in(Scopes.SINGLETON);
         binder.bind(PhoenixTableProperties.class).in(Scopes.SINGLETON);
         binder.bind(PhoenixColumnProperties.class).in(Scopes.SINGLETON);
         binder.bind(TypeManager.class).toInstance(typeManager);
 
-        binder.bind(Key.get(JdbcClient.class, TheJdbcClient.class))
-                .to(Key.get(JdbcClient.class, StatsCollecting.class));
-        binder.bind(Key.get(ConnectionFactory.class, TheConnectionFactory.class))
-                .to(Key.get(ConnectionFactory.class, StatsCollecting.class));
-
         checkConfiguration(buildConfigObject(PhoenixConfig.class).getConnectionUrl());
 
-        newExporter(binder).export(Key.get(JdbcClient.class, StatsCollecting.class))
+        newExporter(binder).export(JdbcClient.class)
                 .as(generator -> generator.generatedNameOf(JdbcClient.class, catalogName));
-        newExporter(binder).export(Key.get(ConnectionFactory.class, StatsCollecting.class))
+        newExporter(binder).export(ConnectionFactory.class)
                 .as(generator -> generator.generatedNameOf(ConnectionFactory.class, catalogName));
     }
 
@@ -111,8 +100,7 @@ public class PhoenixClientModule
 
     @Provides
     @Singleton
-    @StatsCollecting
-    public JdbcClient createJdbcClientWithStats(JdbcClient client)
+    public JdbcClient createJdbcClientWithStats(PhoenixClient client)
     {
         StatisticsAwareJdbcClient statisticsAwareJdbcClient = new StatisticsAwareJdbcClient(client);
 
@@ -123,7 +111,8 @@ public class PhoenixClientModule
                 new LoggingInvocationHandler.ReflectiveParameterNamesProvider(),
                 logger::debug));
 
-        return new ForwardingJdbcClient() {
+        return new ForwardingJdbcClient()
+        {
             @Override
             protected JdbcClient getDelegate()
             {
@@ -137,25 +126,18 @@ public class PhoenixClientModule
 
     @Provides
     @Singleton
-    @StatsCollecting
-    public static ConnectionFactory createConnectionFactoryWithStats(ConnectionFactory connectionFactory)
-    {
-        return new StatisticsAwareConnectionFactory(connectionFactory);
-    }
-
-    @Provides
-    @Singleton
     public ConnectionFactory getConnectionFactory(PhoenixConfig config)
             throws SQLException
     {
-        return new DriverConnectionFactory(
-                DriverManager.getDriver(config.getConnectionUrl()),
-                config.getConnectionUrl(),
-                getConnectionProperties(config),
-                new ExtraCredentialProvider(
-                        Optional.empty(),
-                        Optional.empty(),
-                        new ConfigFileBasedCredentialProvider(new CredentialConfig())));
+        return new StatisticsAwareConnectionFactory(
+                new DriverConnectionFactory(
+                        DriverManager.getDriver(config.getConnectionUrl()),
+                        config.getConnectionUrl(),
+                        getConnectionProperties(config),
+                        new ExtraCredentialProvider(
+                                Optional.empty(),
+                                Optional.empty(),
+                                new ConfigFileBasedCredentialProvider(new CredentialConfig()))));
     }
 
     public static Properties getConnectionProperties(PhoenixConfig config)
