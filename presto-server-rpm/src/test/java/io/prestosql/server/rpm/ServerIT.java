@@ -32,7 +32,10 @@ import static java.sql.DriverManager.getConnection;
 import static java.util.Arrays.asList;
 import static org.testcontainers.containers.wait.strategy.Wait.forLogMessage;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
+@Test(singleThreaded = true)
 public class ServerIT
 {
     @Parameters("rpm")
@@ -40,7 +43,7 @@ public class ServerIT
     public void testWithJava8(String rpm)
             throws Exception
     {
-        testServer("prestodev/centos7-oj8", rpm);
+        testServer("prestodev/centos7-oj8", rpm, "1.8");
     }
 
     @Parameters("rpm")
@@ -48,10 +51,10 @@ public class ServerIT
     public void testWithJava11(String rpm)
             throws Exception
     {
-        testServer("prestodev/centos7-oj11", rpm);
+        testServer("prestodev/centos7-oj11", rpm, "11");
     }
 
-    private static void testServer(String baseImage, String rpmHostPath)
+    private static void testServer(String baseImage, String rpmHostPath, String expectedJavaVersion)
             throws Exception
     {
         String rpm = "/" + new File(rpmHostPath).getName();
@@ -65,6 +68,10 @@ public class ServerIT
                 "connector.name=hive-hadoop2\n" +
                 "hive.metastore.uri=thrift://localhost:9083\n" +
                 "EOT\n" +
+                // create JMX catalog file
+                "cat > /etc/presto/catalog/jmx.properties <<\"EOT\"\n" +
+                "connector.name=jmx\n" +
+                "EOT\n" +
                 // start server
                 "/etc/init.d/presto start\n" +
                 // allow tail to work with Docker's non-local file system
@@ -77,22 +84,28 @@ public class ServerIT
                     .waitingFor(forLogMessage(".*SERVER STARTED.*", 1).withStartupTimeout(Duration.ofMinutes(5)))
                     .start();
 
-            assertServer(container.getContainerIpAddress(), container.getMappedPort(8080));
+            assertServer(container.getContainerIpAddress(), container.getMappedPort(8080), expectedJavaVersion);
         }
     }
 
-    private static void assertServer(String host, int port)
+    private static void assertServer(String host, int port, String expectedJavaVersion)
             throws SQLException
     {
         String url = format("jdbc:presto://%s:%s", host, port);
         try (Connection connection = getConnection(url, "test", null);
-                Statement statement = connection.createStatement();
-                ResultSet rs = statement.executeQuery("SHOW CATALOGS")) {
-            Set<String> catalogs = new HashSet<>();
-            while (rs.next()) {
-                catalogs.add(rs.getString(1));
+                Statement statement = connection.createStatement()) {
+            try (ResultSet resultSet = statement.executeQuery("SHOW CATALOGS")) {
+                Set<String> catalogs = new HashSet<>();
+                while (resultSet.next()) {
+                    catalogs.add(resultSet.getString(1));
+                }
+                assertEquals(catalogs, new HashSet<>(asList("system", "hive", "jmx")));
             }
-            assertEquals(catalogs, new HashSet<>(asList("system", "hive")));
+            try (ResultSet resultSet = statement.executeQuery("SELECT specversion FROM jmx.current.\"java.lang:type=runtime\"")) {
+                assertTrue(resultSet.next(), "No data was returned");
+                assertEquals(resultSet.getString(1), expectedJavaVersion);
+                assertFalse(resultSet.next(), "Expected single row output, but got more.");
+            }
         }
     }
 }
