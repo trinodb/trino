@@ -75,13 +75,13 @@ public final class TestUtils
 
         return new AbstractMap.SimpleImmutableEntry<>(
                 schemaTableName,
-                new KafkaTopicDescription(schemaTableName.getTableName(), Optional.of(schemaTableName.getSchemaName()), topicName, tpchTemplate.getKey(), tpchTemplate.getMessage()));
+                new KafkaTopicDescription(schemaTableName.getTableName(), Optional.of(schemaTableName.getSchemaName()), topicName, Optional.empty(), tpchTemplate.getKey(), tpchTemplate.getMessage()));
     }
 
     public static Map.Entry<SchemaTableName, KafkaTopicDescription> createEmptyTopicDescription(String topicName, SchemaTableName schemaTableName)
     {
         return new AbstractMap.SimpleImmutableEntry<>(
                 schemaTableName,
-                new KafkaTopicDescription(schemaTableName.getTableName(), Optional.of(schemaTableName.getSchemaName()), topicName, Optional.empty(), Optional.empty()));
+                new KafkaTopicDescription(schemaTableName.getTableName(), Optional.of(schemaTableName.getSchemaName()), topicName, Optional.empty(), Optional.empty(), Optional.empty()));
     }
 }

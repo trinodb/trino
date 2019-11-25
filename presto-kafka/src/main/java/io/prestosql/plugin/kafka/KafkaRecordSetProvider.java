@@ -29,7 +29,6 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.plugin.kafka.KafkaHandleResolver.convertSplit;
@@ -62,7 +61,7 @@ public class KafkaRecordSetProvider
 
         RowDecoder keyDecoder = decoderFactory.create(
                 kafkaSplit.getKeyDataFormat(),
-                getDecoderParameters(kafkaSplit.getKeyDataSchemaContents()),
+                getKeyDecoderParameters(kafkaSplit),
                 kafkaColumns.stream()
                         .filter(col -> !col.isInternal())
                         .filter(KafkaColumnHandle::isKeyDecoder)
@@ -70,7 +69,7 @@ public class KafkaRecordSetProvider
 
         RowDecoder messageDecoder = decoderFactory.create(
                 kafkaSplit.getMessageDataFormat(),
-                getDecoderParameters(kafkaSplit.getMessageDataSchemaContents()),
+                getMessageDecoderParameters(kafkaSplit),
                 kafkaColumns.stream()
                         .filter(col -> !col.isInternal())
                         .filter(col -> !col.isKeyDecoder())
@@ -79,10 +78,21 @@ public class KafkaRecordSetProvider
         return new KafkaRecordSet(kafkaSplit, consumerManager, kafkaColumns, keyDecoder, messageDecoder);
     }
 
-    private Map<String, String> getDecoderParameters(Optional<String> dataSchema)
+    private Map<String, String> getKeyDecoderParameters(KafkaSplit kafkaSplit)
     {
         ImmutableMap.Builder<String, String> parameters = ImmutableMap.builder();
-        dataSchema.ifPresent(schema -> parameters.put("dataSchema", schema));
+        kafkaSplit.getKeyDataSchemaContents().ifPresent(schema -> parameters.put("dataSchema", schema));
+        kafkaSplit.getKeyDataReaderProvider().ifPresent(provider -> parameters.put("dataReaderProvider", provider));
+        kafkaSplit.getConfluentSchemaRegistryUrl().ifPresent(url -> parameters.put("confluentSchemaRegistryUrl", url));
+        return parameters.build();
+    }
+
+    private Map<String, String> getMessageDecoderParameters(KafkaSplit kafkaSplit)
+    {
+        ImmutableMap.Builder<String, String> parameters = ImmutableMap.builder();
+        kafkaSplit.getMessageDataSchemaContents().ifPresent(schema -> parameters.put("dataSchema", schema));
+        kafkaSplit.getMessageDataReaderProvider().ifPresent(provider -> parameters.put("dataReaderProvider", provider));
+        kafkaSplit.getConfluentSchemaRegistryUrl().ifPresent(url -> parameters.put("confluentSchemaRegistryUrl", url));
         return parameters.build();
     }
 }

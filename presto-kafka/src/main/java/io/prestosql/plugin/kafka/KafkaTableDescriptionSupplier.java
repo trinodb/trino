@@ -103,8 +103,9 @@ public class KafkaTableDescriptionSupplier
                             tableName.getTableName(),
                             Optional.ofNullable(tableName.getSchemaName()),
                             definedTable,
-                            Optional.of(new KafkaTopicFieldGroup(DummyRowDecoder.NAME, Optional.empty(), ImmutableList.of())),
-                            Optional.of(new KafkaTopicFieldGroup(DummyRowDecoder.NAME, Optional.empty(), ImmutableList.of()))));
+                            Optional.empty(),
+                            Optional.of(new KafkaTopicFieldGroup(DummyRowDecoder.NAME, Optional.empty(), Optional.empty(), ImmutableList.of())),
+                            Optional.of(new KafkaTopicFieldGroup(DummyRowDecoder.NAME, Optional.empty(), Optional.empty(), ImmutableList.of()))));
                 }
             }
 

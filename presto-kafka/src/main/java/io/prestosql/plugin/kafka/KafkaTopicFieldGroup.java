@@ -30,16 +30,19 @@ public class KafkaTopicFieldGroup
 {
     private final String dataFormat;
     private final Optional<String> dataSchema;
+    private final Optional<String> dataReaderProvider;
     private final List<KafkaTopicFieldDescription> fields;
 
     @JsonCreator
     public KafkaTopicFieldGroup(
             @JsonProperty("dataFormat") String dataFormat,
             @JsonProperty("dataSchema") Optional<String> dataSchema,
+            @JsonProperty("dataReaderProvider") Optional<String> dataReaderProvider,
             @JsonProperty("fields") List<KafkaTopicFieldDescription> fields)
     {
         this.dataFormat = requireNonNull(dataFormat, "dataFormat is null");
         this.dataSchema = requireNonNull(dataSchema, "dataSchema is null");
+        this.dataReaderProvider = requireNonNull(dataReaderProvider, "dataReaderProvider is null");
         this.fields = ImmutableList.copyOf(requireNonNull(fields, "fields is null"));
     }
 
@@ -61,12 +64,18 @@ public class KafkaTopicFieldGroup
         return dataSchema;
     }
 
+    @JsonProperty
+    public Optional<String> getDataReaderProvider() {
+        return dataReaderProvider;
+    }
+
     @Override
     public String toString()
     {
         return toStringHelper(this)
                 .add("dataFormat", dataFormat)
                 .add("dataSchema", dataSchema)
+                .add("dataReaderProvider", dataReaderProvider)
                 .add("fields", fields)
                 .toString();
     }

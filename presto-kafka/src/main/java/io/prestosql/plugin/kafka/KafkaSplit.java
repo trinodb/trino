@@ -40,6 +40,9 @@ public class KafkaSplit
     private final String messageDataFormat;
     private final Optional<String> keyDataSchemaContents;
     private final Optional<String> messageDataSchemaContents;
+    private final Optional<String> keyDataReaderProvider;
+    private final Optional<String> messageDataReaderProvider;
+    private final Optional<String> confluentSchemaRegistryUrl;
     private final int partitionId;
     private final long start;
     private final long end;
@@ -52,6 +55,9 @@ public class KafkaSplit
             @JsonProperty("messageDataFormat") String messageDataFormat,
             @JsonProperty("keyDataSchemaContents") Optional<String> keyDataSchemaContents,
             @JsonProperty("messageDataSchemaContents") Optional<String> messageDataSchemaContents,
+            @JsonProperty("keyDataReaderProvider") Optional<String> keyDataReaderProvider,
+            @JsonProperty("messageDataReaderProvider") Optional<String> messageDataReaderProvider,
+            @JsonProperty("confluentSchemaRegistryUrl") Optional<String> confluentSchemaRegistryUrl,
             @JsonProperty("partitionId") int partitionId,
             @JsonProperty("start") long start,
             @JsonProperty("end") long end,
@@ -62,6 +68,9 @@ public class KafkaSplit
         this.messageDataFormat = requireNonNull(messageDataFormat, "messageDataFormat is null");
         this.keyDataSchemaContents = keyDataSchemaContents;
         this.messageDataSchemaContents = messageDataSchemaContents;
+        this.keyDataReaderProvider = keyDataReaderProvider;
+        this.messageDataReaderProvider = messageDataReaderProvider;
+        this.confluentSchemaRegistryUrl = confluentSchemaRegistryUrl;
         this.partitionId = partitionId;
         this.start = start;
         this.end = end;
@@ -111,6 +120,21 @@ public class KafkaSplit
     }
 
     @JsonProperty
+    public Optional<String> getKeyDataReaderProvider() {
+        return keyDataReaderProvider;
+    }
+
+    @JsonProperty
+    public Optional<String> getMessageDataReaderProvider() {
+        return messageDataReaderProvider;
+    }
+
+    @JsonProperty
+    public Optional<String> getConfluentSchemaRegistryUrl() {
+        return confluentSchemaRegistryUrl;
+    }
+
+    @JsonProperty
     public int getPartitionId()
     {
         return partitionId;
@@ -149,6 +173,9 @@ public class KafkaSplit
                 .add("messageDataFormat", messageDataFormat)
                 .add("keyDataSchemaContents", keyDataSchemaContents)
                 .add("messageDataSchemaContents", messageDataSchemaContents)
+                .add("keyDataReaderProvider", keyDataReaderProvider)
+                .add("messageDataReaderProvider", messageDataReaderProvider)
+                .add("confluentSchemaRegistryUrl", confluentSchemaRegistryUrl)
                 .add("partitionId", partitionId)
                 .add("start", start)
                 .add("end", end)

@@ -50,6 +50,9 @@ public final class KafkaTableHandle
     private final String messageDataFormat;
     private final Optional<String> keyDataSchemaLocation;
     private final Optional<String> messageDataSchemaLocation;
+    private final Optional<String> keyDataReaderProvider;
+    private final Optional<String> messageDataReaderProvider;
+    private final Optional<String> confluentSchemaRegistryUrl;
 
     @JsonCreator
     public KafkaTableHandle(
@@ -59,7 +62,10 @@ public final class KafkaTableHandle
             @JsonProperty("keyDataFormat") String keyDataFormat,
             @JsonProperty("messageDataFormat") String messageDataFormat,
             @JsonProperty("keyDataSchemaLocation") Optional<String> keyDataSchemaLocation,
-            @JsonProperty("messageDataSchemaLocation") Optional<String> messageDataSchemaLocation)
+            @JsonProperty("messageDataSchemaLocation") Optional<String> messageDataSchemaLocation,
+            @JsonProperty("keyDataReaderProvider") Optional<String> keyDataReaderProvider,
+            @JsonProperty("messageDataReaderProvider") Optional<String> messageDataReaderProvider,
+            @JsonProperty("confluentSchemaRegistryUrl") Optional<String> confluentSchemaRegistryUrl)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -68,6 +74,9 @@ public final class KafkaTableHandle
         this.messageDataFormat = requireNonNull(messageDataFormat, "messageDataFormat is null");
         this.keyDataSchemaLocation = keyDataSchemaLocation;
         this.messageDataSchemaLocation = messageDataSchemaLocation;
+        this.keyDataReaderProvider = keyDataReaderProvider;
+        this.messageDataReaderProvider = messageDataReaderProvider;
+        this.confluentSchemaRegistryUrl = confluentSchemaRegistryUrl;
     }
 
     @JsonProperty
@@ -112,6 +121,21 @@ public final class KafkaTableHandle
         return keyDataSchemaLocation;
     }
 
+    @JsonProperty
+    public Optional<String> getKeyDataReaderProvider() {
+        return keyDataReaderProvider;
+    }
+
+    @JsonProperty
+    public Optional<String> getMessageDataReaderProvider() {
+        return messageDataReaderProvider;
+    }
+
+    @JsonProperty
+    public Optional<String> getConfluentSchemaRegistryUrl() {
+        return confluentSchemaRegistryUrl;
+    }
+
     public SchemaTableName toSchemaTableName()
     {
         return new SchemaTableName(schemaName, tableName);
@@ -120,7 +144,7 @@ public final class KafkaTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaName, tableName, topicName, keyDataFormat, messageDataFormat, keyDataSchemaLocation, messageDataSchemaLocation);
+        return Objects.hash(schemaName, tableName, topicName, keyDataFormat, messageDataFormat, keyDataSchemaLocation, messageDataSchemaLocation, keyDataReaderProvider, messageDataReaderProvider, confluentSchemaRegistryUrl);
     }
 
     @Override
@@ -140,7 +164,10 @@ public final class KafkaTableHandle
                 && Objects.equals(this.keyDataFormat, other.keyDataFormat)
                 && Objects.equals(this.messageDataFormat, other.messageDataFormat)
                 && Objects.equals(this.keyDataSchemaLocation, other.keyDataSchemaLocation)
-                && Objects.equals(this.messageDataSchemaLocation, other.messageDataSchemaLocation);
+                && Objects.equals(this.messageDataSchemaLocation, other.messageDataSchemaLocation)
+                && Objects.equals(this.keyDataReaderProvider, other.keyDataReaderProvider)
+                && Objects.equals(this.messageDataReaderProvider, other.messageDataReaderProvider)
+                && Objects.equals(this.confluentSchemaRegistryUrl, other.confluentSchemaRegistryUrl);
     }
 
     @Override
@@ -154,6 +181,9 @@ public final class KafkaTableHandle
                 .add("messageDataFormat", messageDataFormat)
                 .add("keyDataSchemaLocation", keyDataSchemaLocation)
                 .add("messageDataSchemaLocation", messageDataSchemaLocation)
+                .add("keyDataReaderProvider", keyDataReaderProvider)
+                .add("messageDataReaderProvider", messageDataReaderProvider)
+                .add("confluentSchemaRegistryUrl", confluentSchemaRegistryUrl)
                 .toString();
     }
 }

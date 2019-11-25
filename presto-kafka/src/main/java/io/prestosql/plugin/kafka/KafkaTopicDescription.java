@@ -31,6 +31,7 @@ public class KafkaTopicDescription
     private final String tableName;
     private final String topicName;
     private final Optional<String> schemaName;
+    private final Optional<String> confluentSchemaRegistryUrl;
     private final Optional<KafkaTopicFieldGroup> key;
     private final Optional<KafkaTopicFieldGroup> message;
 
@@ -39,6 +40,7 @@ public class KafkaTopicDescription
             @JsonProperty("tableName") String tableName,
             @JsonProperty("schemaName") Optional<String> schemaName,
             @JsonProperty("topicName") String topicName,
+            @JsonProperty("confluentSchemaRegistryUrl") Optional<String> confluentSchemaRegistryUrl,
             @JsonProperty("key") Optional<KafkaTopicFieldGroup> key,
             @JsonProperty("message") Optional<KafkaTopicFieldGroup> message)
     {
@@ -46,6 +48,7 @@ public class KafkaTopicDescription
         this.tableName = tableName;
         this.topicName = requireNonNull(topicName, "topicName is null");
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
+        this.confluentSchemaRegistryUrl = requireNonNull(confluentSchemaRegistryUrl, "confluentSchemaRegistryUrl is null");
         this.key = requireNonNull(key, "key is null");
         this.message = requireNonNull(message, "message is null");
     }
@@ -69,6 +72,11 @@ public class KafkaTopicDescription
     }
 
     @JsonProperty
+    public Optional<String> getConfluentSchemaRegistryUrl() {
+        return confluentSchemaRegistryUrl;
+    }
+
+    @JsonProperty
     public Optional<KafkaTopicFieldGroup> getKey()
     {
         return key;
@@ -87,6 +95,7 @@ public class KafkaTopicDescription
                 .add("tableName", tableName)
                 .add("topicName", topicName)
                 .add("schemaName", schemaName)
+                .add("confluentSchemaRegistryUrl", confluentSchemaRegistryUrl)
                 .add("key", key)
                 .add("message", message)
                 .toString();

@@ -88,7 +88,10 @@ public class KafkaMetadata
                 getDataFormat(table.getKey()),
                 getDataFormat(table.getMessage()),
                 table.getKey().flatMap(KafkaTopicFieldGroup::getDataSchema),
-                table.getMessage().flatMap(KafkaTopicFieldGroup::getDataSchema));
+                table.getMessage().flatMap(KafkaTopicFieldGroup::getDataSchema),
+                table.getKey().flatMap(KafkaTopicFieldGroup::getDataReaderProvider),
+                table.getMessage().flatMap(KafkaTopicFieldGroup::getDataReaderProvider),
+                table.getConfluentSchemaRegistryUrl());
     }
 
     private static String getDataFormat(Optional<KafkaTopicFieldGroup> fieldGroup)
