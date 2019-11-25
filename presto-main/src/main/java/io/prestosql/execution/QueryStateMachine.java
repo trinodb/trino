@@ -124,6 +124,7 @@ public class QueryStateMachine
     private final QueryStateTimer queryStateTimer;
 
     private final StateMachine<QueryState> queryState;
+    private final AtomicBoolean queryCleanedUp = new AtomicBoolean();
 
     private final AtomicReference<String> setCatalog = new AtomicReference<>();
     private final AtomicReference<String> setSchema = new AtomicReference<>();
@@ -761,6 +762,14 @@ public class QueryStateMachine
             return false;
         }
 
+        try {
+            cleanupQuery();
+        }
+        catch (Exception e) {
+            transitionToFailed(e);
+            return true;
+        }
+
         Optional<TransactionId> transactionId = session.getTransactionId();
         if (transactionId.isPresent() && transactionManager.transactionExists(transactionId.get()) && transactionManager.isAutoCommit(transactionId.get())) {
             ListenableFuture<?> commitFuture = transactionManager.asyncCommit(transactionId.get());
@@ -787,7 +796,6 @@ public class QueryStateMachine
 
     private void transitionToFinished()
     {
-        cleanupQueryQuietly();
         queryStateTimer.endQuery();
 
         queryState.setIf(FINISHED, currentState -> !currentState.isDone());
@@ -848,10 +856,18 @@ public class QueryStateMachine
         return canceled;
     }
 
+    private void cleanupQuery()
+    {
+        // only execute cleanup once
+        if (queryCleanedUp.compareAndSet(false, true)) {
+            metadata.cleanupQuery(session);
+        }
+    }
+
     private void cleanupQueryQuietly()
     {
         try {
-            metadata.cleanupQuery(session);
+            cleanupQuery();
         }
         catch (Throwable t) {
             QUERY_STATE_LOG.error("Error cleaning up query: %s", t);
