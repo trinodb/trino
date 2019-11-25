@@ -2,6 +2,8 @@
 Release 325 (14 Nov 2019)
 =========================
 
+.. warning:: There is a performance regression in this release.
+
 General Changes
 ---------------
 
