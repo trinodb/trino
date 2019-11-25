@@ -1323,6 +1323,12 @@ public class PrestoS3FileSystem
         s3 = client;
     }
 
+    @VisibleForTesting
+    protected String getBucketName(URI uri)
+    {
+        return extractBucketName(uri);
+    }
+
     /**
      * Helper function used to work around the fact that if you use an S3 bucket with an '_' that java.net.URI
      * behaves differently and sets the host value to null whereas S3 buckets without '_' have a properly
@@ -1332,7 +1338,7 @@ public class PrestoS3FileSystem
      * @return The host value where uri.getAuthority() is used when uri.getHost() returns null as long as no UserInfo is present.
      * @throws IllegalArgumentException If the bucket cannot be determined from the URI.
      */
-    public static String getBucketName(URI uri)
+    public static String extractBucketName(URI uri)
     {
         if (uri.getHost() != null) {
             return uri.getHost();
