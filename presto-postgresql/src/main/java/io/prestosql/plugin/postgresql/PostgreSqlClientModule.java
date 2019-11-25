@@ -14,6 +14,7 @@
 package io.prestosql.plugin.postgresql;
 
 import com.google.inject.Binder;
+import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
@@ -21,6 +22,7 @@ import com.google.inject.Singleton;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.DriverConnectionFactory;
+import io.prestosql.plugin.jdbc.ForBaseJdbc;
 import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.jdbc.SessionPropertiesProvider;
 import io.prestosql.plugin.jdbc.credential.CredentialProvider;
@@ -35,7 +37,8 @@ public class PostgreSqlClientModule
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(JdbcClient.class).to(PostgreSqlClient.class).in(Scopes.SINGLETON);
+        binder.bind(Key.get(JdbcClient.class, ForBaseJdbc.class))
+                .to(PostgreSqlClient.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(BaseJdbcConfig.class);
         configBinder(binder).bindConfig(PostgreSqlConfig.class);
 
@@ -44,6 +47,7 @@ public class PostgreSqlClientModule
 
     @Provides
     @Singleton
+    @ForBaseJdbc
     public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider)
     {
         return new DriverConnectionFactory(new Driver(), config, credentialProvider);

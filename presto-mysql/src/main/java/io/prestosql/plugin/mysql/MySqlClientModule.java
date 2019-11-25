@@ -14,6 +14,7 @@
 package io.prestosql.plugin.mysql;
 
 import com.google.inject.Binder;
+import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
@@ -22,6 +23,7 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.DriverConnectionFactory;
+import io.prestosql.plugin.jdbc.ForBaseJdbc;
 import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.jdbc.credential.CredentialProvider;
 
@@ -37,7 +39,8 @@ public class MySqlClientModule
     @Override
     protected void setup(Binder binder)
     {
-        binder.bind(JdbcClient.class).to(MySqlClient.class).in(Scopes.SINGLETON);
+        binder.bind(Key.get(JdbcClient.class, ForBaseJdbc.class))
+                .to(MySqlClient.class).in(Scopes.SINGLETON);
         ensureCatalogIsEmpty(buildConfigObject(BaseJdbcConfig.class).getConnectionUrl());
         configBinder(binder).bindConfig(MySqlConfig.class);
     }
@@ -57,6 +60,7 @@ public class MySqlClientModule
 
     @Provides
     @Singleton
+    @ForBaseJdbc
     public static ConnectionFactory createConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, MySqlConfig mySqlConfig)
             throws SQLException
     {

@@ -14,6 +14,7 @@
 package io.prestosql.plugin.memsql;
 
 import com.google.inject.Binder;
+import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
@@ -21,6 +22,7 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.DriverConnectionFactory;
+import io.prestosql.plugin.jdbc.ForBaseJdbc;
 import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.jdbc.credential.CredentialProvider;
 import org.mariadb.jdbc.Driver;
@@ -38,7 +40,8 @@ public class MemSqlClientModule
     @Override
     protected void setup(Binder binder)
     {
-        binder.bind(JdbcClient.class).to(MemSqlClient.class).in(Scopes.SINGLETON);
+        binder.bind(Key.get(JdbcClient.class, ForBaseJdbc.class))
+                .to(MemSqlClient.class).in(Scopes.SINGLETON);
         ensureCatalogIsEmpty(buildConfigObject(BaseJdbcConfig.class).getConnectionUrl());
         configBinder(binder).bindConfig(MemSqlConfig.class);
     }
@@ -57,6 +60,7 @@ public class MemSqlClientModule
 
     @Provides
     @Singleton
+    @ForBaseJdbc
     public static ConnectionFactory createConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, MemSqlConfig memsqlConfig)
     {
         Properties connectionProperties = new Properties();

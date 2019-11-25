@@ -40,7 +40,6 @@ import io.prestosql.plugin.jdbc.LongWriteFunction;
 import io.prestosql.plugin.jdbc.ReadFunction;
 import io.prestosql.plugin.jdbc.SliceReadFunction;
 import io.prestosql.plugin.jdbc.SliceWriteFunction;
-import io.prestosql.plugin.jdbc.TheConnectionFactory;
 import io.prestosql.plugin.jdbc.WriteMapping;
 import io.prestosql.plugin.postgresql.PostgreSqlConfig.ArrayMapping;
 import io.prestosql.spi.PrestoException;
@@ -144,7 +143,7 @@ public class PostgreSqlClient
     public PostgreSqlClient(
             BaseJdbcConfig config,
             PostgreSqlConfig postgreSqlConfig,
-            @TheConnectionFactory ConnectionFactory connectionFactory,
+            ConnectionFactory connectionFactory,
             TypeManager typeManager)
     {
         super(config, "\"", connectionFactory);
