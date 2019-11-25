@@ -24,10 +24,10 @@ check_if_correct_java_version() {
   JAVA_UPDATE=$(echo $JAVA_VERSION | cut -d'_' -f2)
   JAVA_MAJOR=$(echo $JAVA_VERSION | cut -d'.' -f1)
   if [[ ("$JAVA_MAJOR" -ge "11") ]]; then
-    echo "$PRESTO_JAVA_HOME=$1" > /tmp/presto_env.sh
+    echo "PRESTO_JAVA_HOME=$1" > /tmp/presto_env.sh
     return 0
   elif [[ ("$JAVA_VERSION" > "1.8") && ($JAVA_UPDATE -ge 161) ]]; then
-    echo "$PRESTO_JAVA_HOME=$1" > /tmp/presto_env.sh
+    echo "PRESTO_JAVA_HOME=$1" > /tmp/presto_env.sh
     return 0
   else
     return 1
