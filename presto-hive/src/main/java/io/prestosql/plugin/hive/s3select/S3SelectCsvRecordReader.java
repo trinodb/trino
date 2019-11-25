@@ -59,7 +59,7 @@ class S3SelectCsvRecordReader
     {
         SelectObjectContentRequest selectObjectRequest = new SelectObjectContentRequest();
         URI uri = path.toUri();
-        selectObjectRequest.setBucketName(PrestoS3FileSystem.getBucketName(uri));
+        selectObjectRequest.setBucketName(PrestoS3FileSystem.extractBucketName(uri));
         selectObjectRequest.setKey(PrestoS3FileSystem.keyFromPath(path));
         selectObjectRequest.setExpression(query);
         selectObjectRequest.setExpressionType(ExpressionType.SQL);

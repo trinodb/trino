@@ -203,7 +203,9 @@ public class TestPrestoS3FileSystem
         try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
             MockAmazonS3 s3 = new MockAmazonS3();
             String expectedBucketName = "test-bucket_underscore";
-            fs.initialize(new URI("s3n://" + expectedBucketName + "/"), config);
+            URI uri = new URI("s3n://" + expectedBucketName + "/");
+            assertEquals(fs.getBucketName(uri), expectedBucketName);
+            fs.initialize(uri, config);
             fs.setS3Client(s3);
             fs.getS3ObjectMetadata(new Path("/test/path"));
             assertEquals(expectedBucketName, s3.getGetObjectMetadataRequest().getBucketName());
@@ -525,7 +527,7 @@ public class TestPrestoS3FileSystem
         }
     }
 
-    private static AWSCredentialsProvider getAwsCredentialsProvider(PrestoS3FileSystem fs)
+    public static AWSCredentialsProvider getAwsCredentialsProvider(PrestoS3FileSystem fs)
     {
         return getFieldValue(fs.getS3Client(), "awsCredentialsProvider", AWSCredentialsProvider.class);
     }
