@@ -18,10 +18,11 @@ import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.prestosql.decoder.DecoderColumnHandle;
 import io.prestosql.decoder.RowDecoder;
 import io.prestosql.decoder.RowDecoderFactory;
-import java.util.Map;
-import java.util.Set;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericDatumReader;
+
+import java.util.Map;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -38,7 +39,8 @@ public class AvroRowDecoderFactory
             String url = decoderParams.get("confluentSchemaRegistryUrl");
             SchemaRegistryClient schemaRegistry = new CachedSchemaRegistryClient(url, 10_000);
             avroRecordReader = new AvroConfluentSchemaRegistryRecordReader(schemaRegistry);
-        } else {
+        }
+        else {
             avroRecordReader = new AvroDataFileRecordReader(new GenericDatumReader<>(parsedSchema));
         }
         return new AvroRowDecoder(avroRecordReader, columns);
