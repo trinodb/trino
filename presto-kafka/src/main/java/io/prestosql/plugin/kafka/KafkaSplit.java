@@ -120,17 +120,20 @@ public class KafkaSplit
     }
 
     @JsonProperty
-    public Optional<String> getKeyDataReaderProvider() {
+    public Optional<String> getKeyDataReaderProvider()
+    {
         return keyDataReaderProvider;
     }
 
     @JsonProperty
-    public Optional<String> getMessageDataReaderProvider() {
+    public Optional<String> getMessageDataReaderProvider()
+    {
         return messageDataReaderProvider;
     }
 
     @JsonProperty
-    public Optional<String> getConfluentSchemaRegistryUrl() {
+    public Optional<String> getConfluentSchemaRegistryUrl()
+    {
         return confluentSchemaRegistryUrl;
     }
 

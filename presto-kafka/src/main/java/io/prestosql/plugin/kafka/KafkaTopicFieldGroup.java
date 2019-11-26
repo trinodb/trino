@@ -65,7 +65,8 @@ public class KafkaTopicFieldGroup
     }
 
     @JsonProperty
-    public Optional<String> getDataReaderProvider() {
+    public Optional<String> getDataReaderProvider()
+    {
         return dataReaderProvider;
     }
 

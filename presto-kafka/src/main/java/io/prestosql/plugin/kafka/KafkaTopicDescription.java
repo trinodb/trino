@@ -72,7 +72,8 @@ public class KafkaTopicDescription
     }
 
     @JsonProperty
-    public Optional<String> getConfluentSchemaRegistryUrl() {
+    public Optional<String> getConfluentSchemaRegistryUrl()
+    {
         return confluentSchemaRegistryUrl;
     }
 
