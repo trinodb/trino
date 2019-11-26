@@ -53,6 +53,7 @@
         <dep.tempto.version>171</dep.tempto.version>
         <dep.gcs.version>2.0.0</dep.gcs.version>
         <dep.errorprone.version>2.3.3</dep.errorprone.version>
+        <dep.alluxio.version>2.1.0</dep.alluxio.version>
 
         <!--
           America/Bahia_Banderas has:
@@ -86,6 +87,7 @@
         <module>presto-parquet</module>
         <module>presto-rcfile</module>
         <module>presto-hive</module>
+        <module>presto-hive-alluxio</module>
         <module>presto-hive-hadoop2</module>
         <module>presto-teradata-functions</module>
         <module>presto-example-http</module>
@@ -139,6 +141,34 @@
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>org.alluxio</groupId>
+                <artifactId>alluxio-shaded-client</artifactId>
+                <version>${dep.alluxio.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-api</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-log4j12</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-jdk14</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>log4j</groupId>
+                        <artifactId>log4j</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>commons-logging</groupId>
+                        <artifactId>commons-logging</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
             <dependency>
                 <groupId>io.prestosql</groupId>
                 <artifactId>presto-spi</artifactId>
@@ -1310,6 +1340,7 @@
                             <requireUpperBoundDeps>
                                 <excludes combine.children="append">
                                     <!-- TODO: fix this in Airlift resolver -->
+                                    <exclude>org.alluxio:alluxio-shaded-client</exclude>
                                     <exclude>org.codehaus.plexus:plexus-utils</exclude>
                                     <exclude>com.google.guava:guava</exclude>
                                     <exclude>com.fasterxml.jackson.core:jackson-core</exclude>
