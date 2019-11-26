@@ -1,6 +1,9 @@
 #!/bin/bash
 
 function retry() {
+  local END
+  local EXIT_CODE
+
   END=$(($(date +%s) + 600))
 
   while (( $(date +%s) < $END )); do
