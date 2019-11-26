@@ -119,7 +119,7 @@ public class TestPostgreSqlTypeMapping
     {
         super(() -> createPostgreSqlQueryRunner(
                 postgreSqlServer,
-                ImmutableMap.of("jdbc-types-mapped-to-varchar", "tsrange, inet"),
+                ImmutableMap.of("jdbc-types-mapped-to-varchar", "Tsrange, Inet" /* make sure that types are compared case insensitively */),
                 ImmutableList.of()));
         this.postgreSqlServer = postgreSqlServer;
     }
