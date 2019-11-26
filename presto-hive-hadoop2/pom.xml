@@ -118,6 +118,7 @@
                         <configuration>
                             <excludes>
                                 <exclude>**/TestHive.java</exclude>
+                                <exclude>**/TestHiveAlluxioMetastore.java</exclude>
                                 <exclude>**/TestHiveFileSystemS3.java</exclude>
                                 <exclude>**/TestHiveFileSystemS3SelectPushdown.java</exclude>
                                 <exclude>**/TestHiveFileSystemWasb.java</exclude>
@@ -227,5 +228,21 @@
                 </plugins>
             </build>
         </profile>
+      <profile>
+        <id>test-hive-hadoop2-alluxio</id>
+        <build>
+          <plugins>
+            <plugin>
+              <groupId>org.apache.maven.plugins</groupId>
+              <artifactId>maven-surefire-plugin</artifactId>
+              <configuration>
+                <includes>
+                  <include>**/TestHiveAlluxioMetastore.java</include>
+                </includes>
+              </configuration>
+            </plugin>
+          </plugins>
+        </build>
+      </profile>
     </profiles>
 </project>

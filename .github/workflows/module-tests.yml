@@ -51,6 +51,10 @@ jobs:
           if [ "${AWS_ACCESS_KEY_ID}" != "" ]; then
             ./mvnw test -B -Dair.check.skip-all -pl presto-hive -P test-hive-glue
           fi
+      - name: Run Hive Alluxio Tests
+        run: |
+          source presto-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
+            presto-hive-hadoop2/bin/run_hive_alluxio_tests.sh
 
   kudu-tests:
     runs-on: ubuntu-latest

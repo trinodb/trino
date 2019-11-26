@@ -4,8 +4,8 @@ set -euo pipefail -x
 
 . "${BASH_SOURCE%/*}/common.sh"
 
-cleanup_docker_containers
-start_docker_containers
+cleanup_hadoop_docker_containers
+start_hadoop_docker_containers
 
 test_directory="$(date '+%Y%m%d-%H%M%S')-$(uuidgen | sha1sum | cut -b 1-6)"
 
@@ -67,6 +67,6 @@ EXIT_CODE=$?
 set -e
 popd
 
-cleanup_docker_containers
+cleanup_hadoop_docker_containers
 
 exit "${EXIT_CODE}"
