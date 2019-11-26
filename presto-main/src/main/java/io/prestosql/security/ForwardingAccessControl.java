@@ -26,10 +26,26 @@ import java.security.Principal;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
+
+import static java.util.Objects.requireNonNull;
 
 public abstract class ForwardingAccessControl
         implements AccessControl
 {
+    public static ForwardingAccessControl of(Supplier<AccessControl> accessControlSupplier)
+    {
+        requireNonNull(accessControlSupplier, "accessControlSupplier is null");
+        return new ForwardingAccessControl()
+        {
+            @Override
+            protected AccessControl getDelegate()
+            {
+                return requireNonNull(accessControlSupplier.get(), "accessControlSupplier.get() is null");
+            }
+        };
+    }
+
     protected abstract AccessControl getDelegate();
 
     @Override
