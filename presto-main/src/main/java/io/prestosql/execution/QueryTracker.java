@@ -14,6 +14,7 @@
 package io.prestosql.execution;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Ordering;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
@@ -57,6 +58,7 @@ public class QueryTracker<T extends TrackedQuery>
     private final Queue<T> expirationQueue = new LinkedBlockingQueue<>();
 
     private final Duration clientTimeout;
+    private final Duration queryMaxExecutionTimeHardLimit;
 
     private final ScheduledExecutorService queryManagementExecutor;
 
@@ -69,6 +71,7 @@ public class QueryTracker<T extends TrackedQuery>
         this.minQueryExpireAge = queryManagerConfig.getMinQueryExpireAge();
         this.maxQueryHistory = queryManagerConfig.getMaxQueryHistory();
         this.clientTimeout = queryManagerConfig.getClientTimeout();
+        this.queryMaxExecutionTimeHardLimit = queryManagerConfig.getQueryMaxExecutionTimeHardLimit();
 
         this.queryManagementExecutor = requireNonNull(queryManagementExecutor, "queryManagementExecutor is null");
     }
@@ -177,7 +180,7 @@ public class QueryTracker<T extends TrackedQuery>
                 continue;
             }
             Duration queryMaxRunTime = getQueryMaxRunTime(query.getSession());
-            Duration queryMaxExecutionTime = getQueryMaxExecutionTime(query.getSession());
+            Duration queryMaxExecutionTime = Ordering.natural().min(getQueryMaxExecutionTime(query.getSession()), queryMaxExecutionTimeHardLimit);
             Optional<DateTime> executionStartTime = query.getExecutionStartTime();
             DateTime createTime = query.getCreateTime();
             if (executionStartTime.isPresent() && executionStartTime.get().plus(queryMaxExecutionTime.toMillis()).isBeforeNow()) {

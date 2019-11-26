@@ -59,6 +59,7 @@ public class QueryManagerConfig
     private String queryExecutionPolicy = "all-at-once";
     private Duration queryMaxRunTime = new Duration(100, TimeUnit.DAYS);
     private Duration queryMaxExecutionTime = new Duration(100, TimeUnit.DAYS);
+    private Duration queryMaxExecutionTimeHardLimit = new Duration(100, TimeUnit.DAYS);
     private Duration queryMaxCpuTime = new Duration(1_000_000_000, TimeUnit.DAYS);
 
     private int requiredWorkers = 1;
@@ -274,10 +275,24 @@ public class QueryManagerConfig
         return queryMaxExecutionTime;
     }
 
-    @Config("query.max-execution-time")
+    @LegacyConfig("query.max-execution-time")
+    @Config("query.max-execution-time.soft-limit")
     public QueryManagerConfig setQueryMaxExecutionTime(Duration queryMaxExecutionTime)
     {
         this.queryMaxExecutionTime = queryMaxExecutionTime;
+        return this;
+    }
+
+    @NotNull
+    public Duration getQueryMaxExecutionTimeHardLimit()
+    {
+        return queryMaxExecutionTimeHardLimit;
+    }
+
+    @Config("query.max-execution-time.hard-limit")
+    public QueryManagerConfig setQueryMaxExecutionTimeHardLimit(Duration queryMaxExecutionTimeHardLimit)
+    {
+        this.queryMaxExecutionTimeHardLimit = queryMaxExecutionTimeHardLimit;
         return this;
     }
 

@@ -48,6 +48,7 @@ public class TestQueryManagerConfig
                 .setQueryExecutionPolicy("all-at-once")
                 .setQueryMaxRunTime(new Duration(100, TimeUnit.DAYS))
                 .setQueryMaxExecutionTime(new Duration(100, TimeUnit.DAYS))
+                .setQueryMaxExecutionTimeHardLimit(new Duration(100, TimeUnit.DAYS))
                 .setQueryMaxCpuTime(new Duration(1_000_000_000, TimeUnit.DAYS))
                 .setRequiredWorkers(1)
                 .setRequiredWorkersMaxWait(new Duration(5, TimeUnit.MINUTES)));
@@ -74,7 +75,8 @@ public class TestQueryManagerConfig
                 .put("query.remote-task.max-callback-threads", "10")
                 .put("query.execution-policy", "phased")
                 .put("query.max-run-time", "2h")
-                .put("query.max-execution-time", "3h")
+                .put("query.max-execution-time.soft-limit", "3h")
+                .put("query.max-execution-time.hard-limit", "4h")
                 .put("query.max-cpu-time", "2d")
                 .put("query-manager.required-workers", "333")
                 .put("query-manager.required-workers-max-wait", "33m")
@@ -99,6 +101,7 @@ public class TestQueryManagerConfig
                 .setQueryExecutionPolicy("phased")
                 .setQueryMaxRunTime(new Duration(2, TimeUnit.HOURS))
                 .setQueryMaxExecutionTime(new Duration(3, TimeUnit.HOURS))
+                .setQueryMaxExecutionTimeHardLimit(new Duration(4, TimeUnit.HOURS))
                 .setQueryMaxCpuTime(new Duration(2, TimeUnit.DAYS))
                 .setRequiredWorkers(333)
                 .setRequiredWorkersMaxWait(new Duration(33, TimeUnit.MINUTES));
