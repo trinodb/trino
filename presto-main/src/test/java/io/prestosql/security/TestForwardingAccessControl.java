@@ -16,6 +16,7 @@ package io.prestosql.security;
 import org.testng.annotations.Test;
 
 import static io.prestosql.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
+import static io.prestosql.spi.testing.InterfaceTestUtils.assertProperForwardingMethodsAreCalled;
 
 public class TestForwardingAccessControl
 {
@@ -23,5 +24,11 @@ public class TestForwardingAccessControl
     public void testEverythingImplemented()
     {
         assertAllMethodsOverridden(AccessControl.class, ForwardingAccessControl.class);
+    }
+
+    @Test
+    public void testProperForwardingMethodsAreCalled()
+    {
+        assertProperForwardingMethodsAreCalled(AccessControl.class, accessControl -> ForwardingAccessControl.of(() -> accessControl));
     }
 }

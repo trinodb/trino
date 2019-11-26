@@ -29,10 +29,26 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
+
+import static java.util.Objects.requireNonNull;
 
 public abstract class ForwardingJdbcClient
         implements JdbcClient
 {
+    public static JdbcClient of(Supplier<JdbcClient> jdbcClientSupplier)
+    {
+        requireNonNull(jdbcClientSupplier, "jdbcClientSupplier is null");
+        return new ForwardingJdbcClient()
+        {
+            @Override
+            protected JdbcClient getDelegate()
+            {
+                return requireNonNull(jdbcClientSupplier.get(), "jdbcClientSupplier.get() is null");
+            }
+        };
+    }
+
     protected abstract JdbcClient getDelegate();
 
     @Override
