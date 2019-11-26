@@ -21,7 +21,6 @@ import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
-import io.prestosql.transaction.TransactionId;
 
 import java.security.Principal;
 import java.util.List;
@@ -225,7 +224,7 @@ public interface AccessControl
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanSetCatalogSessionProperty(TransactionId transactionId, Identity identity, String catalogName, String propertyName);
+    void checkCanSetCatalogSessionProperty(SecurityContext context, String catalogName, String propertyName);
 
     /**
      * Check if identity is allowed to select from the specified columns.  The column set can be empty.
@@ -267,7 +266,7 @@ public interface AccessControl
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanSetRole(TransactionId transactionId, Identity identity, String role, String catalogName);
+    void checkCanSetRole(SecurityContext context, String role, String catalogName);
 
     /**
      * Check if identity is allowed to show roles on the specified catalog.

@@ -17,6 +17,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AccessControl;
+import io.prestosql.security.SecurityContext;
 import io.prestosql.spi.security.SelectedRole;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.SetRole;
@@ -44,8 +45,7 @@ public class SetRoleTask
         String catalog = createCatalogName(session, statement);
         if (statement.getType() == SetRole.Type.ROLE) {
             accessControl.checkCanSetRole(
-                    session.getRequiredTransactionId(),
-                    session.getIdentity(),
+                    SecurityContext.of(session),
                     statement.getRole().map(c -> c.getValue().toLowerCase(ENGLISH)).get(),
                     catalog);
         }

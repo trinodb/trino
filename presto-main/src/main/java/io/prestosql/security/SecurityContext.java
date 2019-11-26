@@ -13,6 +13,7 @@
  */
 package io.prestosql.security;
 
+import io.prestosql.Session;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.SystemSecurityContext;
 import io.prestosql.transaction.TransactionId;
@@ -23,6 +24,12 @@ import static java.util.Objects.requireNonNull;
 
 public class SecurityContext
 {
+    public static SecurityContext of(Session session)
+    {
+        requireNonNull(session, "session is null");
+        return new SecurityContext(session.getRequiredTransactionId(), session.getIdentity());
+    }
+
     private final TransactionId transactionId;
     private final Identity identity;
 
