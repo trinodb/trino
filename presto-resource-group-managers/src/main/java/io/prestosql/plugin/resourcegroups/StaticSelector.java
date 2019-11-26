@@ -41,6 +41,7 @@ public class StaticSelector
     private static final String SOURCE_VARIABLE = "SOURCE";
 
     private final Optional<Pattern> userRegex;
+    private final Optional<Pattern> userGroupRegex;
     private final Optional<Pattern> sourceRegex;
     private final Set<String> clientTags;
     private final Optional<SelectorResourceEstimate> selectorResourceEstimate;
@@ -50,6 +51,7 @@ public class StaticSelector
 
     public StaticSelector(
             Optional<Pattern> userRegex,
+            Optional<Pattern> userGroupRegex,
             Optional<Pattern> sourceRegex,
             Optional<List<String>> clientTags,
             Optional<SelectorResourceEstimate> selectorResourceEstimate,
@@ -57,6 +59,7 @@ public class StaticSelector
             ResourceGroupIdTemplate group)
     {
         this.userRegex = requireNonNull(userRegex, "userRegex is null");
+        this.userGroupRegex = requireNonNull(userGroupRegex, "userGroupRegex is null");
         this.sourceRegex = requireNonNull(sourceRegex, "sourceRegex is null");
         requireNonNull(clientTags, "clientTags is null");
         this.clientTags = ImmutableSet.copyOf(clientTags.orElse(ImmutableList.of()));
@@ -85,6 +88,10 @@ public class StaticSelector
             }
 
             addVariableValues(userRegex.get(), criteria.getUser(), variables);
+        }
+
+        if (userGroupRegex.isPresent() && !criteria.getUserGroups().stream().anyMatch(group -> userGroupRegex.get().matcher(group).matches())) {
+            return Optional.empty();
         }
 
         if (sourceRegex.isPresent()) {
