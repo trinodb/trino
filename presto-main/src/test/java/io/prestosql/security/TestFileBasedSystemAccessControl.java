@@ -273,14 +273,15 @@ public class TestFileBasedSystemAccessControl
 
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
-                    accessControlManager.checkCanCreateView(new SecurityContext(transactionId, alice), aliceView);
-                    accessControlManager.checkCanDropView(new SecurityContext(transactionId, alice), aliceView);
-                    accessControlManager.checkCanSelectFromColumns(new SecurityContext(transactionId, alice), aliceView, ImmutableSet.of());
-                    accessControlManager.checkCanCreateViewWithSelectFromColumns(new SecurityContext(transactionId, alice), aliceTable, ImmutableSet.of());
-                    accessControlManager.checkCanCreateViewWithSelectFromColumns(new SecurityContext(transactionId, alice), aliceView, ImmutableSet.of());
-                    accessControlManager.checkCanSetCatalogSessionProperty(transactionId, alice, "alice-catalog", "property");
-                    accessControlManager.checkCanGrantTablePrivilege(new SecurityContext(transactionId, alice), SELECT, aliceTable, new PrestoPrincipal(USER, "grantee"), true);
-                    accessControlManager.checkCanRevokeTablePrivilege(new SecurityContext(transactionId, alice), SELECT, aliceTable, new PrestoPrincipal(USER, "revokee"), true);
+                    SecurityContext context = new SecurityContext(transactionId, alice);
+                    accessControlManager.checkCanCreateView(context, aliceView);
+                    accessControlManager.checkCanDropView(context, aliceView);
+                    accessControlManager.checkCanSelectFromColumns(context, aliceView, ImmutableSet.of());
+                    accessControlManager.checkCanCreateViewWithSelectFromColumns(context, aliceTable, ImmutableSet.of());
+                    accessControlManager.checkCanCreateViewWithSelectFromColumns(context, aliceView, ImmutableSet.of());
+                    accessControlManager.checkCanSetCatalogSessionProperty(context, "alice-catalog", "property");
+                    accessControlManager.checkCanGrantTablePrivilege(context, SELECT, aliceTable, new PrestoPrincipal(USER, "grantee"), true);
+                    accessControlManager.checkCanRevokeTablePrivilege(context, SELECT, aliceTable, new PrestoPrincipal(USER, "revokee"), true);
                 });
         assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
             accessControlManager.checkCanCreateView(new SecurityContext(transactionId, bob), aliceView);
@@ -295,8 +296,9 @@ public class TestFileBasedSystemAccessControl
 
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
-                    accessControlManager.checkCanSelectFromColumns(new SecurityContext(transactionId, alice), aliceView, ImmutableSet.of());
-                    accessControlManager.checkCanSetCatalogSessionProperty(transactionId, alice, "alice-catalog", "property");
+                    SecurityContext context = new SecurityContext(transactionId, alice);
+                    accessControlManager.checkCanSelectFromColumns(context, aliceView, ImmutableSet.of());
+                    accessControlManager.checkCanSetCatalogSessionProperty(context, "alice-catalog", "property");
                 });
 
         assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {

@@ -21,7 +21,6 @@ import io.prestosql.security.SecurityContext;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.security.Identity;
-import io.prestosql.transaction.TransactionId;
 import io.prestosql.transaction.TransactionManager;
 
 import javax.inject.Inject;
@@ -300,13 +299,13 @@ public class TestingAccessControlManager
     }
 
     @Override
-    public void checkCanSetCatalogSessionProperty(TransactionId transactionId, Identity identity, String catalogName, String propertyName)
+    public void checkCanSetCatalogSessionProperty(SecurityContext context, String catalogName, String propertyName)
     {
-        if (shouldDenyPrivilege(identity.getUser(), catalogName + "." + propertyName, SET_SESSION)) {
+        if (shouldDenyPrivilege(context.getIdentity().getUser(), catalogName + "." + propertyName, SET_SESSION)) {
             denySetCatalogSessionProperty(catalogName, propertyName);
         }
         if (denyPrivileges.isEmpty()) {
-            super.checkCanSetCatalogSessionProperty(transactionId, identity, catalogName, propertyName);
+            super.checkCanSetCatalogSessionProperty(context, catalogName, propertyName);
         }
     }
 

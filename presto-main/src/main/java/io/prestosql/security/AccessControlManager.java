@@ -568,20 +568,19 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanSetCatalogSessionProperty(TransactionId transactionId, Identity identity, String catalogName, String propertyName)
+    public void checkCanSetCatalogSessionProperty(SecurityContext context, String catalogName, String propertyName)
     {
-        requireNonNull(transactionId, "transactionId is null");
-        requireNonNull(identity, "identity is null");
+        requireNonNull(context, "context is null");
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(propertyName, "propertyName is null");
 
-        authenticationCheck(() -> checkCanAccessCatalog(identity, catalogName));
+        authenticationCheck(() -> checkCanAccessCatalog(context.getIdentity(), catalogName));
 
-        authorizationCheck(() -> systemAccessControl.get().checkCanSetCatalogSessionProperty(new SystemSecurityContext(identity), catalogName, propertyName));
+        authorizationCheck(() -> systemAccessControl.get().checkCanSetCatalogSessionProperty(context.toSystemSecurityContext(), catalogName, propertyName));
 
-        CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, catalogName);
+        CatalogAccessControlEntry entry = getConnectorAccessControl(context.getTransactionId(), catalogName);
         if (entry != null) {
-            authorizationCheck(() -> entry.getAccessControl().checkCanSetCatalogSessionProperty(entry.toConnectorSecurityContext(transactionId, identity), propertyName));
+            authorizationCheck(() -> entry.getAccessControl().checkCanSetCatalogSessionProperty(entry.toConnectorSecurityContext(context), propertyName));
         }
     }
 
@@ -668,18 +667,17 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanSetRole(TransactionId transactionId, Identity identity, String role, String catalogName)
+    public void checkCanSetRole(SecurityContext context, String role, String catalogName)
     {
-        requireNonNull(transactionId, "transactionId is null");
-        requireNonNull(identity, "identity is null");
+        requireNonNull(context, "context is null");
         requireNonNull(role, "role is null");
         requireNonNull(catalogName, "catalog is null");
 
-        authenticationCheck(() -> checkCanAccessCatalog(identity, catalogName));
+        authenticationCheck(() -> checkCanAccessCatalog(context.getIdentity(), catalogName));
 
-        CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, catalogName);
+        CatalogAccessControlEntry entry = getConnectorAccessControl(context.getTransactionId(), catalogName);
         if (entry != null) {
-            authorizationCheck(() -> entry.getAccessControl().checkCanSetRole(entry.toConnectorSecurityContext(transactionId, identity), role, catalogName));
+            authorizationCheck(() -> entry.getAccessControl().checkCanSetRole(entry.toConnectorSecurityContext(context), role, catalogName));
         }
     }
 
