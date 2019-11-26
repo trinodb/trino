@@ -23,7 +23,6 @@ set +e
   -Dhive.hadoop2.metastoreHost=localhost \
   -Dhive.hadoop2.metastorePort=9083 \
   -Dhive.hadoop2.databaseName=default \
-  -Dhive.hadoop2.metastoreHost=hadoop-master \
   -Dhive.hadoop2.hiveVersionMajor="${TESTS_HIVE_VERSION_MAJOR}" \
   -Dhive.hadoop2.timeZone=Asia/Kathmandu \
   -Dhive.metastore.thrift.client.socks-proxy=${PROXY}:1180 \
