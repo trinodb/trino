@@ -5,9 +5,10 @@ services:
     image: '${HADOOP_BASE_IMAGE}:${DOCKER_IMAGES_VERSION}'
     ports:
       - '1180:1180'
-      - '8020:8020'
+      - '8020:8020' # Default hadoop namenode port
       - '8042:8042'
       - '8088:8088'
+      - '9000:9000' # Default hadoop namenode port
       - '9083:9083' # Metastore Thrift
       - '9864:9864' # DataNode Web UI since Hadoop 3
       - '9870:9870' # NameNode Web UI since Hadoop 3
