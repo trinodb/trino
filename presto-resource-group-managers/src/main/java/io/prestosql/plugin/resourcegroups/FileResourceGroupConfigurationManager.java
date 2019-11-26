@@ -15,6 +15,8 @@ package io.prestosql.plugin.resourcegroups;
 
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
@@ -51,7 +53,24 @@ public class FileResourceGroupConfigurationManager
     @Inject
     public FileResourceGroupConfigurationManager(ClusterMemoryPoolManager memoryPoolManager, FileResourceGroupConfig config)
     {
+        this(memoryPoolManager, parseManagerSpec(config));
+    }
+
+    @VisibleForTesting
+    FileResourceGroupConfigurationManager(ClusterMemoryPoolManager memoryPoolManager, ManagerSpec managerSpec)
+    {
         super(memoryPoolManager);
+        requireNonNull(managerSpec, "managerSpec is null");
+
+        this.rootGroups = ImmutableList.copyOf(managerSpec.getRootGroups());
+        this.cpuQuotaPeriod = managerSpec.getCpuQuotaPeriod();
+        validateRootGroups(managerSpec);
+        this.selectors = buildSelectors(managerSpec);
+    }
+
+    @VisibleForTesting
+    static ManagerSpec parseManagerSpec(FileResourceGroupConfig config)
+    {
         requireNonNull(config, "config is null");
 
         ManagerSpec managerSpec;
@@ -80,11 +99,7 @@ public class FileResourceGroupConfigurationManager
             }
             throw e;
         }
-
-        this.rootGroups = managerSpec.getRootGroups();
-        this.cpuQuotaPeriod = managerSpec.getCpuQuotaPeriod();
-        validateRootGroups(managerSpec);
-        this.selectors = buildSelectors(managerSpec);
+        return managerSpec;
     }
 
     @Override
