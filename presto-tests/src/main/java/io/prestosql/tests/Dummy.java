@@ -13,7 +13,7 @@
  */
 package io.prestosql.tests;
 
-class Dummy
+public class Dummy
 {
     // This class is here so that maven produces a source and javadoc artifact, which are
     // needed by Sonatype in order to publish a release
