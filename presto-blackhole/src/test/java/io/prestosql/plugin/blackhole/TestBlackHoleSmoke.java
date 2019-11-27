@@ -265,7 +265,7 @@ public class TestBlackHoleSmoke
         assertEquals(row.getField(6), 0.0);
         assertEquals(row.getField(7), false);
         assertEquals(row.getField(8), LocalDate.ofEpochDay(0));
-        // TODO should be 1970-01-01 00:00:00 after https://github.com/prestodb/presto/issues/7122
+        // TODO should be 1970-01-01 00:00:00 after https://github.com/prestosql/presto/issues/37
         assertEquals(row.getField(9), LocalDateTime.of(1969, 12, 31, 13, 0, 0));
         assertEquals(row.getField(10), "****************".getBytes(UTF_8));
         assertEquals(row.getField(11), new BigDecimal("0.00"));
