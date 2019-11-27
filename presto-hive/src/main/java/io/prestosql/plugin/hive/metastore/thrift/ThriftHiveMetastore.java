@@ -470,7 +470,7 @@ public class ThriftHiveMetastore
             retry()
                     .stopOn(NoSuchObjectException.class, InvalidObjectException.class, MetaException.class, InvalidInputException.class)
                     .stopOnIllegalExceptions()
-                    .run("setTableColumnStatistics", stats.getCreateDatabase().wrap(() -> {
+                    .run("setTableColumnStatistics", stats.getSetTableColumnStatistics().wrap(() -> {
                         try (ThriftMetastoreClient client = createMetastoreClient(identity)) {
                             client.setTableColumnStatistics(databaseName, tableName, statistics);
                         }
@@ -494,7 +494,7 @@ public class ThriftHiveMetastore
             retry()
                     .stopOn(NoSuchObjectException.class, InvalidObjectException.class, MetaException.class, InvalidInputException.class)
                     .stopOnIllegalExceptions()
-                    .run("deleteTableColumnStatistics", stats.getCreateDatabase().wrap(() -> {
+                    .run("deleteTableColumnStatistics", stats.getDeleteTableColumnStatistics().wrap(() -> {
                         try (ThriftMetastoreClient client = createMetastoreClient(identity)) {
                             client.deleteTableColumnStatistics(databaseName, tableName, columnName);
                         }
@@ -562,7 +562,7 @@ public class ThriftHiveMetastore
             retry()
                     .stopOn(NoSuchObjectException.class, InvalidObjectException.class, MetaException.class, InvalidInputException.class)
                     .stopOnIllegalExceptions()
-                    .run("setPartitionColumnStatistics", stats.getCreateDatabase().wrap(() -> {
+                    .run("setPartitionColumnStatistics", stats.getSetPartitionColumnStatistics().wrap(() -> {
                         try (ThriftMetastoreClient client = createMetastoreClient(identity)) {
                             client.setPartitionColumnStatistics(databaseName, tableName, partitionName, statistics);
                         }
@@ -586,7 +586,7 @@ public class ThriftHiveMetastore
             retry()
                     .stopOn(NoSuchObjectException.class, InvalidObjectException.class, MetaException.class, InvalidInputException.class)
                     .stopOnIllegalExceptions()
-                    .run("deletePartitionColumnStatistics", stats.getCreateDatabase().wrap(() -> {
+                    .run("deletePartitionColumnStatistics", stats.getDeletePartitionColumnStatistics().wrap(() -> {
                         try (ThriftMetastoreClient client = createMetastoreClient(identity)) {
                             client.deletePartitionColumnStatistics(databaseName, tableName, partitionName, columnName);
                         }
@@ -991,7 +991,7 @@ public class ThriftHiveMetastore
             return retry()
                     .stopOn(NoSuchObjectException.class)
                     .stopOnIllegalExceptions()
-                    .run("getPartitionNamesByParts", stats.getGetPartitionNamesPs().wrap(() -> {
+                    .run("getPartitionNamesByParts", stats.getGetPartitionNamesByParts().wrap(() -> {
                         try (ThriftMetastoreClient client = createMetastoreClient(identity)) {
                             return Optional.of(client.getPartitionNamesFiltered(databaseName, tableName, parts));
                         }

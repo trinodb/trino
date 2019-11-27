@@ -26,9 +26,13 @@ public class ThriftMetastoreStats
     private final ThriftMetastoreApiStats getTable = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats getFields = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats getTableColumnStatistics = new ThriftMetastoreApiStats();
+    private final ThriftMetastoreApiStats setTableColumnStatistics = new ThriftMetastoreApiStats();
+    private final ThriftMetastoreApiStats deleteTableColumnStatistics = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats getPartitionColumnStatistics = new ThriftMetastoreApiStats();
+    private final ThriftMetastoreApiStats setPartitionColumnStatistics = new ThriftMetastoreApiStats();
+    private final ThriftMetastoreApiStats deletePartitionColumnStatistics = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats getPartitionNames = new ThriftMetastoreApiStats();
-    private final ThriftMetastoreApiStats getPartitionNamesPs = new ThriftMetastoreApiStats();
+    private final ThriftMetastoreApiStats getPartitionNamesByParts = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats getPartition = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats getPartitionsByNames = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats createDatabase = new ThriftMetastoreApiStats();
@@ -108,9 +112,37 @@ public class ThriftMetastoreStats
 
     @Managed
     @Nested
+    public ThriftMetastoreApiStats getSetTableColumnStatistics()
+    {
+        return setTableColumnStatistics;
+    }
+
+    @Managed
+    @Nested
+    public ThriftMetastoreApiStats getDeleteTableColumnStatistics()
+    {
+        return deleteTableColumnStatistics;
+    }
+
+    @Managed
+    @Nested
     public ThriftMetastoreApiStats getGetPartitionColumnStatistics()
     {
         return getPartitionColumnStatistics;
+    }
+
+    @Managed
+    @Nested
+    public ThriftMetastoreApiStats getSetPartitionColumnStatistics()
+    {
+        return setPartitionColumnStatistics;
+    }
+
+    @Managed
+    @Nested
+    public ThriftMetastoreApiStats getDeletePartitionColumnStatistics()
+    {
+        return deletePartitionColumnStatistics;
     }
 
     @Managed
@@ -122,9 +154,9 @@ public class ThriftMetastoreStats
 
     @Managed
     @Nested
-    public ThriftMetastoreApiStats getGetPartitionNamesPs()
+    public ThriftMetastoreApiStats getGetPartitionNamesByParts()
     {
-        return getPartitionNamesPs;
+        return getPartitionNamesByParts;
     }
 
     @Managed
