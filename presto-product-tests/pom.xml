@@ -3,8 +3,8 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <artifactId>presto-root</artifactId>
         <groupId>io.prestosql</groupId>
+        <artifactId>presto-root</artifactId>
         <version>327-SNAPSHOT</version>
     </parent>
 
