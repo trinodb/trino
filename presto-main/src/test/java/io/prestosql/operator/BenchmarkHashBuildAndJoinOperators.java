@@ -390,7 +390,7 @@ public class BenchmarkHashBuildAndJoinOperators
     }
 
     @Test
-    public void testBenchmakrBuildHash()
+    public void testBenchmarkBuildHash()
     {
         BuildContext buildContext = new BuildContext();
         buildContext.setup();
