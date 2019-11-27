@@ -26,6 +26,7 @@ import io.prestosql.plugin.hive.metastore.Partition;
 import io.prestosql.plugin.hive.metastore.SortingColumn;
 import io.prestosql.plugin.hive.metastore.StorageFormat;
 import io.prestosql.plugin.hive.metastore.Table;
+import io.prestosql.plugin.hive.util.HiveBucketing;
 
 import java.util.List;
 import java.util.Optional;
@@ -102,7 +103,8 @@ public class ProtoUtils
             return Optional.empty();
         }
         List<SortingColumn> sortedBy = property.getSortedByList().stream().map(ProtoUtils::fromProto).collect(Collectors.toList());
-        return Optional.of(new HiveBucketProperty(property.getBucketedByList(), (int) property.getBucketCount(), sortedBy));
+        return Optional.of(new HiveBucketProperty(property.getBucketedByList(), HiveBucketing.BucketingVersion.BUCKETING_V1,
+            (int) property.getBucketCount(), sortedBy));
     }
 
     private static StorageFormat fromProto(alluxio.grpc.table.layout.hive.StorageFormat format)
