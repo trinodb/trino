@@ -61,6 +61,7 @@ public class TestGoogleSheets
     public void testListTable()
     {
         assertQuery("show tables", "SELECT * FROM (VALUES 'metadata_table', 'number_text', 'table_with_duplicate_and_missing_column_names')");
+        assertQueryReturnsEmptyResult("SHOW TABLES IN gsheets.information_schema LIKE 'number_text'");
     }
 
     @Test
