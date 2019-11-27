@@ -309,7 +309,12 @@ public class BaseJdbcClient
             return Optional.of(ColumnMapping.sliceMapping(
                     createUnboundedVarcharType(),
                     varcharReadFunction(),
-                    varcharWriteFunction(),
+                    (statement, index, value) -> {
+                        // TODO this should be handled during planning phase
+                        throw new PrestoException(
+                                NOT_SUPPORTED,
+                                "Underlying type that is force mapped to VARCHAR is not supported for INSERT: " + typeHandle.getJdbcTypeName().get());
+                    },
                     DISABLE_PUSHDOWN));
         }
         return Optional.empty();

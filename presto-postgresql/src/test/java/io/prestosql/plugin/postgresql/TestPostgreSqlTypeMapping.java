@@ -320,6 +320,11 @@ public class TestPostgreSqlTypeMapping
                     sessionWithArrayAsArray(),
                     "SELECT * FROM tpch.test_forced_varchar_mapping",
                     "VALUES ('[\"2010-01-01 14:30:00\",\"2010-01-01 15:30:00\")','172.0.0.1',ARRAY['[\"2010-01-01 14:30:00\",\"2010-01-01 15:30:00\")'])");
+
+            // test insert into column that has forced varchar mapping
+            assertQueryFails(
+                    "INSERT INTO tpch.test_forced_varchar_mapping (tsrange_col) VALUES ('some value')",
+                    "Underlying type that is force mapped to VARCHAR is not supported for INSERT: tsrange");
         }
         finally {
             jdbcSqlExecutor.execute("DROP TABLE tpch.test_forced_varchar_mapping");
