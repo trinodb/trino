@@ -66,7 +66,7 @@ public class TestCassandraIntegrationSmokeTest
     private static final Session SESSION = createCassandraSession(KEYSPACE);
 
     private static final Timestamp DATE_TIME_LOCAL = Timestamp.valueOf(LocalDateTime.of(1970, 1, 1, 3, 4, 5, 0));
-    // TODO should match DATE_TIME_LOCAL after https://github.com/prestodb/presto/issues/7122
+    // TODO should match DATE_TIME_LOCAL after https://github.com/prestosql/presto/issues/37
     private static final LocalDateTime TIMESTAMP_LOCAL = LocalDateTime.of(1969, 12, 31, 23, 4, 5);
 
     private CassandraSession session;
