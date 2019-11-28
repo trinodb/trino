@@ -87,6 +87,11 @@ public final class Re2JRegexp
         return re2jPatternWithoutDotStartPrefix.find(source);
     }
 
+    public Matcher matcher(Slice source)
+    {
+        return re2jPattern.matcher(source);
+    }
+
     public Slice replace(Slice source, Slice replacement)
     {
         Matcher matcher = re2jPattern.matcher(source);

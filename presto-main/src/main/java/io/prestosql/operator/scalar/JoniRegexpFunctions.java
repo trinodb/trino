@@ -21,6 +21,7 @@ import io.airlift.joni.exception.ValueException;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
@@ -58,6 +59,22 @@ public final class JoniRegexpFunctions
         return offset != -1;
     }
 
+    private static int getNextStart(Slice source, Matcher matcher)
+    {
+        if (matcher.getEnd() == matcher.getBegin()) {
+            if (matcher.getBegin() < source.length()) {
+                return matcher.getEnd() + lengthOfCodePointFromStartByte(source.getByte(matcher.getBegin()));
+            }
+            else {
+                // last match is empty and we matched end of source, move past the source length to terminate the loop
+                return matcher.getEnd() + 1;
+            }
+        }
+        else {
+            return matcher.getEnd();
+        }
+    }
+
     @Description("removes substrings matching a regular expression")
     @ScalarFunction
     @LiteralParameters("x")
@@ -89,18 +106,7 @@ public final class JoniRegexpFunctions
             if (offset == -1) {
                 break;
             }
-            if (matcher.getEnd() == matcher.getBegin()) {
-                if (matcher.getBegin() < source.length()) {
-                    nextStart = matcher.getEnd() + lengthOfCodePointFromStartByte(source.getByte(matcher.getBegin()));
-                }
-                else {
-                    // last match is empty and we matched end of source, move past the source length to terminate the loop
-                    nextStart = matcher.getEnd() + 1;
-                }
-            }
-            else {
-                nextStart = matcher.getEnd();
-            }
+            nextStart = getNextStart(source, matcher);
             Slice sliceBetweenReplacements = source.slice(lastEnd, matcher.getBegin() - lastEnd);
             lastEnd = matcher.getEnd();
             sliceOutput.appendBytes(sliceBetweenReplacements);
@@ -217,18 +223,7 @@ public final class JoniRegexpFunctions
             if (offset == -1) {
                 break;
             }
-            if (matcher.getEnd() == matcher.getBegin()) {
-                if (matcher.getBegin() < source.length()) {
-                    nextStart = matcher.getEnd() + lengthOfCodePointFromStartByte(source.getByte(matcher.getBegin()));
-                }
-                else {
-                    // last match is empty and we matched end of source, move past the source length to terminate the loop
-                    nextStart = matcher.getEnd() + 1;
-                }
-            }
-            else {
-                nextStart = matcher.getEnd();
-            }
+            nextStart = getNextStart(source, matcher);
             Region region = matcher.getEagerRegion();
             int beg = region.beg[group];
             int end = region.end[group];
@@ -296,18 +291,7 @@ public final class JoniRegexpFunctions
             if (offset == -1) {
                 break;
             }
-            if (matcher.getEnd() == matcher.getBegin()) {
-                if (matcher.getBegin() < source.length()) {
-                    nextStart = matcher.getEnd() + lengthOfCodePointFromStartByte(source.getByte(matcher.getBegin()));
-                }
-                else {
-                    // last match is empty and we matched end of source, move past the source length to terminate the loop
-                    nextStart = matcher.getEnd() + 1;
-                }
-            }
-            else {
-                nextStart = matcher.getEnd();
-            }
+            nextStart = getNextStart(source, matcher);
             Slice slice = source.slice(lastEnd, matcher.getBegin() - lastEnd);
             lastEnd = matcher.getEnd();
             VARCHAR.writeSlice(blockBuilder, slice);
@@ -325,5 +309,94 @@ public final class JoniRegexpFunctions
         if (group > region.numRegs - 1) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Pattern has %d groups. Cannot access group %d", region.numRegs - 1, group));
         }
+    }
+
+    @ScalarFunction
+    @Description("returns the index of the matched substring")
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.INTEGER)
+    public static long regexpPosition(@SqlType("varchar(x)") Slice source, @SqlType(JoniRegexpType.NAME) JoniRegexp pattern)
+    {
+        return regexpPosition(source, pattern, 1);
+    }
+
+    @ScalarFunction
+    @Description("returns the index of the matched substring starting from the specified position")
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.INTEGER)
+    public static long regexpPosition(@SqlType("varchar(x)") Slice source,
+                                      @SqlType(JoniRegexpType.NAME) JoniRegexp pattern,
+                                      @SqlType(StandardTypes.INTEGER) long start)
+    {
+        return regexpPosition(source, pattern, start, 1);
+    }
+
+    @ScalarFunction
+    @Description("returns the index of the n-th matched substring starting from the specified position")
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.INTEGER)
+    public static long regexpPosition(@SqlType("varchar(x)") Slice source,
+                                      @SqlType(JoniRegexpType.NAME) JoniRegexp pattern,
+                                      @SqlType(StandardTypes.INTEGER) long start,
+                                      @SqlType(StandardTypes.INTEGER) long occurrence)
+    {
+        // start position cannot be smaller than 1
+        if (start < 1) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "start position cannot be smaller than 1");
+        }
+        // occurrence cannot be smaller than 1
+        if (occurrence < 1) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "occurrence cannot be smaller than 1");
+        }
+        // returns -1 if start is greater than the length of source
+        if (start > SliceUtf8.countCodePoints(source)) {
+            return -1;
+        }
+
+        Matcher matcher = pattern.matcher(source.getBytes());
+        long count = 0;
+        // convert char position to byte position
+        // subtract 1 because codePointCount starts from zero
+        int nextStart = SliceUtf8.offsetOfCodePoint(source, (int) start - 1);
+        while (true) {
+            int offset = matcher.search(nextStart, source.length(), Option.DEFAULT);
+            // Check whether offset is negative, offset is -1 if no pattern was found or -2 if process was interrupted
+            if (offset < 0) {
+                return -1;
+            }
+
+            if (++count == occurrence) {
+                // Plus 1 because position returned start from 1
+                return SliceUtf8.countCodePoints(source, 0, matcher.getBegin()) + 1;
+            }
+
+            nextStart = getNextStart(source, matcher);
+        }
+    }
+
+    @ScalarFunction
+    @Description("returns the number of times that a pattern occurs in a string")
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.BIGINT)
+    public static long regexpCount(@SqlType("varchar(x)") Slice source, @SqlType(JoniRegexpType.NAME) JoniRegexp pattern)
+    {
+        Matcher matcher = pattern.matcher(source.getBytes());
+
+        int count = 0;
+        // Start from zero, implies the first byte
+        int nextStart = 0;
+        while (true) {
+            // mather.search returns `source.length` if `nextStart` equals `source.length - 1`.
+            // It should return -1 if `nextStart` is greater than `source.length - 1`.
+            int offset = matcher.search(nextStart, source.length(), Option.DEFAULT);
+            if (offset < 0) {
+                break;
+            }
+
+            nextStart = getNextStart(source, matcher);
+            count++;
+        }
+
+        return count;
     }
 }
