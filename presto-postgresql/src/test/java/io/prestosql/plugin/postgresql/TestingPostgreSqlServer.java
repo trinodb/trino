@@ -13,8 +13,7 @@
  */
 package io.prestosql.plugin.postgresql;
 
-import com.google.common.collect.ImmutableMap;
-import io.prestosql.testing.docker.DockerContainer;
+import org.testcontainers.containers.PostgreSQLContainer;
 
 import java.io.Closeable;
 import java.sql.Connection;
@@ -23,6 +22,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 
 import static java.lang.String.format;
+import static org.testcontainers.containers.PostgreSQLContainer.POSTGRESQL_PORT;
 
 public class TestingPostgreSqlServer
         implements Closeable
@@ -30,16 +30,17 @@ public class TestingPostgreSqlServer
     private static final String USER = "test";
     private static final String PASSWORD = "test";
     private static final String DATABASE = "tpch";
-    private static final int POSTGRESQL_PORT = 5432;
 
-    private final DockerContainer dockerContainer = DockerContainer.forImage("postgres:10.3")
-            .setPorts(POSTGRESQL_PORT)
-            .setEnvironment(ImmutableMap.of(
-                    "POSTGRES_PASSWORD", PASSWORD,
-                    "POSTGRES_USER", USER,
-                    "POSTGRES_DB", DATABASE))
-            .setHealthCheck(docker -> execute(getJdbcUrl(docker), "SELECT 1"))
-            .start();
+    private final PostgreSQLContainer dockerContainer;
+
+    public TestingPostgreSqlServer()
+    {
+        dockerContainer = new PostgreSQLContainer("postgres:10.3")
+                .withDatabaseName(DATABASE)
+                .withUsername(USER)
+                .withPassword(PASSWORD);
+        dockerContainer.start();
+    }
 
     public void execute(String sql)
             throws SQLException
@@ -58,12 +59,8 @@ public class TestingPostgreSqlServer
 
     public String getJdbcUrl()
     {
-        return getJdbcUrl(this.dockerContainer::getHostPort);
-    }
-
-    private String getJdbcUrl(DockerContainer.HostPortProvider dockerContainer)
-    {
-        return format("jdbc:postgresql://localhost:%s/%s?user=%s&password=%s", dockerContainer.getHostPort(POSTGRESQL_PORT), DATABASE, USER, PASSWORD);
+        // TODO we should encode user and password in JDBC url, instead connection-user and connection-password catalog properties should be used
+        return format("jdbc:postgresql://%s:%s/%s?user=%s&password=%s", dockerContainer.getContainerIpAddress(), dockerContainer.getMappedPort(POSTGRESQL_PORT), DATABASE, USER, PASSWORD);
     }
 
     @Override

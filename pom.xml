@@ -1248,6 +1248,12 @@
                 <artifactId>testcontainers</artifactId>
                 <version>1.12.3</version>
             </dependency>
+
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>postgresql</artifactId>
+                <version>1.12.3</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
