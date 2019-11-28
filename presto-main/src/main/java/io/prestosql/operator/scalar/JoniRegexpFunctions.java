@@ -306,4 +306,76 @@ public final class JoniRegexpFunctions
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Pattern has %d groups. Cannot access group %d", region.numRegs - 1, group));
         }
     }
+
+    @ScalarFunction
+    @Description("returns the beginning position of the matched substring")
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.INTEGER)
+    public static long regexpInstr(@SqlType("varchar(x)") Slice source, @SqlType(JoniRegexpType.NAME) Regex pattern)
+    {
+        return regexpInstr(source, pattern, 0);
+    }
+
+    @ScalarFunction
+    @Description("returns the beginning position of the matched substring from the specific position")
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.INTEGER)
+    public static long regexpInstr(@SqlType("varchar(x)") Slice source,
+                                   @SqlType(JoniRegexpType.NAME) Regex pattern,
+                                   @SqlType(StandardTypes.INTEGER) long position)
+    {
+        Matcher matcher = pattern.matcher(source.getBytes());
+        return matcher.search((int) position, source.length(), Option.DEFAULT);
+    }
+
+    @ScalarFunction
+    @Description("returns the beginning position of the nth occurrence substring from the specific position")
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.INTEGER)
+    public static long regexpInstr(@SqlType("varchar(x)") Slice source,
+                                   @SqlType(JoniRegexpType.NAME) Regex pattern,
+                                   @SqlType(StandardTypes.INTEGER) long position,
+                                   @SqlType(StandardTypes.INTEGER) long occurrence)
+    {
+        Matcher matcher = pattern.matcher(source.getBytes());
+
+        long count = 0;
+        int start = (int) position;
+        while (true) {
+            int offset = matcher.search(start, source.length(), Option.DEFAULT);
+            if (offset == -1) {
+                break;
+            }
+
+            if (++count == occurrence) {
+                return matcher.getBegin();
+            }
+            start = matcher.getEnd();
+        }
+
+        return -1;
+    }
+
+    @ScalarFunction
+    @Description("returns the number of times that a pattern occurs in a string")
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.INTEGER)
+    public static long regexpCount(@SqlType("varchar(x)") Slice source, @SqlType(JoniRegexpType.NAME) Regex pattern)
+    {
+        Matcher matcher = pattern.matcher(source.getBytes());
+
+        int count = 0;
+        int start = 0;
+        while (true) {
+            int offset = matcher.search(start, source.length(), Option.DEFAULT);
+            if (offset == -1) {
+                break;
+            }
+
+            start = matcher.getEnd();
+            count++;
+        }
+
+        return count;
+    }
 }

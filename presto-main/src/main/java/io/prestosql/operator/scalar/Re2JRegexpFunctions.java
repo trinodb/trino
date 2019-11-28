@@ -13,6 +13,7 @@
  */
 package io.prestosql.operator.scalar;
 
+import com.google.re2j.Matcher;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.prestosql.spi.block.Block;
@@ -108,5 +109,73 @@ public final class Re2JRegexpFunctions
     public static Block regexpSplit(@SqlType("varchar(x)") Slice source, @SqlType(Re2JRegexpType.NAME) Re2JRegexp pattern)
     {
         return pattern.split(source);
+    }
+
+    @ScalarFunction
+    @Description("returns the beginning position of the matched substring")
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.INTEGER)
+    public static long regexpInstr(@SqlType("varchar(x)") Slice source, @SqlType(Re2JRegexpType.NAME) Re2JRegexp pattern)
+    {
+        Matcher matcher = pattern.re2jPattern.matcher(source);
+        if (matcher.find()) {
+            return matcher.start();
+        }
+
+        return 0;
+    }
+
+    @ScalarFunction
+    @Description("returns the beginning position of the matched substring from the specific position")
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.INTEGER)
+    public static long regexpInstr(@SqlType("varchar(x)") Slice source,
+                                   @SqlType(Re2JRegexpType.NAME) Re2JRegexp pattern,
+                                   @SqlType(StandardTypes.INTEGER) long position)
+    {
+        Matcher matcher = pattern.re2jPattern.matcher(source.slice((int) position, source.length()));
+        if (matcher.find()) {
+            return matcher.start();
+        }
+
+        return -1;
+    }
+
+    @ScalarFunction
+    @Description("returns the beginning position of the nth occurrence substring from the specific position")
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.INTEGER)
+    public static long regexpInstr(@SqlType("varchar(x)") Slice source,
+                                   @SqlType(Re2JRegexpType.NAME) Re2JRegexp pattern,
+                                   @SqlType(StandardTypes.INTEGER) long position,
+                                   @SqlType(StandardTypes.INTEGER) long occurrence)
+    {
+        Matcher matcher = pattern.re2jPattern.matcher(source.slice((int) position, source.length()));
+        long count = 0;
+        while (matcher.find()) {
+            if (++count == occurrence) {
+                return matcher.start();
+            }
+        }
+
+        return -1;
+    }
+
+    @ScalarFunction
+    @Description("returns the number of times that a pattern occurs in a string")
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.INTEGER)
+    public static long regexpCount(@SqlType("varchar(x)") Slice source, @SqlType(Re2JRegexpType.NAME) Re2JRegexp pattern)
+    {
+        Matcher matcher = pattern.re2jPattern.matcher(source);
+
+        int count = 0;
+        int start = 0;
+        while (matcher.find(start)) {
+            start = matcher.end();
+            count++;
+        }
+
+        return count;
     }
 }
