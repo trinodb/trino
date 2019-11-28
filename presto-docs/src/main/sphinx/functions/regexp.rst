@@ -41,6 +41,12 @@ with a few notable exceptions:
 
     .. _Capturing groups: http://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.html#cg
 
+.. function:: regexp_count(string, pattern) -> bigint
+
+    Returns the number of occurrence of ``pattern`` in ``string``::
+
+        SELECT regexp_count('1a 2b 14m', '\s*[a-z]+\s*'); -- 3
+
 .. function:: regexp_extract_all(string, pattern) -> array(varchar)
 
     Returns the substring(s) matched by the regular expression ``pattern``
@@ -81,6 +87,26 @@ with a few notable exceptions:
     the entire string by anchoring the pattern using ``^`` and ``$``::
 
         SELECT regexp_like('1a 2b 14m', '\d+b'); -- true
+
+.. function:: regexp_position(string, pattern) -> integer
+    Returns the index of the first occurrence (counting from 1) of ``pattern`` in ``string``.
+    Returns -1 if not found::
+
+        SELECT regexp_position('9102, say good bye', '\s*[a-z]+\s*'); -- 6
+
+.. function:: regexp_position(string, pattern, start) -> integer
+
+    Returns the index of the first occurrence of ``pattern`` in ``string``,
+    starting from ``start`` (include ``start``). Returns -1 if not found::
+
+        SELECT regexp_position('natasha, 9102, miss you', '\s*[a-z]+\s*', 10); -- 15
+
+.. function:: regexp_position(string, pattern, start, occurrence) -> integer
+
+    Returns the index of the ``occurrence``-th occurrence of ``pattern`` in ``string``,
+    starting from ``start`` (include ``start``). Returns -1 if not found::
+
+        SELECT regexp_position('natasha, 9102, miss you', '\\s', 10, 2); -- 20
 
 .. function:: regexp_replace(string, pattern) -> varchar
 
