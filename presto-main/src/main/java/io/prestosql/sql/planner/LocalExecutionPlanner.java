@@ -1569,7 +1569,6 @@ public class LocalExecutionPlanner
                     indexOutputChannels,
                     indexHashChannel,
                     indexSource.getTypes(),
-                    indexSource.getLayout(),
                     indexBuildDriverFactoryProvider,
                     maxIndexMemorySize,
                     indexJoinLookupStats,
@@ -2035,7 +2034,6 @@ public class LocalExecutionPlanner
                                     .map(buildSource.getTypes()::get)
                                     .collect(toImmutableList()),
                             partitionCount,
-                            buildSource.getLayout(),
                             buildOuter),
                     buildOutputTypes);
 
