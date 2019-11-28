@@ -100,7 +100,6 @@ fi
 docker-compose version
 docker version
 
-stop_all_containers
 remove_empty_property_files
 
 if [[ ${CONTINUOUS_INTEGRATION:-false} = true ]]; then
