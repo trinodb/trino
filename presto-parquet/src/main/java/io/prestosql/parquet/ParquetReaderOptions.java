@@ -24,7 +24,7 @@ public class ParquetReaderOptions
     private static final DataSize DEFAULT_MAX_MERGE_DISTANCE = new DataSize(1, MEGABYTE);
     private static final DataSize DEFAULT_MAX_BUFFER_SIZE = new DataSize(8, MEGABYTE);
 
-    private final boolean failOnCorruptedStatistics;
+    private final boolean failOnCorruptedStatistics; // TODO remove, this can mask correctness issues
     private final DataSize maxReadBlockSize;
     private final DataSize maxMergeDistance;
     private final DataSize maxBufferSize;
@@ -49,6 +49,7 @@ public class ParquetReaderOptions
         this.maxBufferSize = requireNonNull(maxBufferSize, "maxBufferSize is null");
     }
 
+    @Deprecated
     public boolean isFailOnCorruptedStatistics()
     {
         return failOnCorruptedStatistics;

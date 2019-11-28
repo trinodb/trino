@@ -467,6 +467,11 @@ public final class HiveSessionProperties
         return session.getProperty(PARQUET_USE_COLUMN_NAME, Boolean.class);
     }
 
+    /**
+     * @deprecated this can mask correctness issues
+     */
+    // TODO remove
+    @Deprecated
     public static boolean isFailOnCorruptedParquetStatistics(ConnectorSession session)
     {
         return session.getProperty(PARQUET_FAIL_WITH_CORRUPTED_STATISTICS, Boolean.class);
