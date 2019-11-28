@@ -48,6 +48,24 @@ public class TestKuduIntegrationDecimalColumns
         }
     }
 
+    @Test
+    public void testDecimalColumn()
+    {
+        assertUpdate("CREATE TABLE IF NOT EXISTS test_decimal (" +
+                "id INT WITH (primary_key=true), " +
+                "col_decimal decimal(10, 6)" +
+                ") WITH (" +
+                " partition_by_hash_columns = ARRAY['id'], " +
+                " partition_by_hash_buckets = 2" +
+                ")");
+
+        assertUpdate("INSERT INTO test_decimal VALUES (0, 0.0), (2, 2.2), (1, 1.1)", 3);
+        assertQuery("SELECT * FROM test_decimal WHERE col_decimal = 1.1", "VALUES (1, 1.1)");
+        assertUpdate("DELETE FROM test_decimal WHERE col_decimal = 1.1", 1);
+
+        assertUpdate("DROP TABLE test_decimal");
+    }
+
     private void doTestCreateTableWithDecimalColumn(TestDecimal decimal)
     {
         String tableName = decimal.getTableName();

@@ -35,7 +35,9 @@ import org.apache.kudu.ColumnTypeAttributes;
 import org.apache.kudu.client.RowResult;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 
+import static io.prestosql.spi.type.Decimals.decodeUnscaledValue;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 
@@ -156,7 +158,11 @@ public final class TypeHelper
             return ((Slice) nativeValue).toByteBuffer();
         }
         if (type instanceof DecimalType) {
-            return nativeValue;
+            DecimalType decimalType = (DecimalType) type;
+            if (decimalType.isShort()) {
+                return new BigDecimal(BigInteger.valueOf((long) nativeValue), decimalType.getScale());
+            }
+            return new BigDecimal(decodeUnscaledValue((Slice) nativeValue), decimalType.getScale());
         }
         throw new IllegalStateException("Back conversion not implemented for " + type);
     }
