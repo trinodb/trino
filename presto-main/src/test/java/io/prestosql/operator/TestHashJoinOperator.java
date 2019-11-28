@@ -14,7 +14,6 @@
 package io.prestosql.operator;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
@@ -1396,7 +1395,6 @@ public class TestHashJoinOperator
                         .map(buildPages.getTypes()::get)
                         .collect(toImmutableList()),
                 partitionCount,
-                requireNonNull(ImmutableMap.of(), "layout is null"),
                 false));
 
         HashBuilderOperatorFactory buildOperatorFactory = new HashBuilderOperatorFactory(

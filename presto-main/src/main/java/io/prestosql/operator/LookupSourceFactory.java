@@ -15,10 +15,8 @@ package io.prestosql.operator;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.prestosql.spi.type.Type;
-import io.prestosql.sql.planner.Symbol;
 
 import java.util.List;
-import java.util.Map;
 import java.util.OptionalInt;
 import java.util.function.Supplier;
 
@@ -52,8 +50,6 @@ public interface LookupSourceFactory
      */
     @Override
     OuterPositionIterator getOuterPositionIterator();
-
-    Map<Symbol, Integer> getLayout();
 
     // this is only here for the index lookup source
     default void setTaskContext(TaskContext taskContext) {}

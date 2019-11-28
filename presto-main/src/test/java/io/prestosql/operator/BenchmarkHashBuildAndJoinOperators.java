@@ -14,7 +14,6 @@
 package io.prestosql.operator;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
@@ -62,7 +61,6 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -303,7 +301,6 @@ public class BenchmarkHashBuildAndJoinOperators
                         .map(buildContext.getTypes()::get)
                         .collect(toImmutableList()),
                 1,
-                requireNonNull(ImmutableMap.of(), "layout is null"),
                 false));
     }
 
