@@ -25,11 +25,13 @@ public class ParquetReaderConfig
 {
     private ParquetReaderOptions options = new ParquetReaderOptions();
 
+    @Deprecated
     public boolean isFailOnCorruptedStatistics()
     {
         return options.isFailOnCorruptedStatistics();
     }
 
+    @Deprecated
     @Config("parquet.fail-on-corrupted-statistics")
     @LegacyConfig("hive.parquet.fail-on-corrupted-statistics")
     @ConfigDescription("Fail when scanning Parquet files with corrupted statistics")
