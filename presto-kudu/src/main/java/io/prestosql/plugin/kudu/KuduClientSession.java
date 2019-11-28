@@ -55,6 +55,7 @@ import org.apache.kudu.client.KuduTable;
 import org.apache.kudu.client.PartialRow;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -542,6 +543,9 @@ public class KuduClientSession
         Object javaValue = TypeHelper.getJavaValue(type, value);
         if (javaValue instanceof Long) {
             return KuduPredicate.newComparisonPredicate(columnSchema, op, (Long) javaValue);
+        }
+        if (javaValue instanceof BigDecimal) {
+            return KuduPredicate.newComparisonPredicate(columnSchema, op, (BigDecimal) javaValue);
         }
         if (javaValue instanceof Integer) {
             return KuduPredicate.newComparisonPredicate(columnSchema, op, (Integer) javaValue);
