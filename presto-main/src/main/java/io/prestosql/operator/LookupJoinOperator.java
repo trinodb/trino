@@ -156,6 +156,7 @@ public class LookupJoinOperator
         private final ListenableFuture<LookupSourceProvider> lookupSourceProviderFuture;
         private LookupSourceProvider lookupSourceProvider;
         private JoinProbe probe;
+        private boolean addedInputPage;
 
         private Page outputPage;
 
@@ -663,7 +664,8 @@ public class LookupJoinOperator
         @Override
         public TransformationState<Page> process(@Nullable Page inputPage)
         {
-            if (inputPage == null) {
+            boolean inputFinished = inputPage == null;
+            if (inputFinished) {
                 finish();
             }
 
@@ -676,18 +678,26 @@ public class LookupJoinOperator
                 return blocked(blocked);
             }
 
-            boolean consumedInput = false;
-            if (needsInput() && inputPage != null) {
+            // Make sure probe page is added at most once as join operator can yield
+            // or return multiple output pages for single probe page.
+            if (!addedInputPage && !inputFinished) {
                 addInput(inputPage);
-                consumedInput = true;
+                addedInputPage = true;
             }
 
             Page outputPage = getOutput();
-            if (outputPage != null) {
-                return ofResult(outputPage, consumedInput);
+
+            boolean fetchNextInputPage = !inputFinished && needsInput();
+            if (fetchNextInputPage) {
+                // reset addedInputPage for the sake of next inputPage
+                addedInputPage = false;
             }
 
-            if (consumedInput) {
+            if (outputPage != null) {
+                return ofResult(outputPage, fetchNextInputPage);
+            }
+
+            if (fetchNextInputPage) {
                 return needsMoreData();
             }
 
