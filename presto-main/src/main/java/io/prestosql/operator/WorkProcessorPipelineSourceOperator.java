@@ -26,7 +26,6 @@ import io.prestosql.memory.context.MemoryTrackingContext;
 import io.prestosql.metadata.Split;
 import io.prestosql.operator.OperationTimer.OperationTiming;
 import io.prestosql.operator.WorkProcessor.ProcessState;
-import io.prestosql.operator.WorkProcessorOperatorAdapter.ProcessorContext;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.connector.UpdatablePageSource;
 import io.prestosql.sql.planner.plan.PlanNodeId;

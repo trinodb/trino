@@ -14,7 +14,6 @@
 package io.prestosql.operator;
 
 import io.prestosql.execution.Lifespan;
-import io.prestosql.operator.WorkProcessorOperatorAdapter.ProcessorContext;
 import io.prestosql.spi.Page;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 

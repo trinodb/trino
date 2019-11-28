@@ -24,7 +24,6 @@ import io.prestosql.operator.PartitionedConsumption.Partition;
 import io.prestosql.operator.WorkProcessor.Transformation;
 import io.prestosql.operator.WorkProcessor.TransformationState;
 import io.prestosql.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperator;
-import io.prestosql.operator.WorkProcessorOperatorAdapter.ProcessorContext;
 import io.prestosql.operator.exchange.LocalPartitionGenerator;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.type.Type;

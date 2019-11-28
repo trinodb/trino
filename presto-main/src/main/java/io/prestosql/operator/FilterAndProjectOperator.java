@@ -21,7 +21,6 @@ import io.prestosql.memory.context.LocalMemoryContext;
 import io.prestosql.memory.context.MemoryTrackingContext;
 import io.prestosql.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperator;
 import io.prestosql.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperatorFactory;
-import io.prestosql.operator.WorkProcessorOperatorAdapter.ProcessorContext;
 import io.prestosql.operator.project.PageProcessor;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.type.Type;
