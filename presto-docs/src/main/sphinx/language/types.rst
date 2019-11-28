@@ -99,6 +99,18 @@ String
 
     Example type definitions: ``varchar``, ``varchar(20)``
 
+    SQL statements support simple literal, as well as Unicode usage:
+
+    - literal string : ``'Hello winter !'``
+    - Unicode string with default escape character: ``U&'Hello winter \2603 !'``
+    - Unicode string with custom escape character: ``U&'Hello winter #2603 !' UESCAPE '#'``
+
+    A Unicode string is prefixed with ``U&`` and requires an escape character
+    before any Unicode character usage with 4 digits. In the examples above
+    ``\2603`` and ``#2603`` represent a snowman character. Long Unicode codes
+    with 6 digits require usage of the plus symbol before the code. For example,
+    you need to use ``\+01F600`` for a grinning face emoji.
+
 ``CHAR``
 ^^^^^^^^
 
@@ -114,6 +126,10 @@ String
 ^^^^^^^^^^^^^
 
     Variable length binary data.
+
+    SQL statements support usage of binary data with the prefix ``X``. The
+    binary data has to use hexadecimal format. For example, the binary form of
+    ``eh?`` is ``X'65683F'``.
 
     .. note::
 
