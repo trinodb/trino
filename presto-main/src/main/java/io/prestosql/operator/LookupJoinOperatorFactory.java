@@ -20,7 +20,6 @@ import io.prestosql.operator.LookupJoinOperators.JoinType;
 import io.prestosql.operator.LookupOuterOperator.LookupOuterOperatorFactory;
 import io.prestosql.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperator;
 import io.prestosql.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperatorFactory;
-import io.prestosql.operator.WorkProcessorOperatorAdapter.ProcessorContext;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spiller.PartitioningSpillerFactory;
