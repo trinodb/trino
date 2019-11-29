@@ -98,6 +98,11 @@
             </exclusions>
         </dependency>
 
+        <dependency>
+            <groupId>org.apache.kafka</groupId>
+            <artifactId>kafka-clients</artifactId>
+        </dependency>
+
         <!-- Presto SPI -->
         <dependency>
             <groupId>io.prestosql</groupId>
