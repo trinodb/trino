@@ -179,10 +179,10 @@ public class TestHiveTableStatistics
         // table not analyzed
 
         assertThat(query(showStatsWholeTable)).containsOnly(
-                row("n_nationkey", null, null, anyOf(null, 0.0), null, null, null),
-                row("n_name", null, null, anyOf(null, 0.0), null, null, null),
-                row("n_regionkey", null, null, anyOf(null, 0.0), null, null, null),
-                row("n_comment", null, null, anyOf(null, 0.0), null, null, null),
+                row("n_nationkey", null, null, null, null, null, null),
+                row("n_name", null, null, null, null, null, null),
+                row("n_regionkey", null, null, null, null, null, null),
+                row("n_comment", null, null, null, null, null, null),
                 row(null, null, null, null, anyOf(null, 0.0), null, null)); // anyOf because of different behaviour on HDP (hive 1.2) and CDH (hive 1.1)
 
         // basic analysis
@@ -665,10 +665,10 @@ public class TestHiveTableStatistics
 
         // table not analyzed
         assertThat(query(showStatsWholeTable)).containsOnly(
-                row("n_nationkey", null, null, anyOf(null, 0.0), null, null, null),
-                row("n_name", null, null, anyOf(null, 0.0), null, null, null),
-                row("n_regionkey", null, null, anyOf(null, 0.0), null, null, null),
-                row("n_comment", null, null, anyOf(null, 0.0), null, null, null),
+                row("n_nationkey", null, null, null, null, null, null),
+                row("n_name", null, null, null, null, null, null),
+                row("n_regionkey", null, null, null, null, null, null),
+                row("n_comment", null, null, null, null, null, null),
                 row(null, null, null, null, anyOf(null, 0.0), null, null)); // anyOf because of different behaviour on HDP (hive 1.2) and CDH (hive 1.1)
 
         assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactly(row(25));
