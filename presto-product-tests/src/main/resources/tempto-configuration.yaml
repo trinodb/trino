@@ -23,6 +23,7 @@ databases:
     inject_stats_for_immutable_tables: true
     inject_stats_for_mutable_tables: true
     major_version: ${TESTS_HIVE_VERSION_MAJOR}
+    minor_version: ${TESTS_HIVE_VERSION_MINOR}
     metastore:
       host: ${databases.hive.host}
       port: 9083
