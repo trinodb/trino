@@ -30,6 +30,11 @@ public class HiveProductTest
     private int hiveVersionMajor;
     private boolean hiveVersionMajorVerified;
 
+    @Inject
+    @Named("databases.hive.minor_version")
+    private int hiveVersionMinor;
+    private boolean hiveVersionMinorVerified;
+
     protected int getHiveVersionMajor()
     {
         checkState(hiveVersionMajor > 0, "hiveVersionMajor not set");
@@ -45,6 +50,27 @@ public class HiveProductTest
     {
         try {
             return onHive().getConnection().getMetaData().getDatabaseMajorVersion();
+        }
+        catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    protected int getHiveVersionMinor()
+    {
+        checkState(hiveVersionMinor > 0, "hiveVersionMinor not set");
+        if (!hiveVersionMinorVerified) {
+            int detected = detectHiveVersionMinor();
+            checkState(hiveVersionMinor == detected, "Hive version minor expected: %s, but was detected as: %s", hiveVersionMinor, detected);
+            hiveVersionMinorVerified = true;
+        }
+        return hiveVersionMinor;
+    }
+
+    private static int detectHiveVersionMinor()
+    {
+        try {
+            return onHive().getConnection().getMetaData().getDatabaseMinorVersion();
         }
         catch (SQLException e) {
             throw new RuntimeException(e);

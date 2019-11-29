@@ -58,6 +58,7 @@ services:
     environment:
       - PRESTO_JDBC_DRIVER_CLASS
       - TESTS_HIVE_VERSION_MAJOR
+      - TESTS_HIVE_VERSION_MINOR
       - TEMPTO_ENVIRONMENT_CONFIG_FILE
       - TEMPTO_EXTRA_CONFIG_FILE
       - CLI_ARGUMENTS=--server presto-master:8080
