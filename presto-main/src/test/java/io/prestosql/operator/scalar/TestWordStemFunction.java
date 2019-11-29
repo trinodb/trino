@@ -40,6 +40,8 @@ public class TestWordStemFunction
         assertFunction("word_stem('quilomtricos', 'pt')", createVarcharType(12), "quilomtr");
         assertFunction("word_stem('pronunziare', 'it')", createVarcharType(11), "pronunz");
         assertFunction("word_stem('auferstnde', 'de')", createVarcharType(10), "auferstnd");
+        assertFunction("word_stem('ã', 'pt')", createVarcharType(1), "ã");
+        assertFunction("word_stem('bastão', 'pt')", createVarcharType(6), "bastã");
 
         assertInvalidFunction("word_stem('test', 'xx')", "Unknown stemmer language: xx");
     }
