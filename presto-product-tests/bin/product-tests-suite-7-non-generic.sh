@@ -46,7 +46,7 @@ presto-product-tests/bin/run_on_docker.sh \
     -g two_hives \
     || exit_code=1
 
-presto-product-tests/bin/run_on_docker.sh \
+env TESTS_HIVE_VERSION_MAJOR="3" presto-product-tests/bin/run_on_docker.sh \
     singlenode-hdp3 \
     -g hdp3_only,storage_formats,hive_transactional \
     || exit_code=1
