@@ -21,7 +21,7 @@ public class TestWordStemFunction
         extends AbstractTestFunctions
 {
     @Test
-    public void testWordStep()
+    public void testWordStem()
     {
         assertFunction("word_stem('')", createVarcharType(0), "");
         assertFunction("word_stem('x')", createVarcharType(1), "x");
