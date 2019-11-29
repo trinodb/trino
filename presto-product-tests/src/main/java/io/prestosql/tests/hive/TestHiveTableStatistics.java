@@ -14,7 +14,6 @@
 package io.prestosql.tests.hive;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.tempto.ProductTest;
 import io.prestosql.tempto.Requirement;
 import io.prestosql.tempto.Requirements;
 import io.prestosql.tempto.RequirementsProvider;
@@ -35,7 +34,6 @@ import static io.prestosql.tempto.fulfillment.table.MutableTablesState.mutableTa
 import static io.prestosql.tempto.fulfillment.table.TableRequirements.mutableTable;
 import static io.prestosql.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
 import static io.prestosql.tempto.query.QueryExecutor.query;
-import static io.prestosql.tests.TestGroups.SKIP_ON_CDH;
 import static io.prestosql.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
 import static io.prestosql.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_BIGINT_REGIONKEY;
 import static io.prestosql.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_VARCHAR_REGIONKEY;
@@ -43,7 +41,7 @@ import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static java.lang.String.format;
 
 public class TestHiveTableStatistics
-        extends ProductTest
+        extends HiveProductTest
 {
     private static class UnpartitionedNationTable
             implements RequirementsProvider
@@ -126,7 +124,9 @@ public class TestHiveTableStatistics
                 row("c_decimal", null, 2.0, 0.0, null, "345.0", "346.0"),
                 row("c_decimal_w_params", null, 2.0, 0.0, null, "345.671", "345.678"),
                 row("c_timestamp", null, 2.0, 0.0, null, null, null),
-                row("c_date", null, 2.0, 0.0, null, "2015-05-09", "2015-06-10"),
+                isHiveVersionBefore12()
+                        ? row("c_date", null, null, null, null, null, null)
+                        : row("c_date", null, 2.0, 0.0, null, "2015-05-09", "2015-06-10"),
                 row("c_string", 22.0, 2.0, 0.0, null, null, null),
                 row("c_varchar", 20.0, 2.0, 0.0, null, null, null),
                 row("c_char", 12.0, 2.0, 0.0, null, null, null),
@@ -147,7 +147,9 @@ public class TestHiveTableStatistics
                 row("c_decimal", null, 0.0, 1.0, null, null, null),
                 row("c_decimal_w_params", null, 0.0, 1.0, null, null, null),
                 row("c_timestamp", null, 0.0, 1.0, null, null, null),
-                row("c_date", null, 0.0, 1.0, null, null, null),
+                isHiveVersionBefore12()
+                        ? row("c_date", null, null, null, null, null, null)
+                        : row("c_date", null, 0.0, 1.0, null, null, null),
                 row("c_string", 0.0, 0.0, 1.0, null, null, null),
                 row("c_varchar", 0.0, 0.0, 1.0, null, null, null),
                 row("c_char", 0.0, 0.0, 1.0, null, null, null),
@@ -168,7 +170,9 @@ public class TestHiveTableStatistics
                 row("c_decimal", null, 0.0, 0.0, null, null, null),
                 row("c_decimal_w_params", null, 0.0, 0.0, null, null, null),
                 row("c_timestamp", null, 0.0, 0.0, null, null, null),
-                row("c_date", null, 0.0, 0.0, null, null, null),
+                isHiveVersionBefore12()
+                        ? row("c_date", null, null, null, null, null, null)
+                        : row("c_date", null, 0.0, 0.0, null, null, null),
                 row("c_string", 0.0, 0.0, 0.0, null, null, null),
                 row("c_varchar", 0.0, 0.0, 0.0, null, null, null),
                 row("c_char", 0.0, 0.0, 0.0, null, null, null),
@@ -472,7 +476,7 @@ public class TestHiveTableStatistics
     }
 
     // This covers also stats calculation for unpartitioned table
-    @Test(groups = SKIP_ON_CDH /* CDH 5 metastore does not support date stats */)
+    @Test
     @Requires(AllTypesTable.class)
     public void testStatisticsForAllDataTypes()
     {
@@ -498,7 +502,14 @@ public class TestHiveTableStatistics
                 row("c_binary", null, null, null, null, null, null),
                 row(null, null, null, null, 2.0, null, null));
 
-        onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS FOR COLUMNS");
+        if (isHiveVersionBefore12()) {
+            onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS FOR COLUMNS " +
+                    "c_tinyint, c_smallint, c_int, c_bigint, c_float, c_double, c_decimal, c_decimal_w_params, c_timestamp, " +
+                    "c_string, c_varchar, c_char, c_bigint, c_binary");
+        }
+        else {
+            onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS FOR COLUMNS");
+        }
 
         // SHOW STATS FORMAT: column_name, data_size, distinct_values_count, nulls_fraction, row_count
         assertThat(query("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
@@ -511,16 +522,20 @@ public class TestHiveTableStatistics
                 row("c_decimal", null, 2.0, 0.0, null, "345.0", "346.0"),
                 row("c_decimal_w_params", null, 2.0, 0.0, null, "345.671", "345.678"),
                 row("c_timestamp", null, 2.0, 0.0, null, null, null), // timestamp is shifted by hive.time-zone on read
-                row("c_date", null, 2.0, 0.0, null, "2015-05-09", "2015-06-10"),
+                isHiveVersionBefore12()
+                        ? row("c_date", null, null, null, null, null, null)
+                        : row("c_date", null, 2.0, 0.0, null, "2015-05-09", "2015-06-10"),
                 row("c_string", 22.0, 2.0, 0.0, null, null, null),
                 row("c_varchar", 20.0, 2.0, 0.0, null, null, null),
                 row("c_char", 12.0, 2.0, 0.0, null, null, null),
-                row("c_boolean", null, 2.0, 0.0, null, null, null),
+                isHiveVersionBefore12()
+                        ? row("c_boolean", null, null, null, null, null, null)
+                        : row("c_boolean", null, 2.0, 0.0, null, null, null),
                 row("c_binary", 23.0, null, 0.0, null, null, null),
                 row(null, null, null, null, 2.0, null, null));
     }
 
-    @Test(groups = SKIP_ON_CDH /* CDH 5 metastore does not support date stats */)
+    @Test
     @Requires(AllTypesTable.class)
     public void testStatisticsForAllDataTypesNoData()
     {
@@ -546,7 +561,14 @@ public class TestHiveTableStatistics
                 row("c_binary", null, null, null, null, null, null),
                 row(null, null, null, null, 0.0, null, null));
 
-        onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS FOR COLUMNS");
+        if (isHiveVersionBefore12()) {
+            onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS FOR COLUMNS " +
+                    "c_tinyint, c_smallint, c_int, c_bigint, c_float, c_double, c_decimal, c_decimal_w_params, c_timestamp, " +
+                    "c_string, c_varchar, c_char, c_bigint, c_binary");
+        }
+        else {
+            onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS FOR COLUMNS");
+        }
 
         assertThat(query("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
                 row("c_tinyint", null, 0.0, 0.0, null, null, null),
@@ -558,16 +580,20 @@ public class TestHiveTableStatistics
                 row("c_decimal", null, 0.0, 0.0, null, null, null),
                 row("c_decimal_w_params", null, 0.0, 0.0, null, null, null),
                 row("c_timestamp", null, 0.0, 0.0, null, null, null),
-                row("c_date", null, 0.0, 0.0, null, null, null),
+                isHiveVersionBefore12()
+                        ? row("c_date", null, null, null, null, null, null)
+                        : row("c_date", null, 0.0, 0.0, null, null, null),
                 row("c_string", 0.0, 0.0, 0.0, null, null, null),
                 row("c_varchar", 0.0, 0.0, 0.0, null, null, null),
                 row("c_char", 0.0, 0.0, 0.0, null, null, null),
-                row("c_boolean", null, 0.0, 0.0, null, null, null),
+                isHiveVersionBefore12()
+                        ? row("c_boolean", null, null, null, null, null, null)
+                        : row("c_boolean", null, 0.0, 0.0, null, null, null),
                 row("c_binary", 0.0, null, 0.0, null, null, null),
                 row(null, null, null, null, 0.0, null, null));
     }
 
-    @Test(groups = SKIP_ON_CDH /* CDH 5 metastore does not support date stats */)
+    @Test
     @Requires(AllTypesTable.class)
     public void testStatisticsForAllDataTypesOnlyNulls()
     {
@@ -594,7 +620,14 @@ public class TestHiveTableStatistics
                 row("c_binary", null, null, null, null, null, null),
                 row(null, null, null, null, 1.0, null, null));
 
-        onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS FOR COLUMNS");
+        if (isHiveVersionBefore12()) {
+            onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS FOR COLUMNS " +
+                    "c_tinyint, c_smallint, c_int, c_bigint, c_float, c_double, c_decimal, c_decimal_w_params, c_timestamp, " +
+                    "c_string, c_varchar, c_char, c_bigint, c_binary");
+        }
+        else {
+            onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS FOR COLUMNS");
+        }
 
         assertThat(query("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
                 row("c_tinyint", null, 0.0, 1.0, null, null, null),
@@ -606,11 +639,15 @@ public class TestHiveTableStatistics
                 row("c_decimal", null, 0.0, 1.0, null, null, null),
                 row("c_decimal_w_params", null, 0.0, 1.0, null, null, null),
                 row("c_timestamp", null, 0.0, 1.0, null, null, null),
-                row("c_date", null, 0.0, 1.0, null, null, null),
+                isHiveVersionBefore12()
+                        ? row("c_date", null, null, null, null, null, null)
+                        : row("c_date", null, 0.0, 1.0, null, null, null),
                 row("c_string", 0.0, 0.0, 1.0, null, null, null),
                 row("c_varchar", 0.0, 0.0, 1.0, null, null, null),
                 row("c_char", 0.0, 0.0, 1.0, null, null, null),
-                row("c_boolean", null, 0.0, 1.0, null, null, null),
+                isHiveVersionBefore12()
+                        ? row("c_boolean", null, null, null, null, null, null)
+                        : row("c_boolean", null, 0.0, 1.0, null, null, null),
                 row("c_binary", 0.0, null, 1.0, null, null, null),
                 row(null, null, null, null, 1.0, null, null));
     }
@@ -845,7 +882,7 @@ public class TestHiveTableStatistics
     }
 
     // This covers also stats calculation for unpartitioned table
-    @Test(groups = SKIP_ON_CDH /* CDH 5 metastore does not support date stats */)
+    @Test
     @Requires(AllTypesTable.class)
     public void testAnalyzeForAllDataTypes()
     {
@@ -867,7 +904,7 @@ public class TestHiveTableStatistics
                 row("c_char", null, null, null, null, null, null),
                 row("c_boolean", null, null, null, null, null, null),
                 row("c_binary", null, null, null, null, null, null),
-                row(null, null, null, null, 0.0, null, null));
+                row(null, null, null, null, anyOf(null, 0.0), null, null)); // anyOf because of different behaviour on HDP (hive 1.2) and CDH (hive 1.1)
 
         assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactly(row(2));
 
@@ -882,7 +919,9 @@ public class TestHiveTableStatistics
                 row("c_decimal", null, 2.0, 0.0, null, "345.0", "346.0"),
                 row("c_decimal_w_params", null, 2.0, 0.0, null, "345.671", "345.678"),
                 row("c_timestamp", null, 2.0, 0.0, null, null, null),
-                row("c_date", null, 2.0, 0.0, null, "2015-05-09", "2015-06-10"),
+                isHiveVersionBefore12()
+                        ? row("c_date", null, null, null, null, null, null)
+                        : row("c_date", null, 2.0, 0.0, null, "2015-05-09", "2015-06-10"),
                 row("c_string", 22.0, 2.0, 0.0, null, null, null),
                 row("c_varchar", 20.0, 2.0, 0.0, null, null, null),
                 row("c_char", 12.0, 2.0, 0.0, null, null, null),
@@ -891,7 +930,7 @@ public class TestHiveTableStatistics
                 row(null, null, null, null, 2.0, null, null));
     }
 
-    @Test(groups = SKIP_ON_CDH /* CDH 5 metastore does not support date stats */)
+    @Test
     @Requires(AllTypesTable.class)
     public void testAnalyzeForAllDataTypesNoData()
     {
@@ -913,7 +952,7 @@ public class TestHiveTableStatistics
                 row("c_char", null, null, null, null, null, null),
                 row("c_boolean", null, null, null, null, null, null),
                 row("c_binary", null, null, null, null, null, null),
-                row(null, null, null, null, 0.0, null, null));
+                row(null, null, null, null, anyOf(null, 0.0), null, null)); // anyOf because of different behaviour on HDP (hive 1.2) and CDH (hive 1.1)
 
         assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactly(row(0));
 
@@ -927,7 +966,9 @@ public class TestHiveTableStatistics
                 row("c_decimal", null, 0.0, 0.0, null, null, null),
                 row("c_decimal_w_params", null, 0.0, 0.0, null, null, null),
                 row("c_timestamp", null, 0.0, 0.0, null, null, null),
-                row("c_date", null, 0.0, 0.0, null, null, null),
+                isHiveVersionBefore12()
+                        ? row("c_date", null, null, null, null, null, null)
+                        : row("c_date", null, 0.0, 0.0, null, null, null),
                 row("c_string", 0.0, 0.0, 0.0, null, null, null),
                 row("c_varchar", 0.0, 0.0, 0.0, null, null, null),
                 row("c_char", 0.0, 0.0, 0.0, null, null, null),
@@ -936,7 +977,7 @@ public class TestHiveTableStatistics
                 row(null, null, null, null, 0.0, null, null));
     }
 
-    @Test(groups = SKIP_ON_CDH /* CDH 5 metastore does not support date stats */)
+    @Test
     @Requires(AllTypesTable.class)
     public void testAnalyzeForAllDataTypesOnlyNulls()
     {
@@ -975,7 +1016,9 @@ public class TestHiveTableStatistics
                 row("c_decimal", null, 0.0, 1.0, null, null, null),
                 row("c_decimal_w_params", null, 0.0, 1.0, null, null, null),
                 row("c_timestamp", null, 0.0, 1.0, null, null, null),
-                row("c_date", null, 0.0, 1.0, null, null, null),
+                isHiveVersionBefore12()
+                        ? row("c_date", null, null, null, null, null, null)
+                        : row("c_date", null, 0.0, 1.0, null, null, null),
                 row("c_string", 0.0, 0.0, 1.0, null, null, null),
                 row("c_varchar", 0.0, 0.0, 1.0, null, null, null),
                 row("c_char", 0.0, 0.0, 1.0, null, null, null),
@@ -984,7 +1027,7 @@ public class TestHiveTableStatistics
                 row(null, null, null, null, 1.0, null, null));
     }
 
-    @Test(groups = SKIP_ON_CDH /* CDH 5 metastore does not support date stats */)
+    @Test
     @Requires(AllTypesTable.class)
     public void testComputeTableStatisticsOnCreateTable()
     {
@@ -997,7 +1040,7 @@ public class TestHiveTableStatistics
         assertComputeTableStatisticsOnCreateTable(allTypesAllNullTable, getAllTypesAllNullTableStatistics());
     }
 
-    @Test(groups = SKIP_ON_CDH /* CDH 5 metastore does not support date stats */)
+    @Test
     @Requires(AllTypesTable.class)
     public void testComputeTableStatisticsOnInsert()
     {
@@ -1026,7 +1069,9 @@ public class TestHiveTableStatistics
                     row("c_decimal", null, 2.0, 0.5, null, "345.0", "346.0"),
                     row("c_decimal_w_params", null, 2.0, 0.5, null, "345.671", "345.678"),
                     row("c_timestamp", null, 2.0, 0.5, null, null, null),
-                    row("c_date", null, 2.0, 0.5, null, "2015-05-09", "2015-06-10"),
+                    isHiveVersionBefore12()
+                            ? row("c_date", null, null, null, null, null, null)
+                            : row("c_date", null, 2.0, 0.5, null, "2015-05-09", "2015-06-10"),
                     row("c_string", 22.0, 2.0, 0.5, null, null, null),
                     row("c_varchar", 20.0, 2.0, 0.5, null, null, null),
                     row("c_char", 12.0, 2.0, 0.5, null, null, null),
@@ -1061,7 +1106,9 @@ public class TestHiveTableStatistics
                     row("c_decimal", null, 2.0, 0.4, null, "343.0", "346.0"),
                     row("c_decimal_w_params", null, 2.0, 0.4, null, "345.67", "345.678"),
                     row("c_timestamp", null, 2.0, 0.4, null, null, null),
-                    row("c_date", null, 2.0, 0.4, null, "2015-05-08", "2015-06-10"),
+                    isHiveVersionBefore12()
+                            ? row("c_date", null, null, null, null, null, null)
+                            : row("c_date", null, 2.0, 0.4, null, "2015-05-08", "2015-06-10"),
                     row("c_string", 32.0, 2.0, 0.4, null, null, null),
                     row("c_varchar", 29.0, 2.0, 0.4, null, null, null),
                     row("c_char", 17.0, 2.0, 0.4, null, null, null),
@@ -1074,7 +1121,7 @@ public class TestHiveTableStatistics
         }
     }
 
-    @Test(groups = SKIP_ON_CDH /* CDH 5 metastore does not support date stats */)
+    @Test
     @Requires(AllTypesTable.class)
     public void testComputePartitionStatisticsOnCreateTable()
     {
@@ -1137,7 +1184,9 @@ public class TestHiveTableStatistics
                     row("c_decimal", null, 1.0, 0.5, null, "343.0", "343.0"),
                     row("c_decimal_w_params", null, 1.0, 0.5, null, "345.67", "345.67"),
                     row("c_timestamp", null, 1.0, 0.5, null, null, null),
-                    row("c_date", null, 1.0, 0.5, null, "2015-05-08", "2015-05-08"),
+                    isHiveVersionBefore12()
+                            ? row("c_date", null, null, null, null, null, null)
+                            : row("c_date", null, 1.0, 0.5, null, "2015-05-08", "2015-05-08"),
                     row("c_string", 10.0, 1.0, 0.5, null, null, null),
                     row("c_varchar", 10.0, 1.0, 0.5, null, null, null),
                     row("c_char", 9.0, 1.0, 0.5, null, null, null),
@@ -1157,7 +1206,9 @@ public class TestHiveTableStatistics
                     row("c_decimal", null, 1.0, 0.5, null, "888.0", "888.0"),
                     row("c_decimal_w_params", null, 1.0, 0.5, null, "999.67", "999.67"),
                     row("c_timestamp", null, 1.0, 0.5, null, null, null),
-                    row("c_date", null, 1.0, 0.5, null, "2015-05-09", "2015-05-09"),
+                    isHiveVersionBefore12()
+                            ? row("c_date", null, null, null, null, null, null)
+                            : row("c_date", null, 1.0, 0.5, null, "2015-05-09", "2015-05-09"),
                     row("c_string", 10.0, 1.0, 0.5, null, null, null),
                     row("c_varchar", 10.0, 1.0, 0.5, null, null, null),
                     row("c_char", 9.0, 1.0, 0.5, null, null, null),
@@ -1172,7 +1223,7 @@ public class TestHiveTableStatistics
         }
     }
 
-    @Test(groups = SKIP_ON_CDH /* CDH 5 metastore does not support date stats */)
+    @Test
     @Requires(AllTypesTable.class)
     public void testComputePartitionStatisticsOnInsert()
     {
@@ -1223,7 +1274,9 @@ public class TestHiveTableStatistics
                     row("c_decimal", null, 1.0, 0.5, null, "343.0", "343.0"),
                     row("c_decimal_w_params", null, 1.0, 0.5, null, "345.67", "345.67"),
                     row("c_timestamp", null, 1.0, 0.5, null, null, null),
-                    row("c_date", null, 1.0, 0.5, null, "2015-05-08", "2015-05-08"),
+                    isHiveVersionBefore12()
+                            ? row("c_date", null, null, null, null, null, null)
+                            : row("c_date", null, 1.0, 0.5, null, "2015-05-08", "2015-05-08"),
                     row("c_string", 10.0, 1.0, 0.5, null, null, null),
                     row("c_varchar", 10.0, 1.0, 0.5, null, null, null),
                     row("c_char", 9.0, 1.0, 0.5, null, null, null),
@@ -1243,7 +1296,9 @@ public class TestHiveTableStatistics
                     row("c_decimal", null, 1.0, 0.5, null, "888.0", "888.0"),
                     row("c_decimal_w_params", null, 1.0, 0.5, null, "999.67", "999.67"),
                     row("c_timestamp", null, 1.0, 0.5, null, null, null),
-                    row("c_date", null, 1.0, 0.5, null, "2015-05-09", "2015-05-09"),
+                    isHiveVersionBefore12()
+                            ? row("c_date", null, null, null, null, null, null)
+                            : row("c_date", null, 1.0, 0.5, null, "2015-05-09", "2015-05-09"),
                     row("c_string", 10.0, 1.0, 0.5, null, null, null),
                     row("c_varchar", 10.0, 1.0, 0.5, null, null, null),
                     row("c_char", 9.0, 1.0, 0.5, null, null, null),
@@ -1266,7 +1321,9 @@ public class TestHiveTableStatistics
                     row("c_decimal", null, 1.0, 0.5, null, "342.0", "343.0"),
                     row("c_decimal_w_params", null, 1.0, 0.5, null, "344.67", "345.67"),
                     row("c_timestamp", null, 1.0, 0.5, null, null, null),
-                    row("c_date", null, 1.0, 0.5, null, "2015-05-07", "2015-05-08"),
+                    isHiveVersionBefore12()
+                            ? row("c_date", null, null, null, null, null, null)
+                            : row("c_date", null, 1.0, 0.5, null, "2015-05-07", "2015-05-08"),
                     row("c_string", 20.0, 1.0, 0.5, null, null, null),
                     row("c_varchar", 20.0, 1.0, 0.5, null, null, null),
                     row("c_char", 18.0, 1.0, 0.5, null, null, null),
@@ -1289,7 +1346,9 @@ public class TestHiveTableStatistics
                     row("c_decimal", null, 1.0, 0.5, null, "888.0", "889.0"),
                     row("c_decimal_w_params", null, 1.0, 0.5, null, "999.67", "1000.67"),
                     row("c_timestamp", null, 1.0, 0.5, null, null, null),
-                    row("c_date", null, 1.0, 0.5, null, "2015-05-09", "2015-05-10"),
+                    isHiveVersionBefore12()
+                            ? row("c_date", null, null, null, null, null, null)
+                            : row("c_date", null, 1.0, 0.5, null, "2015-05-09", "2015-05-10"),
                     row("c_string", 20.0, 1.0, 0.5, null, null, null),
                     row("c_varchar", 20.0, 1.0, 0.5, null, null, null),
                     row("c_char", 18.0, 1.0, 0.5, null, null, null),
@@ -1317,7 +1376,7 @@ public class TestHiveTableStatistics
         }
     }
 
-    private static void assertComputeTableStatisticsOnInsert(String sourceTableName, List<Row> expectedStatistics)
+    private void assertComputeTableStatisticsOnInsert(String sourceTableName, List<Row> expectedStatistics)
     {
         String copiedTableName = "assert_compute_table_statistics_on_insert_" + sourceTableName;
         query(format("DROP TABLE IF EXISTS %s", copiedTableName));

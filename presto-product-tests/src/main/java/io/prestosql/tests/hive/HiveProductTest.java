@@ -76,4 +76,10 @@ public class HiveProductTest
             throw new RuntimeException(e);
         }
     }
+
+    protected boolean isHiveVersionBefore12()
+    {
+        return getHiveVersionMajor() == 0
+                || (getHiveVersionMajor() == 1 && getHiveVersionMinor() < 2);
+    }
 }
