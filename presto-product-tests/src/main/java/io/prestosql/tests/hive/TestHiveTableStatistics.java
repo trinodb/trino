@@ -101,60 +101,6 @@ public class TestHiveTableStatistics
                     "\\N|\\N|\\N|\\N|\\N|\\N|\\N|\\N|\\N|\\N|\\N|\\N|\\N|\\N|\\N|\n"))
             .build();
 
-    private static final List<Row> ALL_TYPES_TABLE_STATISTICS = ImmutableList.of(
-            row("c_tinyint", null, 2.0, 0.0, null, "121", "127"),
-            row("c_smallint", null, 2.0, 0.0, null, "32761", "32767"),
-            row("c_int", null, 2.0, 0.0, null, "2147483641", "2147483647"),
-            row("c_bigint", null, 2.0, 0.0, null, "9223372036854775807", "9223372036854775807"),
-            row("c_float", null, 2.0, 0.0, null, "123.341", "123.345"),
-            row("c_double", null, 2.0, 0.0, null, "234.561", "235.567"),
-            row("c_decimal", null, 2.0, 0.0, null, "345.0", "346.0"),
-            row("c_decimal_w_params", null, 2.0, 0.0, null, "345.671", "345.678"),
-            row("c_timestamp", null, 2.0, 0.0, null, null, null),
-            row("c_date", null, 2.0, 0.0, null, "2015-05-09", "2015-06-10"),
-            row("c_string", 22.0, 2.0, 0.0, null, null, null),
-            row("c_varchar", 20.0, 2.0, 0.0, null, null, null),
-            row("c_char", 12.0, 2.0, 0.0, null, null, null),
-            row("c_boolean", null, 2.0, 0.0, null, null, null),
-            row("c_binary", 23.0, null, 0.0, null, null, null),
-            row(null, null, null, null, 2.0, null, null));
-
-    private static final List<Row> ALL_TYPES_ALL_NULL_TABLE_STATISTICS = ImmutableList.of(
-            row("c_tinyint", null, 0.0, 1.0, null, null, null),
-            row("c_smallint", null, 0.0, 1.0, null, null, null),
-            row("c_int", null, 0.0, 1.0, null, null, null),
-            row("c_bigint", null, 0.0, 1.0, null, null, null),
-            row("c_float", null, 0.0, 1.0, null, null, null),
-            row("c_double", null, 0.0, 1.0, null, null, null),
-            row("c_decimal", null, 0.0, 1.0, null, null, null),
-            row("c_decimal_w_params", null, 0.0, 1.0, null, null, null),
-            row("c_timestamp", null, 0.0, 1.0, null, null, null),
-            row("c_date", null, 0.0, 1.0, null, null, null),
-            row("c_string", 0.0, 0.0, 1.0, null, null, null),
-            row("c_varchar", 0.0, 0.0, 1.0, null, null, null),
-            row("c_char", 0.0, 0.0, 1.0, null, null, null),
-            row("c_boolean", null, 0.0, 1.0, null, null, null),
-            row("c_binary", 0.0, null, 1.0, null, null, null),
-            row(null, null, null, null, 1.0, null, null));
-
-    private static final List<Row> ALL_TYPES_EMPTY_TABLE_STATISTICS = ImmutableList.of(
-            row("c_tinyint", null, 0.0, 0.0, null, null, null),
-            row("c_smallint", null, 0.0, 0.0, null, null, null),
-            row("c_int", null, 0.0, 0.0, null, null, null),
-            row("c_bigint", null, 0.0, 0.0, null, null, null),
-            row("c_float", null, 0.0, 0.0, null, null, null),
-            row("c_double", null, 0.0, 0.0, null, null, null),
-            row("c_decimal", null, 0.0, 0.0, null, null, null),
-            row("c_decimal_w_params", null, 0.0, 0.0, null, null, null),
-            row("c_timestamp", null, 0.0, 0.0, null, null, null),
-            row("c_date", null, 0.0, 0.0, null, null, null),
-            row("c_string", 0.0, 0.0, 0.0, null, null, null),
-            row("c_varchar", 0.0, 0.0, 0.0, null, null, null),
-            row("c_char", 0.0, 0.0, 0.0, null, null, null),
-            row("c_boolean", null, 0.0, 0.0, null, null, null),
-            row("c_binary", 0.0, null, 0.0, null, null, null),
-            row(null, null, null, null, 0.0, null, null));
-
     private static final class AllTypesTable
             implements RequirementsProvider
     {
@@ -166,6 +112,69 @@ public class TestHiveTableStatistics
                     mutableTable(ALL_TYPES_ALL_NULL_TABLE, ALL_TYPES_ALL_NULL_TABLE_NAME, MutableTableRequirement.State.LOADED),
                     mutableTable(ALL_TYPES_TABLE, EMPTY_ALL_TYPES_TABLE_NAME, MutableTableRequirement.State.CREATED));
         }
+    }
+
+    private List<Row> getAllTypesTableStatistics()
+    {
+        return ImmutableList.of(
+                row("c_tinyint", null, 2.0, 0.0, null, "121", "127"),
+                row("c_smallint", null, 2.0, 0.0, null, "32761", "32767"),
+                row("c_int", null, 2.0, 0.0, null, "2147483641", "2147483647"),
+                row("c_bigint", null, 2.0, 0.0, null, "9223372036854775807", "9223372036854775807"),
+                row("c_float", null, 2.0, 0.0, null, "123.341", "123.345"),
+                row("c_double", null, 2.0, 0.0, null, "234.561", "235.567"),
+                row("c_decimal", null, 2.0, 0.0, null, "345.0", "346.0"),
+                row("c_decimal_w_params", null, 2.0, 0.0, null, "345.671", "345.678"),
+                row("c_timestamp", null, 2.0, 0.0, null, null, null),
+                row("c_date", null, 2.0, 0.0, null, "2015-05-09", "2015-06-10"),
+                row("c_string", 22.0, 2.0, 0.0, null, null, null),
+                row("c_varchar", 20.0, 2.0, 0.0, null, null, null),
+                row("c_char", 12.0, 2.0, 0.0, null, null, null),
+                row("c_boolean", null, 2.0, 0.0, null, null, null),
+                row("c_binary", 23.0, null, 0.0, null, null, null),
+                row(null, null, null, null, 2.0, null, null));
+    }
+
+    private List<Row> getAllTypesAllNullTableStatistics()
+    {
+        return ImmutableList.of(
+                row("c_tinyint", null, 0.0, 1.0, null, null, null),
+                row("c_smallint", null, 0.0, 1.0, null, null, null),
+                row("c_int", null, 0.0, 1.0, null, null, null),
+                row("c_bigint", null, 0.0, 1.0, null, null, null),
+                row("c_float", null, 0.0, 1.0, null, null, null),
+                row("c_double", null, 0.0, 1.0, null, null, null),
+                row("c_decimal", null, 0.0, 1.0, null, null, null),
+                row("c_decimal_w_params", null, 0.0, 1.0, null, null, null),
+                row("c_timestamp", null, 0.0, 1.0, null, null, null),
+                row("c_date", null, 0.0, 1.0, null, null, null),
+                row("c_string", 0.0, 0.0, 1.0, null, null, null),
+                row("c_varchar", 0.0, 0.0, 1.0, null, null, null),
+                row("c_char", 0.0, 0.0, 1.0, null, null, null),
+                row("c_boolean", null, 0.0, 1.0, null, null, null),
+                row("c_binary", 0.0, null, 1.0, null, null, null),
+                row(null, null, null, null, 1.0, null, null));
+    }
+
+    private List<Row> getAllTypesEmptyTableStatistics()
+    {
+        return ImmutableList.of(
+                row("c_tinyint", null, 0.0, 0.0, null, null, null),
+                row("c_smallint", null, 0.0, 0.0, null, null, null),
+                row("c_int", null, 0.0, 0.0, null, null, null),
+                row("c_bigint", null, 0.0, 0.0, null, null, null),
+                row("c_float", null, 0.0, 0.0, null, null, null),
+                row("c_double", null, 0.0, 0.0, null, null, null),
+                row("c_decimal", null, 0.0, 0.0, null, null, null),
+                row("c_decimal_w_params", null, 0.0, 0.0, null, null, null),
+                row("c_timestamp", null, 0.0, 0.0, null, null, null),
+                row("c_date", null, 0.0, 0.0, null, null, null),
+                row("c_string", 0.0, 0.0, 0.0, null, null, null),
+                row("c_varchar", 0.0, 0.0, 0.0, null, null, null),
+                row("c_char", 0.0, 0.0, 0.0, null, null, null),
+                row("c_boolean", null, 0.0, 0.0, null, null, null),
+                row("c_binary", 0.0, null, 0.0, null, null, null),
+                row(null, null, null, null, 0.0, null, null));
     }
 
     @Test
@@ -983,9 +992,9 @@ public class TestHiveTableStatistics
         String emptyAllTypesTable = mutableTablesState().get(EMPTY_ALL_TYPES_TABLE_NAME).getNameInDatabase();
         String allTypesAllNullTable = mutableTablesState().get(ALL_TYPES_ALL_NULL_TABLE_NAME).getNameInDatabase();
 
-        assertComputeTableStatisticsOnCreateTable(allTypesTable, ALL_TYPES_TABLE_STATISTICS);
-        assertComputeTableStatisticsOnCreateTable(emptyAllTypesTable, ALL_TYPES_EMPTY_TABLE_STATISTICS);
-        assertComputeTableStatisticsOnCreateTable(allTypesAllNullTable, ALL_TYPES_ALL_NULL_TABLE_STATISTICS);
+        assertComputeTableStatisticsOnCreateTable(allTypesTable, getAllTypesTableStatistics());
+        assertComputeTableStatisticsOnCreateTable(emptyAllTypesTable, getAllTypesEmptyTableStatistics());
+        assertComputeTableStatisticsOnCreateTable(allTypesAllNullTable, getAllTypesAllNullTableStatistics());
     }
 
     @Test(groups = SKIP_ON_CDH /* CDH 5 metastore does not support date stats */)
@@ -996,9 +1005,9 @@ public class TestHiveTableStatistics
         String emptyAllTypesTable = mutableTablesState().get(EMPTY_ALL_TYPES_TABLE_NAME).getNameInDatabase();
         String allTypesAllNullTable = mutableTablesState().get(ALL_TYPES_ALL_NULL_TABLE_NAME).getNameInDatabase();
 
-        assertComputeTableStatisticsOnInsert(allTypesTable, ALL_TYPES_TABLE_STATISTICS);
-        assertComputeTableStatisticsOnInsert(emptyAllTypesTable, ALL_TYPES_EMPTY_TABLE_STATISTICS);
-        assertComputeTableStatisticsOnInsert(allTypesAllNullTable, ALL_TYPES_ALL_NULL_TABLE_STATISTICS);
+        assertComputeTableStatisticsOnInsert(allTypesTable, getAllTypesTableStatistics());
+        assertComputeTableStatisticsOnInsert(emptyAllTypesTable, getAllTypesEmptyTableStatistics());
+        assertComputeTableStatisticsOnInsert(allTypesAllNullTable, getAllTypesAllNullTableStatistics());
 
         String tableName = "test_update_table_statistics";
         query(format("DROP TABLE IF EXISTS %s", tableName));
@@ -1314,7 +1323,7 @@ public class TestHiveTableStatistics
         query(format("DROP TABLE IF EXISTS %s", copiedTableName));
         try {
             query(format("CREATE TABLE %s AS SELECT * FROM %s WITH NO DATA", copiedTableName, sourceTableName));
-            assertThat(query("SHOW STATS FOR " + copiedTableName)).containsOnly(ALL_TYPES_EMPTY_TABLE_STATISTICS);
+            assertThat(query("SHOW STATS FOR " + copiedTableName)).containsOnly(getAllTypesEmptyTableStatistics());
             query(format("INSERT INTO %s SELECT * FROM %s", copiedTableName, sourceTableName));
             assertThat(query("SHOW STATS FOR " + copiedTableName)).containsOnly(expectedStatistics);
         }
