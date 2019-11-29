@@ -14,6 +14,7 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
 
+        <dep.kafka.version>1.1.1</dep.kafka.version>
         <dep.confluent.version>5.3.1</dep.confluent.version>
     </properties>
 
@@ -101,6 +102,7 @@
         <dependency>
             <groupId>org.apache.kafka</groupId>
             <artifactId>kafka-clients</artifactId>
+            <artifactId>${dep.kafka.version}</artifactId>
         </dependency>
 
         <!-- Presto SPI -->
