@@ -17,7 +17,10 @@ import com.google.inject.Inject;
 import com.google.inject.name.Named;
 import io.prestosql.tempto.ProductTest;
 
+import java.sql.SQLException;
+
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.tests.utils.QueryExecutors.onHive;
 
 public class HiveProductTest
         extends ProductTest
@@ -25,10 +28,26 @@ public class HiveProductTest
     @Inject
     @Named("databases.hive.major_version")
     private int hiveVersionMajor;
+    private boolean hiveVersionMajorVerified;
 
     protected int getHiveVersionMajor()
     {
         checkState(hiveVersionMajor > 0, "hiveVersionMajor not set");
+        if (!hiveVersionMajorVerified) {
+            int detected = detectHiveVersionMajor();
+            checkState(hiveVersionMajor == detected, "Hive version major expected: %s, but was detected as: %s", hiveVersionMajor, detected);
+            hiveVersionMajorVerified = true;
+        }
         return hiveVersionMajor;
+    }
+
+    private static int detectHiveVersionMajor()
+    {
+        try {
+            return onHive().getConnection().getMetaData().getDatabaseMajorVersion();
+        }
+        catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
     }
 }
