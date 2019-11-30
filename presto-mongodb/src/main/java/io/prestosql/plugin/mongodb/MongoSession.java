@@ -221,6 +221,9 @@ public class MongoSession
 
     public List<MongoIndex> getIndexes(SchemaTableName tableName)
     {
+        if (isView(tableName)) {
+            return ImmutableList.of();
+        }
         return MongoIndex.parse(getCollection(tableName).listIndexes());
     }
 
@@ -557,5 +560,12 @@ public class MongoSession
         }
 
         return Optional.ofNullable(typeSignature);
+    }
+
+    private boolean isView(SchemaTableName tableName)
+    {
+        MongoCollection views = client.getDatabase(tableName.getSchemaName()).getCollection("system.views");
+        Object view = views.find(new Document("_id", tableName.toString())).first();
+        return view != null;
     }
 }
