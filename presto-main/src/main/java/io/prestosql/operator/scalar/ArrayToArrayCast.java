@@ -78,8 +78,7 @@ public class ArrayToArrayCast
         Type toType = boundVariables.getTypeVariable("T");
 
         ResolvedFunction resolvedFunction = metadata.getCoercion(fromType, toType);
-        ScalarFunctionImplementation function = metadata.getScalarFunctionImplementation(resolvedFunction);
-        Class<?> castOperatorClass = generateArrayCast(metadata, resolvedFunction.getSignature(), function);
+        Class<?> castOperatorClass = generateArrayCast(metadata, resolvedFunction);
         MethodHandle methodHandle = methodHandle(castOperatorClass, "castArray", ConnectorSession.class, Block.class);
         return new ScalarFunctionImplementation(
                 false,
@@ -87,10 +86,11 @@ public class ArrayToArrayCast
                 methodHandle);
     }
 
-    private static Class<?> generateArrayCast(Metadata metadata, Signature elementCastSignature, ScalarFunctionImplementation elementCast)
+    private static Class<?> generateArrayCast(Metadata metadata, ResolvedFunction elementCast)
     {
         CallSiteBinder binder = new CallSiteBinder();
 
+        Signature elementCastSignature = elementCast.getSignature();
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
                 makeClassName(Joiner.on("$").join("ArrayCast", elementCastSignature.getArgumentTypes().get(0), elementCastSignature.getReturnType())),
@@ -116,7 +116,7 @@ public class ArrayToArrayCast
         Type fromElementType = metadata.getType(elementCastSignature.getArgumentTypes().get(0));
         Type toElementType = metadata.getType(elementCastSignature.getReturnType());
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(definition, binder);
-        ArrayMapBytecodeExpression newArray = ArrayGeneratorUtils.map(scope, cachedInstanceBinder, fromElementType, toElementType, value, elementCastSignature.getName(), elementCast);
+        ArrayMapBytecodeExpression newArray = ArrayGeneratorUtils.map(scope, cachedInstanceBinder, fromElementType, toElementType, value, elementCast, metadata);
 
         // return the block
         body.append(newArray.ret());

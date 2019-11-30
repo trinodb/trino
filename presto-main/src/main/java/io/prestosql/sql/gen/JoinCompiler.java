@@ -35,12 +35,12 @@ import io.airlift.jmx.CacheStatsMBean;
 import io.airlift.slice.Slice;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.operator.JoinHash;
 import io.prestosql.operator.JoinHashSupplier;
 import io.prestosql.operator.LookupSourceSupplier;
 import io.prestosql.operator.PagesHash;
 import io.prestosql.operator.PagesHashStrategy;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.block.Block;
@@ -693,14 +693,18 @@ public class JoinCompiler
                         .ifFalse(constantFalse().ret()));
                 continue;
             }
-            ScalarFunctionImplementation operator = metadata.getScalarFunctionImplementation(metadata.resolveOperator(OperatorType.IS_DISTINCT_FROM, ImmutableList.of(type, type)));
-            Binding binding = callSiteBinder.bind(operator.getMethodHandle());
+            ResolvedFunction resolvedFunction = metadata.resolveOperator(OperatorType.IS_DISTINCT_FROM, ImmutableList.of(type, type));
             List<BytecodeNode> argumentsBytecode = new ArrayList<>();
             argumentsBytecode.add(generateInputReference(callSiteBinder, scope, type, leftBlock, leftBlockPosition));
             argumentsBytecode.add(generateInputReference(callSiteBinder, scope, type, rightBlock, rightPosition));
 
             body.append(new IfStatement()
-                    .condition(BytecodeUtils.generateInvocation(scope, "isDistinctFrom", operator, Optional.empty(), argumentsBytecode, callSiteBinder))
+                    .condition(BytecodeUtils.generateInvocation(
+                            scope,
+                            resolvedFunction,
+                            metadata,
+                            argumentsBytecode,
+                            callSiteBinder))
                     .ifTrue(constantFalse().ret()));
         }
         body.append(constantTrue().ret());

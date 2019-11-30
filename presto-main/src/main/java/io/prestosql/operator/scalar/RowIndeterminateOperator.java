@@ -135,11 +135,10 @@ public class RowIndeterminateOperator
                                 .gotoLabel(end));
 
                 ResolvedFunction resolvedFunction = metadata.resolveOperator(INDETERMINATE, ImmutableList.of(fieldTypes.get(i)));
-                ScalarFunctionImplementation function = metadata.getScalarFunctionImplementation(resolvedFunction);
                 BytecodeExpression element = constantType(binder, fieldTypes.get(i)).getValue(value, constantInt(i));
 
                 ifNullField.ifFalse(new IfStatement("if the field is not null but indeterminate...")
-                        .condition(invokeFunction(scope, cachedInstanceBinder, resolvedFunction.getSignature().getName(), function, element))
+                        .condition(invokeFunction(scope, cachedInstanceBinder, resolvedFunction, metadata, element))
                         .ifTrue(new BytecodeBlock()
                                 .push(true)
                                 .gotoLabel(end)));

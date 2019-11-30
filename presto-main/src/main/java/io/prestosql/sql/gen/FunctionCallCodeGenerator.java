@@ -14,17 +14,11 @@
 package io.prestosql.sql.gen;
 
 import io.airlift.bytecode.BytecodeNode;
-import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.relational.RowExpression;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
-
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentType.VALUE_TYPE;
 
 public class FunctionCallCodeGenerator
         implements BytecodeGenerator
@@ -32,25 +26,6 @@ public class FunctionCallCodeGenerator
     @Override
     public BytecodeNode generateExpression(ResolvedFunction resolvedFunction, BytecodeGeneratorContext context, Type returnType, List<RowExpression> arguments)
     {
-        Metadata metadata = context.getMetadata();
-
-        ScalarFunctionImplementation function = metadata.getScalarFunctionImplementation(resolvedFunction);
-
-        List<BytecodeNode> argumentsBytecode = new ArrayList<>();
-        for (int i = 0; i < arguments.size(); i++) {
-            RowExpression argument = arguments.get(i);
-            ScalarFunctionImplementation.ArgumentProperty argumentProperty = function.getArgumentProperty(i);
-            if (argumentProperty.getArgumentType() == VALUE_TYPE) {
-                argumentsBytecode.add(context.generate(argument));
-            }
-            else {
-                argumentsBytecode.add(context.generate(argument, Optional.of(argumentProperty.getLambdaInterface())));
-            }
-        }
-
-        return context.generateCall(
-                resolvedFunction.getSignature().getName(),
-                function,
-                argumentsBytecode);
+        return context.generateFullCall(resolvedFunction, arguments);
     }
 }

@@ -79,7 +79,7 @@ public class InterpretedFunctionInvoker
                 }
             }
             else {
-                argument = asInterfaceInstance(argumentProperty.getLambdaInterface(), (MethodHandle) argument);
+                argument = asInterfaceInstance(method.type().parameterType(i), (MethodHandle) argument);
                 actualArguments.add(argument);
             }
         }
