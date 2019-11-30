@@ -38,6 +38,7 @@ import io.prestosql.spi.connector.ProjectionApplicationResult;
 import io.prestosql.spi.connector.SampleType;
 import io.prestosql.spi.connector.SystemTable;
 import io.prestosql.spi.expression.ConnectorExpression;
+import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.GrantInfo;
@@ -574,12 +575,6 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public FunctionInvokerProvider getFunctionInvokerProvider()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public ResolvedFunction resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
         String nameSuffix = name.getSuffix();
@@ -639,6 +634,12 @@ public abstract class AbstractMockMetadata
 
     @Override
     public InternalAggregationFunction getAggregateFunctionImplementation(ResolvedFunction resolvedFunction)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public FunctionInvoker getScalarFunctionInvoker(ResolvedFunction resolvedFunction, Optional<InvocationConvention> invocationConvention)
     {
         throw new UnsupportedOperationException();
     }

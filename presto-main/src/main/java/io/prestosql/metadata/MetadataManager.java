@@ -73,6 +73,7 @@ import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.connector.SystemTable;
 import io.prestosql.spi.expression.ConnectorExpression;
 import io.prestosql.spi.expression.Variable;
+import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.GrantInfo;
@@ -1409,12 +1410,6 @@ public final class MetadataManager
     }
 
     @Override
-    public FunctionInvokerProvider getFunctionInvokerProvider()
-    {
-        return new FunctionInvokerProvider(this);
-    }
-
-    @Override
     public ResolvedFunction resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
         return ResolvedFunction.fromQualifiedName(name)
@@ -1514,6 +1509,14 @@ public final class MetadataManager
     public InternalAggregationFunction getAggregateFunctionImplementation(ResolvedFunction resolvedFunction)
     {
         return functions.getAggregateFunctionImplementation(this, resolvedFunction);
+    }
+
+    @Override
+    public FunctionInvoker getScalarFunctionInvoker(ResolvedFunction resolvedFunction, Optional<InvocationConvention> invocationConvention)
+    {
+        ScalarFunctionImplementation scalarFunctionImplementation = functions.getScalarFunctionImplementation(this, resolvedFunction);
+        FunctionInvokerProvider functionInvokerProvider = new FunctionInvokerProvider(this);
+        return functionInvokerProvider.createFunctionInvoker(scalarFunctionImplementation, resolvedFunction.getSignature(), invocationConvention);
     }
 
     @Override
