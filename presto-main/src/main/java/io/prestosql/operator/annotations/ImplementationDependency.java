@@ -143,7 +143,7 @@ public interface ImplementationDependency
             }
             List<InvocationConvention.InvocationArgumentConvention> argumentConventions = new ArrayList<>();
             Collections.addAll(argumentConventions, convention.arguments());
-            return Optional.of(new InvocationConvention(argumentConventions, convention.result(), convention.session()));
+            return Optional.of(new InvocationConvention(argumentConventions, convention.result(), convention.session(), false));
         }
     }
 }
