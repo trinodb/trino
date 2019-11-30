@@ -37,10 +37,7 @@ public abstract class ScalarImplementationDependency
     public MethodHandle resolve(BoundVariables boundVariables, Metadata metadata)
     {
         ResolvedFunction resolvedFunction = getResolvedFunction(boundVariables, metadata);
-        if (invocationConvention.isPresent()) {
-            return metadata.getFunctionInvokerProvider().createFunctionInvoker(resolvedFunction, invocationConvention).getMethodHandle();
-        }
-        return metadata.getScalarFunctionImplementation(resolvedFunction).getMethodHandle();
+        return metadata.getFunctionInvokerProvider().createFunctionInvoker(resolvedFunction, invocationConvention).getMethodHandle();
     }
 
     @Override

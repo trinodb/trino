@@ -75,7 +75,12 @@ public final class ScalarFunctionImplementation
 
     public ArgumentProperty getArgumentProperty(int argumentIndex)
     {
-        return choices.get(0).argumentProperties.get(argumentIndex);
+        return getArgumentProperties().get(argumentIndex);
+    }
+
+    public List<ArgumentProperty> getArgumentProperties()
+    {
+        return choices.get(0).argumentProperties;
     }
 
     public MethodHandle getMethodHandle()

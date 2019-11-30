@@ -13,31 +13,36 @@
  */
 package io.prestosql.metadata;
 
-import com.google.common.annotations.VisibleForTesting;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation.ScalarImplementationChoice;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention;
+import io.prestosql.spi.type.Type;
 
+import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.metadata.ScalarFunctionAdapter.NullAdaptationPolicy.UNSUPPORTED;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentType.FUNCTION_TYPE;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.BLOCK_AND_POSITION;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
 import static io.prestosql.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class FunctionInvokerProvider
 {
+    private final ScalarFunctionAdapter functionAdapter = new ScalarFunctionAdapter(UNSUPPORTED);
     private final Metadata metadata;
 
     public FunctionInvokerProvider(Metadata metadata)
@@ -48,59 +53,64 @@ public class FunctionInvokerProvider
     public FunctionInvoker createFunctionInvoker(ResolvedFunction resolvedFunction, Optional<InvocationConvention> invocationConvention)
     {
         ScalarFunctionImplementation scalarFunctionImplementation = metadata.getScalarFunctionImplementation(resolvedFunction);
+
+        InvocationConvention expectedConvention = invocationConvention.orElseGet(() -> getDefaultCallingConvention(scalarFunctionImplementation));
+
         for (ScalarImplementationChoice choice : scalarFunctionImplementation.getAllChoices()) {
-            if (checkChoice(choice.getArgumentProperties(), choice.isNullable(), choice.hasSession(), invocationConvention)) {
-                return new FunctionInvoker(choice.getMethodHandle(), choice.getInstanceFactory());
+            InvocationConvention callingConvention = toCallingConvention(choice);
+            if (functionAdapter.canAdapt(callingConvention, expectedConvention)) {
+                List<Type> actualTypes = resolvedFunction.getSignature().getArgumentTypes().stream()
+                        .map(metadata::getType)
+                        .collect(toImmutableList());
+                MethodHandle methodHandle = functionAdapter.adapt(choice.getMethodHandle(), actualTypes, callingConvention, expectedConvention);
+                return new FunctionInvoker(methodHandle, choice.getInstanceFactory());
             }
         }
-        checkState(invocationConvention.isPresent());
         throw new PrestoException(FUNCTION_NOT_FOUND, format("Dependent function implementation (%s) with convention (%s) is not available", resolvedFunction, invocationConvention.toString()));
     }
 
-    @VisibleForTesting
-    static boolean checkChoice(List<ArgumentProperty> definitionArgumentProperties, boolean definitionReturnsNullable, boolean definitionHasSession, Optional<InvocationConvention> invocationConvention)
+    /**
+     * Default calling convention is no nulls and null is never returned. Since the no nulls adaptation strategy is to fail, the scalar must have this
+     * exact convention or convention must be specified.
+     */
+    private static InvocationConvention getDefaultCallingConvention(ScalarFunctionImplementation scalarFunctionImplementation)
     {
-        for (int i = 0; i < definitionArgumentProperties.size(); i++) {
-            InvocationArgumentConvention invocationArgumentConvention = invocationConvention.get().getArgumentConvention(i);
-            NullConvention nullConvention = definitionArgumentProperties.get(i).getNullConvention();
+        List<InvocationArgumentConvention> argumentConventions = scalarFunctionImplementation.getArgumentProperties().stream()
+                .map(ArgumentProperty::getArgumentType)
+                .map(argumentProperty -> argumentProperty == FUNCTION_TYPE ? FUNCTION : NEVER_NULL)
+                .collect(toImmutableList());
+        InvocationReturnConvention returnConvention = scalarFunctionImplementation.isNullable() ? NULLABLE_RETURN : FAIL_ON_NULL;
 
-            // return false because function types do not have a null convention
-            if (definitionArgumentProperties.get(i).getArgumentType() == FUNCTION_TYPE) {
-                if (invocationArgumentConvention != InvocationArgumentConvention.FUNCTION) {
-                    return false;
-                }
-                // Support can be added when this becomes necessary
-                throw new UnsupportedOperationException("Invocation convention for function type is not supported");
-            }
-            if (nullConvention == RETURN_NULL_ON_NULL && invocationArgumentConvention != InvocationArgumentConvention.NEVER_NULL) {
-                return false;
-            }
-            if (nullConvention == USE_BOXED_TYPE && invocationArgumentConvention != InvocationArgumentConvention.BOXED_NULLABLE) {
-                return false;
-            }
-            if (nullConvention == USE_NULL_FLAG && invocationArgumentConvention != InvocationArgumentConvention.NULL_FLAG) {
-                return false;
-            }
-            if (nullConvention == BLOCK_AND_POSITION && invocationArgumentConvention != InvocationArgumentConvention.BLOCK_POSITION) {
-                return false;
-            }
-        }
+        return new InvocationConvention(argumentConventions, returnConvention, true, false);
+    }
 
-        if (definitionReturnsNullable && invocationConvention.get().getReturnConvention() != InvocationReturnConvention.NULLABLE_RETURN) {
-            return false;
+    private static InvocationConvention toCallingConvention(ScalarImplementationChoice choice)
+    {
+        return new InvocationConvention(
+                choice.getArgumentProperties().stream()
+                        .map(FunctionInvokerProvider::toArgumentConvention)
+                        .collect(toImmutableList()),
+                choice.isNullable() ? NULLABLE_RETURN : FAIL_ON_NULL,
+                choice.hasSession(),
+                choice.getInstanceFactory().isPresent());
+    }
+
+    private static InvocationArgumentConvention toArgumentConvention(ArgumentProperty argumentProperty)
+    {
+        if (argumentProperty.getArgumentType() == FUNCTION_TYPE) {
+            return FUNCTION;
         }
-        if (!definitionReturnsNullable) {
-            // For each of the arguments, the invocation convention is required to be FAIL_ON_NULL
-            // when the  corresponding definition convention has RETURN_NULL_ON_NULL convention.
-            // As a result, when `definitionReturnsNullable` is false, the function
-            // can never return a null value. Therefore, the if below is sufficient.
-            if (invocationConvention.get().getReturnConvention() != InvocationReturnConvention.FAIL_ON_NULL) {
-                return false;
-            }
+        switch (argumentProperty.getNullConvention()) {
+            case RETURN_NULL_ON_NULL:
+                return NEVER_NULL;
+            case USE_BOXED_TYPE:
+                return BOXED_NULLABLE;
+            case USE_NULL_FLAG:
+                return NULL_FLAG;
+            case BLOCK_AND_POSITION:
+                return BLOCK_POSITION;
+            default:
+                throw new IllegalArgumentException("Unsupported null convention: " + argumentProperty.getNullConvention());
         }
-        if (definitionHasSession != invocationConvention.get().supportsSession()) {
-            return false;
-        }
-        return true;
     }
 }
