@@ -15,6 +15,7 @@ package io.prestosql.operator;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.block.Block;
@@ -70,8 +71,8 @@ public class SimplePagesHashStrategy
         requireNonNull(metadata, "metadata is null");
         ImmutableList.Builder<MethodHandle> distinctFromMethodHandlesBuilder = ImmutableList.builder();
         for (int i = 0; i < hashChannels.size(); i++) {
-            distinctFromMethodHandlesBuilder.add(
-                    metadata.getScalarFunctionImplementation(metadata.resolveOperator(IS_DISTINCT_FROM, ImmutableList.of(types.get(i), types.get(i)))).getMethodHandle());
+            ResolvedFunction resolvedFunction = metadata.resolveOperator(IS_DISTINCT_FROM, ImmutableList.of(types.get(i), types.get(i)));
+            distinctFromMethodHandlesBuilder.add(metadata.getScalarFunctionInvoker(resolvedFunction, Optional.empty()).getMethodHandle());
         }
         distinctFromMethodHandles = distinctFromMethodHandlesBuilder.build();
     }

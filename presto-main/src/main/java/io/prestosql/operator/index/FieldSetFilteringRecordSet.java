@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.RecordSet;
 import io.prestosql.spi.type.Type;
@@ -24,6 +25,7 @@ import io.prestosql.spi.type.Type;
 import java.lang.invoke.MethodHandle;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -51,9 +53,9 @@ public class FieldSetFilteringRecordSet
         for (Set<Integer> fieldSet : requireNonNull(fieldSets, "fieldSets is null")) {
             ImmutableSet.Builder<Field> fieldSetBuilder = ImmutableSet.builder();
             for (int field : fieldSet) {
-                fieldSetBuilder.add(new Field(
-                        field,
-                        metadata.getScalarFunctionImplementation(metadata.resolveOperator(EQUAL, ImmutableList.of(columnTypes.get(field), columnTypes.get(field)))).getMethodHandle()));
+                ResolvedFunction resolvedFunction = metadata.resolveOperator(EQUAL, ImmutableList.of(columnTypes.get(field), columnTypes.get(field)));
+                MethodHandle methodHandle = metadata.getScalarFunctionInvoker(resolvedFunction, Optional.empty()).getMethodHandle();
+                fieldSetBuilder.add(new Field(field, methodHandle));
             }
             fieldSetsBuilder.add(fieldSetBuilder.build());
         }

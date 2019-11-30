@@ -28,6 +28,7 @@ import it.unimi.dsi.fastutil.objects.ObjectOpenCustomHashSet;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
 import java.util.Collection;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -93,8 +94,8 @@ public final class FastutilSetHelper
 
         private LongStrategy(Metadata metadata, Type type)
         {
-            hashCodeHandle = metadata.getScalarFunctionImplementation(metadata.resolveOperator(HASH_CODE, ImmutableList.of(type))).getMethodHandle();
-            equalsHandle = metadata.getScalarFunctionImplementation(metadata.resolveOperator(EQUAL, ImmutableList.of(type, type))).getMethodHandle();
+            hashCodeHandle = metadata.getScalarFunctionInvoker(metadata.resolveOperator(HASH_CODE, ImmutableList.of(type)), Optional.empty()).getMethodHandle();
+            equalsHandle = metadata.getScalarFunctionInvoker(metadata.resolveOperator(EQUAL, ImmutableList.of(type, type)), Optional.empty()).getMethodHandle();
         }
 
         @Override
@@ -135,8 +136,8 @@ public final class FastutilSetHelper
 
         private DoubleStrategy(Metadata metadata, Type type)
         {
-            hashCodeHandle = metadata.getScalarFunctionImplementation(metadata.resolveOperator(HASH_CODE, ImmutableList.of(type))).getMethodHandle();
-            equalsHandle = metadata.getScalarFunctionImplementation(metadata.resolveOperator(EQUAL, ImmutableList.of(type, type))).getMethodHandle();
+            hashCodeHandle = metadata.getScalarFunctionInvoker(metadata.resolveOperator(HASH_CODE, ImmutableList.of(type)), Optional.empty()).getMethodHandle();
+            equalsHandle = metadata.getScalarFunctionInvoker(metadata.resolveOperator(EQUAL, ImmutableList.of(type, type)), Optional.empty()).getMethodHandle();
         }
 
         @Override
@@ -177,10 +178,10 @@ public final class FastutilSetHelper
 
         private ObjectStrategy(Metadata metadata, Type type)
         {
-            hashCodeHandle = metadata.getScalarFunctionImplementation(metadata.resolveOperator(HASH_CODE, ImmutableList.of(type)))
+            hashCodeHandle = metadata.getScalarFunctionInvoker(metadata.resolveOperator(HASH_CODE, ImmutableList.of(type)), Optional.empty())
                     .getMethodHandle()
                     .asType(MethodType.methodType(long.class, Object.class));
-            equalsHandle = metadata.getScalarFunctionImplementation(metadata.resolveOperator(EQUAL, ImmutableList.of(type, type)))
+            equalsHandle = metadata.getScalarFunctionInvoker(metadata.resolveOperator(EQUAL, ImmutableList.of(type, type)), Optional.empty())
                     .getMethodHandle()
                     .asType(MethodType.methodType(Boolean.class, Object.class, Object.class));
         }

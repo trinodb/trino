@@ -1514,15 +1514,10 @@ public final class MetadataManager
     @Override
     public FunctionInvoker getScalarFunctionInvoker(ResolvedFunction resolvedFunction, Optional<InvocationConvention> invocationConvention)
     {
+        FunctionMetadata functionMetadata = getFunctionMetadata(resolvedFunction);
         ScalarFunctionImplementation scalarFunctionImplementation = functions.getScalarFunctionImplementation(this, resolvedFunction);
         FunctionInvokerProvider functionInvokerProvider = new FunctionInvokerProvider(this);
-        return functionInvokerProvider.createFunctionInvoker(scalarFunctionImplementation, resolvedFunction.getSignature(), invocationConvention);
-    }
-
-    @Override
-    public ScalarFunctionImplementation getScalarFunctionImplementation(ResolvedFunction resolvedFunction)
-    {
-        return functions.getScalarFunctionImplementation(this, resolvedFunction);
+        return functionInvokerProvider.createFunctionInvoker(functionMetadata, scalarFunctionImplementation, resolvedFunction.getSignature(), invocationConvention);
     }
 
     @Override

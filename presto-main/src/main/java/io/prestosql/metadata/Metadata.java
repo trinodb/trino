@@ -17,7 +17,6 @@ import io.airlift.slice.Slice;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 import io.prestosql.operator.window.WindowFunctionSupplier;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.BlockEncoding;
@@ -478,8 +477,6 @@ public interface Metadata
     InternalAggregationFunction getAggregateFunctionImplementation(ResolvedFunction resolvedFunction);
 
     FunctionInvoker getScalarFunctionInvoker(ResolvedFunction resolvedFunction, Optional<InvocationConvention> invocationConvention);
-
-    ScalarFunctionImplementation getScalarFunctionImplementation(ResolvedFunction resolvedFunction);
 
     ProcedureRegistry getProcedureRegistry();
 
