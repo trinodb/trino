@@ -19,15 +19,12 @@ import io.prestosql.operator.scalar.ScalarFunctionImplementation.ScalarImplement
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention;
-import io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention;
 import io.prestosql.spi.type.Type;
-import io.prestosql.type.FunctionType;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -56,13 +53,10 @@ class FunctionInvokerProvider
     }
 
     public FunctionInvoker createFunctionInvoker(
-            FunctionMetadata functionMetadata,
             ScalarFunctionImplementation scalarFunctionImplementation,
             Signature resolvedSignature,
-            Optional<InvocationConvention> invocationConvention)
+            InvocationConvention expectedConvention)
     {
-        InvocationConvention expectedConvention = invocationConvention.orElseGet(() -> getDefaultCallingConvention(functionMetadata));
-
         List<Choice> choices = new ArrayList<>();
         for (ScalarImplementationChoice choice : scalarFunctionImplementation.getAllChoices()) {
             InvocationConvention callingConvention = toCallingConvention(choice);
@@ -86,20 +80,6 @@ class FunctionInvokerProvider
                 bestChoice.getChoice().getArgumentProperties().stream()
                         .map(ArgumentProperty::getLambdaInterface)
                         .collect(Collectors.toList()));
-    }
-
-    /**
-     * Default calling convention is no nulls and null is never returned. Since the no nulls adaptation strategy is to fail, the scalar must have this
-     * exact convention or convention must be specified.
-     */
-    private static InvocationConvention getDefaultCallingConvention(FunctionMetadata functionMetadata)
-    {
-        List<InvocationArgumentConvention> argumentConventions = functionMetadata.getSignature().getArgumentTypes().stream()
-                .map(typeSignature -> typeSignature.getBase().equalsIgnoreCase(FunctionType.NAME) ? FUNCTION : NEVER_NULL)
-                .collect(toImmutableList());
-        InvocationReturnConvention returnConvention = functionMetadata.isNullable() ? NULLABLE_RETURN : FAIL_ON_NULL;
-
-        return new InvocationConvention(argumentConventions, returnConvention, true, false);
     }
 
     private static InvocationConvention toCallingConvention(ScalarImplementationChoice choice)

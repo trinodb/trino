@@ -157,6 +157,7 @@ import io.prestosql.operator.window.RowNumberFunction;
 import io.prestosql.operator.window.SqlWindowFunction;
 import io.prestosql.operator.window.WindowFunctionSupplier;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.sql.DynamicFilters;
 import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.tree.QualifiedName;
@@ -699,16 +700,19 @@ public class FunctionRegistry
         return implementation;
     }
 
-    public ScalarFunctionImplementation getScalarFunctionImplementation(Metadata metadata, ResolvedFunction resolvedFunction)
+    public FunctionInvoker getScalarFunctionInvoker(Metadata metadata, ResolvedFunction resolvedFunction, InvocationConvention invocationConvention)
     {
         SpecializedFunctionKey key = getSpecializedFunctionKey(metadata, resolvedFunction);
+        ScalarFunctionImplementation scalarFunctionImplementation;
         try {
-            return specializedScalarCache.get(key, () -> specializeScalarFunction(metadata, key));
+            scalarFunctionImplementation = specializedScalarCache.get(key, () -> specializeScalarFunction(metadata, key));
         }
         catch (ExecutionException | UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), PrestoException.class);
             throw new RuntimeException(e.getCause());
         }
+        FunctionInvokerProvider functionInvokerProvider = new FunctionInvokerProvider(metadata);
+        return functionInvokerProvider.createFunctionInvoker(scalarFunctionImplementation, resolvedFunction.getSignature(), invocationConvention);
     }
 
     private static ScalarFunctionImplementation specializeScalarFunction(Metadata metadata, SpecializedFunctionKey key)
