@@ -20,6 +20,7 @@ import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlAggregationFunction;
 import io.prestosql.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
@@ -106,7 +107,8 @@ public abstract class AbstractMinMaxAggregationFunction
     public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, Metadata metadata)
     {
         Type type = boundVariables.getTypeVariable("E");
-        MethodHandle compareMethodHandle = metadata.getScalarFunctionImplementation(metadata.resolveOperator(operatorType, ImmutableList.of(type, type))).getMethodHandle();
+        ResolvedFunction resolvedFunction = metadata.resolveOperator(operatorType, ImmutableList.of(type, type));
+        MethodHandle compareMethodHandle = metadata.getScalarFunctionInvoker(resolvedFunction, Optional.empty()).getMethodHandle();
         return generateAggregation(type, compareMethodHandle);
     }
 

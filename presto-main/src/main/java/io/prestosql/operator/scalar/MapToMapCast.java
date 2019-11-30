@@ -18,6 +18,7 @@ import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.metadata.SqlOperator;
@@ -32,6 +33,7 @@ import io.prestosql.spi.type.TypeSignatureParameter;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -114,8 +116,8 @@ public final class MapToMapCast
 
         // Adapt cast that takes ([ConnectorSession,] ?) to one that takes (?, ConnectorSession), where ? is the return type of getter.
         ResolvedFunction resolvedFunction = metadata.getCoercion(fromType, toType);
-        ScalarFunctionImplementation castImplementation = metadata.getScalarFunctionImplementation(resolvedFunction);
-        MethodHandle cast = castImplementation.getMethodHandle();
+        FunctionMetadata functionMetadata = metadata.getFunctionMetadata(resolvedFunction);
+        MethodHandle cast = metadata.getScalarFunctionInvoker(resolvedFunction, Optional.empty()).getMethodHandle();
         if (cast.type().parameterArray()[0] != ConnectorSession.class) {
             cast = MethodHandles.dropArguments(cast, 0, ConnectorSession.class);
         }
@@ -123,7 +125,7 @@ public final class MapToMapCast
         MethodHandle target = compose(cast, getter);
 
         // If the key cast function is nullable, check the result is not null.
-        if (isKey && castImplementation.isNullable()) {
+        if (isKey && functionMetadata.isNullable()) {
             target = compose(nullChecker(target.type().returnType()), target);
         }
 

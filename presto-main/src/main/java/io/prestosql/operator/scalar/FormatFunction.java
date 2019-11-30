@@ -44,6 +44,7 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.IllegalFormatException;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.BiFunction;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -193,7 +194,7 @@ public final class FormatFunction
         // TODO: support TIME WITH TIME ZONE by https://github.com/prestosql/presto/issues/191 + mapping to java.time.OffsetTime
         if (type.equals(JSON)) {
             ResolvedFunction function = metadata.resolveFunction(QualifiedName.of("json_format"), fromTypes(JSON));
-            MethodHandle handle = metadata.getScalarFunctionImplementation(function).getMethodHandle();
+            MethodHandle handle = metadata.getScalarFunctionInvoker(function, Optional.empty()).getMethodHandle();
             return (session, block) -> convertToString(handle, type.getSlice(block, position));
         }
         if (isShortDecimal(type)) {
@@ -241,7 +242,7 @@ public final class FormatFunction
     {
         try {
             ResolvedFunction cast = metadata.getCoercion(type, VARCHAR);
-            return metadata.getScalarFunctionImplementation(cast).getMethodHandle();
+            return metadata.getScalarFunctionInvoker(cast, Optional.empty()).getMethodHandle();
         }
         catch (OperatorNotFoundException e) {
             return null;
