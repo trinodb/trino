@@ -23,14 +23,13 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodType;
 import java.util.Optional;
 
-import static com.google.common.base.Defaults.defaultValue;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.spi.StandardErrorCode.EXCEEDED_FUNCTION_MEMORY_LIMIT;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
-import static io.prestosql.spi.type.TypeUtils.readNativeValue;
 import static io.prestosql.type.TypeUtils.hashPosition;
 import static io.prestosql.type.TypeUtils.positionEqualsPosition;
 import static io.prestosql.util.Failures.internalError;
@@ -87,6 +86,7 @@ public class TypedSet
         checkArgument(expectedSize >= 0, "expectedSize must not be negative");
         this.elementType = requireNonNull(elementType, "elementType must not be null");
         this.elementIsDistinctFrom = requireNonNull(elementIsDistinctFrom, "elementIsDistinctFrom is null");
+        elementIsDistinctFrom.ifPresent(methodHandle -> checkArgument(methodHandle.type().equals(MethodType.methodType(boolean.class, Block.class, int.class, Block.class, int.class))));
         this.elementBlock = requireNonNull(blockBuilder, "blockBuilder must not be null");
         this.functionName = functionName;
         this.maxBlockMemoryInBytes = maxBlockMemory.map(value -> value.toBytes()).orElse(Long.MAX_VALUE);
@@ -176,12 +176,9 @@ public class TypedSet
     private boolean isContainedAt(Block block, int position, int atPosition)
     {
         if (elementIsDistinctFrom.isPresent()) {
-            boolean firstValueNull = elementBlock.isNull(atPosition);
-            Object firstValue = firstValueNull ? defaultValue(elementType.getJavaType()) : readNativeValue(elementType, elementBlock, atPosition);
-            boolean secondValueNull = block.isNull(position);
-            Object secondValue = secondValueNull ? defaultValue(elementType.getJavaType()) : readNativeValue(elementType, block, position);
             try {
-                return !(boolean) elementIsDistinctFrom.get().invoke(firstValue, firstValueNull, secondValue, secondValueNull);
+                boolean isNotDistinctFrom = !(boolean) elementIsDistinctFrom.get().invokeExact((Block) elementBlock, atPosition, block, position);
+                return isNotDistinctFrom;
             }
             catch (Throwable t) {
                 throw internalError(t);
