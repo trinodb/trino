@@ -39,7 +39,7 @@ public class TestPruneJoinChildrenColumns
         extends BaseRuleTest
 {
     @Test
-    public void testNotAllInputsRereferenced()
+    public void testNotAllInputsReferenced()
     {
         tester().assertThat(new PruneJoinChildrenColumns())
                 .on(p -> buildJoin(p, symbol -> symbol.getName().equals("leftValue")))

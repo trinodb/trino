@@ -56,7 +56,7 @@ public class TestPruneTopNColumns
     }
 
     @Test
-    public void testAllInputsRereferenced()
+    public void testAllInputsReferenced()
     {
         tester().assertThat(new PruneTopNColumns())
                 .on(p -> buildProjectedTopN(p, symbol -> symbol.getName().equals("a")))
