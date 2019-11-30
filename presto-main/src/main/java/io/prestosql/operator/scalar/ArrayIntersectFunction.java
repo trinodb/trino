@@ -18,6 +18,7 @@ import io.prestosql.operator.aggregation.TypedSet;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.function.Convention;
 import io.prestosql.spi.function.Description;
 import io.prestosql.spi.function.OperatorDependency;
 import io.prestosql.spi.function.ScalarFunction;
@@ -28,6 +29,8 @@ import io.prestosql.spi.type.Type;
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
 
 @ScalarFunction("array_intersect")
@@ -46,7 +49,10 @@ public final class ArrayIntersectFunction
     @SqlType("array(E)")
     public Block intersect(
             @TypeParameter("E") Type type,
-            @OperatorDependency(operator = IS_DISTINCT_FROM, argumentTypes = {"E", "E"}) MethodHandle elementIsDistinctFrom,
+            @OperatorDependency(
+                    operator = IS_DISTINCT_FROM,
+                    argumentTypes = {"E", "E"},
+                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) MethodHandle elementIsDistinctFrom,
             @SqlType("array(E)") Block leftArray,
             @SqlType("array(E)") Block rightArray)
     {
