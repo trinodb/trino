@@ -226,7 +226,6 @@ public class PlanOptimizers
         Set<Rule<?>> predicatePushDownRules = ImmutableSet.of(
                 new MergeFilters(metadata));
 
-        // TODO: Once we've migrated handling all the plan node types, replace uses of PruneUnreferencedOutputs with an IterativeOptimizer containing these rules.
         Set<Rule<?>> columnPruningRules = ImmutableSet.of(
                 new PruneAggregationColumns(),
                 new PruneAggregationSourceColumns(),
