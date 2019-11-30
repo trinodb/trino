@@ -678,7 +678,7 @@ public class ExpressionInterpreter
                     return value;
                 case MINUS:
                     ResolvedFunction resolvedOperator = metadata.resolveOperator(OperatorType.NEGATION, types(node.getValue()));
-                    MethodHandle handle = metadata.getScalarFunctionImplementation(resolvedOperator).getMethodHandle();
+                    MethodHandle handle = metadata.getScalarFunctionInvoker(resolvedOperator, Optional.empty()).getMethodHandle();
 
                     if (handle.type().parameterCount() > 0 && handle.type().parameterType(0) == ConnectorSession.class) {
                         handle = handle.bindTo(session);

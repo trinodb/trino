@@ -68,11 +68,6 @@ public final class ScalarFunctionImplementation
         this.choices = ImmutableList.copyOf(choices);
     }
 
-    public boolean isNullable()
-    {
-        return choices.get(0).isNullable();
-    }
-
     public ArgumentProperty getArgumentProperty(int argumentIndex)
     {
         return getArgumentProperties().get(argumentIndex);

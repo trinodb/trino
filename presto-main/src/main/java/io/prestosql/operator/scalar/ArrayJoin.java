@@ -20,6 +20,7 @@ import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
@@ -168,7 +169,8 @@ public final class ArrayJoin
         }
         else {
             try {
-                ScalarFunctionImplementation castFunction = metadata.getScalarFunctionImplementation(metadata.getCoercion(type, VARCHAR));
+                ResolvedFunction resolvedFunction = metadata.getCoercion(type, VARCHAR);
+                MethodHandle cast = metadata.getScalarFunctionInvoker(resolvedFunction, Optional.empty()).getMethodHandle();
 
                 MethodHandle getter;
                 Class<?> elementType = type.getJavaType();
@@ -187,8 +189,6 @@ public final class ArrayJoin
                 else {
                     throw new UnsupportedOperationException("Unsupported type: " + elementType.getName());
                 }
-
-                MethodHandle cast = castFunction.getMethodHandle();
 
                 // if the cast doesn't take a ConnectorSession, create an adapter that drops the provided session
                 if (cast.type().parameterArray()[0] != ConnectorSession.class) {

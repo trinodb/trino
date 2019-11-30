@@ -28,10 +28,14 @@ import io.prestosql.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
+import java.util.Optional;
 
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.Signature.castableToTypeParameter;
 import static io.prestosql.metadata.Signature.typeVariable;
+import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
 import static java.lang.invoke.MethodHandles.catchException;
 import static java.lang.invoke.MethodHandles.constant;
 import static java.lang.invoke.MethodHandles.dropArguments;
@@ -67,19 +71,17 @@ public class TryCastFunction
         Type toType = boundVariables.getTypeVariable("T");
 
         Class<?> returnType = Primitives.wrap(toType.getJavaType());
-        List<ArgumentProperty> argumentProperties;
-        MethodHandle tryCastHandle;
 
         // the resulting method needs to return a boxed type
         ResolvedFunction resolvedFunction = metadata.getCoercion(fromType, toType);
-        ScalarFunctionImplementation implementation = metadata.getScalarFunctionImplementation(resolvedFunction);
-        argumentProperties = ImmutableList.of(implementation.getArgumentProperty(0));
-        MethodHandle coercion = implementation.getMethodHandle();
+        MethodHandle coercion = metadata.getScalarFunctionInvoker(resolvedFunction, Optional.empty()).getMethodHandle();
         coercion = coercion.asType(methodType(returnType, coercion.type()));
 
         MethodHandle exceptionHandler = dropArguments(constant(returnType, null), 0, RuntimeException.class);
-        tryCastHandle = catchException(coercion, RuntimeException.class, exceptionHandler);
+        MethodHandle tryCastHandle = catchException(coercion, RuntimeException.class, exceptionHandler);
 
+        boolean nullable = metadata.getFunctionMetadata(resolvedFunction).getArgumentDefinitions().get(0).isNullable();
+        List<ArgumentProperty> argumentProperties = ImmutableList.of(nullable ? valueTypeArgumentProperty(USE_BOXED_TYPE) : valueTypeArgumentProperty(RETURN_NULL_ON_NULL));
         return new ScalarFunctionImplementation(true, argumentProperties, tryCastHandle);
     }
 }

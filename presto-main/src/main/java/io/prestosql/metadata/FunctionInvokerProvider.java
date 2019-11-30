@@ -21,6 +21,7 @@ import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention;
 import io.prestosql.spi.type.Type;
+import io.prestosql.type.FunctionType;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
@@ -54,9 +55,13 @@ class FunctionInvokerProvider
         this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
-    public FunctionInvoker createFunctionInvoker(ScalarFunctionImplementation scalarFunctionImplementation, Signature resolvedSignature, Optional<InvocationConvention> invocationConvention)
+    public FunctionInvoker createFunctionInvoker(
+            FunctionMetadata functionMetadata,
+            ScalarFunctionImplementation scalarFunctionImplementation,
+            Signature resolvedSignature,
+            Optional<InvocationConvention> invocationConvention)
     {
-        InvocationConvention expectedConvention = invocationConvention.orElseGet(() -> getDefaultCallingConvention(scalarFunctionImplementation));
+        InvocationConvention expectedConvention = invocationConvention.orElseGet(() -> getDefaultCallingConvention(functionMetadata));
 
         List<Choice> choices = new ArrayList<>();
         for (ScalarImplementationChoice choice : scalarFunctionImplementation.getAllChoices()) {
@@ -67,7 +72,7 @@ class FunctionInvokerProvider
         }
         if (choices.isEmpty()) {
             throw new PrestoException(FUNCTION_NOT_FOUND,
-                    format("Function implementation for (%s) cannot be adapted to convention (%s)", resolvedSignature, invocationConvention));
+                    format("Function implementation for (%s) cannot be adapted to convention (%s)", resolvedSignature, expectedConvention));
         }
 
         Choice bestChoice = Collections.max(choices, comparingInt(Choice::getScore));
@@ -87,13 +92,12 @@ class FunctionInvokerProvider
      * Default calling convention is no nulls and null is never returned. Since the no nulls adaptation strategy is to fail, the scalar must have this
      * exact convention or convention must be specified.
      */
-    private static InvocationConvention getDefaultCallingConvention(ScalarFunctionImplementation scalarFunctionImplementation)
+    private static InvocationConvention getDefaultCallingConvention(FunctionMetadata functionMetadata)
     {
-        List<InvocationArgumentConvention> argumentConventions = scalarFunctionImplementation.getArgumentProperties().stream()
-                .map(ArgumentProperty::getArgumentType)
-                .map(argumentProperty -> argumentProperty == FUNCTION_TYPE ? FUNCTION : NEVER_NULL)
+        List<InvocationArgumentConvention> argumentConventions = functionMetadata.getSignature().getArgumentTypes().stream()
+                .map(typeSignature -> typeSignature.getBase().equalsIgnoreCase(FunctionType.NAME) ? FUNCTION : NEVER_NULL)
                 .collect(toImmutableList());
-        InvocationReturnConvention returnConvention = scalarFunctionImplementation.isNullable() ? NULLABLE_RETURN : FAIL_ON_NULL;
+        InvocationReturnConvention returnConvention = functionMetadata.isNullable() ? NULLABLE_RETURN : FAIL_ON_NULL;
 
         return new InvocationConvention(argumentConventions, returnConvention, true, false);
     }
