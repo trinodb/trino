@@ -16,6 +16,7 @@ package io.prestosql.operator.scalar;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
+import io.prestosql.spi.function.Convention;
 import io.prestosql.spi.function.Description;
 import io.prestosql.spi.function.OperatorDependency;
 import io.prestosql.spi.function.ScalarFunction;
@@ -27,6 +28,8 @@ import io.prestosql.spi.type.Type;
 import java.lang.invoke.MethodHandle;
 
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.util.Failures.internalError;
 
@@ -40,7 +43,11 @@ public final class ArrayPositionFunction
     @SqlType(StandardTypes.BIGINT)
     public static long arrayPosition(
             @TypeParameter("T") Type type,
-            @OperatorDependency(operator = EQUAL, argumentTypes = {"T", "T"}) MethodHandle equalMethodHandle,
+            @OperatorDependency(
+                    operator = EQUAL,
+                    argumentTypes = {"T", "T"},
+                    convention = @Convention(arguments = {NEVER_NULL, NEVER_NULL}, result = NULLABLE_RETURN))
+                    MethodHandle equalMethodHandle,
             @SqlType("array(T)") Block array,
             @SqlType("T") boolean element)
     {
@@ -67,7 +74,11 @@ public final class ArrayPositionFunction
     @SqlType(StandardTypes.BIGINT)
     public static long arrayPosition(
             @TypeParameter("T") Type type,
-            @OperatorDependency(operator = EQUAL, argumentTypes = {"T", "T"}) MethodHandle equalMethodHandle,
+            @OperatorDependency(
+                    operator = EQUAL,
+                    argumentTypes = {"T", "T"},
+                    convention = @Convention(arguments = {NEVER_NULL, NEVER_NULL}, result = NULLABLE_RETURN))
+                    MethodHandle equalMethodHandle,
             @SqlType("array(T)") Block array,
             @SqlType("T") long element)
     {
@@ -94,7 +105,11 @@ public final class ArrayPositionFunction
     @SqlType(StandardTypes.BIGINT)
     public static long arrayPosition(
             @TypeParameter("T") Type type,
-            @OperatorDependency(operator = EQUAL, argumentTypes = {"T", "T"}) MethodHandle equalMethodHandle,
+            @OperatorDependency(
+                    operator = EQUAL,
+                    argumentTypes = {"T", "T"},
+                    convention = @Convention(arguments = {NEVER_NULL, NEVER_NULL}, result = NULLABLE_RETURN))
+                    MethodHandle equalMethodHandle,
             @SqlType("array(T)") Block array,
             @SqlType("T") double element)
     {
@@ -121,7 +136,11 @@ public final class ArrayPositionFunction
     @SqlType(StandardTypes.BIGINT)
     public static long arrayPosition(
             @TypeParameter("T") Type type,
-            @OperatorDependency(operator = EQUAL, argumentTypes = {"T", "T"}) MethodHandle equalMethodHandle,
+            @OperatorDependency(
+                    operator = EQUAL,
+                    argumentTypes = {"T", "T"},
+                    convention = @Convention(arguments = {NEVER_NULL, NEVER_NULL}, result = NULLABLE_RETURN))
+                    MethodHandle equalMethodHandle,
             @SqlType("array(T)") Block array,
             @SqlType("T") Slice element)
     {
@@ -148,7 +167,11 @@ public final class ArrayPositionFunction
     @SqlType(StandardTypes.BIGINT)
     public static long arrayPosition(
             @TypeParameter("T") Type type,
-            @OperatorDependency(operator = EQUAL, argumentTypes = {"T", "T"}) MethodHandle equalMethodHandle,
+            @OperatorDependency(
+                    operator = EQUAL,
+                    argumentTypes = {"T", "T"},
+                    convention = @Convention(arguments = {NEVER_NULL, NEVER_NULL}, result = NULLABLE_RETURN))
+                    MethodHandle equalMethodHandle,
             @SqlType("array(T)") Block array,
             @SqlType("T") Block element)
     {
