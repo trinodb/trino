@@ -70,8 +70,9 @@ public class RowDistinctFromOperator
                     Optional.of(new InvocationConvention(
                             ImmutableList.of(NULL_FLAG, NULL_FLAG),
                             InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL,
+                            false,
                             false)));
-            argumentMethods.add(functionInvoker.methodHandle());
+            argumentMethods.add(functionInvoker.getMethodHandle());
         }
         return new ScalarFunctionImplementation(
                 ImmutableList.of(

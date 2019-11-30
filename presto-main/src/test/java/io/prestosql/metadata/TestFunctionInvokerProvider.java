@@ -47,7 +47,7 @@ public class TestFunctionInvokerProvider
                         new ArgumentProperty(VALUE_TYPE, Optional.of(USE_BOXED_TYPE), Optional.empty())),
                 true,
                 false,
-                Optional.of(new InvocationConvention(ImmutableList.of(BOXED_NULLABLE, BOXED_NULLABLE), InvocationReturnConvention.NULLABLE_RETURN, false))));
+                Optional.of(new InvocationConvention(ImmutableList.of(BOXED_NULLABLE, BOXED_NULLABLE), InvocationReturnConvention.NULLABLE_RETURN, false, false))));
 
         assertTrue(checkChoice(
                 ImmutableList.of(
@@ -56,7 +56,7 @@ public class TestFunctionInvokerProvider
                         new ArgumentProperty(VALUE_TYPE, Optional.of(BLOCK_AND_POSITION), Optional.empty())),
                 false,
                 false,
-                Optional.of(new InvocationConvention(ImmutableList.of(NEVER_NULL, BLOCK_POSITION, BLOCK_POSITION), InvocationReturnConvention.FAIL_ON_NULL, false))));
+                Optional.of(new InvocationConvention(ImmutableList.of(NEVER_NULL, BLOCK_POSITION, BLOCK_POSITION), InvocationReturnConvention.FAIL_ON_NULL, false, false))));
 
         assertTrue(checkChoice(
                 ImmutableList.of(
@@ -65,7 +65,7 @@ public class TestFunctionInvokerProvider
                         new ArgumentProperty(VALUE_TYPE, Optional.of(BLOCK_AND_POSITION), Optional.empty())),
                 false,
                 false,
-                Optional.of(new InvocationConvention(ImmutableList.of(BLOCK_POSITION, NULL_FLAG, BLOCK_POSITION), InvocationReturnConvention.FAIL_ON_NULL, false))));
+                Optional.of(new InvocationConvention(ImmutableList.of(BLOCK_POSITION, NULL_FLAG, BLOCK_POSITION), InvocationReturnConvention.FAIL_ON_NULL, false, false))));
 
         assertFalse(checkChoice(
                 ImmutableList.of(
@@ -73,7 +73,7 @@ public class TestFunctionInvokerProvider
                         new ArgumentProperty(VALUE_TYPE, Optional.of(USE_BOXED_TYPE), Optional.empty())),
                 false,
                 false,
-                Optional.of(new InvocationConvention(ImmutableList.of(BLOCK_POSITION, BOXED_NULLABLE), InvocationReturnConvention.NULLABLE_RETURN, false))));
+                Optional.of(new InvocationConvention(ImmutableList.of(BLOCK_POSITION, BOXED_NULLABLE), InvocationReturnConvention.NULLABLE_RETURN, false, false))));
 
         assertFalse(checkChoice(
                 ImmutableList.of(
@@ -81,7 +81,7 @@ public class TestFunctionInvokerProvider
                         new ArgumentProperty(VALUE_TYPE, Optional.of(BLOCK_AND_POSITION), Optional.empty())),
                 false,
                 false,
-                Optional.of(new InvocationConvention(ImmutableList.of(BLOCK_POSITION, NULL_FLAG), InvocationReturnConvention.NULLABLE_RETURN, false))));
+                Optional.of(new InvocationConvention(ImmutableList.of(BLOCK_POSITION, NULL_FLAG), InvocationReturnConvention.NULLABLE_RETURN, false, false))));
 
         assertFalse(checkChoice(
                 ImmutableList.of(
@@ -89,6 +89,6 @@ public class TestFunctionInvokerProvider
                         new ArgumentProperty(VALUE_TYPE, Optional.of(USE_BOXED_TYPE), Optional.empty())),
                 true,
                 false,
-                Optional.of(new InvocationConvention(ImmutableList.of(BLOCK_POSITION, BOXED_NULLABLE), InvocationReturnConvention.FAIL_ON_NULL, false))));
+                Optional.of(new InvocationConvention(ImmutableList.of(BLOCK_POSITION, BOXED_NULLABLE), InvocationReturnConvention.FAIL_ON_NULL, false, false))));
     }
 }

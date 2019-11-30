@@ -19,13 +19,19 @@ public class InvocationConvention
 {
     private final List<InvocationArgumentConvention> argumentConventionList;
     private final InvocationReturnConvention returnConvention;
-    private final boolean hasSession;
+    private final boolean supportsSession;
+    private final boolean supportsInstanceFactory;
 
-    public InvocationConvention(List<InvocationArgumentConvention> argumentConventionList, InvocationReturnConvention returnConvention, boolean hasSession)
+    public InvocationConvention(
+            List<InvocationArgumentConvention> argumentConventionList,
+            InvocationReturnConvention returnConvention,
+            boolean supportsSession,
+            boolean supportsInstanceFactory)
     {
         this.argumentConventionList = argumentConventionList;
         this.returnConvention = returnConvention;
-        this.hasSession = hasSession;
+        this.supportsSession = supportsSession;
+        this.supportsInstanceFactory = supportsInstanceFactory;
     }
 
     public InvocationReturnConvention getReturnConvention()
@@ -33,14 +39,24 @@ public class InvocationConvention
         return returnConvention;
     }
 
+    public List<InvocationArgumentConvention> getArgumentConventions()
+    {
+        return argumentConventionList;
+    }
+
     public InvocationArgumentConvention getArgumentConvention(int index)
     {
         return argumentConventionList.get(index);
     }
 
-    public boolean hasSession()
+    public boolean supportsSession()
     {
-        return hasSession;
+        return supportsSession;
+    }
+
+    public boolean supportsInstanceFactor()
+    {
+        return supportsInstanceFactory;
     }
 
     @Override
@@ -51,10 +67,27 @@ public class InvocationConvention
 
     public enum InvocationArgumentConvention
     {
+        /**
+         * Argument must not be a boxed type. Argument will never be null.
+         */
         NEVER_NULL,
+        /**
+         * Argument is always an object type. A SQL null will be passed a Java null.
+         */
         BOXED_NULLABLE,
+        /**
+         * Argument must not be a boxed type, and is always followed with a boolean argument
+         * to indicate if the sql value is null.
+         */
         NULL_FLAG,
+        /**
+         * Argument is passed a Block followed by the integer position in the block.  The
+         * sql value may be null.
+         */
         BLOCK_POSITION,
+        /**
+         * Argument is a lambda function.
+         */
         FUNCTION
     }
 
