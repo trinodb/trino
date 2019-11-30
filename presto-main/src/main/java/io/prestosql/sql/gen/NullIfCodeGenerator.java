@@ -22,7 +22,6 @@ import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.instruction.LabelNode;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.relational.RowExpression;
@@ -59,13 +58,11 @@ public class NullIfCodeGenerator
 
         // if (equal(cast(first as <common type>), cast(second as <common type>))
         Metadata metadata = generatorContext.getMetadata();
-        ResolvedFunction resolvedEqualsFunction = metadata.resolveOperator(OperatorType.EQUAL, ImmutableList.of(firstType, secondType));
-        ScalarFunctionImplementation equalsFunction = metadata.getScalarFunctionImplementation(resolvedEqualsFunction);
+        ResolvedFunction resolvedEqualsFunction = generatorContext.getMetadata().resolveOperator(OperatorType.EQUAL, ImmutableList.of(firstType, secondType));
         Type firstRequiredType = metadata.getType(resolvedEqualsFunction.getSignature().getArgumentTypes().get(0));
         Type secondRequiredType = metadata.getType(resolvedEqualsFunction.getSignature().getArgumentTypes().get(1));
         BytecodeNode equalsCall = generatorContext.generateCall(
-                resolvedEqualsFunction.getSignature().getName(),
-                equalsFunction,
+                resolvedEqualsFunction,
                 ImmutableList.of(
                         cast(generatorContext, firstValue, firstType, firstRequiredType),
                         cast(generatorContext, generatorContext.generate(second), secondType, secondRequiredType)));
@@ -104,9 +101,6 @@ public class NullIfCodeGenerator
                 .getCoercion(actualType, requiredType);
 
         // TODO: do we need a full function call? (nullability checks, etc)
-        return generatorContext.generateCall(
-                function.getSignature().getName(),
-                generatorContext.getMetadata().getScalarFunctionImplementation(function),
-                ImmutableList.of(argument));
+        return generatorContext.generateCall(function, ImmutableList.of(argument));
     }
 }

@@ -218,10 +218,9 @@ public final class ScalarFunctionImplementation
             return nullConvention.get();
         }
 
-        public Class<?> getLambdaInterface()
+        public Optional<Class<?>> getLambdaInterface()
         {
-            checkState(getArgumentType() == FUNCTION_TYPE, "lambdaInterface only applies to function type argument");
-            return lambdaInterface.get();
+            return lambdaInterface;
         }
 
         @Override

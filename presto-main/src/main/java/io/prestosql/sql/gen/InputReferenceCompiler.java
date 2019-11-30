@@ -164,5 +164,10 @@ class InputReferenceCompiler
             blockAndPosition.append(position);
             return blockAndPosition;
         }
+
+        public BytecodeExpression blockAndPositionIsNull()
+        {
+            return block.invoke("isNull", boolean.class, position);
+        }
     }
 }

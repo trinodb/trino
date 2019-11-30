@@ -261,7 +261,7 @@ public class ParametricScalarImplementation
                     }
                     break;
                 case FUNCTION_TYPE:
-                    methodHandleParameterTypes.add(argumentProperty.getLambdaInterface());
+                    methodHandleParameterTypes.add(argumentProperty.getLambdaInterface().orElseThrow(() -> new IllegalArgumentException("Argument is not a function")));
                     break;
                 default:
                     throw new UnsupportedOperationException("unknown ArgumentType");

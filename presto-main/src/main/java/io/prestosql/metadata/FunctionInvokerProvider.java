@@ -23,8 +23,11 @@ import io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention
 import io.prestosql.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.metadata.ScalarFunctionAdapter.NullAdaptationPolicy.UNSUPPORTED;
@@ -38,6 +41,7 @@ import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentC
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static java.lang.String.format;
+import static java.util.Comparator.comparingInt;
 import static java.util.Objects.requireNonNull;
 
 class FunctionInvokerProvider
@@ -54,17 +58,29 @@ class FunctionInvokerProvider
     {
         InvocationConvention expectedConvention = invocationConvention.orElseGet(() -> getDefaultCallingConvention(scalarFunctionImplementation));
 
+        List<Choice> choices = new ArrayList<>();
         for (ScalarImplementationChoice choice : scalarFunctionImplementation.getAllChoices()) {
             InvocationConvention callingConvention = toCallingConvention(choice);
             if (functionAdapter.canAdapt(callingConvention, expectedConvention)) {
-                List<Type> actualTypes = resolvedSignature.getArgumentTypes().stream()
-                        .map(metadata::getType)
-                        .collect(toImmutableList());
-                MethodHandle methodHandle = functionAdapter.adapt(choice.getMethodHandle(), actualTypes, callingConvention, expectedConvention);
-                return new FunctionInvoker(methodHandle, choice.getInstanceFactory());
+                choices.add(new Choice(choice, callingConvention));
             }
         }
-        throw new PrestoException(FUNCTION_NOT_FOUND, format("Dependent function implementation (%s) with convention (%s) is not available", resolvedSignature, invocationConvention.toString()));
+        if (choices.isEmpty()) {
+            throw new PrestoException(FUNCTION_NOT_FOUND,
+                    format("Function implementation for (%s) cannot be adapted to convention (%s)", resolvedSignature, invocationConvention));
+        }
+
+        Choice bestChoice = Collections.max(choices, comparingInt(Choice::getScore));
+        List<Type> actualTypes = resolvedSignature.getArgumentTypes().stream()
+                .map(metadata::getType)
+                .collect(toImmutableList());
+        MethodHandle methodHandle = functionAdapter.adapt(bestChoice.getChoice().getMethodHandle(), actualTypes, bestChoice.getCallingConvention(), expectedConvention);
+        return new FunctionInvoker(
+                methodHandle,
+                bestChoice.getChoice().getInstanceFactory(),
+                bestChoice.getChoice().getArgumentProperties().stream()
+                        .map(ArgumentProperty::getLambdaInterface)
+                        .collect(Collectors.toList()));
     }
 
     /**
@@ -109,6 +125,45 @@ class FunctionInvokerProvider
                 return BLOCK_POSITION;
             default:
                 throw new IllegalArgumentException("Unsupported null convention: " + argumentProperty.getNullConvention());
+        }
+    }
+
+    private static final class Choice
+    {
+        private final ScalarImplementationChoice choice;
+        private final InvocationConvention callingConvention;
+        private final int score;
+
+        public Choice(ScalarImplementationChoice choice, InvocationConvention callingConvention)
+        {
+            this.choice = requireNonNull(choice, "choice is null");
+            this.callingConvention = requireNonNull(callingConvention, "callingConvention is null");
+
+            int score = 0;
+            for (InvocationArgumentConvention argument : callingConvention.getArgumentConventions()) {
+                if (argument == NULL_FLAG) {
+                    score += 1;
+                }
+                else if (argument == BLOCK_POSITION) {
+                    score += 1000;
+                }
+            }
+            this.score = score;
+        }
+
+        public ScalarImplementationChoice getChoice()
+        {
+            return choice;
+        }
+
+        public InvocationConvention getCallingConvention()
+        {
+            return callingConvention;
+        }
+
+        public int getScore()
+        {
+            return score;
         }
     }
 }
