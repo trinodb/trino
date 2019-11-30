@@ -151,14 +151,13 @@ public class RowToRowCast
         // loop through to append member blocks
         for (int i = 0; i < toTypes.size(); i++) {
             ResolvedFunction resolvedFunction = metadata.getCoercion(fromTypes.get(i), toTypes.get(i));
-            ScalarFunctionImplementation function = metadata.getScalarFunctionImplementation(resolvedFunction);
             Type currentFromType = fromTypes.get(i);
             if (currentFromType.equals(UNKNOWN)) {
                 body.append(singleRowBlockWriter.invoke("appendNull", BlockBuilder.class).pop());
                 continue;
             }
             BytecodeExpression fromElement = constantType(binder, currentFromType).getValue(value, constantInt(i));
-            BytecodeExpression toElement = invokeFunction(scope, cachedInstanceBinder, resolvedFunction.getSignature().getName(), function, fromElement);
+            BytecodeExpression toElement = invokeFunction(scope, cachedInstanceBinder, resolvedFunction, metadata, fromElement);
             IfStatement ifElementNull = new IfStatement("if the element in the row type is null...");
 
             ifElementNull.condition(value.invoke("isNull", boolean.class, constantInt(i)))

@@ -17,14 +17,13 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import io.airlift.bytecode.BytecodeNode;
-import io.airlift.bytecode.FieldDefinition;
 import io.airlift.bytecode.MethodGenerationContext;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.expression.BytecodeExpression;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.ResolvedFunction;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.bytecode.ParameterizedType.type;
@@ -34,22 +33,17 @@ import static java.util.Objects.requireNonNull;
 public class InvokeFunctionBytecodeExpression
         extends BytecodeExpression
 {
-    public static BytecodeExpression invokeFunction(Scope scope, CachedInstanceBinder cachedInstanceBinder, String name, ScalarFunctionImplementation function, BytecodeExpression... parameters)
-    {
-        return invokeFunction(scope, cachedInstanceBinder, name, function, ImmutableList.copyOf(parameters));
-    }
-
-    public static BytecodeExpression invokeFunction(Scope scope, CachedInstanceBinder cachedInstanceBinder, String name, ScalarFunctionImplementation function, List<BytecodeExpression> parameters)
+    public static BytecodeExpression invokeFunction(Scope scope,
+            CachedInstanceBinder cachedInstanceBinder,
+            ResolvedFunction resolvedFunction,
+            Metadata metadata,
+            BytecodeExpression... parameters)
     {
         requireNonNull(scope, "scope is null");
-        requireNonNull(function, "function is null");
+        requireNonNull(resolvedFunction, "function is null");
+        requireNonNull(metadata, "metadata is null");
 
-        Optional<BytecodeNode> instance = Optional.empty();
-        if (function.getInstanceFactory().isPresent()) {
-            FieldDefinition field = cachedInstanceBinder.getCachedInstance(function.getInstanceFactory().get());
-            instance = Optional.of(scope.getThis().getField(field));
-        }
-        return new InvokeFunctionBytecodeExpression(scope, cachedInstanceBinder.getCallSiteBinder(), name, function, instance, parameters);
+        return new InvokeFunctionBytecodeExpression(scope, cachedInstanceBinder.getCallSiteBinder(), resolvedFunction, metadata, ImmutableList.copyOf(parameters));
     }
 
     private final BytecodeNode invocation;
@@ -58,15 +52,14 @@ public class InvokeFunctionBytecodeExpression
     private InvokeFunctionBytecodeExpression(
             Scope scope,
             CallSiteBinder binder,
-            String name,
-            ScalarFunctionImplementation function,
-            Optional<BytecodeNode> instance,
+            ResolvedFunction resolvedFunction,
+            Metadata metadata,
             List<BytecodeExpression> parameters)
     {
-        super(type(Primitives.unwrap(function.getMethodHandle().type().returnType())));
+        super(type(Primitives.unwrap(metadata.getType(resolvedFunction.getSignature().getReturnType()).getJavaType())));
 
-        this.invocation = generateInvocation(scope, name, function, instance, parameters.stream().map(BytecodeNode.class::cast).collect(toImmutableList()), binder);
-        this.oneLineDescription = name + "(" + Joiner.on(", ").join(parameters) + ")";
+        this.invocation = generateInvocation(scope, resolvedFunction, metadata, parameters.stream().map(BytecodeNode.class::cast).collect(toImmutableList()), binder);
+        this.oneLineDescription = resolvedFunction.getSignature().getName() + "(" + Joiner.on(", ").join(parameters) + ")";
     }
 
     @Override

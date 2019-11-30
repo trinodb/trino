@@ -33,6 +33,7 @@ import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.type.UnknownType.UNKNOWN;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -63,9 +64,8 @@ public class TestBlockAndPositionNullConvention
         assertFunction("test_block_position(bound_string)", VARCHAR, "hello");
         assertTrue(FunctionWithBlockAndPositionConvention.hitBlockPositionSlice.get());
 
-        // TODO: add adaptations so these will pass
-        //assertFunction("test_block_position(null)", UNKNOWN, null);
-        //assertFalse(FunctionWithBlockAndPositionConvention.hitBlockPositionObject.get());
+        assertFunction("test_block_position(null)", UNKNOWN, null);
+        assertFalse(FunctionWithBlockAndPositionConvention.hitBlockPositionObject.get());
 
         assertFunction("test_block_position(false)", BOOLEAN, false);
         assertFalse(FunctionWithBlockAndPositionConvention.hitBlockPositionBoolean.get());
