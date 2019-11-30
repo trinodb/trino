@@ -40,7 +40,7 @@ import static io.prestosql.spi.function.InvocationConvention.InvocationReturnCon
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class FunctionInvokerProvider
+class FunctionInvokerProvider
 {
     private final ScalarFunctionAdapter functionAdapter = new ScalarFunctionAdapter(UNSUPPORTED);
     private final Metadata metadata;
@@ -50,23 +50,21 @@ public class FunctionInvokerProvider
         this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
-    public FunctionInvoker createFunctionInvoker(ResolvedFunction resolvedFunction, Optional<InvocationConvention> invocationConvention)
+    public FunctionInvoker createFunctionInvoker(ScalarFunctionImplementation scalarFunctionImplementation, Signature resolvedSignature, Optional<InvocationConvention> invocationConvention)
     {
-        ScalarFunctionImplementation scalarFunctionImplementation = metadata.getScalarFunctionImplementation(resolvedFunction);
-
         InvocationConvention expectedConvention = invocationConvention.orElseGet(() -> getDefaultCallingConvention(scalarFunctionImplementation));
 
         for (ScalarImplementationChoice choice : scalarFunctionImplementation.getAllChoices()) {
             InvocationConvention callingConvention = toCallingConvention(choice);
             if (functionAdapter.canAdapt(callingConvention, expectedConvention)) {
-                List<Type> actualTypes = resolvedFunction.getSignature().getArgumentTypes().stream()
+                List<Type> actualTypes = resolvedSignature.getArgumentTypes().stream()
                         .map(metadata::getType)
                         .collect(toImmutableList());
                 MethodHandle methodHandle = functionAdapter.adapt(choice.getMethodHandle(), actualTypes, callingConvention, expectedConvention);
                 return new FunctionInvoker(methodHandle, choice.getInstanceFactory());
             }
         }
-        throw new PrestoException(FUNCTION_NOT_FOUND, format("Dependent function implementation (%s) with convention (%s) is not available", resolvedFunction, invocationConvention.toString()));
+        throw new PrestoException(FUNCTION_NOT_FOUND, format("Dependent function implementation (%s) with convention (%s) is not available", resolvedSignature, invocationConvention.toString()));
     }
 
     /**

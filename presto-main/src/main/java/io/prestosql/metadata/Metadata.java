@@ -36,6 +36,7 @@ import io.prestosql.spi.connector.ProjectionApplicationResult;
 import io.prestosql.spi.connector.SampleType;
 import io.prestosql.spi.connector.SystemTable;
 import io.prestosql.spi.expression.ConnectorExpression;
+import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.GrantInfo;
@@ -448,8 +449,6 @@ public interface Metadata
 
     List<FunctionMetadata> listFunctions();
 
-    FunctionInvokerProvider getFunctionInvokerProvider();
-
     ResolvedFunction resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes);
 
     ResolvedFunction resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
@@ -477,6 +476,8 @@ public interface Metadata
     WindowFunctionSupplier getWindowFunctionImplementation(ResolvedFunction resolvedFunction);
 
     InternalAggregationFunction getAggregateFunctionImplementation(ResolvedFunction resolvedFunction);
+
+    FunctionInvoker getScalarFunctionInvoker(ResolvedFunction resolvedFunction, Optional<InvocationConvention> invocationConvention);
 
     ScalarFunctionImplementation getScalarFunctionImplementation(ResolvedFunction resolvedFunction);
 
