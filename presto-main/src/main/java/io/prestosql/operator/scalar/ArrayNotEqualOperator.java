@@ -14,6 +14,7 @@ package io.prestosql.operator.scalar;
  */
 
 import io.prestosql.spi.block.Block;
+import io.prestosql.spi.function.Convention;
 import io.prestosql.spi.function.OperatorDependency;
 import io.prestosql.spi.function.ScalarOperator;
 import io.prestosql.spi.function.SqlNullable;
@@ -24,6 +25,8 @@ import io.prestosql.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
 
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
 
@@ -36,7 +39,11 @@ public final class ArrayNotEqualOperator
     @SqlType(StandardTypes.BOOLEAN)
     @SqlNullable
     public static Boolean notEqual(
-            @OperatorDependency(operator = EQUAL, argumentTypes = {"E", "E"}) MethodHandle equalsFunction,
+            @OperatorDependency(
+                    operator = EQUAL,
+                    argumentTypes = {"E", "E"},
+                    convention = @Convention(arguments = {NEVER_NULL, NEVER_NULL}, result = NULLABLE_RETURN))
+                    MethodHandle equalsFunction,
             @TypeParameter("E") Type type,
             @SqlType("array(E)") Block left,
             @SqlType("array(E)") Block right)
