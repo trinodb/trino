@@ -315,7 +315,7 @@ public final class HiveSessionProperties
                         false),
                 booleanProperty(
                         OPTIMIZE_MISMATCHED_BUCKET_COUNT,
-                        "Experimenal: Enable optimization to avoid shuffle when bucket count is compatible but not the same",
+                        "Experimental: Enable optimization to avoid shuffle when bucket count is compatible but not the same",
                         hiveConfig.isOptimizeMismatchedBucketCount(),
                         false),
                 booleanProperty(
