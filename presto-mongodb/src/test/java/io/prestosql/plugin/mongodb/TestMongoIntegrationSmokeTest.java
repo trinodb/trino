@@ -285,6 +285,16 @@ public class TestMongoIntegrationSmokeTest
         assertUpdate("DROP TABLE tmp_objectid");
     }
 
+    @Test
+    public void testSelectView()
+    {
+        assertUpdate("CREATE TABLE test.view_base AS SELECT 'foo' _varchar", 1);
+        mongoQueryRunner.getMongoClient().getDatabase("test").createView("test_view", "view_base", ImmutableList.of());
+        assertQuery("SELECT * FROM test.view_base", "SELECT 'foo'");
+        assertUpdate("DROP TABLE test.test_view");
+        assertUpdate("DROP TABLE test.view_base");
+    }
+
     private void assertOneNotNullResult(String query)
     {
         MaterializedResult results = getQueryRunner().execute(getSession(), query).toTestTypes();
