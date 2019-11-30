@@ -14,20 +14,28 @@
 package io.prestosql.metadata;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
 public class FunctionInvoker
 {
     private final MethodHandle methodHandle;
+    private final Optional<MethodHandle> instanceFactory;
 
-    public FunctionInvoker(MethodHandle methodHandle)
+    public FunctionInvoker(MethodHandle methodHandle, Optional<MethodHandle> instanceFactory)
     {
         this.methodHandle = requireNonNull(methodHandle, "methodHandle is null");
+        this.instanceFactory = requireNonNull(instanceFactory, "instanceFactory is null");
     }
 
-    public MethodHandle methodHandle()
+    public MethodHandle getMethodHandle()
     {
         return methodHandle;
+    }
+
+    public Optional<MethodHandle> getInstanceFactory()
+    {
+        return instanceFactory;
     }
 }

@@ -50,7 +50,7 @@ public class FunctionInvokerProvider
         ScalarFunctionImplementation scalarFunctionImplementation = metadata.getScalarFunctionImplementation(resolvedFunction);
         for (ScalarImplementationChoice choice : scalarFunctionImplementation.getAllChoices()) {
             if (checkChoice(choice.getArgumentProperties(), choice.isNullable(), choice.hasSession(), invocationConvention)) {
-                return new FunctionInvoker(choice.getMethodHandle());
+                return new FunctionInvoker(choice.getMethodHandle(), choice.getInstanceFactory());
             }
         }
         checkState(invocationConvention.isPresent());
@@ -98,7 +98,7 @@ public class FunctionInvokerProvider
                 return false;
             }
         }
-        if (definitionHasSession != invocationConvention.get().hasSession()) {
+        if (definitionHasSession != invocationConvention.get().supportsSession()) {
             return false;
         }
         return true;
