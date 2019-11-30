@@ -16,6 +16,7 @@ package io.prestosql.operator.scalar;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
+import io.prestosql.spi.function.Convention;
 import io.prestosql.spi.function.Description;
 import io.prestosql.spi.function.OperatorDependency;
 import io.prestosql.spi.function.ScalarFunction;
@@ -28,6 +29,8 @@ import io.prestosql.spi.type.Type;
 import java.lang.invoke.MethodHandle;
 
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.util.Failures.internalError;
 
@@ -42,7 +45,11 @@ public final class ArrayContains
     @SqlNullable
     public static Boolean contains(
             @TypeParameter("T") Type elementType,
-            @OperatorDependency(operator = EQUAL, argumentTypes = {"T", "T"}) MethodHandle equals,
+            @OperatorDependency(
+                    operator = EQUAL,
+                    argumentTypes = {"T", "T"},
+                    convention = @Convention(arguments = {NEVER_NULL, NEVER_NULL}, result = NULLABLE_RETURN))
+                    MethodHandle equals,
             @SqlType("array(T)") Block arrayBlock,
             @SqlType("T") Block value)
     {
@@ -74,7 +81,11 @@ public final class ArrayContains
     @SqlNullable
     public static Boolean contains(
             @TypeParameter("T") Type elementType,
-            @OperatorDependency(operator = EQUAL, argumentTypes = {"T", "T"}) MethodHandle equals,
+            @OperatorDependency(
+                    operator = EQUAL,
+                    argumentTypes = {"T", "T"},
+                    convention = @Convention(arguments = {NEVER_NULL, NEVER_NULL}, result = NULLABLE_RETURN))
+                    MethodHandle equals,
             @SqlType("array(T)") Block arrayBlock,
             @SqlType("T") Slice value)
     {
@@ -106,7 +117,11 @@ public final class ArrayContains
     @SqlNullable
     public static Boolean contains(
             @TypeParameter("T") Type elementType,
-            @OperatorDependency(operator = EQUAL, argumentTypes = {"T", "T"}) MethodHandle equals,
+            @OperatorDependency(
+                    operator = EQUAL,
+                    argumentTypes = {"T", "T"},
+                    convention = @Convention(arguments = {NEVER_NULL, NEVER_NULL}, result = NULLABLE_RETURN))
+                    MethodHandle equals,
             @SqlType("array(T)") Block arrayBlock,
             @SqlType("T") long value)
     {
@@ -138,7 +153,11 @@ public final class ArrayContains
     @SqlNullable
     public static Boolean contains(
             @TypeParameter("T") Type elementType,
-            @OperatorDependency(operator = EQUAL, argumentTypes = {"T", "T"}) MethodHandle equals,
+            @OperatorDependency(
+                    operator = EQUAL,
+                    argumentTypes = {"T", "T"},
+                    convention = @Convention(arguments = {NEVER_NULL, NEVER_NULL}, result = NULLABLE_RETURN))
+                    MethodHandle equals,
             @SqlType("array(T)") Block arrayBlock,
             @SqlType("T") boolean value)
     {
@@ -170,7 +189,11 @@ public final class ArrayContains
     @SqlNullable
     public static Boolean contains(
             @TypeParameter("T") Type elementType,
-            @OperatorDependency(operator = EQUAL, argumentTypes = {"T", "T"}) MethodHandle equals,
+            @OperatorDependency(
+                    operator = EQUAL,
+                    argumentTypes = {"T", "T"},
+                    convention = @Convention(arguments = {NEVER_NULL, NEVER_NULL}, result = NULLABLE_RETURN))
+                    MethodHandle equals,
             @SqlType("array(T)") Block arrayBlock,
             @SqlType("T") double value)
     {
