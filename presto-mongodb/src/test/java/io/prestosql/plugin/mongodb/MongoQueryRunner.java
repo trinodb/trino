@@ -15,9 +15,8 @@ package io.prestosql.plugin.mongodb;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.net.HostAndPort;
 import com.mongodb.MongoClient;
-import com.mongodb.ServerAddress;
-import de.bwaldvogel.mongo.MongoServer;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.airlift.tpch.TpchTable;
@@ -25,7 +24,6 @@ import io.prestosql.Session;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.testing.DistributedQueryRunner;
 
-import java.net.InetSocketAddress;
 import java.util.Map;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
@@ -40,16 +38,14 @@ public class MongoQueryRunner
 
     private final MongoServer server;
     private final MongoClient client;
-    private final InetSocketAddress address;
 
     private MongoQueryRunner(Session session, int workers)
             throws Exception
     {
         super(session, workers);
 
-        server = new MongoServer(new SyncMemoryBackend());
-        address = server.bind();
-        client = new MongoClient(new ServerAddress(address));
+        this.server = new MongoServer();
+        client = new MongoClient(server.getAddress().getHost(), server.getAddress().getPort());
     }
 
     public static MongoQueryRunner createMongoQueryRunner(TpchTable<?>... tables)
@@ -69,7 +65,7 @@ public class MongoQueryRunner
             queryRunner.createCatalog("tpch", "tpch");
 
             Map<String, String> properties = ImmutableMap.of(
-                    "mongodb.seeds", queryRunner.getAddress().getHostString() + ":" + queryRunner.getAddress().getPort(),
+                    "mongodb.seeds", queryRunner.getAddress().toString(),
                     "mongodb.socket-keep-alive", "true");
 
             queryRunner.installPlugin(new MongoPlugin());
@@ -93,9 +89,9 @@ public class MongoQueryRunner
                 .build();
     }
 
-    public InetSocketAddress getAddress()
+    public HostAndPort getAddress()
     {
-        return address;
+        return server.getAddress();
     }
 
     public MongoClient getMongoClient()
@@ -107,7 +103,7 @@ public class MongoQueryRunner
     {
         close();
         client.close();
-        server.shutdown();
+        server.close();
     }
 
     public static void main(String[] args)
