@@ -80,7 +80,9 @@ public final class KafkaQueryRunner
 
         DistributedQueryRunner queryRunner = null;
         try {
-            queryRunner = new DistributedQueryRunner(createSession(), 2);
+            queryRunner = DistributedQueryRunner.builder(createSession())
+                    .setNodeCount(2)
+                    .build();
 
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");

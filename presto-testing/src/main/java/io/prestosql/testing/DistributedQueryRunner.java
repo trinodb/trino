@@ -87,20 +87,6 @@ public class DistributedQueryRunner
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
-    @Deprecated
-    public DistributedQueryRunner(Session defaultSession, int nodeCount)
-            throws Exception
-    {
-        this(defaultSession, nodeCount, ImmutableMap.of());
-    }
-
-    @Deprecated
-    public DistributedQueryRunner(Session defaultSession, int nodeCount, Map<String, String> extraProperties)
-            throws Exception
-    {
-        this(defaultSession, nodeCount, extraProperties, ImmutableMap.of(), DEFAULT_SQL_PARSER_OPTIONS, ENVIRONMENT, Optional.empty());
-    }
-
     public static Builder builder(Session defaultSession)
     {
         return new Builder(defaultSession);
