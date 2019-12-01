@@ -334,7 +334,7 @@ public class TestTypeCoercion
         return new CompatibilityAssertion(commonSuperType1, canCoerceFirstToSecond, canCoerceSecondToFirst);
     }
 
-    private class CompatibilityAssertion
+    private static class CompatibilityAssertion
     {
         private final Optional<Type> commonSuperType;
         private final boolean canCoerceFirstToSecond;
