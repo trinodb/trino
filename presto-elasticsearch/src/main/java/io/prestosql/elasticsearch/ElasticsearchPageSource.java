@@ -275,34 +275,34 @@ public class ElasticsearchPageSource
         if (type.equals(VARCHAR)) {
             return new VarcharDecoder();
         }
-        else if (type.equals(VARBINARY)) {
+        if (type.equals(VARBINARY)) {
             return new VarbinaryDecoder();
         }
-        else if (type.equals(TIMESTAMP)) {
+        if (type.equals(TIMESTAMP)) {
             return new TimestampDecoder(session, path);
         }
-        else if (type.equals(BOOLEAN)) {
+        if (type.equals(BOOLEAN)) {
             return new BooleanDecoder();
         }
-        else if (type.equals(DOUBLE)) {
+        if (type.equals(DOUBLE)) {
             return new DoubleDecoder();
         }
-        else if (type.equals(REAL)) {
+        if (type.equals(REAL)) {
             return new RealDecoder();
         }
-        else if (type.equals(TINYINT)) {
+        if (type.equals(TINYINT)) {
             return new TinyintDecoder();
         }
-        else if (type.equals(SMALLINT)) {
+        if (type.equals(SMALLINT)) {
             return new SmallintDecoder();
         }
-        else if (type.equals(INTEGER)) {
+        if (type.equals(INTEGER)) {
             return new IntegerDecoder();
         }
-        else if (type.equals(BIGINT)) {
+        if (type.equals(BIGINT)) {
             return new BigintDecoder();
         }
-        else if (type instanceof RowType) {
+        if (type instanceof RowType) {
             RowType rowType = (RowType) type;
 
             List<Decoder> decoders = rowType.getFields().stream()
