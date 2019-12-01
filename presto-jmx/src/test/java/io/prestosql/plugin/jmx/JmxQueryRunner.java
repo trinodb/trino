@@ -30,7 +30,9 @@ public final class JmxQueryRunner
     {
         DistributedQueryRunner queryRunner = null;
         try {
-            queryRunner = new DistributedQueryRunner(createSession(), 3);
+            queryRunner = DistributedQueryRunner.builder(createSession())
+                    .setNodeCount(3)
+                    .build();
 
             queryRunner.installPlugin(new JmxPlugin());
             queryRunner.createCatalog("jmx", "jmx");

@@ -59,11 +59,14 @@ public class TestSpatialJoins
     protected DistributedQueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(testSessionBuilder()
+        Session session = testSessionBuilder()
                 .setSource(TestSpatialJoins.class.getSimpleName())
                 .setCatalog("hive")
                 .setSchema("default")
-                .build(), 4);
+                .build();
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
+                .setNodeCount(4)
+                .build();
         queryRunner.installPlugin(new GeoPlugin());
 
         File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
