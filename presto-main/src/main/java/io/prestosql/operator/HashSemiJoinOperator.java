@@ -169,7 +169,7 @@ public class HashSemiJoinOperator
     {
     }
 
-    private class SemiJoinPages
+    private static class SemiJoinPages
             implements WorkProcessor.Transformation<Page, Page>
     {
         private final int probeJoinChannel;

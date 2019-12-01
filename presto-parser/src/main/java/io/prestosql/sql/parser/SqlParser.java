@@ -179,7 +179,7 @@ public class SqlParser
         }
     }
 
-    private class PostProcessor
+    private static class PostProcessor
             extends SqlBaseBaseListener
     {
         private final List<String> ruleNames;

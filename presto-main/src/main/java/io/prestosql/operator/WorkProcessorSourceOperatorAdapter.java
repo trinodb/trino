@@ -222,7 +222,7 @@ public class WorkProcessorSourceOperatorAdapter
         }
     }
 
-    private class SplitBuffer
+    private static class SplitBuffer
             implements WorkProcessor.Process<Split>
     {
         private final List<Split> pendingSplits = new ArrayList<>();
