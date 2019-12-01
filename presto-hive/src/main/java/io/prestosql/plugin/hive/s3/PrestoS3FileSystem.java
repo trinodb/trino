@@ -871,7 +871,7 @@ public class PrestoS3FileSystem
             extends FSInputStream
     {
         private final AmazonS3 s3;
-        private final String host;
+        private final String bucket;
         private final Path path;
         private final boolean requesterPaysEnabled;
         private final int maxAttempts;
@@ -884,10 +884,10 @@ public class PrestoS3FileSystem
         private long streamPosition;
         private long nextReadPosition;
 
-        public PrestoS3InputStream(AmazonS3 s3, String host, Path path, boolean requesterPaysEnabled, int maxAttempts, Duration maxBackoffTime, Duration maxRetryTime)
+        public PrestoS3InputStream(AmazonS3 s3, String bucket, Path path, boolean requesterPaysEnabled, int maxAttempts, Duration maxBackoffTime, Duration maxRetryTime)
         {
             this.s3 = requireNonNull(s3, "s3 is null");
-            this.host = requireNonNull(host, "host is null");
+            this.bucket = requireNonNull(bucket, "bucket is null");
             this.path = requireNonNull(path, "path is null");
             this.requesterPaysEnabled = requesterPaysEnabled;
 
@@ -926,7 +926,7 @@ public class PrestoS3FileSystem
                         .run("getS3Object", () -> {
                             InputStream stream;
                             try {
-                                GetObjectRequest request = new GetObjectRequest(host, keyFromPath(path))
+                                GetObjectRequest request = new GetObjectRequest(bucket, keyFromPath(path))
                                         .withRange(position, (position + length) - 1)
                                         .withRequesterPays(requesterPaysEnabled);
                                 stream = s3.getObject(request).getObjectContent();
@@ -1100,7 +1100,7 @@ public class PrestoS3FileSystem
                         .onRetry(STATS::newGetObjectRetry)
                         .run("getS3Object", () -> {
                             try {
-                                GetObjectRequest request = new GetObjectRequest(host, keyFromPath(path))
+                                GetObjectRequest request = new GetObjectRequest(bucket, keyFromPath(path))
                                         .withRange(start)
                                         .withRequesterPays(requesterPaysEnabled);
                                 return s3.getObject(request).getObjectContent();
@@ -1181,7 +1181,7 @@ public class PrestoS3FileSystem
             extends FilterOutputStream
     {
         private final TransferManager transferManager;
-        private final String host;
+        private final String bucket;
         private final String key;
         private final File tempFile;
         private final boolean sseEnabled;
@@ -1195,7 +1195,7 @@ public class PrestoS3FileSystem
 
         public PrestoS3OutputStream(
                 AmazonS3 s3,
-                String host,
+                String bucket,
                 String key,
                 File tempFile,
                 boolean sseEnabled,
@@ -1218,7 +1218,7 @@ public class PrestoS3FileSystem
             requireNonNull(aclType, "aclType is null");
             requireNonNull(s3StorageClass, "s3StorageClass is null");
             this.aclType = aclType.getCannedACL();
-            this.host = requireNonNull(host, "host is null");
+            this.bucket = requireNonNull(bucket, "bucket is null");
             this.key = requireNonNull(key, "key is null");
             this.tempFile = tempFile;
             this.sseEnabled = sseEnabled;
@@ -1256,10 +1256,10 @@ public class PrestoS3FileSystem
                 throws IOException
         {
             try {
-                log.debug("Starting upload for host: %s, key: %s, file: %s, size: %s", host, key, tempFile, tempFile.length());
+                log.debug("Starting upload for bucket: %s, key: %s, file: %s, size: %s", bucket, key, tempFile, tempFile.length());
                 STATS.uploadStarted();
 
-                PutObjectRequest request = new PutObjectRequest(host, key, tempFile)
+                PutObjectRequest request = new PutObjectRequest(bucket, key, tempFile)
                         .withRequesterPays(requesterPaysEnabled);
 
                 if (sseEnabled) {
@@ -1291,7 +1291,7 @@ public class PrestoS3FileSystem
 
                 upload.waitForCompletion();
                 STATS.uploadSuccessful();
-                log.debug("Completed upload for host: %s, key: %s", host, key);
+                log.debug("Completed upload for bucket: %s, key: %s", bucket, key);
             }
             catch (AmazonClientException e) {
                 STATS.uploadFailed();
@@ -1316,13 +1316,13 @@ public class PrestoS3FileSystem
                 {
                     ProgressEventType eventType = progressEvent.getEventType();
                     if (previousType != eventType) {
-                        log.debug("Upload progress event (%s/%s): %s", host, key, eventType);
+                        log.debug("Upload progress event (%s/%s): %s", bucket, key, eventType);
                         previousType = eventType;
                     }
 
                     double transferred = transfer.getProgress().getPercentTransferred();
                     if (transferred >= (previousTransferred + 10.0)) {
-                        log.debug("Upload percentage (%s/%s): %.0f%%", host, key, transferred);
+                        log.debug("Upload percentage (%s/%s): %.0f%%", bucket, key, transferred);
                         previousTransferred = transferred;
                     }
                 }
