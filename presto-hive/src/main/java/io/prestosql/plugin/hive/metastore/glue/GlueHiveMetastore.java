@@ -116,7 +116,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Comparators.lexicographical;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
-import static io.prestosql.plugin.hive.metastore.MetastoreUtil.makePartName;
+import static io.prestosql.plugin.hive.metastore.MetastoreUtil.makePartitionName;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.verifyCanDropColumn;
 import static io.prestosql.plugin.hive.metastore.glue.GlueExpressionUtil.buildGlueExpression;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
@@ -750,7 +750,7 @@ public class GlueHiveMetastore
     private static List<String> buildPartitionNames(List<Column> partitionColumns, List<Partition> partitions)
     {
         return partitions.stream()
-                .map(partition -> makePartName(partitionColumns, partition.getValues()))
+                .map(partition -> makePartitionName(partitionColumns, partition.getValues()))
                 .collect(toList());
     }
 
