@@ -10,7 +10,7 @@ services:
     networks:
       default:
         aliases:
-         - presto-master.docker.cluster
+          - presto-master.docker.cluster
 
   presto-worker-1:
     domainname: docker.cluster
@@ -22,7 +22,7 @@ services:
     networks:
       default:
         aliases:
-         - presto-worker-1.docker.cluster
+          - presto-worker-1.docker.cluster
     depends_on:
       - presto-master
     volumes_from:
@@ -38,7 +38,7 @@ services:
     networks:
       default:
         aliases:
-         - presto-worker-2.docker.cluster
+          - presto-worker-2.docker.cluster
     depends_on:
       - presto-master
     volumes_from:
