@@ -303,7 +303,7 @@ public class HiveSplitManager
                 if (partition == null) {
                     throw new PrestoException(GENERIC_INTERNAL_ERROR, "Partition not loaded: " + hivePartition);
                 }
-                String partName = makePartitionName(table.getPartitionColumns(), partition.getValues());
+                String partName = makePartitionName(table, partition);
 
                 // verify partition is online
                 verifyOnline(tableName, Optional.of(partName), getProtectMode(partition), partition.getParameters());
