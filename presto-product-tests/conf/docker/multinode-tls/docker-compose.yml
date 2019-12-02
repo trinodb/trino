@@ -18,6 +18,7 @@ services:
     extends:
       file: ../common/standard.yml
       service: java-8-base
+    image: 'prestodev/centos7-oj11:${DOCKER_IMAGES_VERSION}'
     command: /docker/presto-product-tests/conf/docker/files/presto-launcher-wrapper.sh multinode-tls-worker run
     networks:
       default:
@@ -34,6 +35,7 @@ services:
     extends:
       file: ../common/standard.yml
       service: java-8-base
+    image: 'prestodev/centos7-oj11:${DOCKER_IMAGES_VERSION}'
     command: /docker/presto-product-tests/conf/docker/files/presto-launcher-wrapper.sh multinode-tls-worker run
     networks:
       default:
