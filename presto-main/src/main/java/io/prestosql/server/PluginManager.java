@@ -251,10 +251,10 @@ public class PluginManager
     private PluginClassLoader buildClassLoaderFromDirectory(File dir)
             throws Exception
     {
-        log.info("Classpath for %s:", dir.getName());
+        log.debug("Classpath for %s:", dir.getName());
         List<URL> urls = new ArrayList<>();
         for (File file : listFiles(dir)) {
-            log.info("    %s", file);
+            log.debug("    %s", file);
             urls.add(file.toURI().toURL());
         }
         return createClassLoader(urls);
@@ -271,14 +271,14 @@ public class PluginManager
     private PluginClassLoader createClassLoader(List<Artifact> artifacts, String name)
             throws IOException
     {
-        log.info("Classpath for %s:", name);
+        log.debug("Classpath for %s:", name);
         List<URL> urls = new ArrayList<>();
         for (Artifact artifact : sortedArtifacts(artifacts)) {
             if (artifact.getFile() == null) {
                 throw new RuntimeException("Could not resolve artifact: " + artifact);
             }
             File file = artifact.getFile().getCanonicalFile();
-            log.info("    %s", file);
+            log.debug("    %s", file);
             urls.add(file.toURI().toURL());
         }
         return createClassLoader(urls);
