@@ -27,7 +27,7 @@ services:
       - '50070:50070' # NameNode Web UI prior to Hadoop 3
       - '50075:50075' # DataNode Web UI prior to Hadoop 3
     volumes:
-       - ../../../src/main/resources/avro:/docker/avro
+      - ../../../src/main/resources/avro:/docker/avro
 
   presto-master:
     extends:
@@ -38,10 +38,10 @@ services:
       - '8080:8080'
       - '5005:5005'
     depends_on:
-       - hadoop-master
+      - hadoop-master
     volumes:
-       - ${PRESTO_SERVER}:/docker/presto-server.tar.gz
-       - ../../../src/main/resources/avro:/docker/avro
+      - ${PRESTO_SERVER}:/docker/presto-server.tar.gz
+      - ../../../src/main/resources/avro:/docker/avro
 
   application-runner:
     extends:
