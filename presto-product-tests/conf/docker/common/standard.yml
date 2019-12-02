@@ -32,6 +32,7 @@ services:
   presto-master:
     extends:
       service: java-8-base
+    image: 'prestodev/centos7-oj11:${DOCKER_IMAGES_VERSION}'
     hostname: presto-master
     command: /docker/presto-product-tests/conf/docker/files/presto-launcher-wrapper.sh singlenode run
     ports:
