@@ -366,6 +366,8 @@ public class AccessControlManager
         requireNonNull(context, "context is null");
         requireNonNull(table, "table is null");
 
+        authorizationCheck(() -> checkCanAccessCatalog(context.getIdentity(), table.getCatalogName()));
+
         authorizationCheck(() -> systemAccessControl.get().checkCanShowColumnsMetadata(context.toSystemSecurityContext(), table));
 
         CatalogAccessControlEntry entry = getConnectorAccessControl(context.getTransactionId(), table.getCatalogName());
