@@ -25,6 +25,7 @@ import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.memory.VersionedMemoryPoolId;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AccessControl;
+import io.prestosql.security.AccessControlConfig;
 import io.prestosql.security.AccessControlManager;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.memory.MemoryPoolId;
@@ -491,7 +492,7 @@ public class TestQueryStateMachine
     {
         Metadata metadata = createTestMetadataManager();
         TransactionManager transactionManager = createTestTransactionManager();
-        AccessControl accessControl = new AccessControlManager(transactionManager);
+        AccessControl accessControl = new AccessControlManager(transactionManager, new AccessControlConfig());
         QueryStateMachine stateMachine = QueryStateMachine.beginWithTicker(
                 QUERY,
                 Optional.empty(),

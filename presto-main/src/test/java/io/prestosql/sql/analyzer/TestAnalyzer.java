@@ -33,6 +33,7 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.SessionPropertyManager;
 import io.prestosql.security.AccessControl;
+import io.prestosql.security.AccessControlConfig;
 import io.prestosql.security.AccessControlManager;
 import io.prestosql.security.AllowAllAccessControl;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -1982,7 +1983,7 @@ public class TestAnalyzer
     {
         CatalogManager catalogManager = new CatalogManager();
         transactionManager = createTestTransactionManager(catalogManager);
-        accessControl = new AccessControlManager(transactionManager);
+        accessControl = new AccessControlManager(transactionManager, new AccessControlConfig());
 
         metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
         metadata.addFunctions(ImmutableList.of(APPLY_FUNCTION));
