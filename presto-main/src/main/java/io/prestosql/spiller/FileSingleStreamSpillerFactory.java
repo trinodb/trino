@@ -34,6 +34,7 @@ import javax.annotation.PreDestroy;
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.FileStore;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
@@ -44,8 +45,13 @@ import static io.prestosql.spi.StandardErrorCode.OUT_OF_SPILL_SPACE;
 import static io.prestosql.sql.analyzer.FeaturesConfig.SPILLER_SPILL_PATH;
 import static java.lang.String.format;
 import static java.nio.file.Files.createDirectories;
+import static java.nio.file.Files.createTempFile;
 import static java.nio.file.Files.delete;
+import static java.nio.file.Files.deleteIfExists;
 import static java.nio.file.Files.getFileStore;
+import static java.nio.file.Files.isExecutable;
+import static java.nio.file.Files.isReadable;
+import static java.nio.file.Files.isWritable;
 import static java.nio.file.Files.newDirectoryStream;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
@@ -106,8 +112,8 @@ public class FileSingleStreamSpillerFactory
             catch (IOException e) {
                 throw new IllegalArgumentException(format("could not create spill path %s; adjust %s config property or filesystem permissions", path, SPILLER_SPILL_PATH), e);
             }
-            if (!path.toFile().canWrite()) {
-                throw new IllegalArgumentException(format("spill path %s is not writable; adjust %s config property or filesystem permissions", path, SPILLER_SPILL_PATH));
+            if (!isAccessible(path)) {
+                throw new IllegalArgumentException(format("spill path %s is not accessible, it must be +rwx; adjust %s config property or filesystem permissions", path, SPILLER_SPILL_PATH));
             }
         });
         this.maxUsedSpaceThreshold = maxUsedSpaceThreshold;
@@ -162,7 +168,7 @@ public class FileSingleStreamSpillerFactory
         for (int i = 0; i < spillPathsCount; ++i) {
             int pathIndex = (roundRobinIndex + i) % spillPathsCount;
             Path path = spillPaths.get(pathIndex);
-            if (hasEnoughDiskSpace(path)) {
+            if (hasEnoughDiskSpace(path) && isAccessible(path) && isSeeminglyHealthy(path)) {
                 roundRobinIndex = (roundRobinIndex + i + 1) % spillPathsCount;
                 return path;
             }
@@ -170,7 +176,7 @@ public class FileSingleStreamSpillerFactory
         if (spillPaths.isEmpty()) {
             throw new PrestoException(OUT_OF_SPILL_SPACE, "No spill paths configured");
         }
-        throw new PrestoException(OUT_OF_SPILL_SPACE, "No free space available for spill");
+        throw new PrestoException(OUT_OF_SPILL_SPACE, "No free or healthy space available for spill");
     }
 
     private boolean hasEnoughDiskSpace(Path path)
@@ -181,6 +187,23 @@ public class FileSingleStreamSpillerFactory
         }
         catch (IOException e) {
             throw new PrestoException(OUT_OF_SPILL_SPACE, "Cannot determine free space for spill", e);
+        }
+    }
+
+    private boolean isAccessible(Path path)
+    {
+        return isReadable(path) && isWritable(path) && isExecutable(path);
+    }
+
+    // Test whether a dir is working correctly by actually creating a random file in it
+    private boolean isSeeminglyHealthy(Path path)
+    {
+        try {
+            Path healthTemp = createTempFile(path, "spill", "healthcheck");
+            return deleteIfExists(healthTemp);
+        } catch (IOException e) {
+            log.warn(e, "Health check failed for spill %s", path);
+            return false;
         }
     }
 }

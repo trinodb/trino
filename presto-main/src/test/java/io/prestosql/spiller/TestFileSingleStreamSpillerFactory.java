@@ -14,6 +14,8 @@
 package io.prestosql.spiller;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Closer;
 import com.google.common.io.Files;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -28,8 +30,10 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermission;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executors;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -52,6 +56,7 @@ public class TestFileSingleStreamSpillerFactory
     private ListeningExecutorService executor;
     private File spillPath1;
     private File spillPath2;
+    private FileSingleStreamSpillerFactory spillerFactory;
 
     @BeforeMethod
     public void setUp()
@@ -63,6 +68,14 @@ public class TestFileSingleStreamSpillerFactory
         closer.register(() -> deleteRecursively(spillPath1.toPath(), ALLOW_INSECURE));
         spillPath2 = Files.createTempDir();
         closer.register(() -> deleteRecursively(spillPath2.toPath(), ALLOW_INSECURE));
+        spillerFactory = new FileSingleStreamSpillerFactory(
+            executor, // executor won't be closed, because we don't call destroy() on the spiller factory
+            blockEncodingSerde,
+            new SpillerStats(),
+            ImmutableList.of(spillPath1.toPath(), spillPath2.toPath()),
+            1.0,
+            false,
+            false);
     }
 
     @AfterMethod(alwaysRun = true)
@@ -76,33 +89,39 @@ public class TestFileSingleStreamSpillerFactory
     public void testDistributesSpillOverPaths()
             throws Exception
     {
-        List<Type> types = ImmutableList.of(BIGINT);
-        List<Path> spillPaths = ImmutableList.of(spillPath1.toPath(), spillPath2.toPath());
-        FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
-                executor, // executor won't be closed, because we don't call destroy() on the spiller factory
-                blockEncodingSerde,
-                new SpillerStats(),
-                spillPaths,
-                1.0,
-                false,
-                false);
+        verifySpills(ImmutableMap.of(spillPath1.toPath(), 5, spillPath2.toPath(), 5));
+    }
 
-        assertEquals(listFiles(spillPath1.toPath()).size(), 0);
-        assertEquals(listFiles(spillPath2.toPath()).size(), 0);
+    @Test
+    public void testDistributesSpillOverPathsBadDisk()
+        throws Exception
+    {
+        // reset path permission to 400, this will prohibit creation of spills
+        java.nio.file.Files.setPosixFilePermissions(spillPath1.toPath(), ImmutableSet.of(PosixFilePermission.OWNER_READ));
+        verifySpills(ImmutableMap.of(spillPath1.toPath(), 0, spillPath2.toPath(), 10));
+    }
 
+    private void verifySpills(Map<Path, Integer> expectedSpills)
+        throws Exception
+    {
+        for (Path path : expectedSpills.keySet()) {
+            assertEquals(listFiles(path).size(), 0);
+        }
         Page page = buildPage();
         List<SingleStreamSpiller> spillers = new ArrayList<>();
         for (int i = 0; i < 10; ++i) {
-            SingleStreamSpiller singleStreamSpiller = spillerFactory.create(types, bytes -> {}, newSimpleAggregatedMemoryContext().newLocalMemoryContext("test"));
+            SingleStreamSpiller singleStreamSpiller = spillerFactory.create(ImmutableList.of(BIGINT), bytes -> {}, newSimpleAggregatedMemoryContext().newLocalMemoryContext("test"));
             getUnchecked(singleStreamSpiller.spill(page));
             spillers.add(singleStreamSpiller);
         }
-        assertEquals(listFiles(spillPath1.toPath()).size(), 5);
-        assertEquals(listFiles(spillPath2.toPath()).size(), 5);
+        for (Map.Entry<Path, Integer> entry : expectedSpills.entrySet()) {
+            assertEquals(listFiles(entry.getKey()).size(), entry.getValue().intValue());
+        }
 
         spillers.forEach(SingleStreamSpiller::close);
-        assertEquals(listFiles(spillPath1.toPath()).size(), 0);
-        assertEquals(listFiles(spillPath2.toPath()).size(), 0);
+        for (Path path : expectedSpills.keySet()) {
+            assertEquals(listFiles(path).size(), 0);
+        }
     }
 
     private Page buildPage()
@@ -112,7 +131,7 @@ public class TestFileSingleStreamSpillerFactory
         return new Page(col1.build());
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "No free space available for spill")
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "No free or healthy space available for spill")
     public void throwsIfNoDiskSpace()
     {
         List<Type> types = ImmutableList.of(BIGINT);
