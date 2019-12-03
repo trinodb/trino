@@ -24,7 +24,8 @@ import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.StandaloneQueryRunner;
-import kafka.producer.KeyedMessage;
+import org.apache.kafka.clients.producer.Producer;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
@@ -35,7 +36,6 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.UUID;
 
-import static io.prestosql.plugin.kafka.util.EmbeddedKafka.CloseableProducer;
 import static io.prestosql.plugin.kafka.util.TestUtils.createEmptyTopicDescription;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
@@ -96,10 +96,9 @@ public class TestMinimalFunctionality
 
     private void createMessages(String topicName, int count)
     {
-        try (CloseableProducer<Long, Object> producer = embeddedKafka.createProducer()) {
+        try (Producer<Long, Object> producer = embeddedKafka.createProducer()) {
             for (long i = 0; i < count; i++) {
-                Object message = ImmutableMap.of("id", Long.toString(i), "value", UUID.randomUUID().toString());
-                producer.send(new KeyedMessage<>(topicName, i, message));
+                producer.send(new ProducerRecord<>(topicName, i, UUID.randomUUID().toString()));
             }
         }
     }

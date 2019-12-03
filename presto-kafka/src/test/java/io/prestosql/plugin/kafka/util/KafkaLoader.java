@@ -24,8 +24,8 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.Varchars;
 import io.prestosql.testing.AbstractTestingPrestoClient;
 import io.prestosql.testing.ResultsSession;
-import kafka.javaapi.producer.Producer;
-import kafka.producer.KeyedMessage;
+import org.apache.kafka.clients.producer.Producer;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 
@@ -110,7 +110,7 @@ public class KafkaLoader
                         }
                     }
 
-                    producer.send(new KeyedMessage<>(topicName, count.getAndIncrement(), builder.build()));
+                    producer.send(new ProducerRecord<>(topicName, count.getAndIncrement(), builder.build()));
                 }
             }
         }

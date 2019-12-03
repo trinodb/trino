@@ -18,9 +18,8 @@ import com.google.common.collect.Maps;
 import com.google.common.io.Files;
 import kafka.admin.AdminUtils;
 import kafka.admin.RackAwareMode;
-import kafka.javaapi.producer.Producer;
 import kafka.metrics.KafkaMetricsReporter;
-import kafka.producer.ProducerConfig;
+import kafka.serializer.StringEncoder;
 import kafka.server.KafkaConfig;
 import kafka.server.KafkaServer;
 import kafka.utils.VerifiableProperties;
@@ -28,8 +27,12 @@ import kafka.utils.ZKStringSerializer$;
 import kafka.utils.ZkUtils;
 import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.ZkConnection;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.common.network.ListenerName;
 import org.apache.kafka.common.security.auth.SecurityProtocol;
+import org.apache.kafka.common.serialization.LongSerializer;
+import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.kafka.common.utils.Time;
 import scala.Option;
 
@@ -43,7 +46,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.prestosql.plugin.kafka.util.TestUtils.toProperties;
 import static java.util.Objects.requireNonNull;
 
 public class EmbeddedKafka
@@ -143,28 +145,18 @@ public class EmbeddedKafka
         }
     }
 
-    public CloseableProducer<Long, Object> createProducer()
+    public Producer<Long, Object> createProducer()
     {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("metadata.broker.list", getConnectString())
+        Map<String, Object> properties = ImmutableMap.<String, Object>builder()
+                .put("bootstrap.servers", getConnectString())
                 .put("serializer.class", JsonEncoder.class.getName())
-                .put("key.serializer.class", NumberEncoder.class.getName())
+                .put("key.serializer", LongSerializer.class.getName())
+                .put("value.serializer", StringSerializer.class.getName())
                 .put("partitioner.class", NumberPartitioner.class.getName())
                 .put("request.required.acks", "1")
                 .build();
 
-        ProducerConfig producerConfig = new ProducerConfig(toProperties(properties));
-        return new CloseableProducer<>(producerConfig);
-    }
-
-    public static class CloseableProducer<K, V>
-            extends Producer<K, V>
-            implements AutoCloseable
-    {
-        public CloseableProducer(ProducerConfig config)
-        {
-            super(config);
-        }
+        return new KafkaProducer<>(properties);
     }
 
     public String getConnectString()

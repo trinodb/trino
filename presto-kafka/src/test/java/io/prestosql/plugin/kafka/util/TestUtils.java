@@ -23,6 +23,7 @@ import io.prestosql.plugin.kafka.KafkaTopicDescription;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.TestingPrestoClient;
+import org.apache.kafka.clients.producer.Producer;
 
 import java.io.IOException;
 import java.util.AbstractMap;
@@ -30,7 +31,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 
-import static io.prestosql.plugin.kafka.util.EmbeddedKafka.CloseableProducer;
 import static java.lang.String.format;
 
 public final class TestUtils
@@ -62,7 +62,7 @@ public final class TestUtils
 
     public static void loadTpchTopic(EmbeddedKafka embeddedKafka, TestingPrestoClient prestoClient, String topicName, QualifiedObjectName tpchTableName)
     {
-        try (CloseableProducer<Long, Object> producer = embeddedKafka.createProducer();
+        try (Producer<Long, Object> producer = embeddedKafka.createProducer();
                 KafkaLoader tpchLoader = new KafkaLoader(producer, topicName, prestoClient.getServer(), prestoClient.getDefaultSession())) {
             tpchLoader.execute(format("SELECT * from %s", tpchTableName));
         }
