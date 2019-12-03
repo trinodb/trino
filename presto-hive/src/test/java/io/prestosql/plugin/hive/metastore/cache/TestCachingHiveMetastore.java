@@ -14,9 +14,12 @@
 package io.prestosql.plugin.hive.metastore.cache;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.units.Duration;
+import io.prestosql.plugin.hive.PartitionStatistics;
 import io.prestosql.plugin.hive.authentication.HiveAuthenticationConfig;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.Partition;
@@ -33,17 +36,21 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
 import static io.prestosql.plugin.hive.metastore.cache.CachingHiveMetastore.cachingHiveMetastore;
 import static io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClient.BAD_DATABASE;
 import static io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClient.BAD_PARTITION;
+import static io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_COLUMN;
 import static io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_DATABASE;
 import static io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_PARTITION1;
 import static io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_PARTITION2;
+import static io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_PARTITION_VALUES1;
 import static io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_ROLES;
 import static io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_TABLE;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
@@ -58,6 +65,9 @@ import static org.testng.Assert.assertTrue;
 public class TestCachingHiveMetastore
 {
     private static final HiveIdentity IDENTITY = new HiveIdentity(SESSION);
+    private static final PartitionStatistics TEST_STATS = PartitionStatistics.builder()
+            .setColumnStatistics(ImmutableMap.of(TEST_COLUMN, createIntegerColumnStatistics(OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty())))
+            .build();
 
     private MockThriftMetastoreClient mockClient;
     private CachingHiveMetastore metastore;
@@ -246,6 +256,35 @@ public class TestCachingHiveMetastore
 
         assertEquals(metastore.listRoles(), TEST_ROLES);
         assertEquals(mockClient.getAccessCount(), 4);
+    }
+
+    @Test
+    public void testGetTableStatistics()
+    {
+        assertEquals(mockClient.getAccessCount(), 0);
+
+        // populate cache with table (contains basic stats)
+        metastore.getTable(IDENTITY, TEST_DATABASE, TEST_TABLE);
+        assertEquals(mockClient.getAccessCount(), 1);
+
+        assertEquals(metastore.getTableStatistics(IDENTITY, TEST_DATABASE, TEST_TABLE), TEST_STATS);
+        assertEquals(mockClient.getAccessCount(), 3);
+    }
+
+    @Test
+    public void testGetPartitionStatistics()
+    {
+        assertEquals(mockClient.getAccessCount(), 0);
+
+        Table table = metastore.getTable(IDENTITY, TEST_DATABASE, TEST_TABLE).get();
+        assertEquals(mockClient.getAccessCount(), 1);
+
+        // populate cache with partition (contains basic stats)
+        metastore.getPartition(IDENTITY, table, TEST_PARTITION_VALUES1);
+        assertEquals(mockClient.getAccessCount(), 2);
+
+        assertEquals(metastore.getPartitionStatistics(IDENTITY, TEST_DATABASE, TEST_TABLE, ImmutableSet.of(TEST_PARTITION1)), ImmutableMap.of(TEST_PARTITION1, TEST_STATS));
+        assertEquals(mockClient.getAccessCount(), 5);
     }
 
     @Test
