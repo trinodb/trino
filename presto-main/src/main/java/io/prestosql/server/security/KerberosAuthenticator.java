@@ -15,6 +15,7 @@ package io.prestosql.server.security;
 
 import com.sun.security.auth.module.Krb5LoginModule;
 import io.airlift.log.Logger;
+import io.prestosql.spi.PrestoException;
 import org.ietf.jgss.GSSContext;
 import org.ietf.jgss.GSSCredential;
 import org.ietf.jgss.GSSException;
@@ -32,6 +33,7 @@ import javax.security.auth.login.LoginContext;
 import javax.security.auth.login.LoginException;
 import javax.servlet.http.HttpServletRequest;
 
+import java.io.File;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.security.Principal;
@@ -43,6 +45,9 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
+import static io.prestosql.server.security.KerberosConfig.HTTP_AUTHENTICATION_KRB5_CONFIG;
+import static io.prestosql.spi.StandardErrorCode.CONFIGURATION_INVALID;
+import static java.lang.String.format;
 import static javax.security.auth.login.AppConfigurationEntry.LoginModuleControlFlag.REQUIRED;
 import static org.ietf.jgss.GSSCredential.ACCEPT_ONLY;
 import static org.ietf.jgss.GSSCredential.INDEFINITE_LIFETIME;
@@ -53,6 +58,7 @@ public class KerberosAuthenticator
     private static final Logger LOG = Logger.get(KerberosAuthenticator.class);
 
     private static final String NEGOTIATE_SCHEME = "Negotiate";
+    private static final String JAVA_SECURITY_KRB_SYSTEM_PROPERTY = "java.security.krb5.conf";
 
     private final GSSManager gssManager = GSSManager.getInstance();
     private final LoginContext loginContext;
@@ -61,7 +67,17 @@ public class KerberosAuthenticator
     @Inject
     public KerberosAuthenticator(KerberosConfig config)
     {
-        System.setProperty("java.security.krb5.conf", config.getKerberosConfig().getAbsolutePath());
+        String javaKerberosConfig = System.getProperty(JAVA_SECURITY_KRB_SYSTEM_PROPERTY);
+        String prestoKrbConfig = config.getKerberosConfig().getAbsolutePath();
+        if (javaKerberosConfig != null && !new File(javaKerberosConfig).getAbsolutePath().equals(prestoKrbConfig)) {
+            throw new PrestoException(CONFIGURATION_INVALID, format(
+                    "Java system property is %s=%s and Presto configuration property is %s=%s, expecting both to have same value or only one of them to be set",
+                    JAVA_SECURITY_KRB_SYSTEM_PROPERTY,
+                    javaKerberosConfig,
+                    HTTP_AUTHENTICATION_KRB5_CONFIG,
+                    prestoKrbConfig));
+        }
+        System.setProperty(JAVA_SECURITY_KRB_SYSTEM_PROPERTY, prestoKrbConfig);
 
         try {
             String hostname = Optional.ofNullable(config.getPrincipalHostname())

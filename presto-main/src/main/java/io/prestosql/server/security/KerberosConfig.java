@@ -25,6 +25,7 @@ import static io.prestosql.server.security.KerberosNameType.HOSTBASED_SERVICE;
 public class KerberosConfig
 {
     public static final String HTTP_SERVER_AUTHENTICATION_KRB5_KEYTAB = "http-server.authentication.krb5.keytab";
+    public static final String HTTP_AUTHENTICATION_KRB5_CONFIG = "http.authentication.krb5.config";
 
     private File kerberosConfig;
     private String serviceName;
@@ -39,7 +40,7 @@ public class KerberosConfig
     }
 
     // This property name has to match the one from io.airlift.http.client.spnego.KerberosConfig
-    @Config("http.authentication.krb5.config")
+    @Config(HTTP_AUTHENTICATION_KRB5_CONFIG)
     public KerberosConfig setKerberosConfig(File kerberosConfig)
     {
         this.kerberosConfig = kerberosConfig;
