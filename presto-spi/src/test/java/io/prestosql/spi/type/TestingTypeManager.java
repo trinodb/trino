@@ -17,9 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.function.OperatorType;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
 
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -34,10 +32,12 @@ import static io.prestosql.spi.type.VarcharType.VARCHAR;
 public class TestingTypeManager
         implements TypeManager
 {
+    private static final List<Type> TYPES = ImmutableList.of(BOOLEAN, BIGINT, DOUBLE, VARCHAR, VARBINARY, TIMESTAMP, DATE, ID, HYPER_LOG_LOG);
+
     @Override
     public Type getType(TypeSignature signature)
     {
-        for (Type type : getTypes()) {
+        for (Type type : TYPES) {
             if (signature.getBase().equals(type.getTypeSignature().getBase())) {
                 return type;
             }
@@ -54,7 +54,7 @@ public class TestingTypeManager
     @Override
     public Type getType(TypeId id)
     {
-        for (Type type : getTypes()) {
+        for (Type type : TYPES) {
             if (type.getTypeId().equals(id)) {
                 return type;
             }
@@ -69,49 +69,7 @@ public class TestingTypeManager
     }
 
     @Override
-    public List<Type> getTypes()
-    {
-        return ImmutableList.of(BOOLEAN, BIGINT, DOUBLE, VARCHAR, VARBINARY, TIMESTAMP, DATE, ID, HYPER_LOG_LOG);
-    }
-
-    @Override
-    public Collection<ParametricType> getParametricTypes()
-    {
-        return ImmutableList.of();
-    }
-
-    @Override
-    public Optional<Type> getCommonSuperType(Type firstType, Type secondType)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean canCoerce(Type actualType, Type expectedType)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean isTypeOnlyCoercion(Type actualType, Type expectedType)
-    {
-        return false;
-    }
-
-    @Override
-    public Optional<Type> coerceTypeBase(Type sourceType, String resultTypeBase)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public MethodHandle resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public MethodHandle getCoercion(Type fromType, Type toType)
     {
         throw new UnsupportedOperationException();
     }

@@ -16,9 +16,7 @@ package io.prestosql.spi.type;
 import io.prestosql.spi.function.OperatorType;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
 
 public interface TypeManager
 {
@@ -46,25 +44,5 @@ public interface TypeManager
      */
     Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters);
 
-    /**
-     * Gets a list of all registered types.
-     */
-    List<Type> getTypes();
-
-    /**
-     * Gets all registered parametric types.
-     */
-    Collection<ParametricType> getParametricTypes();
-
-    Optional<Type> getCommonSuperType(Type firstType, Type secondType);
-
-    boolean canCoerce(Type actualType, Type expectedType);
-
-    boolean isTypeOnlyCoercion(Type actualType, Type expectedType);
-
-    Optional<Type> coerceTypeBase(Type sourceType, String resultTypeBase);
-
     MethodHandle resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes);
-
-    MethodHandle getCoercion(Type fromType, Type toType);
 }
