@@ -47,6 +47,8 @@ import org.weakref.jmx.Nested;
 import javax.inject.Inject;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.security.Principal;
 import java.util.HashMap;
 import java.util.List;
@@ -116,7 +118,6 @@ public class AccessControlManager
     }
 
     public void loadSystemAccessControl()
-            throws Exception
     {
         log.info("-- Loading system access control --");
 
@@ -127,10 +128,16 @@ public class AccessControlManager
             return;
         }
 
-        Map<String, String> properties = new HashMap<>(loadProperties(configFile));
+        Map<String, String> properties;
+        try {
+            properties = new HashMap<>(loadProperties(configFile));
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException("Failed to read configuration file: " + configFile, e);
+        }
 
         String name = properties.remove(NAME_PROPERTY);
-        checkState(!isNullOrEmpty(name), "Access control configuration %s does not contain '%s'", configFile, NAME_PROPERTY);
+        checkState(!isNullOrEmpty(name), "Access control configuration does not contain '%s' property: %s", NAME_PROPERTY, configFile);
 
         setSystemAccessControl(name, properties);
         log.info("-- Loaded system access control %s --", name);
