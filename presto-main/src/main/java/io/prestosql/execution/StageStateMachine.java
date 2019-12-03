@@ -34,7 +34,6 @@ import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.net.URI;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -76,7 +75,6 @@ public class StageStateMachine
     private static final Logger log = Logger.get(StageStateMachine.class);
 
     private final StageId stageId;
-    private final URI location;
     private final PlanFragment fragment;
     private final Session session;
     private final Map<PlanNodeId, TableInfo> tables;
@@ -97,7 +95,6 @@ public class StageStateMachine
 
     public StageStateMachine(
             StageId stageId,
-            URI location,
             Session session,
             PlanFragment fragment,
             Map<PlanNodeId, TableInfo> tables,
@@ -105,7 +102,6 @@ public class StageStateMachine
             SplitSchedulerStats schedulerStats)
     {
         this.stageId = requireNonNull(stageId, "stageId is null");
-        this.location = requireNonNull(location, "location is null");
         this.session = requireNonNull(session, "session is null");
         this.fragment = requireNonNull(fragment, "fragment is null");
         this.tables = ImmutableMap.copyOf(requireNonNull(tables, "tables is null"));
@@ -120,11 +116,6 @@ public class StageStateMachine
     public StageId getStageId()
     {
         return stageId;
-    }
-
-    public URI getLocation()
-    {
-        return location;
     }
 
     public Session getSession()
@@ -552,7 +543,6 @@ public class StageStateMachine
         }
         return new StageInfo(stageId,
                 state,
-                location,
                 fragment,
                 fragment.getTypes(),
                 stageStats,
