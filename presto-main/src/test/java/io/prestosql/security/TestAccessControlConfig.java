@@ -13,6 +13,7 @@
  */
 package io.prestosql.security;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.testing.ConfigAssertions;
 import org.testng.annotations.Test;
@@ -26,18 +27,18 @@ public class TestAccessControlConfig
     public void testDefaults()
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(AccessControlConfig.class)
-                .setAccessControlFile(null));
+                .setAccessControlFiles(""));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("access-control.config-files", "someFile")
+                .put("access-control.config-files", "a,b,c")
                 .build();
 
         AccessControlConfig expected = new AccessControlConfig()
-                .setAccessControlFile(new File("someFile"));
+                .setAccessControlFiles(ImmutableList.of(new File("a"), new File("b"), new File("c")));
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

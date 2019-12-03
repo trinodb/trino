@@ -63,6 +63,7 @@ import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.spi.StandardErrorCode.SERVER_STARTING_UP;
 import static io.prestosql.util.PropertiesUtil.loadProperties;
 import static java.lang.String.format;
@@ -77,11 +78,11 @@ public class AccessControlManager
     private static final String NAME_PROPERTY = "access-control.name";
 
     private final TransactionManager transactionManager;
-    private final File configFile;
+    private final List<File> configFiles;
     private final Map<String, SystemAccessControlFactory> systemAccessControlFactories = new ConcurrentHashMap<>();
     private final Map<CatalogName, CatalogAccessControlEntry> connectorAccessControl = new ConcurrentHashMap<>();
 
-    private final AtomicReference<SystemAccessControl> systemAccessControl = new AtomicReference<>(new InitializingSystemAccessControl());
+    private final AtomicReference<List<SystemAccessControl>> systemAccessControls = new AtomicReference<>(ImmutableList.of(new InitializingSystemAccessControl()));
     private final AtomicBoolean systemAccessControlLoading = new AtomicBoolean();
 
     private final CounterStat authorizationSuccess = new CounterStat();
@@ -91,7 +92,7 @@ public class AccessControlManager
     public AccessControlManager(TransactionManager transactionManager, AccessControlConfig config)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
-        this.configFile = config.getAccessControlFile();
+        this.configFiles = ImmutableList.copyOf(config.getAccessControlFiles());
         addSystemAccessControlFactory(new AllowAllSystemAccessControl.Factory());
         addSystemAccessControlFactory(new ReadOnlySystemAccessControl.Factory());
         addSystemAccessControlFactory(new FileBasedSystemAccessControl.Factory());
@@ -121,17 +122,28 @@ public class AccessControlManager
 
     public void loadSystemAccessControl()
     {
-        log.info("-- Loading system access control --");
-
-        File configFile = this.configFile;
-        if (configFile == null) {
+        List<File> configFiles = this.configFiles;
+        if (configFiles.isEmpty()) {
             if (!CONFIG_FILE.exists()) {
                 setSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
-                log.info("-- Loaded system access control %s --", AllowAllSystemAccessControl.NAME);
+                log.info("Using system access control %s", AllowAllSystemAccessControl.NAME);
                 return;
             }
-            configFile = CONFIG_FILE.getAbsoluteFile();
+            configFiles = ImmutableList.of(CONFIG_FILE);
         }
+        checkState(systemAccessControlLoading.compareAndSet(false, true), "System access control already initialized");
+
+        List<SystemAccessControl> systemAccessControls = configFiles.stream()
+                .map(this::createSystemAccessControl)
+                .collect(toImmutableList());
+
+        this.systemAccessControls.set(systemAccessControls);
+    }
+
+    private SystemAccessControl createSystemAccessControl(File configFile)
+    {
+        log.info("-- Loading system access control %s --", configFile);
+        configFile = configFile.getAbsoluteFile();
 
         Map<String, String> properties;
         try {
@@ -144,8 +156,12 @@ public class AccessControlManager
         String name = properties.remove(NAME_PROPERTY);
         checkState(!isNullOrEmpty(name), "Access control configuration does not contain '%s' property: %s", NAME_PROPERTY, configFile);
 
-        setSystemAccessControl(name, properties);
+        SystemAccessControlFactory systemAccessControlFactory = systemAccessControlFactories.get(name);
+        checkState(systemAccessControlFactory != null, "Access control '%s' is not registered: %s", name, configFile);
+
+        SystemAccessControl systemAccessControl = systemAccessControlFactory.create(ImmutableMap.copyOf(properties));
         log.info("-- Loaded system access control %s --", name);
+        return systemAccessControl;
     }
 
     @VisibleForTesting
@@ -160,7 +176,7 @@ public class AccessControlManager
         checkState(systemAccessControlFactory != null, "Access control '%s' is not registered", name);
 
         SystemAccessControl systemAccessControl = systemAccessControlFactory.create(ImmutableMap.copyOf(properties));
-        this.systemAccessControl.set(systemAccessControl);
+        this.systemAccessControls.set(ImmutableList.of(systemAccessControl));
     }
 
     @Override
@@ -178,7 +194,10 @@ public class AccessControlManager
         requireNonNull(identity, "identity is null");
         requireNonNull(catalogs, "catalogs is null");
 
-        return systemAccessControl.get().filterCatalogs(new SystemSecurityContext(identity), catalogs);
+        for (SystemAccessControl systemAccessControl : systemAccessControls.get()) {
+            catalogs = systemAccessControl.filterCatalogs(new SystemSecurityContext(identity), catalogs);
+        }
+        return catalogs;
     }
 
     @Override
@@ -244,7 +263,9 @@ public class AccessControlManager
             return ImmutableSet.of();
         }
 
-        schemaNames = systemAccessControl.get().filterSchemas(securityContext.toSystemSecurityContext(), catalogName, schemaNames);
+        for (SystemAccessControl systemAccessControl : systemAccessControls.get()) {
+            schemaNames = systemAccessControl.filterSchemas(securityContext.toSystemSecurityContext(), catalogName, schemaNames);
+        }
 
         CatalogAccessControlEntry entry = getConnectorAccessControl(securityContext.getTransactionId(), catalogName);
         if (entry != null) {
@@ -330,7 +351,9 @@ public class AccessControlManager
             return ImmutableSet.of();
         }
 
-        tableNames = systemAccessControl.get().filterTables(securityContext.toSystemSecurityContext(), catalogName, tableNames);
+        for (SystemAccessControl systemAccessControl : systemAccessControls.get()) {
+            tableNames = systemAccessControl.filterTables(securityContext.toSystemSecurityContext(), catalogName, tableNames);
+        }
 
         CatalogAccessControlEntry entry = getConnectorAccessControl(securityContext.getTransactionId(), catalogName);
         if (entry != null) {
@@ -362,7 +385,9 @@ public class AccessControlManager
             return ImmutableList.of();
         }
 
-        columns = systemAccessControl.get().filterColumns(securityContext.toSystemSecurityContext(), table, columns);
+        for (SystemAccessControl systemAccessControl : systemAccessControls.get()) {
+            columns = systemAccessControl.filterColumns(securityContext.toSystemSecurityContext(), table, columns);
+        }
 
         CatalogAccessControlEntry entry = getConnectorAccessControl(securityContext.getTransactionId(), table.getCatalogName());
         if (entry != null) {
@@ -676,7 +701,9 @@ public class AccessControlManager
     private void checkCanAccessCatalog(SecurityContext securityContext, String catalogName)
     {
         try {
-            systemAccessControl.get().checkCanAccessCatalog(securityContext.toSystemSecurityContext(), catalogName);
+            for (SystemAccessControl systemAccessControl : systemAccessControls.get()) {
+                systemAccessControl.checkCanAccessCatalog(securityContext.toSystemSecurityContext(), catalogName);
+            }
             authorizationSuccess.update(1);
         }
         catch (PrestoException e) {
@@ -688,7 +715,9 @@ public class AccessControlManager
     private void systemAuthorizationCheck(Consumer<SystemAccessControl> check)
     {
         try {
-            check.accept(systemAccessControl.get());
+            for (SystemAccessControl systemAccessControl : systemAccessControls.get()) {
+                check.accept(systemAccessControl);
+            }
             authorizationSuccess.update(1);
         }
         catch (PrestoException e) {
