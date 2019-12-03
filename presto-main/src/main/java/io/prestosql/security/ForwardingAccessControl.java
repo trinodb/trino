@@ -61,12 +61,6 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
-    public void checkCanAccessCatalog(Identity identity, String catalogName)
-    {
-        getDelegate().checkCanAccessCatalog(identity, catalogName);
-    }
-
-    @Override
     public void checkCanCreateSchema(SecurityContext context, CatalogSchemaName schemaName)
     {
         getDelegate().checkCanCreateSchema(context, schemaName);
