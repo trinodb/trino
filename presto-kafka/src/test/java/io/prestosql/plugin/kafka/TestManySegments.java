@@ -83,7 +83,6 @@ public class TestManySegments
 
     @BeforeMethod
     public void spinUp()
-            throws Exception
     {
         this.queryRunner = new StandaloneQueryRunner(SESSION);
 

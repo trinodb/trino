@@ -72,7 +72,6 @@ public class TestMinimalFunctionality
 
     @BeforeMethod
     public void spinUp()
-            throws Exception
     {
         this.topicName = "test_" + UUID.randomUUID().toString().replaceAll("-", "_");
 
