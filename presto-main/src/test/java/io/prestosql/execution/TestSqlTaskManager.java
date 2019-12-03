@@ -290,12 +290,6 @@ public class TestSqlTaskManager
         }
 
         @Override
-        public URI createStageLocation(StageId stageId)
-        {
-            return URI.create("http://fake.invalid/stage/" + stageId);
-        }
-
-        @Override
         public URI createLocalTaskLocation(TaskId taskId)
         {
             return URI.create("http://fake.invalid/task/" + taskId);

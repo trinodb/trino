@@ -195,7 +195,6 @@ public class SqlQueryScheduler
         List<SqlStageExecution> stages = createStages(
                 (fragmentId, tasks, noMoreExchangeLocations) -> updateQueryOutputLocations(queryStateMachine, rootBufferId, tasks, noMoreExchangeLocations),
                 new AtomicInteger(),
-                locationFactory,
                 plan.withBucketToPartition(Optional.of(new int[1])),
                 nodeScheduler,
                 remoteTaskFactory,
@@ -281,7 +280,6 @@ public class SqlQueryScheduler
     private List<SqlStageExecution> createStages(
             ExchangeLocationsConsumer parent,
             AtomicInteger nextStageId,
-            LocationFactory locationFactory,
             StageExecutionPlan plan,
             NodeScheduler nodeScheduler,
             RemoteTaskFactory remoteTaskFactory,
@@ -301,7 +299,6 @@ public class SqlQueryScheduler
         StageId stageId = new StageId(queryStateMachine.getQueryId(), nextStageId.getAndIncrement());
         SqlStageExecution stage = createSqlStageExecution(
                 stageId,
-                locationFactory.createStageLocation(stageId),
                 plan.getFragment(),
                 plan.getTables(),
                 remoteTaskFactory,
@@ -406,7 +403,6 @@ public class SqlQueryScheduler
             List<SqlStageExecution> subTree = createStages(
                     stage::addExchangeLocations,
                     nextStageId,
-                    locationFactory,
                     subStagePlan.withBucketToPartition(bucketToPartition),
                     nodeScheduler,
                     remoteTaskFactory,
@@ -491,7 +487,6 @@ public class SqlQueryScheduler
         return new StageInfo(
                 parent.getStageId(),
                 parent.getState(),
-                parent.getSelf(),
                 parent.getPlan(),
                 parent.getTypes(),
                 parent.getStageStats(),

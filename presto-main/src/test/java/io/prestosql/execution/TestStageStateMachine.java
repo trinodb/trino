@@ -290,12 +290,10 @@ public class TestStageStateMachine
     private static void assertState(StageStateMachine stateMachine, StageState expectedState)
     {
         assertEquals(stateMachine.getStageId(), STAGE_ID);
-        assertEquals(stateMachine.getLocation(), LOCATION);
         assertSame(stateMachine.getSession(), TEST_SESSION);
 
         StageInfo stageInfo = stateMachine.getStageInfo(ImmutableList::of);
         assertEquals(stageInfo.getStageId(), STAGE_ID);
-        assertEquals(stageInfo.getSelf(), LOCATION);
         assertEquals(stageInfo.getSubStages(), ImmutableList.of());
         assertEquals(stageInfo.getTasks(), ImmutableList.of());
         assertEquals(stageInfo.getTypes(), ImmutableList.of(VARCHAR));
@@ -316,7 +314,7 @@ public class TestStageStateMachine
 
     private StageStateMachine createStageStateMachine()
     {
-        return new StageStateMachine(STAGE_ID, LOCATION, TEST_SESSION, PLAN_FRAGMENT, ImmutableMap.of(), executor, new SplitSchedulerStats());
+        return new StageStateMachine(STAGE_ID, TEST_SESSION, PLAN_FRAGMENT, ImmutableMap.of(), executor, new SplitSchedulerStats());
     }
 
     private static PlanFragment createValuesPlan()
