@@ -11,23 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.spi.eventlistener;
+package io.prestosql.tracer;
 
-public interface EventListener
+import io.prestosql.Session;
+import io.prestosql.spi.tracer.Tracer;
+
+public interface TracerFactory
 {
-    default void queryCreated(QueryCreatedEvent queryCreatedEvent)
-    {
-    }
-
-    default void queryCompleted(QueryCompletedEvent queryCompletedEvent)
-    {
-    }
-
-    default void splitCompleted(SplitCompletedEvent splitCompletedEvent)
-    {
-    }
-
-    default void tracerEventOccurred(TracerEvent tracerEvent)
-    {
-    }
+    Tracer createTracer(String queryId, Session session);
 }

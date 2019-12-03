@@ -127,6 +127,7 @@ public final class SystemSessionProperties
     public static final String IGNORE_DOWNSTREAM_PREFERENCES = "ignore_downstream_preferences";
     public static final String REQUIRED_WORKERS_COUNT = "required_workers_count";
     public static final String REQUIRED_WORKERS_MAX_WAIT_TIME = "required_workers_max_wait_time";
+    public static final String QUERY_DEBUGGING_TRACER_ENABLED = "query_debugging_tracer_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -564,6 +565,11 @@ public final class SystemSessionProperties
                         REQUIRED_WORKERS_MAX_WAIT_TIME,
                         "Maximum time to wait for minimum number of workers before the query is failed",
                         queryManagerConfig.getRequiredWorkersMaxWait(),
+                        false),
+                booleanProperty(
+                        QUERY_DEBUGGING_TRACER_ENABLED,
+                        "Use query debugging tracer",
+                        featuresConfig.isQueryDebuggingTracerEnabled(),
                         false));
     }
 
@@ -1029,5 +1035,10 @@ public final class SystemSessionProperties
     public static Duration getRequiredWorkersMaxWait(Session session)
     {
         return session.getSystemProperty(REQUIRED_WORKERS_MAX_WAIT_TIME, Duration.class);
+    }
+
+    public static boolean isQueryDebuggingTracerEnabled(Session session)
+    {
+        return session.getSystemProperty(QUERY_DEBUGGING_TRACER_ENABLED, Boolean.class);
     }
 }

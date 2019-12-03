@@ -11,23 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.spi.eventlistener;
+package io.prestosql.spi.tracer;
 
-public interface EventListener
+import java.util.Map;
+
+public interface PayloadBuilder
 {
-    default void queryCreated(QueryCreatedEvent queryCreatedEvent)
-    {
-    }
-
-    default void queryCompleted(QueryCompletedEvent queryCompletedEvent)
-    {
-    }
-
-    default void splitCompleted(SplitCompletedEvent splitCompletedEvent)
-    {
-    }
-
-    default void tracerEventOccurred(TracerEvent tracerEvent)
-    {
-    }
+    Map<String, Object> getPayload();
 }

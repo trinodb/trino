@@ -20,6 +20,7 @@ import io.prestosql.spi.eventlistener.EventListenerFactory;
 import io.prestosql.spi.eventlistener.QueryCompletedEvent;
 import io.prestosql.spi.eventlistener.QueryCreatedEvent;
 import io.prestosql.spi.eventlistener.SplitCompletedEvent;
+import io.prestosql.spi.eventlistener.TracerEvent;
 
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
@@ -56,6 +57,14 @@ public class TestingEventListenerManager
     {
         if (configuredEventListener.get().isPresent()) {
             configuredEventListener.get().get().splitCompleted(splitCompletedEvent);
+        }
+    }
+
+    @Override
+    public void tracerEventOccurred(TracerEvent tracerEvent)
+    {
+        if (configuredEventListener.get().isPresent()) {
+            configuredEventListener.get().get().tracerEventOccurred(tracerEvent);
         }
     }
 }

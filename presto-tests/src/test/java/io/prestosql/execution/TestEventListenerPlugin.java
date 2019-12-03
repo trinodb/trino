@@ -21,6 +21,7 @@ import io.prestosql.spi.eventlistener.EventListenerFactory;
 import io.prestosql.spi.eventlistener.QueryCompletedEvent;
 import io.prestosql.spi.eventlistener.QueryCreatedEvent;
 import io.prestosql.spi.eventlistener.SplitCompletedEvent;
+import io.prestosql.spi.eventlistener.TracerEvent;
 
 import java.util.Map;
 
@@ -94,6 +95,12 @@ public class TestEventListenerPlugin
         public void splitCompleted(SplitCompletedEvent splitCompletedEvent)
         {
             eventsBuilder.addSplitCompleted(splitCompletedEvent);
+        }
+
+        @Override
+        public void tracerEventOccurred(TracerEvent tracerEvent)
+        {
+            eventsBuilder.addTracerEventOccurred(tracerEvent);
         }
     }
 }

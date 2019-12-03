@@ -74,6 +74,8 @@ import io.prestosql.testing.ProcedureTester;
 import io.prestosql.testing.TestingAccessControlManager;
 import io.prestosql.testing.TestingEventListenerManager;
 import io.prestosql.testing.TestingWarningCollectorModule;
+import io.prestosql.tracer.TracerFactory;
+import io.prestosql.tracer.TracerModule;
 import io.prestosql.transaction.TransactionManager;
 import org.weakref.jmx.guice.MBeanModule;
 
@@ -136,6 +138,7 @@ public class TestingPrestoServer
     private final GracefulShutdownHandler gracefulShutdownHandler;
     private final ShutdownAction shutdownAction;
     private final boolean coordinator;
+    private final TracerFactory tracerFactory;
 
     public static class TestShutdownAction
             implements ShutdownAction
@@ -224,6 +227,7 @@ public class TestingPrestoServer
                 .add(new ServerSecurityModule())
                 .add(new ServerMainModule(parserOptions))
                 .add(new TestingWarningCollectorModule())
+                .add(new TracerModule())
                 .add(binder -> {
                     binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);
                     binder.bind(TestingEventListenerManager.class).in(Scopes.SINGLETON);
@@ -301,6 +305,7 @@ public class TestingPrestoServer
         gracefulShutdownHandler = injector.getInstance(GracefulShutdownHandler.class);
         taskManager = injector.getInstance(TaskManager.class);
         shutdownAction = injector.getInstance(ShutdownAction.class);
+        tracerFactory = injector.getInstance(TracerFactory.class);
         announcer = injector.getInstance(Announcer.class);
 
         announcer.forceAnnounce();
@@ -472,6 +477,11 @@ public class TestingPrestoServer
     public boolean isCoordinator()
     {
         return coordinator;
+    }
+
+    public TracerFactory getTracerFactory()
+    {
+        return tracerFactory;
     }
 
     public final AllNodes refreshNodes()

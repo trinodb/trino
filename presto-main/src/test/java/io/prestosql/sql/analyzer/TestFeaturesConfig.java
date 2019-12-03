@@ -112,7 +112,8 @@ public class TestFeaturesConfig
                 .setEnableDynamicFiltering(false)
                 .setDynamicFilteringMaxPerDriverRowCount(100)
                 .setDynamicFilteringMaxPerDriverSize(new DataSize(10, KILOBYTE))
-                .setIgnoreDownstreamPreferences(false));
+                .setIgnoreDownstreamPreferences(false)
+                .setQueryDebuggingTracerEnabled(false));
     }
 
     @Test
@@ -185,6 +186,7 @@ public class TestFeaturesConfig
                 .put("experimental.dynamic-filtering-max-per-driver-row-count", "256")
                 .put("experimental.dynamic-filtering-max-per-driver-size", "64kB")
                 .put("optimizer.ignore-downstream-preferences", "true")
+                .put("query-debugging-tracer-enabled", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -253,7 +255,8 @@ public class TestFeaturesConfig
                 .setEnableDynamicFiltering(true)
                 .setDynamicFilteringMaxPerDriverRowCount(256)
                 .setDynamicFilteringMaxPerDriverSize(new DataSize(64, KILOBYTE))
-                .setIgnoreDownstreamPreferences(true);
+                .setIgnoreDownstreamPreferences(true)
+                .setQueryDebuggingTracerEnabled(true);
         assertFullMapping(properties, expected);
     }
 

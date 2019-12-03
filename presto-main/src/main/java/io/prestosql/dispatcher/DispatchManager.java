@@ -35,6 +35,8 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.resourcegroups.SelectionContext;
 import io.prestosql.spi.resourcegroups.SelectionCriteria;
+import io.prestosql.spi.tracer.Tracer;
+import io.prestosql.tracer.TracerFactory;
 import io.prestosql.transaction.TransactionManager;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
@@ -51,6 +53,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.prestosql.spi.StandardErrorCode.QUERY_TEXT_TOO_LARGE;
+import static io.prestosql.spi.tracer.TracerEventType.PLAN_QUERY_END;
+import static io.prestosql.spi.tracer.TracerEventType.PLAN_QUERY_START;
 import static io.prestosql.util.StatementUtils.getQueryType;
 import static io.prestosql.util.StatementUtils.isTransactionControlStatement;
 import static java.lang.String.format;
@@ -76,6 +80,8 @@ public class DispatchManager
 
     private final QueryManagerStats stats = new QueryManagerStats();
 
+    private final TracerFactory tracerFactory;
+
     @Inject
     public DispatchManager(
             QueryIdGenerator queryIdGenerator,
@@ -88,7 +94,8 @@ public class DispatchManager
             SessionSupplier sessionSupplier,
             SessionPropertyDefaults sessionPropertyDefaults,
             QueryManagerConfig queryManagerConfig,
-            DispatchExecutor dispatchExecutor)
+            DispatchExecutor dispatchExecutor,
+            TracerFactory tracerFactory)
     {
         this.queryIdGenerator = requireNonNull(queryIdGenerator, "queryIdGenerator is null");
         this.queryPreparer = requireNonNull(queryPreparer, "queryPreparer is null");
@@ -106,6 +113,7 @@ public class DispatchManager
         this.queryExecutor = requireNonNull(dispatchExecutor, "dispatchExecutor is null").getExecutor();
 
         this.queryTracker = new QueryTracker<>(queryManagerConfig, dispatchExecutor.getScheduledExecutor());
+        this.tracerFactory = requireNonNull(tracerFactory, "tracerFactory is null");
     }
 
     @PostConstruct
@@ -169,9 +177,12 @@ public class DispatchManager
 
             // decode session
             session = sessionSupplier.createSession(queryId, sessionContext);
+            Tracer queryTracer = tracerFactory.createTracer(queryId.getId(), session);
 
             // prepare query
+            queryTracer.emitEvent(PLAN_QUERY_START, null);
             preparedQuery = queryPreparer.prepareQuery(session, query);
+            queryTracer.emitEvent(PLAN_QUERY_END, null);
 
             // select resource group
             Optional<String> queryType = getQueryType(preparedQuery.getStatement().getClass()).map(Enum::name);

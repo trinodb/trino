@@ -11,23 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.spi.eventlistener;
+package io.prestosql.tracer;
 
-public interface EventListener
+import com.google.inject.Binder;
+import com.google.inject.Module;
+import com.google.inject.Scopes;
+
+import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
+
+public class TracerModule
+        implements Module
 {
-    default void queryCreated(QueryCreatedEvent queryCreatedEvent)
+    @Override
+    public void configure(Binder binder)
     {
-    }
-
-    default void queryCompleted(QueryCompletedEvent queryCompletedEvent)
-    {
-    }
-
-    default void splitCompleted(SplitCompletedEvent splitCompletedEvent)
-    {
-    }
-
-    default void tracerEventOccurred(TracerEvent tracerEvent)
-    {
+        binder.bind(TracerFactory.class).to(DefaultTracerFactory.class).in(Scopes.SINGLETON);
+        jsonCodecBinder(binder).bindMapJsonCodec(String.class, Object.class);
     }
 }
