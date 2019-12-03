@@ -16,6 +16,7 @@ package io.prestosql.plugin.postgresql;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.json.JsonCodec;
 import io.prestosql.Session;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.TimeZoneKey;
@@ -52,6 +53,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.BaseEncoding.base16;
+import static io.airlift.json.JsonCodec.listJsonCodec;
+import static io.airlift.json.JsonCodec.mapJsonCodec;
 import static io.prestosql.plugin.postgresql.PostgreSqlConfig.ArrayMapping.AS_ARRAY;
 import static io.prestosql.plugin.postgresql.PostgreSqlConfig.ArrayMapping.AS_JSON;
 import static io.prestosql.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
@@ -91,6 +94,8 @@ import static java.util.stream.Collectors.toList;
 public class TestPostgreSqlTypeMapping
         extends AbstractTestQueryFramework
 {
+    private static final JsonCodec<List<Map<String, String>>> HSTORE_CODEC = listJsonCodec(mapJsonCodec(String.class, String.class));
+
     private TestingPostgreSqlServer postgreSqlServer;
 
     private LocalDateTime beforeEpoch;
@@ -526,12 +531,52 @@ public class TestPostgreSqlTypeMapping
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_integer_array_as_json"));
 
         DataTypeTest.create()
+                .addRoundTrip(arrayAsJsonDataType("double precision[]"), null)
+                .addRoundTrip(arrayAsJsonDataType("double precision[]"), "[[[1.1,2.2,3.3],[4.4,5.5,6.6]]]")
+                .addRoundTrip(arrayAsJsonDataType("double precision[100][100][100]"), "[42.3]")
+                .addRoundTrip(arrayAsJsonDataType("double precision[]"), "[[[null,null]]]")
+                .addRoundTrip(arrayAsJsonDataType("double precision[]"), "[]")
+                .addRoundTrip(arrayAsJsonDataType("_float8"), "[]")
+                .addRoundTrip(arrayAsJsonDataType("_float8"), "[[1.1],[2.2]]")
+                .execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_double_array_as_json"));
+
+        DataTypeTest.create()
+                .addRoundTrip(arrayAsJsonDataType("real[]"), null)
+                .addRoundTrip(arrayAsJsonDataType("real[]"), "[[[1.1,2.2,3.3],[4.4,5.5,6.6]]]")
+                .addRoundTrip(arrayAsJsonDataType("real[100][100][100]"), "[42.3]")
+                .addRoundTrip(arrayAsJsonDataType("real[]"), "[[[null,null]]]")
+                .addRoundTrip(arrayAsJsonDataType("real[]"), "[]")
+                .addRoundTrip(arrayAsJsonDataType("_float4"), "[]")
+                .addRoundTrip(arrayAsJsonDataType("_float4"), "[[1.1],[2.2]]")
+                .execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_real_array_as_json"));
+
+        DataTypeTest.create()
                 .addRoundTrip(arrayAsJsonDataType("varchar[]"), null)
                 .addRoundTrip(arrayAsJsonDataType("varchar[]"), "[\"text\"]")
                 .addRoundTrip(arrayAsJsonDataType("_text"), "[[\"one\",\"two\"],[\"three\",\"four\"]]")
                 .addRoundTrip(arrayAsJsonDataType("_text"), "[[\"one\",null]]")
                 .addRoundTrip(arrayAsJsonDataType("_text"), "[]")
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_varchar_array_as_json"));
+
+        DataTypeTest.create()
+                .addRoundTrip(arrayAsJsonDataType("date[]"), null)
+                .addRoundTrip(arrayAsJsonDataType("date[]"), "[\"2019-01-02\"]")
+                .addRoundTrip(arrayAsJsonDataType("date[]"), "[null,null]")
+                .execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_timestamp_array_as_json"));
+
+        DataTypeTest.create()
+                .addRoundTrip(arrayAsJsonDataType("timestamp[]"), null)
+                .addRoundTrip(arrayAsJsonDataType("timestamp[]"), "[\"2019-01-02 03:04:05.789\"]")
+                .addRoundTrip(arrayAsJsonDataType("timestamp[]"), "[null,null]")
+                .execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_timestamp_array_as_json"));
+
+        DataTypeTest.create()
+                .addRoundTrip(arrayAsJsonDataType("hstore[]"), null)
+                .addRoundTrip(arrayAsJsonDataType("hstore[]"), "[]")
+                .addRoundTrip(arrayAsJsonDataType("hstore[]"), "[null,null]")
+                .addRoundTrip(hstoreArrayAsJsonDataType(), "[{\"a\":\"1\",\"b\":\"2\"},{\"a\":\"3\",\"d\":\"4\"}]")
+                .addRoundTrip(hstoreArrayAsJsonDataType(), "[{\"a\":null,\"b\":\"2\"}]")
+                .execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_hstore_array_as_json"));
     }
 
     private static <E> DataType<List<E>> arrayDataType(DataType<E> elementType)
@@ -563,6 +608,17 @@ public class TestPostgreSqlTypeMapping
                         .replace("[", "ARRAY[")
                         .replace("\"", "'")
                         + "::" + insertType,
+                identity());
+    }
+
+    private static DataType<String> hstoreArrayAsJsonDataType()
+    {
+        return dataType(
+                "hstore[]",
+                JSON,
+                json -> HSTORE_CODEC.fromJson(json).stream()
+                        .map(TestPostgreSqlTypeMapping::hstoreLiteral)
+                        .collect(joining(",", "ARRAY[", "]")),
                 identity());
     }
 
@@ -913,16 +969,16 @@ public class TestPostgreSqlTypeMapping
         return dataType(
                 "hstore",
                 getQueryRunner().getMetadata().getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature())),
-                value -> value.entrySet().stream()
-                        .flatMap(entry -> Stream.of(entry.getKey(), entry.getValue()))
-                        .map(string -> {
-                            if (string == null) {
-                                return "null";
-                            }
-                            return DataType.formatStringLiteral(string);
-                        })
-                        .collect(joining(",", "hstore(ARRAY[", "]::varchar[])")),
+                TestPostgreSqlTypeMapping::hstoreLiteral,
                 identity());
+    }
+
+    private static String hstoreLiteral(Map<String, String> value)
+    {
+        return value.entrySet().stream()
+                .flatMap(entry -> Stream.of(entry.getKey(), entry.getValue()))
+                .map(input -> (input == null) ? "null" : formatStringLiteral(input))
+                .collect(joining(",", "hstore(ARRAY[", "]::varchar[])"));
     }
 
     private DataType<Map<String, String>> varcharMapDataType()
