@@ -42,7 +42,10 @@ public interface TypeManager
      *
      * @throws TypeNotFoundException if not found
      */
-    Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters);
+    default Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters)
+    {
+        return getType(new TypeSignature(baseTypeName, typeParameters));
+    }
 
     MethodHandle resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes);
 }

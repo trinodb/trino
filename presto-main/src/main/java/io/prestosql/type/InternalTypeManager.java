@@ -20,7 +20,6 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeId;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.spi.type.TypeSignatureParameter;
 
 import javax.inject.Inject;
 
@@ -56,12 +55,6 @@ public final class InternalTypeManager
     public Type getType(TypeId id)
     {
         return metadata.getType(id);
-    }
-
-    @Override
-    public Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters)
-    {
-        return getType(new TypeSignature(baseTypeName, typeParameters));
     }
 
     @Override
