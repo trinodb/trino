@@ -14,6 +14,7 @@
 package io.prestosql.plugin.postgresql;
 
 import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonFactoryBuilder;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
@@ -72,6 +73,7 @@ import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -132,6 +134,9 @@ public class PostgreSqlClient
      */
     private static final int ARRAY_RESULT_SET_VALUE_COLUMN = 2;
     private static final String DUPLICATE_TABLE_SQLSTATE = "42P07";
+
+    private static final JsonFactory JSON_FACTORY = new JsonFactoryBuilder().configure(CANONICALIZE_FIELD_NAMES, false).build();
+    private static final ObjectMapper SORTED_MAPPER = new ObjectMapperProvider().get().configure(ORDER_MAP_ENTRIES_BY_KEYS, true);
 
     private final TypeManager typeManager;
     private final Type jsonType;
@@ -259,7 +264,7 @@ public class PostgreSqlClient
         }
     }
 
-    private Map<String, Integer> getArrayColumnDimensions(Connection connection, JdbcTableHandle tableHandle)
+    private static Map<String, Integer> getArrayColumnDimensions(Connection connection, JdbcTableHandle tableHandle)
             throws SQLException
     {
         String sql = "" +
@@ -433,7 +438,7 @@ public class PostgreSqlClient
         return (statement, index, value) -> {
             // PostgreSQL does not store zone information in "timestamp with time zone" data type
             long millisUtc = unpackMillisUtc(value);
-            statement.setTimestamp(index, new java.sql.Timestamp(millisUtc));
+            statement.setTimestamp(index, new Timestamp(millisUtc));
         };
     }
 
@@ -571,7 +576,7 @@ public class PostgreSqlClient
         };
     }
 
-    private JdbcTypeHandle getArrayElementTypeHandle(Connection connection, JdbcTypeHandle arrayTypeHandle)
+    private static JdbcTypeHandle getArrayElementTypeHandle(Connection connection, JdbcTypeHandle arrayTypeHandle)
     {
         String jdbcTypeName = arrayTypeHandle.getJdbcTypeName()
                 .orElseThrow(() -> new PrestoException(JDBC_ERROR, "Type name is missing: " + arrayTypeHandle));
@@ -599,7 +604,7 @@ public class PostgreSqlClient
                 DISABLE_PUSHDOWN);
     }
 
-    private ColumnMapping typedVarcharColumnMapping(String jdbcTypeName)
+    private static ColumnMapping typedVarcharColumnMapping(String jdbcTypeName)
     {
         return ColumnMapping.sliceMapping(
                 VARCHAR,
@@ -637,11 +642,6 @@ public class PostgreSqlClient
                 (resultSet, columnIndex) -> uuidSlice((UUID) resultSet.getObject(columnIndex)),
                 uuidWriteFunction());
     }
-
-    private static final JsonFactory JSON_FACTORY = new JsonFactory()
-            .disable(CANONICALIZE_FIELD_NAMES);
-
-    private static final ObjectMapper SORTED_MAPPER = new ObjectMapperProvider().get().configure(ORDER_MAP_ENTRIES_BY_KEYS, true);
 
     private static Slice jsonParse(Slice slice)
     {
