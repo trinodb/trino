@@ -13,23 +13,40 @@
  */
 package io.prestosql.security;
 
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 
+import javax.validation.constraints.NotNull;
+
 import java.io.File;
+import java.util.List;
+
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class AccessControlConfig
 {
-    private File accessControlFile;
+    private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
+    private List<File> accessControlFiles = ImmutableList.of();
 
-    public File getAccessControlFile()
+    @NotNull
+    public List<File> getAccessControlFiles()
     {
-        return accessControlFile;
+        return accessControlFiles;
     }
 
     @Config("access-control.config-files")
-    public AccessControlConfig setAccessControlFile(File accessControlFile)
+    public AccessControlConfig setAccessControlFiles(String accessControlFiles)
     {
-        this.accessControlFile = accessControlFile;
+        this.accessControlFiles = SPLITTER.splitToList(accessControlFiles).stream()
+                .map(File::new)
+                .collect(toImmutableList());
+        return this;
+    }
+
+    public AccessControlConfig setAccessControlFiles(List<File> accessControlFiles)
+    {
+        this.accessControlFiles = ImmutableList.copyOf(accessControlFiles);
         return this;
     }
 }
