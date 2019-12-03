@@ -169,8 +169,7 @@ public class AccessControlManager
         return systemAccessControl.get().filterCatalogs(new SystemSecurityContext(identity), catalogs);
     }
 
-    @Override
-    public void checkCanAccessCatalog(Identity identity, String catalogName)
+    private void checkCanAccessCatalog(Identity identity, String catalogName)
     {
         requireNonNull(identity, "identity is null");
         requireNonNull(catalogName, "catalog is null");
