@@ -29,22 +29,12 @@ import java.io.IOException;
 import java.util.AbstractMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Properties;
 
 import static java.lang.String.format;
 
 public final class TestUtils
 {
     private TestUtils() {}
-
-    public static Properties toProperties(Map<String, String> map)
-    {
-        Properties properties = new Properties();
-        for (Map.Entry<String, String> entry : map.entrySet()) {
-            properties.setProperty(entry.getKey(), entry.getValue());
-        }
-        return properties;
-    }
 
     public static void installKafkaPlugin(EmbeddedKafka embeddedKafka, QueryRunner queryRunner, Map<SchemaTableName, KafkaTopicDescription> topicDescriptions)
     {
