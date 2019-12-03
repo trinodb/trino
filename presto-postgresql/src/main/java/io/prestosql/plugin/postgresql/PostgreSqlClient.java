@@ -16,6 +16,7 @@ package io.prestosql.plugin.postgresql;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonFactoryBuilder;
 import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -24,6 +25,7 @@ import io.airlift.log.Logger;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
 import io.prestosql.plugin.jdbc.BaseJdbcClient;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.BlockReadFunction;
@@ -138,7 +140,6 @@ public class PostgreSqlClient
     private static final JsonFactory JSON_FACTORY = new JsonFactoryBuilder().configure(CANONICALIZE_FIELD_NAMES, false).build();
     private static final ObjectMapper SORTED_MAPPER = new ObjectMapperProvider().get().configure(ORDER_MAP_ENTRIES_BY_KEYS, true);
 
-    private final TypeManager typeManager;
     private final Type jsonType;
     private final Type uuidType;
     private final MapType varcharMapType;
@@ -152,7 +153,6 @@ public class PostgreSqlClient
             TypeManager typeManager)
     {
         super(config, "\"", connectionFactory);
-        this.typeManager = typeManager;
         this.jsonType = typeManager.getType(new TypeSignature(JSON));
         this.uuidType = typeManager.getType(new TypeSignature(StandardTypes.UUID));
         this.varcharMapType = (MapType) typeManager.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
@@ -548,7 +548,7 @@ public class PostgreSqlClient
                 DISABLE_PUSHDOWN);
     }
 
-    private SliceReadFunction arrayAsJsonReadFunction(ConnectorSession session, ColumnMapping baseElementMapping)
+    private static SliceReadFunction arrayAsJsonReadFunction(ConnectorSession session, ColumnMapping baseElementMapping)
     {
         return (resultSet, columnIndex) -> {
             // resolve array type
@@ -565,13 +565,16 @@ public class PostgreSqlClient
             // read array into a block
             Block block = ((BlockReadFunction) readFunction).readBlock(resultSet, columnIndex);
 
-            // cast block to JSON slice
+            // convert block to JSON slice
+            BlockBuilder builder = type.createBlockBuilder(null, 1);
+            type.writeObject(builder, block);
+            Object value = type.getObjectValue(session, builder.build(), 0);
+
             try {
-                return (Slice) typeManager.getCoercion(type, jsonType)
-                        .invokeExact(session, block);
+                return Slices.wrappedBuffer(SORTED_MAPPER.writeValueAsBytes(value));
             }
-            catch (Throwable throwable) {
-                throw new PrestoException(JDBC_ERROR, "Cast to JSON failed: " + throwable.getMessage(), throwable);
+            catch (JsonProcessingException e) {
+                throw new PrestoException(JDBC_ERROR, "Cast to JSON failed for  " + type.getDisplayName(), e);
             }
         };
     }
