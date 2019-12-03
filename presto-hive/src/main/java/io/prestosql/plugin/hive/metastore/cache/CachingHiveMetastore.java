@@ -341,11 +341,7 @@ public class CachingHiveMetastore
                 partition.getIdentity(),
                 table,
                 ImmutableList.of(getExistingPartition(partition.getIdentity(), table, partition.getKey().getPartitionValues())));
-        PartitionStatistics result = partitionStatistics.get(partitionName);
-        if (result == null) {
-            throw new PrestoException(HIVE_PARTITION_DROPPED_DURING_QUERY, "Statistics result does not contain entry for partition: " + partition.getKey().getPartitionName());
-        }
-        return result;
+        return partitionStatistics.get(partitionName);
     }
 
     private Map<WithIdentity<HivePartitionName>, PartitionStatistics> loadPartitionColumnStatistics(Iterable<? extends WithIdentity<HivePartitionName>> keys)
