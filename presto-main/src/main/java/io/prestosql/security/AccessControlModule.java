@@ -22,6 +22,7 @@ import io.airlift.log.Logger;
 import io.prestosql.plugin.base.util.LoggingInvocationHandler;
 
 import static com.google.common.reflect.Reflection.newProxy;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class AccessControlModule
@@ -30,6 +31,7 @@ public class AccessControlModule
     @Override
     public void configure(Binder binder)
     {
+        configBinder(binder).bindConfig(AccessControlConfig.class);
         binder.bind(AccessControlManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(AccessControlManager.class).withGeneratedName();
     }

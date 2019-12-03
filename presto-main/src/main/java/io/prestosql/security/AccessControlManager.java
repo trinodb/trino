@@ -77,6 +77,7 @@ public class AccessControlManager
     private static final String NAME_PROPERTY = "access-control.name";
 
     private final TransactionManager transactionManager;
+    private final File configFile;
     private final Map<String, SystemAccessControlFactory> systemAccessControlFactories = new ConcurrentHashMap<>();
     private final Map<CatalogName, CatalogAccessControlEntry> connectorAccessControl = new ConcurrentHashMap<>();
 
@@ -87,9 +88,10 @@ public class AccessControlManager
     private final CounterStat authorizationFail = new CounterStat();
 
     @Inject
-    public AccessControlManager(TransactionManager transactionManager)
+    public AccessControlManager(TransactionManager transactionManager, AccessControlConfig config)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+        this.configFile = config.getAccessControlFile();
         addSystemAccessControlFactory(new AllowAllSystemAccessControl.Factory());
         addSystemAccessControlFactory(new ReadOnlySystemAccessControl.Factory());
         addSystemAccessControlFactory(new FileBasedSystemAccessControl.Factory());
@@ -121,11 +123,14 @@ public class AccessControlManager
     {
         log.info("-- Loading system access control --");
 
-        File configFile = CONFIG_FILE.getAbsoluteFile();
-        if (!configFile.exists()) {
-            setSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
-            log.info("-- Loaded system access control %s --", AllowAllSystemAccessControl.NAME);
-            return;
+        File configFile = this.configFile;
+        if (configFile == null) {
+            if (!CONFIG_FILE.exists()) {
+                setSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
+                log.info("-- Loaded system access control %s --", AllowAllSystemAccessControl.NAME);
+                return;
+            }
+            configFile = CONFIG_FILE.getAbsoluteFile();
         }
 
         Map<String, String> properties;

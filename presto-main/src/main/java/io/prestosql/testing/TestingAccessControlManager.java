@@ -16,6 +16,7 @@ package io.prestosql.testing;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.plugin.base.security.AllowAllSystemAccessControl;
+import io.prestosql.security.AccessControlConfig;
 import io.prestosql.security.AccessControlManager;
 import io.prestosql.security.SecurityContext;
 import io.prestosql.spi.connector.CatalogSchemaName;
@@ -84,7 +85,7 @@ public class TestingAccessControlManager
     @Inject
     public TestingAccessControlManager(TransactionManager transactionManager)
     {
-        super(transactionManager);
+        super(transactionManager, new AccessControlConfig());
         setSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
     }
 
