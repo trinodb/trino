@@ -40,8 +40,10 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static javax.security.auth.login.AppConfigurationEntry.LoginModuleControlFlag.REQUIRED;
 import static org.ietf.jgss.GSSCredential.ACCEPT_ONLY;
@@ -61,7 +63,14 @@ public class KerberosAuthenticator
     @Inject
     public KerberosAuthenticator(KerberosConfig config)
     {
-        System.setProperty("java.security.krb5.conf", config.getKerberosConfig().getAbsolutePath());
+        String newValue = config.getKerberosConfig().getAbsolutePath();
+        String currentValue = System.getProperty("java.security.krb5.conf");
+        checkState(
+                currentValue == null || Objects.equals(currentValue, newValue),
+                "Refusing to set system property 'java.security.krb5.conf' to '%s', it is already set to '%s'",
+                newValue,
+                currentValue);
+        System.setProperty("java.security.krb5.conf", newValue);
 
         try {
             String hostname = Optional.ofNullable(config.getPrincipalHostname())
