@@ -46,7 +46,6 @@ import io.prestosql.spi.type.SmallintType;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.VarcharType;
 import org.apache.hadoop.hive.common.FileUtils;
 import org.joda.time.DateTimeZone;
@@ -85,15 +84,11 @@ public class HivePartitionManager
     private final int maxPartitions;
     private final boolean assumeCanonicalPartitionKeys;
     private final int domainCompactionThreshold;
-    private final TypeManager typeManager;
 
     @Inject
-    public HivePartitionManager(
-            TypeManager typeManager,
-            HiveConfig hiveConfig)
+    public HivePartitionManager(HiveConfig hiveConfig)
     {
         this(
-                typeManager,
                 hiveConfig.getDateTimeZone(),
                 hiveConfig.getMaxPartitionsPerScan(),
                 hiveConfig.isAssumeCanonicalPartitionKeys(),
@@ -101,7 +96,6 @@ public class HivePartitionManager
     }
 
     public HivePartitionManager(
-            TypeManager typeManager,
             DateTimeZone timeZone,
             int maxPartitions,
             boolean assumeCanonicalPartitionKeys,
@@ -113,7 +107,6 @@ public class HivePartitionManager
         this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
         checkArgument(domainCompactionThreshold >= 1, "domainCompactionThreshold must be at least 1");
         this.domainCompactionThreshold = domainCompactionThreshold;
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     public HivePartitionResult getPartitions(SemiTransactionalHiveMetastore metastore, HiveIdentity identity, ConnectorTableHandle tableHandle, Constraint constraint)

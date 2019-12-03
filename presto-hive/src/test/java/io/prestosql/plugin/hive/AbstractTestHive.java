@@ -725,7 +725,7 @@ public abstract class AbstractTestHive
         setupHive(databaseName, hiveConfig.getTimeZone());
 
         metastoreClient = hiveMetastore;
-        HivePartitionManager partitionManager = new HivePartitionManager(TYPE_MANAGER, hiveConfig);
+        HivePartitionManager partitionManager = new HivePartitionManager(hiveConfig);
         hdfsEnvironment = HDFS_ENVIRONMENT;
         locationService = new HiveLocationService(hdfsEnvironment);
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
