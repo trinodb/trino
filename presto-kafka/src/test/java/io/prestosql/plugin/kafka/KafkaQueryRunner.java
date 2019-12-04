@@ -23,8 +23,8 @@ import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.plugin.kafka.util.CodecSupplier;
-import io.prestosql.plugin.kafka.util.EmbeddedKafka;
 import io.prestosql.plugin.kafka.util.TestUtils;
+import io.prestosql.plugin.kafka.util.TestingKafka;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.testing.DistributedQueryRunner;
@@ -48,13 +48,13 @@ public final class KafkaQueryRunner
     private static final Logger log = Logger.get("TestQueries");
     private static final String TPCH_SCHEMA = "tpch";
 
-    static DistributedQueryRunner createKafkaQueryRunner(EmbeddedKafka embeddedKafka, TpchTable<?>... tables)
+    static DistributedQueryRunner createKafkaQueryRunner(TestingKafka testingKafka, TpchTable<?>... tables)
             throws Exception
     {
-        return createKafkaQueryRunner(embeddedKafka, ImmutableList.copyOf(tables));
+        return createKafkaQueryRunner(testingKafka, ImmutableList.copyOf(tables));
     }
 
-    static DistributedQueryRunner createKafkaQueryRunner(EmbeddedKafka embeddedKafka, Iterable<TpchTable<?>> tables)
+    static DistributedQueryRunner createKafkaQueryRunner(TestingKafka testingKafka, Iterable<TpchTable<?>> tables)
             throws Exception
     {
         DistributedQueryRunner queryRunner = null;
@@ -64,38 +64,38 @@ public final class KafkaQueryRunner
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
-            embeddedKafka.start();
+            testingKafka.start();
 
             for (TpchTable<?> table : tables) {
-                embeddedKafka.createTopics(kafkaTopicName(table));
+                testingKafka.createTopics(kafkaTopicName(table));
             }
 
             Map<SchemaTableName, KafkaTopicDescription> topicDescriptions = createTpchTopicDescriptions(queryRunner.getCoordinator().getMetadata(), tables);
 
-            installKafkaPlugin(embeddedKafka, queryRunner, topicDescriptions);
+            installKafkaPlugin(testingKafka, queryRunner, topicDescriptions);
 
             TestingPrestoClient prestoClient = queryRunner.getClient();
 
             log.info("Loading data...");
             long startTime = System.nanoTime();
             for (TpchTable<?> table : tables) {
-                loadTpchTopic(embeddedKafka, prestoClient, table);
+                loadTpchTopic(testingKafka, prestoClient, table);
             }
             log.info("Loading complete in %s", nanosSince(startTime).toString(SECONDS));
 
             return queryRunner;
         }
         catch (Throwable e) {
-            closeAllSuppress(e, queryRunner, embeddedKafka);
+            closeAllSuppress(e, queryRunner, testingKafka);
             throw e;
         }
     }
 
-    private static void loadTpchTopic(EmbeddedKafka embeddedKafka, TestingPrestoClient prestoClient, TpchTable<?> table)
+    private static void loadTpchTopic(TestingKafka testingKafka, TestingPrestoClient prestoClient, TpchTable<?> table)
     {
         long start = System.nanoTime();
         log.info("Running import for %s", table.getTableName());
-        TestUtils.loadTpchTopic(embeddedKafka, prestoClient, kafkaTopicName(table), new QualifiedObjectName("tpch", TINY_SCHEMA_NAME, table.getTableName().toLowerCase(ENGLISH)));
+        TestUtils.loadTpchTopic(testingKafka, prestoClient, kafkaTopicName(table), new QualifiedObjectName("tpch", TINY_SCHEMA_NAME, table.getTableName().toLowerCase(ENGLISH)));
         log.info("Imported %s in %s", 0, table.getTableName(), nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 
@@ -131,7 +131,7 @@ public final class KafkaQueryRunner
             throws Exception
     {
         Logging.initialize();
-        DistributedQueryRunner queryRunner = createKafkaQueryRunner(EmbeddedKafka.createEmbeddedKafka(), TpchTable.getTables());
+        DistributedQueryRunner queryRunner = createKafkaQueryRunner(new TestingKafka(), TpchTable.getTables());
         Thread.sleep(10);
         Logger log = Logger.get(KafkaQueryRunner.class);
         log.info("======== SERVER STARTED ========");

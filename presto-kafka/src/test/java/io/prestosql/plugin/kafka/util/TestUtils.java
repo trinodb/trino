@@ -30,7 +30,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 
-import static io.prestosql.plugin.kafka.util.EmbeddedKafka.CloseableProducer;
+import static io.prestosql.plugin.kafka.util.TestingKafka.CloseableProducer;
 import static java.lang.String.format;
 
 public final class TestUtils
@@ -46,23 +46,23 @@ public final class TestUtils
         return properties;
     }
 
-    public static void installKafkaPlugin(EmbeddedKafka embeddedKafka, QueryRunner queryRunner, Map<SchemaTableName, KafkaTopicDescription> topicDescriptions)
+    public static void installKafkaPlugin(TestingKafka testingKafka, QueryRunner queryRunner, Map<SchemaTableName, KafkaTopicDescription> topicDescriptions)
     {
         KafkaPlugin kafkaPlugin = new KafkaPlugin();
         kafkaPlugin.setTableDescriptionSupplier(() -> topicDescriptions);
         queryRunner.installPlugin(kafkaPlugin);
 
         Map<String, String> kafkaConfig = ImmutableMap.of(
-                "kafka.nodes", embeddedKafka.getConnectString(),
+                "kafka.nodes", testingKafka.getConnectString(),
                 "kafka.table-names", Joiner.on(",").join(topicDescriptions.keySet()),
                 "kafka.connect-timeout", "120s",
                 "kafka.default-schema", "default");
         queryRunner.createCatalog("kafka", "kafka", kafkaConfig);
     }
 
-    public static void loadTpchTopic(EmbeddedKafka embeddedKafka, TestingPrestoClient prestoClient, String topicName, QualifiedObjectName tpchTableName)
+    public static void loadTpchTopic(TestingKafka testingKafka, TestingPrestoClient prestoClient, String topicName, QualifiedObjectName tpchTableName)
     {
-        try (CloseableProducer<Long, Object> producer = embeddedKafka.createProducer();
+        try (CloseableProducer<Long, Object> producer = testingKafka.createProducer();
                 KafkaLoader tpchLoader = new KafkaLoader(producer, topicName, prestoClient.getServer(), prestoClient.getDefaultSession())) {
             tpchLoader.execute(format("SELECT * from %s", tpchTableName));
         }
