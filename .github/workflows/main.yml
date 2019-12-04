@@ -129,7 +129,6 @@ jobs:
             !presto-redis,
             !presto-sqlserver,!presto-postgresql,!presto-mysql,
             !presto-phoenix,!presto-iceberg,
-            !presto-kudu,
             !presto-docs,!presto-server,!presto-server-rpm'
 
   test-modules:
