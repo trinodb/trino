@@ -91,6 +91,7 @@ import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static io.prestosql.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static io.prestosql.tracer.NoOpTracerFactory.createNoOpTracer;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -209,7 +210,8 @@ public class TestHttpRemoteTask
                 OptionalInt.empty(),
                 createInitialEmptyOutputBuffers(OutputBuffers.BufferType.BROADCAST),
                 new NodeTaskMap.PartitionedSplitCountTracker(i -> {}),
-                true);
+                true,
+                createNoOpTracer());
     }
 
     private static HttpRemoteTaskFactory createHttpRemoteTaskFactory(TestingTaskResource testingTaskResource)

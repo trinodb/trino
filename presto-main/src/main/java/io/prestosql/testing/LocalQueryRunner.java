@@ -207,6 +207,7 @@ import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom
 import static io.prestosql.sql.testing.TreeAssertions.assertFormattedSql;
 import static io.prestosql.testing.TestingSession.TESTING_CATALOG;
 import static io.prestosql.testing.TestingSession.createBogusTestingCatalog;
+import static io.prestosql.tracer.NoOpTracerFactory.createNoOpTracer;
 import static io.prestosql.transaction.TransactionBuilder.transaction;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -733,7 +734,8 @@ public class LocalQueryRunner
             SplitSource splitSource = splitManager.getSplits(
                     session,
                     table,
-                    stageExecutionDescriptor.isScanGroupedExecution(tableScan.getId()) ? GROUPED_SCHEDULING : UNGROUPED_SCHEDULING);
+                    stageExecutionDescriptor.isScanGroupedExecution(tableScan.getId()) ? GROUPED_SCHEDULING : UNGROUPED_SCHEDULING,
+                    createNoOpTracer());
 
             ImmutableSet.Builder<ScheduledSplit> scheduledSplits = ImmutableSet.builder();
             while (!splitSource.isFinished()) {
@@ -755,7 +757,7 @@ public class LocalQueryRunner
                 }
                 else {
                     DriverContext driverContext = taskContext.addPipelineContext(driverFactory.getPipelineId(), driverFactory.isInputDriver(), driverFactory.isOutputDriver(), false).addDriverContext();
-                    Driver driver = driverFactory.createDriver(driverContext);
+                    Driver driver = driverFactory.createDriver(driverContext, createNoOpTracer());
                     drivers.add(driver);
                 }
             }
@@ -769,7 +771,7 @@ public class LocalQueryRunner
             boolean partitioned = partitionedSources.contains(driverFactory.getSourceId().get());
             for (ScheduledSplit split : source.getSplits()) {
                 DriverContext driverContext = taskContext.addPipelineContext(driverFactory.getPipelineId(), driverFactory.isInputDriver(), driverFactory.isOutputDriver(), partitioned).addDriverContext();
-                Driver driver = driverFactory.createDriver(driverContext);
+                Driver driver = driverFactory.createDriver(driverContext, createNoOpTracer());
                 driver.updateSource(new TaskSource(split.getPlanNodeId(), ImmutableSet.of(split), true));
                 drivers.add(driver);
             }

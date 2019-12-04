@@ -32,6 +32,7 @@ import io.prestosql.spi.QueryId;
 import io.prestosql.spi.memory.MemoryPoolId;
 import io.prestosql.spiller.SpillSpaceTracker;
 import io.prestosql.sql.planner.LocalExecutionPlanner;
+import io.prestosql.tracer.NoOpTracerFactory;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -322,6 +323,7 @@ public class TestSqlTask
                 taskNotificationExecutor,
                 Functions.identity(),
                 new DataSize(32, MEGABYTE),
-                new CounterStat());
+                new CounterStat(),
+                new NoOpTracerFactory());
     }
 }

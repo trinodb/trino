@@ -54,6 +54,7 @@ import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.testing.TestingTaskContext.createTaskContext;
+import static io.prestosql.tracer.NoOpTracerFactory.createNoOpTracer;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -127,7 +128,7 @@ public class TestMemoryPools
                     TableScanOperator.class.getSimpleName());
 
             OutputFactory outputFactory = new PageConsumerOutputFactory(types -> (page -> {}));
-            Operator outputOperator = outputFactory.createOutputOperator(2, new PlanNodeId("output"), ImmutableList.of(), Function.identity(), new TestingPagesSerdeFactory()).createOperator(driverContext);
+            Operator outputOperator = outputFactory.createOutputOperator(2, new PlanNodeId("output"), ImmutableList.of(), Function.identity(), new TestingPagesSerdeFactory()).createOperator(driverContext, createNoOpTracer());
             RevocableMemoryOperator revocableMemoryOperator = new RevocableMemoryOperator(revokableOperatorContext, reservedPerPage, numberOfPages);
             createOperator.set(revocableMemoryOperator);
 

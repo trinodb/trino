@@ -28,6 +28,7 @@ import io.prestosql.security.AccessControl;
 import io.prestosql.server.BasicQueryInfo;
 import io.prestosql.server.protocol.Slug;
 import io.prestosql.spi.QueryId;
+import io.prestosql.spi.tracer.Tracer;
 import io.prestosql.sql.planner.Plan;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.Statement;
@@ -308,7 +309,8 @@ public class DataDefinitionExecution<T extends Statement>
                 PreparedQuery preparedQuery,
                 QueryStateMachine stateMachine,
                 Slug slug,
-                WarningCollector warningCollector)
+                WarningCollector warningCollector,
+                Tracer tracer)
         {
             return createDataDefinitionExecution(preparedQuery.getStatement(), preparedQuery.getParameters(), stateMachine, slug);
         }

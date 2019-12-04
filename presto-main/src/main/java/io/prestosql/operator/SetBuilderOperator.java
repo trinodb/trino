@@ -20,6 +20,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.prestosql.operator.ChannelSet.ChannelSetBuilder;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
+import io.prestosql.spi.tracer.Tracer;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.gen.JoinCompiler;
 import io.prestosql.sql.planner.plan.PlanNodeId;
@@ -100,7 +101,7 @@ public class SetBuilderOperator
         }
 
         @Override
-        public Operator createOperator(DriverContext driverContext)
+        public Operator createOperator(DriverContext driverContext, Tracer pipelineTracer)
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, SetBuilderOperator.class.getSimpleName());

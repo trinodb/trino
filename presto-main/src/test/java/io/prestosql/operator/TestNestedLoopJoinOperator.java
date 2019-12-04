@@ -40,6 +40,7 @@ import static io.prestosql.operator.ValuesOperator.ValuesOperatorFactory;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
+import static io.prestosql.tracer.NoOpTracerFactory.createNoOpTracer;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
@@ -484,8 +485,8 @@ public class TestNestedLoopJoinOperator
         NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(1, new PlanNodeId("test"), nestedLoopJoinBridgeManager);
         NestedLoopJoinOperatorFactory joinOperatorFactory = new NestedLoopJoinOperatorFactory(3, new PlanNodeId("test"), nestedLoopJoinBridgeManager);
 
-        Operator valuesOperator = valuesOperatorFactory.createOperator(driverContext);
-        Operator nestedLoopBuildOperator = nestedLoopBuildOperatorFactory.createOperator(driverContext);
+        Operator valuesOperator = valuesOperatorFactory.createOperator(driverContext, createNoOpTracer());
+        Operator nestedLoopBuildOperator = nestedLoopBuildOperatorFactory.createOperator(driverContext, createNoOpTracer());
         Driver driver = Driver.createDriver(driverContext,
                 valuesOperator,
                 nestedLoopBuildOperator);

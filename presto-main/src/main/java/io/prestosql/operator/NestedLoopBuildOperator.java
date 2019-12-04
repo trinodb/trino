@@ -16,6 +16,7 @@ package io.prestosql.operator;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.prestosql.memory.context.LocalMemoryContext;
 import io.prestosql.spi.Page;
+import io.prestosql.spi.tracer.Tracer;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import java.util.Optional;
@@ -44,7 +45,7 @@ public class NestedLoopBuildOperator
         }
 
         @Override
-        public Operator createOperator(DriverContext driverContext)
+        public Operator createOperator(DriverContext driverContext, Tracer pipelineTracer)
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, NestedLoopBuildOperator.class.getSimpleName());

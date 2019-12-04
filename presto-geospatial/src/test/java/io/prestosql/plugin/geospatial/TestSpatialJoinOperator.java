@@ -73,6 +73,7 @@ import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.planner.plan.SpatialJoinNode.Type.INNER;
 import static io.prestosql.sql.planner.plan.SpatialJoinNode.Type.LEFT;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
+import static io.prestosql.tracer.NoOpTracerFactory.createNoOpTracer;
 import static java.util.Collections.emptyIterator;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -303,7 +304,7 @@ public class TestSpatialJoinOperator
 
         OperatorFactory joinOperatorFactory = new SpatialJoinOperatorFactory(2, new PlanNodeId("test"), INNER, probePages.getTypes(), Ints.asList(1), 0, Optional.empty(), pagesSpatialIndexFactory);
 
-        Operator operator = joinOperatorFactory.createOperator(driverContext);
+        Operator operator = joinOperatorFactory.createOperator(driverContext, createNoOpTracer());
         assertTrue(operator.needsInput());
         operator.addInput(probeInput.get(0));
         operator.finish();
@@ -345,7 +346,7 @@ public class TestSpatialJoinOperator
             DriverContext secondDriver = pipelineContext.addDriverContext();
             OperatorFactory secondFactory = firstFactory.duplicate();
             if (createSecondaryOperators) {
-                try (Operator secondOperator = secondFactory.createOperator(secondDriver)) {
+                try (Operator secondOperator = secondFactory.createOperator(secondDriver, createNoOpTracer())) {
                     assertEquals(toPages(secondOperator, emptyIterator()), ImmutableList.of());
                 }
             }
@@ -490,8 +491,8 @@ public class TestSpatialJoinOperator
                 new TestingFactory(false));
 
         Driver driver = Driver.createDriver(driverContext,
-                valuesOperatorFactory.createOperator(driverContext),
-                buildOperatorFactory.createOperator(driverContext));
+                valuesOperatorFactory.createOperator(driverContext, createNoOpTracer()),
+                buildOperatorFactory.createOperator(driverContext, createNoOpTracer()));
 
         PagesSpatialIndexFactory pagesSpatialIndexFactory = buildOperatorFactory.getPagesSpatialIndexFactory();
         ListenableFuture<PagesSpatialIndex> pagesSpatialIndex = pagesSpatialIndexFactory.createPagesSpatialIndex();

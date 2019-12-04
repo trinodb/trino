@@ -22,6 +22,7 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.TableMetadata;
 import io.prestosql.metadata.TableProperties;
 import io.prestosql.operator.StageExecutionDescriptor;
+import io.prestosql.spi.tracer.Tracer;
 import io.prestosql.split.SampledSplitSource;
 import io.prestosql.split.SplitManager;
 import io.prestosql.split.SplitSource;
@@ -62,8 +63,6 @@ import io.prestosql.sql.planner.plan.UnnestNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.planner.plan.WindowNode;
 
-import javax.inject.Inject;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -81,12 +80,13 @@ public class DistributedExecutionPlanner
 
     private final SplitManager splitManager;
     private final Metadata metadata;
+    private final Tracer tracer;
 
-    @Inject
-    public DistributedExecutionPlanner(SplitManager splitManager, Metadata metadata)
+    public DistributedExecutionPlanner(SplitManager splitManager, Metadata metadata, Tracer tracer)
     {
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.tracer = requireNonNull(tracer, "tracer is null");
     }
 
     public StageExecutionPlan plan(SubPlan root, Session session)
@@ -116,7 +116,7 @@ public class DistributedExecutionPlanner
         PlanFragment currentFragment = root.getFragment();
 
         // get splits for this fragment, this is lazy so split assignments aren't actually calculated here
-        Map<PlanNodeId, SplitSource> splitSources = currentFragment.getRoot().accept(new Visitor(session, currentFragment.getStageExecutionDescriptor(), allSplitSources), null);
+        Map<PlanNodeId, SplitSource> splitSources = currentFragment.getRoot().accept(new Visitor(session, currentFragment.getStageExecutionDescriptor(), allSplitSources, tracer), null);
 
         // create child stages
         ImmutableList.Builder<StageExecutionPlan> dependencies = ImmutableList.builder();
@@ -152,12 +152,14 @@ public class DistributedExecutionPlanner
         private final Session session;
         private final StageExecutionDescriptor stageExecutionDescriptor;
         private final ImmutableList.Builder<SplitSource> splitSources;
+        private final Tracer tracer;
 
-        private Visitor(Session session, StageExecutionDescriptor stageExecutionDescriptor, ImmutableList.Builder<SplitSource> allSplitSources)
+        private Visitor(Session session, StageExecutionDescriptor stageExecutionDescriptor, ImmutableList.Builder<SplitSource> allSplitSources, Tracer tracer)
         {
             this.session = session;
             this.stageExecutionDescriptor = stageExecutionDescriptor;
             this.splitSources = allSplitSources;
+            this.tracer = tracer;
         }
 
         @Override
@@ -189,7 +191,8 @@ public class DistributedExecutionPlanner
             SplitSource splitSource = splitManager.getSplits(
                     session,
                     node.getTable(),
-                    stageExecutionDescriptor.isScanGroupedExecution(node.getId()) ? GROUPED_SCHEDULING : UNGROUPED_SCHEDULING);
+                    stageExecutionDescriptor.isScanGroupedExecution(node.getId()) ? GROUPED_SCHEDULING : UNGROUPED_SCHEDULING,
+                    tracer);
 
             splitSources.add(splitSource);
 

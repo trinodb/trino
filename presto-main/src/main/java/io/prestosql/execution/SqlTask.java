@@ -34,8 +34,10 @@ import io.prestosql.operator.PipelineContext;
 import io.prestosql.operator.PipelineStatus;
 import io.prestosql.operator.TaskContext;
 import io.prestosql.operator.TaskStats;
+import io.prestosql.spi.tracer.Tracer;
 import io.prestosql.sql.planner.PlanFragment;
 import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.prestosql.tracer.TracerFactory;
 import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
@@ -84,6 +86,8 @@ public class SqlTask
     private final AtomicReference<TaskHolder> taskHolderReference = new AtomicReference<>(new TaskHolder());
     private final AtomicBoolean needsPlan = new AtomicBoolean(true);
 
+    private final TracerFactory tracerFactory;
+
     public static SqlTask createSqlTask(
             TaskId taskId,
             URI location,
@@ -93,9 +97,10 @@ public class SqlTask
             ExecutorService taskNotificationExecutor,
             Function<SqlTask, ?> onDone,
             DataSize maxBufferSize,
-            CounterStat failedTasks)
+            CounterStat failedTasks,
+            TracerFactory tracerFactory)
     {
-        SqlTask sqlTask = new SqlTask(taskId, location, nodeId, queryContext, sqlTaskExecutionFactory, taskNotificationExecutor, maxBufferSize);
+        SqlTask sqlTask = new SqlTask(taskId, location, nodeId, queryContext, sqlTaskExecutionFactory, taskNotificationExecutor, maxBufferSize, tracerFactory);
         sqlTask.initialize(onDone, failedTasks);
         return sqlTask;
     }
@@ -107,7 +112,8 @@ public class SqlTask
             QueryContext queryContext,
             SqlTaskExecutionFactory sqlTaskExecutionFactory,
             ExecutorService taskNotificationExecutor,
-            DataSize maxBufferSize)
+            DataSize maxBufferSize,
+            TracerFactory tracerFactory)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.taskInstanceId = UUID.randomUUID().toString();
@@ -115,6 +121,7 @@ public class SqlTask
         this.nodeId = requireNonNull(nodeId, "nodeId is null");
         this.queryContext = requireNonNull(queryContext, "queryContext is null");
         this.sqlTaskExecutionFactory = requireNonNull(sqlTaskExecutionFactory, "sqlTaskExecutionFactory is null");
+        this.tracerFactory = requireNonNull(tracerFactory, "tracerFactory is null");
         requireNonNull(taskNotificationExecutor, "taskNotificationExecutor is null");
         requireNonNull(maxBufferSize, "maxBufferSize is null");
 
@@ -380,7 +387,10 @@ public class SqlTask
                 taskExecution = taskHolder.getTaskExecution();
                 if (taskExecution == null) {
                     checkState(fragment.isPresent(), "fragment must be present");
-                    taskExecution = sqlTaskExecutionFactory.create(session, queryContext, taskStateMachine, outputBuffer, fragment.get(), sources, totalPartitions);
+                    Tracer tracer = tracerFactory.createTracer(taskStateMachine.getTaskId().getQueryId().getId(), session)
+                            .withStageId(String.valueOf(taskStateMachine.getTaskId().getStageId().getId()))
+                            .withTaskId(String.valueOf(taskStateMachine.getTaskId().getId()));
+                    taskExecution = sqlTaskExecutionFactory.create(session, queryContext, taskStateMachine, outputBuffer, fragment.get(), sources, totalPartitions, tracer);
                     taskHolderReference.compareAndSet(taskHolder, new TaskHolder(taskExecution));
                     needsPlan.set(false);
                 }

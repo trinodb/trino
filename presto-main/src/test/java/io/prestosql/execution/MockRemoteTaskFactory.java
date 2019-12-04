@@ -38,6 +38,7 @@ import io.prestosql.metadata.Split;
 import io.prestosql.operator.TaskContext;
 import io.prestosql.operator.TaskStats;
 import io.prestosql.spi.memory.MemoryPoolId;
+import io.prestosql.spi.tracer.Tracer;
 import io.prestosql.spiller.SpillSpaceTracker;
 import io.prestosql.sql.planner.Partitioning;
 import io.prestosql.sql.planner.PartitioningScheme;
@@ -83,6 +84,7 @@ import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.prestosql.testing.TestingHandles.TEST_TABLE_HANDLE;
+import static io.prestosql.tracer.NoOpTracerFactory.createNoOpTracer;
 import static io.prestosql.util.Failures.toFailures;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -123,7 +125,7 @@ public class MockRemoteTaskFactory
         for (Split sourceSplit : splits) {
             initialSplits.put(sourceId, sourceSplit);
         }
-        return createRemoteTask(TEST_SESSION, taskId, newNode, testFragment, initialSplits.build(), OptionalInt.empty(), createInitialEmptyOutputBuffers(BROADCAST), partitionedSplitCountTracker, true);
+        return createRemoteTask(TEST_SESSION, taskId, newNode, testFragment, initialSplits.build(), OptionalInt.empty(), createInitialEmptyOutputBuffers(BROADCAST), partitionedSplitCountTracker, true, createNoOpTracer());
     }
 
     @Override
@@ -136,7 +138,8 @@ public class MockRemoteTaskFactory
             OptionalInt totalPartitions,
             OutputBuffers outputBuffers,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
-            boolean summarizeTaskInfo)
+            boolean summarizeTaskInfo,
+            Tracer tracer)
     {
         return new MockRemoteTask(taskId, fragment, node.getNodeIdentifier(), executor, scheduledExecutor, initialSplits, totalPartitions, partitionedSplitCountTracker);
     }

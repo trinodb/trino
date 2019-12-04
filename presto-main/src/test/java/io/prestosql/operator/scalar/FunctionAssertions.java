@@ -125,6 +125,7 @@ import static io.prestosql.sql.relational.SqlToRowExpressionTranslator.translate
 import static io.prestosql.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.prestosql.testing.TestingTaskContext.createTaskContext;
 import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
+import static io.prestosql.tracer.NoOpTracerFactory.createNoOpTracer;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -521,13 +522,13 @@ public final class FunctionAssertions
 
     private Object selectSingleValue(OperatorFactory operatorFactory, Type type, Session session)
     {
-        Operator operator = operatorFactory.createOperator(createDriverContext(session));
+        Operator operator = operatorFactory.createOperator(createDriverContext(session), createNoOpTracer());
         return selectSingleValue(operator, type);
     }
 
     private Object selectSingleValue(SourceOperatorFactory operatorFactory, Type type, Split split, Session session)
     {
-        SourceOperator operator = operatorFactory.createOperator(createDriverContext(session));
+        SourceOperator operator = operatorFactory.createOperator(createDriverContext(session), createNoOpTracer());
         operator.addSplit(split);
         operator.noMoreSplits();
         return selectSingleValue(operator, type);
@@ -632,17 +633,17 @@ public final class FunctionAssertions
 
     private static boolean executeFilterWithNoInputColumns(OperatorFactory operatorFactory, Session session)
     {
-        return executeFilterWithNoInputColumns(operatorFactory.createOperator(createDriverContext(session)));
+        return executeFilterWithNoInputColumns(operatorFactory.createOperator(createDriverContext(session), createNoOpTracer()));
     }
 
     private static boolean executeFilter(OperatorFactory operatorFactory, Session session)
     {
-        return executeFilter(operatorFactory.createOperator(createDriverContext(session)));
+        return executeFilter(operatorFactory.createOperator(createDriverContext(session), createNoOpTracer()));
     }
 
     private static boolean executeFilter(SourceOperatorFactory operatorFactory, Split split, Session session)
     {
-        SourceOperator operator = operatorFactory.createOperator(createDriverContext(session));
+        SourceOperator operator = operatorFactory.createOperator(createDriverContext(session), createNoOpTracer());
         operator.addSplit(split);
         operator.noMoreSplits();
         return executeFilter(operator);

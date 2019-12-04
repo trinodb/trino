@@ -37,6 +37,7 @@ import io.prestosql.operator.PipelineContext;
 import io.prestosql.operator.PipelineExecutionStrategy;
 import io.prestosql.operator.StageExecutionDescriptor;
 import io.prestosql.operator.TaskContext;
+import io.prestosql.spi.tracer.Tracer;
 import io.prestosql.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
@@ -141,6 +142,8 @@ public class SqlTaskExecution
 
     private final Status status;
 
+    private final Tracer tracer;
+
     static SqlTaskExecution createSqlTaskExecution(
             TaskStateMachine taskStateMachine,
             TaskContext taskContext,
@@ -149,7 +152,8 @@ public class SqlTaskExecution
             LocalExecutionPlan localExecutionPlan,
             TaskExecutor taskExecutor,
             Executor notificationExecutor,
-            SplitMonitor queryMonitor)
+            SplitMonitor queryMonitor,
+            Tracer tracer)
     {
         SqlTaskExecution task = new SqlTaskExecution(
                 taskStateMachine,
@@ -158,7 +162,8 @@ public class SqlTaskExecution
                 localExecutionPlan,
                 taskExecutor,
                 queryMonitor,
-                notificationExecutor);
+                notificationExecutor,
+                tracer);
         try (SetThreadName ignored = new SetThreadName("Task-%s", task.getTaskId())) {
             // The scheduleDriversForTaskLifeCycle method calls enqueueDriverSplitRunner, which registers a callback with access to this object.
             // The call back is accessed from another thread, so this code cannot be placed in the constructor.
@@ -175,7 +180,8 @@ public class SqlTaskExecution
             LocalExecutionPlan localExecutionPlan,
             TaskExecutor taskExecutor,
             SplitMonitor splitMonitor,
-            Executor notificationExecutor)
+            Executor notificationExecutor,
+            Tracer tracer)
     {
         this.taskStateMachine = requireNonNull(taskStateMachine, "taskStateMachine is null");
         this.taskId = taskStateMachine.getTaskId();
@@ -186,6 +192,7 @@ public class SqlTaskExecution
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
 
         this.splitMonitor = requireNonNull(splitMonitor, "splitMonitor is null");
+        this.tracer = requireNonNull(tracer, "tracer is null");
 
         try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
             // index driver factories
@@ -196,15 +203,15 @@ public class SqlTaskExecution
             for (DriverFactory driverFactory : localExecutionPlan.getDriverFactories()) {
                 Optional<PlanNodeId> sourceId = driverFactory.getSourceId();
                 if (sourceId.isPresent() && partitionedSources.contains(sourceId.get())) {
-                    driverRunnerFactoriesWithSplitLifeCycle.put(sourceId.get(), new DriverSplitRunnerFactory(driverFactory, true));
+                    driverRunnerFactoriesWithSplitLifeCycle.put(sourceId.get(), new DriverSplitRunnerFactory(driverFactory, true, tracer));
                 }
                 else {
                     switch (driverFactory.getPipelineExecutionStrategy()) {
                         case GROUPED_EXECUTION:
-                            driverRunnerFactoriesWithDriverGroupLifeCycle.add(new DriverSplitRunnerFactory(driverFactory, false));
+                            driverRunnerFactoriesWithDriverGroupLifeCycle.add(new DriverSplitRunnerFactory(driverFactory, false, tracer));
                             break;
                         case UNGROUPED_EXECUTION:
-                            driverRunnerFactoriesWithTaskLifeCycle.add(new DriverSplitRunnerFactory(driverFactory, false));
+                            driverRunnerFactoriesWithTaskLifeCycle.add(new DriverSplitRunnerFactory(driverFactory, false, tracer));
                             break;
                         default:
                             throw new UnsupportedOperationException();
@@ -916,12 +923,15 @@ public class SqlTaskExecution
     {
         private final DriverFactory driverFactory;
         private final PipelineContext pipelineContext;
+        private final Tracer pipelineTracer;
         private boolean closed;
 
-        private DriverSplitRunnerFactory(DriverFactory driverFactory, boolean partitioned)
+        private DriverSplitRunnerFactory(DriverFactory driverFactory, boolean partitioned, Tracer taskTracer)
         {
             this.driverFactory = driverFactory;
-            this.pipelineContext = taskContext.addPipelineContext(driverFactory.getPipelineId(), driverFactory.isInputDriver(), driverFactory.isOutputDriver(), partitioned);
+            int pipelineId = driverFactory.getPipelineId();
+            this.pipelineTracer = taskTracer.withPipelineId(String.valueOf(pipelineId));
+            this.pipelineContext = taskContext.addPipelineContext(pipelineId, driverFactory.isInputDriver(), driverFactory.isOutputDriver(), partitioned);
         }
 
         // TODO: split this method into two: createPartitionedDriverRunner and createUnpartitionedDriverRunner.
@@ -933,12 +943,12 @@ public class SqlTaskExecution
             // create driver context immediately so the driver existence is recorded in the stats
             // the number of drivers is used to balance work across nodes
             DriverContext driverContext = pipelineContext.addDriverContext(lifespan);
-            return new DriverSplitRunner(this, driverContext, partitionedSplit, lifespan);
+            return new DriverSplitRunner(this, driverContext, partitionedSplit, lifespan, pipelineTracer);
         }
 
         public Driver createDriver(DriverContext driverContext, @Nullable ScheduledSplit partitionedSplit)
         {
-            Driver driver = driverFactory.createDriver(driverContext);
+            Driver driver = driverFactory.createDriver(driverContext, pipelineTracer);
 
             // record driver so other threads add unpartitioned sources can see the driver
             // NOTE: this MUST be done before reading unpartitionedSources, so we see a consistent view of the unpartitioned sources
@@ -1024,12 +1034,15 @@ public class SqlTaskExecution
         @GuardedBy("this")
         private Driver driver;
 
-        private DriverSplitRunner(DriverSplitRunnerFactory driverSplitRunnerFactory, DriverContext driverContext, @Nullable ScheduledSplit partitionedSplit, Lifespan lifespan)
+        private final Tracer pipelineTracer;
+
+        private DriverSplitRunner(DriverSplitRunnerFactory driverSplitRunnerFactory, DriverContext driverContext, @Nullable ScheduledSplit partitionedSplit, Lifespan lifespan, Tracer tracer)
         {
             this.driverSplitRunnerFactory = requireNonNull(driverSplitRunnerFactory, "driverFactory is null");
             this.driverContext = requireNonNull(driverContext, "driverContext is null");
             this.partitionedSplit = partitionedSplit;
             this.lifespan = requireNonNull(lifespan, "lifespan is null");
+            this.pipelineTracer = requireNonNull(tracer, "tracer is null");
         }
 
         public synchronized DriverContext getDriverContext()
@@ -1043,6 +1056,12 @@ public class SqlTaskExecution
         public Lifespan getLifespan()
         {
             return lifespan;
+        }
+
+        @Override
+        public Tracer getTracer()
+        {
+            return pipelineTracer;
         }
 
         @Override

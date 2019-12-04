@@ -51,6 +51,7 @@ import static io.prestosql.operator.PageAssertions.assertPageEquals;
 import static io.prestosql.operator.TestingTaskBuffer.PAGE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.TestingTaskContext.createTaskContext;
+import static io.prestosql.tracer.NoOpTracerFactory.createNoOpTracer;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
@@ -253,7 +254,7 @@ public class TestExchangeOperator
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
 
-        SourceOperator operator = operatorFactory.createOperator(driverContext);
+        SourceOperator operator = operatorFactory.createOperator(driverContext, createNoOpTracer());
         assertEquals(operator.getOperatorContext().getOperatorStats().getSystemMemoryReservation().toBytes(), 0);
         return operator;
     }

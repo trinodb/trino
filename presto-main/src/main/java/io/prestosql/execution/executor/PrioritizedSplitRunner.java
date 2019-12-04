@@ -22,6 +22,7 @@ import io.airlift.stats.CpuTimer;
 import io.airlift.stats.TimeStat;
 import io.airlift.units.Duration;
 import io.prestosql.execution.SplitRunner;
+import io.prestosql.spi.tracer.Tracer;
 
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -72,6 +73,8 @@ public class PrioritizedSplitRunner
     private final TimeStat blockedQuantaWallTime;
     private final TimeStat unblockedQuantaWallTime;
 
+    private final Tracer tracer;
+
     PrioritizedSplitRunner(
             TaskHandle taskHandle,
             SplitRunner split,
@@ -90,6 +93,7 @@ public class PrioritizedSplitRunner
         this.globalScheduledTimeMicros = globalScheduledTimeMicros;
         this.blockedQuantaWallTime = blockedQuantaWallTime;
         this.unblockedQuantaWallTime = unblockedQuantaWallTime;
+        this.tracer = split.getTracer().withSplitId(String.valueOf(splitId));
 
         this.updateLevelPriority();
     }

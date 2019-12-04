@@ -45,6 +45,7 @@ import io.prestosql.spiller.LocalSpillManager;
 import io.prestosql.spiller.NodeSpillConfig;
 import io.prestosql.sql.planner.LocalExecutionPlanner;
 import io.prestosql.sql.planner.PlanFragment;
+import io.prestosql.tracer.TracerFactory;
 import org.joda.time.DateTime;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
@@ -112,6 +113,8 @@ public class SqlTaskManager
 
     private final CounterStat failedTasks = new CounterStat();
 
+    private final TracerFactory tracerFactory;
+
     @Inject
     public SqlTaskManager(
             LocalExecutionPlanner planner,
@@ -125,7 +128,8 @@ public class SqlTaskManager
             NodeMemoryConfig nodeMemoryConfig,
             LocalSpillManager localSpillManager,
             NodeSpillConfig nodeSpillConfig,
-            GcMonitor gcMonitor)
+            GcMonitor gcMonitor,
+            TracerFactory tracerFactory)
     {
         requireNonNull(nodeInfo, "nodeInfo is null");
         requireNonNull(config, "config is null");
@@ -139,6 +143,8 @@ public class SqlTaskManager
 
         this.taskManagementExecutor = requireNonNull(taskManagementExecutor, "taskManagementExecutor cannot be null").getExecutor();
         this.driverYieldExecutor = newScheduledThreadPool(config.getTaskYieldThreads(), threadsNamed("task-yield-%s"));
+
+        this.tracerFactory = requireNonNull(tracerFactory, "tracerFactory is null");
 
         SqlTaskExecutionFactory sqlTaskExecutionFactory = new SqlTaskExecutionFactory(taskNotificationExecutor, taskExecutor, planner, splitMonitor, config);
 
@@ -167,7 +173,8 @@ public class SqlTaskManager
                             return null;
                         },
                         maxBufferSize,
-                        failedTasks)));
+                        failedTasks,
+                        tracerFactory)));
     }
 
     private QueryContext createQueryContext(

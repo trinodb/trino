@@ -24,6 +24,7 @@ import io.prestosql.operator.exchange.LocalExchange.LocalExchangeFactory;
 import io.prestosql.operator.exchange.LocalExchange.LocalExchangeSinkFactory;
 import io.prestosql.operator.exchange.LocalExchange.LocalExchangeSinkFactoryId;
 import io.prestosql.spi.Page;
+import io.prestosql.spi.tracer.Tracer;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import java.util.function.Function;
@@ -58,7 +59,7 @@ public class LocalExchangeSinkOperator
         }
 
         @Override
-        public Operator createOperator(DriverContext driverContext)
+        public Operator createOperator(DriverContext driverContext, Tracer pipelineTracer)
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, LocalExchangeSinkOperator.class.getSimpleName());

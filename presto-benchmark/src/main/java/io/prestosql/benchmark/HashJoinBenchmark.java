@@ -43,6 +43,7 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.prestosql.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static io.prestosql.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static io.prestosql.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
+import static io.prestosql.tracer.NoOpTracerFactory.createNoOpTracer;
 
 public class HashJoinBenchmark
         extends AbstractOperatorBenchmark
@@ -100,7 +101,7 @@ public class HashJoinBenchmark
             NullOutputOperatorFactory output = new NullOutputOperatorFactory(2, new PlanNodeId("test"));
             this.probeDriverFactory = new DriverFactory(1, true, true, ImmutableList.of(lineItemTableScan, joinOperator, output), OptionalInt.empty(), UNGROUPED_EXECUTION);
 
-            Driver driver = buildDriverFactory.createDriver(driverContext);
+            Driver driver = buildDriverFactory.createDriver(driverContext, createNoOpTracer());
             Future<LookupSourceProvider> lookupSourceProvider = lookupSourceFactoryManager.getJoinBridge(Lifespan.taskWide()).createLookupSourceProvider();
             while (!lookupSourceProvider.isDone()) {
                 driver.process();
@@ -109,7 +110,7 @@ public class HashJoinBenchmark
         }
 
         DriverContext driverContext = taskContext.addPipelineContext(1, true, true, false).addDriverContext();
-        Driver driver = probeDriverFactory.createDriver(driverContext);
+        Driver driver = probeDriverFactory.createDriver(driverContext, createNoOpTracer());
         return ImmutableList.of(driver);
     }
 

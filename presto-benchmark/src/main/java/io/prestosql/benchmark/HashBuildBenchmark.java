@@ -40,6 +40,7 @@ import static io.prestosql.benchmark.BenchmarkQueryRunner.createLocalQueryRunner
 import static io.prestosql.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
+import static io.prestosql.tracer.NoOpTracerFactory.createNoOpTracer;
 
 public class HashBuildBenchmark
         extends AbstractOperatorBenchmark
@@ -100,9 +101,9 @@ public class HashBuildBenchmark
         joinDriversBuilder.add(new NullOutputOperatorFactory(3, new PlanNodeId("test")));
         DriverFactory joinDriverFactory = new DriverFactory(1, true, true, joinDriversBuilder.build(), OptionalInt.empty(), UNGROUPED_EXECUTION);
 
-        Driver hashBuildDriver = hashBuildDriverFactory.createDriver(taskContext.addPipelineContext(0, true, true, false).addDriverContext());
+        Driver hashBuildDriver = hashBuildDriverFactory.createDriver(taskContext.addPipelineContext(0, true, true, false).addDriverContext(), createNoOpTracer());
         hashBuildDriverFactory.noMoreDrivers();
-        Driver joinDriver = joinDriverFactory.createDriver(taskContext.addPipelineContext(1, true, true, false).addDriverContext());
+        Driver joinDriver = joinDriverFactory.createDriver(taskContext.addPipelineContext(1, true, true, false).addDriverContext(), createNoOpTracer());
         joinDriverFactory.noMoreDrivers();
 
         return ImmutableList.of(hashBuildDriver, joinDriver);

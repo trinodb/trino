@@ -19,6 +19,7 @@ import io.prestosql.operator.aggregation.AccumulatorFactory;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.tracer.Tracer;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.plan.AggregationNode.Step;
 import io.prestosql.sql.planner.plan.PlanNodeId;
@@ -55,7 +56,7 @@ public class AggregationOperator
         }
 
         @Override
-        public Operator createOperator(DriverContext driverContext)
+        public Operator createOperator(DriverContext driverContext, Tracer pipelineTracer)
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, AggregationOperator.class.getSimpleName());

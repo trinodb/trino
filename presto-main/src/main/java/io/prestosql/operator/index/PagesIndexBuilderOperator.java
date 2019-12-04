@@ -18,6 +18,7 @@ import io.prestosql.operator.Operator;
 import io.prestosql.operator.OperatorContext;
 import io.prestosql.operator.OperatorFactory;
 import io.prestosql.spi.Page;
+import io.prestosql.spi.tracer.Tracer;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -45,7 +46,7 @@ public class PagesIndexBuilderOperator
         }
 
         @Override
-        public Operator createOperator(DriverContext driverContext)
+        public Operator createOperator(DriverContext driverContext, Tracer pipelineTracer)
         {
             checkState(!closed, "Factory is already closed");
 

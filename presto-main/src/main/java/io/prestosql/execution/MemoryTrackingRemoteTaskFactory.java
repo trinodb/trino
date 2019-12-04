@@ -20,6 +20,7 @@ import io.prestosql.execution.StateMachine.StateChangeListener;
 import io.prestosql.execution.buffer.OutputBuffers;
 import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.Split;
+import io.prestosql.spi.tracer.Tracer;
 import io.prestosql.sql.planner.PlanFragment;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
@@ -49,7 +50,8 @@ public class MemoryTrackingRemoteTaskFactory
             OptionalInt totalPartitions,
             OutputBuffers outputBuffers,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
-            boolean summarizeTaskInfo)
+            boolean summarizeTaskInfo,
+            Tracer tracer)
     {
         RemoteTask task = remoteTaskFactory.createRemoteTask(session,
                 taskId,
@@ -59,7 +61,8 @@ public class MemoryTrackingRemoteTaskFactory
                 totalPartitions,
                 outputBuffers,
                 partitionedSplitCountTracker,
-                summarizeTaskInfo);
+                summarizeTaskInfo,
+                tracer);
 
         task.addStateChangeListener(new UpdatePeakMemory(stateMachine));
         return task;

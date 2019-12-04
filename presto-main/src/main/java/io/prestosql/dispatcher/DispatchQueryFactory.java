@@ -17,6 +17,7 @@ import io.prestosql.Session;
 import io.prestosql.execution.QueryPreparer.PreparedQuery;
 import io.prestosql.server.protocol.Slug;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
+import io.prestosql.spi.tracer.Tracer;
 
 public interface DispatchQueryFactory
 {
@@ -25,5 +26,6 @@ public interface DispatchQueryFactory
             String query,
             PreparedQuery preparedQuery,
             Slug slug,
-            ResourceGroupId resourceGroup);
+            ResourceGroupId resourceGroup,
+            Tracer tracer);
 }

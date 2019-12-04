@@ -27,6 +27,7 @@ import io.prestosql.spi.connector.ConnectorIndex;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.RecordSet;
 import io.prestosql.spi.connector.UpdatablePageSource;
+import io.prestosql.spi.tracer.Tracer;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import java.util.Optional;
@@ -67,7 +68,7 @@ public class IndexSourceOperator
         }
 
         @Override
-        public SourceOperator createOperator(DriverContext driverContext)
+        public SourceOperator createOperator(DriverContext driverContext, Tracer pipelineTracer)
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, sourceId, IndexSourceOperator.class.getSimpleName());

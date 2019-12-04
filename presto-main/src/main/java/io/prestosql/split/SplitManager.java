@@ -24,6 +24,7 @@ import io.prestosql.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
 import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
 import io.prestosql.spi.connector.Constraint;
+import io.prestosql.spi.tracer.Tracer;
 
 import javax.inject.Inject;
 
@@ -65,7 +66,7 @@ public class SplitManager
         splitManagers.remove(catalogName);
     }
 
-    public SplitSource getSplits(Session session, TableHandle table, SplitSchedulingStrategy splitSchedulingStrategy)
+    public SplitSource getSplits(Session session, TableHandle table, SplitSchedulingStrategy splitSchedulingStrategy, Tracer engineTracer)
     {
         CatalogName catalogName = table.getCatalogName();
         ConnectorSplitManager splitManager = getConnectorSplitManager(catalogName);

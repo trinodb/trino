@@ -47,6 +47,7 @@ import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.memory.MemoryPoolId;
 import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.tracer.Tracer;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spiller.SpillSpaceTracker;
 import io.prestosql.split.SplitSource;
@@ -86,6 +87,7 @@ import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTI
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.sql.relational.SqlToRowExpressionTranslator.translate;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.tracer.NoOpTracerFactory.createNoOpTracer;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -178,7 +180,7 @@ public abstract class AbstractOperatorBenchmark
         return new OperatorFactory()
         {
             @Override
-            public Operator createOperator(DriverContext driverContext)
+            public Operator createOperator(DriverContext driverContext, Tracer pipelineTracer)
             {
                 OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, "BenchmarkSource");
                 ConnectorPageSource pageSource = localQueryRunner.getPageSourceManager().createPageSource(session, split, tableHandle, columnHandles, TupleDomain::all);
@@ -200,7 +202,7 @@ public abstract class AbstractOperatorBenchmark
 
     private Split getLocalQuerySplit(Session session, TableHandle handle)
     {
-        SplitSource splitSource = localQueryRunner.getSplitManager().getSplits(session, handle, UNGROUPED_SCHEDULING);
+        SplitSource splitSource = localQueryRunner.getSplitManager().getSplits(session, handle, UNGROUPED_SCHEDULING, createNoOpTracer());
         List<Split> splits = new ArrayList<>();
         while (!splitSource.isFinished()) {
             splits.addAll(getNextBatch(splitSource));

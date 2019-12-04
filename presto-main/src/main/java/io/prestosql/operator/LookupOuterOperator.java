@@ -18,6 +18,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.prestosql.execution.Lifespan;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
+import io.prestosql.spi.tracer.Tracer;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
@@ -64,7 +65,7 @@ public class LookupOuterOperator
         }
 
         @Override
-        public Operator createOperator(DriverContext driverContext)
+        public Operator createOperator(DriverContext driverContext, Tracer pipelineTracer)
         {
             checkState(!closed, "LookupOuterOperatorFactory is closed");
             Lifespan lifespan = driverContext.getLifespan();

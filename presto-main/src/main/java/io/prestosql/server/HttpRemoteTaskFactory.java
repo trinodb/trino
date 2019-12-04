@@ -35,6 +35,7 @@ import io.prestosql.metadata.Split;
 import io.prestosql.operator.ForScheduler;
 import io.prestosql.server.remotetask.HttpRemoteTask;
 import io.prestosql.server.remotetask.RemoteTaskStats;
+import io.prestosql.spi.tracer.Tracer;
 import io.prestosql.sql.planner.PlanFragment;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import org.weakref.jmx.Managed;
@@ -125,7 +126,8 @@ public class HttpRemoteTaskFactory
             OptionalInt totalPartitions,
             OutputBuffers outputBuffers,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
-            boolean summarizeTaskInfo)
+            boolean summarizeTaskInfo,
+            Tracer tracer)
     {
         return new HttpRemoteTask(session,
                 taskId,
@@ -147,6 +149,7 @@ public class HttpRemoteTaskFactory
                 taskInfoCodec,
                 taskUpdateRequestCodec,
                 partitionedSplitCountTracker,
-                stats);
+                stats,
+                tracer);
     }
 }

@@ -16,6 +16,7 @@ package io.prestosql.operator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import io.prestosql.execution.Lifespan;
+import io.prestosql.spi.tracer.Tracer;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import java.util.HashSet;
@@ -103,7 +104,7 @@ public class DriverFactory
         return operatorFactories;
     }
 
-    public synchronized Driver createDriver(DriverContext driverContext)
+    public synchronized Driver createDriver(DriverContext driverContext, Tracer tracer)
     {
         checkState(!closed, "DriverFactory is already closed");
         requireNonNull(driverContext, "driverContext is null");
@@ -111,7 +112,7 @@ public class DriverFactory
         encounteredLifespans.add(driverContext.getLifespan());
         ImmutableList.Builder<Operator> operators = ImmutableList.builder();
         for (OperatorFactory operatorFactory : operatorFactories) {
-            Operator operator = operatorFactory.createOperator(driverContext);
+            Operator operator = operatorFactory.createOperator(driverContext, tracer);
             operators.add(operator);
         }
         return Driver.createDriver(driverContext, operators.build());

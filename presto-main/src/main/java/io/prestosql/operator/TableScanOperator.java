@@ -26,6 +26,7 @@ import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.UpdatablePageSource;
 import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.tracer.Tracer;
 import io.prestosql.split.EmptySplit;
 import io.prestosql.split.EmptySplitPageSource;
 import io.prestosql.split.PageSourceProvider;
@@ -95,16 +96,18 @@ public class TableScanOperator
         }
 
         @Override
-        public SourceOperator createOperator(DriverContext driverContext)
+        public SourceOperator createOperator(DriverContext driverContext, Tracer pipelineTracer)
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, sourceId, getOperatorType());
+            Tracer tracer = pipelineTracer.withOperatorId(String.valueOf(operatorId));
             return new TableScanOperator(
                     operatorContext,
                     sourceId,
                     pageSourceProvider,
                     table,
-                    columns);
+                    columns,
+                    tracer);
         }
 
         @Override
@@ -137,6 +140,7 @@ public class TableScanOperator
     private final List<ColumnHandle> columns;
     private final LocalMemoryContext systemMemoryContext;
     private final SettableFuture<?> blocked = SettableFuture.create();
+    private final Tracer tracer;
 
     private Split split;
     private ConnectorPageSource source;
@@ -151,7 +155,8 @@ public class TableScanOperator
             PlanNodeId planNodeId,
             PageSourceProvider pageSourceProvider,
             TableHandle table,
-            Iterable<ColumnHandle> columns)
+            Iterable<ColumnHandle> columns,
+            Tracer tracer)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -159,6 +164,7 @@ public class TableScanOperator
         this.table = requireNonNull(table, "table is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext(TableScanOperator.class.getSimpleName());
+        this.tracer = requireNonNull(tracer, "tracer is null");
     }
 
     @Override

@@ -43,6 +43,7 @@ import io.prestosql.failuredetector.FailureDetector;
 import io.prestosql.metadata.InternalNode;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorPartitionHandle;
+import io.prestosql.spi.tracer.Tracer;
 import io.prestosql.split.SplitSource;
 import io.prestosql.sql.planner.NodePartitionMap;
 import io.prestosql.sql.planner.NodePartitioningManager;
@@ -138,7 +139,8 @@ public class SqlQueryScheduler
             OutputBuffers rootOutputBuffers,
             NodeTaskMap nodeTaskMap,
             ExecutionPolicy executionPolicy,
-            SplitSchedulerStats schedulerStats)
+            SplitSchedulerStats schedulerStats,
+            Tracer tracer)
     {
         SqlQueryScheduler sqlQueryScheduler = new SqlQueryScheduler(
                 queryStateMachine,
@@ -156,7 +158,8 @@ public class SqlQueryScheduler
                 rootOutputBuffers,
                 nodeTaskMap,
                 executionPolicy,
-                schedulerStats);
+                schedulerStats,
+                tracer);
         sqlQueryScheduler.initialize();
         return sqlQueryScheduler;
     }
@@ -177,7 +180,8 @@ public class SqlQueryScheduler
             OutputBuffers rootOutputBuffers,
             NodeTaskMap nodeTaskMap,
             ExecutionPolicy executionPolicy,
-            SplitSchedulerStats schedulerStats)
+            SplitSchedulerStats schedulerStats,
+            Tracer tracer)
     {
         this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
         this.executionPolicy = requireNonNull(executionPolicy, "schedulerPolicyFactory is null");
@@ -207,7 +211,8 @@ public class SqlQueryScheduler
                 failureDetector,
                 nodeTaskMap,
                 stageSchedulers,
-                stageLinkages);
+                stageLinkages,
+                tracer);
 
         SqlStageExecution rootStage = stages.get(0);
         rootStage.setOutputBuffers(rootOutputBuffers);
@@ -292,11 +297,13 @@ public class SqlQueryScheduler
             FailureDetector failureDetector,
             NodeTaskMap nodeTaskMap,
             ImmutableMap.Builder<StageId, StageScheduler> stageSchedulers,
-            ImmutableMap.Builder<StageId, StageLinkage> stageLinkages)
+            ImmutableMap.Builder<StageId, StageLinkage> stageLinkages,
+            Tracer queryTracer)
     {
         ImmutableList.Builder<SqlStageExecution> stages = ImmutableList.builder();
 
         StageId stageId = new StageId(queryStateMachine.getQueryId(), nextStageId.getAndIncrement());
+        Tracer tracer = queryTracer.withStageId(String.valueOf(stageId.getId()));
         SqlStageExecution stage = createSqlStageExecution(
                 stageId,
                 plan.getFragment(),
@@ -307,7 +314,8 @@ public class SqlQueryScheduler
                 nodeTaskMap,
                 queryExecutor,
                 failureDetector,
-                schedulerStats);
+                schedulerStats,
+                tracer);
 
         stages.add(stage);
 
@@ -415,7 +423,8 @@ public class SqlQueryScheduler
                     failureDetector,
                     nodeTaskMap,
                     stageSchedulers,
-                    stageLinkages);
+                    stageLinkages,
+                    queryTracer);
             stages.addAll(subTree);
 
             SqlStageExecution childStage = subTree.get(0);

@@ -28,6 +28,7 @@ import io.prestosql.failuredetector.FailureDetector;
 import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.Split;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.tracer.Tracer;
 import io.prestosql.split.RemoteSplit;
 import io.prestosql.sql.planner.PlanFragment;
 import io.prestosql.sql.planner.plan.PlanFragmentId;
@@ -103,6 +104,8 @@ public final class SqlStageExecution
 
     private final ListenerManager<Set<Lifespan>> completedLifespansChangeListeners = new ListenerManager<>();
 
+    private final Tracer tracer;
+
     public static SqlStageExecution createSqlStageExecution(
             StageId stageId,
             PlanFragment fragment,
@@ -113,7 +116,8 @@ public final class SqlStageExecution
             NodeTaskMap nodeTaskMap,
             ExecutorService executor,
             FailureDetector failureDetector,
-            SplitSchedulerStats schedulerStats)
+            SplitSchedulerStats schedulerStats,
+            Tracer tracer)
     {
         requireNonNull(stageId, "stageId is null");
         requireNonNull(fragment, "fragment is null");
@@ -131,12 +135,13 @@ public final class SqlStageExecution
                 nodeTaskMap,
                 summarizeTaskInfo,
                 executor,
-                failureDetector);
+                failureDetector,
+                tracer);
         sqlStageExecution.initialize();
         return sqlStageExecution;
     }
 
-    private SqlStageExecution(StageStateMachine stateMachine, RemoteTaskFactory remoteTaskFactory, NodeTaskMap nodeTaskMap, boolean summarizeTaskInfo, Executor executor, FailureDetector failureDetector)
+    private SqlStageExecution(StageStateMachine stateMachine, RemoteTaskFactory remoteTaskFactory, NodeTaskMap nodeTaskMap, boolean summarizeTaskInfo, Executor executor, FailureDetector failureDetector, Tracer tracer)
     {
         this.stateMachine = stateMachine;
         this.remoteTaskFactory = requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
@@ -152,6 +157,7 @@ public final class SqlStageExecution
             }
         }
         this.exchangeSources = fragmentToExchangeSource.build();
+        this.tracer = requireNonNull(tracer, "tracer is null");
     }
 
     // this is a separate method to ensure that the `this` reference is not leaked during construction
@@ -393,6 +399,7 @@ public final class SqlStageExecution
         }
         else {
             task = tasks.iterator().next();
+            Tracer taskTracer = tracer.withTaskId(String.valueOf(task.getTaskId().getId()));
             task.addSplits(splits);
         }
         if (noMoreSplitsNotification.size() > 1) {
@@ -410,6 +417,7 @@ public final class SqlStageExecution
     private synchronized RemoteTask scheduleTask(InternalNode node, TaskId taskId, Multimap<PlanNodeId, Split> sourceSplits, OptionalInt totalPartitions)
     {
         checkArgument(!allTasks.contains(taskId), "A task with id %s already exists", taskId);
+        Tracer taskTracer = tracer.withTaskId(String.valueOf(taskId.getId()));
 
         ImmutableMultimap.Builder<PlanNodeId, Split> initialSplits = ImmutableMultimap.builder();
         initialSplits.putAll(sourceSplits);
@@ -433,7 +441,8 @@ public final class SqlStageExecution
                 totalPartitions,
                 outputBuffers,
                 nodeTaskMap.createPartitionedSplitCountTracker(node, taskId),
-                summarizeTaskInfo);
+                summarizeTaskInfo,
+                tracer);
 
         completeSources.forEach(task::noMoreSplits);
 

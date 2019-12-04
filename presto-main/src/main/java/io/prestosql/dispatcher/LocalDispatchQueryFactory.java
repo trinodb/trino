@@ -31,6 +31,7 @@ import io.prestosql.security.AccessControl;
 import io.prestosql.server.protocol.Slug;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
+import io.prestosql.spi.tracer.Tracer;
 import io.prestosql.sql.tree.Statement;
 import io.prestosql.transaction.TransactionManager;
 
@@ -92,7 +93,8 @@ public class LocalDispatchQueryFactory
             String query,
             PreparedQuery preparedQuery,
             Slug slug,
-            ResourceGroupId resourceGroup)
+            ResourceGroupId resourceGroup,
+            Tracer tracer)
     {
         WarningCollector warningCollector = warningCollectorFactory.create();
         QueryStateMachine stateMachine = QueryStateMachine.begin(
@@ -116,7 +118,7 @@ public class LocalDispatchQueryFactory
                 throw new PrestoException(NOT_SUPPORTED, "Unsupported statement type: " + preparedQuery.getStatement().getClass().getSimpleName());
             }
 
-            return queryExecutionFactory.createQueryExecution(preparedQuery, stateMachine, slug, warningCollector);
+            return queryExecutionFactory.createQueryExecution(preparedQuery, stateMachine, slug, warningCollector, tracer);
         });
 
         return new LocalDispatchQuery(

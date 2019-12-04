@@ -52,6 +52,7 @@ import static io.prestosql.spi.block.SortOrder.DESC_NULLS_FIRST;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.testing.TestingTaskContext.createTaskContext;
+import static io.prestosql.tracer.NoOpTracerFactory.createNoOpTracer;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
@@ -345,7 +346,7 @@ public class TestMergeOperator
         DriverContext driverContext = createTaskContext(executor, executor, TEST_SESSION)
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
-        return (MergeOperator) factory.createOperator(driverContext);
+        return (MergeOperator) factory.createOperator(driverContext, createNoOpTracer());
     }
 
     private static Split createRemoteSplit(String taskId)

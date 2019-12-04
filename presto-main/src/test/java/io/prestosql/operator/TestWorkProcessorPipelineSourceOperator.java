@@ -26,6 +26,7 @@ import io.prestosql.operator.WorkProcessor.TransformationState;
 import io.prestosql.operator.WorkProcessorAssertion.Transform;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.connector.UpdatablePageSource;
+import io.prestosql.spi.tracer.Tracer;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -43,6 +44,7 @@ import static io.prestosql.execution.Lifespan.taskWide;
 import static io.prestosql.operator.WorkProcessorAssertion.transformationFrom;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.testing.TestingSplit.createLocalSplit;
+import static io.prestosql.tracer.NoOpTracerFactory.createNoOpTracer;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.testng.Assert.assertEquals;
@@ -109,7 +111,7 @@ public class TestWorkProcessorPipelineSourceOperator
                 ImmutableList.of(sourceOperatorFactory, firstOperatorFactory, secondOperatorFactory)));
 
         DriverContext driverContext = TestingOperatorContext.create(scheduledExecutor).getDriverContext();
-        SourceOperator pipelineOperator = pipelineOperatorFactory.createOperator(driverContext);
+        SourceOperator pipelineOperator = pipelineOperatorFactory.createOperator(driverContext, createNoOpTracer());
 
         // make sure WorkProcessorOperator memory is accounted for
         sourceOperatorFactory.sourceOperator.memoryTrackingContext.localUserMemoryContext().setBytes(123);
@@ -287,7 +289,7 @@ public class TestWorkProcessorPipelineSourceOperator
         }
 
         @Override
-        public SourceOperator createOperator(DriverContext driverContext)
+        public SourceOperator createOperator(DriverContext driverContext, Tracer pipelineTracer)
         {
             throw new UnsupportedOperationException();
         }
@@ -415,7 +417,7 @@ public class TestWorkProcessorPipelineSourceOperator
         }
 
         @Override
-        public Operator createOperator(DriverContext driverContext)
+        public Operator createOperator(DriverContext driverContext, Tracer pipelineTracer)
         {
             throw new UnsupportedOperationException();
         }

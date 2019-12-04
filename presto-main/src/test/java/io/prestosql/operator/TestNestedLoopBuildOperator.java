@@ -32,6 +32,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.block.BlockAssertions.createLongSequenceBlock;
 import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.tracer.NoOpTracerFactory.createNoOpTracer;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
@@ -72,7 +73,7 @@ public class TestNestedLoopBuildOperator
                 buildTypes);
         NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(3, new PlanNodeId("test"), nestedLoopJoinBridgeManager);
         DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
-        NestedLoopBuildOperator nestedLoopBuildOperator = (NestedLoopBuildOperator) nestedLoopBuildOperatorFactory.createOperator(driverContext);
+        NestedLoopBuildOperator nestedLoopBuildOperator = (NestedLoopBuildOperator) nestedLoopBuildOperatorFactory.createOperator(driverContext, createNoOpTracer());
         NestedLoopJoinBridge nestedLoopJoinBridge = nestedLoopJoinBridgeManager.getJoinBridge(Lifespan.taskWide());
 
         assertFalse(nestedLoopJoinBridge.getPagesFuture().isDone());
@@ -109,7 +110,7 @@ public class TestNestedLoopBuildOperator
                 buildTypes);
         NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(3, new PlanNodeId("test"), nestedLoopJoinBridgeManager);
         DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
-        NestedLoopBuildOperator nestedLoopBuildOperator = (NestedLoopBuildOperator) nestedLoopBuildOperatorFactory.createOperator(driverContext);
+        NestedLoopBuildOperator nestedLoopBuildOperator = (NestedLoopBuildOperator) nestedLoopBuildOperatorFactory.createOperator(driverContext, createNoOpTracer());
         NestedLoopJoinBridge nestedLoopJoinBridge = nestedLoopJoinBridgeManager.getJoinBridge(Lifespan.taskWide());
 
         assertFalse(nestedLoopJoinBridge.getPagesFuture().isDone());

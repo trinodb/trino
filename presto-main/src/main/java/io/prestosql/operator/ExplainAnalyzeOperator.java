@@ -21,6 +21,7 @@ import io.prestosql.execution.StageInfo;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.tracer.Tracer;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
@@ -59,7 +60,7 @@ public class ExplainAnalyzeOperator
         }
 
         @Override
-        public Operator createOperator(DriverContext driverContext)
+        public Operator createOperator(DriverContext driverContext, Tracer pipelineTracer)
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, ExplainAnalyzeOperator.class.getSimpleName());

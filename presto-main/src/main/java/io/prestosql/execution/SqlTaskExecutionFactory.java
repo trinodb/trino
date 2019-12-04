@@ -20,6 +20,7 @@ import io.prestosql.execution.buffer.OutputBuffer;
 import io.prestosql.execution.executor.TaskExecutor;
 import io.prestosql.memory.QueryContext;
 import io.prestosql.operator.TaskContext;
+import io.prestosql.spi.tracer.Tracer;
 import io.prestosql.sql.planner.LocalExecutionPlanner;
 import io.prestosql.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import io.prestosql.sql.planner.PlanFragment;
@@ -60,7 +61,7 @@ public class SqlTaskExecutionFactory
         this.cpuTimerEnabled = config.isTaskCpuTimerEnabled();
     }
 
-    public SqlTaskExecution create(Session session, QueryContext queryContext, TaskStateMachine taskStateMachine, OutputBuffer outputBuffer, PlanFragment fragment, List<TaskSource> sources, OptionalInt totalPartitions)
+    public SqlTaskExecution create(Session session, QueryContext queryContext, TaskStateMachine taskStateMachine, OutputBuffer outputBuffer, PlanFragment fragment, List<TaskSource> sources, OptionalInt totalPartitions, Tracer tracer)
     {
         TaskContext taskContext = queryContext.addTaskContext(
                 taskStateMachine,
@@ -96,6 +97,7 @@ public class SqlTaskExecutionFactory
                 localExecutionPlan,
                 taskExecutor,
                 taskNotificationExecutor,
-                splitMonitor);
+                splitMonitor,
+                tracer);
     }
 }

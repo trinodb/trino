@@ -21,6 +21,7 @@ import io.airlift.testing.TestingTicker;
 import io.airlift.units.Duration;
 import io.prestosql.execution.SplitRunner;
 import io.prestosql.execution.TaskId;
+import io.prestosql.spi.tracer.Tracer;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
@@ -36,6 +37,7 @@ import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.testing.Assertions.assertLessThan;
 import static io.prestosql.execution.executor.MultilevelSplitQueue.LEVEL_CONTRIBUTION_CAP;
 import static io.prestosql.execution.executor.MultilevelSplitQueue.LEVEL_THRESHOLD_SECONDS;
+import static io.prestosql.tracer.NoOpTracerFactory.createNoOpTracer;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -516,6 +518,12 @@ public class TestTaskExecutor
         private int getCompletedPhases()
         {
             return completedPhases.get();
+        }
+
+        @Override
+        public Tracer getTracer()
+        {
+            return createNoOpTracer();
         }
 
         @Override

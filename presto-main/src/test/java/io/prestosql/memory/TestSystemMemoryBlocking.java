@@ -50,6 +50,7 @@ import static io.prestosql.RowPagesBuilder.rowPagesBuilder;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.TestingHandles.TEST_TABLE_HANDLE;
+import static io.prestosql.tracer.NoOpTracerFactory.createNoOpTracer;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -105,7 +106,8 @@ public class TestSystemMemoryBlocking
                         .addSequencePage(10, 1)
                         .build()),
                 TEST_TABLE_HANDLE,
-                ImmutableList.of());
+                ImmutableList.of(),
+                createNoOpTracer());
         PageConsumerOperator sink = createSinkOperator(types);
         Driver driver = Driver.createDriver(driverContext, source, sink);
         assertSame(driver.getDriverContext(), driverContext);

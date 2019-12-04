@@ -52,6 +52,7 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.TestingTaskContext.createTaskContext;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static io.prestosql.tracer.NoOpTracerFactory.createNoOpTracer;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.stream.Collectors.toList;
@@ -110,7 +111,7 @@ public class TestDynamicFilterSourceOperator
 
     private Operator createOperator(OperatorFactory operatorFactory)
     {
-        return operatorFactory.createOperator(pipelineContext.addDriverContext());
+        return operatorFactory.createOperator(pipelineContext.addDriverContext(), createNoOpTracer());
     }
 
     private static DynamicFilterSourceOperator.Channel channel(int index, Type type)

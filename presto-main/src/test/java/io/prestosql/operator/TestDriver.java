@@ -62,6 +62,7 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.prestosql.testing.TestingTaskContext.createTaskContext;
+import static io.prestosql.tracer.NoOpTracerFactory.createNoOpTracer;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
@@ -173,7 +174,8 @@ public class TestDriver
                         .addSequencePage(10, 20, 30, 40)
                         .build()),
                 TEST_TABLE_HANDLE,
-                ImmutableList.of());
+                ImmutableList.of(),
+                createNoOpTracer());
 
         PageConsumerOperator sink = createSinkOperator(types);
         Driver driver = Driver.createDriver(driverContext, source, sink);
@@ -467,7 +469,7 @@ public class TestDriver
                 TableHandle table,
                 Iterable<ColumnHandle> columns)
         {
-            super(operatorContext, planNodeId, pageSourceProvider, table, columns);
+            super(operatorContext, planNodeId, pageSourceProvider, table, columns, createNoOpTracer());
         }
 
         @Override
@@ -492,7 +494,7 @@ public class TestDriver
                 TableHandle table,
                 Iterable<ColumnHandle> columns)
         {
-            super(operatorContext, planNodeId, pageSourceProvider, table, columns);
+            super(operatorContext, planNodeId, pageSourceProvider, table, columns, createNoOpTracer());
         }
 
         @Override

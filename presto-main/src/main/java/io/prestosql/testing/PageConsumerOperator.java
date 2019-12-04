@@ -20,6 +20,7 @@ import io.prestosql.operator.OperatorContext;
 import io.prestosql.operator.OperatorFactory;
 import io.prestosql.operator.OutputFactory;
 import io.prestosql.spi.Page;
+import io.prestosql.spi.tracer.Tracer;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
@@ -68,7 +69,7 @@ public class PageConsumerOperator
         }
 
         @Override
-        public Operator createOperator(DriverContext driverContext)
+        public Operator createOperator(DriverContext driverContext, Tracer pipelineTracer)
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, PageConsumerOperator.class.getSimpleName());

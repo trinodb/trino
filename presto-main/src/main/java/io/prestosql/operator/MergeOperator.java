@@ -22,6 +22,7 @@ import io.prestosql.metadata.Split;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.SortOrder;
 import io.prestosql.spi.connector.UpdatablePageSource;
+import io.prestosql.spi.tracer.Tracer;
 import io.prestosql.spi.type.Type;
 import io.prestosql.split.RemoteSplit;
 import io.prestosql.sql.gen.OrderingCompiler;
@@ -90,7 +91,7 @@ public class MergeOperator
         }
 
         @Override
-        public SourceOperator createOperator(DriverContext driverContext)
+        public SourceOperator createOperator(DriverContext driverContext, Tracer pipelineTracer)
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, sourceId, MergeOperator.class.getSimpleName());

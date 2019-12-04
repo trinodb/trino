@@ -25,6 +25,7 @@ import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorOutputMetadata;
 import io.prestosql.spi.statistics.ComputedStatistics;
+import io.prestosql.spi.tracer.Tracer;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.sql.planner.plan.StatisticAggregationsDescriptor;
@@ -76,11 +77,11 @@ public class TableFinishOperator
         }
 
         @Override
-        public Operator createOperator(DriverContext driverContext)
+        public Operator createOperator(DriverContext driverContext, Tracer pipelineTracer)
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext context = driverContext.addOperatorContext(operatorId, planNodeId, TableFinishOperator.class.getSimpleName());
-            Operator statisticsAggregationOperator = statisticsAggregationOperatorFactory.createOperator(driverContext);
+            Operator statisticsAggregationOperator = statisticsAggregationOperatorFactory.createOperator(driverContext, pipelineTracer);
             boolean statisticsCpuTimerEnabled = !(statisticsAggregationOperator instanceof DevNullOperator) && isStatisticsCpuTimerEnabled(session);
             return new TableFinishOperator(context, tableFinisher, statisticsAggregationOperator, descriptor, statisticsCpuTimerEnabled);
         }

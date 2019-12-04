@@ -62,6 +62,7 @@ import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.testing.TestingTaskContext.createTaskContext;
+import static io.prestosql.tracer.NoOpTracerFactory.createNoOpTracer;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -305,7 +306,7 @@ public class TestTableWriterOperator
                 session,
                 statisticsAggregation,
                 outputTypes);
-        return factory.createOperator(driverContext);
+        return factory.createOperator(driverContext, createNoOpTracer());
     }
 
     private static class ConstantPageSinkProvider

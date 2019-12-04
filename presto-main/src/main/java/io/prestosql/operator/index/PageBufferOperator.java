@@ -19,6 +19,7 @@ import io.prestosql.operator.Operator;
 import io.prestosql.operator.OperatorContext;
 import io.prestosql.operator.OperatorFactory;
 import io.prestosql.spi.Page;
+import io.prestosql.spi.tracer.Tracer;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -42,7 +43,7 @@ public class PageBufferOperator
         }
 
         @Override
-        public Operator createOperator(DriverContext driverContext)
+        public Operator createOperator(DriverContext driverContext, Tracer pipelineTracer)
         {
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, PageBufferOperator.class.getSimpleName());
             return new PageBufferOperator(operatorContext, pageBuffer);

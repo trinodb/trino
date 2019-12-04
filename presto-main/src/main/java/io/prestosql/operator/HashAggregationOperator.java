@@ -26,6 +26,7 @@ import io.prestosql.operator.aggregation.builder.SpillableHashAggregationBuilder
 import io.prestosql.operator.scalar.CombineHashFunction;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
+import io.prestosql.spi.tracer.Tracer;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spiller.SpillerFactory;
@@ -194,7 +195,7 @@ public class HashAggregationOperator
         }
 
         @Override
-        public Operator createOperator(DriverContext driverContext)
+        public Operator createOperator(DriverContext driverContext, Tracer pipelineTracer)
         {
             checkState(!closed, "Factory is already closed");
 

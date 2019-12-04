@@ -50,6 +50,7 @@ import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.TestingTaskContext.createTaskContext;
+import static io.prestosql.tracer.NoOpTracerFactory.createNoOpTracer;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
@@ -113,7 +114,7 @@ public class TestHashSemiJoinOperator
                 rowPagesBuilder.getHashChannel(),
                 10,
                 new JoinCompiler(createTestMetadataManager()));
-        Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
+        Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext, createNoOpTracer());
 
         Driver driver = Driver.createDriver(driverContext, buildOperator, setBuilderOperator);
         while (!driver.isFinished()) {
@@ -177,7 +178,7 @@ public class TestHashSemiJoinOperator
                 rowPagesBuilder.getHashChannel(),
                 10,
                 new JoinCompiler(createTestMetadataManager()));
-        Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
+        Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext, createNoOpTracer());
 
         Driver driver = Driver.createDriver(driverContext, buildOperator, setBuilderOperator);
         while (!driver.isFinished()) {
@@ -270,7 +271,7 @@ public class TestHashSemiJoinOperator
                 rowPagesBuilder.getHashChannel(),
                 10,
                 new JoinCompiler(createTestMetadataManager()));
-        Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
+        Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext, createNoOpTracer());
 
         Driver driver = Driver.createDriver(driverContext, buildOperator, setBuilderOperator);
         while (!driver.isFinished()) {
@@ -325,7 +326,7 @@ public class TestHashSemiJoinOperator
                 rowPagesBuilder.getHashChannel(),
                 10,
                 new JoinCompiler(createTestMetadataManager()));
-        Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
+        Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext, createNoOpTracer());
 
         Driver driver = Driver.createDriver(driverContext, buildOperator, setBuilderOperator);
         while (!driver.isFinished()) {
@@ -384,7 +385,7 @@ public class TestHashSemiJoinOperator
                 rowPagesBuilder.getHashChannel(),
                 10,
                 new JoinCompiler(createTestMetadataManager()));
-        Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
+        Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext, createNoOpTracer());
 
         Driver driver = Driver.createDriver(driverContext, buildOperator, setBuilderOperator);
         while (!driver.isFinished()) {
@@ -441,7 +442,7 @@ public class TestHashSemiJoinOperator
                 rowPagesBuilder.getHashChannel(),
                 10,
                 new JoinCompiler(createTestMetadataManager()));
-        Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
+        Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext, createNoOpTracer());
 
         Driver driver = Driver.createDriver(driverContext, buildOperator, setBuilderOperator);
         while (!driver.isFinished()) {

@@ -205,7 +205,8 @@ public class DispatchManager
                     query,
                     preparedQuery,
                     slug,
-                    selectionContext.getResourceGroupId());
+                    selectionContext.getResourceGroupId(),
+                    queryTracer);
 
             boolean queryAdded = queryCreated(dispatchQuery);
             if (queryAdded && !dispatchQuery.isDone()) {

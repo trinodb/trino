@@ -43,6 +43,7 @@ import static io.prestosql.operator.OperatorAssertion.finishOperator;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.testing.TestingTaskContext.createTaskContext;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static io.prestosql.tracer.NoOpTracerFactory.createNoOpTracer;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -93,7 +94,7 @@ public final class GroupByHashYieldAssertion
         DriverContext driverContext = createTaskContext(queryContext, EXECUTOR, TEST_SESSION)
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
-        Operator operator = operatorFactory.createOperator(driverContext);
+        Operator operator = operatorFactory.createOperator(driverContext, createNoOpTracer());
 
         // run operator
         int yieldCount = 0;

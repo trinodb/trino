@@ -36,6 +36,7 @@ import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.RecordPageSource;
 import io.prestosql.spi.connector.UpdatablePageSource;
 import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.tracer.Tracer;
 import io.prestosql.spi.type.Type;
 import io.prestosql.split.EmptySplit;
 import io.prestosql.split.EmptySplitPageSource;
@@ -452,7 +453,7 @@ public class ScanFilterAndProjectOperator
         }
 
         @Override
-        public SourceOperator createOperator(DriverContext driverContext)
+        public SourceOperator createOperator(DriverContext driverContext, Tracer pipelineTracer)
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, getOperatorType());

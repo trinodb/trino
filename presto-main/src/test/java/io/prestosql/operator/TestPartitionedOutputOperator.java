@@ -52,6 +52,7 @@ import static io.prestosql.execution.buffer.OutputBuffers.BufferType.PARTITIONED
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.tracer.NoOpTracerFactory.createNoOpTracer;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
@@ -213,7 +214,7 @@ public class TestPartitionedOutputOperator
                     PARTITION_MAX_MEMORY);
             return (PartitionedOutputOperator) operatorFactory
                     .createOutputOperator(0, new PlanNodeId("plan-node-0"), REPLICATION_TYPES, Function.identity(), serdeFactory)
-                    .createOperator(driverContext);
+                    .createOperator(driverContext, createNoOpTracer());
         }
         else {
             operatorFactory = new PartitionedOutputOperator.PartitionedOutputFactory(
@@ -226,7 +227,7 @@ public class TestPartitionedOutputOperator
                     PARTITION_MAX_MEMORY);
             return (PartitionedOutputOperator) operatorFactory
                     .createOutputOperator(0, new PlanNodeId("plan-node-0"), TYPES, Function.identity(), serdeFactory)
-                    .createOperator(driverContext);
+                    .createOperator(driverContext, createNoOpTracer());
         }
     }
 }

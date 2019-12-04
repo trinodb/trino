@@ -81,6 +81,7 @@ import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.TestingTaskContext.createTaskContext;
+import static io.prestosql.tracer.NoOpTracerFactory.createNoOpTracer;
 import static java.lang.String.format;
 import static java.util.Collections.emptyIterator;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -304,7 +305,7 @@ public class TestHashAggregationOperator
                 joinCompiler,
                 false);
 
-        Operator operator = operatorFactory.createOperator(driverContext);
+        Operator operator = operatorFactory.createOperator(driverContext, createNoOpTracer());
         toPages(operator, input.iterator(), revokeMemoryWhenAddingPages);
         assertEquals(operator.getOperatorContext().getOperatorStats().getUserMemoryReservation().toBytes(), 0);
     }
@@ -527,7 +528,7 @@ public class TestHashAggregationOperator
 
         DriverContext driverContext = createDriverContext(1024);
 
-        try (Operator operator = operatorFactory.createOperator(driverContext)) {
+        try (Operator operator = operatorFactory.createOperator(driverContext, createNoOpTracer())) {
             List<Page> expectedPages = rowPagesBuilder(BIGINT, BIGINT)
                     .addSequencePage(2000, 0, 0)
                     .build();
@@ -710,7 +711,7 @@ public class TestHashAggregationOperator
 
         DriverContext driverContext = createDriverContext(1024);
 
-        try (Operator operator = operatorFactory.createOperator(driverContext)) {
+        try (Operator operator = operatorFactory.createOperator(driverContext, createNoOpTracer())) {
             assertTrue(operator.needsInput());
             operator.addInput(input);
 

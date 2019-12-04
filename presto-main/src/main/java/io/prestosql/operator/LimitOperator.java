@@ -15,6 +15,7 @@ package io.prestosql.operator;
 
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
+import io.prestosql.spi.tracer.Tracer;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -40,7 +41,7 @@ public class LimitOperator
         }
 
         @Override
-        public Operator createOperator(DriverContext driverContext)
+        public Operator createOperator(DriverContext driverContext, Tracer pipelineTracer)
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, LimitOperator.class.getSimpleName());
