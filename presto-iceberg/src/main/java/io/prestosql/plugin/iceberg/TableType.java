@@ -18,6 +18,6 @@ public enum TableType
     DATA,
     HISTORY,
     SNAPSHOTS,
-    MANIFESTS, // TODO: to be implemented
+    MANIFESTS,
     PARTITIONS,
 }

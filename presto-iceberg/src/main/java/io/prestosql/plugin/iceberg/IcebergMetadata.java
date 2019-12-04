@@ -174,6 +174,8 @@ public class IcebergMetadata
                 return Optional.of(new HistoryTable(table.getSchemaTableNameWithType(), icebergTable));
             case SNAPSHOTS:
                 return Optional.of(new SnapshotsTable(table.getSchemaTableNameWithType(), typeManager, icebergTable));
+            case MANIFESTS:
+                return Optional.of(new ManifestsTable(table.getSchemaTableNameWithType(), icebergTable, table.getSnapshotId()));
         }
         return Optional.empty();
     }
