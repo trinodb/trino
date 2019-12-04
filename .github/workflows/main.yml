@@ -120,7 +120,7 @@ jobs:
       - name: Maven Tests
         run: |
           ./mvnw test -B -e -Dair.check.skip-all -pl '
-            !presto-main,!presto-testing,
+            !presto-main,
             !presto-tests,
             !presto-raptor-legacy,
             !presto-accumulo,
@@ -139,7 +139,7 @@ jobs:
       fail-fast: false
       matrix:
         modules: [
-          "presto-main,presto-testing",
+          "presto-main",
           "presto-tests",
           "presto-raptor-legacy",
           "presto-accumulo",
