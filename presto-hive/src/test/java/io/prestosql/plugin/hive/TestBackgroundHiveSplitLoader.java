@@ -17,6 +17,7 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.json.JsonCodec;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -25,11 +26,19 @@ import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
 import io.prestosql.plugin.hive.metastore.Column;
 import io.prestosql.plugin.hive.metastore.StorageFormat;
 import io.prestosql.plugin.hive.metastore.Table;
+import io.prestosql.plugin.hive.tracer.HiveTracerFactory;
 import io.prestosql.plugin.hive.util.HiveBucketing.HiveBucketFilter;
+import io.prestosql.spi.connector.ConnectorOperationContext;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.eventlistener.TracerEvent;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.tracer.ConnectorEventEmitter;
+import io.prestosql.spi.tracer.ConnectorTracer;
+import io.prestosql.spi.tracer.DefaultTracer;
+import io.prestosql.spi.tracer.Tracer;
+import io.prestosql.spi.tracer.TracerEventTypeSupplier;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -51,6 +60,7 @@ import java.io.File;
 import java.net.URI;
 import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
@@ -62,6 +72,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -79,6 +90,8 @@ import static io.prestosql.plugin.hive.HiveTestUtils.TYPE_MANAGER;
 import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.prestosql.plugin.hive.HiveType.HIVE_INT;
 import static io.prestosql.plugin.hive.HiveType.HIVE_STRING;
+import static io.prestosql.plugin.hive.tracer.HiveTracerEventType.LIST_FILE_STATUS_END;
+import static io.prestosql.plugin.hive.tracer.HiveTracerEventType.LIST_FILE_STATUS_START;
 import static io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.prestosql.plugin.hive.util.HiveUtil.getRegularColumnHandles;
 import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
@@ -430,6 +443,34 @@ public class TestBackgroundHiveSplitLoader
         }
     }
 
+    @Test
+    public void testTracerEvents()
+            throws Exception
+    {
+        JsonCodec<Map<String, Object>> jsonCodec = JsonCodec.mapJsonCodec(String.class, Object.class);
+        List<TracerEvent> tracerEvents = Collections.synchronizedList(new ArrayList<>());
+        Tracer engineTracer = DefaultTracer.createBasicTracer(tracerEvents::add, jsonCodec::toJson, "node", URI.create("http://test.com"), "query");
+
+        BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoaderWithTracer(
+                TEST_FILES,
+                TupleDomain.none(),
+                (new HiveTracerFactory()).createConnectorTracer(new ConnectorEventEmitter(engineTracer)));
+
+        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
+        backgroundHiveSplitLoader.start(hiveSplitSource);
+
+        assertEquals(drain(hiveSplitSource).size(), 2);
+
+        checkHiveEvents(tracerEvents, ImmutableList.of(LIST_FILE_STATUS_START, LIST_FILE_STATUS_END));
+    }
+
+    private void checkHiveEvents(List<TracerEvent> tracerEvents, List<TracerEventTypeSupplier> expectedEventTypes)
+    {
+        List<String> eventTypes = tracerEvents.stream().map(TracerEvent::getEventType).collect(Collectors.toList());
+        assertTrue(tracerEvents.size() == expectedEventTypes.size(), format("received %d events not matching expected: %d", tracerEvents.size(), expectedEventTypes.size()));
+        assertTrue(expectedEventTypes.stream().map(TracerEventTypeSupplier::toTracerEventType).allMatch(eventTypes::contains), "did not receive all expected events");
+    }
+
     private static List<String> drain(HiveSplitSource source)
             throws Exception
     {
@@ -554,6 +595,35 @@ public class TestBackgroundHiveSplitLoader
                 false,
                 Optional.empty(),
                 Optional.empty());
+    }
+
+    private static BackgroundHiveSplitLoader backgroundHiveSplitLoaderWithTracer(
+            List<LocatedFileStatus> files,
+            TupleDomain<HiveColumnHandle> tupleDomain,
+            ConnectorTracer tracer)
+    {
+        List<HivePartitionMetadata> hivePartitionMetadatas =
+                ImmutableList.of(
+                        new HivePartitionMetadata(
+                                new HivePartition(new SchemaTableName("testSchema", "table_name")),
+                                Optional.empty(),
+                                ImmutableMap.of()));
+        ConnectorOperationContext connectorOperationContext = (new ConnectorOperationContext.Builder()).withConnectorTracer(Optional.of(tracer)).build();
+        return new BackgroundHiveSplitLoader(
+                SIMPLE_TABLE,
+                hivePartitionMetadatas,
+                tupleDomain,
+                createBucketSplitInfo(Optional.empty(), Optional.empty()),
+                SESSION,
+                new TestingHdfsEnvironment(files),
+                new NamenodeStats(),
+                new CachingDirectoryLister(new HiveConfig()),
+                EXECUTOR,
+                2,
+                false,
+                false,
+                Optional.empty(),
+                connectorOperationContext.getConnectorTracer());
     }
 
     private static BackgroundHiveSplitLoader backgroundHiveSplitLoaderOfflinePartitions()

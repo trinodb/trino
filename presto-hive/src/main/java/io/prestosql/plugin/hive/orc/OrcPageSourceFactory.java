@@ -75,6 +75,8 @@ import static io.prestosql.plugin.hive.HiveSessionProperties.isOrcBloomFiltersEn
 import static io.prestosql.plugin.hive.HiveSessionProperties.isOrcNestedLazy;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isUseOrcColumnNames;
 import static io.prestosql.plugin.hive.orc.OrcPageSource.handleException;
+import static io.prestosql.plugin.hive.tracer.HiveTracerEventType.ORC_OPEN_FILE_END;
+import static io.prestosql.plugin.hive.tracer.HiveTracerEventType.ORC_OPEN_FILE_START;
 import static io.prestosql.plugin.hive.util.HiveUtil.isDeserializerClass;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -176,7 +178,9 @@ public class OrcPageSourceFactory
         OrcDataSource orcDataSource;
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(sessionUser, path, configuration);
+            tracer.ifPresent(connectorTracer -> connectorTracer.emitEvent(ORC_OPEN_FILE_START, null));
             FSDataInputStream inputStream = hdfsEnvironment.doAs(sessionUser, () -> fileSystem.open(path));
+            tracer.ifPresent(connectorTracer -> connectorTracer.emitEvent(ORC_OPEN_FILE_END, null));
             orcDataSource = new HdfsOrcDataSource(
                     new OrcDataSourceId(path.toString()),
                     fileSize,

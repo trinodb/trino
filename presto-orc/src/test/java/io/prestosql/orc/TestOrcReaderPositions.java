@@ -13,8 +13,10 @@
  */
 package io.prestosql.orc;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.prestosql.orc.metadata.CompressionKind;
 import io.prestosql.orc.metadata.Footer;
@@ -22,6 +24,14 @@ import io.prestosql.orc.metadata.OrcColumnId;
 import io.prestosql.orc.metadata.statistics.IntegerStatistics;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
+import io.prestosql.spi.connector.ConnectorOperationContext;
+import io.prestosql.spi.eventlistener.TracerEvent;
+import io.prestosql.spi.tracer.ConnectorEventEmitter;
+import io.prestosql.spi.tracer.ConnectorTracer;
+import io.prestosql.spi.tracer.DefaultTracer;
+import io.prestosql.spi.tracer.PayloadBuilder;
+import io.prestosql.spi.tracer.Tracer;
+import io.prestosql.spi.tracer.TracerEventTypeSupplier;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
@@ -40,9 +50,14 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.net.URI;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static io.prestosql.orc.OrcReader.BATCH_SIZE_GROWTH_FACTOR;
 import static io.prestosql.orc.OrcReader.INITIAL_BATCH_SIZE;
@@ -52,10 +67,17 @@ import static io.prestosql.orc.OrcTester.READER_OPTIONS;
 import static io.prestosql.orc.OrcTester.createCustomOrcRecordReader;
 import static io.prestosql.orc.OrcTester.createOrcRecordWriter;
 import static io.prestosql.orc.OrcTester.createSettableStructObjectInspector;
+import static io.prestosql.orc.OrcTracerEventType.READ_BLOCK_END;
+import static io.prestosql.orc.OrcTracerEventType.READ_BLOCK_START;
+import static io.prestosql.orc.OrcTracerEventType.READ_ORC_TAIL_END;
+import static io.prestosql.orc.OrcTracerEventType.READ_ORC_TAIL_START;
+import static io.prestosql.orc.OrcTracerEventType.READ_STRIPE_END;
+import static io.prestosql.orc.OrcTracerEventType.READ_STRIPE_START;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.min;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.ql.io.orc.CompressionKind.SNAPPY;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
@@ -70,8 +92,12 @@ public class TestOrcReaderPositions
     {
         try (TempFile tempFile = new TempFile()) {
             createMultiStripeFile(tempFile.getFile());
+            List<TracerEvent> tracerEvents = Collections.synchronizedList(new ArrayList<>());
+            JsonCodec<Map<String, Object>> jsonCodec = JsonCodec.mapJsonCodec(String.class, Object.class);
+            Tracer engineTracer = DefaultTracer.createBasicTracer(tracerEvents::add, jsonCodec::toJson, "node", URI.create("http://test.com"), "0");
+            ConnectorOperationContext connectorOperationContext = (new ConnectorOperationContext.Builder()).withConnectorTracer(Optional.of(new TestingOrcTracer(new ConnectorEventEmitter(engineTracer)))).build();
 
-            try (OrcRecordReader reader = createCustomOrcRecordReader(tempFile, OrcPredicate.TRUE, BIGINT, MAX_BATCH_SIZE)) {
+            try (OrcRecordReader reader = createCustomOrcRecordReader(tempFile, OrcPredicate.TRUE, BIGINT, MAX_BATCH_SIZE, connectorOperationContext.getConnectorTracer())) {
                 assertEquals(reader.getReaderRowCount(), 100);
                 assertEquals(reader.getReaderPosition(), 0);
                 assertEquals(reader.getFileRowCount(), reader.getReaderRowCount());
@@ -88,6 +114,8 @@ public class TestOrcReaderPositions
                 assertNull(reader.nextPage());
                 assertEquals(reader.getReaderPosition(), 100);
                 assertEquals(reader.getFilePosition(), reader.getReaderPosition());
+                ImmutableList.of(READ_ORC_TAIL_START, READ_ORC_TAIL_END, READ_STRIPE_START, READ_STRIPE_END, READ_BLOCK_START, READ_BLOCK_END);
+                checkContainAllTracerActions(tracerEvents, ImmutableList.of(READ_ORC_TAIL_START, READ_ORC_TAIL_END, READ_STRIPE_START, READ_STRIPE_END, READ_BLOCK_START, READ_BLOCK_END));
             }
         }
     }
@@ -109,7 +137,7 @@ public class TestOrcReaderPositions
                         ((stats.getMin() == 180) && (stats.getMax() == 237));
             };
 
-            try (OrcRecordReader reader = createCustomOrcRecordReader(tempFile, predicate, BIGINT, MAX_BATCH_SIZE)) {
+            try (OrcRecordReader reader = createCustomOrcRecordReader(tempFile, predicate, BIGINT, MAX_BATCH_SIZE, Optional.empty())) {
                 assertEquals(reader.getFileRowCount(), 100);
                 assertEquals(reader.getReaderRowCount(), 40);
                 assertEquals(reader.getFilePosition(), 0);
@@ -155,7 +183,7 @@ public class TestOrcReaderPositions
                 return (stats.getMin() == 50_000) || (stats.getMin() == 60_000);
             };
 
-            try (OrcRecordReader reader = createCustomOrcRecordReader(tempFile, predicate, BIGINT, MAX_BATCH_SIZE)) {
+            try (OrcRecordReader reader = createCustomOrcRecordReader(tempFile, predicate, BIGINT, MAX_BATCH_SIZE, Optional.empty())) {
                 assertEquals(reader.getFileRowCount(), rowCount);
                 assertEquals(reader.getReaderRowCount(), rowCount);
                 assertEquals(reader.getFilePosition(), 0);
@@ -205,7 +233,7 @@ public class TestOrcReaderPositions
             int rowCount = rowsInRowGroup * rowGroupCounts;
             createGrowingSequentialFile(tempFile.getFile(), rowCount, rowsInRowGroup, baseStringBytes);
 
-            try (OrcRecordReader reader = createCustomOrcRecordReader(tempFile, OrcPredicate.TRUE, VARCHAR, MAX_BATCH_SIZE)) {
+            try (OrcRecordReader reader = createCustomOrcRecordReader(tempFile, OrcPredicate.TRUE, VARCHAR, MAX_BATCH_SIZE, Optional.empty())) {
                 assertEquals(reader.getFileRowCount(), rowCount);
                 assertEquals(reader.getReaderRowCount(), rowCount);
                 assertEquals(reader.getFilePosition(), 0);
@@ -263,7 +291,7 @@ public class TestOrcReaderPositions
             int rowCount = rowsInRowGroup * rowGroupCounts;
             createSequentialFile(tempFile.getFile(), rowCount);
 
-            try (OrcRecordReader reader = createCustomOrcRecordReader(tempFile, OrcPredicate.TRUE, BIGINT, MAX_BATCH_SIZE)) {
+            try (OrcRecordReader reader = createCustomOrcRecordReader(tempFile, OrcPredicate.TRUE, BIGINT, MAX_BATCH_SIZE, Optional.empty())) {
                 assertEquals(reader.getFileRowCount(), rowCount);
                 assertEquals(reader.getReaderRowCount(), rowCount);
                 assertEquals(reader.getFilePosition(), 0);
@@ -320,7 +348,7 @@ public class TestOrcReaderPositions
             // Create a file with 5 stripes of 20 rows each.
             createMultiStripeFile(tempFile.getFile());
 
-            try (OrcRecordReader reader = createCustomOrcRecordReader(tempFile, OrcPredicate.TRUE, BIGINT, INITIAL_BATCH_SIZE)) {
+            try (OrcRecordReader reader = createCustomOrcRecordReader(tempFile, OrcPredicate.TRUE, BIGINT, INITIAL_BATCH_SIZE, Optional.empty())) {
                 assertEquals(reader.getReaderRowCount(), 100);
                 assertEquals(reader.getReaderPosition(), 0);
                 assertEquals(reader.getFileRowCount(), reader.getReaderRowCount());
@@ -367,6 +395,12 @@ public class TestOrcReaderPositions
                 assertEquals(reader.getFilePosition(), reader.getReaderPosition());
             }
         }
+    }
+
+    private static void checkContainAllTracerActions(List<TracerEvent> tracerEvents, List<TracerEventTypeSupplier> expectedEventTypes)
+    {
+        List<String> eventTypes = tracerEvents.stream().map(TracerEvent::getEventType).collect(Collectors.toList());
+        assertTrue(expectedEventTypes.stream().map(TracerEventTypeSupplier::toTracerEventType).allMatch(eventTypes::contains), "did not receive all expected events");
     }
 
     private static void assertCurrentBatch(Page page, int rowIndex, int batchSize)
@@ -482,5 +516,22 @@ public class TestOrcReaderPositions
         }
 
         writer.close(false);
+    }
+
+    private static class TestingOrcTracer
+            implements ConnectorTracer
+    {
+        private final ConnectorEventEmitter emitter;
+
+        TestingOrcTracer(ConnectorEventEmitter emitter)
+        {
+            this.emitter = requireNonNull(emitter, "emitter is null");
+        }
+
+        @Override
+        public void emitEvent(TracerEventTypeSupplier eventType, PayloadBuilder payloadBuilder)
+        {
+            emitter.emitEvent(eventType, payloadBuilder);
+        }
     }
 }

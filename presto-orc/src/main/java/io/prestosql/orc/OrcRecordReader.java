@@ -61,6 +61,8 @@ import static io.prestosql.orc.OrcDataSourceUtils.mergeAdjacentDiskRanges;
 import static io.prestosql.orc.OrcReader.BATCH_SIZE_GROWTH_FACTOR;
 import static io.prestosql.orc.OrcReader.MAX_BATCH_SIZE;
 import static io.prestosql.orc.OrcRecordReader.LinearProbeRangeFinder.createTinyStripesRangeFinder;
+import static io.prestosql.orc.OrcTracerEventType.READ_STRIPE_END;
+import static io.prestosql.orc.OrcTracerEventType.READ_STRIPE_START;
 import static io.prestosql.orc.OrcWriteValidation.WriteChecksumBuilder.createWriteChecksumBuilder;
 import static io.prestosql.orc.reader.ColumnReaders.createColumnReader;
 import static io.prestosql.spi.block.LazyBlock.listenForLoads;
@@ -507,7 +509,12 @@ public class OrcRecordReader
         StripeInformation stripeInformation = stripes.get(currentStripe);
         validateWriteStripe(stripeInformation.getNumberOfRows());
 
+        tracer.ifPresent(tracer -> tracer.emitEvent(READ_STRIPE_START,
+                () -> stripeInformation == null ? null : ImmutableMap.of("stripe", stripeInformation.toString())));
         Stripe stripe = stripeReader.readStripe(stripeInformation, currentStripeSystemMemoryContext);
+        tracer.ifPresent(tracer -> tracer.emitEvent(READ_STRIPE_END,
+                () -> stripeInformation == null ? null : ImmutableMap.of("stripe", stripeInformation.toString())));
+
         if (stripe != null) {
             // Give readers access to dictionary streams
             InputStreamSources dictionaryStreamSources = stripe.getDictionaryStreamSources();
