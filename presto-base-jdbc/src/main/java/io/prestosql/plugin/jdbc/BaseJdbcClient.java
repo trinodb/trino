@@ -63,6 +63,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.prestosql.plugin.jdbc.BaseJdbcPropertiesProvider.getUnsupportedTypeHandling;
 import static io.prestosql.plugin.jdbc.ColumnMapping.DISABLE_PUSHDOWN;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
@@ -80,6 +81,8 @@ import static io.prestosql.plugin.jdbc.StandardColumnMappings.tinyintWriteFuncti
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharReadFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
+import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
+import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -257,10 +260,10 @@ public class BaseJdbcClient
                 Optional<ColumnMapping> columnMapping = toPrestoType(session, connection, typeHandle);
                 log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", tableHandle.getSchemaTableName(), columnName, typeHandle, columnMapping);
                 // skip unsupported column types
+                boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
+                // Note: some databases (e.g. SQL Server) do not return column remarks/comment here.
+                Optional<String> comment = Optional.ofNullable(emptyToNull(resultSet.getString("REMARKS")));
                 if (columnMapping.isPresent()) {
-                    boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
-                    // Note: some databases (e.g. SQL Server) do not return column remarks/comment here.
-                    Optional<String> comment = Optional.ofNullable(emptyToNull(resultSet.getString("REMARKS")));
                     columns.add(JdbcColumnHandle.builder()
                             .setColumnName(columnName)
                             .setJdbcTypeHandle(typeHandle)
@@ -269,6 +272,7 @@ public class BaseJdbcClient
                             .setComment(comment)
                             .build());
                 }
+                verify(columnMapping.isPresent() || getUnsupportedTypeHandling(session) == IGNORE, "Unsupported type handling is set to %s, but toPrestoType() returned empty");
             }
             if (columns.isEmpty()) {
                 // A table may have no supported columns. In rare cases (e.g. PostgreSQL) a table might have no columns at all.
@@ -300,24 +304,35 @@ public class BaseJdbcClient
         if (mapping.isPresent()) {
             return mapping;
         }
-        return jdbcTypeToPrestoType(session, typeHandle);
+        Optional<ColumnMapping> connectorMapping = jdbcTypeToPrestoType(session, typeHandle);
+        if (connectorMapping.isPresent()) {
+            return connectorMapping;
+        }
+        if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
+            return mapToUnboundedVarchar(typeHandle);
+        }
+        return Optional.empty();
     }
 
     protected Optional<ColumnMapping> getForcedMappingToVarchar(JdbcTypeHandle typeHandle)
     {
         if (typeHandle.getJdbcTypeName().isPresent() && jdbcTypesMappedToVarchar.contains(typeHandle.getJdbcTypeName().get())) {
-            return Optional.of(ColumnMapping.sliceMapping(
-                    createUnboundedVarcharType(),
-                    varcharReadFunction(),
-                    (statement, index, value) -> {
-                        // TODO this should be handled during planning phase
-                        throw new PrestoException(
-                                NOT_SUPPORTED,
-                                "Underlying type that is force mapped to VARCHAR is not supported for INSERT: " + typeHandle.getJdbcTypeName().get());
-                    },
-                    DISABLE_PUSHDOWN));
+            return mapToUnboundedVarchar(typeHandle);
         }
         return Optional.empty();
+    }
+
+    private static Optional<ColumnMapping> mapToUnboundedVarchar(JdbcTypeHandle typeHandle)
+    {
+        return Optional.of(ColumnMapping.sliceMapping(
+                createUnboundedVarcharType(),
+                varcharReadFunction(),
+                (statement, index, value) -> {
+                    throw new PrestoException(
+                            NOT_SUPPORTED,
+                            "Underlying type that is mapped to VARCHAR is not supported for INSERT: " + typeHandle.getJdbcTypeName().get());
+                },
+                DISABLE_PUSHDOWN));
     }
 
     @Override
