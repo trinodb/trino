@@ -39,7 +39,6 @@ import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
-import io.prestosql.spi.type.VarbinaryType;
 import io.prestosql.spi.type.VarcharType;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
@@ -56,7 +55,6 @@ import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
 import static io.prestosql.plugin.hive.HivePageSourceProvider.ColumnMappingKind.PREFILLED;
@@ -72,44 +70,17 @@ import static io.prestosql.plugin.hive.coercions.DecimalCoercers.createDecimalTo
 import static io.prestosql.plugin.hive.coercions.DecimalCoercers.createDoubleToDecimalCoercer;
 import static io.prestosql.plugin.hive.coercions.DecimalCoercers.createRealToDecimalCoercer;
 import static io.prestosql.plugin.hive.util.HiveBucketing.getHiveBucket;
-import static io.prestosql.plugin.hive.util.HiveUtil.bigintPartitionKey;
-import static io.prestosql.plugin.hive.util.HiveUtil.booleanPartitionKey;
-import static io.prestosql.plugin.hive.util.HiveUtil.charPartitionKey;
-import static io.prestosql.plugin.hive.util.HiveUtil.datePartitionKey;
-import static io.prestosql.plugin.hive.util.HiveUtil.doublePartitionKey;
 import static io.prestosql.plugin.hive.util.HiveUtil.extractStructFieldTypes;
-import static io.prestosql.plugin.hive.util.HiveUtil.floatPartitionKey;
-import static io.prestosql.plugin.hive.util.HiveUtil.integerPartitionKey;
 import static io.prestosql.plugin.hive.util.HiveUtil.isArrayType;
-import static io.prestosql.plugin.hive.util.HiveUtil.isHiveNull;
 import static io.prestosql.plugin.hive.util.HiveUtil.isMapType;
 import static io.prestosql.plugin.hive.util.HiveUtil.isRowType;
-import static io.prestosql.plugin.hive.util.HiveUtil.longDecimalPartitionKey;
-import static io.prestosql.plugin.hive.util.HiveUtil.shortDecimalPartitionKey;
-import static io.prestosql.plugin.hive.util.HiveUtil.smallintPartitionKey;
-import static io.prestosql.plugin.hive.util.HiveUtil.timestampPartitionKey;
-import static io.prestosql.plugin.hive.util.HiveUtil.tinyintPartitionKey;
-import static io.prestosql.plugin.hive.util.HiveUtil.varcharPartitionKey;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.block.ColumnarArray.toColumnarArray;
 import static io.prestosql.spi.block.ColumnarMap.toColumnarMap;
 import static io.prestosql.spi.block.ColumnarRow.toColumnarRow;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.Chars.isCharType;
-import static io.prestosql.spi.type.DateType.DATE;
-import static io.prestosql.spi.type.Decimals.isLongDecimal;
-import static io.prestosql.spi.type.Decimals.isShortDecimal;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
-import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.TinyintType.TINYINT;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 public class HivePageSource
@@ -160,60 +131,7 @@ public class HivePageSource
             }
 
             if (columnMapping.getKind() == PREFILLED) {
-                String columnValue = columnMapping.getPrefilledValue();
-                byte[] bytes = columnValue.getBytes(UTF_8);
-
-                Object prefilledValue;
-                if (isHiveNull(bytes)) {
-                    prefilledValue = null;
-                }
-                else if (type.equals(BOOLEAN)) {
-                    prefilledValue = booleanPartitionKey(columnValue, name);
-                }
-                else if (type.equals(BIGINT)) {
-                    prefilledValue = bigintPartitionKey(columnValue, name);
-                }
-                else if (type.equals(INTEGER)) {
-                    prefilledValue = integerPartitionKey(columnValue, name);
-                }
-                else if (type.equals(SMALLINT)) {
-                    prefilledValue = smallintPartitionKey(columnValue, name);
-                }
-                else if (type.equals(TINYINT)) {
-                    prefilledValue = tinyintPartitionKey(columnValue, name);
-                }
-                else if (type.equals(REAL)) {
-                    prefilledValue = floatPartitionKey(columnValue, name);
-                }
-                else if (type.equals(DOUBLE)) {
-                    prefilledValue = doublePartitionKey(columnValue, name);
-                }
-                else if (isVarcharType(type)) {
-                    prefilledValue = varcharPartitionKey(columnValue, name, type);
-                }
-                else if (isCharType(type)) {
-                    prefilledValue = charPartitionKey(columnValue, name, type);
-                }
-                else if (type.equals(DATE)) {
-                    prefilledValue = datePartitionKey(columnValue, name);
-                }
-                else if (type.equals(TIMESTAMP) || type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
-                    prefilledValue = timestampPartitionKey(columnValue, hiveStorageTimeZone, name, type.equals(TIMESTAMP_WITH_TIME_ZONE));
-                }
-                else if (isShortDecimal(type)) {
-                    prefilledValue = shortDecimalPartitionKey(columnValue, (DecimalType) type, name);
-                }
-                else if (isLongDecimal(type)) {
-                    prefilledValue = longDecimalPartitionKey(columnValue, (DecimalType) type, name);
-                }
-                else if (type.equals(VarbinaryType.VARBINARY)) {
-                    prefilledValue = utf8Slice(columnValue);
-                }
-                else {
-                    throw new PrestoException(NOT_SUPPORTED, format("Unsupported column type %s for prefilled column: %s", type.getDisplayName(), name));
-                }
-
-                prefilledValues[columnIndex] = prefilledValue;
+                prefilledValues[columnIndex] = columnMapping.getPrefilledValue();
             }
         }
         this.coercers = coercers.build();

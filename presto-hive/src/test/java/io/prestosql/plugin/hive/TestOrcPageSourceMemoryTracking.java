@@ -488,6 +488,7 @@ public class TestOrcPageSourceMemoryTracking
                     Instant.now().toEpochMilli(),
                     schema,
                     TupleDomain.all(),
+                    TupleDomain.all(),
                     columns,
                     partitionKeys,
                     DateTimeZone.UTC,

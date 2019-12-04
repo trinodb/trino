@@ -103,6 +103,7 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Lists.newArrayList;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.prestosql.plugin.hive.HiveColumnHandle.bucketColumnHandle;
@@ -135,6 +136,8 @@ import static io.prestosql.spi.type.Chars.isCharType;
 import static io.prestosql.spi.type.Chars.trimTrailingSpaces;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
+import static io.prestosql.spi.type.Decimals.isLongDecimal;
+import static io.prestosql.spi.type.Decimals.isShortDecimal;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
@@ -152,6 +155,7 @@ import static java.lang.Long.parseLong;
 import static java.lang.Short.parseShort;
 import static java.lang.String.format;
 import static java.math.BigDecimal.ROUND_UNNECESSARY;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static org.apache.hadoop.hive.common.FileUtils.unescapePathName;
@@ -847,6 +851,62 @@ public final class HiveUtil
             throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for %s partition key: %s", value, columnType.toString(), name));
         }
         return partitionKey;
+    }
+
+    public static Object getPartitionKeyValue(String valueString, String name, Type columnType, DateTimeZone hiveStorageTimeZone)
+    {
+        byte[] bytes = valueString.getBytes(UTF_8);
+
+        Object value;
+        if (isHiveNull(bytes)) {
+            value = null;
+        }
+        else if (columnType.equals(BOOLEAN)) {
+            value = booleanPartitionKey(valueString, name);
+        }
+        else if (columnType.equals(BIGINT)) {
+            value = bigintPartitionKey(valueString, name);
+        }
+        else if (columnType.equals(INTEGER)) {
+            value = integerPartitionKey(valueString, name);
+        }
+        else if (columnType.equals(SMALLINT)) {
+            value = smallintPartitionKey(valueString, name);
+        }
+        else if (columnType.equals(TINYINT)) {
+            value = tinyintPartitionKey(valueString, name);
+        }
+        else if (columnType.equals(REAL)) {
+            value = floatPartitionKey(valueString, name);
+        }
+        else if (columnType.equals(DOUBLE)) {
+            value = doublePartitionKey(valueString, name);
+        }
+        else if (isVarcharType(columnType)) {
+            value = varcharPartitionKey(valueString, name, columnType);
+        }
+        else if (isCharType(columnType)) {
+            value = charPartitionKey(valueString, name, columnType);
+        }
+        else if (columnType.equals(DATE)) {
+            value = datePartitionKey(valueString, name);
+        }
+        else if (columnType.equals(TIMESTAMP) || columnType.equals(TIMESTAMP_WITH_TIME_ZONE)) {
+            value = timestampPartitionKey(valueString, hiveStorageTimeZone, name, columnType.equals(TIMESTAMP_WITH_TIME_ZONE));
+        }
+        else if (isShortDecimal(columnType)) {
+            value = shortDecimalPartitionKey(valueString, (DecimalType) columnType, name);
+        }
+        else if (isLongDecimal(columnType)) {
+            value = longDecimalPartitionKey(valueString, (DecimalType) columnType, name);
+        }
+        else if (columnType.equals(VarbinaryType.VARBINARY)) {
+            value = utf8Slice(valueString);
+        }
+        else {
+            throw new PrestoException(NOT_SUPPORTED, format("Unsupported column type %s for prefilled column: %s", columnType.getDisplayName(), name));
+        }
+        return value;
     }
 
     public static List<HiveColumnHandle> hiveColumnHandles(Table table, TypeManager typeManager)

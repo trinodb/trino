@@ -26,11 +26,14 @@ import io.prestosql.plugin.hive.metastore.HivePageSinkMetadata;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSink;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.predicate.Domain;
+import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.gen.JoinCompiler;
 import io.prestosql.testing.MaterializedResult;
@@ -151,15 +154,87 @@ public class TestHivePageSourceProvider
                 .add(new HivePartitionKey("p_string", partitionString1))
                 .add(new HivePartitionKey("p_date", new Date(UTC.getMillisKeepLocal(DateTimeZone.getDefault(), TimeUnit.DAYS.toMillis(partitionDate1))).toString()))
                 .build();
-        List<Page> pages1 = readTestFileWithPartitionKeys(outputFile, columns, partitionKeys1);
+        List<Page> pages1 = readTestFileWithPartitionKeysAndDynamicFilter(outputFile, columns, partitionKeys1, TupleDomain.all());
         assertPageListEquals(pages1, ImmutableList.of(page1), types);
 
         List<HivePartitionKey> partitionKeys2 = ImmutableList.<HivePartitionKey>builder()
                 .add(new HivePartitionKey("p_string", partitionString2))
                 .add(new HivePartitionKey("p_date", new Date(UTC.getMillisKeepLocal(DateTimeZone.getDefault(), TimeUnit.DAYS.toMillis(partitionDate2))).toString()))
                 .build();
-        List<Page> pages2 = readTestFileWithPartitionKeys(outputFile, columns, partitionKeys2);
+        List<Page> pages2 = readTestFileWithPartitionKeysAndDynamicFilter(outputFile, columns, partitionKeys2, TupleDomain.all());
         assertPageListEquals(pages2, ImmutableList.of(page2), types);
+    }
+
+    @Test
+    public void testPartitionKeyDynamicFilterMatching()
+            throws IOException
+    {
+        List<HiveColumnHandle> columns = ImmutableList.<HiveColumnHandle>builder()
+                .add(new HiveColumnHandle("r_int", HIVE_INT, INTEGER, 0, REGULAR, Optional.empty()))
+                .add(new HiveColumnHandle("p_string", HIVE_STRING, VARCHAR, -1, PARTITION_KEY, Optional.empty()))
+                .add(new HiveColumnHandle("p_date", HIVE_DATE, DATE, -1, PARTITION_KEY, Optional.empty()))
+                .build();
+
+        List<Type> types = columns.stream().map(HiveColumnHandle::getType).collect(toImmutableList());
+        PageBuilder pageBuilder = new PageBuilder(types);
+        BlockBuilder intBlockBuilder = pageBuilder.getBlockBuilder(0);
+        BlockBuilder stringBlockBuilder = pageBuilder.getBlockBuilder(1);
+        BlockBuilder dateBlockBuilder = pageBuilder.getBlockBuilder(2);
+
+        String partitionString = "string";
+        long partitionDate = LocalDate.parse("2019-11-11").toEpochDay();
+
+        int rowCount = 10;
+        for (int r = 0; r < rowCount; r++) {
+            pageBuilder.declarePosition();
+            INTEGER.writeLong(intBlockBuilder, r);
+            VARCHAR.writeSlice(stringBlockBuilder, Slices.utf8Slice(partitionString));
+            DATE.writeLong(dateBlockBuilder, partitionDate);
+        }
+
+        Page page = pageBuilder.build();
+        String outputPath = TEMP_DIR.getAbsolutePath() + "/test_partition_key_dynamic_filter_matching";
+        writeTestFile(outputPath, page, columns);
+
+        File outputFile = getOnlyElement(walk(Paths.get(outputPath))
+                .filter(java.nio.file.Files::isRegularFile)
+                .filter(path -> !path.toString().endsWith("crc"))
+                .collect(toImmutableList())).toFile();
+
+        List<HivePartitionKey> partitionKeys = ImmutableList.<HivePartitionKey>builder()
+                .add(new HivePartitionKey("p_string", partitionString))
+                .add(new HivePartitionKey("p_date", new Date(UTC.getMillisKeepLocal(DateTimeZone.getDefault(), TimeUnit.DAYS.toMillis(partitionDate))).toString()))
+                .build();
+
+        List<Page> noDynamicFilter = readTestFileWithPartitionKeysAndDynamicFilter(outputFile, columns, partitionKeys, TupleDomain.all());
+        assertPageListEquals(noDynamicFilter, ImmutableList.of(page), types);
+
+        TupleDomain<ColumnHandle> matchingDynamicFilter1 = TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>builder()
+                .put(columns.get(1), Domain.singleValue(VARCHAR, Slices.utf8Slice(partitionString)))
+                .build());
+        List<Page> matching1 = readTestFileWithPartitionKeysAndDynamicFilter(outputFile, columns, partitionKeys, matchingDynamicFilter1);
+        assertPageListEquals(matching1, ImmutableList.of(page), types);
+
+        TupleDomain<ColumnHandle> matchingDynamicFilter2 = TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>builder()
+                .put(columns.get(1), Domain.singleValue(VARCHAR, Slices.utf8Slice(partitionString)))
+                .put(columns.get(2), Domain.singleValue(DATE, partitionDate))
+                .build());
+        List<Page> matching2 = readTestFileWithPartitionKeysAndDynamicFilter(outputFile, columns, partitionKeys, matchingDynamicFilter2);
+        assertPageListEquals(matching2, ImmutableList.of(page), types);
+
+        TupleDomain<ColumnHandle> unmatchingDynamicFilter1 = TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>builder()
+                .put(columns.get(1), Domain.singleValue(VARCHAR, Slices.utf8Slice(partitionString + partitionString)))
+                .put(columns.get(2), Domain.singleValue(DATE, partitionDate))
+                .build());
+        List<Page> unmatching1 = readTestFileWithPartitionKeysAndDynamicFilter(outputFile, columns, partitionKeys, unmatchingDynamicFilter1);
+        assertPageListEquals(unmatching1, ImmutableList.of(), types);
+
+        TupleDomain<ColumnHandle> unmatchingDynamicFilter2 = TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>builder()
+                .put(columns.get(1), Domain.singleValue(VARCHAR, Slices.utf8Slice(partitionString)))
+                .put(columns.get(2), Domain.multipleValues(DATE, ImmutableList.of(partitionDate + 1, partitionDate + 2)))
+                .build());
+        List<Page> unmatching2 = readTestFileWithPartitionKeysAndDynamicFilter(outputFile, columns, partitionKeys, unmatchingDynamicFilter2);
+        assertPageListEquals(unmatching2, ImmutableList.of(), types);
     }
 
     private static void writeTestFile(String outputPath, Page page, List<HiveColumnHandle> columns)
@@ -203,7 +278,7 @@ public class TestHivePageSourceProvider
         getFutureValue(pageSink.finish());
     }
 
-    private static List<Page> readTestFileWithPartitionKeys(File file, List<HiveColumnHandle> columns, List<HivePartitionKey> partitionKeys)
+    private static List<Page> readTestFileWithPartitionKeysAndDynamicFilter(File file, List<HiveColumnHandle> columns, List<HivePartitionKey> partitionKeys, TupleDomain<ColumnHandle> dynamicFilter)
     {
         HivePageSourceProvider pageSourceProvider = new HivePageSourceProvider(
                 CONFIG,
@@ -237,7 +312,8 @@ public class TestHivePageSourceProvider
                 getHiveSession(CONFIG),
                 split1,
                 table,
-                ImmutableList.copyOf(columns));
+                ImmutableList.copyOf(columns),
+                dynamicFilter);
 
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
         while (!pageSource.isFinished()) {
