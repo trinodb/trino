@@ -238,7 +238,7 @@ public class HttpBackupStore
 
         private static StatusResponse createStatusResponse(Response response)
         {
-            return new StatusResponse(response.getStatusCode(), response.getStatusMessage(), response.getHeaders());
+            return new StatusResponse(response.getStatusCode(), response.getHeaders());
         }
     }
 }
