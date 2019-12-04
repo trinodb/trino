@@ -53,6 +53,7 @@ jobs:
   hive-tests:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         config: [
           config-empty,
@@ -135,6 +136,7 @@ jobs:
   test-modules:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         modules: [
           "presto-main,presto-testing",
@@ -163,6 +165,7 @@ jobs:
   product-tests:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         config: [
           config-empty,
