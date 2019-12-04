@@ -37,7 +37,7 @@ public final class TestUtils
 {
     private TestUtils() {}
 
-    public static Properties toProperties(Map<String, String> map)
+    static Properties toProperties(Map<String, String> map)
     {
         Properties properties = new Properties();
         for (Map.Entry<String, String> entry : map.entrySet()) {
