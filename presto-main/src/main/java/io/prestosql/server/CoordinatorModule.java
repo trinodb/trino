@@ -106,6 +106,7 @@ import io.prestosql.memory.TotalReservationLowMemoryKiller;
 import io.prestosql.memory.TotalReservationOnBlockedNodesLowMemoryKiller;
 import io.prestosql.metadata.CatalogManager;
 import io.prestosql.operator.ForScheduler;
+import io.prestosql.server.protocol.ExecutingStatementConfig;
 import io.prestosql.server.protocol.ExecutingStatementResource;
 import io.prestosql.server.remotetask.RemoteTaskStats;
 import io.prestosql.server.ui.WebUiModule;
@@ -204,6 +205,7 @@ public class CoordinatorModule
         jsonCodecBinder(binder).bindJsonCodec(SelectedRole.class);
         jaxrsBinder(binder).bind(QueuedStatementResource.class);
         jaxrsBinder(binder).bind(ExecutingStatementResource.class);
+        configBinder(binder).bindConfig(ExecutingStatementConfig.class);
         binder.bind(StatementHttpExecutionMBean.class).in(Scopes.SINGLETON);
         newExporter(binder).export(StatementHttpExecutionMBean.class).withGeneratedName();
 

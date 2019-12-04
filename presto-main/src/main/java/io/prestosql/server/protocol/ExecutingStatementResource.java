@@ -75,7 +75,6 @@ import static io.prestosql.server.protocol.Slug.Context.EXECUTING_QUERY;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static javax.ws.rs.core.MediaType.TEXT_PLAIN_TYPE;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 
@@ -83,7 +82,6 @@ import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 public class ExecutingStatementResource
 {
     private static final Logger log = Logger.get(ExecutingStatementResource.class);
-    private static final Duration MAX_WAIT_TIME = new Duration(1, SECONDS);
     private static final Ordering<Comparable<Duration>> WAIT_ORDERING = Ordering.natural().nullsLast();
 
     private static final DataSize DEFAULT_TARGET_RESULT_SIZE = DataSize.of(1, MEGABYTE);
@@ -92,6 +90,7 @@ public class ExecutingStatementResource
     private final QueryManager queryManager;
     private final ExchangeClientSupplier exchangeClientSupplier;
     private final BlockEncodingSerde blockEncodingSerde;
+    private final ExecutingStatementConfig executingStatementConfig;
     private final BoundedExecutor responseExecutor;
     private final ScheduledExecutorService timeoutExecutor;
 
@@ -103,12 +102,14 @@ public class ExecutingStatementResource
             QueryManager queryManager,
             ExchangeClientSupplier exchangeClientSupplier,
             BlockEncodingSerde blockEncodingSerde,
+            ExecutingStatementConfig executingStatementConfig,
             @ForStatementResource BoundedExecutor responseExecutor,
             @ForStatementResource ScheduledExecutorService timeoutExecutor)
     {
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
         this.exchangeClientSupplier = requireNonNull(exchangeClientSupplier, "exchangeClientSupplier is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
+        this.executingStatementConfig = requireNonNull(executingStatementConfig, "executingStatementConfig is null");
         this.responseExecutor = requireNonNull(responseExecutor, "responseExecutor is null");
         this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
 
@@ -203,7 +204,10 @@ public class ExecutingStatementResource
             UriInfo uriInfo,
             AsyncResponse asyncResponse)
     {
-        Duration wait = WAIT_ORDERING.min(MAX_WAIT_TIME, maxWait);
+        Duration wait = executingStatementConfig.getMaxWaitDefault();
+        if (maxWait != null) {
+            wait = WAIT_ORDERING.min(executingStatementConfig.getMaxWaitLimit(), maxWait);
+        }
         if (targetResultSize == null) {
             targetResultSize = DEFAULT_TARGET_RESULT_SIZE;
         }
