@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.blackhole;
 
+import io.prestosql.spi.connector.ConnectorOperationContext;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
@@ -30,7 +31,8 @@ public final class BlackHoleSplitManager
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorTableHandle table,
-            SplitSchedulingStrategy splitSchedulingStrategy)
+            SplitSchedulingStrategy splitSchedulingStrategy,
+            ConnectorOperationContext connectorOperationContext)
     {
         int splitCount = ((BlackHoleTableHandle) table).getSplitCount();
         return new FixedSplitSource(nCopies(splitCount, BlackHoleSplit.INSTANCE));

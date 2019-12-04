@@ -243,7 +243,7 @@ public class OrcStorageManager
         AggregatedMemoryContext systemMemoryUsage = newSimpleAggregatedMemoryContext();
 
         try {
-            OrcReader reader = new OrcReader(dataSource, orcReaderOptions);
+            OrcReader reader = new OrcReader(dataSource, orcReaderOptions, Optional.empty());
 
             Map<Long, OrcColumn> indexMap = columnIdIndex(reader.getRootColumn().getNestedColumns());
             List<OrcColumn> fileReadColumn = new ArrayList<>(columnIds.size());
@@ -397,7 +397,7 @@ public class OrcStorageManager
     private List<ColumnStats> computeShardStats(File file)
     {
         try (OrcDataSource dataSource = fileOrcDataSource(orcReaderOptions, file)) {
-            OrcReader reader = new OrcReader(dataSource, orcReaderOptions);
+            OrcReader reader = new OrcReader(dataSource, orcReaderOptions, Optional.empty());
 
             ImmutableList.Builder<ColumnStats> list = ImmutableList.builder();
             for (ColumnInfo info : getColumnInfo(reader)) {

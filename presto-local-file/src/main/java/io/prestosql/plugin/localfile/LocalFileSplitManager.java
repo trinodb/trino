@@ -14,6 +14,7 @@
 package io.prestosql.plugin.localfile;
 
 import io.prestosql.spi.NodeManager;
+import io.prestosql.spi.connector.ConnectorOperationContext;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorSplitManager;
@@ -41,7 +42,7 @@ public class LocalFileSplitManager
     }
 
     @Override
-    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableHandle table, SplitSchedulingStrategy splitSchedulingStrategy)
+    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableHandle table, SplitSchedulingStrategy splitSchedulingStrategy, ConnectorOperationContext connectorOperationContext)
     {
         List<ConnectorSplit> splits = nodeManager.getAllNodes().stream()
                 .map(node -> new LocalFileSplit(node.getHostAndPort()))

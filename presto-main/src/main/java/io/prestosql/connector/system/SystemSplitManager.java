@@ -19,6 +19,7 @@ import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.InternalNodeManager;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorOperationContext;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorSplitManager;
@@ -56,7 +57,8 @@ public class SystemSplitManager
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorTableHandle tableHandle,
-            SplitSchedulingStrategy splitSchedulingStrategy)
+            SplitSchedulingStrategy splitSchedulingStrategy,
+            ConnectorOperationContext connectorOperationContext)
     {
         SystemTableHandle table = (SystemTableHandle) tableHandle;
         TupleDomain<ColumnHandle> constraint = table.getConstraint();

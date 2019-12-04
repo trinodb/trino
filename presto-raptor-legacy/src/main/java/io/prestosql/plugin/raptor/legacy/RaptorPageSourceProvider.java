@@ -17,6 +17,7 @@ import io.prestosql.orc.OrcReaderOptions;
 import io.prestosql.plugin.raptor.legacy.storage.StorageManager;
 import io.prestosql.plugin.raptor.legacy.util.ConcatPageSource;
 import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorOperationContext;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -54,7 +55,7 @@ public class RaptorPageSourceProvider
     }
 
     @Override
-    public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<ColumnHandle> columns)
+    public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<ColumnHandle> columns, ConnectorOperationContext connectorOperationContext)
     {
         RaptorSplit raptorSplit = (RaptorSplit) split;
         RaptorTableHandle raptorTable = (RaptorTableHandle) table;

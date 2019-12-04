@@ -262,7 +262,7 @@ public class TestStructColumnReader
             throws IOException
     {
         OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), READER_OPTIONS);
-        OrcReader orcReader = new OrcReader(orcDataSource, READER_OPTIONS);
+        OrcReader orcReader = new OrcReader(orcDataSource, READER_OPTIONS, Optional.empty());
 
         OrcRecordReader recordReader = orcReader.createRecordReader(
                 orcReader.getRootColumn().getNestedColumns(),

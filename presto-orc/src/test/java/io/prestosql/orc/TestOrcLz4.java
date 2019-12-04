@@ -20,6 +20,8 @@ import io.prestosql.spi.block.Block;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static com.google.common.io.Resources.getResource;
 import static com.google.common.io.Resources.toByteArray;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -43,7 +45,7 @@ public class TestOrcLz4
         // TODO: use Apache ORC library in OrcTester
         byte[] data = toByteArray(getResource("apache-lz4.orc"));
 
-        OrcReader orcReader = new OrcReader(new InMemoryOrcDataSource(data), new OrcReaderOptions());
+        OrcReader orcReader = new OrcReader(new InMemoryOrcDataSource(data), new OrcReaderOptions(), Optional.empty());
 
         assertEquals(orcReader.getCompressionKind(), LZ4);
         assertEquals(orcReader.getFooter().getNumberOfRows(), 10_000);

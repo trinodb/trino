@@ -27,6 +27,7 @@ import io.prestosql.plugin.thrift.api.PrestoThriftSplitBatch;
 import io.prestosql.plugin.thrift.api.PrestoThriftTupleDomain;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorOperationContext;
 import io.prestosql.spi.connector.ConnectorPartitionHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
@@ -73,7 +74,8 @@ public class ThriftSplitManager
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorTableHandle table,
-            SplitSchedulingStrategy splitSchedulingStrategy)
+            SplitSchedulingStrategy splitSchedulingStrategy,
+            ConnectorOperationContext connectorOperationContext)
     {
         ThriftTableHandle tableHandle = (ThriftTableHandle) table;
         return new ThriftSplitSource(

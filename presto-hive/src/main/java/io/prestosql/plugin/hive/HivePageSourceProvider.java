@@ -19,6 +19,7 @@ import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.HiveSplit.BucketConversion;
 import io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorOperationContext;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -29,6 +30,7 @@ import io.prestosql.spi.connector.FixedPageSource;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.RecordPageSource;
 import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.tracer.ConnectorTracer;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
@@ -86,13 +88,13 @@ public class HivePageSourceProvider
     }
 
     @Override
-    public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<ColumnHandle> columns)
+    public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<ColumnHandle> columns, ConnectorOperationContext connectorOperationContext)
     {
-        return createPageSource(transaction, session, split, table, columns, TupleDomain.all());
+        return createPageSource(transaction, session, split, table, columns, TupleDomain.all(), connectorOperationContext);
     }
 
     @Override
-    public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<ColumnHandle> columns, TupleDomain<ColumnHandle> dynamicFilter)
+    public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<ColumnHandle> columns, TupleDomain<ColumnHandle> dynamicFilter, ConnectorOperationContext connectorOperationContext)
     {
         HiveTableHandle hiveTable = (HiveTableHandle) table;
 
@@ -124,7 +126,8 @@ public class HivePageSourceProvider
                 typeManager,
                 hiveSplit.getColumnCoercions(),
                 hiveSplit.getBucketConversion(),
-                hiveSplit.isS3SelectPushdownEnabled());
+                hiveSplit.isS3SelectPushdownEnabled(),
+                connectorOperationContext.getConnectorTracer());
         if (pageSource.isPresent()) {
             return pageSource.get();
         }
@@ -150,7 +153,8 @@ public class HivePageSourceProvider
             TypeManager typeManager,
             Map<Integer, HiveType> columnCoercions,
             Optional<BucketConversion> bucketConversion,
-            boolean s3SelectPushdownEnabled)
+            boolean s3SelectPushdownEnabled,
+            Optional<ConnectorTracer> tracer)
     {
         if (effectivePredicate.isNone()) {
             return Optional.of(new FixedPageSource(ImmutableList.of()));
@@ -195,7 +199,8 @@ public class HivePageSourceProvider
                     schema,
                     toColumnHandles(regularAndInterimColumnMappings, true, typeManager),
                     effectivePredicate,
-                    hiveStorageTimeZone);
+                    hiveStorageTimeZone,
+                    tracer);
             if (pageSource.isPresent()) {
                 return Optional.of(
                         new HivePageSource(

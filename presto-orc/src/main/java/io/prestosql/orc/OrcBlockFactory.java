@@ -16,8 +16,10 @@ package io.prestosql.orc;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.LazyBlock;
 import io.prestosql.spi.block.LazyBlockLoader;
+import io.prestosql.spi.tracer.ConnectorTracer;
 
 import java.io.IOException;
+import java.util.Optional;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -27,12 +29,14 @@ public class OrcBlockFactory
 {
     private final Function<Exception, RuntimeException> exceptionTransform;
     private final boolean nestedLazy;
+    private final Optional<ConnectorTracer> tracer;
     private int currentPageId;
 
-    public OrcBlockFactory(Function<Exception, RuntimeException> exceptionTransform, boolean nestedLazy)
+    public OrcBlockFactory(Function<Exception, RuntimeException> exceptionTransform, boolean nestedLazy, Optional<ConnectorTracer> tracer)
     {
         this.exceptionTransform = requireNonNull(exceptionTransform, "exceptionTransform is null");
         this.nestedLazy = nestedLazy;
+        this.tracer = requireNonNull(tracer, "tracer is null");
     }
 
     public void nextPage()

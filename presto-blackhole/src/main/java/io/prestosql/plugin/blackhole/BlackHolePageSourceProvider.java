@@ -21,6 +21,7 @@ import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorOperationContext;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -68,7 +69,8 @@ public final class BlackHolePageSourceProvider
             ConnectorSession session,
             ConnectorSplit split,
             ConnectorTableHandle tableHandle,
-            List<ColumnHandle> columns)
+            List<ColumnHandle> columns,
+            ConnectorOperationContext connectorOperationContext)
     {
         BlackHoleTableHandle table = (BlackHoleTableHandle) tableHandle;
 

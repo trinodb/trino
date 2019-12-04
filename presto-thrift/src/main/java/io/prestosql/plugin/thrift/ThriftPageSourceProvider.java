@@ -16,6 +16,7 @@ package io.prestosql.plugin.thrift;
 import io.airlift.drift.client.DriftClient;
 import io.prestosql.plugin.thrift.api.PrestoThriftService;
 import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorOperationContext;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -52,7 +53,8 @@ public class ThriftPageSourceProvider
             ConnectorSession session,
             ConnectorSplit split,
             ConnectorTableHandle table,
-            List<ColumnHandle> columns)
+            List<ColumnHandle> columns,
+            ConnectorOperationContext connectorOperationContext)
     {
         return new ThriftPageSource(client, thriftHeaderProvider.getHeaders(session), (ThriftConnectorSplit) split, columns, stats, maxBytesPerResponse);
     }

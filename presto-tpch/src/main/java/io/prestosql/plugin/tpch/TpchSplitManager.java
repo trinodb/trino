@@ -16,6 +16,7 @@ package io.prestosql.plugin.tpch;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.Node;
 import io.prestosql.spi.NodeManager;
+import io.prestosql.spi.connector.ConnectorOperationContext;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorSplitManager;
@@ -42,7 +43,7 @@ public class TpchSplitManager
     }
 
     @Override
-    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableHandle tableHandle, SplitSchedulingStrategy splitSchedulingStrategy)
+    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableHandle tableHandle, SplitSchedulingStrategy splitSchedulingStrategy, ConnectorOperationContext connectorOperationContext)
     {
         Set<Node> nodes = nodeManager.getRequiredWorkerNodes();
 

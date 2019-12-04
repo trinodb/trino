@@ -41,6 +41,7 @@ import java.io.IOException;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
@@ -115,7 +116,7 @@ public class BenchmarkOrcDecimalReader
                 throws IOException
         {
             OrcDataSource dataSource = new FileOrcDataSource(dataPath, READER_OPTIONS);
-            OrcReader orcReader = new OrcReader(dataSource, READER_OPTIONS);
+            OrcReader orcReader = new OrcReader(dataSource, READER_OPTIONS, Optional.empty());
             return orcReader.createRecordReader(
                     orcReader.getRootColumn().getNestedColumns(),
                     ImmutableList.of(DECIMAL_TYPE),

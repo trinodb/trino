@@ -37,6 +37,7 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.tracer.ConnectorTracer;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -128,6 +129,7 @@ public class BackgroundHiveSplitLoader
     private final ConcurrentLazyQueue<HivePartitionMetadata> partitions;
     private final Deque<Iterator<InternalHiveSplit>> fileIterators = new ConcurrentLinkedDeque<>();
     private final Optional<ValidWriteIdList> validWriteIds;
+    private final Optional<ConnectorTracer> tracer;
 
     // Purpose of this lock:
     // * Write lock: when you need a consistent view across partitions, fileIterators, and hiveSplitSource.
@@ -162,7 +164,8 @@ public class BackgroundHiveSplitLoader
             int loaderConcurrency,
             boolean recursiveDirWalkerEnabled,
             boolean ignoreAbsentPartitions,
-            Optional<ValidWriteIdList> validWriteIds)
+            Optional<ValidWriteIdList> validWriteIds,
+            Optional<ConnectorTracer> tracer)
     {
         this.table = table;
         this.compactEffectivePredicate = compactEffectivePredicate;
@@ -178,6 +181,7 @@ public class BackgroundHiveSplitLoader
         this.partitions = new ConcurrentLazyQueue<>(partitions);
         this.hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
         this.validWriteIds = requireNonNull(validWriteIds, "validWriteIds is null");
+        this.tracer = requireNonNull(tracer, "tracer is null");
     }
 
     @Override
@@ -185,7 +189,7 @@ public class BackgroundHiveSplitLoader
     {
         this.hiveSplitSource = splitSource;
         for (int i = 0; i < loaderConcurrency; i++) {
-            ListenableFuture<?> future = ResumableTasks.submit(executor, new HiveSplitLoaderTask());
+            ListenableFuture<?> future = ResumableTasks.submit(executor, new HiveSplitLoaderTask(tracer));
             addExceptionCallback(future, hiveSplitSource::fail); // best effort; hiveSplitSource could be already completed
         }
     }
@@ -199,6 +203,13 @@ public class BackgroundHiveSplitLoader
     private class HiveSplitLoaderTask
             implements ResumableTask
     {
+        private final Optional<ConnectorTracer> tracer;
+
+        private HiveSplitLoaderTask(Optional<ConnectorTracer> tracer)
+        {
+            this.tracer = requireNonNull(tracer, "connectorOperationContext is null");
+        }
+
         @Override
         public TaskStatus process()
         {
@@ -400,14 +411,14 @@ public class BackgroundHiveSplitLoader
             if (AcidUtils.isTransactionalTable(table.getParameters())) {
                 throw new PrestoException(NOT_SUPPORTED, "Bucketed Hive transactional tables are not supported: " + table.getSchemaTableName());
             }
-            return hiveSplitSource.addToQueue(getBucketedSplits(path, fs, splitFactory, tableBucketInfo.get(), bucketConversion));
+            return hiveSplitSource.addToQueue(getBucketedSplits(path, fs, splitFactory, tableBucketInfo.get(), bucketConversion, tracer));
         }
 
         // S3 Select pushdown works at the granularity of individual S3 objects,
         // therefore we must not split files when it is enabled.
         boolean splittable = getHeaderCount(schema) == 0 && getFooterCount(schema) == 0 && !s3SelectPushdownEnabled;
         if (!AcidUtils.isTransactionalTable(table.getParameters())) {
-            fileIterators.addLast(createInternalHiveSplitIterator(path, fs, splitFactory, splittable));
+            fileIterators.addLast(createInternalHiveSplitIterator(path, fs, splitFactory, splittable, tracer));
             return COMPLETED_FUTURE;
         }
 
@@ -433,12 +444,12 @@ public class BackgroundHiveSplitLoader
 
         // delta directories
         for (AcidUtils.ParsedDelta delta : directory.getCurrentDirectories()) {
-            fileIterators.addLast(createInternalHiveSplitIterator(delta.getPath(), fs, splitFactory, splittable));
+            fileIterators.addLast(createInternalHiveSplitIterator(delta.getPath(), fs, splitFactory, splittable, tracer));
         }
 
         // base
         if (directory.getBaseDirectory() != null) {
-            fileIterators.addLast(createInternalHiveSplitIterator(directory.getBaseDirectory(), fs, splitFactory, splittable));
+            fileIterators.addLast(createInternalHiveSplitIterator(directory.getBaseDirectory(), fs, splitFactory, splittable, tracer));
         }
 
         return COMPLETED_FUTURE;
@@ -468,16 +479,16 @@ public class BackgroundHiveSplitLoader
                 .anyMatch(name -> name.equals("UseFileSplitsFromInputFormat"));
     }
 
-    private Iterator<InternalHiveSplit> createInternalHiveSplitIterator(Path path, FileSystem fileSystem, InternalHiveSplitFactory splitFactory, boolean splittable)
+    private Iterator<InternalHiveSplit> createInternalHiveSplitIterator(Path path, FileSystem fileSystem, InternalHiveSplitFactory splitFactory, boolean splittable, Optional<ConnectorTracer> tracer)
     {
-        return Streams.stream(new HiveFileIterator(table, path, fileSystem, directoryLister, namenodeStats, recursiveDirWalkerEnabled ? RECURSE : IGNORED, ignoreAbsentPartitions))
+        return Streams.stream(new HiveFileIterator(table, path, fileSystem, directoryLister, namenodeStats, recursiveDirWalkerEnabled ? RECURSE : IGNORED, ignoreAbsentPartitions, tracer))
                 .map(status -> splitFactory.createInternalHiveSplit(status, splittable))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .iterator();
     }
 
-    private List<InternalHiveSplit> getBucketedSplits(Path path, FileSystem fileSystem, InternalHiveSplitFactory splitFactory, BucketSplitInfo bucketSplitInfo, Optional<BucketConversion> bucketConversion)
+    private List<InternalHiveSplit> getBucketedSplits(Path path, FileSystem fileSystem, InternalHiveSplitFactory splitFactory, BucketSplitInfo bucketSplitInfo, Optional<BucketConversion> bucketConversion, Optional<ConnectorTracer> tracer)
     {
         int readBucketCount = bucketSplitInfo.getReadBucketCount();
         int tableBucketCount = bucketSplitInfo.getTableBucketCount();
@@ -487,7 +498,7 @@ public class BackgroundHiveSplitLoader
         // list all files in the partition
         List<LocatedFileStatus> files = new ArrayList<>(partitionBucketCount);
         try {
-            Iterators.addAll(files, new HiveFileIterator(table, path, fileSystem, directoryLister, namenodeStats, FAIL, ignoreAbsentPartitions));
+            Iterators.addAll(files, new HiveFileIterator(table, path, fileSystem, directoryLister, namenodeStats, FAIL, ignoreAbsentPartitions, tracer));
         }
         catch (NestedDirectoryNotAllowedException e) {
             // Fail here to be on the safe side. This seems to be the same as what Hive does

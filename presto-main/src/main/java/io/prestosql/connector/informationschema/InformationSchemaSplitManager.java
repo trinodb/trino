@@ -16,6 +16,7 @@ package io.prestosql.connector.informationschema;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.InternalNodeManager;
 import io.prestosql.spi.HostAddress;
+import io.prestosql.spi.connector.ConnectorOperationContext;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorSplitManager;
@@ -39,7 +40,7 @@ public class InformationSchemaSplitManager
     }
 
     @Override
-    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableHandle table, SplitSchedulingStrategy splitSchedulingStrategy)
+    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableHandle table, SplitSchedulingStrategy splitSchedulingStrategy, ConnectorOperationContext connectorOperationContext)
     {
         List<HostAddress> localAddress = ImmutableList.of(nodeManager.getCurrentNode().getHostAndPort());
         ConnectorSplit split = new InformationSchemaSplit(localAddress);

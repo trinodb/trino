@@ -658,7 +658,7 @@ public interface ConnectorMetadata
      * <ul>
      * <li>{@link #getTableProperties(ConnectorSession session, ConnectorTableHandle table)}</li>
      * <li>{@link #getInfo(ConnectorTableHandle table)} </li>
-     * <li>{@link ConnectorSplitManager#getSplits(ConnectorTransactionHandle, ConnectorSession, ConnectorTableHandle, ConnectorSplitManager.SplitSchedulingStrategy)}</li>
+     * <li>{@link ConnectorSplitManager#getSplits(ConnectorTransactionHandle, ConnectorSession, ConnectorTableHandle, ConnectorSplitManager.SplitSchedulingStrategy, ConnectorOperationContext)}</li>
      * </ul>
      */
     default boolean usesLegacyTableLayouts()

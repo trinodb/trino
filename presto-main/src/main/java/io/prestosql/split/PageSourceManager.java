@@ -19,6 +19,7 @@ import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.Split;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorOperationContext;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
 import io.prestosql.spi.connector.FixedPageSource;
@@ -73,6 +74,7 @@ public class PageSourceManager
 
         ConnectorPageSourceProvider provider = getPageSourceProvider(catalogName);
         Optional<ConnectorTracer> tracer = tracerManager.getConnectorTracer(catalogName, new ConnectorEventEmitter(engineTracer));
+        ConnectorOperationContext connectorOperationContext = (new ConnectorOperationContext.Builder()).withConnectorTracer(tracer).build();
         TupleDomain<ColumnHandle> constraint = dynamicFilter.get();
         if (constraint.isAll()) {
             return provider.createPageSource(
@@ -80,7 +82,8 @@ public class PageSourceManager
                     session.toConnectorSession(catalogName),
                     split.getConnectorSplit(),
                     table.getConnectorHandle(),
-                    columns);
+                    columns,
+                    connectorOperationContext);
         }
         if (constraint.isNone()) {
             return new FixedPageSource(ImmutableList.of());
@@ -91,7 +94,8 @@ public class PageSourceManager
                 split.getConnectorSplit(),
                 table.getConnectorHandle(),
                 columns,
-                constraint);
+                constraint,
+                connectorOperationContext);
     }
 
     private ConnectorPageSourceProvider getPageSourceProvider(CatalogName catalogName)

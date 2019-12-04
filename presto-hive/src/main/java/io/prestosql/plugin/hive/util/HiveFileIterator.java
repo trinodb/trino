@@ -19,6 +19,7 @@ import io.prestosql.plugin.hive.DirectoryLister;
 import io.prestosql.plugin.hive.NamenodeStats;
 import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.tracer.ConnectorTracer;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
@@ -29,6 +30,7 @@ import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Iterator;
+import java.util.Optional;
 
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
@@ -52,6 +54,7 @@ public class HiveFileIterator
     private final NamenodeStats namenodeStats;
     private final NestedDirectoryPolicy nestedDirectoryPolicy;
     private final boolean ignoreAbsentPartitions;
+    private final Optional<ConnectorTracer> tracer;
 
     private Iterator<LocatedFileStatus> remoteIterator = emptyIterator();
 
@@ -62,7 +65,8 @@ public class HiveFileIterator
             DirectoryLister directoryLister,
             NamenodeStats namenodeStats,
             NestedDirectoryPolicy nestedDirectoryPolicy,
-            boolean ignoreAbsentPartitions)
+            boolean ignoreAbsentPartitions,
+            Optional<ConnectorTracer> tracer)
     {
         paths.addLast(requireNonNull(path, "path is null"));
         this.table = requireNonNull(table, "table is null");
@@ -71,6 +75,7 @@ public class HiveFileIterator
         this.namenodeStats = requireNonNull(namenodeStats, "namenodeStats is null");
         this.nestedDirectoryPolicy = requireNonNull(nestedDirectoryPolicy, "nestedDirectoryPolicy is null");
         this.ignoreAbsentPartitions = ignoreAbsentPartitions;
+        this.tracer = requireNonNull(tracer, "tracer is null");
     }
 
     @Override

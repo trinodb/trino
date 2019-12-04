@@ -15,6 +15,7 @@ package io.prestosql.elasticsearch;
 
 import io.prestosql.elasticsearch.client.ElasticsearchClient;
 import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorOperationContext;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -41,7 +42,7 @@ public class ElasticsearchPageSourceProvider
     }
 
     @Override
-    public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<ColumnHandle> columns)
+    public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<ColumnHandle> columns, ConnectorOperationContext connectorOperationContext)
     {
         requireNonNull(split, "split is null");
         requireNonNull(table, "table is null");

@@ -38,6 +38,7 @@ import io.prestosql.orc.reader.ColumnReader;
 import io.prestosql.orc.stream.InputStreamSources;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
+import io.prestosql.spi.tracer.ConnectorTracer;
 import io.prestosql.spi.type.Type;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
@@ -116,6 +117,8 @@ public class OrcRecordReader
     private final Optional<StatisticsValidation> stripeStatisticsValidation;
     private final Optional<StatisticsValidation> fileStatisticsValidation;
 
+    private final Optional<ConnectorTracer> tracer;
+
     public OrcRecordReader(
             List<OrcColumn> readColumns,
             List<Type> readTypes,
@@ -138,7 +141,8 @@ public class OrcRecordReader
             AggregatedMemoryContext systemMemoryUsage,
             Optional<OrcWriteValidation> writeValidation,
             int initialBatchSize,
-            Function<Exception, RuntimeException> exceptionTransform)
+            Function<Exception, RuntimeException> exceptionTransform,
+            Optional<ConnectorTracer> tracer)
             throws OrcCorruptionException
     {
         requireNonNull(readColumns, "readColumns is null");
@@ -162,7 +166,9 @@ public class OrcRecordReader
         this.stripeStatisticsValidation = writeValidation.map(validation -> validation.createWriteStatisticsBuilder(orcTypes, readTypes));
         this.fileStatisticsValidation = writeValidation.map(validation -> validation.createWriteStatisticsBuilder(orcTypes, readTypes));
         this.systemMemoryUsage = systemMemoryUsage.newAggregatedMemoryContext();
-        this.blockFactory = new OrcBlockFactory(exceptionTransform, options.isNestedLazy());
+        this.blockFactory = new OrcBlockFactory(exceptionTransform, options.isNestedLazy(), tracer);
+
+        this.tracer = requireNonNull(tracer, "tracer is null");
 
         requireNonNull(options, "options is null");
         this.maxBlockBytes = options.getMaxBlockSize().toBytes();

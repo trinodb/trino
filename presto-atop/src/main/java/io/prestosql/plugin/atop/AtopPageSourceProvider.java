@@ -16,6 +16,7 @@ package io.prestosql.plugin.atop;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.plugin.atop.AtopTable.AtopColumn;
 import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorOperationContext;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -56,7 +57,8 @@ public final class AtopPageSourceProvider
             ConnectorSession session,
             ConnectorSplit split,
             ConnectorTableHandle table,
-            List<ColumnHandle> columns)
+            List<ColumnHandle> columns,
+            ConnectorOperationContext connectorOperationContext)
     {
         AtopTableHandle tableHandle = (AtopTableHandle) table;
         AtopSplit atopSplit = (AtopSplit) split;

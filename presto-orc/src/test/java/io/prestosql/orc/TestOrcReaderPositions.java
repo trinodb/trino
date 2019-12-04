@@ -42,6 +42,7 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.util.Map;
+import java.util.Optional;
 
 import static io.prestosql.orc.OrcReader.BATCH_SIZE_GROWTH_FACTOR;
 import static io.prestosql.orc.OrcReader.INITIAL_BATCH_SIZE;
@@ -304,7 +305,7 @@ public class TestOrcReaderPositions
             createFileWithOnlyUserMetadata(tempFile.getFile(), metadata);
 
             OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), READER_OPTIONS);
-            OrcReader orcReader = new OrcReader(orcDataSource, READER_OPTIONS);
+            OrcReader orcReader = new OrcReader(orcDataSource, READER_OPTIONS, Optional.empty());
             Footer footer = orcReader.getFooter();
             Map<String, String> readMetadata = Maps.transformValues(footer.getUserMetadata(), Slice::toStringAscii);
             assertEquals(readMetadata, metadata);

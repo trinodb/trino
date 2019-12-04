@@ -97,6 +97,7 @@ import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHiveRecordCursorP
 import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSessionProperties;
 import static io.prestosql.plugin.hive.HiveTestUtils.getTypes;
+import static io.prestosql.spi.connector.ConnectorOperationContext.createNoOpConnectorOperationContext;
 import static io.prestosql.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.testing.MaterializedResult.materializeSourceDataStream;
@@ -444,10 +445,10 @@ public abstract class AbstractTestHiveFileSystem
 
             // verify the data
             metadata.beginQuery(session);
-            ConnectorSplitSource splitSource = splitManager.getSplits(transaction.getTransactionHandle(), session, tableHandle, UNGROUPED_SCHEDULING);
+            ConnectorSplitSource splitSource = splitManager.getSplits(transaction.getTransactionHandle(), session, tableHandle, UNGROUPED_SCHEDULING, createNoOpConnectorOperationContext());
             ConnectorSplit split = getOnlyElement(getAllSplits(splitSource));
 
-            try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, split, tableHandle, columnHandles)) {
+            try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, split, tableHandle, columnHandles, createNoOpConnectorOperationContext())) {
                 MaterializedResult result = materializeSourceDataStream(session, pageSource, getTypes(columnHandles));
                 assertEqualsIgnoreOrder(result.getMaterializedRows(), data.getMaterializedRows());
             }
@@ -475,7 +476,7 @@ public abstract class AbstractTestHiveFileSystem
             List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, table).values());
 
             metadata.beginQuery(session);
-            ConnectorSplitSource splitSource = splitManager.getSplits(transaction.getTransactionHandle(), session, table, UNGROUPED_SCHEDULING);
+            ConnectorSplitSource splitSource = splitManager.getSplits(transaction.getTransactionHandle(), session, table, UNGROUPED_SCHEDULING, createNoOpConnectorOperationContext());
 
             List<Type> allTypes = getTypes(columnHandles);
             List<Type> dataTypes = getTypes(columnHandles.stream()
@@ -485,7 +486,7 @@ public abstract class AbstractTestHiveFileSystem
 
             List<ConnectorSplit> splits = getAllSplits(splitSource);
             for (ConnectorSplit split : splits) {
-                try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, split, table, columnHandles)) {
+                try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, split, table, columnHandles, createNoOpConnectorOperationContext())) {
                     MaterializedResult pageSourceResult = materializeSourceDataStream(session, pageSource, allTypes);
                     for (MaterializedRow row : pageSourceResult.getMaterializedRows()) {
                         Object[] dataValues = IntStream.range(0, row.getFieldCount())
