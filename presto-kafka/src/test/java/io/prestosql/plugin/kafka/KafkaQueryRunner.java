@@ -48,13 +48,13 @@ public final class KafkaQueryRunner
     private static final Logger log = Logger.get("TestQueries");
     private static final String TPCH_SCHEMA = "tpch";
 
-    public static DistributedQueryRunner createKafkaQueryRunner(EmbeddedKafka embeddedKafka, TpchTable<?>... tables)
+    static DistributedQueryRunner createKafkaQueryRunner(EmbeddedKafka embeddedKafka, TpchTable<?>... tables)
             throws Exception
     {
         return createKafkaQueryRunner(embeddedKafka, ImmutableList.copyOf(tables));
     }
 
-    public static DistributedQueryRunner createKafkaQueryRunner(EmbeddedKafka embeddedKafka, Iterable<TpchTable<?>> tables)
+    static DistributedQueryRunner createKafkaQueryRunner(EmbeddedKafka embeddedKafka, Iterable<TpchTable<?>> tables)
             throws Exception
     {
         DistributedQueryRunner queryRunner = null;
@@ -119,7 +119,7 @@ public final class KafkaQueryRunner
         return topicDescriptions.build();
     }
 
-    public static Session createSession()
+    private static Session createSession()
     {
         return testSessionBuilder()
                 .setCatalog("kafka")

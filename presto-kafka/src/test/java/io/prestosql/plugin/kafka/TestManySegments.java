@@ -69,7 +69,7 @@ public class TestManySegments
             for (long i = 0; i < iMax; i++) {
                 ImmutableList.Builder<KeyedMessage<Long, Object>> builder = ImmutableList.builder();
                 for (long j = 0; j < jMax; j++) {
-                    builder.add(new KeyedMessage<Long, Object>(topicName, i, ImmutableMap.of("id", Long.toString(i * iMax + j), "value", UUID.randomUUID().toString())));
+                    builder.add(new KeyedMessage<>(topicName, i, ImmutableMap.of("id", Long.toString(i * iMax + j), "value", UUID.randomUUID().toString())));
                 }
                 producer.send(builder.build());
             }
@@ -86,7 +86,6 @@ public class TestManySegments
 
     @BeforeMethod
     public void spinUp()
-            throws Exception
     {
         this.queryRunner = new StandaloneQueryRunner(SESSION);
 

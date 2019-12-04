@@ -37,7 +37,7 @@ public class EmbeddedZookeeper
     private final AtomicBoolean started = new AtomicBoolean();
     private final AtomicBoolean stopped = new AtomicBoolean();
 
-    public EmbeddedZookeeper()
+    EmbeddedZookeeper()
             throws IOException
     {
         zkDataDir = Files.createTempDir();
@@ -49,7 +49,7 @@ public class EmbeddedZookeeper
         cnxnFactory = NIOServerCnxnFactory.createFactory(0, 0);
     }
 
-    public void start()
+    void start()
             throws InterruptedException, IOException
     {
         if (!started.getAndSet(true)) {
@@ -78,7 +78,7 @@ public class EmbeddedZookeeper
         }
     }
 
-    public String getConnectString()
+    String getConnectString()
     {
         return "127.0.0.1:" + cnxnFactory.getLocalPort();
     }
