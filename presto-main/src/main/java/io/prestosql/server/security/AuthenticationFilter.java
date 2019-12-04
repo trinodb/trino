@@ -32,6 +32,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PrintWriter;
 import java.security.Principal;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -40,6 +41,7 @@ import java.util.Set;
 import static com.google.common.io.ByteStreams.copy;
 import static com.google.common.io.ByteStreams.nullOutputStream;
 import static com.google.common.net.HttpHeaders.WWW_AUTHENTICATE;
+import static com.google.common.net.MediaType.PLAIN_TEXT_UTF_8;
 import static java.util.Objects.requireNonNull;
 import static javax.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
 
@@ -76,7 +78,8 @@ public class AuthenticationFilter
         if (internalAuthenticationManager.isInternalRequest(request)) {
             Principal principal = internalAuthenticationManager.authenticateInternalRequest(request);
             if (principal == null) {
-                response.sendError(SC_UNAUTHORIZED);
+                response.setStatus(SC_UNAUTHORIZED);
+                response.setContentType(PLAIN_TEXT_UTF_8.toString());
                 return;
             }
             nextFilter.doFilter(withPrincipal(request, principal), response);
@@ -121,7 +124,11 @@ public class AuthenticationFilter
         if (messages.isEmpty()) {
             messages.add("Unauthorized");
         }
-        response.sendError(SC_UNAUTHORIZED, Joiner.on(" | ").join(messages));
+        response.setStatus(SC_UNAUTHORIZED, Joiner.on(" | ").join(messages));
+        response.setContentType(PLAIN_TEXT_UTF_8.toString());
+        try (PrintWriter writer = response.getWriter()) {
+            writer.write(Joiner.on(" | ").join(messages));
+        }
     }
 
     private boolean doesRequestSupportAuthentication(HttpServletRequest request)

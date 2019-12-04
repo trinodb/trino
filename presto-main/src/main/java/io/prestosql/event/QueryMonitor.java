@@ -526,14 +526,14 @@ public class QueryMonitor
         return new StageCpuDistribution(
                 stageInfo.getStageId().getId(),
                 stageInfo.getTasks().size(),
-                snapshot.getP25(),
-                snapshot.getP50(),
-                snapshot.getP75(),
-                snapshot.getP90(),
-                snapshot.getP95(),
-                snapshot.getP99(),
-                snapshot.getMin(),
-                snapshot.getMax(),
+                (long) snapshot.getP25(),
+                (long) snapshot.getP50(),
+                (long) snapshot.getP75(),
+                (long) snapshot.getP90(),
+                (long) snapshot.getP95(),
+                (long) snapshot.getP99(),
+                (long) snapshot.getMin(),
+                (long) snapshot.getMax(),
                 (long) snapshot.getTotal(),
                 snapshot.getTotal() / snapshot.getCount());
     }

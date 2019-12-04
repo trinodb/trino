@@ -349,8 +349,8 @@ public class PipelineContext
 
         int totalDrivers = completedDrivers + driverContexts.size();
 
-        Distribution queuedTime = new Distribution(this.queuedTime);
-        Distribution elapsedTime = new Distribution(this.elapsedTime);
+        Distribution queuedTime = this.queuedTime.duplicate();
+        Distribution elapsedTime = this.elapsedTime.duplicate();
 
         long totalScheduledTime = this.totalScheduledTime.get();
         long totalCpuTime = this.totalCpuTime.get();
