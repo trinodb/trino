@@ -277,7 +277,7 @@ public class TestWorkProcessorPipelineSourceOperator
         }
 
         @Override
-        public WorkProcessorSourceOperator create(Session session, MemoryTrackingContext memoryTrackingContext, DriverYieldSignal yieldSignal, WorkProcessor<Split> splits)
+        public WorkProcessorSourceOperator create(Session session, MemoryTrackingContext memoryTrackingContext, DriverYieldSignal yieldSignal, WorkProcessor<Split> splits, Tracer tracer)
         {
             assertNull(sourceOperator, "source operator already created");
             sourceOperator = new TestWorkProcessorSourceOperator(

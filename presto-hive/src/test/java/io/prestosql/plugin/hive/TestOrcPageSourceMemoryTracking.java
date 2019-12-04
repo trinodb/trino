@@ -508,7 +508,7 @@ public class TestOrcPageSourceMemoryTracking
             SourceOperatorFactory sourceOperatorFactory = new TableScanOperatorFactory(
                     0,
                     new PlanNodeId("0"),
-                    (session, split, table, columnHandles, dynamicFilter) -> pageSource,
+                    (session, split, table, columnHandles, dynamicFilter, engineTracer) -> pageSource,
                     TEST_TABLE_HANDLE,
                     columns.stream().map(columnHandle -> (ColumnHandle) columnHandle).collect(toImmutableList()));
             SourceOperator operator = sourceOperatorFactory.createOperator(driverContext, createNoOpTracer());
@@ -529,7 +529,7 @@ public class TestOrcPageSourceMemoryTracking
                     0,
                     new PlanNodeId("test"),
                     new PlanNodeId("0"),
-                    (session, split, table, columnHandles, dynamicFilter) -> pageSource,
+                    (session, split, table, columnHandles, dynamicFilter, engineTracer) -> pageSource,
                     cursorProcessor,
                     pageProcessor,
                     TEST_TABLE_HANDLE,

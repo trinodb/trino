@@ -117,7 +117,8 @@ public class TableScanOperator
                 Session session,
                 MemoryTrackingContext memoryTrackingContext,
                 DriverYieldSignal yieldSignal,
-                WorkProcessor<Split> splits)
+                WorkProcessor<Split> splits,
+                Tracer tracer)
         {
             return new TableScanWorkProcessorOperator(
                     session,
@@ -291,7 +292,7 @@ public class TableScanOperator
             return null;
         }
         if (source == null) {
-            source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, table, columns, TupleDomain::all);
+            source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, table, columns, TupleDomain::all, tracer);
         }
 
         Page page = source.getNextPage();

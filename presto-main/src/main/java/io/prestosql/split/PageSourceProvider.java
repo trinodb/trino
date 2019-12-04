@@ -19,6 +19,7 @@ import io.prestosql.metadata.TableHandle;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.tracer.Tracer;
 
 import java.util.List;
 import java.util.function.Supplier;
@@ -30,5 +31,6 @@ public interface PageSourceProvider
             Split split,
             TableHandle table,
             List<ColumnHandle> columns,
-            Supplier<TupleDomain<ColumnHandle>> dynamicFilter);
+            Supplier<TupleDomain<ColumnHandle>> dynamicFilter,
+            Tracer engineTracer);
 }

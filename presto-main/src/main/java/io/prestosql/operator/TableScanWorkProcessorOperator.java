@@ -42,6 +42,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.prestosql.operator.PageUtils.recordMaterializedBytes;
+import static io.prestosql.tracer.NoOpTracerFactory.createNoOpTracer;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -153,7 +154,7 @@ public class TableScanWorkProcessorOperator
             }
 
             checkState(source == null, "Table scan split already set");
-            source = pageSourceProvider.createPageSource(session, split, table, columns, TupleDomain::all);
+            source = pageSourceProvider.createPageSource(session, split, table, columns, TupleDomain::all, createNoOpTracer());
             return TransformationState.ofResult(
                     WorkProcessor.create(new ConnectorPageSourceToPages(aggregatedMemoryContext, source))
                             .map(page -> {

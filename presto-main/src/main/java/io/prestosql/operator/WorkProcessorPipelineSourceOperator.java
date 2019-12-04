@@ -104,7 +104,8 @@ public class WorkProcessorPipelineSourceOperator
             int operatorId,
             DriverContext driverContext,
             WorkProcessorSourceOperatorFactory sourceOperatorFactory,
-            List<WorkProcessorOperatorFactory> operatorFactories)
+            List<WorkProcessorOperatorFactory> operatorFactories,
+            Tracer tracer)
     {
         requireNonNull(driverContext, "driverContext is null");
         requireNonNull(sourceOperatorFactory, "sourceOperatorFactory is null");
@@ -125,7 +126,8 @@ public class WorkProcessorPipelineSourceOperator
                 operatorContext.getSession(),
                 sourceOperatorMemoryTrackingContext,
                 operatorContext.getDriverContext().getYieldSignal(),
-                splits);
+                splits,
+                tracer);
         workProcessorOperatorContexts.add(new WorkProcessorOperatorContext(
                 sourceOperator,
                 sourceOperatorFactory.getOperatorId(),
@@ -708,7 +710,8 @@ public class WorkProcessorPipelineSourceOperator
         public SourceOperator createOperator(DriverContext driverContext, Tracer pipelineTracer)
         {
             checkState(!closed, "Factory is already closed");
-            return new WorkProcessorPipelineSourceOperator(operatorId, driverContext, sourceOperatorFactory, operatorFactories);
+            Tracer tracer = pipelineTracer.withOperatorId(String.valueOf(operatorId));
+            return new WorkProcessorPipelineSourceOperator(operatorId, driverContext, sourceOperatorFactory, operatorFactories, tracer);
         }
 
         @Override

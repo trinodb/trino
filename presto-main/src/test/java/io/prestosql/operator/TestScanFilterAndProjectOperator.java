@@ -106,8 +106,7 @@ public class TestScanFilterAndProjectOperator
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                 0,
                 new PlanNodeId("test"),
-                new PlanNodeId("0"),
-                (session, split, table, columns, dynamicFilter) -> new FixedPageSource(ImmutableList.of(input)),
+                new PlanNodeId("0"), (session, split, table, columns, dynamicFilter, engineTracer) -> new FixedPageSource(ImmutableList.of(input)),
                 cursorProcessor,
                 pageProcessor,
                 TEST_TABLE_HANDLE,
@@ -150,8 +149,7 @@ public class TestScanFilterAndProjectOperator
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                 0,
                 new PlanNodeId("test"),
-                new PlanNodeId("0"),
-                (session, split, table, columns, dynamicFilter) -> new FixedPageSource(input),
+                new PlanNodeId("0"), (session, split, table, columns, dynamicFilter, engineTracer) -> new FixedPageSource(input),
                 cursorProcessor,
                 pageProcessor,
                 TEST_TABLE_HANDLE,
@@ -195,8 +193,7 @@ public class TestScanFilterAndProjectOperator
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                 0,
                 new PlanNodeId("test"),
-                new PlanNodeId("0"),
-                (session, split, table, columns, dynamicFilter) -> new SinglePagePageSource(input),
+                new PlanNodeId("0"), (session, split, table, columns, dynamicFilter, engineTracer) -> new SinglePagePageSource(input),
                 cursorProcessor,
                 () -> pageProcessor,
                 TEST_TABLE_HANDLE,
@@ -230,8 +227,7 @@ public class TestScanFilterAndProjectOperator
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                 0,
                 new PlanNodeId("test"),
-                new PlanNodeId("0"),
-                (session, split, table, columns, dynamicFilter) -> new RecordPageSource(new PageRecordSet(ImmutableList.of(VARCHAR), input)),
+                new PlanNodeId("0"), (session, split, table, columns, dynamicFilter, engineTracer) -> new RecordPageSource(new PageRecordSet(ImmutableList.of(VARCHAR), input)),
                 cursorProcessor,
                 pageProcessor,
                 TEST_TABLE_HANDLE,
@@ -283,8 +279,7 @@ public class TestScanFilterAndProjectOperator
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                 0,
                 new PlanNodeId("test"),
-                new PlanNodeId("0"),
-                (session, split, table, columns, dynamicFilter) -> new FixedPageSource(ImmutableList.of(input)),
+                new PlanNodeId("0"), (session, split, table, columns, dynamicFilter, engineTracer) -> new FixedPageSource(ImmutableList.of(input)),
                 cursorProcessor,
                 pageProcessor,
                 TEST_TABLE_HANDLE,
@@ -349,8 +344,7 @@ public class TestScanFilterAndProjectOperator
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                 0,
                 new PlanNodeId("test"),
-                new PlanNodeId("0"),
-                (session, split, table, columns, dynamicFilter) -> new RecordPageSource(new PageRecordSet(ImmutableList.of(BIGINT), input)),
+                new PlanNodeId("0"), (session, split, table, columns, dynamicFilter, engineTracer) -> new RecordPageSource(new PageRecordSet(ImmutableList.of(BIGINT), input)),
                 cursorProcessor,
                 pageProcessor,
                 TEST_TABLE_HANDLE,

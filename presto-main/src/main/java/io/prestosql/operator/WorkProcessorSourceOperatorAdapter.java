@@ -20,6 +20,7 @@ import io.prestosql.memory.context.MemoryTrackingContext;
 import io.prestosql.metadata.Split;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.connector.UpdatablePageSource;
+import io.prestosql.spi.tracer.Tracer;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import java.util.ArrayList;
@@ -59,13 +60,14 @@ public class WorkProcessorSourceOperatorAdapter
                 Session session,
                 MemoryTrackingContext memoryTrackingContext,
                 DriverYieldSignal yieldSignal,
-                WorkProcessor<Split> splits)
+                WorkProcessor<Split> splits,
+                Tracer tracer)
         {
-            return create(session, memoryTrackingContext, yieldSignal, splits);
+            return create(session, memoryTrackingContext, yieldSignal, splits, tracer);
         }
     }
 
-    public WorkProcessorSourceOperatorAdapter(OperatorContext operatorContext, AdapterWorkProcessorSourceOperatorFactory sourceOperatorFactory)
+    public WorkProcessorSourceOperatorAdapter(OperatorContext operatorContext, AdapterWorkProcessorSourceOperatorFactory sourceOperatorFactory, Tracer tracer)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.sourceId = requireNonNull(sourceOperatorFactory, "sourceOperatorFactory is null").getSourceId();
@@ -78,7 +80,8 @@ public class WorkProcessorSourceOperatorAdapter
                                 operatorContext.aggregateRevocableMemoryContext(),
                                 operatorContext.aggregateSystemMemoryContext()),
                         operatorContext.getDriverContext().getYieldSignal(),
-                        WorkProcessor.create(splitBuffer));
+                        WorkProcessor.create(splitBuffer),
+                        tracer);
         this.pages = sourceOperator.getOutputPages()
                 .map(Page::getLoadedPage)
                 .withProcessStateMonitor(state -> updateOperatorStats())

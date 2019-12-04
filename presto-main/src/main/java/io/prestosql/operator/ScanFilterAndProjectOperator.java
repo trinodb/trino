@@ -74,6 +74,8 @@ public class ScanFilterAndProjectOperator
     private long physicalBytes;
     private long readTimeNanos;
 
+    private final Tracer tracer;
+
     private ScanFilterAndProjectOperator(
             Session session,
             MemoryTrackingContext memoryTrackingContext,
@@ -88,7 +90,8 @@ public class ScanFilterAndProjectOperator
             Iterable<Type> types,
             DataSize minOutputPageSize,
             int minOutputPageRowCount,
-            boolean avoidPageMaterialization)
+            boolean avoidPageMaterialization,
+            Tracer tracer)
     {
         pages = splits.flatTransform(
                 new SplitToPages(
@@ -105,6 +108,7 @@ public class ScanFilterAndProjectOperator
                         minOutputPageSize,
                         minOutputPageRowCount,
                         avoidPageMaterialization));
+        this.tracer = requireNonNull(tracer, "tracer is null");
     }
 
     @Override
@@ -238,7 +242,7 @@ public class ScanFilterAndProjectOperator
                 source = new EmptySplitPageSource();
             }
             else {
-                source = pageSourceProvider.createPageSource(session, split, table, columns, dynamicFilter);
+                source = pageSourceProvider.createPageSource(session, split, table, columns, dynamicFilter, tracer);
             }
 
             if (source instanceof RecordPageSource) {
@@ -457,7 +461,8 @@ public class ScanFilterAndProjectOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, getOperatorType());
-            return new WorkProcessorSourceOperatorAdapter(operatorContext, this);
+            Tracer tracer = pipelineTracer.withOperatorId(String.valueOf(operatorId));
+            return new WorkProcessorSourceOperatorAdapter(operatorContext, this, tracer);
         }
 
         @Override
@@ -465,9 +470,10 @@ public class ScanFilterAndProjectOperator
                 Session session,
                 MemoryTrackingContext memoryTrackingContext,
                 DriverYieldSignal yieldSignal,
-                WorkProcessor<Split> splits)
+                WorkProcessor<Split> splits,
+                Tracer tracer)
         {
-            return create(session, memoryTrackingContext, yieldSignal, splits, true);
+            return create(session, memoryTrackingContext, yieldSignal, splits, true, tracer);
         }
 
         @Override
@@ -475,9 +481,9 @@ public class ScanFilterAndProjectOperator
                 Session session,
                 MemoryTrackingContext memoryTrackingContext,
                 DriverYieldSignal yieldSignal,
-                WorkProcessor<Split> splits)
+                WorkProcessor<Split> splits, Tracer tracer)
         {
-            return create(session, memoryTrackingContext, yieldSignal, splits, false);
+            return create(session, memoryTrackingContext, yieldSignal, splits, false, tracer);
         }
 
         private ScanFilterAndProjectOperator create(
@@ -485,7 +491,8 @@ public class ScanFilterAndProjectOperator
                 MemoryTrackingContext memoryTrackingContext,
                 DriverYieldSignal yieldSignal,
                 WorkProcessor<Split> splits,
-                boolean avoidPageMaterialization)
+                boolean avoidPageMaterialization,
+                Tracer tracer)
         {
             return new ScanFilterAndProjectOperator(
                     session,
@@ -501,7 +508,8 @@ public class ScanFilterAndProjectOperator
                     types,
                     minOutputPageSize,
                     minOutputPageRowCount,
-                    avoidPageMaterialization);
+                    avoidPageMaterialization,
+                    tracer);
         }
 
         @Override

@@ -166,6 +166,7 @@ import io.prestosql.sql.tree.SetSession;
 import io.prestosql.sql.tree.StartTransaction;
 import io.prestosql.sql.tree.Statement;
 import io.prestosql.testing.PageConsumerOperator.PageConsumerOutputFactory;
+import io.prestosql.tracer.TracerManager;
 import io.prestosql.transaction.InMemoryTransactionManager;
 import io.prestosql.transaction.TransactionManager;
 import io.prestosql.transaction.TransactionManagerConfig;
@@ -252,6 +253,7 @@ public class LocalQueryRunner
     private final boolean alwaysRevokeMemory;
     private final NodeSpillConfig nodeSpillConfig;
     private final FeaturesConfig featuresConfig;
+    private final TracerManager tracerManager;
     private boolean printPlan;
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
@@ -311,7 +313,8 @@ public class LocalQueryRunner
                 new ColumnPropertyManager(),
                 new AnalyzePropertyManager(),
                 transactionManager);
-        this.splitManager = new SplitManager(new QueryManagerConfig(), metadata);
+        this.tracerManager = new TracerManager();
+        this.splitManager = new SplitManager(new QueryManagerConfig(), metadata, tracerManager);
         this.planFragmenter = new PlanFragmenter(this.metadata, this.nodePartitioningManager, new QueryManagerConfig());
         this.joinCompiler = new JoinCompiler(metadata);
         PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(joinCompiler);
@@ -320,7 +323,7 @@ public class LocalQueryRunner
         this.costCalculator = new CostCalculatorUsingExchanges(taskCountEstimator);
         this.estimatedExchangesCostCalculator = new CostCalculatorWithEstimatedExchanges(costCalculator, taskCountEstimator);
         this.accessControl = new TestingAccessControlManager(transactionManager);
-        this.pageSourceManager = new PageSourceManager();
+        this.pageSourceManager = new PageSourceManager(tracerManager);
 
         this.pageFunctionCompiler = new PageFunctionCompiler(metadata, 0);
         this.expressionCompiler = new ExpressionCompiler(metadata, pageFunctionCompiler);
@@ -342,7 +345,8 @@ public class LocalQueryRunner
                 new EmbedVersion(new ServerConfig()),
                 pageSorter,
                 pageIndexerFactory,
-                transactionManager);
+                transactionManager,
+            tracerManager);
 
         GlobalSystemConnectorFactory globalSystemConnectorFactory = new GlobalSystemConnectorFactory(ImmutableSet.of(
                 new NodeSystemTable(nodeManager),

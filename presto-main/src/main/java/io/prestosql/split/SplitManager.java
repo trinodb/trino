@@ -24,7 +24,10 @@ import io.prestosql.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
 import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
 import io.prestosql.spi.connector.Constraint;
+import io.prestosql.spi.tracer.ConnectorEventEmitter;
+import io.prestosql.spi.tracer.ConnectorTracer;
 import io.prestosql.spi.tracer.Tracer;
+import io.prestosql.tracer.TracerManager;
 
 import javax.inject.Inject;
 
@@ -40,6 +43,7 @@ import static java.util.Objects.requireNonNull;
 public class SplitManager
 {
     private final ConcurrentMap<CatalogName, ConnectorSplitManager> splitManagers = new ConcurrentHashMap<>();
+    private final TracerManager tracerManager;
     private final int minScheduleSplitBatchSize;
 
     // NOTE: This only used for filling in the table layout if none is present by the time we
@@ -48,10 +52,11 @@ public class SplitManager
     private final Metadata metadata;
 
     @Inject
-    public SplitManager(QueryManagerConfig config, Metadata metadata)
+    public SplitManager(QueryManagerConfig config, Metadata metadata, TracerManager tracerManager)
     {
         this.minScheduleSplitBatchSize = config.getMinScheduleSplitBatchSize();
         this.metadata = metadata;
+        this.tracerManager = tracerManager;
     }
 
     public void addConnectorSplitManager(CatalogName catalogName, ConnectorSplitManager connectorSplitManager)
@@ -70,6 +75,7 @@ public class SplitManager
     {
         CatalogName catalogName = table.getCatalogName();
         ConnectorSplitManager splitManager = getConnectorSplitManager(catalogName);
+        Optional<ConnectorTracer> tracer = tracerManager.getConnectorTracer(catalogName, new ConnectorEventEmitter(engineTracer));
 
         ConnectorSession connectorSession = session.toConnectorSession(catalogName);
 
