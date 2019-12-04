@@ -68,7 +68,7 @@ jobs:
       - name: Install Hive Module
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./mvnw install ${MAVEN_FAST_INSTALL} -pl presto-hive-hadoop2 -am
+          ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl presto-hive-hadoop2
       - name: Run Hive Tests
         run: |
           source presto-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
@@ -84,7 +84,7 @@ jobs:
       - name: Install Kudu Module
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./mvnw install ${MAVEN_FAST_INSTALL} -pl presto-kudu -am
+          ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl presto-kudu
       - name: Run Kudu Tests -- disable InferSchema
         run: presto-kudu/bin/run_kudu_tests.sh "null"
       - name: Run Kudu Tests -- enable InferSchema, empty prefix
@@ -102,7 +102,7 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./mvnw install ${MAVEN_FAST_INSTALL} -pl presto-tests -am
+          ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl presto-tests
       - name: Maven Tests
         run: ./mvnw test -B -e -Dair.check.skip-all -pl presto-tests -P ci-only
 
@@ -157,7 +157,7 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./mvnw install ${MAVEN_FAST_INSTALL} -pl '${{ matrix.modules }}' -am
+          ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl '${{ matrix.modules }}'
       - name: Maven Tests
         run: ./mvnw test -B -e -Dair.check.skip-all -pl '${{ matrix.modules }}'
 
