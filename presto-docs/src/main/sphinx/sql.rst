@@ -9,6 +9,7 @@ This chapter describes the SQL syntax used in Presto.
 
     sql/alter-schema
     sql/alter-table
+    sql/alter-view
     sql/analyze
     sql/call
     sql/comment
