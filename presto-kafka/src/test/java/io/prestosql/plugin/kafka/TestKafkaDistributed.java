@@ -14,38 +14,31 @@
 package io.prestosql.plugin.kafka;
 
 import io.airlift.tpch.TpchTable;
-import io.prestosql.plugin.kafka.util.EmbeddedKafka;
+import io.prestosql.plugin.kafka.util.TestingKafka;
 import io.prestosql.testing.AbstractTestQueries;
+import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
-
 import static io.prestosql.plugin.kafka.KafkaQueryRunner.createKafkaQueryRunner;
-import static io.prestosql.plugin.kafka.util.EmbeddedKafka.createEmbeddedKafka;
 
 @Test
 public class TestKafkaDistributed
         extends AbstractTestQueries
 {
-    private final EmbeddedKafka embeddedKafka;
+    private TestingKafka testingKafka;
 
-    public TestKafkaDistributed()
+    @Override
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this(createEmbeddedKafka());
-    }
-
-    public TestKafkaDistributed(EmbeddedKafka embeddedKafka)
-    {
-        super(() -> createKafkaQueryRunner(embeddedKafka, TpchTable.getTables()));
-        this.embeddedKafka = embeddedKafka;
+        testingKafka = new TestingKafka();
+        return createKafkaQueryRunner(testingKafka, TpchTable.getTables());
     }
 
     @AfterClass(alwaysRun = true)
     public void destroy()
-            throws IOException
     {
-        embeddedKafka.close();
+        testingKafka.close();
     }
 }

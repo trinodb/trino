@@ -17,8 +17,8 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.TableHandle;
-import io.prestosql.plugin.kafka.util.EmbeddedKafka;
 import io.prestosql.plugin.kafka.util.TestUtils;
+import io.prestosql.plugin.kafka.util.TestingKafka;
 import io.prestosql.security.AllowAllAccessControl;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.type.BigintType;
@@ -35,8 +35,8 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.UUID;
 
-import static io.prestosql.plugin.kafka.util.EmbeddedKafka.CloseableProducer;
 import static io.prestosql.plugin.kafka.util.TestUtils.createEmptyTopicDescription;
+import static io.prestosql.plugin.kafka.util.TestingKafka.CloseableProducer;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static io.prestosql.transaction.TransactionBuilder.transaction;
@@ -50,24 +50,22 @@ public class TestMinimalFunctionality
             .setSchema("default")
             .build();
 
-    private EmbeddedKafka embeddedKafka;
+    private TestingKafka testingKafka;
     private String topicName;
     private StandaloneQueryRunner queryRunner;
 
     @BeforeClass
     public void startKafka()
-            throws Exception
     {
-        embeddedKafka = EmbeddedKafka.createEmbeddedKafka();
-        embeddedKafka.start();
+        testingKafka = new TestingKafka();
+        testingKafka.start();
     }
 
     @AfterClass(alwaysRun = true)
     public void stopKafka()
-            throws Exception
     {
-        embeddedKafka.close();
-        embeddedKafka = null;
+        testingKafka.close();
+        testingKafka = null;
     }
 
     @BeforeMethod
@@ -76,11 +74,11 @@ public class TestMinimalFunctionality
         this.topicName = "test_" + UUID.randomUUID().toString().replaceAll("-", "_");
 
         Properties topicProperties = new Properties();
-        embeddedKafka.createTopics(2, 1, topicProperties, topicName);
+        testingKafka.createTopics(2, 1, topicProperties, topicName);
 
         this.queryRunner = new StandaloneQueryRunner(SESSION);
 
-        TestUtils.installKafkaPlugin(embeddedKafka, queryRunner,
+        TestUtils.installKafkaPlugin(testingKafka, queryRunner,
                 ImmutableMap.<SchemaTableName, KafkaTopicDescription>builder()
                         .put(createEmptyTopicDescription(topicName, new SchemaTableName("default", topicName)))
                         .build());
@@ -95,7 +93,7 @@ public class TestMinimalFunctionality
 
     private void createMessages(String topicName, int count)
     {
-        try (CloseableProducer<Long, Object> producer = embeddedKafka.createProducer()) {
+        try (CloseableProducer<Long, Object> producer = testingKafka.createProducer()) {
             for (long i = 0; i < count; i++) {
                 Object message = ImmutableMap.of("id", Long.toString(i), "value", UUID.randomUUID().toString());
                 producer.send(new KeyedMessage<>(topicName, i, message));
