@@ -16,6 +16,7 @@ package io.prestosql.server.remotetask;
 import com.google.common.base.Ticker;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 import com.google.common.net.HttpHeaders;
@@ -92,6 +93,8 @@ import static io.prestosql.execution.TaskState.ABORTED;
 import static io.prestosql.execution.TaskState.FAILED;
 import static io.prestosql.execution.TaskStatus.failWith;
 import static io.prestosql.server.remotetask.RequestErrorTracker.logError;
+import static io.prestosql.spi.tracer.TracerEventType.SEND_UPDATE_TASK_REQUEST_END;
+import static io.prestosql.spi.tracer.TracerEventType.SEND_UPDATE_TASK_REQUEST_START;
 import static io.prestosql.util.Failures.toFailure;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -529,6 +532,8 @@ public final class HttpRemoteTask
 
         updateErrorTracker.startRequest();
 
+        tracer.emitEvent(SEND_UPDATE_TASK_REQUEST_START, () -> ImmutableMap.of("request", request.toString()));
+
         ListenableFuture<JsonResponse<TaskInfo>> future = httpClient.executeAsync(request, createFullJsonResponseHandler(taskInfoCodec));
         currentRequest = future;
         currentRequestStartNanos = System.nanoTime();
@@ -771,6 +776,8 @@ public final class HttpRemoteTask
         public void success(TaskInfo value)
         {
             try (SetThreadName ignored = new SetThreadName("UpdateResponseHandler-%s", taskId)) {
+                tracer.emitEvent(SEND_UPDATE_TASK_REQUEST_END, () -> ImmutableMap.of("response", value.toString()));
+
                 try {
                     long currentRequestStartNanos;
                     synchronized (HttpRemoteTask.this) {
@@ -792,6 +799,8 @@ public final class HttpRemoteTask
         public void failed(Throwable cause)
         {
             try (SetThreadName ignored = new SetThreadName("UpdateResponseHandler-%s", taskId)) {
+                tracer.emitEvent(SEND_UPDATE_TASK_REQUEST_END, () -> ImmutableMap.of("error", cause == null ? null : cause.toString()));
+
                 try {
                     long currentRequestStartNanos;
                     synchronized (HttpRemoteTask.this) {
@@ -825,6 +834,8 @@ public final class HttpRemoteTask
         @Override
         public void fatal(Throwable cause)
         {
+            tracer.emitEvent(SEND_UPDATE_TASK_REQUEST_END, () -> ImmutableMap.of("error", cause == null ? null : cause.toString()));
+
             try (SetThreadName ignored = new SetThreadName("UpdateResponseHandler-%s", taskId)) {
                 failTask(cause);
             }

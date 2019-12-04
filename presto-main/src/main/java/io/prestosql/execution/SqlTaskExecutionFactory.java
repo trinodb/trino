@@ -32,6 +32,8 @@ import java.util.concurrent.Executor;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static io.prestosql.execution.SqlTaskExecution.createSqlTaskExecution;
+import static io.prestosql.spi.tracer.TracerEventType.CREATE_LOCAL_PLAN_END;
+import static io.prestosql.spi.tracer.TracerEventType.CREATE_LOCAL_PLAN_START;
 import static java.util.Objects.requireNonNull;
 
 public class SqlTaskExecutionFactory
@@ -73,6 +75,7 @@ public class SqlTaskExecutionFactory
         LocalExecutionPlan localExecutionPlan;
         try (SetThreadName ignored = new SetThreadName("Task-%s", taskStateMachine.getTaskId())) {
             try {
+                tracer.emitEvent(CREATE_LOCAL_PLAN_START, null);
                 localExecutionPlan = planner.plan(
                         taskContext,
                         fragment.getRoot(),
@@ -81,6 +84,7 @@ public class SqlTaskExecutionFactory
                         fragment.getStageExecutionDescriptor(),
                         fragment.getPartitionedSources(),
                         outputBuffer);
+                tracer.emitEvent(CREATE_LOCAL_PLAN_END, null);
             }
             catch (Throwable e) {
                 // planning failed

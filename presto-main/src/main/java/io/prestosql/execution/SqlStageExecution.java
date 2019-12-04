@@ -66,6 +66,8 @@ import static io.prestosql.failuredetector.FailureDetector.State.GONE;
 import static io.prestosql.operator.ExchangeOperator.REMOTE_CONNECTOR_ID;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.StandardErrorCode.REMOTE_HOST_GONE;
+import static io.prestosql.spi.tracer.TracerEventType.ADD_SPLITS_TO_TASK;
+import static io.prestosql.spi.tracer.TracerEventType.SCHEDULE_TASK_WITH_SPLITS;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -158,6 +160,7 @@ public final class SqlStageExecution
         }
         this.exchangeSources = fragmentToExchangeSource.build();
         this.tracer = requireNonNull(tracer, "tracer is null");
+        this.stateMachine.addStateChangeListener((state) -> tracer.emitEvent(state.toTracerEventType(), null));
     }
 
     // this is a separate method to ensure that the `this` reference is not leaked during construction
@@ -399,8 +402,9 @@ public final class SqlStageExecution
         }
         else {
             task = tasks.iterator().next();
-            Tracer taskTracer = tracer.withTaskId(String.valueOf(task.getTaskId().getId()));
             task.addSplits(splits);
+            Tracer taskTracer = tracer.withTaskId(String.valueOf(task.getTaskId().getId()));
+            taskTracer.emitEvent(ADD_SPLITS_TO_TASK, () -> ImmutableMap.of("splits", splits));
         }
         if (noMoreSplitsNotification.size() > 1) {
             // The assumption that `noMoreSplitsNotification.size() <= 1` currently holds.
@@ -417,7 +421,6 @@ public final class SqlStageExecution
     private synchronized RemoteTask scheduleTask(InternalNode node, TaskId taskId, Multimap<PlanNodeId, Split> sourceSplits, OptionalInt totalPartitions)
     {
         checkArgument(!allTasks.contains(taskId), "A task with id %s already exists", taskId);
-        Tracer taskTracer = tracer.withTaskId(String.valueOf(taskId.getId()));
 
         ImmutableMultimap.Builder<PlanNodeId, Split> initialSplits = ImmutableMultimap.builder();
         initialSplits.putAll(sourceSplits);
@@ -443,6 +446,8 @@ public final class SqlStageExecution
                 nodeTaskMap.createPartitionedSplitCountTracker(node, taskId),
                 summarizeTaskInfo,
                 tracer);
+        Tracer taskTracer = tracer.withTaskId(String.valueOf(taskId.getId()));
+        taskTracer.emitEvent(SCHEDULE_TASK_WITH_SPLITS, () -> ImmutableMap.of("splits", sourceSplits));
 
         completeSources.forEach(task::noMoreSplits);
 

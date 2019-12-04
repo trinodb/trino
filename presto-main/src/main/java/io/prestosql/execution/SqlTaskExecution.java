@@ -75,6 +75,7 @@ import static io.prestosql.execution.SqlTaskExecution.SplitsState.ADDING_SPLITS;
 import static io.prestosql.execution.SqlTaskExecution.SplitsState.FINISHED;
 import static io.prestosql.execution.SqlTaskExecution.SplitsState.NO_MORE_SPLITS;
 import static io.prestosql.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
+import static io.prestosql.spi.tracer.TracerEventType.CREATED_DRIVER;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -1086,6 +1087,7 @@ public class SqlTaskExecution
 
                 if (this.driver == null) {
                     this.driver = driverSplitRunnerFactory.createDriver(driverContext, partitionedSplit);
+                    this.pipelineTracer.emitEvent(CREATED_DRIVER, null);
                 }
 
                 driver = this.driver;

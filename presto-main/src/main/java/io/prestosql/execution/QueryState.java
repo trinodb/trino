@@ -13,49 +13,123 @@
  */
 package io.prestosql.execution;
 
+import io.prestosql.spi.tracer.TracerEventType;
+
 import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.prestosql.spi.tracer.TracerEventType.QUERY_STATE_CHANGE_DISPATCHING;
+import static io.prestosql.spi.tracer.TracerEventType.QUERY_STATE_CHANGE_FAILED;
+import static io.prestosql.spi.tracer.TracerEventType.QUERY_STATE_CHANGE_FINISHED;
+import static io.prestosql.spi.tracer.TracerEventType.QUERY_STATE_CHANGE_FINISHING;
+import static io.prestosql.spi.tracer.TracerEventType.QUERY_STATE_CHANGE_PLANNING;
+import static io.prestosql.spi.tracer.TracerEventType.QUERY_STATE_CHANGE_QUEUED;
+import static io.prestosql.spi.tracer.TracerEventType.QUERY_STATE_CHANGE_RUNNING;
+import static io.prestosql.spi.tracer.TracerEventType.QUERY_STATE_CHANGE_STARTING;
+import static io.prestosql.spi.tracer.TracerEventType.QUERY_STATE_CHANGE_WAITING_FOR_RESOURCES;
 
 public enum QueryState
 {
     /**
      * Query has been accepted and is awaiting execution.
      */
-    QUEUED(false),
+    QUEUED(false)
+    {
+        @Override
+        public TracerEventType toTracerEventType()
+        {
+            return QUERY_STATE_CHANGE_QUEUED;
+        }
+    },
     /**
      * Query is waiting for the required resources (beta).
      */
-    WAITING_FOR_RESOURCES(false),
+    WAITING_FOR_RESOURCES(false)
+    {
+        @Override
+        public TracerEventType toTracerEventType()
+        {
+            return QUERY_STATE_CHANGE_WAITING_FOR_RESOURCES;
+        }
+    },
     /**
      * Query is being dispatched to a coordinator.
      */
-    DISPATCHING(false),
+    DISPATCHING(false)
+    {
+        @Override
+        public TracerEventType toTracerEventType()
+        {
+            return QUERY_STATE_CHANGE_DISPATCHING;
+        }
+    },
     /**
      * Query is being planned.
      */
-    PLANNING(false),
+    PLANNING(false)
+    {
+        @Override
+        public TracerEventType toTracerEventType()
+        {
+            return QUERY_STATE_CHANGE_PLANNING;
+        }
+    },
     /**
      * Query execution is being started.
      */
-    STARTING(false),
+    STARTING(false)
+    {
+        @Override
+        public TracerEventType toTracerEventType()
+        {
+            return QUERY_STATE_CHANGE_STARTING;
+        }
+    },
     /**
      * Query has at least one running task.
      */
-    RUNNING(false),
+    RUNNING(false)
+    {
+        @Override
+        public TracerEventType toTracerEventType()
+        {
+            return QUERY_STATE_CHANGE_RUNNING;
+        }
+    },
     /**
      * Query is finishing (e.g. commit for autocommit queries)
      */
-    FINISHING(false),
+    FINISHING(false)
+    {
+        @Override
+        public TracerEventType toTracerEventType()
+        {
+            return QUERY_STATE_CHANGE_FINISHING;
+        }
+    },
     /**
      * Query has finished executing and all output has been consumed.
      */
-    FINISHED(true),
+    FINISHED(true)
+    {
+        @Override
+        public TracerEventType toTracerEventType()
+        {
+            return QUERY_STATE_CHANGE_FINISHED;
+        }
+    },
     /**
      * Query execution failed.
      */
-    FAILED(true);
+    FAILED(true)
+    {
+        @Override
+        public TracerEventType toTracerEventType()
+        {
+            return QUERY_STATE_CHANGE_FAILED;
+        }
+    };
 
     public static final Set<QueryState> TERMINAL_QUERY_STATES = Stream.of(QueryState.values()).filter(QueryState::isDone).collect(toImmutableSet());
 
@@ -64,6 +138,11 @@ public enum QueryState
     QueryState(boolean doneState)
     {
         this.doneState = doneState;
+    }
+
+    public TracerEventType toTracerEventType()
+    {
+        throw new UnsupportedOperationException();
     }
 
     /**

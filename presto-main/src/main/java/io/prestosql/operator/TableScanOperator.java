@@ -14,6 +14,7 @@
 package io.prestosql.operator;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.prestosql.Session;
@@ -42,6 +43,7 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
+import static io.prestosql.spi.tracer.TracerEventType.ADD_SPLIT_TO_OPERATOR;
 import static java.util.Objects.requireNonNull;
 
 public class TableScanOperator
@@ -188,6 +190,8 @@ public class TableScanOperator
         if (finished) {
             return Optional::empty;
         }
+
+        tracer.emitEvent(ADD_SPLIT_TO_OPERATOR, () -> ImmutableMap.of("split", split));
 
         this.split = split;
 

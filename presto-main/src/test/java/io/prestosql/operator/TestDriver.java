@@ -13,11 +13,14 @@
  */
 package io.prestosql.operator;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.Uninterruptibles;
+import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.Lifespan;
@@ -32,6 +35,10 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.FixedPageSource;
+import io.prestosql.spi.eventlistener.TracerEvent;
+import io.prestosql.spi.tracer.DefaultTracer;
+import io.prestosql.spi.tracer.Tracer;
+import io.prestosql.spi.tracer.TracerEventType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.split.PageSourceProvider;
 import io.prestosql.sql.planner.plan.PlanNodeId;
@@ -42,7 +49,11 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.io.Closeable;
+import java.net.URI;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -52,12 +63,14 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.prestosql.RowPagesBuilder.rowPagesBuilder;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.prestosql.spi.tracer.TracerEventType.ADD_SPLIT_TO_OPERATOR;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.TestingHandles.TEST_TABLE_HANDLE;
@@ -77,6 +90,7 @@ public class TestDriver
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
     private DriverContext driverContext;
+    private final JsonCodec<Map<String, Object>> jsonCodec = JsonCodec.mapJsonCodec(String.class, Object.class);
 
     @BeforeMethod
     public void setUp()
@@ -168,6 +182,8 @@ public class TestDriver
     {
         PlanNodeId sourceId = new PlanNodeId("source");
         final List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
+        List<TracerEvent> tracerEvents = Collections.synchronizedList(new ArrayList<>());
+        Tracer tracer = DefaultTracer.createBasicTracer(tracerEvents::add, jsonCodec::toJson, "node", URI.create("http://test.com"), "0");
         TableScanOperator source = new TableScanOperator(driverContext.addOperatorContext(99, new PlanNodeId("test"), "values"),
                 sourceId,
                 (session, split, table, columns, dynamicFilter) -> new FixedPageSource(rowPagesBuilder(types)
@@ -175,7 +191,7 @@ public class TestDriver
                         .build()),
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(),
-                createNoOpTracer());
+                tracer);
 
         PageConsumerOperator sink = createSinkOperator(types);
         Driver driver = Driver.createDriver(driverContext, source, sink);
@@ -194,6 +210,8 @@ public class TestDriver
 
         assertTrue(sink.isFinished());
         assertTrue(source.isFinished());
+
+        checkContainAllTracerEventTypes(tracerEvents, ImmutableList.of(ADD_SPLIT_TO_OPERATOR));
     }
 
     @Test
@@ -331,6 +349,12 @@ public class TestDriver
         }
     }
 
+    private void checkContainAllTracerEventTypes(List<TracerEvent> tracerEvents, List<TracerEventType> expectedEventTypes)
+    {
+        List<String> eventTypes = tracerEvents.stream().map(TracerEvent::getEventType).collect(Collectors.toList());
+        assertTrue(expectedEventTypes.stream().map(TracerEventType::toTracerEventType).allMatch(eventTypes::contains));
+    }
+
     private void assertDriverInterrupted(Throwable cause)
     {
         checkArgument(cause instanceof PrestoException, "Expected root cause exception to be an instance of PrestoException");
@@ -340,7 +364,7 @@ public class TestDriver
 
     private static Split newMockSplit()
     {
-        return new Split(new CatalogName("test"), new MockSplit(), Lifespan.taskWide());
+        return new Split(new CatalogName("test"), new MockSplit("mockProperty"), Lifespan.taskWide());
     }
 
     private PageConsumerOperator createSinkOperator(List<Type> types)
@@ -504,9 +528,23 @@ public class TestDriver
         }
     }
 
-    private static class MockSplit
+    public static class MockSplit
             implements ConnectorSplit
     {
+        private final String mockProperty;
+
+        @JsonCreator
+        public MockSplit(@JsonProperty("mockProperty") String mockProperty)
+        {
+            this.mockProperty = mockProperty;
+        }
+
+        @JsonProperty
+        public String getMockProperty()
+        {
+            return mockProperty;
+        }
+
         @Override
         public boolean isRemotelyAccessible()
         {

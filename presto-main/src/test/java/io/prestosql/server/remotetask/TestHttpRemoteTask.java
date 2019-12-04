@@ -49,6 +49,9 @@ import io.prestosql.metadata.Split;
 import io.prestosql.server.HttpRemoteTaskFactory;
 import io.prestosql.server.TaskUpdateRequest;
 import io.prestosql.spi.ErrorCode;
+import io.prestosql.spi.eventlistener.TracerEvent;
+import io.prestosql.spi.tracer.DefaultTracer;
+import io.prestosql.spi.tracer.Tracer;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.testing.TestingHandleResolver;
@@ -71,7 +74,10 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.UriInfo;
 
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
 import java.util.concurrent.RejectedExecutionException;
@@ -90,8 +96,9 @@ import static io.prestosql.execution.buffer.OutputBuffers.createInitialEmptyOutp
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static io.prestosql.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
+import static io.prestosql.spi.tracer.TracerEventType.SEND_UPDATE_TASK_REQUEST_END;
+import static io.prestosql.spi.tracer.TracerEventType.SEND_UPDATE_TASK_REQUEST_START;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
-import static io.prestosql.tracer.NoOpTracerFactory.createNoOpTracer;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -112,6 +119,8 @@ public class TestHttpRemoteTask
             .setInfoUpdateInterval(new Duration(IDLE_TIMEOUT.roundTo(MILLISECONDS) / 10, MILLISECONDS));
 
     private static final boolean TRACE_HTTP = false;
+
+    private final JsonCodec<Map<String, Object>> jsonCodec = JsonCodec.mapJsonCodec(String.class, Object.class);
 
     @Test(timeOut = 30000)
     public void testRemoteTaskMismatch()
@@ -142,8 +151,8 @@ public class TestHttpRemoteTask
         TestingTaskResource testingTaskResource = new TestingTaskResource(lastActivityNanos, FailureScenario.NO_FAILURE);
 
         HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource);
-
-        RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory);
+        List<TracerEvent> tracerEvents = Collections.synchronizedList(new ArrayList<>());
+        RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory, tracerEvents);
 
         testingTaskResource.setInitialTaskInfo(remoteTask.getTaskInfo());
         remoteTask.start();
@@ -164,6 +173,8 @@ public class TestHttpRemoteTask
         poll(() -> remoteTask.getTaskInfo().getTaskStatus().getState().isDone());
 
         httpRemoteTaskFactory.stop();
+
+        checkUpdateTaskEvents(tracerEvents, 8);
     }
 
     private void runTest(FailureScenario failureScenario)
@@ -173,7 +184,8 @@ public class TestHttpRemoteTask
         TestingTaskResource testingTaskResource = new TestingTaskResource(lastActivityNanos, failureScenario);
 
         HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource);
-        RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory);
+        List<TracerEvent> tracerEvents = Collections.synchronizedList(new ArrayList<>());
+        RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory, tracerEvents);
 
         testingTaskResource.setInitialTaskInfo(remoteTask.getTaskInfo());
         remoteTask.start();
@@ -197,13 +209,34 @@ public class TestHttpRemoteTask
             default:
                 throw new UnsupportedOperationException();
         }
+
+        checkUpdateTaskEvents(tracerEvents, 2);
     }
 
-    private RemoteTask createRemoteTask(HttpRemoteTaskFactory httpRemoteTaskFactory)
+    private void checkUpdateTaskEvents(List<TracerEvent> tracerEvents, int eventsCount)
     {
+        long start = System.currentTimeMillis();
+        while (tracerEvents.size() < eventsCount) {
+            if (System.currentTimeMillis() - start > 5000) {
+                break;
+            }
+        }
+        assertEquals(tracerEvents.size(), eventsCount);
+
+        long requestCount = tracerEvents.stream().filter(event -> event.getEventType().equals(SEND_UPDATE_TASK_REQUEST_START.toTracerEventType())).count();
+        long responseCount = tracerEvents.stream().filter(event -> event.getEventType().equals(SEND_UPDATE_TASK_REQUEST_END.toTracerEventType())).count();
+        assertEquals(requestCount, responseCount);
+    }
+
+    private RemoteTask createRemoteTask(HttpRemoteTaskFactory httpRemoteTaskFactory, List<TracerEvent> tracerEvents)
+    {
+        TaskId taskId = new TaskId("test", 1, 2);
+        Tracer taskTracer = DefaultTracer.createBasicTracer(tracerEvents::add, jsonCodec::toJson, "node", URI.create("http://test.com"), taskId.getQueryId().getId())
+                    .withStageId(String.valueOf(taskId.getStageId().getId()))
+                    .withTaskId(String.valueOf(taskId.getId()));
         return httpRemoteTaskFactory.createRemoteTask(
                 TEST_SESSION,
-                new TaskId("test", 1, 2),
+                taskId,
                 new InternalNode("node-id", URI.create("http://fake.invalid/"), new NodeVersion("version"), false),
                 TaskTestUtils.PLAN_FRAGMENT,
                 ImmutableMultimap.of(),
@@ -211,7 +244,7 @@ public class TestHttpRemoteTask
                 createInitialEmptyOutputBuffers(OutputBuffers.BufferType.BROADCAST),
                 new NodeTaskMap.PartitionedSplitCountTracker(i -> {}),
                 true,
-                createNoOpTracer());
+                taskTracer);
     }
 
     private static HttpRemoteTaskFactory createHttpRemoteTaskFactory(TestingTaskResource testingTaskResource)

@@ -18,9 +18,11 @@ import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.json.JsonCodec;
 import io.airlift.stats.CounterStat;
 import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
+import io.prestosql.Session;
 import io.prestosql.execution.buffer.BufferResult;
 import io.prestosql.execution.buffer.BufferState;
 import io.prestosql.execution.buffer.OutputBuffers;
@@ -29,19 +31,28 @@ import io.prestosql.execution.executor.TaskExecutor;
 import io.prestosql.memory.MemoryPool;
 import io.prestosql.memory.QueryContext;
 import io.prestosql.spi.QueryId;
+import io.prestosql.spi.eventlistener.TracerEvent;
 import io.prestosql.spi.memory.MemoryPoolId;
+import io.prestosql.spi.tracer.DefaultTracer;
+import io.prestosql.spi.tracer.Tracer;
+import io.prestosql.spi.tracer.TracerEventType;
 import io.prestosql.spiller.SpillSpaceTracker;
 import io.prestosql.sql.planner.LocalExecutionPlanner;
-import io.prestosql.tracer.NoOpTracerFactory;
+import io.prestosql.tracer.TracerFactory;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
@@ -57,7 +68,12 @@ import static io.prestosql.execution.TaskTestUtils.createTestingPlanner;
 import static io.prestosql.execution.TaskTestUtils.updateTask;
 import static io.prestosql.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
 import static io.prestosql.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
+import static io.prestosql.spi.tracer.TracerEventType.TASK_STATE_CHANGE_CANCELED;
+import static io.prestosql.spi.tracer.TracerEventType.TASK_STATE_CHANGE_FAILED;
+import static io.prestosql.spi.tracer.TracerEventType.TASK_STATE_CHANGE_FINISHED;
+import static io.prestosql.spi.tracer.TracerEventType.TASK_STATE_CHANGE_RUNNING;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
@@ -107,7 +123,8 @@ public class TestSqlTask
     @Test
     public void testEmptyQuery()
     {
-        SqlTask sqlTask = createInitialTask();
+        List<TracerEvent> tracerEvents = Collections.synchronizedList(new ArrayList<>());
+        SqlTask sqlTask = createInitialTask(tracerEvents);
 
         TaskInfo taskInfo = sqlTask.updateTask(TEST_SESSION,
                 Optional.of(PLAN_FRAGMENT),
@@ -130,13 +147,15 @@ public class TestSqlTask
 
         taskInfo = sqlTask.getTaskInfo();
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
+        checkEvents(tracerEvents, ImmutableList.of(TASK_STATE_CHANGE_RUNNING, TASK_STATE_CHANGE_FINISHED));
     }
 
     @Test
     public void testSimpleQuery()
             throws Exception
     {
-        SqlTask sqlTask = createInitialTask();
+        List<TracerEvent> tracerEvents = Collections.synchronizedList(new ArrayList<>());
+        SqlTask sqlTask = createInitialTask(tracerEvents);
 
         TaskInfo taskInfo = sqlTask.updateTask(TEST_SESSION,
                 Optional.of(PLAN_FRAGMENT),
@@ -167,12 +186,14 @@ public class TestSqlTask
 
         taskInfo = sqlTask.getTaskInfo();
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
+        checkEvents(tracerEvents, ImmutableList.of(TASK_STATE_CHANGE_RUNNING, TASK_STATE_CHANGE_FINISHED));
     }
 
     @Test
     public void testCancel()
     {
-        SqlTask sqlTask = createInitialTask();
+        List<TracerEvent> tracerEvents = Collections.synchronizedList(new ArrayList<>());
+        SqlTask sqlTask = createInitialTask(tracerEvents);
 
         TaskInfo taskInfo = sqlTask.updateTask(TEST_SESSION,
                 Optional.of(PLAN_FRAGMENT),
@@ -195,13 +216,15 @@ public class TestSqlTask
         taskInfo = sqlTask.getTaskInfo();
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.CANCELED);
         assertNotNull(taskInfo.getStats().getEndTime());
+        checkEvents(tracerEvents, ImmutableList.of(TASK_STATE_CHANGE_RUNNING, TASK_STATE_CHANGE_CANCELED));
     }
 
     @Test
     public void testAbort()
             throws Exception
     {
-        SqlTask sqlTask = createInitialTask();
+        List<TracerEvent> tracerEvents = Collections.synchronizedList(new ArrayList<>());
+        SqlTask sqlTask = createInitialTask(tracerEvents);
 
         TaskInfo taskInfo = sqlTask.updateTask(TEST_SESSION,
                 Optional.of(PLAN_FRAGMENT),
@@ -220,13 +243,15 @@ public class TestSqlTask
 
         taskInfo = sqlTask.getTaskInfo();
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
+        checkEvents(tracerEvents, ImmutableList.of(TASK_STATE_CHANGE_RUNNING, TASK_STATE_CHANGE_FINISHED));
     }
 
     @Test
     public void testBufferCloseOnFinish()
             throws Exception
     {
-        SqlTask sqlTask = createInitialTask();
+        List<TracerEvent> tracerEvents = Collections.synchronizedList(new ArrayList<>());
+        SqlTask sqlTask = createInitialTask(tracerEvents);
 
         OutputBuffers outputBuffers = createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds();
         updateTask(sqlTask, EMPTY_SOURCES, outputBuffers);
@@ -247,13 +272,15 @@ public class TestSqlTask
         bufferResult = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE));
         assertTrue(bufferResult.isDone());
         assertTrue(bufferResult.get().isBufferComplete());
+        checkEvents(tracerEvents, ImmutableList.of(TASK_STATE_CHANGE_RUNNING, TASK_STATE_CHANGE_FINISHED));
     }
 
     @Test
     public void testBufferCloseOnCancel()
             throws Exception
     {
-        SqlTask sqlTask = createInitialTask();
+        List<TracerEvent> tracerEvents = Collections.synchronizedList(new ArrayList<>());
+        SqlTask sqlTask = createInitialTask(tracerEvents);
 
         updateTask(sqlTask, EMPTY_SOURCES, createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
 
@@ -269,13 +296,15 @@ public class TestSqlTask
         bufferResult = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE));
         assertTrue(bufferResult.isDone());
         assertTrue(bufferResult.get().isBufferComplete());
+        checkEvents(tracerEvents, ImmutableList.of(TASK_STATE_CHANGE_RUNNING, TASK_STATE_CHANGE_CANCELED));
     }
 
     @Test
     public void testBufferNotCloseOnFail()
             throws Exception
     {
-        SqlTask sqlTask = createInitialTask();
+        List<TracerEvent> tracerEvents = Collections.synchronizedList(new ArrayList<>());
+        SqlTask sqlTask = createInitialTask(tracerEvents);
 
         updateTask(sqlTask, EMPTY_SOURCES, createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
 
@@ -295,9 +324,10 @@ public class TestSqlTask
             // expected
         }
         assertFalse(sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE)).isDone());
+        checkEvents(tracerEvents, ImmutableList.of(TASK_STATE_CHANGE_RUNNING, TASK_STATE_CHANGE_FAILED));
     }
 
-    private SqlTask createInitialTask()
+    private SqlTask createInitialTask(List<TracerEvent> tracerEvents)
     {
         TaskId taskId = new TaskId("query", 0, nextTaskId.incrementAndGet());
         URI location = URI.create("fake://task/" + taskId);
@@ -324,6 +354,40 @@ public class TestSqlTask
                 Functions.identity(),
                 new DataSize(32, MEGABYTE),
                 new CounterStat(),
-                new NoOpTracerFactory());
+                new TestingTracerFactory(tracerEvents));
+    }
+
+    private void checkEvents(List<TracerEvent> tracerEvents, List<TracerEventType> expectedEventTypes)
+    {
+        long start = System.currentTimeMillis();
+        while (tracerEvents.size() == 0 ||
+                tracerEvents.get(tracerEvents.size() - 1).getEventType() != TASK_STATE_CHANGE_FAILED.toTracerEventType() ||
+                tracerEvents.get(tracerEvents.size() - 1).getEventType() != TASK_STATE_CHANGE_FINISHED.toTracerEventType() ||
+                tracerEvents.get(tracerEvents.size() - 1).getEventType() != TASK_STATE_CHANGE_CANCELED.toTracerEventType()) {
+            if (System.currentTimeMillis() - start > 5000) {
+                break;
+            }
+        }
+
+        List<String> eventTypes = tracerEvents.stream().map(TracerEvent::getEventType).collect(Collectors.toList());
+        assertTrue(expectedEventTypes.stream().map(TracerEventType::toTracerEventType).allMatch(eventTypes::contains));
+    }
+
+    private static class TestingTracerFactory
+            implements TracerFactory
+    {
+        private List<TracerEvent> tracerEvents;
+        private final JsonCodec<Map<String, Object>> jsonCodec = JsonCodec.mapJsonCodec(String.class, Object.class);
+
+        public TestingTracerFactory(List<TracerEvent> tracerEvents)
+        {
+            this.tracerEvents = requireNonNull(tracerEvents);
+        }
+
+        @Override
+        public Tracer createTracer(String queryId, Session session)
+        {
+            return DefaultTracer.createBasicTracer(this.tracerEvents::add, jsonCodec::toJson, "node", URI.create("http://test.com"), queryId);
+        }
     }
 }

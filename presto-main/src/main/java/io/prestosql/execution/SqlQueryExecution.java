@@ -181,6 +181,7 @@ public class SqlQueryExecution
             this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
 
             this.tracer = requireNonNull(tracer, "tracer is null");
+            this.stateMachine.addStateChangeListener((state) -> tracer.emitEvent(state.toTracerEventType(), null));
             // analyze query
             this.analysis = analyze(preparedQuery, stateMachine, metadata, accessControl, sqlParser, queryExplainer, warningCollector);
 
