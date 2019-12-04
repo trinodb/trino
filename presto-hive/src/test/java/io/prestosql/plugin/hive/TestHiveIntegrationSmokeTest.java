@@ -2870,6 +2870,24 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testRenameView()
+    {
+        assertUpdate("CREATE VIEW rename_view_original AS SELECT COUNT(*) as count FROM orders");
+
+        assertQuery("SELECT * FROM rename_view_original", "SELECT COUNT(*) FROM orders");
+
+        assertUpdate("CREATE SCHEMA view_rename");
+
+        assertUpdate("ALTER VIEW rename_view_original RENAME TO view_rename.rename_view_new");
+
+        assertQuery("SELECT * FROM view_rename.rename_view_new", "SELECT COUNT(*) FROM orders");
+
+        assertQueryFails("SELECT * FROM rename_view_original", ".*rename_view_original does not exist");
+
+        assertUpdate("DROP VIEW view_rename.rename_view_new");
+    }
+
+    @Test
     public void testAddColumn()
     {
         assertUpdate("CREATE TABLE test_add_column (a bigint COMMENT 'test comment AAA')");
