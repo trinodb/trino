@@ -92,20 +92,6 @@ jobs:
       - name: Run Kudu Tests -- enable InferSchema, standard prefix
         run: presto-kudu/bin/run_kudu_tests.sh "presto::"
 
-  presto-tests-ci-only:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v1
-      - uses: actions/setup-java@v1
-        with:
-          java-version: 8
-      - name: Maven Install
-        run: |
-          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl presto-tests
-      - name: Maven Tests
-        run: ./mvnw test -B -e -Dair.check.skip-all -pl presto-tests -P ci-only
-
   test-other-modules:
     runs-on: ubuntu-latest
     steps:
@@ -140,6 +126,7 @@ jobs:
         modules: [
           "presto-main",
           "presto-tests",
+          "presto-tests -P ci-only",
           "presto-raptor-legacy",
           "presto-accumulo",
           "presto-cassandra",
@@ -157,9 +144,9 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl '${{ matrix.modules }}'
+          ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl $(echo '${{ matrix.modules }}' | cut -d' ' -f1)
       - name: Maven Tests
-        run: ./mvnw test -B -e -Dair.check.skip-all -pl '${{ matrix.modules }}'
+        run: ./mvnw test -B -e -Dair.check.skip-all -pl ${{ matrix.modules }}
 
   product-tests:
     runs-on: ubuntu-latest
