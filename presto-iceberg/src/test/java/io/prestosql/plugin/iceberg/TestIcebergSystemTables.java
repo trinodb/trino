@@ -134,6 +134,21 @@ public class TestIcebergSystemTables
         assertQuery("SELECT summary['total-records'] FROM test_schema.\"test_table$snapshots\"", "VALUES '0', '3', '6'");
     }
 
+    @Test
+    public void testManifestsTable()
+    {
+        assertQuery("SHOW COLUMNS FROM test_schema.\"test_table$manifests\"",
+                "VALUES ('path', 'varchar', '', '')," +
+                        "('length', 'bigint', '', '')," +
+                        "('partition_spec_id', 'integer', '', '')," +
+                        "('added_snapshot_id', 'bigint', '', '')," +
+                        "('added_data_files_count', 'integer', '', '')," +
+                        "('existing_data_files_count', 'integer', '', '')," +
+                        "('deleted_data_files_count', 'integer', '', '')," +
+                        "('partitions', 'row(contains_null boolean, lower_bound varchar, upper_bound varchar)', '', '')");
+        assertQuerySucceeds("SELECT * FROM test_schema.\"test_table$manifests\"");
+    }
+
     @AfterClass(alwaysRun = true)
     public void tearDown()
     {
