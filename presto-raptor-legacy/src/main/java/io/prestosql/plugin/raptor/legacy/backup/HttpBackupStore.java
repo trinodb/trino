@@ -14,8 +14,7 @@
 package io.prestosql.plugin.raptor.legacy.backup;
 
 import com.google.common.io.ByteStreams;
-import com.google.common.io.Files;
-import io.airlift.http.client.BodyGenerator;
+import io.airlift.http.client.FileBodyGenerator;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.Request;
@@ -33,7 +32,6 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.URI;
 import java.util.UUID;
 import java.util.function.Supplier;
@@ -81,7 +79,7 @@ public class HttpBackupStore
                 .addHeader(CONTENT_TYPE, APPLICATION_BINARY.toString())
                 .addHeader(CONTENT_XXH64, format("%016x", xxHash64(source)))
                 .setUri(shardUri(uuid))
-                .setBodyGenerator(new FileBodyGenerator(source))
+                .setBodyGenerator(new FileBodyGenerator(source.toPath()))
                 .build();
 
         try {
@@ -198,25 +196,6 @@ public class HttpBackupStore
         }
         catch (IOException e) {
             throw new PrestoException(RAPTOR_BACKUP_ERROR, "Failed to read file: " + file, e);
-        }
-    }
-
-    // TODO: move to Airlift
-    private static class FileBodyGenerator
-            implements BodyGenerator
-    {
-        private final File file;
-
-        private FileBodyGenerator(File file)
-        {
-            this.file = requireNonNull(file, "file is null");
-        }
-
-        @Override
-        public void write(OutputStream out)
-                throws Exception
-        {
-            Files.copy(file, out);
         }
     }
 
