@@ -66,24 +66,6 @@ public class InternalAuthenticationManager
         this.nodeId = nodeId;
     }
 
-    private String generateJwt()
-    {
-        return Jwts.builder()
-                .signWith(SignatureAlgorithm.HS256, hmac)
-                .setSubject(nodeId)
-                .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
-                .compact();
-    }
-
-    private String parseJwt(String jwt)
-    {
-        return Jwts.parser()
-                .setSigningKey(hmac)
-                .parseClaimsJws(jwt)
-                .getBody()
-                .getSubject();
-    }
-
     public boolean isInternalRequest(HttpServletRequest request)
     {
         return request.getHeader(PRESTO_INTERNAL_BEARER) != null;
@@ -120,5 +102,23 @@ public class InternalAuthenticationManager
         return fromRequest(request)
                 .addHeader(PRESTO_INTERNAL_BEARER, generateJwt())
                 .build();
+    }
+
+    private String generateJwt()
+    {
+        return Jwts.builder()
+                .signWith(SignatureAlgorithm.HS256, hmac)
+                .setSubject(nodeId)
+                .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
+                .compact();
+    }
+
+    private String parseJwt(String jwt)
+    {
+        return Jwts.parser()
+                .setSigningKey(hmac)
+                .parseClaimsJws(jwt)
+                .getBody()
+                .getSubject();
     }
 }
