@@ -15,7 +15,6 @@ package io.prestosql.spi.security;
 
 import io.prestosql.spi.PrestoException;
 
-import java.security.Principal;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.Set;
@@ -31,14 +30,14 @@ public class AccessDeniedException
         super(PERMISSION_DENIED, "Access Denied: " + message);
     }
 
-    public static void denySetUser(Optional<Principal> principal, String userName)
+    public static void denySetUser(Optional<AuthenticatedUser> authenticatedUser, String userName)
     {
-        denySetUser(principal, userName, null);
+        denySetUser(authenticatedUser, userName, null);
     }
 
-    public static void denySetUser(Optional<Principal> principal, String userName, String extraInfo)
+    public static void denySetUser(Optional<AuthenticatedUser> authenticatedUser, String userName, String extraInfo)
     {
-        throw new AccessDeniedException(format("Principal %s cannot become user %s%s", principal.orElse(null), userName, formatExtraInfo(extraInfo)));
+        throw new AccessDeniedException(format("Authenticated user %s cannot become user %s%s", authenticatedUser.orElse(null), userName, formatExtraInfo(extraInfo)));
     }
 
     public static void denyCatalogAccess(String catalogName)

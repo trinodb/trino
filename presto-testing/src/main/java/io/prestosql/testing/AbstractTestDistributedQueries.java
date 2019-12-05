@@ -965,7 +965,7 @@ public abstract class AbstractTestDistributedQueries
         // todo add DROP VIEW test... not all connectors have view support
 
         try {
-            assertAccessDenied("SELECT 1", "Principal .* cannot become user " + getSession().getUser() + ".*", privilege(getSession().getUser(), SET_USER));
+            assertAccessDenied("SELECT 1", "Authenticated user .* cannot become user " + getSession().getUser() + ".*", privilege(getSession().getUser(), SET_USER));
         }
         catch (AssertionError e) {
             // There is no clean exception message for authorization failure.  We simply get a 403

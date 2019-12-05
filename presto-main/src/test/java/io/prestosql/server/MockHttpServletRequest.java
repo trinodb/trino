@@ -254,7 +254,7 @@ public class MockHttpServletRequest
     @Override
     public Object getAttribute(String name)
     {
-        throw new UnsupportedOperationException();
+        return null;
     }
 
     @Override

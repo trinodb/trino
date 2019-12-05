@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.security.AccessDeniedException;
+import io.prestosql.spi.security.AuthenticatedUser;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.SystemAccessControl;
 import io.prestosql.spi.security.SystemSecurityContext;
@@ -66,34 +67,34 @@ public class TestFileBasedSystemAccessControl
         catch (AccessDeniedException expected) {
         }
 
-        accessControl.checkCanSetUser(kerberosValidAlice.getPrincipal(), kerberosValidAlice.getUser());
-        accessControl.checkCanSetUser(kerberosValidNonAsciiUser.getPrincipal(), kerberosValidNonAsciiUser.getUser());
+        accessControl.checkCanSetUser(kerberosValidAlice.getPrincipal().map(AuthenticatedUser::forPrincipal), kerberosValidAlice.getUser());
+        accessControl.checkCanSetUser(kerberosValidNonAsciiUser.getPrincipal().map(AuthenticatedUser::forPrincipal), kerberosValidNonAsciiUser.getUser());
         try {
-            accessControl.checkCanSetUser(kerberosInvalidAlice.getPrincipal(), kerberosInvalidAlice.getUser());
+            accessControl.checkCanSetUser(kerberosInvalidAlice.getPrincipal().map(AuthenticatedUser::forPrincipal), kerberosInvalidAlice.getUser());
             throw new AssertionError("expected AccessDeniedException");
         }
         catch (AccessDeniedException expected) {
         }
 
-        accessControl.checkCanSetUser(kerberosValidShare.getPrincipal(), kerberosValidShare.getUser());
+        accessControl.checkCanSetUser(kerberosValidShare.getPrincipal().map(AuthenticatedUser::forPrincipal), kerberosValidShare.getUser());
         try {
-            accessControl.checkCanSetUser(kerberosInValidShare.getPrincipal(), kerberosInValidShare.getUser());
+            accessControl.checkCanSetUser(kerberosInValidShare.getPrincipal().map(AuthenticatedUser::forPrincipal), kerberosInValidShare.getUser());
             throw new AssertionError("expected AccessDeniedException");
         }
         catch (AccessDeniedException expected) {
         }
 
-        accessControl.checkCanSetUser(validSpecialRegexWildDot.getPrincipal(), validSpecialRegexWildDot.getUser());
-        accessControl.checkCanSetUser(validSpecialRegexEndQuote.getPrincipal(), validSpecialRegexEndQuote.getUser());
+        accessControl.checkCanSetUser(validSpecialRegexWildDot.getPrincipal().map(AuthenticatedUser::forPrincipal), validSpecialRegexWildDot.getUser());
+        accessControl.checkCanSetUser(validSpecialRegexEndQuote.getPrincipal().map(AuthenticatedUser::forPrincipal), validSpecialRegexEndQuote.getUser());
         try {
-            accessControl.checkCanSetUser(invalidSpecialRegex.getPrincipal(), invalidSpecialRegex.getUser());
+            accessControl.checkCanSetUser(invalidSpecialRegex.getPrincipal().map(AuthenticatedUser::forPrincipal), invalidSpecialRegex.getUser());
             throw new AssertionError("expected AccessDeniedException");
         }
         catch (AccessDeniedException expected) {
         }
 
         SystemAccessControl accessControlNoPatterns = newFileBasedSystemAccessControl("catalog.json");
-        accessControlNoPatterns.checkCanSetUser(kerberosValidAlice.getPrincipal(), kerberosValidAlice.getUser());
+        accessControlNoPatterns.checkCanSetUser(kerberosValidAlice.getPrincipal().map(AuthenticatedUser::forPrincipal), kerberosValidAlice.getUser());
     }
 
     @Test

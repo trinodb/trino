@@ -33,6 +33,7 @@ import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorSecurityContext;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.security.AuthenticatedUser;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
@@ -49,7 +50,6 @@ import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.security.Principal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -180,12 +180,12 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanSetUser(Optional<Principal> principal, String userName)
+    public void checkCanSetUser(Optional<AuthenticatedUser> authenticatedUser, String userName)
     {
-        requireNonNull(principal, "principal is null");
+        requireNonNull(authenticatedUser, "authenticatedUser is null");
         requireNonNull(userName, "userName is null");
 
-        systemAuthorizationCheck(control -> control.checkCanSetUser(principal, userName));
+        systemAuthorizationCheck(control -> control.checkCanSetUser(authenticatedUser, userName));
     }
 
     @Override
@@ -786,7 +786,7 @@ public class AccessControlManager
             implements SystemAccessControl
     {
         @Override
-        public void checkCanSetUser(Optional<Principal> principal, String userName)
+        public void checkCanSetUser(Optional<AuthenticatedUser> authenticatedUser, String userName)
         {
             throw new PrestoException(SERVER_STARTING_UP, "Presto server is still initializing");
         }

@@ -17,13 +17,13 @@ import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.security.AuthenticatedUser;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
 import io.prestosql.spi.security.SystemAccessControl;
 import io.prestosql.spi.security.SystemAccessControlFactory;
 import io.prestosql.spi.security.SystemSecurityContext;
 
-import java.security.Principal;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -58,7 +58,7 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
-    public void checkCanSetUser(Optional<Principal> principal, String userName)
+    public void checkCanSetUser(Optional<AuthenticatedUser> authenticatedUser, String userName)
     {
     }
 

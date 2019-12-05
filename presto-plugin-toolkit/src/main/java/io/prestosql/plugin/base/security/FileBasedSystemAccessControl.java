@@ -23,6 +23,7 @@ import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.security.AuthenticatedUser;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
@@ -31,7 +32,6 @@ import io.prestosql.spi.security.SystemAccessControlFactory;
 import io.prestosql.spi.security.SystemSecurityContext;
 
 import java.nio.file.Paths;
-import java.security.Principal;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -151,20 +151,20 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanSetUser(Optional<Principal> principal, String userName)
+    public void checkCanSetUser(Optional<AuthenticatedUser> authenticatedUser, String userName)
     {
-        requireNonNull(principal, "principal is null");
+        requireNonNull(authenticatedUser, "authenticatedUser is null");
         requireNonNull(userName, "userName is null");
 
         if (!principalUserMatchRules.isPresent()) {
             return;
         }
 
-        if (!principal.isPresent()) {
-            denySetUser(principal, userName);
+        if (!authenticatedUser.isPresent()) {
+            denySetUser(authenticatedUser, userName);
         }
 
-        String principalName = principal.get().getName();
+        String principalName = authenticatedUser.get().getPrincipal().getName();
 
         for (PrincipalUserMatchRule rule : principalUserMatchRules.get()) {
             Optional<Boolean> allowed = rule.match(principalName, userName);
@@ -172,11 +172,11 @@ public class FileBasedSystemAccessControl
                 if (allowed.get()) {
                     return;
                 }
-                denySetUser(principal, userName);
+                denySetUser(authenticatedUser, userName);
             }
         }
 
-        denySetUser(principal, userName);
+        denySetUser(authenticatedUser, userName);
     }
 
     @Override

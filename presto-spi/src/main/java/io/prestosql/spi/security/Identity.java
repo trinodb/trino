@@ -26,6 +26,7 @@ import static java.util.Objects.requireNonNull;
 public class Identity
 {
     private final String user;
+    // TODO remove principal
     private final Optional<Principal> principal;
     private final Map<String, SelectedRole> roles;
     private final Map<String, String> extraCredentials;

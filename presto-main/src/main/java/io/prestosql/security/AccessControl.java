@@ -18,11 +18,11 @@ import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.security.AuthenticatedUser;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
 
-import java.security.Principal;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -30,11 +30,11 @@ import java.util.Set;
 public interface AccessControl
 {
     /**
-     * Check if the principal is allowed to be the specified user.
+     * Check if the authenticated user is allowed to be the specified Presto user.
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanSetUser(Optional<Principal> principal, String userName);
+    void checkCanSetUser(Optional<AuthenticatedUser> authenticatedUser, String userName);
 
     /**
      * Filter the list of catalogs to those visible to the identity.

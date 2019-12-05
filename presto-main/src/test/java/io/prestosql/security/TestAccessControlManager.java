@@ -34,6 +34,7 @@ import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorSecurityContext;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.AccessDeniedException;
+import io.prestosql.spi.security.AuthenticatedUser;
 import io.prestosql.spi.security.BasicPrincipal;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.PrestoPrincipal;
@@ -91,7 +92,7 @@ public class TestAccessControlManager
         AccessControlManager accessControlManager = new AccessControlManager(transactionManager, new AccessControlConfig());
 
         accessControlManager.setSystemAccessControl(ReadOnlySystemAccessControl.NAME, ImmutableMap.of());
-        accessControlManager.checkCanSetUser(Optional.of(PRINCIPAL), USER_NAME);
+        accessControlManager.checkCanSetUser(Optional.of(AuthenticatedUser.forPrincipal(PRINCIPAL)), USER_NAME);
         accessControlManager.checkCanSetSystemSessionProperty(identity, "property");
 
         transaction(transactionManager, accessControlManager)
@@ -130,7 +131,7 @@ public class TestAccessControlManager
         accessControlManager.addSystemAccessControlFactory(accessControlFactory);
         accessControlManager.setSystemAccessControl("test", ImmutableMap.of());
 
-        accessControlManager.checkCanSetUser(Optional.of(PRINCIPAL), USER_NAME);
+        accessControlManager.checkCanSetUser(Optional.of(AuthenticatedUser.forPrincipal(PRINCIPAL)), USER_NAME);
         assertEquals(accessControlFactory.getCheckedUserName(), USER_NAME);
         assertEquals(accessControlFactory.getCheckedPrincipal(), Optional.of(PRINCIPAL));
     }
@@ -262,9 +263,9 @@ public class TestAccessControlManager
             return new SystemAccessControl()
             {
                 @Override
-                public void checkCanSetUser(Optional<Principal> principal, String userName)
+                public void checkCanSetUser(Optional<AuthenticatedUser> authenticatedUser, String userName)
                 {
-                    checkedPrincipal = principal;
+                    checkedPrincipal = authenticatedUser.map(AuthenticatedUser::getPrincipal);
                     checkedUserName = userName;
                 }
 

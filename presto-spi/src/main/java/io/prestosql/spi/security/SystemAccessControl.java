@@ -18,7 +18,6 @@ import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
 
-import java.security.Principal;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -52,11 +51,11 @@ import static io.prestosql.spi.security.AccessDeniedException.denyShowTablesMeta
 public interface SystemAccessControl
 {
     /**
-     * Check if the principal is allowed to be the specified user.
+     * Check if the authenticated user is allowed to be the specified Presto user.
      *
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanSetUser(Optional<Principal> principal, String userName);
+    void checkCanSetUser(Optional<AuthenticatedUser> authenticatedUser, String userName);
 
     /**
      * Check if identity is allowed to set the specified system property.

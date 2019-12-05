@@ -17,12 +17,12 @@ import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.security.AuthenticatedUser;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
 import io.prestosql.spi.security.SystemAccessControl;
 import io.prestosql.spi.security.SystemSecurityContext;
 
-import java.security.Principal;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -49,9 +49,9 @@ public abstract class ForwardingSystemAccessControl
     protected abstract SystemAccessControl delegate();
 
     @Override
-    public void checkCanSetUser(Optional<Principal> principal, String userName)
+    public void checkCanSetUser(Optional<AuthenticatedUser> authenticatedUser, String userName)
     {
-        delegate().checkCanSetUser(principal, userName);
+        delegate().checkCanSetUser(authenticatedUser, userName);
     }
 
     @Override

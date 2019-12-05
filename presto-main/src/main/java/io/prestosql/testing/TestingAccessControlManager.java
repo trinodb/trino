@@ -21,12 +21,12 @@ import io.prestosql.security.AccessControlManager;
 import io.prestosql.security.SecurityContext;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
+import io.prestosql.spi.security.AuthenticatedUser;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.transaction.TransactionManager;
 
 import javax.inject.Inject;
 
-import java.security.Principal;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Objects;
@@ -110,13 +110,13 @@ public class TestingAccessControlManager
     }
 
     @Override
-    public void checkCanSetUser(Optional<Principal> principal, String userName)
+    public void checkCanSetUser(Optional<AuthenticatedUser> authenticatedUser, String userName)
     {
         if (shouldDenyPrivilege(userName, userName, SET_USER)) {
-            denySetUser(principal, userName);
+            denySetUser(authenticatedUser, userName);
         }
         if (denyPrivileges.isEmpty()) {
-            super.checkCanSetUser(principal, userName);
+            super.checkCanSetUser(authenticatedUser, userName);
         }
     }
 
