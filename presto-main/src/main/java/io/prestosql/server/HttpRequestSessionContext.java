@@ -22,6 +22,8 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.Session.ResourceEstimateBuilder;
 import io.prestosql.dispatcher.DispatcherConfig.HeaderSupport;
+import io.prestosql.security.AccessControl;
+import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.SelectedRole;
 import io.prestosql.spi.session.ResourceEstimates;
@@ -30,7 +32,9 @@ import io.prestosql.sql.parser.ParsingOptions;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.transaction.TransactionId;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
@@ -170,6 +174,32 @@ public final class HttpRequestSessionContext
         String transactionIdHeader = headers.getFirst(PRESTO_TRANSACTION_ID);
         clientTransactionSupport = transactionIdHeader != null;
         transactionId = parseTransactionId(transactionIdHeader);
+    }
+
+    public static Identity extractAuthorizedIdentity(HttpServletRequest servletRequest, HttpHeaders httpHeaders, AccessControl accessControl)
+    {
+        return extractAuthorizedIdentity(
+                Optional.ofNullable((Identity) servletRequest.getAttribute(AUTHENTICATED_IDENTITY)),
+                httpHeaders.getRequestHeaders(),
+                accessControl);
+    }
+
+    public static Identity extractAuthorizedIdentity(Optional<Identity> optionalAuthenticatedIdentity, MultivaluedMap<String, String> headers, AccessControl accessControl)
+            throws AccessDeniedException
+    {
+        Identity identity = buildSessionIdentity(optionalAuthenticatedIdentity, headers);
+
+        accessControl.checkCanSetUser(identity.getPrincipal(), identity.getUser());
+
+        // authenticated may not present for HTTP or if authentication is not setup
+        optionalAuthenticatedIdentity.ifPresent(authenticatedIdentity -> {
+            // only check impersonation if authenticated user is not the same as the explicitly set user
+            if (!authenticatedIdentity.getUser().equals(identity.getUser())) {
+                accessControl.checkCanImpersonateUser(authenticatedIdentity, identity.getUser());
+            }
+        });
+
+        return identity;
     }
 
     private static Identity buildSessionIdentity(Optional<Identity> authenticatedIdentity, MultivaluedMap<String, String> headers)

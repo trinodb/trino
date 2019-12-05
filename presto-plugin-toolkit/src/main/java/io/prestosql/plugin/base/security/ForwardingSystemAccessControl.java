@@ -61,6 +61,30 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanExecuteQuery(SystemSecurityContext context)
+    {
+        delegate().checkCanExecuteQuery(context);
+    }
+
+    @Override
+    public void checkCanViewQueryOwnedBy(SystemSecurityContext context, String queryOwner)
+    {
+        delegate().checkCanViewQueryOwnedBy(context, queryOwner);
+    }
+
+    @Override
+    public Set<String> filterViewQueryOwnedBy(SystemSecurityContext context, Set<String> queryOwners)
+    {
+        return delegate().filterViewQueryOwnedBy(context, queryOwners);
+    }
+
+    @Override
+    public void checkCanKillQueryOwnedBy(SystemSecurityContext context, String queryOwner)
+    {
+        delegate().checkCanKillQueryOwnedBy(context, queryOwner);
+    }
+
+    @Override
     public void checkCanSetSystemSessionProperty(SystemSecurityContext context, String propertyName)
     {
         delegate().checkCanSetSystemSessionProperty(context, propertyName);
