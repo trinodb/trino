@@ -23,7 +23,9 @@ import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.SqlDate;
 import io.prestosql.spi.type.SqlDecimal;
+import io.prestosql.spi.type.SqlTimestamp;
 import io.prestosql.spi.type.SqlVarbinary;
+import io.prestosql.spi.type.TimeZoneKey;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -286,6 +288,20 @@ public abstract class AbstractTestOrcReader
         tester.testRoundTrip(DOUBLE, ImmutableList.of(Double.NaN, -1.0, Double.POSITIVE_INFINITY));
         tester.testRoundTrip(DOUBLE, ImmutableList.of(Double.NaN, Double.NEGATIVE_INFINITY, 1.0));
         tester.testRoundTrip(DOUBLE, ImmutableList.of(Double.NaN, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY));
+    }
+
+    @Test
+    public void testLegacyTimestamp()
+            throws Exception
+    {
+        @SuppressWarnings("deprecation")
+        List<SqlTimestamp> values = ImmutableList.of(
+                new SqlTimestamp(0, TimeZoneKey.UTC_KEY),
+                new SqlTimestamp(10, TimeZoneKey.UTC_KEY),
+                new SqlTimestamp(1123456789L, TimeZoneKey.UTC_KEY), // 1970-01-14T00:04:16.789Z
+                new SqlTimestamp(1000123456789L, TimeZoneKey.UTC_KEY), // 2001-09-10T12:04:16.789Z
+                new SqlTimestamp(1575553299564L, TimeZoneKey.UTC_KEY)); // 2019-12-05T13:41:39.564Z
+        tester.testRoundTrip(TIMESTAMP, newArrayList(limit(cycle(values), 30_000)));
     }
 
     @Test
