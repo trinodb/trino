@@ -15,6 +15,9 @@ package io.prestosql.orc;
 
 import org.testng.annotations.Test;
 
+import static io.prestosql.orc.OrcTester.fullOrcTester;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+
 @Test
 public class TestOrcReader
         extends AbstractTestOrcReader
@@ -22,5 +25,13 @@ public class TestOrcReader
     public TestOrcReader()
     {
         super(OrcTester.quickOrcTester());
+    }
+
+    @Test
+    public void testDoubleSequenceFull()
+            throws Exception
+    {
+        // run a single test using the full tester
+        fullOrcTester().testRoundTrip(DOUBLE, doubleSequence(0, 0.1, 30_000));
     }
 }
