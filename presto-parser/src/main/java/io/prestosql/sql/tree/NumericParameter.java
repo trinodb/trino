@@ -28,7 +28,12 @@ public class NumericParameter
 
     public NumericParameter(NodeLocation location, String value)
     {
-        super(Optional.of(location));
+        this(Optional.of(location), value);
+    }
+
+    public NumericParameter(Optional<NodeLocation> location, String value)
+    {
+        super(location);
         this.value = requireNonNull(value, "value is null");
     }
 
