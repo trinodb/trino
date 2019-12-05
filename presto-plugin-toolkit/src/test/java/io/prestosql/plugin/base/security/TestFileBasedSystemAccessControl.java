@@ -36,6 +36,7 @@ import static java.lang.Thread.sleep;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.util.Files.newTemporaryFile;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertThrows;
 
 public class TestFileBasedSystemAccessControl
 {
@@ -94,6 +95,65 @@ public class TestFileBasedSystemAccessControl
 
         SystemAccessControl accessControlNoPatterns = newFileBasedSystemAccessControl("catalog.json");
         accessControlNoPatterns.checkCanSetUser(kerberosValidAlice.getPrincipal(), kerberosValidAlice.getUser());
+    }
+
+    @Test
+    public void testQuery()
+    {
+        SystemAccessControl accessControlManager = newFileBasedSystemAccessControl("query.json");
+
+        accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(admin));
+        accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(admin), "any");
+        assertEquals(accessControlManager.filterViewQueryOwnedBy(new SystemSecurityContext(admin), ImmutableSet.of("a", "b")), ImmutableSet.of("a", "b"));
+        accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(admin), "any");
+
+        accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(alice));
+        accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(alice), "any");
+        assertEquals(accessControlManager.filterViewQueryOwnedBy(new SystemSecurityContext(alice), ImmutableSet.of("a", "b")), ImmutableSet.of("a", "b"));
+        assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(alice), "any"));
+
+        assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(bob)));
+        assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(bob), "any"));
+        assertEquals(accessControlManager.filterViewQueryOwnedBy(new SystemSecurityContext(bob), ImmutableSet.of("a", "b")), ImmutableSet.of());
+        accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(bob), "any");
+
+        accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(nonAsciiUser));
+        accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(nonAsciiUser), "any");
+        assertEquals(accessControlManager.filterViewQueryOwnedBy(new SystemSecurityContext(nonAsciiUser), ImmutableSet.of("a", "b")), ImmutableSet.of("a", "b"));
+        accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(nonAsciiUser), "any");
+    }
+
+    @Test
+    public void testQueryNotSet()
+    {
+        SystemAccessControl accessControlManager = newFileBasedSystemAccessControl("catalog.json");
+
+        accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(bob));
+        accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(bob), "any");
+        assertEquals(accessControlManager.filterViewQueryOwnedBy(new SystemSecurityContext(bob), ImmutableSet.of("a", "b")), ImmutableSet.of("a", "b"));
+        accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(bob), "any");
+    }
+
+    @Test
+    public void testDocsExample()
+    {
+        String rulesFile = new File("../presto-docs/src/main/sphinx/security/query-access.json").getAbsolutePath();
+        SystemAccessControl accessControlManager = newFileBasedSystemAccessControl(ImmutableMap.of("security.config-file", rulesFile));
+
+        accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(admin));
+        accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(admin), "any");
+        assertEquals(accessControlManager.filterViewQueryOwnedBy(new SystemSecurityContext(admin), ImmutableSet.of("a", "b")), ImmutableSet.of("a", "b"));
+        accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(admin), "any");
+
+        accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(alice));
+        assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(alice), "any"));
+        assertEquals(accessControlManager.filterViewQueryOwnedBy(new SystemSecurityContext(alice), ImmutableSet.of("a", "b")), ImmutableSet.of());
+        accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(alice), "any");
+
+        accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(bob));
+        assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(bob), "any"));
+        assertEquals(accessControlManager.filterViewQueryOwnedBy(new SystemSecurityContext(bob), ImmutableSet.of("a", "b")), ImmutableSet.of());
+        assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(bob), "any"));
     }
 
     @Test
