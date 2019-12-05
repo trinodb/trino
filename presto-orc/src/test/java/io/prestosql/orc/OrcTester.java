@@ -976,7 +976,7 @@ public class OrcTester
             return date;
         }
         if (type.equals(TIMESTAMP)) {
-            long millisUtc = (int) ((SqlTimestamp) value).getMillisUtc();
+            long millisUtc = ((SqlTimestamp) value).getMillisUtc();
             return new Timestamp(millisUtc);
         }
         if (type instanceof DecimalType) {
