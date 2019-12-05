@@ -15,6 +15,8 @@ package io.prestosql.server.rpm;
 
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.shaded.com.google.common.collect.ImmutableList;
+import org.testcontainers.shaded.com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
@@ -24,16 +26,15 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
-import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import static java.lang.String.format;
 import static java.sql.DriverManager.getConnection;
 import static java.util.Arrays.asList;
+import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.wait.strategy.Wait.forLogMessage;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class ServerIT
@@ -83,28 +84,42 @@ public class ServerIT
                     .withCommand("sh", "-xeuc", command)
                     .waitingFor(forLogMessage(".*SERVER STARTED.*", 1).withStartupTimeout(Duration.ofMinutes(5)))
                     .start();
-
-            assertServer(container.getContainerIpAddress(), container.getMappedPort(8080), expectedJavaVersion);
+            QueryRunner queryRunner = new QueryRunner(container.getContainerIpAddress(), container.getMappedPort(8080));
+            assertEquals(queryRunner.execute("SHOW CATALOGS"), ImmutableSet.of(asList("system"), asList("hive"), asList("jmx")));
+            assertEquals(queryRunner.execute("SELECT specversion FROM jmx.current.\"java.lang:type=runtime\""), ImmutableSet.of(asList(expectedJavaVersion));
         }
     }
 
-    private static void assertServer(String host, int port, String expectedJavaVersion)
-            throws SQLException
+    private static class QueryRunner
     {
-        String url = format("jdbc:presto://%s:%s", host, port);
-        try (Connection connection = getConnection(url, "test", null);
-                Statement statement = connection.createStatement()) {
-            try (ResultSet resultSet = statement.executeQuery("SHOW CATALOGS")) {
-                Set<String> catalogs = new HashSet<>();
-                while (resultSet.next()) {
-                    catalogs.add(resultSet.getString(1));
+        private final String host;
+        private final int port;
+
+        private QueryRunner(String host, int port)
+        {
+            this.host = requireNonNull(host, "host is null");
+            this.port = port;
+        }
+
+        public Set<List<String>> execute(String sql)
+        {
+            try (Connection connection = getConnection(format("jdbc:presto://%s:%s", host, port), "test", null);
+                    Statement statement = connection.createStatement()) {
+                try (ResultSet resultSet = statement.executeQuery(sql)) {
+                    ImmutableSet.Builder<List<String>> rows = ImmutableSet.builder();
+                    final int columnCount = resultSet.getMetaData().getColumnCount();
+                    while (resultSet.next()) {
+                        ImmutableList.Builder<String> row = ImmutableList.builder();
+                        for (int column = 1; column <= columnCount; column++) {
+                            row.add(resultSet.getString(column));
+                        }
+                        rows.add(row.build());
+                    }
+                    return rows.build();
                 }
-                assertEquals(catalogs, new HashSet<>(asList("system", "hive", "jmx")));
             }
-            try (ResultSet resultSet = statement.executeQuery("SELECT specversion FROM jmx.current.\"java.lang:type=runtime\"")) {
-                assertTrue(resultSet.next(), "No data was returned");
-                assertEquals(resultSet.getString(1), expectedJavaVersion);
-                assertFalse(resultSet.next(), "Expected single row output, but got more.");
+            catch (SQLException e) {
+                throw new RuntimeException(e);
             }
         }
     }
