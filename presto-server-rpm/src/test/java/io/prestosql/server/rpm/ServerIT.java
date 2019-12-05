@@ -86,7 +86,10 @@ public class ServerIT
                     .start();
             QueryRunner queryRunner = new QueryRunner(container.getContainerIpAddress(), container.getMappedPort(8080));
             assertEquals(queryRunner.execute("SHOW CATALOGS"), ImmutableSet.of(asList("system"), asList("hive"), asList("jmx")));
-            assertEquals(queryRunner.execute("SELECT specversion FROM jmx.current.\"java.lang:type=runtime\""), ImmutableSet.of(asList(expectedJavaVersion));
+            // TODO remove usage of assertEventually once https://github.com/prestosql/presto/issues/2214 is fixed
+            assertEventually(
+                    Duration.ofMinutes(1),
+                    () -> assertEquals(queryRunner.execute("SELECT specversion FROM jmx.current.\"java.lang:type=runtime\""), ImmutableSet.of(asList(expectedJavaVersion))));
         }
     }
 
@@ -121,6 +124,24 @@ public class ServerIT
             catch (SQLException e) {
                 throw new RuntimeException(e);
             }
+        }
+    }
+
+    private static void assertEventually(Duration timeout, Runnable assertion)
+            throws Exception
+    {
+        long start = System.nanoTime();
+        while (!Thread.currentThread().isInterrupted()) {
+            try {
+                assertion.run();
+                return;
+            }
+            catch (Exception | AssertionError e) {
+                if (Duration.ofSeconds(0, System.nanoTime() - start).compareTo(timeout) > 0) {
+                    throw e;
+                }
+            }
+            Thread.sleep(50);
         }
     }
 }
