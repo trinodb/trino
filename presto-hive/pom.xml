@@ -328,12 +328,26 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <excludes>
-                                <!-- Exclude tests against Glue from build -->
                                 <exclude>**/TestHiveGlueMetastore.java</exclude>
-                                <!-- TestFullParquetReader takes a long time and might produce no output leading to Travis aborting the build -->
-                                <!-- TODO https://github.com/prestosql/presto/issues/612 run TestFullParquetReader on CI -->
                                 <exclude>**/TestFullParquetReader.java</exclude>
                             </excludes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <profile>
+            <id>test-parquet</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/TestFullParquetReader.java</include>
+                            </includes>
                         </configuration>
                     </plugin>
                 </plugins>
