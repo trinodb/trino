@@ -43,6 +43,7 @@ services:
     volumes:
       - ${PRESTO_SERVER}:/docker/presto-server.tar.gz
       - ../../../src/main/resources/avro:/docker/avro
+      - ../../../conf/presto/etc/access-control-allow-all.properties:/docker/presto-product-tests/conf/presto/etc/access-control.properties
 
   application-runner:
     extends:

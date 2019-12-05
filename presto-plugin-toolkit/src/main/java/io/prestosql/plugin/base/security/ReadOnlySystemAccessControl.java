@@ -28,6 +28,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.spi.security.SystemAccessControl.Default.defaultCheckCanSetUser;
 import static java.util.Objects.requireNonNull;
 
 public class ReadOnlySystemAccessControl
@@ -58,6 +59,7 @@ public class ReadOnlySystemAccessControl
     @Override
     public void checkCanSetUser(Optional<AuthenticatedUser> authenticatedUser, String userName)
     {
+        defaultCheckCanSetUser(authenticatedUser, userName);
     }
 
     @Override

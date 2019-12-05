@@ -1,0 +1,16 @@
+{
+  "principals": [
+    {
+      "principal": ".*",
+      "user": ".*",
+      "allow": true
+    }
+  ],
+  "catalogs": [
+    {
+      "user": ".*",
+      "catalog": ".*",
+      "allow": true
+    }
+  ]
+}

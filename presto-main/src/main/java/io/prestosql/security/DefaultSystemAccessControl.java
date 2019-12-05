@@ -13,7 +13,6 @@
  */
 package io.prestosql.security;
 
-
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -31,6 +30,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.spi.security.SystemAccessControl.Default.defaultCheckCanSetUser;
 import static java.util.Objects.requireNonNull;
 
 public class DefaultSystemAccessControl
@@ -61,6 +61,7 @@ public class DefaultSystemAccessControl
     @Override
     public void checkCanSetUser(Optional<AuthenticatedUser> authenticatedUser, String userName)
     {
+        defaultCheckCanSetUser(authenticatedUser, userName);
     }
 
     @Override

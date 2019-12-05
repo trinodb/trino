@@ -43,6 +43,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyRenameTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denySelectColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static io.prestosql.spi.security.AccessDeniedException.denySetUser;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowColumnsMetadata;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowRoles;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowSchemas;
@@ -356,5 +357,24 @@ public interface SystemAccessControl
     default void checkCanShowRoles(SystemSecurityContext context, String catalogName)
     {
         denyShowRoles(catalogName);
+    }
+
+    final class Default
+    {
+        private Default() {}
+
+        public static void defaultCheckCanSetUser(Optional<AuthenticatedUser> authenticatedUser, String userName)
+        {
+            if (!authenticatedUser.isPresent()) {
+                // Request over http or authentication is not enabled.
+                return;
+            }
+
+            if (authenticatedUser.get().getUsername().isPresent() && authenticatedUser.get().getUsername().get().equals(userName)) {
+                return;
+            }
+
+            denySetUser(authenticatedUser, userName);
+        }
     }
 }

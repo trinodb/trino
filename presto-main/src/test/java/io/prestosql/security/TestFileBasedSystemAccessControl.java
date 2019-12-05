@@ -104,7 +104,11 @@ public class TestFileBasedSystemAccessControl
         }
 
         AccessControlManager accessControlManagerNoPatterns = newAccessControlManager(transactionManager, "catalog.json");
-        accessControlManagerNoPatterns.checkCanSetUser(kerberosValidAlice.getPrincipal().map(AuthenticatedUser::forPrincipal), kerberosValidAlice.getUser());
+        assertThatThrownBy(() -> accessControlManagerNoPatterns.checkCanSetUser(kerberosValidAlice.getPrincipal().map(AuthenticatedUser::forPrincipal), kerberosValidAlice.getUser()))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: Authenticated user AuthenticatedUser[username=alice/example.com@EXAMPLE.COM, principal=alice/example.com@EXAMPLE.COM] cannot become user alice");
+
+        accessControlManagerNoPatterns.checkCanSetUser(kerberosValidAlice.getPrincipal().map(AuthenticatedUser::forPrincipal), kerberosValidAlice.getPrincipal().get().getName());
     }
 
     @Test

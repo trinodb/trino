@@ -66,6 +66,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyRenameTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameView;
 import static io.prestosql.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denySetUser;
+import static io.prestosql.spi.security.SystemAccessControl.Default.defaultCheckCanSetUser;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -157,6 +158,7 @@ public class FileBasedSystemAccessControl
         requireNonNull(userName, "userName is null");
 
         if (!principalUserMatchRules.isPresent()) {
+            defaultCheckCanSetUser(authenticatedUser, userName);
             return;
         }
 

@@ -18,3 +18,4 @@ services:
       - presto-master
     volumes:
       - ../../../conf/presto/etc/multinode-worker-jvm.config:/docker/presto-product-tests/conf/presto/etc/jvm.config
+      - ../../../conf/presto/etc/access-control-allow-all.properties:/docker/presto-product-tests/conf/presto/etc/access-control.properties

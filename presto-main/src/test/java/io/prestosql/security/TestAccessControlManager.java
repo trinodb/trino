@@ -60,6 +60,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denySelectTable;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static io.prestosql.transaction.TransactionBuilder.transaction;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
@@ -92,7 +93,10 @@ public class TestAccessControlManager
         AccessControlManager accessControlManager = new AccessControlManager(transactionManager, new AccessControlConfig());
 
         accessControlManager.setSystemAccessControl(ReadOnlySystemAccessControl.NAME, ImmutableMap.of());
-        accessControlManager.checkCanSetUser(Optional.of(AuthenticatedUser.forPrincipal(PRINCIPAL)), USER_NAME);
+        assertThatThrownBy(() -> accessControlManager.checkCanSetUser(Optional.of(AuthenticatedUser.forPrincipal(PRINCIPAL)), USER_NAME))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: Authenticated user AuthenticatedUser[username=principal, principal=principal] cannot become user user_name");
+        accessControlManager.checkCanSetUser(Optional.of(AuthenticatedUser.forPrincipal(PRINCIPAL)), PRINCIPAL.getName());
         accessControlManager.checkCanSetSystemSessionProperty(identity, "property");
 
         transaction(transactionManager, accessControlManager)
