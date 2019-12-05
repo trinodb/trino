@@ -840,10 +840,10 @@ public class OrcTester
             throws Exception
     {
         RecordWriter recordWriter = createOrcRecordWriter(outputFile, format, compression, type);
-        return writeOrcFileColumnHive(outputFile, format, recordWriter, type, values);
+        return writeOrcFileColumnHive(outputFile, recordWriter, type, values);
     }
 
-    public static DataSize writeOrcFileColumnHive(File outputFile, Format format, RecordWriter recordWriter, Type type, Iterator<?> values)
+    public static DataSize writeOrcFileColumnHive(File outputFile, RecordWriter recordWriter, Type type, Iterator<?> values)
             throws Exception
     {
         SettableStructObjectInspector objectInspector = createSettableStructObjectInspector("test", type);
