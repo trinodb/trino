@@ -36,9 +36,11 @@ import static io.prestosql.spi.security.AccessDeniedException.denyDropColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropView;
+import static io.prestosql.spi.security.AccessDeniedException.denyExecuteQuery;
 import static io.prestosql.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denyImpersonateUser;
 import static io.prestosql.spi.security.AccessDeniedException.denyInsertTable;
+import static io.prestosql.spi.security.AccessDeniedException.denyKillQuery;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameTable;
@@ -50,6 +52,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyShowColumnsMet
 import static io.prestosql.spi.security.AccessDeniedException.denyShowRoles;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowSchemas;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowTablesMetadata;
+import static io.prestosql.spi.security.AccessDeniedException.denyViewQuery;
 
 public interface SystemAccessControl
 {
@@ -73,6 +76,47 @@ public interface SystemAccessControl
     default void checkCanSetUser(Optional<Principal> principal, String userName)
     {
         denySetUser(principal, userName);
+    }
+
+    /**
+     * Checks if identity can execute a query.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanExecuteQuery(SystemSecurityContext context)
+    {
+        denyExecuteQuery();
+    }
+
+    /**
+     * Checks if identity can view a query owned by the specified user.  The method
+     * will not be called when the current user is the query owner.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanViewQueryOwnedBy(SystemSecurityContext context, String queryOwner)
+    {
+        denyViewQuery();
+    }
+
+    /**
+     * Filter the list of users to those the identity view query owned by the user.  The method
+     * will not be called with the current user in the set.
+     */
+    default Set<String> filterViewQueryOwnedBy(SystemSecurityContext context, Set<String> queryOwners)
+    {
+        return Collections.emptySet();
+    }
+
+    /**
+     * Checks if identity can kill a query owned by the specified user.  The method
+     * will not be called when the current user is the query owner.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanKillQueryOwnedBy(SystemSecurityContext context, String queryOwner)
+    {
+        denyKillQuery();
     }
 
     /**

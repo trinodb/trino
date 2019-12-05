@@ -62,6 +62,30 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
+    public void checkCanExecuteQuery(Identity identity)
+    {
+        delegate().checkCanExecuteQuery(identity);
+    }
+
+    @Override
+    public void checkCanViewQueryOwnedBy(Identity identity, String queryOwner)
+    {
+        delegate().checkCanViewQueryOwnedBy(identity, queryOwner);
+    }
+
+    @Override
+    public Set<String> filterQueriesOwnedBy(Identity identity, Set<String> queryOwners)
+    {
+        return delegate().filterQueriesOwnedBy(identity, queryOwners);
+    }
+
+    @Override
+    public void checkCanKillQueryOwnedBy(Identity identity, String queryOwner)
+    {
+        delegate().checkCanKillQueryOwnedBy(identity, queryOwner);
+    }
+
+    @Override
     public Set<String> filterCatalogs(Identity identity, Set<String> catalogs)
     {
         return delegate().filterCatalogs(identity, catalogs);

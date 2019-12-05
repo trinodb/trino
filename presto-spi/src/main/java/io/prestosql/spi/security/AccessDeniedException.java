@@ -51,6 +51,36 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Principal %s cannot become user %s%s", principal.orElse(null), userName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyExecuteQuery()
+    {
+        denyExecuteQuery(null);
+    }
+
+    public static void denyExecuteQuery(String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot execute query%s", formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyViewQuery()
+    {
+        denyViewQuery(null);
+    }
+
+    public static void denyViewQuery(String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot view query%s", formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyKillQuery()
+    {
+        denyKillQuery(null);
+    }
+
+    public static void denyKillQuery(String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot kill query%s", formatExtraInfo(extraInfo)));
+    }
+
     public static void denyCatalogAccess(String catalogName)
     {
         denyCatalogAccess(catalogName, null);

@@ -119,7 +119,7 @@ public class TestServer
     public void testServerStarts()
     {
         StatusResponseHandler.StatusResponse response = client.execute(
-                prepareGet().setUri(server.resolve("/v1/query")).build(),
+                prepareGet().setUri(server.resolve("/v1/info")).build(),
                 createStatusResponseHandler());
 
         assertEquals(response.getStatusCode(), OK.getStatusCode());

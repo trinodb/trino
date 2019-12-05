@@ -68,6 +68,27 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanExecuteQuery(SystemSecurityContext context)
+    {
+    }
+
+    @Override
+    public void checkCanViewQueryOwnedBy(SystemSecurityContext context, String queryOwner)
+    {
+    }
+
+    @Override
+    public void checkCanKillQueryOwnedBy(SystemSecurityContext context, String queryOwner)
+    {
+    }
+
+    @Override
+    public Set<String> filterViewQueryOwnedBy(SystemSecurityContext context, Set<String> queryOwners)
+    {
+        return queryOwners;
+    }
+
+    @Override
     public void checkCanSetSystemSessionProperty(SystemSecurityContext context, String propertyName)
     {
     }

@@ -47,6 +47,35 @@ public interface AccessControl
     void checkCanImpersonateUser(Identity identity, String userName);
 
     /**
+     * Checks if identity can execute a query.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanExecuteQuery(Identity identity);
+
+    /**
+     * Checks if identity can view a query owned by the specified user.  The method
+     * will not be called when the current user is the query owner.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanViewQueryOwnedBy(Identity identity, String queryOwner);
+
+    /**
+     * Filter the list of users to those the identity view query owned by the user.  The method
+     * will not be called with the current user in the set.
+     */
+    Set<String> filterQueriesOwnedBy(Identity identity, Set<String> queryOwners);
+
+    /**
+     * Checks if identity can kill a query owned by the specified user.  The method
+     * will not be called when the current user is the query owner.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanKillQueryOwnedBy(Identity identity, String queryOwner);
+
+    /**
      * Filter the list of catalogs to those visible to the identity.
      */
     Set<String> filterCatalogs(Identity identity, Set<String> catalogs);

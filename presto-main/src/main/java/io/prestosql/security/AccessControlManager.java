@@ -199,6 +199,40 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanExecuteQuery(Identity identity)
+    {
+        requireNonNull(identity, "identity is null");
+
+        systemAuthorizationCheck(control -> control.checkCanExecuteQuery(new SystemSecurityContext(identity)));
+    }
+
+    @Override
+    public void checkCanViewQueryOwnedBy(Identity identity, String queryOwner)
+    {
+        requireNonNull(identity, "identity is null");
+
+        systemAuthorizationCheck(control -> control.checkCanViewQueryOwnedBy(new SystemSecurityContext(identity), queryOwner));
+    }
+
+    @Override
+    public Set<String> filterQueriesOwnedBy(Identity identity, Set<String> queryOwners)
+    {
+        for (SystemAccessControl systemAccessControl : systemAccessControls.get()) {
+            queryOwners = systemAccessControl.filterViewQueryOwnedBy(new SystemSecurityContext(identity), queryOwners);
+        }
+        return queryOwners;
+    }
+
+    @Override
+    public void checkCanKillQueryOwnedBy(Identity identity, String queryOwner)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(queryOwner, "queryOwner is null");
+
+        systemAuthorizationCheck(control -> control.checkCanKillQueryOwnedBy(new SystemSecurityContext(identity), queryOwner));
+    }
+
+    @Override
     public Set<String> filterCatalogs(Identity identity, Set<String> catalogs)
     {
         requireNonNull(identity, "identity is null");
@@ -803,6 +837,12 @@ public class AccessControlManager
 
         @Override
         public void checkCanImpersonateUser(SystemSecurityContext context, String userName)
+        {
+            throw new PrestoException(SERVER_STARTING_UP, "Presto server is still initializing");
+        }
+
+        @Override
+        public void checkCanExecuteQuery(SystemSecurityContext context)
         {
             throw new PrestoException(SERVER_STARTING_UP, "Presto server is still initializing");
         }
