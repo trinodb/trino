@@ -28,7 +28,7 @@ public interface ColumnReader
 
     void prepareNextRead(int batchSize);
 
-    void startStripe(ZoneId timeZone, InputStreamSources dictionaryStreamSources, ColumnMetadata<ColumnEncoding> encoding)
+    void startStripe(ZoneId fileTimeZone, ZoneId storageTimeZone, InputStreamSources dictionaryStreamSources, ColumnMetadata<ColumnEncoding> encoding)
             throws IOException;
 
     void startRowGroup(InputStreamSources dataStreamSources)
