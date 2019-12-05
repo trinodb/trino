@@ -27,15 +27,17 @@ import static java.util.Objects.requireNonNull;
 public class Stripe
 {
     private final long rowCount;
-    private final ZoneId timeZone;
+    private final ZoneId fileTimeZone;
+    private final ZoneId storageTimeZone;
     private final ColumnMetadata<ColumnEncoding> columnEncodings;
     private final List<RowGroup> rowGroups;
     private final InputStreamSources dictionaryStreamSources;
 
-    public Stripe(long rowCount, ZoneId timeZone, ColumnMetadata<ColumnEncoding> columnEncodings, List<RowGroup> rowGroups, InputStreamSources dictionaryStreamSources)
+    public Stripe(long rowCount, ZoneId fileTimeZone, ZoneId storageTimeZone, ColumnMetadata<ColumnEncoding> columnEncodings, List<RowGroup> rowGroups, InputStreamSources dictionaryStreamSources)
     {
         this.rowCount = rowCount;
-        this.timeZone = requireNonNull(timeZone, "timeZone is null");
+        this.fileTimeZone = requireNonNull(fileTimeZone, "fileTimeZone is null");
+        this.storageTimeZone = requireNonNull(storageTimeZone, "storageTimeZone is null");
         this.columnEncodings = requireNonNull(columnEncodings, "columnEncodings is null");
         this.rowGroups = ImmutableList.copyOf(requireNonNull(rowGroups, "rowGroups is null"));
         this.dictionaryStreamSources = requireNonNull(dictionaryStreamSources, "dictionaryStreamSources is null");
@@ -46,9 +48,14 @@ public class Stripe
         return rowCount;
     }
 
-    public ZoneId getTimeZone()
+    public ZoneId getFileTimeZone()
     {
-        return timeZone;
+        return fileTimeZone;
+    }
+
+    public ZoneId getStorageTimeZone()
+    {
+        return storageTimeZone;
     }
 
     public ColumnMetadata<ColumnEncoding> getColumnEncodings()
@@ -71,7 +78,8 @@ public class Stripe
     {
         return toStringHelper(this)
                 .add("rowCount", rowCount)
-                .add("timeZone", timeZone)
+                .add("fileTimeZone", fileTimeZone)
+                .add("storageTimeZone", storageTimeZone)
                 .add("columnEncodings", columnEncodings)
                 .add("rowGroups", rowGroups)
                 .add("dictionaryStreams", dictionaryStreamSources)
