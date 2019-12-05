@@ -9,4 +9,5 @@ presto-product-tests/bin/run_on_docker.sh \
     -x quarantine,big_query,storage_formats,profile_specific_tests,tpcds,cassandra,mysql,postgresql,kafka,simba_jdbc,hive_compression,"${DISTRO_SKIP_GROUP}" \
     || exit_code=1
 
+echo "$0: exiting with ${exit_code}"
 exit "${exit_code}"
