@@ -446,22 +446,32 @@ public class ElasticsearchClient
 
             String name = field.getKey();
             JsonNode value = field.getValue();
-            if (value.has("type")) {
-                String type = value.get("type").asText();
 
-                if (type.equals("date")) {
+            //default type is object
+            String type = "object";
+            if (value.has("type")) {
+                type = value.get("type").asText();
+            }
+            switch (type) {
+                case "date":
                     List<String> formats = ImmutableList.of();
                     if (value.has("format")) {
                         formats = Arrays.asList(value.get("format").asText().split("\\|\\|"));
                     }
                     result.add(new IndexMetadata.Field(name, new IndexMetadata.DateTimeType(formats)));
-                }
-                else {
+                    break;
+
+                case "object":
+                    if (value.has("properties")) {
+                        result.add(new IndexMetadata.Field(name, parseType(value.get("properties"))));
+                    }
+                    else {
+                        LOG.debug("Ignoring empty object field: %s", name);
+                    }
+                    break;
+
+                default:
                     result.add(new IndexMetadata.Field(name, new IndexMetadata.PrimitiveType(type)));
-                }
-            }
-            else if (value.has("properties")) {
-                result.add(new IndexMetadata.Field(name, parseType(value.get("properties"))));
             }
         }
 
