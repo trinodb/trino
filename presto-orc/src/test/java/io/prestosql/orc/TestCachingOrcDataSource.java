@@ -79,7 +79,6 @@ public class TestCachingOrcDataSource
         Iterator<String> iterator = Stream.generate(() -> Long.toHexString(random.nextLong())).limit(POSITION_COUNT).iterator();
         writeOrcFileColumnHive(
                 tempFile.getFile(),
-                ORC_12,
                 createOrcRecordWriter(tempFile.getFile(), ORC_12, ZLIB, javaStringObjectInspector),
                 VARCHAR,
                 iterator);
