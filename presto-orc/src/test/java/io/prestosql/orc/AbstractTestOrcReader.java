@@ -450,7 +450,7 @@ public abstract class AbstractTestOrcReader
         };
     }
 
-    private static List<Double> doubleSequence(double start, double step, int items)
+    protected static List<Double> doubleSequence(double start, double step, int items)
     {
         List<Double> values = new ArrayList<>();
         double nextValue = start;
