@@ -86,23 +86,20 @@ public class TestFileSingleStreamSpillerFactory
     }
 
     @Test
-    public void testDistributesSpillOverPaths()
-            throws Exception
+    public void testDistributesSpillOverPaths() throws Exception
     {
         verifySpills(ImmutableMap.of(spillPath1.toPath(), 5, spillPath2.toPath(), 5));
     }
 
     @Test
-    public void testDistributesSpillOverPathsBadDisk()
-        throws Exception
+    public void testDistributesSpillOverPathsBadDisk() throws Exception
     {
         // reset path permission to 400, this will prohibit creation of spills
         java.nio.file.Files.setPosixFilePermissions(spillPath1.toPath(), ImmutableSet.of(PosixFilePermission.OWNER_READ));
         verifySpills(ImmutableMap.of(spillPath1.toPath(), 0, spillPath2.toPath(), 10));
     }
 
-    private void verifySpills(Map<Path, Integer> expectedSpills)
-        throws Exception
+    private void verifySpills(Map<Path, Integer> expectedSpills) throws Exception
     {
         for (Path path : expectedSpills.keySet()) {
             assertEquals(listFiles(path).size(), 0);

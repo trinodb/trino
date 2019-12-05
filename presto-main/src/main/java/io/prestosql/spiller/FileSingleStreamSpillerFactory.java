@@ -14,6 +14,9 @@
 package io.prestosql.spiller;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.inject.Inject;
@@ -34,10 +37,10 @@ import javax.annotation.PreDestroy;
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.FileStore;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -66,6 +69,8 @@ public class FileSingleStreamSpillerFactory
     @VisibleForTesting
     static final String SPILL_FILE_SUFFIX = ".bin";
     private static final String SPILL_FILE_GLOB = "spill*.bin";
+    // the paths which have been detected as bad, will only be re-checked after these many seconds
+    private static final int SPILL_PATH_HEALTH_EXPIRY_INTERVAL = 300;
 
     private final ListeningExecutorService executor;
     private final PagesSerdeFactory serdeFactory;
@@ -73,6 +78,7 @@ public class FileSingleStreamSpillerFactory
     private final SpillerStats spillerStats;
     private final double maxUsedSpaceThreshold;
     private final boolean spillEncryptionEnabled;
+    private final LoadingCache<Path, Boolean> spillPathHealthCache;
     private int roundRobinIndex;
 
     @Inject
@@ -119,6 +125,15 @@ public class FileSingleStreamSpillerFactory
         this.maxUsedSpaceThreshold = maxUsedSpaceThreshold;
         this.spillEncryptionEnabled = spillEncryptionEnabled;
         this.roundRobinIndex = 0;
+        this.spillPathHealthCache = CacheBuilder.newBuilder()
+            .expireAfterWrite(SPILL_PATH_HEALTH_EXPIRY_INTERVAL, TimeUnit.SECONDS)
+            .build(new CacheLoader<Path, Boolean>() {
+                @Override
+                public Boolean load(Path path)
+                {
+                    return isAccessible(path) && isSeeminglyHealthy(path);
+                }
+            });
     }
 
     @PostConstruct
@@ -168,7 +183,7 @@ public class FileSingleStreamSpillerFactory
         for (int i = 0; i < spillPathsCount; ++i) {
             int pathIndex = (roundRobinIndex + i) % spillPathsCount;
             Path path = spillPaths.get(pathIndex);
-            if (hasEnoughDiskSpace(path) && isAccessible(path) && isSeeminglyHealthy(path)) {
+            if (hasEnoughDiskSpace(path) && spillPathHealthCache.getUnchecked(path)) {
                 roundRobinIndex = (roundRobinIndex + i + 1) % spillPathsCount;
                 return path;
             }
@@ -201,7 +216,8 @@ public class FileSingleStreamSpillerFactory
         try {
             Path healthTemp = createTempFile(path, "spill", "healthcheck");
             return deleteIfExists(healthTemp);
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             log.warn(e, "Health check failed for spill %s", path);
             return false;
         }
