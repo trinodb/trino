@@ -29,7 +29,6 @@ import javax.servlet.http.HttpServletRequest;
 import java.security.Principal;
 import java.time.ZonedDateTime;
 import java.util.Date;
-import java.util.Optional;
 
 import static io.airlift.http.client.Request.Builder.fromRequest;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -49,16 +48,21 @@ public class InternalAuthenticationManager
     @Inject
     public InternalAuthenticationManager(InternalCommunicationConfig internalCommunicationConfig, NodeInfo nodeInfo)
     {
-        this(requireNonNull(internalCommunicationConfig, "internalCommunicationConfig is null").getSharedSecret(), nodeInfo.getNodeId());
+        this(
+                requireNonNull(internalCommunicationConfig, "internalCommunicationConfig is null")
+                        .getSharedSecret()
+                        .orElse(requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment()),
+                nodeInfo.getNodeId(),
+                internalCommunicationConfig.isInternalJwtEnabled());
     }
 
-    public InternalAuthenticationManager(Optional<String> sharedSecret, String nodeId)
+    public InternalAuthenticationManager(String sharedSecret, String nodeId, boolean internalJwtEnabled)
     {
         requireNonNull(sharedSecret, "sharedSecret is null");
         requireNonNull(nodeId, "nodeId is null");
-        this.internalJwtEnabled = sharedSecret.isPresent();
+        this.internalJwtEnabled = internalJwtEnabled;
         if (internalJwtEnabled) {
-            this.hmac = Hashing.sha256().hashString(sharedSecret.get(), UTF_8).asBytes();
+            this.hmac = Hashing.sha256().hashString(sharedSecret, UTF_8).asBytes();
         }
         else {
             this.hmac = null;
@@ -74,7 +78,7 @@ public class InternalAuthenticationManager
     public Principal authenticateInternalRequest(HttpServletRequest request)
     {
         if (!internalJwtEnabled) {
-            log.error("Internal authentication in not configured");
+            log.error("Internal authentication is not enabled");
             return null;
         }
 

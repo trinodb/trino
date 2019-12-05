@@ -8,8 +8,8 @@ between Presto nodes can be secured with SSL/TLS.
 Internal Authentication
 -----------------------
 
-Requests between Presto nodes are authenticated using a shared secret.  The shared
-secret must be configured on all nodes in the cluster:
+Requests between Presto nodes are authenticated using a shared secret. For secure
+internal communication, the shared secret must be configured on all nodes in the cluster:
 
     .. code-block:: none
 

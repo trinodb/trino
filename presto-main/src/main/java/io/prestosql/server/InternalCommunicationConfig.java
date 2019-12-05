@@ -25,6 +25,7 @@ public class InternalCommunicationConfig
     public static final String INTERNAL_COMMUNICATION_KERBEROS_ENABLED = "internal-communication.kerberos.enabled";
 
     private String sharedSecret;
+    private boolean internalJwtEnabled = true;
     private boolean httpsRequired;
     private String keyStorePath;
     private String keyStorePassword;
@@ -44,6 +45,18 @@ public class InternalCommunicationConfig
     public InternalCommunicationConfig setSharedSecret(String sharedSecret)
     {
         this.sharedSecret = sharedSecret;
+        return this;
+    }
+
+    public boolean isInternalJwtEnabled()
+    {
+        return internalJwtEnabled;
+    }
+
+    @Config("internal-communication.jwt.enabled")
+    public InternalCommunicationConfig setInternalJwtEnabled(boolean internalJwtEnabled)
+    {
+        this.internalJwtEnabled = internalJwtEnabled;
         return this;
     }
 
