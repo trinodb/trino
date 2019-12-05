@@ -456,8 +456,11 @@ public class ElasticsearchClient
                     }
                     result.add(new IndexMetadata.Field(name, new IndexMetadata.DateTimeType(formats)));
                 }
-                else {
+                else if (!type.equals("object")) {
                     result.add(new IndexMetadata.Field(name, new IndexMetadata.PrimitiveType(type)));
+                }
+                else {
+                    LOG.debug("Empty object field %s ignored, row type must have at least one field", name);
                 }
             }
             else if (value.has("properties")) {
