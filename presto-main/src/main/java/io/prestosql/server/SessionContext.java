@@ -13,6 +13,7 @@
  */
 package io.prestosql.server;
 
+import io.prestosql.spi.security.AuthenticatedUser;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.session.ResourceEstimates;
 import io.prestosql.transaction.TransactionId;
@@ -25,6 +26,8 @@ import java.util.Set;
 
 public interface SessionContext
 {
+    Optional<AuthenticatedUser> getAuthenticatedUser();
+
     Identity getIdentity();
 
     @Nullable

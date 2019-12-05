@@ -13,12 +13,12 @@
  */
 package io.prestosql.server.security;
 
-import javax.servlet.http.HttpServletRequest;
+import io.prestosql.spi.security.AuthenticatedUser;
 
-import java.security.Principal;
+import javax.servlet.http.HttpServletRequest;
 
 public interface Authenticator
 {
-    Principal authenticate(HttpServletRequest request)
+    AuthenticatedUser authenticate(HttpServletRequest request)
             throws AuthenticationException;
 }

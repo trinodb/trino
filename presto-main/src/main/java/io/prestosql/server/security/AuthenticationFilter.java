@@ -18,6 +18,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.HttpHeaders;
 import io.prestosql.server.InternalAuthenticationManager;
+import io.prestosql.spi.security.AuthenticatedUser;
 
 import javax.inject.Inject;
 import javax.servlet.Filter;
@@ -47,6 +48,7 @@ public class AuthenticationFilter
         implements Filter
 {
     private static final String HTTPS_PROTOCOL = "https";
+    public static final String REQUEST_AUTHENTICATED_USER_ATTRIBUTE = AuthenticationFilter.class.getName() + ".authenticated_user";
 
     private final List<Authenticator> authenticators;
     private final boolean httpsForwardingEnabled;
@@ -79,7 +81,7 @@ public class AuthenticationFilter
                 response.sendError(SC_UNAUTHORIZED);
                 return;
             }
-            nextFilter.doFilter(withPrincipal(request, principal), response);
+            nextFilter.doFilter(withAuthenticatedUser(request, AuthenticatedUser.forPrincipal(principal)), response);
             return;
         }
 
@@ -94,9 +96,9 @@ public class AuthenticationFilter
         Set<String> authenticateHeaders = new LinkedHashSet<>();
 
         for (Authenticator authenticator : authenticators) {
-            Principal principal;
+            AuthenticatedUser authenticatedUser;
             try {
-                principal = authenticator.authenticate(request);
+                authenticatedUser = requireNonNull(authenticator.authenticate(request), () -> authenticator + " returned null");
             }
             catch (AuthenticationException e) {
                 if (e.getMessage() != null) {
@@ -107,7 +109,7 @@ public class AuthenticationFilter
             }
 
             // authentication succeeded
-            nextFilter.doFilter(withPrincipal(request, principal), response);
+            nextFilter.doFilter(withAuthenticatedUser(request, authenticatedUser), response);
             return;
         }
 
@@ -135,15 +137,16 @@ public class AuthenticationFilter
         return httpsForwardingEnabled && Strings.nullToEmpty(request.getHeader(HttpHeaders.X_FORWARDED_PROTO)).equalsIgnoreCase(HTTPS_PROTOCOL);
     }
 
-    private static ServletRequest withPrincipal(HttpServletRequest request, Principal principal)
+    private static ServletRequest withAuthenticatedUser(HttpServletRequest request, AuthenticatedUser authenticatedUser)
     {
-        requireNonNull(principal, "principal is null");
+        requireNonNull(authenticatedUser, "authenticatedUser is null");
+        request.setAttribute(REQUEST_AUTHENTICATED_USER_ATTRIBUTE, authenticatedUser);
         return new HttpServletRequestWrapper(request)
         {
             @Override
             public Principal getUserPrincipal()
             {
-                return principal;
+                return authenticatedUser.getPrincipal();
             }
         };
     }

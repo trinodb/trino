@@ -15,6 +15,7 @@ package io.prestosql.server.security;
 
 import com.sun.security.auth.module.Krb5LoginModule;
 import io.airlift.log.Logger;
+import io.prestosql.spi.security.AuthenticatedUser;
 import org.ietf.jgss.GSSContext;
 import org.ietf.jgss.GSSCredential;
 import org.ietf.jgss.GSSException;
@@ -129,7 +130,7 @@ public class KerberosAuthenticator
     }
 
     @Override
-    public Principal authenticate(HttpServletRequest request)
+    public AuthenticatedUser authenticate(HttpServletRequest request)
             throws AuthenticationException
     {
         String header = request.getHeader(AUTHORIZATION);
@@ -143,7 +144,7 @@ public class KerberosAuthenticator
                     requestSpnegoToken = parts[1];
                     Optional<Principal> principal = authenticate(parts[1]);
                     if (principal.isPresent()) {
-                        return principal.get();
+                        return AuthenticatedUser.forPrincipal(principal.get());
                     }
                 }
                 catch (RuntimeException e) {

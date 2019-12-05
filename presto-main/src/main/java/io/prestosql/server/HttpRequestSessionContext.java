@@ -21,6 +21,8 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.Session.ResourceEstimateBuilder;
 import io.prestosql.dispatcher.DispatcherConfig.HeaderSupport;
+import io.prestosql.server.security.AuthenticationFilter;
+import io.prestosql.spi.security.AuthenticatedUser;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.SelectedRole;
 import io.prestosql.spi.session.ResourceEstimates;
@@ -86,6 +88,7 @@ public final class HttpRequestSessionContext
     private final String schema;
     private final String path;
 
+    private final Optional<AuthenticatedUser> authenticatedUser;
     private final Identity identity;
 
     private final String source;
@@ -114,6 +117,9 @@ public final class HttpRequestSessionContext
         schema = trimEmptyToNull(servletRequest.getHeader(PRESTO_SCHEMA));
         path = trimEmptyToNull(servletRequest.getHeader(PRESTO_PATH));
         assertRequest((catalog != null) || (schema == null), "Schema is set but catalog is not");
+
+        // REQUEST_AUTHENTICATED_USER_ATTRIBUTE is missing when authentication is not enabled (or request over http)
+        authenticatedUser = Optional.ofNullable((AuthenticatedUser) servletRequest.getAttribute(AuthenticationFilter.REQUEST_AUTHENTICATED_USER_ATTRIBUTE));
 
         String user = trimEmptyToNull(servletRequest.getHeader(PRESTO_USER));
         assertRequest(user != null, "User must be set");
@@ -200,6 +206,12 @@ public final class HttpRequestSessionContext
             default:
                 throw new UnsupportedOperationException("Unexpected forwardedHeaderSupport: " + forwardedHeaderSupport);
         }
+    }
+
+    @Override
+    public Optional<AuthenticatedUser> getAuthenticatedUser()
+    {
+        return authenticatedUser;
     }
 
     @Override

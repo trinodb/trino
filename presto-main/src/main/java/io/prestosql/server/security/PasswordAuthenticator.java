@@ -15,13 +15,14 @@ package io.prestosql.server.security;
 
 import com.google.common.base.Splitter;
 import io.prestosql.spi.security.AccessDeniedException;
+import io.prestosql.spi.security.AuthenticatedUser;
 
 import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
 
-import java.security.Principal;
 import java.util.Base64;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
@@ -41,7 +42,7 @@ public class PasswordAuthenticator
     }
 
     @Override
-    public Principal authenticate(HttpServletRequest request)
+    public AuthenticatedUser authenticate(HttpServletRequest request)
             throws AuthenticationException
     {
         // This handles HTTP basic auth per RFC 7617. The header contains the
@@ -62,7 +63,7 @@ public class PasswordAuthenticator
         String password = parts.get(1);
 
         try {
-            return authenticatorManager.getAuthenticator().createAuthenticatedPrincipal(user, password);
+            return new AuthenticatedUser(Optional.of(user), authenticatorManager.getAuthenticator().createAuthenticatedPrincipal(user, password));
         }
         catch (AccessDeniedException e) {
             throw needAuthentication(e.getMessage());

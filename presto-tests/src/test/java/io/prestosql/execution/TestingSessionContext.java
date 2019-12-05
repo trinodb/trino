@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.server.SessionContext;
+import io.prestosql.spi.security.AuthenticatedUser;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.session.ResourceEstimates;
 import io.prestosql.transaction.TransactionId;
@@ -36,6 +37,13 @@ public class TestingSessionContext
     public TestingSessionContext(Session session)
     {
         this.session = requireNonNull(session, "session is null");
+    }
+
+    @Override
+    public Optional<AuthenticatedUser> getAuthenticatedUser()
+    {
+        return session.getIdentity().getPrincipal()
+                .map(AuthenticatedUser::forPrincipal);
     }
 
     @Override

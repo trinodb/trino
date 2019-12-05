@@ -25,6 +25,7 @@ import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.SignatureException;
 import io.jsonwebtoken.SigningKeyResolver;
 import io.jsonwebtoken.UnsupportedJwtException;
+import io.prestosql.spi.security.AuthenticatedUser;
 import io.prestosql.spi.security.BasicPrincipal;
 
 import javax.crypto.spec.SecretKeySpec;
@@ -35,7 +36,6 @@ import java.io.File;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.security.Key;
-import java.security.Principal;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Function;
@@ -101,7 +101,7 @@ public class JsonWebTokenAuthenticator
     }
 
     @Override
-    public Principal authenticate(HttpServletRequest request)
+    public AuthenticatedUser authenticate(HttpServletRequest request)
             throws AuthenticationException
     {
         String header = nullToEmpty(request.getHeader(AUTHORIZATION));
@@ -118,7 +118,7 @@ public class JsonWebTokenAuthenticator
         try {
             Jws<Claims> claimsJws = jwtParser.parseClaimsJws(token);
             String subject = claimsJws.getBody().getSubject();
-            return new BasicPrincipal(subject);
+            return AuthenticatedUser.forPrincipal(new BasicPrincipal(subject));
         }
         catch (JwtException e) {
             throw needAuthentication(e.getMessage());

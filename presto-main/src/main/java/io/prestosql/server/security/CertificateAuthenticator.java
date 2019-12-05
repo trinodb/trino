@@ -13,9 +13,10 @@
  */
 package io.prestosql.server.security;
 
+import io.prestosql.spi.security.AuthenticatedUser;
+
 import javax.servlet.http.HttpServletRequest;
 
-import java.security.Principal;
 import java.security.cert.X509Certificate;
 
 public class CertificateAuthenticator
@@ -24,13 +25,13 @@ public class CertificateAuthenticator
     private static final String X509_ATTRIBUTE = "javax.servlet.request.X509Certificate";
 
     @Override
-    public Principal authenticate(HttpServletRequest request)
+    public AuthenticatedUser authenticate(HttpServletRequest request)
             throws AuthenticationException
     {
         X509Certificate[] certs = (X509Certificate[]) request.getAttribute(X509_ATTRIBUTE);
         if ((certs == null) || (certs.length == 0)) {
             throw new AuthenticationException(null);
         }
-        return certs[0].getSubjectX500Principal();
+        return AuthenticatedUser.forPrincipal(certs[0].getSubjectX500Principal());
     }
 }
