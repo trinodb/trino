@@ -96,6 +96,7 @@ public class AccessControlManager
         addSystemAccessControlFactory(new AllowAllSystemAccessControl.Factory());
         addSystemAccessControlFactory(new ReadOnlySystemAccessControl.Factory());
         addSystemAccessControlFactory(new FileBasedSystemAccessControl.Factory());
+        addSystemAccessControlFactory(new DefaultSystemAccessControl.Factory());
     }
 
     public final void addSystemAccessControlFactory(SystemAccessControlFactory accessControlFactory)
@@ -125,8 +126,8 @@ public class AccessControlManager
         List<File> configFiles = this.configFiles;
         if (configFiles.isEmpty()) {
             if (!CONFIG_FILE.exists()) {
-                setSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
-                log.info("Using system access control %s", AllowAllSystemAccessControl.NAME);
+                setSystemAccessControl(DefaultSystemAccessControl.NAME, ImmutableMap.of());
+                log.info("Using system access control %s", DefaultSystemAccessControl.NAME);
                 return;
             }
             configFiles = ImmutableList.of(CONFIG_FILE);
