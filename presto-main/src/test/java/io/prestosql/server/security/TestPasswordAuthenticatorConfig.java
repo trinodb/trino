@@ -23,15 +23,12 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
-public class TestJsonWebTokenConfig
+public class TestPasswordAuthenticatorConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(JsonWebTokenConfig.class)
-                .setKeyFile(null)
-                .setRequiredAudience(null)
-                .setRequiredIssuer(null)
+        assertRecordedDefaults(recordDefaults(PasswordAuthenticatorConfig.class)
                 .setUserExtractionPattern(null)
                 .setUserExtractionFile(null));
     }
@@ -40,17 +37,11 @@ public class TestJsonWebTokenConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("http.authentication.jwt.key-file", "public.pem")
-                .put("http.authentication.jwt.required-audience", "some-audience")
-                .put("http.authentication.jwt.required-issuer", "some-issuer")
-                .put("http-server.authentication.jwt.user-extraction.pattern", "(.*)@something")
-                .put("http-server.authentication.jwt.user-extraction.file", "some-file")
+                .put("http-server.authentication.password.user-extraction.pattern", "(.*)@something")
+                .put("http-server.authentication.password.user-extraction.file", "some-file")
                 .build();
 
-        JsonWebTokenConfig expected = new JsonWebTokenConfig()
-                .setKeyFile("public.pem")
-                .setRequiredAudience("some-audience")
-                .setRequiredIssuer("some-issuer")
+        PasswordAuthenticatorConfig expected = new PasswordAuthenticatorConfig()
                 .setUserExtractionPattern("(.*)@something")
                 .setUserExtractionFile(new File("some-file"));
 
