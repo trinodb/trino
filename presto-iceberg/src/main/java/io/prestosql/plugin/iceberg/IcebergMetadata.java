@@ -176,6 +176,8 @@ public class IcebergMetadata
                 return Optional.of(new SnapshotsTable(table.getSchemaTableNameWithType(), typeManager, icebergTable));
             case MANIFESTS:
                 return Optional.of(new ManifestsTable(table.getSchemaTableNameWithType(), icebergTable, table.getSnapshotId()));
+            case FILES:
+                return Optional.of(new FilesTable(table.getSchemaTableNameWithType(), icebergTable, table.getSnapshotId(), typeManager));
         }
         return Optional.empty();
     }
