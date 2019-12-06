@@ -18,6 +18,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.HttpHeaders;
 import io.prestosql.server.InternalAuthenticationManager;
+import io.prestosql.server.security.Authenticator.AuthenticatedPrincipal;
 
 import javax.inject.Inject;
 import javax.servlet.Filter;
@@ -42,6 +43,7 @@ import static com.google.common.io.ByteStreams.copy;
 import static com.google.common.io.ByteStreams.nullOutputStream;
 import static com.google.common.net.HttpHeaders.WWW_AUTHENTICATE;
 import static com.google.common.net.MediaType.PLAIN_TEXT_UTF_8;
+import static io.prestosql.client.PrestoHeaders.PRESTO_USER;
 import static java.util.Objects.requireNonNull;
 import static javax.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
 
@@ -97,9 +99,9 @@ public class AuthenticationFilter
         Set<String> authenticateHeaders = new LinkedHashSet<>();
 
         for (Authenticator authenticator : authenticators) {
-            Principal principal;
+            AuthenticatedPrincipal authenticatedPrincipal;
             try {
-                principal = authenticator.authenticate(request);
+                authenticatedPrincipal = authenticator.authenticate(request);
             }
             catch (AuthenticationException e) {
                 if (e.getMessage() != null) {
@@ -110,7 +112,8 @@ public class AuthenticationFilter
             }
 
             // authentication succeeded
-            nextFilter.doFilter(withPrincipal(request, principal), response);
+            request.setAttribute(PRESTO_USER, authenticatedPrincipal.getUser());
+            nextFilter.doFilter(withPrincipal(request, authenticatedPrincipal.getPrincipal()), response);
             return;
         }
 

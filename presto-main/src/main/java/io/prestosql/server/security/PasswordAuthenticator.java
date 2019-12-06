@@ -25,6 +25,7 @@ import java.util.List;
 
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
+import static io.prestosql.server.security.UserExtraction.createUserExtraction;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.Objects.requireNonNull;
 
@@ -32,16 +33,20 @@ public class PasswordAuthenticator
         implements Authenticator
 {
     private final PasswordAuthenticatorManager authenticatorManager;
+    private final UserExtraction userExtraction;
 
     @Inject
-    public PasswordAuthenticator(PasswordAuthenticatorManager authenticatorManager)
+    public PasswordAuthenticator(PasswordAuthenticatorManager authenticatorManager, PasswordAuthenticatorConfig config)
     {
+        requireNonNull(config, "config is null");
+        this.userExtraction = createUserExtraction(config.getUserExtractionPattern(), config.getUserExtractionFile());
+
         this.authenticatorManager = requireNonNull(authenticatorManager, "authenticatorManager is null");
         authenticatorManager.setRequired();
     }
 
     @Override
-    public Principal authenticate(HttpServletRequest request)
+    public AuthenticatedPrincipal authenticate(HttpServletRequest request)
             throws AuthenticationException
     {
         // This handles HTTP basic auth per RFC 7617. The header contains the
@@ -62,9 +67,11 @@ public class PasswordAuthenticator
         String password = parts.get(1);
 
         try {
-            return authenticatorManager.getAuthenticator().createAuthenticatedPrincipal(user, password);
+            Principal principal = authenticatorManager.getAuthenticator().createAuthenticatedPrincipal(user, password);
+            String authenticatedUser = userExtraction.extractUser(principal.toString());
+            return new AuthenticatedPrincipal(authenticatedUser, principal);
         }
-        catch (AccessDeniedException e) {
+        catch (UserExtractionException | AccessDeniedException e) {
             throw needAuthentication(e.getMessage());
         }
         catch (RuntimeException e) {

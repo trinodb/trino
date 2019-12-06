@@ -96,6 +96,32 @@ public class TestHttpRequestSessionContext
     }
 
     @Test
+    public void testExtractedUser()
+    {
+        MockHttpServletRequest servletRequest = new MockHttpServletRequest(
+                ImmutableListMultimap.of(PRESTO_USER, "testUser"),
+                "testRemote");
+        HttpRequestSessionContext context = new HttpRequestSessionContext(WARN, servletRequest);
+        assertEquals(context.getIdentity(), Identity.ofUser("testUser"));
+
+        servletRequest = new MockHttpServletRequest(ImmutableListMultimap.of(), "testRemote");
+        servletRequest.setAttribute(PRESTO_USER, "extractedUser");
+        context = new HttpRequestSessionContext(WARN, servletRequest);
+        assertEquals(context.getIdentity(), Identity.ofUser("extractedUser"));
+
+        servletRequest = new MockHttpServletRequest(
+                ImmutableListMultimap.of(PRESTO_USER, "testUser"),
+                "testRemote");
+        servletRequest.setAttribute(PRESTO_USER, "extractedUser");
+        context = new HttpRequestSessionContext(WARN, servletRequest);
+        assertEquals(context.getIdentity(), Identity.ofUser("testUser"));
+
+        assertThatThrownBy(() -> new HttpRequestSessionContext(WARN, new MockHttpServletRequest(ImmutableListMultimap.of(), "testRemote")))
+                .isInstanceOf(WebApplicationException.class)
+                .matches(e -> ((WebApplicationException) e).getResponse().getStatus() == 400);
+    }
+
+    @Test
     public void testPreparedStatementsHeaderDoesNotParse()
     {
         HttpServletRequest request = new MockHttpServletRequest(

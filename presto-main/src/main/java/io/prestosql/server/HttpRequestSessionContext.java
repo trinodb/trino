@@ -116,6 +116,9 @@ public final class HttpRequestSessionContext
         assertRequest((catalog != null) || (schema == null), "Schema is set but catalog is not");
 
         String user = trimEmptyToNull(servletRequest.getHeader(PRESTO_USER));
+        if (user == null) {
+            user = (String) servletRequest.getAttribute(PRESTO_USER);
+        }
         assertRequest(user != null, "User must be set");
         identity = Identity.forUser(user)
                 .withPrincipal(Optional.ofNullable(servletRequest.getUserPrincipal()))
