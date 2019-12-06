@@ -20,4 +20,5 @@ public enum TableType
     SNAPSHOTS,
     MANIFESTS,
     PARTITIONS,
+    FILES,
 }
