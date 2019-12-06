@@ -24,6 +24,6 @@ java \
   -Duser.timezone=Asia/Kathmandu \
   -cp "/docker/presto-jdbc.jar:/docker/presto-product-tests-executable.jar" \
   io.prestosql.tests.TemptoProductTestRunner \
-  --report-dir "/docker/test-reports" \
+  --report-dir "/docker/test-reports/$(date "+%Y-%m-%dT%H:%M:%S")" \
   --config "${TEMPTO_CONFIG_FILES}" \
   "$@"

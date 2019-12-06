@@ -53,7 +53,6 @@ function check_presto() {
 
 function run_product_tests() {
   local REPORT_DIR="${PRODUCT_TESTS_ROOT}/target/test-reports"
-  rm -rf "${REPORT_DIR}"
   mkdir -p "${REPORT_DIR}"
   run_in_application_runner_container /docker/presto-product-tests/conf/docker/files/run-tempto.sh "$@" &
   PRODUCT_TESTS_PROCESS_ID=$!
