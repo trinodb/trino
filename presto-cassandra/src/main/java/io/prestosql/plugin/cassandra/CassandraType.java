@@ -165,14 +165,13 @@ public enum CassandraType
         }
     }
 
-    public static NullableValue getColumnValue(Row row, int position, CassandraType cassandraType)
+    public NullableValue getColumnValue(Row row, int position)
     {
-        Type nativeType = cassandraType.getNativeType();
         if (row.isNull(position)) {
             return NullableValue.asNull(nativeType);
         }
 
-        switch (cassandraType) {
+        switch (this) {
             case ASCII:
             case TEXT:
             case VARCHAR:
@@ -214,7 +213,7 @@ public enum CassandraType
             case MAP:
                 return NullableValue.of(nativeType, utf8Slice(buildMapValue(row, position)));
             default:
-                throw new IllegalStateException("Handling of type " + cassandraType + " is not implemented");
+                throw new IllegalStateException("Handling of type " + this + " is not implemented");
         }
     }
 
