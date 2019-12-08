@@ -156,13 +156,6 @@ public final class CassandraCqlUtils
         return from(select(columns).distinct(), tableHandle);
     }
 
-    public static Select selectCountAllFrom(CassandraTableHandle tableHandle)
-    {
-        String schema = validSchemaName(tableHandle.getSchemaName());
-        String table = validTableName(tableHandle.getTableName());
-        return QueryBuilder.select().countAll().from(schema, table);
-    }
-
     public static String cqlValue(String value, CassandraType cassandraType)
     {
         switch (cassandraType) {

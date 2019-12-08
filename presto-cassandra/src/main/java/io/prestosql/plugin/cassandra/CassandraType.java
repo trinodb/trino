@@ -22,7 +22,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.net.InetAddresses;
 import io.airlift.slice.Slice;
 import io.prestosql.plugin.cassandra.util.CassandraCqlUtils;
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.BooleanType;
@@ -49,7 +48,6 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.net.InetAddresses.toAddrString;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
@@ -441,39 +439,6 @@ public enum CassandraType
             case MAP:
             default:
                 return false;
-        }
-    }
-
-    public Object validateClusteringKey(Object value)
-    {
-        switch (this) {
-            case ASCII:
-            case TEXT:
-            case VARCHAR:
-            case BIGINT:
-            case BOOLEAN:
-            case DOUBLE:
-            case INET:
-            case INT:
-            case SMALLINT:
-            case TINYINT:
-            case FLOAT:
-            case DECIMAL:
-            case TIMESTAMP:
-            case DATE:
-            case UUID:
-            case TIMEUUID:
-                return value;
-            case COUNTER:
-            case BLOB:
-            case CUSTOM:
-            case VARINT:
-            case SET:
-            case LIST:
-            case MAP:
-            default:
-                // todo should we just skip partition pruning instead of throwing an exception?
-                throw new PrestoException(NOT_SUPPORTED, "Unsupported clustering key type: " + this);
         }
     }
 

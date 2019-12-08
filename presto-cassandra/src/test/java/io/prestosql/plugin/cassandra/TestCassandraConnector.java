@@ -84,8 +84,6 @@ public class TestCassandraConnector
             true);
     protected String database;
     protected SchemaTableName table;
-    protected SchemaTableName tableUnpartitioned;
-    protected SchemaTableName invalidTable;
     private ConnectorMetadata metadata;
     private ConnectorSplitManager splitManager;
     private ConnectorRecordSetProvider recordSetProvider;
@@ -117,8 +115,6 @@ public class TestCassandraConnector
 
         database = keyspace;
         table = new SchemaTableName(database, TABLE_ALL_TYPES.toLowerCase(ENGLISH));
-        tableUnpartitioned = new SchemaTableName(database, "presto_test_unpartitioned");
-        invalidTable = new SchemaTableName(database, "totally_invalid_table_name");
     }
 
     @Test
