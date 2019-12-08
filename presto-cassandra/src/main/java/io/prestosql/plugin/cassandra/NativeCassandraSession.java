@@ -418,7 +418,7 @@ public class NativeCassandraSession
                 }
                 stringBuilder.append(CassandraCqlUtils.validColumnName(columnHandle.getName()));
                 stringBuilder.append(" = ");
-                stringBuilder.append(CassandraType.getColumnValueForCql(row, i, columnHandle.getCassandraType()));
+                stringBuilder.append(columnHandle.getCassandraType().getColumnValueForCql(row, i));
             }
             buffer.flip();
             byte[] key = new byte[buffer.limit()];
