@@ -75,6 +75,7 @@ import static com.google.common.collect.Iterables.transform;
 import static io.prestosql.plugin.cassandra.CassandraErrorCode.CASSANDRA_VERSION_ERROR;
 import static io.prestosql.plugin.cassandra.CassandraType.isFullySupported;
 import static io.prestosql.plugin.cassandra.CassandraType.toCassandraType;
+import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.selectDistinctFrom;
 import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.validSchemaName;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
@@ -454,7 +455,7 @@ public class NativeCassandraSession
         CassandraTableHandle tableHandle = table.getTableHandle();
         List<CassandraColumnHandle> partitionKeyColumns = table.getPartitionKeyColumns();
 
-        Select partitionKeys = CassandraCqlUtils.selectDistinctFrom(tableHandle, partitionKeyColumns);
+        Select partitionKeys = selectDistinctFrom(tableHandle, partitionKeyColumns);
         addWhereInClauses(partitionKeys.where(), partitionKeyColumns, filterPrefixes);
 
         return execute(partitionKeys).all();
@@ -469,7 +470,7 @@ public class NativeCassandraSession
 
         ImmutableList.Builder<Row> rowList = ImmutableList.builder();
         for (List<Object> combination : filterCombinations) {
-            Select partitionKeys = CassandraCqlUtils.selectDistinctFrom(tableHandle, partitionKeyColumns);
+            Select partitionKeys = selectDistinctFrom(tableHandle, partitionKeyColumns);
             addWhereClause(partitionKeys.where(), partitionKeyColumns, combination);
 
             List<Row> resultRows = execute(partitionKeys).all();

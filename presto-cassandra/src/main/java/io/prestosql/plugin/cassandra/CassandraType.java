@@ -21,7 +21,6 @@ import com.datastax.driver.core.utils.Bytes;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.net.InetAddresses;
 import io.airlift.slice.Slice;
-import io.prestosql.plugin.cassandra.util.CassandraCqlUtils;
 import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.BooleanType;
@@ -48,6 +47,8 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.net.InetAddresses.toAddrString;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.quoteStringLiteral;
+import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.quoteStringLiteralForJson;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
@@ -293,7 +294,7 @@ public enum CassandraType
             case ASCII:
             case TEXT:
             case VARCHAR:
-                return CassandraCqlUtils.quoteStringLiteral(row.getString(position));
+                return quoteStringLiteral(row.getString(position));
             case INT:
                 return Integer.toString(row.getInt(position));
             case SMALLINT:
@@ -319,7 +320,7 @@ public enum CassandraType
             case DATE:
                 return row.getDate(position).toString();
             case INET:
-                return CassandraCqlUtils.quoteStringLiteral(toAddrString(row.getInet(position)));
+                return quoteStringLiteral(toAddrString(row.getInet(position)));
             case VARINT:
                 return row.getVarint(position).toString();
             case BLOB:
@@ -345,11 +346,11 @@ public enum CassandraType
             case DATE:
             case INET:
             case VARINT:
-                return CassandraCqlUtils.quoteStringLiteralForJson(object.toString());
+                return quoteStringLiteralForJson(object.toString());
 
             case BLOB:
             case CUSTOM:
-                return CassandraCqlUtils.quoteStringLiteralForJson(Bytes.toHexString((ByteBuffer) object));
+                return quoteStringLiteralForJson(Bytes.toHexString((ByteBuffer) object));
 
             case SMALLINT:
             case TINYINT:
