@@ -52,6 +52,7 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.cassandra.CassandraType.toCassandraType;
+import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.cqlNameToSqlName;
 import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.validSchemaName;
 import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.validTableName;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -157,7 +158,7 @@ public class CassandraMetadata
         CassandraTable table = cassandraSession.getTable(getTableName(tableHandle));
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (CassandraColumnHandle columnHandle : table.getColumns()) {
-            columnHandles.put(CassandraCqlUtils.cqlNameToSqlName(columnHandle.getName()).toLowerCase(ENGLISH), columnHandle);
+            columnHandles.put(cqlNameToSqlName(columnHandle.getName()).toLowerCase(ENGLISH), columnHandle);
         }
         return columnHandles.build();
     }

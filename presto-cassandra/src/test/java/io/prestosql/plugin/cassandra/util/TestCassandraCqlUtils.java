@@ -20,6 +20,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.appendSelectColumns;
 import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.quoteStringLiteral;
 import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.quoteStringLiteralForJson;
 import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.validColumnName;
@@ -77,7 +78,7 @@ public class TestCassandraCqlUtils
                 new CassandraColumnHandle("table", 0, CassandraType.VARCHAR, false, false, false, false));
 
         StringBuilder sb = new StringBuilder();
-        CassandraCqlUtils.appendSelectColumns(sb, columns);
+        appendSelectColumns(sb, columns);
         String str = sb.toString();
 
         assertEquals("foo,bar,\"table\"", str);
