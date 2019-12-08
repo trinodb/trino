@@ -264,6 +264,7 @@ public enum CassandraType
         return sb.toString();
     }
 
+    // TODO unify with toCqlLiteral
     public String getColumnValueForCql(Row row, int position)
     {
         if (row.isNull(position)) {
@@ -308,6 +309,30 @@ public enum CassandraType
                 return Bytes.toHexString(row.getBytesUnsafe(position));
             default:
                 throw new IllegalStateException("Handling of type " + this + " is not implemented");
+        }
+    }
+
+    // TODO unify with getColumnValueForCql
+    public String toCqlLiteral(Object prestoNativeValue)
+    {
+        String value;
+        if (prestoNativeValue instanceof Slice) {
+            value = ((Slice) prestoNativeValue).toStringUtf8();
+        }
+        else {
+            value = prestoNativeValue.toString();
+        }
+
+        switch (this) {
+            case ASCII:
+            case TEXT:
+            case VARCHAR:
+                return quoteStringLiteral(value);
+            case INET:
+                // remove '/' in the string. e.g. /127.0.0.1
+                return quoteStringLiteral(value.substring(1));
+            default:
+                return value;
         }
     }
 
