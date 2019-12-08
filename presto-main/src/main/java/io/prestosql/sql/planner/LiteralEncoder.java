@@ -14,7 +14,6 @@
 package io.prestosql.sql.planner;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.DynamicSliceOutput;
@@ -51,7 +50,6 @@ import io.prestosql.type.Re2JRegexp;
 import io.prestosql.type.Re2JRegexpType;
 
 import java.util.List;
-import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.metadata.LiteralFunction.LITERAL_FUNCTION_NAME;
@@ -80,7 +78,6 @@ import static java.util.Objects.requireNonNull;
 
 public final class LiteralEncoder
 {
-    private static final Set<Class<?>> SUPPORTED_PRIMITIVE_TYPES = ImmutableSet.of(boolean.class, long.class, double.class, Slice.class, Block.class);
     private final Metadata metadata;
 
     public LiteralEncoder(Metadata metadata)
@@ -101,18 +98,6 @@ public final class LiteralEncoder
             expressions.add(toExpression(object, type));
         }
         return expressions.build();
-    }
-
-    public static boolean canEncode(Object object, Type type)
-    {
-        if (object instanceof Expression) {
-            return true;
-        }
-
-        if (object == null) {
-            return true;
-        }
-        return SUPPORTED_PRIMITIVE_TYPES.contains(Primitives.unwrap(type.getJavaType()));
     }
 
     public Expression toExpression(Object object, Type type)

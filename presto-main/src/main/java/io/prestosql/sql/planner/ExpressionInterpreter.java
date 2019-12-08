@@ -588,14 +588,12 @@ public class ExpressionInterpreter
             boolean found = false;
             List<Object> values = new ArrayList<>(valueList.getValues().size());
             List<Type> types = new ArrayList<>(valueList.getValues().size());
-            List<Expression> originalValues = new ArrayList<>(valueList.getValues().size());
             for (Expression expression : valueList.getValues()) {
                 Object inValue = process(expression, context);
                 if (value instanceof Expression || inValue instanceof Expression) {
                     hasUnresolvedValue = true;
                     values.add(inValue);
                     types.add(type(expression));
-                    originalValues.add(expression);
                     continue;
                 }
 
@@ -619,7 +617,7 @@ public class ExpressionInterpreter
 
             if (hasUnresolvedValue) {
                 Type type = type(node.getValue());
-                List<Expression> expressionValues = toExpressions(values, types, originalValues);
+                List<Expression> expressionValues = toExpressions(values, types);
                 List<Expression> simplifiedExpressionValues = Stream.concat(
                         expressionValues.stream()
                                 .filter(expression -> isDeterministic(expression, metadata))
@@ -933,7 +931,7 @@ public class ExpressionInterpreter
                 return new FunctionCallBuilder(metadata)
                         .setName(node.getName())
                         .setWindow(node.getWindow())
-                        .setArguments(argumentTypes, toExpressions(argumentValues, argumentTypes, node.getArguments()))
+                        .setArguments(argumentTypes, toExpressions(argumentValues, argumentTypes))
                         .build();
             }
             return functionInvoker.invoke(resolvedFunction, session, argumentValues);
@@ -1184,7 +1182,7 @@ public class ExpressionInterpreter
                 values.add(process(argument, context));
             }
             if (hasUnresolvedValue(values)) {
-                return new Row(toExpressions(values, parameterTypes, arguments));
+                return new Row(toExpressions(values, parameterTypes));
             }
             else {
                 BlockBuilder blockBuilder = new RowBlockBuilder(parameterTypes, null, 1);
@@ -1289,25 +1287,9 @@ public class ExpressionInterpreter
             return literalEncoder.toExpression(base, type);
         }
 
-        private List<Expression> toExpressions(List<Object> values, List<Type> types, List<Expression> originalArguments)
+        private List<Expression> toExpressions(List<Object> values, List<Type> types)
         {
-            requireNonNull(values, "values is null");
-            requireNonNull(types, "types is null");
-            requireNonNull(originalArguments, "originalArguments is null");
-            checkArgument(values.size() == types.size() && types.size() == originalArguments.size(), "values, types, and originalArguments do not have the same size");
-
-            ImmutableList.Builder<Expression> expressions = ImmutableList.builder();
-            for (int i = 0; i < values.size(); i++) {
-                Object object = values.get(i);
-                Type type = types.get(i);
-                if (LiteralEncoder.canEncode(object, type)) {
-                    expressions.add(toExpression(object, type));
-                }
-                else {
-                    expressions.add(originalArguments.get(i));
-                }
-            }
-            return expressions.build();
+            return literalEncoder.toExpressions(values, types);
         }
     }
 
