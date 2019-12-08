@@ -411,7 +411,7 @@ public class NativeCassandraSession
                     buffer.put(component);
                 }
                 CassandraColumnHandle columnHandle = partitionKeyColumns.get(i);
-                NullableValue keyPart = CassandraType.getColumnValue(row, i, columnHandle.getCassandraType());
+                NullableValue keyPart = columnHandle.getCassandraType().getColumnValue(row, i);
                 map.put(columnHandle, keyPart);
                 if (i > 0) {
                     stringBuilder.append(" AND ");

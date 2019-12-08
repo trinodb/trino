@@ -121,7 +121,7 @@ public class CassandraRecordCursor
     @Override
     public Slice getSlice(int i)
     {
-        NullableValue value = CassandraType.getColumnValue(currentRow, i, cassandraTypes.get(i));
+        NullableValue value = cassandraTypes.get(i).getColumnValue(currentRow, i);
         if (value.getValue() instanceof Slice) {
             return (Slice) value.getValue();
         }
