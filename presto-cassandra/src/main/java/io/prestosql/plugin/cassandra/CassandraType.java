@@ -264,13 +264,13 @@ public enum CassandraType
         return sb.toString();
     }
 
-    public static String getColumnValueForCql(Row row, int position, CassandraType cassandraType)
+    public String getColumnValueForCql(Row row, int position)
     {
         if (row.isNull(position)) {
             return null;
         }
 
-        switch (cassandraType) {
+        switch (this) {
             case ASCII:
             case TEXT:
             case VARCHAR:
@@ -307,7 +307,7 @@ public enum CassandraType
             case CUSTOM:
                 return Bytes.toHexString(row.getBytesUnsafe(position));
             default:
-                throw new IllegalStateException("Handling of type " + cassandraType + " is not implemented");
+                throw new IllegalStateException("Handling of type " + this + " is not implemented");
         }
     }
 
