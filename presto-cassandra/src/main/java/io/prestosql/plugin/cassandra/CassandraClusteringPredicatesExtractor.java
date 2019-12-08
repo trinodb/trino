@@ -73,8 +73,7 @@ public class CassandraClusteringPredicatesExtractor
             if (domain.isNullAllowed()) {
                 break;
             }
-            String predicateString = null;
-            predicateString = domain.getValues().getValuesProcessor().transform(
+            String predicateString = domain.getValues().getValuesProcessor().transform(
                     ranges -> {
                         List<Object> singleValues = new ArrayList<>();
                         List<String> rangeConjuncts = new ArrayList<>();
