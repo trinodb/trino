@@ -58,7 +58,7 @@ public class RemoveRedundantDistinctLimit
         if (isScalar(node.getSource(), context.getLookup())) {
             return Result.ofPlanNode(node.getSource());
         }
-        else if (isAtMost(node.getSource(), context.getLookup(), node.getLimit())) {
+        if (isAtMost(node.getSource(), context.getLookup(), node.getLimit())) {
             return Result.ofPlanNode(new AggregationNode(node.getId(),
                     node.getSource(),
                     ImmutableMap.of(),
