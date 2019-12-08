@@ -508,7 +508,7 @@ public class NativeCassandraSession
     public List<SizeEstimate> getSizeEstimates(String keyspaceName, String tableName)
     {
         checkSizeEstimatesTableExist();
-        Statement statement = select("range_start", "range_end", "mean_partition_size", "partitions_count")
+        Statement statement = select("partitions_count")
                 .from(SYSTEM, SIZE_ESTIMATES)
                 .where(eq("keyspace_name", keyspaceName))
                 .and(eq("table_name", tableName));
@@ -516,11 +516,7 @@ public class NativeCassandraSession
         ResultSet result = executeWithSession(session -> session.execute(statement));
         ImmutableList.Builder<SizeEstimate> estimates = ImmutableList.builder();
         for (Row row : result.all()) {
-            SizeEstimate estimate = new SizeEstimate(
-                    row.getString("range_start"),
-                    row.getString("range_end"),
-                    row.getLong("mean_partition_size"),
-                    row.getLong("partitions_count"));
+            SizeEstimate estimate = new SizeEstimate(row.getLong("partitions_count"));
             estimates.add(estimate);
         }
 
