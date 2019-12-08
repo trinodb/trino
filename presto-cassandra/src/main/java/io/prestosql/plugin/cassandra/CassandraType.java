@@ -205,8 +205,7 @@ public enum CassandraType
                 case MAP:
                     return NullableValue.of(nativeType, utf8Slice(buildMapValue(row, position)));
                 default:
-                    throw new IllegalStateException("Handling of type " + cassandraType
-                            + " is not implemented");
+                    throw new IllegalStateException("Handling of type " + cassandraType + " is not implemented");
             }
         }
     }
@@ -320,8 +319,7 @@ public enum CassandraType
                 case CUSTOM:
                     return Bytes.toHexString(row.getBytesUnsafe(position));
                 default:
-                    throw new IllegalStateException("Handling of type " + cassandraType
-                            + " is not implemented");
+                    throw new IllegalStateException("Handling of type " + cassandraType + " is not implemented");
             }
         }
     }
@@ -449,7 +447,7 @@ public enum CassandraType
         }
 
         return dataType.getTypeArguments().stream()
-                       .allMatch(CassandraType::isFullySupported);
+                .allMatch(CassandraType::isFullySupported);
     }
 
     public static CassandraType toCassandraType(Type type, ProtocolVersion protocolVersion)
