@@ -99,16 +99,16 @@ public enum CassandraType
         private static final int IP_ADDRESS_STRING_MAX_LENGTH = 45;
     }
 
-    private final Type nativeType;
+    private final Type prestoType;
 
-    CassandraType(Type nativeType)
+    CassandraType(Type prestoType)
     {
-        this.nativeType = requireNonNull(nativeType, "nativeType is null");
+        this.prestoType = requireNonNull(prestoType, "prestoType is null");
     }
 
-    public Type getNativeType()
+    public Type getPrestoType()
     {
-        return nativeType;
+        return prestoType;
     }
 
     public static Optional<CassandraType> toCassandraType(DataType.Name name)
@@ -168,50 +168,50 @@ public enum CassandraType
     public NullableValue getColumnValue(Row row, int position)
     {
         if (row.isNull(position)) {
-            return NullableValue.asNull(nativeType);
+            return NullableValue.asNull(prestoType);
         }
 
         switch (this) {
             case ASCII:
             case TEXT:
             case VARCHAR:
-                return NullableValue.of(nativeType, utf8Slice(row.getString(position)));
+                return NullableValue.of(prestoType, utf8Slice(row.getString(position)));
             case INT:
-                return NullableValue.of(nativeType, (long) row.getInt(position));
+                return NullableValue.of(prestoType, (long) row.getInt(position));
             case SMALLINT:
-                return NullableValue.of(nativeType, (long) row.getShort(position));
+                return NullableValue.of(prestoType, (long) row.getShort(position));
             case TINYINT:
-                return NullableValue.of(nativeType, (long) row.getByte(position));
+                return NullableValue.of(prestoType, (long) row.getByte(position));
             case BIGINT:
             case COUNTER:
-                return NullableValue.of(nativeType, row.getLong(position));
+                return NullableValue.of(prestoType, row.getLong(position));
             case BOOLEAN:
-                return NullableValue.of(nativeType, row.getBool(position));
+                return NullableValue.of(prestoType, row.getBool(position));
             case DOUBLE:
-                return NullableValue.of(nativeType, row.getDouble(position));
+                return NullableValue.of(prestoType, row.getDouble(position));
             case FLOAT:
-                return NullableValue.of(nativeType, (long) floatToRawIntBits(row.getFloat(position)));
+                return NullableValue.of(prestoType, (long) floatToRawIntBits(row.getFloat(position)));
             case DECIMAL:
-                return NullableValue.of(nativeType, row.getDecimal(position).doubleValue());
+                return NullableValue.of(prestoType, row.getDecimal(position).doubleValue());
             case UUID:
             case TIMEUUID:
-                return NullableValue.of(nativeType, utf8Slice(row.getUUID(position).toString()));
+                return NullableValue.of(prestoType, utf8Slice(row.getUUID(position).toString()));
             case TIMESTAMP:
-                return NullableValue.of(nativeType, row.getTimestamp(position).getTime());
+                return NullableValue.of(prestoType, row.getTimestamp(position).getTime());
             case DATE:
-                return NullableValue.of(nativeType, (long) row.getDate(position).getDaysSinceEpoch());
+                return NullableValue.of(prestoType, (long) row.getDate(position).getDaysSinceEpoch());
             case INET:
-                return NullableValue.of(nativeType, utf8Slice(toAddrString(row.getInet(position))));
+                return NullableValue.of(prestoType, utf8Slice(toAddrString(row.getInet(position))));
             case VARINT:
-                return NullableValue.of(nativeType, utf8Slice(row.getVarint(position).toString()));
+                return NullableValue.of(prestoType, utf8Slice(row.getVarint(position).toString()));
             case BLOB:
             case CUSTOM:
-                return NullableValue.of(nativeType, wrappedBuffer(row.getBytesUnsafe(position)));
+                return NullableValue.of(prestoType, wrappedBuffer(row.getBytesUnsafe(position)));
             case SET:
             case LIST:
-                return NullableValue.of(nativeType, utf8Slice(buildArrayValue(row, position)));
+                return NullableValue.of(prestoType, utf8Slice(buildArrayValue(row, position)));
             case MAP:
-                return NullableValue.of(nativeType, utf8Slice(buildMapValue(row, position)));
+                return NullableValue.of(prestoType, utf8Slice(buildMapValue(row, position)));
             default:
                 throw new IllegalStateException("Handling of type " + this + " is not implemented");
         }
