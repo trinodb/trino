@@ -137,7 +137,7 @@ public class CassandraRecordCursor
     @Override
     public Type getType(int i)
     {
-        return getCassandraType(i).getNativeType();
+        return getCassandraType(i).getPrestoType();
     }
 
     @Override
