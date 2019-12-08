@@ -226,17 +226,17 @@ public enum CassandraType
         return buildMapValue((Map<?, ?>) row.getObject(position), keyType, valueType);
     }
 
-    private static String buildMapValue(Map<?, ?> map, DataType keyType, DataType valueType)
+    private static String buildMapValue(Map<?, ?> cassandraMap, DataType keyType, DataType valueType)
     {
         StringBuilder sb = new StringBuilder();
         sb.append("{");
-        for (Map.Entry<?, ?> entry : map.entrySet()) {
+        for (Map.Entry<?, ?> entry : cassandraMap.entrySet()) {
             if (sb.length() > 1) {
                 sb.append(",");
             }
-            sb.append(objectToString(entry.getKey(), keyType));
+            sb.append(objectToJson(entry.getKey(), keyType));
             sb.append(":");
-            sb.append(objectToString(entry.getValue(), valueType));
+            sb.append(objectToJson(entry.getValue(), valueType));
         }
         sb.append("}");
         return sb.toString();
@@ -250,15 +250,15 @@ public enum CassandraType
     }
 
     @VisibleForTesting
-    static String buildArrayValue(Collection<?> collection, DataType elementType)
+    static String buildArrayValue(Collection<?> cassandraCollection, DataType elementType)
     {
         StringBuilder sb = new StringBuilder();
         sb.append("[");
-        for (Object value : collection) {
+        for (Object value : cassandraCollection) {
             if (sb.length() > 1) {
                 sb.append(",");
             }
-            sb.append(objectToString(value, elementType));
+            sb.append(objectToJson(value, elementType));
         }
         sb.append("]");
         return sb.toString();
@@ -336,7 +336,7 @@ public enum CassandraType
         }
     }
 
-    private static String objectToString(Object object, DataType dataType)
+    private static String objectToJson(Object cassandraValue, DataType dataType)
     {
         CassandraType cassandraType = toCassandraType(dataType.getName())
                 .orElseThrow(() -> new IllegalStateException("Unsupported type: " + dataType));
@@ -351,11 +351,11 @@ public enum CassandraType
             case DATE:
             case INET:
             case VARINT:
-                return quoteStringLiteralForJson(object.toString());
+                return quoteStringLiteralForJson(cassandraValue.toString());
 
             case BLOB:
             case CUSTOM:
-                return quoteStringLiteralForJson(Bytes.toHexString((ByteBuffer) object));
+                return quoteStringLiteralForJson(Bytes.toHexString((ByteBuffer) cassandraValue));
 
             case SMALLINT:
             case TINYINT:
@@ -366,55 +366,55 @@ public enum CassandraType
             case DOUBLE:
             case FLOAT:
             case DECIMAL:
-                return object.toString();
+                return cassandraValue.toString();
             case LIST:
             case SET:
-                return buildArrayValue((Collection<?>) object, getOnlyElement(dataType.getTypeArguments()));
+                return buildArrayValue((Collection<?>) cassandraValue, getOnlyElement(dataType.getTypeArguments()));
             case MAP:
-                return buildMapValue((Map<?, ?>) object, dataType.getTypeArguments().get(0), dataType.getTypeArguments().get(1));
+                return buildMapValue((Map<?, ?>) cassandraValue, dataType.getTypeArguments().get(0), dataType.getTypeArguments().get(1));
             default:
                 throw new IllegalStateException("Unsupported type: " + cassandraType);
         }
     }
 
-    public Object getJavaValue(Object nativeValue)
+    public Object getJavaValue(Object prestoNativeValue)
     {
         switch (this) {
             case ASCII:
             case TEXT:
             case VARCHAR:
-                return ((Slice) nativeValue).toStringUtf8();
+                return ((Slice) prestoNativeValue).toStringUtf8();
             case BIGINT:
             case BOOLEAN:
             case DOUBLE:
             case COUNTER:
-                return nativeValue;
+                return prestoNativeValue;
             case INET:
-                return InetAddresses.forString(((Slice) nativeValue).toStringUtf8());
+                return InetAddresses.forString(((Slice) prestoNativeValue).toStringUtf8());
             case INT:
             case SMALLINT:
             case TINYINT:
-                return ((Long) nativeValue).intValue();
+                return ((Long) prestoNativeValue).intValue();
             case FLOAT:
                 // conversion can result in precision lost
-                return intBitsToFloat(((Long) nativeValue).intValue());
+                return intBitsToFloat(((Long) prestoNativeValue).intValue());
             case DECIMAL:
                 // conversion can result in precision lost
                 // Presto uses double for decimal, so to keep the floating point precision, convert it to string.
                 // Otherwise partition id doesn't match
-                return new BigDecimal(nativeValue.toString());
+                return new BigDecimal(prestoNativeValue.toString());
             case TIMESTAMP:
-                return new Date((Long) nativeValue);
+                return new Date((Long) prestoNativeValue);
             case DATE:
-                return LocalDate.fromDaysSinceEpoch(((Long) nativeValue).intValue());
+                return LocalDate.fromDaysSinceEpoch(((Long) prestoNativeValue).intValue());
             case UUID:
             case TIMEUUID:
-                return java.util.UUID.fromString(((Slice) nativeValue).toStringUtf8());
+                return java.util.UUID.fromString(((Slice) prestoNativeValue).toStringUtf8());
             case BLOB:
             case CUSTOM:
-                return ((Slice) nativeValue).toStringUtf8();
+                return ((Slice) prestoNativeValue).toStringUtf8();
             case VARINT:
-                return new BigInteger(((Slice) nativeValue).toStringUtf8());
+                return new BigInteger(((Slice) prestoNativeValue).toStringUtf8());
             case SET:
             case LIST:
             case MAP:
