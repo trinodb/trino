@@ -57,29 +57,37 @@ import static java.util.Objects.requireNonNull;
 
 public enum CassandraType
 {
-    ASCII(createUnboundedVarcharType()),
-    BIGINT(BigintType.BIGINT),
-    BLOB(VarbinaryType.VARBINARY),
-    CUSTOM(VarbinaryType.VARBINARY),
     BOOLEAN(BooleanType.BOOLEAN),
-    COUNTER(BigintType.BIGINT),
-    DECIMAL(DoubleType.DOUBLE),
-    DOUBLE(DoubleType.DOUBLE),
-    FLOAT(RealType.REAL),
-    INET(createVarcharType(Constants.IP_ADDRESS_STRING_MAX_LENGTH)),
-    INT(IntegerType.INTEGER),
-    SMALLINT(SmallintType.SMALLINT),
+
     TINYINT(TinyintType.TINYINT),
-    TEXT(createUnboundedVarcharType()),
+    SMALLINT(SmallintType.SMALLINT),
+    INT(IntegerType.INTEGER),
+    BIGINT(BigintType.BIGINT),
+
+    FLOAT(RealType.REAL),
+    DOUBLE(DoubleType.DOUBLE),
+    DECIMAL(DoubleType.DOUBLE),
+
     DATE(DateType.DATE),
     TIMESTAMP(TimestampType.TIMESTAMP),
+
+    ASCII(createUnboundedVarcharType()),
+    TEXT(createUnboundedVarcharType()),
+    VARCHAR(createUnboundedVarcharType()),
+
+    BLOB(VarbinaryType.VARBINARY),
+
     UUID(createVarcharType(Constants.UUID_STRING_MAX_LENGTH)),
     TIMEUUID(createVarcharType(Constants.UUID_STRING_MAX_LENGTH)),
-    VARCHAR(createUnboundedVarcharType()),
+    COUNTER(BigintType.BIGINT),
     VARINT(createUnboundedVarcharType()),
+    INET(createVarcharType(Constants.IP_ADDRESS_STRING_MAX_LENGTH)),
+    CUSTOM(VarbinaryType.VARBINARY),
+
     LIST(createUnboundedVarcharType()),
+    SET(createUnboundedVarcharType()),
     MAP(createUnboundedVarcharType()),
-    SET(createUnboundedVarcharType());
+    /**/;
 
     private static final class Constants
     {
