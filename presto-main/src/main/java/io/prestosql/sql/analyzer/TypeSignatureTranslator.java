@@ -67,13 +67,13 @@ public class TypeSignatureTranslator
         if (type instanceof DateTimeDataType) {
             return toTypeSignature((DateTimeDataType) type);
         }
-        else if (type instanceof IntervalDayTimeDataType) {
+        if (type instanceof IntervalDayTimeDataType) {
             return toTypeSignature((IntervalDayTimeDataType) type);
         }
-        else if (type instanceof RowDataType) {
+        if (type instanceof RowDataType) {
             return toTypeSignature((RowDataType) type);
         }
-        else if (type instanceof GenericDataType) {
+        if (type instanceof GenericDataType) {
             return toTypeSignature((GenericDataType) type);
         }
 

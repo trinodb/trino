@@ -55,7 +55,7 @@ public final class AggregationTestUtils
         if (expectedValue instanceof Double && !expectedValue.equals(Double.NaN)) {
             return (actual, expected) -> Precision.equals((double) actual, (double) expected, 1e-10);
         }
-        else if (expectedValue instanceof Float && !expectedValue.equals(Float.NaN)) {
+        if (expectedValue instanceof Float && !expectedValue.equals(Float.NaN)) {
             return (actual, expected) -> Precision.equals((float) actual, (float) expected, 1e-10f);
         }
         return Objects::equals;
