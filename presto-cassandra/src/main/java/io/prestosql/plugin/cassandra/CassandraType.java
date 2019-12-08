@@ -218,25 +218,6 @@ public enum CassandraType
         }
     }
 
-    public static NullableValue getColumnValueForPartitionKey(Row row, int position, CassandraType cassandraType)
-    {
-        Type nativeType = cassandraType.getNativeType();
-        if (row.isNull(position)) {
-            return NullableValue.asNull(nativeType);
-        }
-        switch (cassandraType) {
-            case ASCII:
-            case TEXT:
-            case VARCHAR:
-                return NullableValue.of(nativeType, utf8Slice(row.getString(position)));
-            case UUID:
-            case TIMEUUID:
-                return NullableValue.of(nativeType, utf8Slice(row.getUUID(position).toString()));
-            default:
-                return getColumnValue(row, position, cassandraType);
-        }
-    }
-
     private static String buildMapValue(Row row, int position)
     {
         DataType type = row.getColumnDefinitions().getType(position);
