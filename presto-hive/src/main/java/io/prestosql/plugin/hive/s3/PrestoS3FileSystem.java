@@ -1190,6 +1190,51 @@ public class PrestoS3FileSystem
             log.debug("OutputStream for key '%s' using file: %s", key, tempFile);
         }
 
+        private void cleanup()
+        {
+            try {
+                if (!closed) {
+                    try {
+                        super.close();
+                    }
+                    catch (IOException e) {
+                        log.warn(e, "Could not close file for cleanup: %s", tempFile);
+                    }
+                }
+
+                if (!tempFile.delete()) {
+                    log.warn("Could not delete temporary file for cleanup: %s", tempFile);
+                }
+            }
+            catch (Exception e) {
+                log.warn(e, "Could not delete temporary file for cleanup: %s", tempFile);
+            }
+        }
+
+        @Override
+        public void write(int b) throws IOException
+        {
+            try {
+                super.write(b);
+            }
+            catch (IOException e) {
+                cleanup();
+                throw e;
+            }
+        }
+
+        @Override
+        public void write(byte[] b, int off, int len) throws IOException
+        {
+            try {
+                super.write(b, off, len);
+            }
+            catch (IOException e) {
+                cleanup();
+                throw e;
+            }
+        }
+
         @Override
         public void close()
                 throws IOException
