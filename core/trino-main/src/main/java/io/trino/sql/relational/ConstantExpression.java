@@ -13,10 +13,14 @@
  */
 package io.trino.sql.relational;
 
+import io.airlift.slice.Slice;
+import io.trino.spi.type.CharType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
 
 import java.util.Objects;
 
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class ConstantExpression
@@ -47,6 +51,13 @@ public final class ConstantExpression
     @Override
     public String toString()
     {
+        if (value instanceof Slice slice) {
+            if (type instanceof VarcharType || type instanceof CharType) {
+                return slice.toStringUtf8();
+            }
+            return format("Slice(length=%s)", slice.length());
+        }
+
         return String.valueOf(value);
     }
 
