@@ -48,8 +48,8 @@ import com.amazonaws.services.s3.model.EncryptionMaterialsProvider;
 import com.amazonaws.services.s3.model.GetObjectMetadataRequest;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.KMSEncryptionMaterialsProvider;
-import com.amazonaws.services.s3.model.ListObjectsRequest;
-import com.amazonaws.services.s3.model.ObjectListing;
+import com.amazonaws.services.s3.model.ListObjectsV2Request;
+import com.amazonaws.services.s3.model.ListObjectsV2Result;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
@@ -515,29 +515,37 @@ public class PrestoS3FileSystem
             key += PATH_SEPARATOR;
         }
 
-        ListObjectsRequest request = new ListObjectsRequest()
+        ListObjectsV2Request request = new ListObjectsV2Request()
                 .withBucketName(getBucketName(uri))
                 .withPrefix(key)
                 .withDelimiter(PATH_SEPARATOR)
                 .withRequesterPays(requesterPaysEnabled);
 
         STATS.newListObjectsCall();
-        Iterator<ObjectListing> listings = new AbstractSequentialIterator<ObjectListing>(s3.listObjects(request))
+        Iterator<ListObjectsV2Result> listings = new AbstractSequentialIterator<ListObjectsV2Result>(s3.listObjectsV2(request))
         {
             @Override
-            protected ObjectListing computeNext(ObjectListing previous)
+            protected ListObjectsV2Result computeNext(ListObjectsV2Result previous)
             {
                 if (!previous.isTruncated()) {
                     return null;
                 }
-                return s3.listNextBatchOfObjects(previous);
+
+                final ListObjectsV2Request nextRequest = new ListObjectsV2Request()
+                        .withBucketName(previous.getBucketName())
+                        .withPrefix(previous.getPrefix())
+                        .withDelimiter(previous.getDelimiter())
+                        .withRequesterPays(requesterPaysEnabled)
+                        .withContinuationToken(previous.getNextContinuationToken());
+
+                return s3.listObjectsV2(nextRequest);
             }
         };
 
         return Iterators.concat(Iterators.transform(listings, this::statusFromListing));
     }
 
-    private Iterator<LocatedFileStatus> statusFromListing(ObjectListing listing)
+    private Iterator<LocatedFileStatus> statusFromListing(ListObjectsV2Result listing)
     {
         return Iterators.concat(
                 statusFromPrefixes(listing.getCommonPrefixes()),
