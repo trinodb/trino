@@ -44,12 +44,12 @@ public class TestMetadataReader
     // The value of this field depends on packaging, so this is the actual value as written by Presto [0.168, 0.214)
     private static final Optional<String> PARQUET_MR = Optional.of("parquet-mr");
 
-    // org.apache.parquet:parquet-common:jar:1.10.1, org.apache.parquet.Version.FULL_VERSION
+    // org.apache.parquet:parquet-common:jar:1.8.1, org.apache.parquet.Version.FULL_VERSION
     // Used by Presto [0.215, 303)
-    private static final Optional<String> PARQUET_MR_1_8 = Optional.of("parquet-mr version 1.8.2 (build c6522788629e590a53eb79874b95f6c3ff11f16c)");
+    private static final Optional<String> PARQUET_MR_1_8 = Optional.of("parquet-mr version 1.8.1 (build 4aba4dae7bb0d4edbcf7923ae1339f28fd3f7fcf)");
 
     // org.apache.parquet:parquet-common:jar:1.10.1, org.apache.parquet.Version.FULL_VERSION
-    // Used by Presto [303, ?)
+    // Used by Presto [305, ?)
     private static final Optional<String> PARQUET_MR_1_10 = Optional.of("parquet-mr version 1.10.1 (build a89df8f9932b6ef6633d06069e50c9b7970bebd1)");
 
     @Test(dataProvider = "allCreatedBy")
