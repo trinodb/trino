@@ -19,14 +19,17 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
+import com.google.inject.multibindings.Multibinder;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.DriverConnectionFactory;
 import io.prestosql.plugin.jdbc.ForBaseJdbc;
 import io.prestosql.plugin.jdbc.JdbcClient;
+import io.prestosql.plugin.jdbc.TablePropertiesProvider;
 import io.prestosql.plugin.jdbc.credential.CredentialProvider;
 import org.postgresql.Driver;
 
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class RedshiftClientModule
@@ -35,8 +38,9 @@ public class RedshiftClientModule
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(Key.get(JdbcClient.class, ForBaseJdbc.class))
-                .to(RedshiftClient.class).in(Scopes.SINGLETON);
+        binder.bind(Key.get(JdbcClient.class, ForBaseJdbc.class)).to(RedshiftClient.class).in(Scopes.SINGLETON);
+        Multibinder<TablePropertiesProvider> tablePropertiesProviderBinder = newSetBinder(binder, TablePropertiesProvider.class);
+        tablePropertiesProviderBinder.addBinding().to(RedshiftTableProperties.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(BaseJdbcConfig.class);
     }
 

@@ -444,7 +444,7 @@ public class BaseJdbcClient
         }
     }
 
-    private String getColumnSql(ConnectorSession session, ColumnMetadata column, String columnName)
+    protected String getColumnSql(ConnectorSession session, ColumnMetadata column, String columnName)
     {
         StringBuilder sb = new StringBuilder()
                 .append(quoted(columnName))
