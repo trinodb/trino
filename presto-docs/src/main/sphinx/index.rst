@@ -12,9 +12,9 @@ Presto Documentation
     admin
     optimizer
     connector
+    functions
     language
     sql
-    functions
     migration
     develop
     release
