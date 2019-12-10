@@ -140,11 +140,6 @@ tt.docutils.literal, code.docutils.literal {
     white-space: nowrap;
 }
 
-/* hide children of Release Notes */
-div.toctree-wrapper > ul > li:last-child > ul {
-    display: none;
-}
-
 table.docutils col {
     width: auto;
 }
