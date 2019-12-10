@@ -19,6 +19,11 @@ presto-product-tests/bin/run_on_docker.sh \
     -x simba_jdbc \
     || exit_code=1
 
+presto-product-tests/bin/run_on_docker.sh \
+    singlenode-ldap-referrals \
+    -g ldap -x simba_jdbc \
+    || exit_code=1
+
 # We have docker images with KMS on CDH only. TODO (https://github.com/prestosql/presto/issues/1652) create images with HDP and KMS
 presto-product-tests/bin/run_on_docker.sh \
     singlenode-kerberos-kms-hdfs-no-impersonation \

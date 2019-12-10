@@ -46,6 +46,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static javax.naming.Context.INITIAL_CONTEXT_FACTORY;
 import static javax.naming.Context.PROVIDER_URL;
+import static javax.naming.Context.REFERRAL;
 import static javax.naming.Context.SECURITY_AUTHENTICATION;
 import static javax.naming.Context.SECURITY_CREDENTIALS;
 import static javax.naming.Context.SECURITY_PRINCIPAL;
@@ -132,6 +133,7 @@ public class LdapAuthenticator
                 .put(SECURITY_AUTHENTICATION, "simple")
                 .put(SECURITY_PRINCIPAL, createPrincipal(user))
                 .put(SECURITY_CREDENTIALS, password)
+                .put(REFERRAL, "follow")
                 .build();
     }
 
@@ -154,7 +156,7 @@ public class LdapAuthenticator
         boolean authorized;
         try {
             NamingEnumeration<SearchResult> search = context.search(userBase, searchFilter, searchControls);
-            authorized = search.hasMoreElements();
+            authorized = search.hasMore();
             search.close();
         }
         catch (NamingException e) {
