@@ -14,6 +14,7 @@
 package io.prestosql.operator.project;
 
 import io.prestosql.spi.Page;
+import io.prestosql.spi.block.SelectedPositions;
 import io.prestosql.spi.connector.ConnectorSession;
 
 public interface PageFilter

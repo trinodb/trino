@@ -20,6 +20,7 @@ import io.prestosql.spi.block.DictionaryBlock;
 import io.prestosql.spi.block.LazyBlock;
 import io.prestosql.spi.block.LongArrayBlock;
 import io.prestosql.spi.block.RunLengthEncodedBlock;
+import io.prestosql.spi.block.SelectedPositions;
 import io.prestosql.spi.connector.ConnectorSession;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntArraySet;

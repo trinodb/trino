@@ -17,6 +17,7 @@ import io.prestosql.operator.DriverYieldSignal;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.LazyBlock;
+import io.prestosql.spi.block.SelectedPositions;
 import org.testng.annotations.Test;
 
 import static io.prestosql.block.BlockAssertions.createLongSequenceBlock;

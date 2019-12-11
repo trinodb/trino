@@ -22,6 +22,7 @@ import io.prestosql.spi.block.DictionaryBlock;
 import io.prestosql.spi.block.DictionaryId;
 import io.prestosql.spi.block.LazyBlock;
 import io.prestosql.spi.block.RunLengthEncodedBlock;
+import io.prestosql.spi.block.SelectedPositions;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.Type;
 

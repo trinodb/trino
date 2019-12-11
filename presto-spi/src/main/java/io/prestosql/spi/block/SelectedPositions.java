@@ -11,11 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.operator.project;
+package io.prestosql.spi.block;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkPositionIndexes;
-import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.spi.block.BlockUtil.checkValidRegion;
 import static java.util.Objects.requireNonNull;
 
 public class SelectedPositions
@@ -42,10 +40,15 @@ public class SelectedPositions
         this.offset = offset;
         this.size = size;
 
-        checkArgument(offset >= 0, "offset is negative");
-        checkArgument(size >= 0, "size is negative");
+        if (offset < 0) {
+            throw new IllegalArgumentException("offset is negative");
+        }
+        if (size < 0) {
+            throw new IllegalArgumentException("size is negative");
+        }
+
         if (isList) {
-            checkPositionIndexes(offset, offset + size, positions.length);
+            checkValidRegion(positions.length, offset, size);
         }
     }
 
@@ -61,7 +64,9 @@ public class SelectedPositions
 
     public int[] getPositions()
     {
-        checkState(isList, "SelectedPositions is a range");
+        if (!isList) {
+            throw new IllegalStateException("SelectedPositions is a range");
+        }
         return positions;
     }
 
@@ -77,7 +82,7 @@ public class SelectedPositions
 
     public SelectedPositions subRange(int start, int end)
     {
-        checkPositionIndexes(start, end, size);
+        checkValidRegion(size, start, end - start);
 
         int newOffset = this.offset + start;
         int newLength = end - start;

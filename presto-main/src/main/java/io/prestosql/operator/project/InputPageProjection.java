@@ -18,6 +18,7 @@ import io.prestosql.operator.DriverYieldSignal;
 import io.prestosql.operator.Work;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.SelectedPositions;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.Type;
 

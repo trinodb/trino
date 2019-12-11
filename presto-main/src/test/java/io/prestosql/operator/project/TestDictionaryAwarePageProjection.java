@@ -23,6 +23,7 @@ import io.prestosql.spi.block.DictionaryBlock;
 import io.prestosql.spi.block.LazyBlock;
 import io.prestosql.spi.block.LongArrayBlock;
 import io.prestosql.spi.block.RunLengthEncodedBlock;
+import io.prestosql.spi.block.SelectedPositions;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.Type;
 import org.testng.annotations.AfterClass;

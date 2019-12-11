@@ -18,10 +18,10 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.DriverYieldSignal;
 import io.prestosql.operator.Work;
 import io.prestosql.operator.project.PageProjection;
-import io.prestosql.operator.project.SelectedPositions;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.block.SelectedPositions;
 import io.prestosql.sql.relational.CallExpression;
 import org.testng.annotations.Test;
 

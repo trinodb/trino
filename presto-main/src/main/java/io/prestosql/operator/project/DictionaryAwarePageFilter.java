@@ -17,6 +17,7 @@ import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.DictionaryBlock;
 import io.prestosql.spi.block.RunLengthEncodedBlock;
+import io.prestosql.spi.block.SelectedPositions;
 import io.prestosql.spi.connector.ConnectorSession;
 
 import java.util.Optional;

@@ -25,6 +25,7 @@ import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.DictionaryBlock;
 import io.prestosql.spi.block.DictionaryId;
+import io.prestosql.spi.block.SelectedPositions;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.sql.gen.ExpressionProfiler;
 
@@ -46,8 +47,8 @@ import static io.prestosql.operator.PageUtils.recordMaterializedBytes;
 import static io.prestosql.operator.WorkProcessor.ProcessState.finished;
 import static io.prestosql.operator.WorkProcessor.ProcessState.ofResult;
 import static io.prestosql.operator.WorkProcessor.ProcessState.yield;
-import static io.prestosql.operator.project.SelectedPositions.positionsRange;
 import static io.prestosql.spi.block.DictionaryId.randomDictionaryId;
+import static io.prestosql.spi.block.SelectedPositions.positionsRange;
 import static java.util.Objects.requireNonNull;
 
 @NotThreadSafe
