@@ -357,12 +357,31 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern semiJoin(String sourceSymbolAlias, String filteringSymbolAlias, String outputAlias, PlanMatchPattern source, PlanMatchPattern filtering)
     {
-        return semiJoin(sourceSymbolAlias, filteringSymbolAlias, outputAlias, Optional.empty(), source, filtering);
+        return semiJoin(sourceSymbolAlias, filteringSymbolAlias, outputAlias, Optional.empty(), source, filtering, false, Optional.empty());
     }
 
     public static PlanMatchPattern semiJoin(String sourceSymbolAlias, String filteringSymbolAlias, String outputAlias, Optional<SemiJoinNode.DistributionType> distributionType, PlanMatchPattern source, PlanMatchPattern filtering)
     {
-        return node(SemiJoinNode.class, source, filtering).with(new SemiJoinMatcher(sourceSymbolAlias, filteringSymbolAlias, outputAlias, distributionType));
+        return semiJoin(sourceSymbolAlias, filteringSymbolAlias, outputAlias, distributionType, source, filtering, false, Optional.empty());
+    }
+
+    public static PlanMatchPattern semiJoin(
+            String sourceSymbolAlias,
+            String filteringSymbolAlias,
+            String outputAlias,
+            Optional<SemiJoinNode.DistributionType> distributionType,
+            PlanMatchPattern source,
+            PlanMatchPattern filtering,
+            boolean dynamicFilteringEnabled,
+            Optional<String> expectedStaticFilterCollocatingWithDynamicFilter)
+    {
+        return node(SemiJoinNode.class, source, filtering).with(new SemiJoinMatcher(
+                sourceSymbolAlias,
+                filteringSymbolAlias,
+                outputAlias,
+                distributionType,
+                dynamicFilteringEnabled,
+                expectedStaticFilterCollocatingWithDynamicFilter.map(predicate -> rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(predicate)))));
     }
 
     public static PlanMatchPattern join(JoinNode.Type joinType, List<ExpectedValueProvider<JoinNode.EquiJoinClause>> expectedEquiCriteria, PlanMatchPattern left, PlanMatchPattern right)

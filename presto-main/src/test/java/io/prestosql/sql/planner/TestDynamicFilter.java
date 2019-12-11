@@ -145,26 +145,6 @@ public class TestDynamicFilter
                                         node(EnforceSingleRowNode.class,
                                                 anyTree(
                                                         tableScan("lineitem", ImmutableMap.of("Y", "orderkey"))))), metadata)));
-
-        assertPlan("SELECT * FROM orders WHERE orderkey IN (SELECT orderkey FROM lineitem WHERE linenumber % 4 = 0)",
-                anyTree(
-                        filter("S",
-                                project(
-                                        semiJoin("X", "Y", "S",
-                                                anyTree(
-                                                        tableScan("orders", ImmutableMap.of("X", "orderkey"))),
-                                                anyTree(
-                                                        tableScan("lineitem", ImmutableMap.of("Y", "orderkey"))))))));
-
-        assertPlan("SELECT * FROM orders WHERE orderkey NOT IN (SELECT orderkey FROM lineitem WHERE linenumber < 0)",
-                anyTree(
-                        filter("NOT S",
-                                project(
-                                        semiJoin("X", "Y", "S",
-                                                anyTree(
-                                                        tableScan("orders", ImmutableMap.of("X", "orderkey"))),
-                                                anyTree(
-                                                        tableScan("lineitem", ImmutableMap.of("Y", "orderkey"))))))));
     }
 
     @Test
@@ -215,5 +195,33 @@ public class TestDynamicFilter
                                                 tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))),
                                 exchange(
                                         project(tableScan("part", ImmutableMap.of("PART_PK", "partkey")))))));
+    }
+
+    @Test
+    public void testSemiJoin()
+    {
+        assertPlan("SELECT * FROM orders WHERE orderkey IN (SELECT orderkey FROM lineitem WHERE linenumber % 4 = 0)",
+                anyTree(
+                        filter("S",
+                                project(
+                                        semiJoin("X", "Y", "S",
+                                                Optional.empty(),
+                                                anyTree(
+                                                        tableScan("orders", ImmutableMap.of("X", "orderkey"))),
+                                                anyTree(
+                                                        tableScan("lineitem", ImmutableMap.of("Y", "orderkey"))),
+                                                true,
+                                                Optional.empty())))));
+
+        // Dynamic filtering is not applied to "NOT IN" queries
+        assertPlan("SELECT * FROM orders WHERE orderkey NOT IN (SELECT orderkey FROM lineitem WHERE linenumber < 0)",
+                anyTree(
+                        filter("NOT S",
+                                project(
+                                        semiJoin("X", "Y", "S",
+                                                anyTree(
+                                                        tableScan("orders", ImmutableMap.of("X", "orderkey"))),
+                                                anyTree(
+                                                        tableScan("lineitem", ImmutableMap.of("Y", "orderkey"))))))));
     }
 }

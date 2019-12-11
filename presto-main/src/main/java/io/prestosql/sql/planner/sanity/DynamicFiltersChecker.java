@@ -25,6 +25,7 @@ import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.OutputNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanVisitor;
+import io.prestosql.sql.planner.plan.SemiJoinNode;
 
 import java.util.HashSet;
 import java.util.List;
@@ -37,6 +38,7 @@ import static io.prestosql.sql.DynamicFilters.extractDynamicFilters;
 
 /**
  * When dynamic filter assignments are present on a Join node, they should be consumed by a Filter node on it's probe side
+ * When a SemiJoin node has a dynamic filter id, it should be consumed by a Filter node on its source side
  */
 public class DynamicFiltersChecker
         implements PlanSanityChecker.Checker
@@ -78,6 +80,23 @@ public class DynamicFiltersChecker
                 Set<String> unmatched = new HashSet<>(consumedBuildSide);
                 unmatched.addAll(consumedProbeSide);
                 unmatched.removeAll(currentJoinDynamicFilters);
+                return ImmutableSet.copyOf(unmatched);
+            }
+
+            @Override
+            public Set<String> visitSemiJoin(SemiJoinNode node, Void context)
+            {
+                Set<String> consumedSource = node.getSource().accept(this, context);
+                Set<String> consumedFilteringSource = node.getFilteringSource().accept(this, context);
+                Set<String> unmatched = new HashSet<>(consumedSource);
+                unmatched.addAll(consumedFilteringSource);
+
+                node.getDynamicFilterId().ifPresent(dynamicFilterId -> {
+                    verify(consumedSource.contains(dynamicFilterId),
+                            "The dynamic filter in semijoin is not consumed by its source.");
+                    unmatched.remove(dynamicFilterId);
+                });
+
                 return ImmutableSet.copyOf(unmatched);
             }
 

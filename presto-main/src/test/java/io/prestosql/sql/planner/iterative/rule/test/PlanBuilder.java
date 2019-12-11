@@ -533,7 +533,8 @@ public class PlanBuilder
                 semiJoinOutput,
                 sourceHashSymbol,
                 filteringSourceHashSymbol,
-                distributionType);
+                distributionType,
+                Optional.empty());
     }
 
     public IndexSourceNode indexSource(
