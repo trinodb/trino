@@ -259,8 +259,7 @@ public class AlluxioHiveMetastore
     }
 
     @Override
-    public Optional<Partition> getPartition(HiveIdentity identity, String databaseName, String tableName,
-            List<String> partitionValues)
+    public Optional<Partition> getPartition(HiveIdentity identity, Table table, List<String> partitionValues)
     {
         throw new UnsupportedOperationException("getPartition");
     }
@@ -275,8 +274,8 @@ public class AlluxioHiveMetastore
      * return a list of partition names by which the values of each partition is at least
      * contained which the {@code parts} argument
      *
-     * @param databaseName
-     * @param tableName
+     * @param databaseName the name of the database
+     * @param tableName    the name of the table
      * @param parts        list of values which returned partitions should contain
      * @return optionally, a list of strings where each entry is in the form of {key}={value}
      */
@@ -312,12 +311,13 @@ public class AlluxioHiveMetastore
     }
 
     @Override
-    public Map<String, Optional<Partition>> getPartitionsByNames(HiveIdentity identity, String databaseName,
-            String tableName, List<String> partitionNames)
+    public Map<String, Optional<Partition>> getPartitionsByNames(HiveIdentity identity, Table table, List<String> partitionNames)
     {
         if (partitionNames.isEmpty()) {
             return Collections.emptyMap();
         }
+        String databaseName = table.getDatabaseName();
+        String tableName = table.getTableName();
 
         try {
             // Get all partitions
