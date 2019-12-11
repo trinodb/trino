@@ -71,6 +71,22 @@ public class TestHiveDistributedJoinQueriesWithDynamicFiltering
         assertEquals(probeStats.getInputPositions(), 0L);
     }
 
+    @Test
+    public void testSemiJoinWithEmptyFilteringSource()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.BROADCAST.name())
+                .build();
+        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
+        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(
+                session,
+                "SELECT * FROM lineitem WHERE lineitem.orderkey IN (SELECT orders.orderkey FROM orders WHERE orders.totalprice = 123.4567)");
+        assertEquals(result.getResult().getRowCount(), 0);
+
+        OperatorStats sourceStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), "tpch:lineitem");
+        assertEquals(sourceStats.getInputPositions(), 0L);
+    }
+
     private OperatorStats searchScanFilterAndProjectOperatorStats(QueryId queryId, String tableName)
     {
         DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
@@ -81,7 +97,13 @@ public class TestHiveDistributedJoinQueriesWithDynamicFiltering
                         return false;
                     }
                     ProjectNode projectNode = (ProjectNode) node;
+                    if (!(projectNode.getSource() instanceof FilterNode)) {
+                        return false;
+                    }
                     FilterNode filterNode = (FilterNode) projectNode.getSource();
+                    if (!(filterNode.getSource() instanceof TableScanNode)) {
+                        return false;
+                    }
                     TableScanNode tableScanNode = (TableScanNode) filterNode.getSource();
                     return tableName.equals(tableScanNode.getTable().getConnectorHandle().toString());
                 })

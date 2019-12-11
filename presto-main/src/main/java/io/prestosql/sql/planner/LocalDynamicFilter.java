@@ -27,6 +27,7 @@ import io.prestosql.sql.planner.optimizations.PlanNodeSearcher;
 import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
+import io.prestosql.sql.planner.plan.SemiJoinNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.tree.SymbolReference;
 
@@ -149,6 +150,35 @@ public class LocalDynamicFilter
             return Optional.empty();
         }
         return Optional.of(new LocalDynamicFilter(probeSymbols, buildChannels, partitionCount));
+    }
+
+    public static Optional<LocalDynamicFilter> create(Metadata metadata, SemiJoinNode semiJoinNode)
+    {
+        if (!semiJoinNode.getDynamicFilterId().isPresent()) {
+            return Optional.empty();
+        }
+        String dynamicFilterId = semiJoinNode.getDynamicFilterId().get();
+        List<FilterNode> localFilterNodeWithThisDynamicFiltering = PlanNodeSearcher
+                .searchFrom(semiJoinNode.getSource())
+                .where(node -> {
+                    if (!isFilterAboveTableScan(node)) {
+                        return false;
+                    }
+                    FilterNode filterNode = (FilterNode) node;
+                    for (Descriptor descriptor : extractDynamicFilters(metadata, filterNode.getPredicate()).getDynamicConjuncts()) {
+                        if (descriptor.getInput() instanceof SymbolReference && descriptor.getId().equals(dynamicFilterId)) {
+                            return true;
+                        }
+                    }
+                    return false;
+                })
+                .findAll();
+        if (!localFilterNodeWithThisDynamicFiltering.isEmpty()) {
+            Multimap<String, Symbol> probeSymbols = ImmutableMultimap.of(dynamicFilterId, semiJoinNode.getSourceJoinSymbol());
+            Map<String, Integer> buildChannels = ImmutableMap.of(dynamicFilterId, semiJoinNode.getFilteringSource().getOutputSymbols().indexOf(semiJoinNode.getFilteringSourceJoinSymbol()));
+            return Optional.of(new LocalDynamicFilter(probeSymbols, buildChannels, 1));
+        }
+        return Optional.empty();
     }
 
     private static boolean isFilterAboveTableScan(PlanNode node)
