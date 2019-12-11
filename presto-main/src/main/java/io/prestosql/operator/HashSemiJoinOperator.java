@@ -122,7 +122,8 @@ public class HashSemiJoinOperator
     }
 
     private final WorkProcessor<Page> pages;
-    private final PageBuffer pageBuffer = new PageBuffer();
+    private final PageBuffer pageBuffer;
+    private final ListenableFuture<ChannelSet> channelSetFuture;
 
     public HashSemiJoinOperator(
             Optional<WorkProcessor<Page>> sourcePages,
@@ -131,6 +132,8 @@ public class HashSemiJoinOperator
             Optional<Integer> probeHashChannel,
             MemoryTrackingContext memoryTrackingContext)
     {
+        this.channelSetFuture = requireNonNull(channelSetFuture, "channelSetFuture is null").getChannelSet();
+        pageBuffer = new PageBuffer(channelSetFuture.getChannelSet());
         pages = sourcePages.orElse(pageBuffer.pages())
                 .transform(new SemiJoinPages(
                         channelSetFuture,
@@ -148,7 +151,7 @@ public class HashSemiJoinOperator
     @Override
     public boolean needsInput()
     {
-        return pageBuffer.isEmpty() && !pageBuffer.isFinished();
+        return channelSetFuture.isDone() && pageBuffer.isEmpty() && !pageBuffer.isFinished();
     }
 
     @Override
