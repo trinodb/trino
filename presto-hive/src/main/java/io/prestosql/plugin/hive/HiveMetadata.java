@@ -957,13 +957,13 @@ public class HiveMetadata
             Path path = new Path(location);
             if (!isS3FileSystem(context, hdfsEnvironment, path)) {
                 if (!hdfsEnvironment.getFileSystem(context, path).isDirectory(path)) {
-                    throw new PrestoException(INVALID_TABLE_PROPERTY, "External location must be a directory");
+                    throw new PrestoException(INVALID_TABLE_PROPERTY, "External location must be a directory: " + location);
                 }
             }
             return path;
         }
         catch (IllegalArgumentException | IOException e) {
-            throw new PrestoException(INVALID_TABLE_PROPERTY, "External location is not a valid file system URI", e);
+            throw new PrestoException(INVALID_TABLE_PROPERTY, "External location is not a valid file system URI: " + location, e);
         }
     }
 
