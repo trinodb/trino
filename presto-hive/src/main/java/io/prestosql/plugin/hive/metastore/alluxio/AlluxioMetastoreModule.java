@@ -17,9 +17,11 @@ import alluxio.ClientContext;
 import alluxio.client.table.RetryHandlingTableMasterClient;
 import alluxio.client.table.TableMasterClient;
 import alluxio.conf.InstancedConfiguration;
+import alluxio.conf.PropertyKey;
 import alluxio.master.MasterClientContext;
 import alluxio.util.ConfigurationUtils;
 import com.google.inject.Binder;
+import com.google.inject.Inject;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
@@ -44,8 +46,15 @@ public class AlluxioMetastoreModule
     }
 
     @Provides
-    TableMasterClient provideCatalogMasterClient()
+    TableMasterClient provideCatalogMasterClient(AlluxioHiveMetastoreConfig config)
     {
+        InstancedConfiguration conf = new InstancedConfiguration(ConfigurationUtils.defaults());
+        String addr = config.getMasterAddress();
+        String[] parts = addr.split(":", 2);
+        conf.set(PropertyKey.MASTER_HOSTNAME, parts[0]);
+        if (parts.length > 1) {
+            conf.set(PropertyKey.MASTER_RPC_PORT, parts[1]);
+        }
         MasterClientContext context = MasterClientContext
                 .newBuilder(ClientContext.create(new InstancedConfiguration(ConfigurationUtils.defaults()))).build();
         return new RetryHandlingTableMasterClient(context);
