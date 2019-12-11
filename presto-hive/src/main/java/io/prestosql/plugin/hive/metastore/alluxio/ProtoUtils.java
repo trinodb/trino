@@ -27,6 +27,7 @@ import io.prestosql.plugin.hive.metastore.SortingColumn;
 import io.prestosql.plugin.hive.metastore.StorageFormat;
 import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.plugin.hive.util.HiveBucketing;
+import io.prestosql.spi.security.PrincipalType;
 
 import java.util.List;
 import java.util.Optional;
@@ -42,6 +43,8 @@ public class ProtoUtils
         return Database.builder()
                 .setDatabaseName(db.getDbName())
                 .setLocation(db.hasLocation() ? Optional.of(db.getLocation()) : Optional.empty())
+                .setOwnerName("") // owner name not yet supported by alluxio
+                .setOwnerType(PrincipalType.USER) // owner type not yet supported by alluxio
                 .build();
     }
 
@@ -85,7 +88,7 @@ public class ProtoUtils
         }
     }
 
-    private static SortingColumn fromProto(alluxio.grpc.table.layout.hive.SortingColumn column)
+    static SortingColumn fromProto(alluxio.grpc.table.layout.hive.SortingColumn column)
     {
         if (column.getOrder().equals(alluxio.grpc.table.layout.hive.SortingColumn.SortingOrder.ASCENDING)) {
             return new SortingColumn(column.getColumnName(), SortingColumn.Order.ASCENDING);
@@ -96,7 +99,7 @@ public class ProtoUtils
         throw new IllegalArgumentException("Invalid sort order: " + column.getOrder());
     }
 
-    private static Optional<HiveBucketProperty> fromProto(alluxio.grpc.table.layout.hive.HiveBucketProperty property)
+    static Optional<HiveBucketProperty> fromProto(alluxio.grpc.table.layout.hive.HiveBucketProperty property)
     {
         // must return empty if buckets <= 0
         if (!property.hasBucketCount() || property.getBucketCount() <= 0) {
@@ -107,12 +110,12 @@ public class ProtoUtils
             (int) property.getBucketCount(), sortedBy));
     }
 
-    private static StorageFormat fromProto(alluxio.grpc.table.layout.hive.StorageFormat format)
+    static StorageFormat fromProto(alluxio.grpc.table.layout.hive.StorageFormat format)
     {
         return StorageFormat.create(format.getSerde(), format.getInputFormat(), format.getOutputFormat());
     }
 
-    private static Column fromProto(alluxio.grpc.table.FieldSchema column)
+    static Column fromProto(alluxio.grpc.table.FieldSchema column)
     {
         Optional<String> comment = column.hasComment() ? Optional.of(column.getComment()) : Optional.empty();
         return new Column(column.getName(), HiveType.valueOf(column.getType()), comment);
