@@ -219,9 +219,9 @@ public final class HiveBucketing
         // Get bindings for bucket columns
         Map<String, Object> bucketBindings = new HashMap<>();
         for (Entry<ColumnHandle, NullableValue> entry : bindings.entrySet()) {
-            HiveColumnHandle colHandle = (HiveColumnHandle) entry.getKey();
-            if (!entry.getValue().isNull() && bucketColumns.contains(colHandle.getName())) {
-                bucketBindings.put(colHandle.getName(), entry.getValue().getValue());
+            HiveColumnHandle columnHandle = (HiveColumnHandle) entry.getKey();
+            if (!entry.getValue().isNull() && bucketColumns.contains(columnHandle.getName())) {
+                bucketBindings.put(columnHandle.getName(), entry.getValue().getValue());
             }
         }
 
