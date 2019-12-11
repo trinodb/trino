@@ -72,6 +72,7 @@ import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcStreamBufferS
 import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcTinyStripeThreshold;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isOrcBloomFiltersEnabled;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isOrcNestedLazy;
+import static io.prestosql.plugin.hive.HiveSessionProperties.isUseOrcColumnNames;
 import static io.prestosql.plugin.hive.orc.OrcPageSource.handleException;
 import static io.prestosql.plugin.hive.util.HiveUtil.isDeserializerClass;
 import static java.lang.String.format;
@@ -82,7 +83,6 @@ public class OrcPageSourceFactory
         implements HivePageSourceFactory
 {
     private static final Pattern DEFAULT_HIVE_COLUMN_NAME_PATTERN = Pattern.compile("_col\\d+");
-    private final boolean useOrcColumnNames;
     private final OrcReaderOptions orcReaderOptions;
     private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats stats;
@@ -90,16 +90,14 @@ public class OrcPageSourceFactory
     @Inject
     public OrcPageSourceFactory(OrcReaderConfig config, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats)
     {
-        this(requireNonNull(config, "config is null").isUseColumnNames(), config.toOrcReaderOptions(), hdfsEnvironment, stats);
+        this(config.toOrcReaderOptions(), hdfsEnvironment, stats);
     }
 
     public OrcPageSourceFactory(
-            boolean useOrcColumnNames,
             OrcReaderOptions orcReaderOptions,
             HdfsEnvironment hdfsEnvironment,
             FileFormatDataSourceStats stats)
     {
-        this.useOrcColumnNames = useOrcColumnNames;
         this.orcReaderOptions = requireNonNull(orcReaderOptions, "orcReaderOptions is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.stats = requireNonNull(stats, "stats is null");
@@ -136,7 +134,7 @@ public class OrcPageSourceFactory
                 length,
                 fileSize,
                 columns,
-                useOrcColumnNames,
+                isUseOrcColumnNames(session),
                 effectivePredicate,
                 hiveStorageTimeZone,
                 orcReaderOptions
