@@ -79,6 +79,8 @@ system| runtime| queries| created| timestamp| YES| null| null|
 system| runtime| queries| started| timestamp| YES| null| null|
 system| runtime| queries| last_heartbeat| timestamp| YES| null| null|
 system| runtime| queries| end| timestamp| YES| null| null|
+system| runtime| queries| error_type| varchar| YES| null| null|
+system| runtime| queries| error_code| varchar| YES| null| null|
 system| runtime| tasks| node_id| varchar| YES| null| null|
 system| runtime| tasks| task_id| varchar| YES| null| null|
 system| runtime| tasks| stage_id| varchar| YES| null| null|
