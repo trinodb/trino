@@ -20,4 +20,14 @@ public interface LazyBlockLoader
      * (in case of when loaded blocks are nested, e.g for structural types).
      */
     Block load();
+
+    default Block load(SelectedPositions selectedPositions)
+    {
+        Block loadedBlock = load();
+        if (selectedPositions.isList()) {
+            return loadedBlock.getPositions(selectedPositions.getPositions(), selectedPositions.getOffset(), selectedPositions.size());
+        }
+
+        return loadedBlock.getRegion(selectedPositions.getOffset(), selectedPositions.size());
+    }
 }

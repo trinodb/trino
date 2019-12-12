@@ -26,6 +26,8 @@ import java.util.function.Consumer;
 
 import static io.prestosql.spi.block.BlockUtil.checkArrayRange;
 import static io.prestosql.spi.block.BlockUtil.checkValidRegion;
+import static io.prestosql.spi.block.SelectedPositions.positionsList;
+import static io.prestosql.spi.block.SelectedPositions.positionsRange;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
@@ -221,7 +223,7 @@ public class LazyBlock
             return getBlock().getPositions(positions, offset, length);
         }
         checkArrayRange(positions, offset, length);
-        return new LazyBlock(length, new PositionLazyBlockLoader(lazyData, positions, offset, length));
+        return new LazyBlock(length, new SelectedPositionsLazyBlockLoader(lazyData, positionsList(positions, offset, length)));
     }
 
     @Override
@@ -237,7 +239,7 @@ public class LazyBlock
             return getBlock().getRegion(positionOffset, length);
         }
         checkValidRegion(getPositionCount(), positionOffset, length);
-        return new LazyBlock(length, new RegionLazyBlockLoader(lazyData, positionOffset, length));
+        return new LazyBlock(length, new SelectedPositionsLazyBlockLoader(lazyData, positionsRange(positionOffset, length)));
     }
 
     @Override
@@ -260,7 +262,7 @@ public class LazyBlock
 
     public Block getBlock()
     {
-        return lazyData.getBlock();
+        return lazyData.getBlock(positionsRange(0, positionCount));
     }
 
     @Override
@@ -272,7 +274,7 @@ public class LazyBlock
     @Override
     public Block getLoadedBlock()
     {
-        return lazyData.getFullyLoadedBlock();
+        return lazyData.getFullyLoadedBlock(positionsRange(0, positionCount));
     }
 
     public static void listenForLoads(Block block, Consumer<Block> listener)
@@ -283,47 +285,22 @@ public class LazyBlock
         LazyData.addListenersRecursive(block, singletonList(listener));
     }
 
-    private static class RegionLazyBlockLoader
+    private static class SelectedPositionsLazyBlockLoader
             implements LazyBlockLoader
     {
         private final LazyData delegate;
-        private final int positionOffset;
-        private final int length;
+        private final SelectedPositions selectedPositions;
 
-        public RegionLazyBlockLoader(LazyData delegate, int positionOffset, int length)
+        public SelectedPositionsLazyBlockLoader(LazyData delegate, SelectedPositions selectedPositions)
         {
             this.delegate = requireNonNull(delegate, "delegate is null");
-            this.positionOffset = positionOffset;
-            this.length = length;
+            this.selectedPositions = requireNonNull(selectedPositions, "selectedPositions is null");
         }
 
         @Override
         public Block load()
         {
-            return delegate.getBlock().getRegion(positionOffset, length);
-        }
-    }
-
-    private static class PositionLazyBlockLoader
-            implements LazyBlockLoader
-    {
-        private final LazyData delegate;
-        private final int[] positions;
-        private final int offset;
-        private final int length;
-
-        public PositionLazyBlockLoader(LazyData delegate, int[] positions, int offset, int length)
-        {
-            this.delegate = requireNonNull(delegate, "delegate is null");
-            this.positions = requireNonNull(positions, "positions is null");
-            this.offset = offset;
-            this.length = length;
-        }
-
-        @Override
-        public Block load()
-        {
-            return delegate.getBlock().getPositions(positions, offset, length);
+            return delegate.getBlock(selectedPositions);
         }
     }
 
@@ -346,15 +323,15 @@ public class LazyBlock
             return block != null && block.isLoaded();
         }
 
-        public Block getBlock()
+        public Block getBlock(SelectedPositions selectedPositions)
         {
-            load(false);
+            load(selectedPositions, false);
             return block;
         }
 
-        public Block getFullyLoadedBlock()
+        public Block getFullyLoadedBlock(SelectedPositions selectedPositions)
         {
-            load(true);
+            load(selectedPositions, true);
             return block;
         }
 
@@ -369,13 +346,13 @@ public class LazyBlock
             this.listeners.addAll(listeners);
         }
 
-        private void load(boolean recursive)
+        private void load(SelectedPositions selectedPositions, boolean recursive)
         {
             if (loader == null) {
                 return;
             }
 
-            block = requireNonNull(loader.load(), "loader returned null");
+            block = requireNonNull(loader.load(selectedPositions), "loader returned null");
 
             if (recursive) {
                 block = block.getLoadedBlock();
