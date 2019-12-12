@@ -391,7 +391,11 @@ public class OrcRecordReader
         }
         nextRowInGroup += currentBatchSize;
 
-        validateWritePageChecksum();
+        int pageSize = currentBatchSize;
+        if (writeChecksumBuilder.isPresent()) {
+            validateWritePageChecksum();
+            pageSize = 0;
+        }
 
         // create a lazy page
         blockFactory.nextPage();
@@ -400,12 +404,12 @@ public class OrcRecordReader
         for (int i = 0; i < columnReaders.length; i++) {
             int columnIndex = i;
             blocks[columnIndex] = blockFactory.createBlock(
-                    currentBatchSize,
+                    pageSize,
                     columnReaders[columnIndex]::readBlock,
                     false);
             listenForLoads(blocks[columnIndex], block -> blockLoaded(columnIndex, block));
         }
-        return new Page(currentBatchSize, blocks);
+        return new Page(pageSize, blocks);
     }
 
     private void blockLoaded(int columnIndex, Block block)
@@ -533,19 +537,17 @@ public class OrcRecordReader
     private void validateWritePageChecksum()
             throws IOException
     {
-        if (writeChecksumBuilder.isPresent()) {
-            Block[] blocks = new Block[columnReaders.length];
-            for (int columnIndex = 0; columnIndex < columnReaders.length; columnIndex++) {
-                Block block = columnReaders[columnIndex].readBlock();
-                blocks[columnIndex] = block;
-                blockLoaded(columnIndex, block);
-            }
-            Page page = new Page(currentBatchSize, blocks);
-            writeChecksumBuilder.get().addPage(page);
-            rowGroupStatisticsValidation.get().addPage(page);
-            stripeStatisticsValidation.get().addPage(page);
-            fileStatisticsValidation.get().addPage(page);
+        Block[] blocks = new Block[columnReaders.length];
+        for (int columnIndex = 0; columnIndex < columnReaders.length; columnIndex++) {
+            Block block = columnReaders[columnIndex].readBlock();
+            blocks[columnIndex] = block;
+            blockLoaded(columnIndex, block);
         }
+        Page page = new Page(currentBatchSize, blocks);
+        writeChecksumBuilder.get().addPage(page);
+        rowGroupStatisticsValidation.get().addPage(page);
+        stripeStatisticsValidation.get().addPage(page);
+        fileStatisticsValidation.get().addPage(page);
     }
 
     private ColumnReader[] createColumnReaders(
