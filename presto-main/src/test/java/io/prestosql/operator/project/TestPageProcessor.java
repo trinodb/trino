@@ -27,6 +27,7 @@ import io.prestosql.operator.Work;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.LazyBlock;
+import io.prestosql.spi.block.LazyBlockLoader;
 import io.prestosql.spi.block.SelectedPositions;
 import io.prestosql.spi.block.VariableWidthBlock;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -555,7 +556,7 @@ public class TestPageProcessor
 
     private static LazyBlock lazyWrapper(Block block)
     {
-        return new LazyBlock(block.getPositionCount(), block::getLoadedBlock);
+        return new LazyBlock(block.getPositionCount(), (LazyBlockLoader) block::getLoadedBlock);
     }
 
     private static class InvocationCountPageProjection

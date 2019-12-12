@@ -21,6 +21,7 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.DictionaryBlock;
 import io.prestosql.spi.block.LazyBlock;
+import io.prestosql.spi.block.LazyBlockLoader;
 import io.prestosql.spi.block.LongArrayBlock;
 import io.prestosql.spi.block.RunLengthEncodedBlock;
 import io.prestosql.spi.block.SelectedPositions;
@@ -331,7 +332,7 @@ public class TestDictionaryAwarePageProjection
 
     private static LazyBlock lazyWrapper(Block block)
     {
-        return new LazyBlock(block.getPositionCount(), block::getLoadedBlock);
+        return new LazyBlock(block.getPositionCount(), (LazyBlockLoader) block::getLoadedBlock);
     }
 
     private static class TestPageProjection

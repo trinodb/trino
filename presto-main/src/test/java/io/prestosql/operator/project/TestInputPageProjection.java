@@ -17,6 +17,7 @@ import io.prestosql.operator.DriverYieldSignal;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.LazyBlock;
+import io.prestosql.spi.block.LazyBlockLoader;
 import io.prestosql.spi.block.SelectedPositions;
 import org.testng.annotations.Test;
 
@@ -44,6 +45,6 @@ public class TestInputPageProjection
 
     private static LazyBlock lazyWrapper(Block block)
     {
-        return new LazyBlock(block.getPositionCount(), block::getLoadedBlock);
+        return new LazyBlock(block.getPositionCount(), (LazyBlockLoader) block::getLoadedBlock);
     }
 }

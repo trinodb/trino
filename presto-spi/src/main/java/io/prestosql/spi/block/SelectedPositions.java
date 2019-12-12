@@ -57,6 +57,11 @@ public class SelectedPositions
         return isList;
     }
 
+    public boolean isRange()
+    {
+        return !isList;
+    }
+
     public boolean isEmpty()
     {
         return size == 0;

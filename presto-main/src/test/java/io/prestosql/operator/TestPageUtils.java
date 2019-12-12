@@ -16,6 +16,7 @@ package io.prestosql.operator;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.LazyBlock;
+import io.prestosql.spi.block.LazyBlockLoader;
 import org.testng.annotations.Test;
 
 import java.util.concurrent.atomic.AtomicLong;
@@ -47,6 +48,6 @@ public class TestPageUtils
 
     private static LazyBlock lazyWrapper(Block block)
     {
-        return new LazyBlock(block.getPositionCount(), block::getLoadedBlock);
+        return new LazyBlock(block.getPositionCount(), (LazyBlockLoader) block::getLoadedBlock);
     }
 }

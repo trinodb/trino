@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import static io.prestosql.spi.block.SelectedPositions.positionsRange;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -54,7 +55,7 @@ public class TestLazyBlock
     @Test
     public void testRecursiveLoad()
     {
-        LazyBlock lazyBlock = new LazyBlock(1, () -> new DictionaryBlock(new LazyBlock(1, () -> createSingleValueBlock(1)), new int[] {0}));
+        LazyBlock lazyBlock = new LazyBlock(1, () -> new DictionaryBlock(new LazyBlock(1, () -> createSingleValueBlock(1)), new int[1]));
 
         assertFalse(lazyBlock.isLoaded());
         Block nestedLazyBlock = lazyBlock.getBlock();
@@ -64,6 +65,76 @@ public class TestLazyBlock
         nestedLazyBlock = lazyBlock.getLoadedBlock();
         assertTrue(nestedLazyBlock.isLoaded());
         assertTrue(lazyBlock.isLoaded());
+    }
+
+    @Test
+    public void testNonSelectiveLoaderWithSomePositionsSelected()
+    {
+        LazyBlock lazyBlock = new LazyBlock(100, new LazyBlockLoader()
+        {
+            boolean fail;
+
+            @Override
+            public Block load()
+            {
+                // load should not be called twice
+                if (fail) {
+                    throw new IllegalStateException();
+                }
+
+                fail = true;
+                return createMultipleValueBlock(100);
+            }
+        });
+
+        assertFalse(lazyBlock.isLoaded());
+        assertEquals(lazyBlock.getLoadedBlock(positionsRange(10, 10)).getPositionCount(), 10);
+        assertTrue(lazyBlock.isLoaded());
+        assertEquals(lazyBlock.getLoadedBlock(positionsRange(42, 20)).getPositionCount(), 20);
+        assertTrue(lazyBlock.isLoaded());
+    }
+
+    @Test
+    public void testSelectiveLoader()
+    {
+        LazyBlock lazyBlock = new LazyBlock(
+                100,
+                selectedPositions ->
+                        new DictionaryBlock(new LazyBlock(selectedPositions.size(), () -> createMultipleValueBlock(selectedPositions.size())), new int[selectedPositions.size()]));
+
+        assertFalse(lazyBlock.isLoaded());
+        Block loadedBlock = lazyBlock.getLoadedBlock(positionsRange(10, 10));
+        assertTrue(loadedBlock.isLoaded());
+        assertEquals(loadedBlock.getPositionCount(), 10);
+        assertFalse(lazyBlock.isLoaded());
+        assertEquals(lazyBlock.getLoadedBlock(positionsRange(42, 20)).getPositionCount(), 20);
+        assertFalse(lazyBlock.isLoaded());
+    }
+
+    @Test
+    public void testSelectiveLoaderWithAllPositionsSelected()
+    {
+        LazyBlock lazyBlock = new LazyBlock(100, new SelectiveLazyBlockLoader()
+        {
+            boolean fail;
+
+            @Override
+            public Block load(SelectedPositions selectedPositions)
+            {
+                // load should not be called twice
+                if (fail) {
+                    throw new IllegalStateException();
+                }
+
+                fail = true;
+                return createMultipleValueBlock(100);
+            }
+        });
+
+        assertFalse(lazyBlock.isLoaded());
+        assertEquals(lazyBlock.getLoadedBlock(positionsRange(0, 100)).getPositionCount(), 100);
+        assertTrue(lazyBlock.isLoaded());
+        assertEquals(lazyBlock.getLoadedBlock(positionsRange(42, 10)).getPositionCount(), 10);
     }
 
     private static void assertNotificationsRecursive(int depth, Block lazyBlock, List<Block> actualNotifications, List<Block> expectedNotifications)
@@ -107,6 +178,11 @@ public class TestLazyBlock
     private static Block createSingleValueBlock(int value)
     {
         return new IntArrayBlock(1, Optional.empty(), new int[] {value});
+    }
+
+    private static Block createMultipleValueBlock(int count)
+    {
+        return new IntArrayBlock(count, Optional.empty(), new int[count]);
     }
 
     private static Block createInfiniteRecursiveRowBlock()

@@ -311,6 +311,21 @@ public interface Block
     }
 
     /**
+     * Returns a fully loaded block that contains selected positions.
+     * This method might be called repetitively. However, depending on
+     * lazy block implementation this operation might render original
+     * {@link Block} invalid.
+     */
+    default Block getLoadedBlock(SelectedPositions selectedPositions)
+    {
+        if (selectedPositions.isList()) {
+            return getLoadedBlock().getPositions(selectedPositions.getPositions(), selectedPositions.getOffset(), selectedPositions.size());
+        }
+
+        return getLoadedBlock().getRegion(selectedPositions.getOffset(), selectedPositions.size());
+    }
+
+    /**
      * Gets the direct child blocks of this block.
      */
     default List<Block> getChildren()

@@ -26,6 +26,7 @@ import java.util.function.Consumer;
 
 import static io.prestosql.spi.block.BlockUtil.checkArrayRange;
 import static io.prestosql.spi.block.BlockUtil.checkValidRegion;
+import static io.prestosql.spi.block.SelectedPositions.positionsRange;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
@@ -41,7 +42,13 @@ public class LazyBlock
     public LazyBlock(int positionCount, LazyBlockLoader loader)
     {
         this.positionCount = positionCount;
-        this.lazyData = new LazyData(loader);
+        this.lazyData = new LazyData(positionCount, loader);
+    }
+
+    public LazyBlock(int positionCount, SelectiveLazyBlockLoader selectiveLoader)
+    {
+        this.positionCount = positionCount;
+        this.lazyData = new LazyData(positionCount, selectiveLoader);
     }
 
     @Override
@@ -275,6 +282,12 @@ public class LazyBlock
         return lazyData.getFullyLoadedBlock();
     }
 
+    @Override
+    public Block getLoadedBlock(SelectedPositions selectedPositions)
+    {
+        return lazyData.getFullyLoadedBlock(selectedPositions);
+    }
+
     public static void listenForLoads(Block block, Consumer<Block> listener)
     {
         requireNonNull(block, "block is null");
@@ -329,16 +342,26 @@ public class LazyBlock
 
     private static class LazyData
     {
+        private final int positionsCount;
         @Nullable
         private LazyBlockLoader loader;
+        @Nullable
+        private SelectiveLazyBlockLoader selectiveLoader;
         @Nullable
         private Block block;
         @Nullable
         private List<Consumer<Block>> listeners;
 
-        public LazyData(LazyBlockLoader loader)
+        public LazyData(int positionsCount, LazyBlockLoader loader)
         {
+            this.positionsCount = positionsCount;
             this.loader = requireNonNull(loader, "loader is null");
+        }
+
+        public LazyData(int positionsCount, SelectiveLazyBlockLoader selectiveLoader)
+        {
+            this.positionsCount = positionsCount;
+            this.selectiveLoader = requireNonNull(selectiveLoader, "selectiveLoader is null");
         }
 
         public boolean isLoaded()
@@ -348,14 +371,17 @@ public class LazyBlock
 
         public Block getBlock()
         {
-            load(false);
-            return block;
+            return load(positionsRange(0, positionsCount), false);
         }
 
         public Block getFullyLoadedBlock()
         {
-            load(true);
-            return block;
+            return load(positionsRange(0, positionsCount), true);
+        }
+
+        public Block getFullyLoadedBlock(SelectedPositions selectedPositions)
+        {
+            return load(selectedPositions, true);
         }
 
         private void addListeners(List<Consumer<Block>> listeners)
@@ -369,17 +395,22 @@ public class LazyBlock
             this.listeners.addAll(listeners);
         }
 
-        private void load(boolean recursive)
+        private Block load(SelectedPositions selectedPositions, boolean recursive)
         {
-            if (loader == null) {
+            if (block != null) {
                 if (recursive) {
                     block = block.getLoadedBlock();
                 }
 
-                return;
+                return getSelectedPositions(block, selectedPositions);
             }
 
-            block = requireNonNull(loader.load(), "loader returned null");
+            if (selectiveLoader != null) {
+                block = requireNonNull(selectiveLoader.load(selectedPositions), "selectiveLoader returned null");
+            }
+            else {
+                block = requireNonNull(loader.load(), "loader is null");
+            }
 
             if (recursive) {
                 block = block.getLoadedBlock();
@@ -390,9 +421,6 @@ public class LazyBlock
                     block = ((LazyBlock) block).getBlock();
                 }
             }
-
-            // clear reference to loader to free resources, since load was successful
-            loader = null;
 
             // notify listeners
             List<Consumer<Block>> listeners = this.listeners;
@@ -405,6 +433,39 @@ public class LazyBlock
                     addListenersRecursive(block, listeners);
                 }
             }
+
+            if (!allPositionsSelected(selectedPositions) && selectiveLoader != null) {
+                // don't cache block when only some positions were selected
+                Block result = block;
+                block = null;
+                return result;
+            }
+
+            // clear reference to loader to free resources, since entire block was loaded successfully
+            loader = null;
+            selectiveLoader = null;
+
+            return getSelectedPositions(block, selectedPositions);
+        }
+
+        private boolean allPositionsSelected(SelectedPositions selectedPositions)
+        {
+            return selectedPositions.isRange()
+                    && selectedPositions.getOffset() == 0
+                    && selectedPositions.size() == positionsCount;
+        }
+
+        private Block getSelectedPositions(Block block, SelectedPositions selectedPositions)
+        {
+            if (allPositionsSelected(selectedPositions)) {
+                return block;
+            }
+
+            if (selectedPositions.isList()) {
+                return block.getPositions(selectedPositions.getPositions(), selectedPositions.getOffset(), selectedPositions.size());
+            }
+
+            return block.getRegion(selectedPositions.getOffset(), selectedPositions.size());
         }
 
         /**
