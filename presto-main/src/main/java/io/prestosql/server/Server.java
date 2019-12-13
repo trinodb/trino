@@ -18,7 +18,6 @@ import com.google.common.base.StandardSystemProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
 import com.google.inject.Module;
-import io.airlift.bootstrap.ApplicationConfigurationException;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.discovery.client.Announcer;
 import io.airlift.discovery.client.DiscoveryModule;
@@ -133,12 +132,10 @@ public class Server
 
             log.info("======== SERVER STARTED ========");
         }
-        catch (ApplicationConfigurationException e) {
+        catch (Exception e) {
             StringBuilder message = new StringBuilder();
             message.append("Configuration is invalid\n");
             message.append("==========\n");
-            addMessages(message, "Errors", ImmutableList.copyOf(e.getErrors()));
-            addMessages(message, "Warnings", ImmutableList.copyOf(e.getWarnings()));
             message.append("\n");
             message.append("==========");
             log.error(message.toString());

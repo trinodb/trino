@@ -26,13 +26,16 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.ql.io.AcidUtils;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.sql.RowId;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -42,7 +45,6 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.ql.io.AcidUtils.deleteDeltaSubdir;
 
@@ -75,9 +77,9 @@ public class OrcDeletedRows
         this.acidInfo = requireNonNull(acidInfo, "acidInfo is null");
     }
 
-    public MaskDeletedRowsFunction getMaskDeletedRowsFunction(Page sourcePage)
+    public MaskDeletedRowsFunction getMaskDeletedRowsFunction(Page sourcePage, Optional<Long> startRowID)
     {
-        return new MaskDeletedRows(sourcePage);
+        return new MaskDeletedRows(sourcePage, startRowID);
     }
 
     public interface MaskDeletedRowsFunction
@@ -119,10 +121,12 @@ public class OrcDeletedRows
         private int positionCount;
         @Nullable
         private int[] validPositions;
+        private Optional<Long> startRowID;
 
-        public MaskDeletedRows(Page sourcePage)
+        public MaskDeletedRows(Page sourcePage, Optional<Long> startRowID)
         {
             this.sourcePage = requireNonNull(sourcePage, "sourcePage is null");
+            this.startRowID = startRowID;
         }
 
         @Override
@@ -153,7 +157,7 @@ public class OrcDeletedRows
         private void loadValidPositions()
         {
             verify(sourcePage != null, "sourcePage is null");
-            Set<RowId> deletedRows = getDeletedRows();
+            Set<OrcDeletedRows.RowId> deletedRows = getDeletedRows();
             if (deletedRows.isEmpty()) {
                 this.positionCount = sourcePage.getPositionCount();
                 this.sourcePage = null;
@@ -162,11 +166,13 @@ public class OrcDeletedRows
 
             int[] validPositions = new int[sourcePage.getPositionCount()];
             int validPositionsIndex = 0;
+            long rowId = startRowID.isPresent() ? startRowID.get() : 0;
             for (int position = 0; position < sourcePage.getPositionCount(); position++) {
-                if (!deletedRows.contains(new RowId(sourcePage, position))) {
-                    validPositions[validPositionsIndex] = position;
-                    validPositionsIndex++;
+                OrcDeletedRows.RowId rowIdObj = startRowID.isPresent() ? new OrcDeletedRows.RowId(-1, -1, rowId) : new OrcDeletedRows.RowId(sourcePage, position);
+                if (!deletedRows.contains(rowIdObj)) {
+                    validPositions[validPositionsIndex++] = position;
                 }
+                rowId++;
             }
             this.positionCount = validPositionsIndex;
             this.validPositions = validPositions;
@@ -183,7 +189,6 @@ public class OrcDeletedRows
         ImmutableSet.Builder<RowId> deletedRowsBuilder = ImmutableSet.builder();
         for (AcidInfo.DeleteDeltaInfo deleteDeltaInfo : acidInfo.getDeleteDeltas()) {
             Path path = createPath(acidInfo, deleteDeltaInfo, sourceFileName);
-
             try {
                 FileSystem fileSystem = hdfsEnvironment.getFileSystem(sessionUser, path, configuration);
                 FileStatus fileStatus = hdfsEnvironment.doAs(sessionUser, () -> fileSystem.getFileStatus(path));
@@ -229,6 +234,12 @@ public class OrcDeletedRows
             return new Path(directory, fileName.substring(0, fileName.lastIndexOf("_")));
         }
 
+        if (acidInfo != null && acidInfo.getOriginalFileLocations() != null) {
+            /**
+             * construct delete delta file path from bucket ID.
+             */
+            return AcidUtils.createBucketFile(directory, acidInfo.getBucketId().get());
+        }
         return new Path(directory, fileName);
     }
 
@@ -244,9 +255,16 @@ public class OrcDeletedRows
 
         private RowId(Page page, int position)
         {
-            this.originalTransaction = BIGINT.getLong(page.getBlock(ORIGINAL_TRANSACTION_INDEX), position);
-            this.bucket = toIntExact(INTEGER.getLong(page.getBlock(BUCKET_ID_INDEX), position));
-            this.rowId = BIGINT.getLong(page.getBlock(ROW_ID_INDEX), position);
+            this(page.getChannelCount() == 1 ? -1 : BIGINT.getLong(page.getBlock(0), position),
+                    page.getChannelCount() == 1 ? -1 : (int) INTEGER.getLong(page.getBlock(1), position),
+                    page.getChannelCount() == 1 ? BIGINT.getLong(page.getBlock(0), position) : BIGINT.getLong(page.getBlock(2), position));
+        }
+
+        public RowId(long originalTransaction, int bucket, long rowId)
+        {
+            this.originalTransaction = originalTransaction;
+            this.bucket = bucket;
+            this.rowId = rowId;
         }
 
         @Override

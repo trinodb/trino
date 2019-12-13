@@ -22,6 +22,7 @@ import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HivePageSourceFactory;
 import io.prestosql.plugin.hive.HivePageSourceFactory.ReaderPageSourceWithProjections;
 import io.prestosql.plugin.hive.HiveTypeTranslator;
+import io.prestosql.plugin.hive.OriginalFileLocations;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.predicate.Domain;
@@ -43,11 +44,11 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Properties;
 import java.util.Set;
-import java.util.function.LongPredicate;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.IntPredicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.io.Resources.getResource;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.prestosql.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.prestosql.plugin.hive.HiveStorageFormat.ORC;
@@ -55,6 +56,7 @@ import static io.prestosql.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.prestosql.plugin.hive.HiveTestUtils.SESSION;
 import static io.prestosql.plugin.hive.HiveType.toHiveType;
 import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.tpch.NationColumn.COMMENT;
 import static io.prestosql.tpch.NationColumn.NAME;
@@ -66,9 +68,12 @@ import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.TABLE
 import static org.apache.hadoop.hive.ql.io.AcidUtils.deleteDeltaSubdir;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 
 public class TestOrcPageSourceFactory
 {
+    // This file has the contains the TPC-H nation table which each row repeated 1000 times
+    private static final File TEST_FILE = new File(TestOrcPageSourceFactory.class.getClassLoader().getResource("nationFile25kRowsSortedOnNationKey/bucket_00000").getPath());
     private static final HivePageSourceFactory PAGE_SOURCE_FACTORY = new OrcPageSourceFactory(
             new OrcReaderConfig(),
             HDFS_ENVIRONMENT,
@@ -121,51 +126,86 @@ public class TestOrcPageSourceFactory
         assertRead(ImmutableSet.copyOf(NationColumn.values()), OptionalLong.empty(), acidInfo, nationKey -> nationKey == 5 || nationKey == 19);
     }
 
-    private static void assertRead(Set<NationColumn> columns, OptionalLong nationKeyPredicate, Optional<AcidInfo> acidInfo, LongPredicate deletedRows)
+    @Test
+    public void testFullFileReadOriginalFilesTable()
+    {
+        File tableFile = new File(TestOrcPageSourceFactory.class.getClassLoader().getResource("fullacidNationTableWithOriginalFiles/000000_0").getPath());
+        String tablePath = tableFile.getParent();
+
+        List<AcidInfo.DeleteDeltaInfo> deleteDeltaInfoList = new ArrayList<>();
+        deleteDeltaInfoList.add(new AcidInfo.DeleteDeltaInfo(10000001, 10000001, 0));
+
+        List<OriginalFileLocations.OriginalFileInfo> originalFileInfos = new ArrayList<>();
+        originalFileInfos.add(new OriginalFileLocations.OriginalFileInfo("000000_0", 1780));
+
+        OriginalFileLocations originalFileLocations = new OriginalFileLocations(originalFileInfos);
+
+        AcidInfo acidInfo = new AcidInfo(tablePath, deleteDeltaInfoList,
+                Optional.of(originalFileLocations), Optional.of(0));
+        List<Nation> expected = expectedResult(OptionalLong.empty(), nationKey -> nationKey == 24, 1);
+        List<Nation> result = readFile(ImmutableSet.copyOf(NationColumn.values()), OptionalLong.empty(), Optional.of(acidInfo), tablePath + "/000000_0",
+                1780);
+
+        assertEquals(result.size(), expected.size());
+        int deletedRowKey = 24;
+        String deletedRowNameColumn = "UNITED STATES";
+        assertFalse(result.stream().anyMatch(acidNationRow -> acidNationRow.getName().equals(deletedRowNameColumn) && acidNationRow.getNationKey() == deletedRowKey),
+                "Deleted row shouldn't be present in the result");
+    }
+
+    private static void assertRead(Set<NationColumn> columns, OptionalLong nationKeyPredicate, Optional<AcidInfo> acidInfo, IntPredicate deletedRows)
             throws Exception
     {
-        TupleDomain<HiveColumnHandle> tupleDomain = TupleDomain.all();
-        if (nationKeyPredicate.isPresent()) {
-            tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(toHiveColumnHandle(NATION_KEY), Domain.singleValue(BIGINT, nationKeyPredicate.getAsLong())));
-        }
+        List<Nation> actual = readFile(columns, nationKeyPredicate, acidInfo);
 
-        List<Nation> actual = readFile(columns, tupleDomain, acidInfo);
+        List<Nation> expected = expectedResult(nationKeyPredicate, deletedRows, 1000);
 
+        assertEqualsByColumns(columns, actual, expected);
+    }
+
+    private static List<Nation> expectedResult(OptionalLong nationKeyPredicate, IntPredicate deletedRows, int replicationFactor)
+    {
         List<Nation> expected = new ArrayList<>();
         for (Nation nation : ImmutableList.copyOf(new NationGenerator().iterator())) {
             if (nationKeyPredicate.isPresent() && nationKeyPredicate.getAsLong() != nation.getNationKey()) {
                 continue;
             }
-            if (deletedRows.test(nation.getNationKey())) {
+            if (deletedRows.test((int) nation.getNationKey())) {
                 continue;
             }
-            expected.addAll(nCopies(1000, nation));
+            expected.addAll(nCopies(replicationFactor, nation));
         }
-
-        assertEqualsByColumns(columns, actual, expected);
+        return expected;
     }
 
-    private static List<Nation> readFile(Set<NationColumn> columns, TupleDomain<HiveColumnHandle> tupleDomain, Optional<AcidInfo> acidInfo)
-            throws Exception
+    private static List<Nation> readFile(Set<NationColumn> columns, OptionalLong nationKeyPredicate, Optional<AcidInfo> acidInfo)
     {
+        return readFile(columns, nationKeyPredicate, acidInfo, TEST_FILE.toURI().getPath(), TEST_FILE.length());
+    }
+
+    private static List<Nation> readFile(Set<NationColumn> columns, OptionalLong nationKeyPredicate, Optional<AcidInfo> acidInfo, String filePath, long fileSize)
+    {
+        TupleDomain<HiveColumnHandle> tupleDomain = TupleDomain.all();
+        if (nationKeyPredicate.isPresent()) {
+            tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(toHiveColumnHandle(NATION_KEY, 0), Domain.singleValue(INTEGER, nationKeyPredicate.getAsLong())));
+        }
+
+        AtomicInteger atomicInteger = new AtomicInteger(0);
         List<HiveColumnHandle> columnHandles = columns.stream()
-                .map(TestOrcPageSourceFactory::toHiveColumnHandle)
+                .map(nationColumn -> toHiveColumnHandle(nationColumn, atomicInteger.getAndIncrement()))
                 .collect(toImmutableList());
 
         List<String> columnNames = columnHandles.stream()
                 .map(HiveColumnHandle::getName)
                 .collect(toImmutableList());
 
-        // This file has the contains the TPC-H nation table which each row repeated 1000 times
-        File nationFileWithReplicatedRows = new File(getResource("nationFile25kRowsSortedOnNationKey/bucket_00000").toURI());
-
         Optional<ReaderPageSourceWithProjections> pageSourceWithProjections = PAGE_SOURCE_FACTORY.createPageSource(
                 new JobConf(new Configuration(false)),
                 SESSION,
-                new Path(nationFileWithReplicatedRows.getAbsoluteFile().toURI()),
+                new Path(filePath),
                 0,
-                nationFileWithReplicatedRows.length(),
-                nationFileWithReplicatedRows.length(),
+                fileSize,
+                fileSize,
                 createSchema(),
                 columnHandles,
                 tupleDomain,
@@ -218,7 +258,7 @@ public class TestOrcPageSourceFactory
         return rows.build();
     }
 
-    private static HiveColumnHandle toHiveColumnHandle(NationColumn nationColumn)
+    private static HiveColumnHandle toHiveColumnHandle(NationColumn nationColumn, int hiveColumnIndex)
     {
         Type prestoType;
         switch (nationColumn.getType().getBase()) {
@@ -234,9 +274,10 @@ public class TestOrcPageSourceFactory
 
         return createBaseColumn(
                 nationColumn.getColumnName(),
-                0,
+                hiveColumnIndex,
                 toHiveType(new HiveTypeTranslator(), prestoType),
                 prestoType,
+
                 REGULAR,
                 Optional.empty());
     }

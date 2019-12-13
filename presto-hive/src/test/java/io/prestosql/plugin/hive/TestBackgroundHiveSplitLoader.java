@@ -485,7 +485,7 @@ public class TestBackgroundHiveSplitLoader
     }
 
     @Test
-    public void testFullAcidTableWithOriginalFilesFails()
+    public void testFullAcidTableWithOriginalFilesPass()
             throws Exception
     {
         java.nio.file.Path tablePath = Files.createTempDirectory("TestBackgroundHiveSplitLoader");
@@ -518,14 +518,11 @@ public class TestBackgroundHiveSplitLoader
                 table,
                 Optional.empty(),
                 Optional.of(validWriteIdsList));
-
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
-        assertThatThrownBy(() -> drain(hiveSplitSource))
-                .isInstanceOfSatisfying(PrestoException.class, e -> assertEquals(NOT_SUPPORTED.toErrorCode(), e.getErrorCode()))
-                .hasMessage("Original non-ACID files in transactional tables are not supported");
-
-        deleteRecursively(tablePath, ALLOW_INSECURE);
+        List<String> splits = drain(hiveSplitSource);
+        assertTrue(splits.stream().anyMatch(p -> p.contains(originalFile)), format("%s not found in splits %s", filePaths.get(0), splits));
+        assertTrue(splits.stream().anyMatch(p -> p.contains(filePaths.get(1))), format("%s not found in splits %s", filePaths.get(1), splits));
     }
 
     @Test

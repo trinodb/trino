@@ -75,7 +75,8 @@ public class OrcDeleteDeltaPageSource
             String sessionUser,
             Configuration configuration,
             HdfsEnvironment hdfsEnvironment,
-            FileFormatDataSourceStats stats)
+            FileFormatDataSourceStats stats,
+            boolean originalFilesPresent)
     {
         this.stats = requireNonNull(stats, "stats is null");
 
@@ -104,14 +105,14 @@ public class OrcDeleteDeltaPageSource
             Map<String, OrcColumn> acidColumns = uniqueIndex(
                     reader.getRootColumn().getNestedColumns(),
                     orcColumn -> orcColumn.getColumnName().toLowerCase(ENGLISH));
-            List<OrcColumn> rowIdColumns = ImmutableList.of(
+            List<OrcColumn> rowIdColumns = originalFilesPresent ? ImmutableList.of(acidColumns.get(ACID_COLUMN_ROW_ID.toLowerCase(ENGLISH))) : ImmutableList.of(
                     acidColumns.get(ACID_COLUMN_ORIGINAL_TRANSACTION.toLowerCase(ENGLISH)),
                     acidColumns.get(ACID_COLUMN_BUCKET.toLowerCase(ENGLISH)),
                     acidColumns.get(ACID_COLUMN_ROW_ID.toLowerCase(ENGLISH)));
 
             recordReader = reader.createRecordReader(
                     rowIdColumns,
-                    ImmutableList.of(BIGINT, INTEGER, BIGINT),
+                    originalFilesPresent ? ImmutableList.of(BIGINT) : ImmutableList.of(BIGINT, INTEGER, BIGINT),
                     OrcPredicate.TRUE,
                     0,
                     fileSize,

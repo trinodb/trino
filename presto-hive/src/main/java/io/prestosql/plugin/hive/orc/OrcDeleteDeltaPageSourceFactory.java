@@ -28,19 +28,22 @@ public class OrcDeleteDeltaPageSourceFactory
     private final Configuration configuration;
     private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats stats;
+    private final boolean originalFilesPresent;
 
     public OrcDeleteDeltaPageSourceFactory(
             OrcReaderOptions options,
             String sessionUser,
             Configuration configuration,
             HdfsEnvironment hdfsEnvironment,
-            FileFormatDataSourceStats stats)
+            FileFormatDataSourceStats stats,
+            boolean originalFilesPresent)
     {
         this.options = requireNonNull(options, "options is null");
         this.sessionUser = requireNonNull(sessionUser, "sessionUser is null");
         this.configuration = requireNonNull(configuration, "configuration is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.stats = requireNonNull(stats, "stats is null");
+        this.originalFilesPresent = requireNonNull(originalFilesPresent, "originalFilesPresent is null");
     }
 
     public OrcDeleteDeltaPageSource createPageSource(Path path, long fileSize)
@@ -52,6 +55,7 @@ public class OrcDeleteDeltaPageSourceFactory
                 sessionUser,
                 configuration,
                 hdfsEnvironment,
-                stats);
+                stats,
+                originalFilesPresent);
     }
 }
