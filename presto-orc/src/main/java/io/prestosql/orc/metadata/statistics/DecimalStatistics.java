@@ -43,7 +43,7 @@ public class DecimalStatistics
     @SuppressWarnings("NumberEquality")
     public DecimalStatistics(BigDecimal minimum, BigDecimal maximum, long decimalSizeInBytes)
     {
-        checkArgument(minimum == null || maximum == null || minimum.compareTo(maximum) <= 0, "minimum is not less than maximum");
+        checkArgument(minimum == null || maximum == null || minimum.compareTo(maximum) <= 0, "minimum is not less than or equal to maximum: %s, %s", minimum, maximum);
         this.minimum = minimum;
         this.maximum = maximum;
 
