@@ -31,8 +31,6 @@ import java.util.Set;
 
 public interface CassandraSession
 {
-    String PRESTO_COMMENT_METADATA = "Presto Metadata:";
-
     VersionNumber getCassandraVersion();
 
     ProtocolVersion getProtocolVersion();
