@@ -57,11 +57,15 @@ public class OrcPageSource
 
     private final FileFormatDataSourceStats stats;
 
+    // Row ID relative to all the original files of the same bucket ID before this file in lexicographic order
+    private Optional<Long> originalFileRowId = Optional.empty();
+
     public OrcPageSource(
             OrcRecordReader recordReader,
             List<ColumnAdaptation> columnAdaptations,
             OrcDataSource orcDataSource,
             Optional<OrcDeletedRows> deletedRows,
+            Optional<Long> originalFileRowId,
             AggregatedMemoryContext systemMemoryContext,
             FileFormatDataSourceStats stats)
     {
@@ -71,6 +75,7 @@ public class OrcPageSource
         this.deletedRows = requireNonNull(deletedRows, "deletedRows is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
+        this.originalFileRowId = requireNonNull(originalFileRowId, "deletedRows is null");
     }
 
     @Override
@@ -108,8 +113,15 @@ public class OrcPageSource
             return null;
         }
 
+        // To compare row ID of an original file with delete delta, we need to calculate the overall startRowID of
+        // this page.
+        // originalFileRowId -> starting row ID of the current original file.
+        // recordReader.getFilePosition() -> returns the position in the current original file.
+        // startRowID -> {Total number of rows before this original file} + {Row number in current file}
+        Optional<Long> startRowID = originalFileRowId.map(fileRowId -> fileRowId + recordReader.getFilePosition());
+
         MaskDeletedRowsFunction maskDeletedRowsFunction = deletedRows
-                .map(deletedRows -> deletedRows.getMaskDeletedRowsFunction(page))
+                .map(deletedRows -> deletedRows.getMaskDeletedRowsFunction(page, startRowID))
                 .orElseGet(() -> MaskDeletedRowsFunction.noMaskForPage(page));
         Block[] blocks = new Block[columnAdaptations.size()];
         for (int i = 0; i < columnAdaptations.size(); i++) {

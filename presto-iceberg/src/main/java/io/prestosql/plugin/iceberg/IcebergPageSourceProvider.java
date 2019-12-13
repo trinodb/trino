@@ -318,6 +318,7 @@ public class IcebergPageSourceProvider
                     columnAdaptations,
                     orcDataSource,
                     Optional.empty(),
+                    Optional.empty(),
                     systemMemoryUsage,
                     stats);
         }

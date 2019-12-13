@@ -115,7 +115,7 @@ public class ServerSecurityModule
         HttpServerConfig httpServerConfig = buildConfigObject(HttpServerConfig.class);
         SecurityConfig securityConfig = buildConfigObject(SecurityConfig.class);
         // if secure https authentication is enabled, disable insecure authentication over http
-        if ((httpServerConfig.isHttpsEnabled() || httpServerConfig.isProcessForwarded()) &&
+        if ((httpServerConfig.isHttpsEnabled()) &&
                 !securityConfig.getAuthenticationTypes().equals(ImmutableList.of("insecure"))) {
             install(binder -> configBinder(binder).bindConfigDefaults(SecurityConfig.class, config -> config.setInsecureAuthenticationOverHttpAllowed(false)));
         }

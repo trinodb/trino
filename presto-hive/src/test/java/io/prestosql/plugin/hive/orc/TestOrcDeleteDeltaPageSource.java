@@ -44,7 +44,8 @@ public class TestOrcDeleteDeltaPageSource
                 "test",
                 new JobConf(new Configuration(false)),
                 HDFS_ENVIRONMENT,
-                new FileFormatDataSourceStats());
+                new FileFormatDataSourceStats(),
+                false);
 
         OrcDeleteDeltaPageSource pageSource = pageSourceFactory.createPageSource(new Path(deleteDeltaFile.toURI()), deleteDeltaFile.length());
         MaterializedResult materializedRows = MaterializedResult.materializeSourceDataStream(SESSION, pageSource, ImmutableList.of(BIGINT, INTEGER, BIGINT));
