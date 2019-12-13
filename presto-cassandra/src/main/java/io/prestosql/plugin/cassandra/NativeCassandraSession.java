@@ -73,6 +73,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.transform;
 import static io.prestosql.plugin.cassandra.CassandraErrorCode.CASSANDRA_VERSION_ERROR;
+import static io.prestosql.plugin.cassandra.CassandraMetadata.PRESTO_COMMENT_METADATA;
 import static io.prestosql.plugin.cassandra.CassandraType.isFullySupported;
 import static io.prestosql.plugin.cassandra.CassandraType.toCassandraType;
 import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.selectDistinctFrom;
@@ -90,7 +91,6 @@ public class NativeCassandraSession
 {
     private static final Logger log = Logger.get(NativeCassandraSession.class);
 
-    private static final String PRESTO_COMMENT_METADATA = "Presto Metadata:";
     private static final String SYSTEM = "system";
     private static final String SIZE_ESTIMATES = "size_estimates";
     private static final VersionNumber PARTITION_FETCH_WITH_IN_PREDICATE_VERSION = VersionNumber.parse("2.2");

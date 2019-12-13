@@ -65,6 +65,8 @@ import static java.util.stream.Collectors.toList;
 public class CassandraMetadata
         implements ConnectorMetadata
 {
+    public static final String PRESTO_COMMENT_METADATA = "Presto Metadata:";
+
     private final CassandraSession cassandraSession;
     private final CassandraPartitionManager partitionManager;
     private final boolean allowDropTable;
@@ -304,7 +306,7 @@ public class CassandraMetadata
 
         // encode column ordering in the cassandra table comment field since there is no better place to store this
         String columnMetadata = extraColumnMetadataCodec.toJson(columnExtra.build());
-        queryBuilder.append("WITH comment='").append(CassandraSession.PRESTO_COMMENT_METADATA).append(" ").append(columnMetadata).append("'");
+        queryBuilder.append("WITH comment='").append(PRESTO_COMMENT_METADATA).append(" ").append(columnMetadata).append("'");
 
         // We need to create the Cassandra table before commit because the record needs to be written to the table.
         cassandraSession.execute(queryBuilder.toString());
