@@ -28,6 +28,7 @@ import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.metadata.TableMetadata;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
+import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.security.Identity;
@@ -49,9 +50,11 @@ import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.sql.TestTable;
 import io.prestosql.type.TypeDeserializer;
 import org.apache.hadoop.fs.Path;
 import org.intellij.lang.annotations.Language;
+import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -154,6 +157,12 @@ public class TestHiveIntegrationSmokeTest
             throws Exception
     {
         return HiveQueryRunner.createQueryRunner(ORDERS, CUSTOMER);
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        throw new SkipException("Hive connector does not support column default values");
     }
 
     @Test
@@ -5173,7 +5182,8 @@ public class TestHiveIntegrationSmokeTest
                 .execute(session, transactionSession -> {
                     QualifiedObjectName objectName = new QualifiedObjectName(catalog, TPCH_SCHEMA, tableName);
                     Optional<TableHandle> handle = metadata.getTableHandle(transactionSession, objectName);
-                    InsertTableHandle insertTableHandle = metadata.beginInsert(transactionSession, handle.get());
+                    List<ColumnHandle> columns = ImmutableList.copyOf(metadata.getColumnHandles(transactionSession, handle.get()).values());
+                    InsertTableHandle insertTableHandle = metadata.beginInsert(transactionSession, handle.get(), columns);
                     HiveInsertTableHandle hiveInsertTableHandle = (HiveInsertTableHandle) insertTableHandle.getConnectorHandle();
 
                     metadata.finishInsert(transactionSession, insertTableHandle, ImmutableList.of(), ImmutableList.of());

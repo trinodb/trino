@@ -14,6 +14,7 @@
 package io.prestosql.testing;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -294,6 +295,21 @@ public abstract class AbstractTestIntegrationSmokeTest
         assertUpdate("DROP SCHEMA " + schemaName);
         assertQueryFails("DROP SCHEMA " + schemaName, format("line 1:1: Schema '.*.%s' does not exist", schemaName));
     }
+
+    @Test
+    public void testInsertForDefaultColumn()
+    {
+        try (TestTable testTable = createTableWithDefaultColumns()) {
+            assertUpdate(format("INSERT INTO %s (col_required, col_required2) VALUES (1, 10)", testTable.getName()), 1);
+            assertUpdate(format("INSERT INTO %s VALUES (2, 3, 4, 5, 6)", testTable.getName()), 1);
+            assertUpdate(format("INSERT INTO %s VALUES (7, null, null, 8, 9)", testTable.getName()), 1);
+            assertUpdate(format("INSERT INTO %s (col_required2, col_required) VALUES (12, 13)", testTable.getName()), 1);
+
+            assertQuery("SELECT * FROM " + testTable.getName(), "VALUES (1, null, 43, 42, 10), (2, 3, 4, 5, 6), (7, null, null, 8, 9), (13, null, 43, 42, 12)");
+        }
+    }
+
+    protected abstract TestTable createTableWithDefaultColumns();
 
     private static String randomNameSuffix()
     {

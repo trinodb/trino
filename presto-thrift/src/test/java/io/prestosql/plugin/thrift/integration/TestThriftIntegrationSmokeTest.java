@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.sql.TestTable;
+import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import static io.prestosql.plugin.thrift.integration.ThriftQueryRunner.createThriftQueryRunner;
@@ -31,6 +33,12 @@ public class TestThriftIntegrationSmokeTest
             throws Exception
     {
         return createThriftQueryRunner(2, 2, false, ImmutableMap.of());
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        throw new SkipException("Kafka connector does not support column default values");
     }
 
     @Override

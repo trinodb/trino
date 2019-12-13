@@ -18,6 +18,8 @@ import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.sql.TestTable;
+import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -37,6 +39,12 @@ public class TestKuduIntegrationSmoke
             throws Exception
     {
         return createKuduQueryRunnerTpch(ORDERS);
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        throw new SkipException("Kudu connector does not support column default values");
     }
 
     /**

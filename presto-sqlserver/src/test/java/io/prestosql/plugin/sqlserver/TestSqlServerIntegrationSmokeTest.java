@@ -15,6 +15,7 @@ package io.prestosql.plugin.sqlserver;
 
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.sql.TestTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -122,6 +123,19 @@ public class TestSqlServerIntegrationSmokeTest
         for (String schemaName : schemaNames) {
             sqlServer.execute("DROP SCHEMA " + schemaName);
         }
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        return new TestTable(
+                sqlServer::execute,
+                "table",
+                "(col_required BIGINT NOT NULL," +
+                        "col_nullable BIGINT," +
+                        "col_default BIGINT DEFAULT 43," +
+                        "col_nonnull_default BIGINT NOT NULL DEFAULT 42," +
+                        "col_required2 BIGINT NOT NULL)");
     }
 
     private AutoCloseable withTable(String tableName, String tableDefinition)

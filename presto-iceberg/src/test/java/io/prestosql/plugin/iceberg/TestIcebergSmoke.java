@@ -18,8 +18,10 @@ import io.prestosql.Session;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.sql.TestTable;
 import org.apache.iceberg.FileFormat;
 import org.intellij.lang.annotations.Language;
+import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.util.function.BiConsumer;
@@ -44,6 +46,12 @@ public class TestIcebergSmoke
     protected boolean isParameterizedVarcharSupported()
     {
         return false;
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        throw new SkipException("Iceberg connector does not support column default values");
     }
 
     @Test

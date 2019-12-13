@@ -17,6 +17,7 @@ import io.prestosql.Session;
 import io.prestosql.plugin.jdbc.UnsupportedTypeHandling;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.sql.TestTable;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -49,6 +50,12 @@ public class TestPhoenixIntegrationSmokeTest
     public void destroy()
     {
         TestingPhoenixServer.shutDown();
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        throw new SkipException("Phoenix connector does not support column default values");
     }
 
     @Test

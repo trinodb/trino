@@ -31,6 +31,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
@@ -169,7 +170,7 @@ public class JdbcPageSink
             throw new PrestoException(JDBC_NON_TRANSIENT_ERROR, e);
         }
         catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
+            throw new PrestoException(JDBC_ERROR, "Failed to insert data: " + firstNonNull(e.getMessage(), e), e);
         }
         // the committer does not need any additional info
         return completedFuture(ImmutableList.of());

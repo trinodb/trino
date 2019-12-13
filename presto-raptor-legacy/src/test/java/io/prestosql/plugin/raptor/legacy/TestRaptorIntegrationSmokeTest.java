@@ -22,7 +22,9 @@ import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
+import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.time.LocalDate;
@@ -63,6 +65,12 @@ public class TestRaptorIntegrationSmokeTest
             throws Exception
     {
         return createRaptorQueryRunner(ImmutableMap.of(), true, false);
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        throw new SkipException("Raptor connector does not support column default values");
     }
 
     @Test

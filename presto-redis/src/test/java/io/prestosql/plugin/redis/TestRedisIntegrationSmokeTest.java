@@ -16,6 +16,8 @@ package io.prestosql.plugin.redis;
 import io.prestosql.plugin.redis.util.EmbeddedRedis;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.sql.TestTable;
+import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -53,5 +55,11 @@ public class TestRedisIntegrationSmokeTest
     protected boolean canDropSchema()
     {
         return false;
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        throw new SkipException("Redis connector does not support column default values");
     }
 }

@@ -44,6 +44,19 @@ public class TestJdbcIntegrationSmokeTest
         return createH2QueryRunner(ImmutableList.copyOf(TpchTable.getTables()), properties);
     }
 
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        return new TestTable(
+                getSqlExecutor(),
+                "tpch.table",
+                "(col_required BIGINT NOT NULL," +
+                        "col_nullable BIGINT," +
+                        "col_default BIGINT DEFAULT 43," +
+                        "col_nonnull_default BIGINT NOT NULL DEFAULT 42," +
+                        "col_required2 BIGINT NOT NULL)");
+    }
+
     @Test
     public void testUnknownTypeAsIgnored()
     {
