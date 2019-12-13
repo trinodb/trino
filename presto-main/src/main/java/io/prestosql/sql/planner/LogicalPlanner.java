@@ -340,17 +340,13 @@ public class LogicalPlanner
 
         TableMetadata tableMetadata = metadata.getTableMetadata(session, insert.getTarget());
 
-        List<ColumnMetadata> visibleTableColumns = tableMetadata.getColumns().stream()
-                .filter(column -> !column.isHidden())
-                .collect(toImmutableList());
-        List<String> visibleTableColumnNames = visibleTableColumns.stream()
-                .map(ColumnMetadata::getName)
-                .collect(toImmutableList());
-
         RelationPlan plan = createRelationPlan(analysis, insertStatement.getQuery());
 
         Map<String, ColumnHandle> columns = metadata.getColumnHandles(session, insert.getTarget());
         Assignments.Builder assignments = Assignments.builder();
+        boolean supportsMissingColumnsOnInsert = metadata.supportsMissingColumnsOnInsert(session, insert.getTarget());
+        ImmutableList.Builder<ColumnMetadata> visibleColumnsBuilder = ImmutableList.builder();
+
         for (ColumnMetadata column : tableMetadata.getColumns()) {
             if (column.isHidden()) {
                 continue;
@@ -358,8 +354,12 @@ public class LogicalPlanner
             Symbol output = symbolAllocator.newSymbol(column.getName(), column.getType());
             int index = insert.getColumns().indexOf(columns.get(column.getName()));
             if (index < 0) {
+                if (supportsMissingColumnsOnInsert) {
+                    continue;
+                }
                 Expression cast = new Cast(new NullLiteral(), toSqlType(column.getType()));
                 assignments.put(output, cast);
+                visibleColumnsBuilder.add(column);
             }
             else {
                 Symbol input = plan.getSymbol(index);
@@ -373,10 +373,13 @@ public class LogicalPlanner
                     Expression cast = noTruncationCast(input.toSymbolReference(), queryType, tableType);
                     assignments.put(output, cast);
                 }
+                visibleColumnsBuilder.add(column);
             }
         }
+
         ProjectNode projectNode = new ProjectNode(idAllocator.getNextId(), plan.getRoot(), assignments.build());
 
+        List<ColumnMetadata> visibleTableColumns = visibleColumnsBuilder.build();
         List<Field> fields = visibleTableColumns.stream()
                 .map(column -> Field.newUnqualified(column.getName(), column.getType()))
                 .collect(toImmutableList());
@@ -387,10 +390,18 @@ public class LogicalPlanner
         String catalogName = insert.getTarget().getCatalogName().getCatalogName();
         TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, catalogName, tableMetadata.getMetadata());
 
+        List<String> visibleTableColumnNames = visibleTableColumns.stream()
+                .map(ColumnMetadata::getName)
+                .collect(toImmutableList());
+
         return createTableWriterPlan(
                 analysis,
                 plan,
-                new InsertReference(insert.getTarget()),
+                new InsertReference(
+                        insert.getTarget(),
+                        visibleTableColumnNames.stream()
+                                .map(columns::get)
+                                .collect(toImmutableList())),
                 visibleTableColumnNames,
                 insert.getNewTableLayout(),
                 statisticsMetadata);

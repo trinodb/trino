@@ -15,6 +15,8 @@ package io.prestosql.plugin.postgresql;
 
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.sql.JdbcSqlExecutor;
+import io.prestosql.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -300,6 +302,15 @@ public class TestPostgreSqlIntegrationSmokeTest
                     "SELECT column_name, comment FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = 'test_column_comment'",
                     "VALUES ('col1', 'test comment'), ('col2', null), ('col3', null)");
         }
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        return new TestTable(
+                new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl()),
+                "tpch.table",
+                "(a bigint, b bigint default 40)");
     }
 
     private AutoCloseable withSchema(String schema)

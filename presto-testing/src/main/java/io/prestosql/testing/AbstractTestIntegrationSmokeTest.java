@@ -14,7 +14,9 @@
 package io.prestosql.testing;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
+import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.security.SecureRandom;
@@ -68,6 +70,12 @@ public abstract class AbstractTestIntegrationSmokeTest
         assertQuery("SELECT SUM(orderkey) FROM orders");
         assertQuery("SELECT SUM(totalprice) FROM orders");
         assertQuery("SELECT MAX(comment) FROM orders");
+    }
+
+    // TODO: Remove this after we add support for creating table with columns having default values.
+    protected TestTable createTableWithDefaultColumns()
+    {
+        throw new SkipException("requirement not met");
     }
 
     @Test
@@ -299,5 +307,18 @@ public abstract class AbstractTestIntegrationSmokeTest
     {
         String randomSuffix = Long.toString(abs(random.nextLong()), MAX_RADIX);
         return randomSuffix.substring(0, min(RANDOM_SUFFIX_LENGTH, randomSuffix.length()));
+    }
+
+    @Test
+    public void testInsertForDefaultColumn()
+    {
+        try (TestTable testTable = createTableWithDefaultColumns()) {
+            assertUpdate(format("INSERT INTO %s (a) VALUES (1)", testTable.getName()), 1);
+            assertUpdate(format("INSERT INTO %s VALUES (2, 3)", testTable.getName()), 1);
+            assertUpdate(format("INSERT INTO %s VALUES (4, null)", testTable.getName()), 1);
+            assertUpdate(format("INSERT INTO %s (b, a) VALUES (6, 5)", testTable.getName()), 1);
+
+            assertQuery("SELECT * FROM " + testTable.getName(), "VALUES (1, 40), (2, 3), (4, null), (5, 6)");
+        }
     }
 }

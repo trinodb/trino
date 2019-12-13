@@ -236,7 +236,7 @@ public interface Metadata
     /**
      * Begin insert query
      */
-    InsertTableHandle beginInsert(Session session, TableHandle tableHandle);
+    InsertTableHandle beginInsert(Session session, TableHandle tableHandle, List<ColumnHandle> columns);
 
     /**
      * Finish insert query
@@ -480,4 +480,6 @@ public interface Metadata
     ColumnPropertyManager getColumnPropertyManager();
 
     AnalyzePropertyManager getAnalyzePropertyManager();
+
+    boolean supportsMissingColumnsOnInsert(Session session, TableHandle tableHandle);
 }

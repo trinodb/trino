@@ -177,9 +177,9 @@ public class CachingJdbcClient
     }
 
     @Override
-    public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle)
+    public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columns)
     {
-        return delegate.beginInsertTable(session, tableHandle);
+        return delegate.beginInsertTable(session, tableHandle, columns);
     }
 
     @Override

@@ -46,6 +46,7 @@ import java.util.OptionalLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.spi.StandardErrorCode.PERMISSION_DENIED;
 import static java.util.Objects.requireNonNull;
 
@@ -244,9 +245,9 @@ public class JdbcMetadata
     }
 
     @Override
-    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns)
     {
-        JdbcOutputTableHandle handle = jdbcClient.beginInsertTable(session, (JdbcTableHandle) tableHandle);
+        JdbcOutputTableHandle handle = jdbcClient.beginInsertTable(session, (JdbcTableHandle) tableHandle, columns.stream().map(JdbcColumnHandle.class::cast).collect(toImmutableList()));
         setRollback(() -> jdbcClient.rollbackCreateTable(JdbcIdentity.from(session), handle));
         return handle;
     }
@@ -300,5 +301,11 @@ public class JdbcMetadata
     public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
     {
         jdbcClient.createSchema(JdbcIdentity.from(session), schemaName);
+    }
+
+    @Override
+    public boolean supportsMissingColumnsOnInsert()
+    {
+        return true;
     }
 }
