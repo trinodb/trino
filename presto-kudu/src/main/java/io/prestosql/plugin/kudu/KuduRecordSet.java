@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.plugin.kudu.KuduColumnHandle.ROW_ID_POSITION;
 
 public class KuduRecordSet
         implements RecordSet
@@ -65,7 +66,7 @@ public class KuduRecordSet
                     fieldMapping.put(i, handle.getOrdinalPosition());
                 }
                 else {
-                    fieldMapping.put(i, -1);
+                    fieldMapping.put(i, ROW_ID_POSITION);
                 }
             }
 
