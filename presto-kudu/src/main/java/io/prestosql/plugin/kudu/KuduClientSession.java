@@ -66,7 +66,13 @@ import java.util.stream.IntStream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.StandardErrorCode.QUERY_REJECTED;
+import static io.prestosql.spi.predicate.Marker.Bound.ABOVE;
+import static io.prestosql.spi.predicate.Marker.Bound.BELOW;
 import static java.util.stream.Collectors.toList;
+import static org.apache.kudu.client.KuduPredicate.ComparisonOp.GREATER;
+import static org.apache.kudu.client.KuduPredicate.ComparisonOp.GREATER_EQUAL;
+import static org.apache.kudu.client.KuduPredicate.ComparisonOp.LESS;
+import static org.apache.kudu.client.KuduPredicate.ComparisonOp.LESS_EQUAL;
 
 public class KuduClientSession
 {
@@ -500,20 +506,29 @@ public class KuduClientSession
                     }
                     else if (valueSet instanceof SortedRangeSet) {
                         Ranges ranges = ((SortedRangeSet) valueSet).getRanges();
-                        Range span = ranges.getSpan();
-                        Marker low = span.getLow();
-                        if (!low.isLowerUnbounded()) {
-                            KuduPredicate.ComparisonOp op = (low.getBound() == Marker.Bound.ABOVE)
-                                    ? KuduPredicate.ComparisonOp.GREATER : KuduPredicate.ComparisonOp.GREATER_EQUAL;
-                            KuduPredicate predicate = createComparisonPredicate(columnSchema, op, low.getValue());
+                        List<Range> rangeList = ranges.getOrderedRanges();
+                        if (rangeList.stream().allMatch(Range::isSingleValue)) {
+                            io.prestosql.spi.type.Type type = TypeHelper.fromKuduColumn(columnSchema);
+                            List<Object> javaValues = rangeList.stream()
+                                    .map(range -> TypeHelper.getJavaValue(type, range.getSingleValue()))
+                                    .collect(toImmutableList());
+                            KuduPredicate predicate = KuduPredicate.newInListPredicate(columnSchema, javaValues);
                             builder.addPredicate(predicate);
                         }
-                        Marker high = span.getHigh();
-                        if (!high.isUpperUnbounded()) {
-                            KuduPredicate.ComparisonOp op = (low.getBound() == Marker.Bound.BELOW)
-                                    ? KuduPredicate.ComparisonOp.LESS : KuduPredicate.ComparisonOp.LESS_EQUAL;
-                            KuduPredicate predicate = createComparisonPredicate(columnSchema, op, high.getValue());
-                            builder.addPredicate(predicate);
+                        else {
+                            Range span = ranges.getSpan();
+                            Marker low = span.getLow();
+                            if (!low.isLowerUnbounded()) {
+                                KuduPredicate.ComparisonOp op = (low.getBound() == ABOVE) ? GREATER : GREATER_EQUAL;
+                                KuduPredicate predicate = createComparisonPredicate(columnSchema, op, low.getValue());
+                                builder.addPredicate(predicate);
+                            }
+                            Marker high = span.getHigh();
+                            if (!high.isUpperUnbounded()) {
+                                KuduPredicate.ComparisonOp op = (low.getBound() == BELOW) ? LESS : LESS_EQUAL;
+                                KuduPredicate predicate = createComparisonPredicate(columnSchema, op, high.getValue());
+                                builder.addPredicate(predicate);
+                            }
                         }
                     }
                     else {
