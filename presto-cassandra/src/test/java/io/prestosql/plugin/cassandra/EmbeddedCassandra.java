@@ -85,7 +85,7 @@ public final class EmbeddedCassandra
                 .withMaxSchemaAgreementWaitSeconds(30);
 
         ReopeningCluster cluster = new ReopeningCluster(clusterBuilder::build);
-        CassandraSession session = new NativeCassandraSession(
+        CassandraSession session = new CassandraSession(
                 JsonCodec.listJsonCodec(ExtraColumnMetadata.class),
                 cluster,
                 new Duration(1, MINUTES));
