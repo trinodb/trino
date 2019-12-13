@@ -89,20 +89,24 @@ public class TestKuduIntegrationSmoke
     {
         assertUpdate("CREATE TABLE IF NOT EXISTS test_row_delete (" +
                 "id INT WITH (primary_key=true), " +
+                "second_id INT, " +
                 "user_name VARCHAR" +
                 ") WITH (" +
                 " partition_by_hash_columns = ARRAY['id'], " +
                 " partition_by_hash_buckets = 2" +
                 ")");
 
-        assertUpdate("INSERT INTO test_row_delete VALUES (0, 'user0'), (2, 'user2'), (1, 'user1')", 3);
+        assertUpdate("INSERT INTO test_row_delete VALUES (0, 1, 'user0'), (3, 4, 'user2'), (2, 3, 'user2'), (1, 2, 'user1')", 4);
+        assertQuery("SELECT count(*) FROM test_row_delete", "VALUES 4");
+
+        assertUpdate("DELETE FROM test_row_delete WHERE second_id = 4", 1);
         assertQuery("SELECT count(*) FROM test_row_delete", "VALUES 3");
 
         assertUpdate("DELETE FROM test_row_delete WHERE user_name = 'user1'", 1);
         assertQuery("SELECT count(*) FROM test_row_delete", "VALUES 2");
 
         assertUpdate("DELETE FROM test_row_delete WHERE id = 0", 1);
-        assertQuery("SELECT * FROM test_row_delete", "VALUES (2, 'user2')");
+        assertQuery("SELECT * FROM test_row_delete", "VALUES (2, 3, 'user2')");
 
         assertUpdate("DROP TABLE test_row_delete");
     }
