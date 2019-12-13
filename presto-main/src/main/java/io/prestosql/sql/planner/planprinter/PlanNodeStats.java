@@ -23,7 +23,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.succinctBytes;
-import static io.prestosql.util.MoreMaps.mergeMaps;
+import static io.prestosql.plugin.base.util.MoreMaps.mergeMaps;
 import static java.lang.Double.max;
 import static java.lang.Math.sqrt;
 import static java.util.Objects.requireNonNull;
