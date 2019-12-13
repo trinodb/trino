@@ -70,7 +70,7 @@ import static org.jline.terminal.TerminalBuilder.terminal;
 import static org.jline.utils.AttributedStyle.CYAN;
 import static org.jline.utils.AttributedStyle.DEFAULT;
 
-@Command(name = "presto", description = "Presto interactive console")
+@Command(name = "presto", description = "Presto command line interface")
 public class Console
 {
     public static final Set<String> STATEMENT_DELIMITERS = ImmutableSet.of(";", "\\G");
