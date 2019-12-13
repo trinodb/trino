@@ -24,6 +24,8 @@ import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.ValueSet;
 import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.DoubleType;
+import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.DomainTranslator.ExtractionResult;
 import io.prestosql.sql.tree.BetweenPredicate;
@@ -91,6 +93,7 @@ import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -644,6 +647,46 @@ public class TestDomainTranslator
     }
 
     @Test
+    public void testFromBasicComparisonsWithNaN()
+    {
+        Expression nanDouble = literalEncoder.toExpression(Double.NaN, DOUBLE);
+
+        assertPredicateIsAlwaysFalse(equal(C_DOUBLE, nanDouble));
+        assertPredicateIsAlwaysFalse(greaterThan(C_DOUBLE, nanDouble));
+        assertPredicateIsAlwaysFalse(greaterThanOrEqual(C_DOUBLE, nanDouble));
+        assertPredicateIsAlwaysFalse(lessThan(C_DOUBLE, nanDouble));
+        assertPredicateIsAlwaysFalse(lessThanOrEqual(C_DOUBLE, nanDouble));
+        assertPredicateTranslates(notEqual(C_DOUBLE, nanDouble), TupleDomain.withColumnDomains(ImmutableMap.of(C_DOUBLE, Domain.notNull(DOUBLE))));
+        assertUnsupportedPredicate(isDistinctFrom(C_DOUBLE, nanDouble));
+
+        assertPredicateTranslates(not(equal(C_DOUBLE, nanDouble)), TupleDomain.withColumnDomains(ImmutableMap.of(C_DOUBLE, Domain.notNull(DOUBLE))));
+        assertPredicateTranslates(not(greaterThan(C_DOUBLE, nanDouble)), TupleDomain.withColumnDomains(ImmutableMap.of(C_DOUBLE, Domain.notNull(DOUBLE))));
+        assertPredicateTranslates(not(greaterThanOrEqual(C_DOUBLE, nanDouble)), TupleDomain.withColumnDomains(ImmutableMap.of(C_DOUBLE, Domain.notNull(DOUBLE))));
+        assertPredicateTranslates(not(lessThan(C_DOUBLE, nanDouble)), TupleDomain.withColumnDomains(ImmutableMap.of(C_DOUBLE, Domain.notNull(DOUBLE))));
+        assertPredicateTranslates(not(lessThanOrEqual(C_DOUBLE, nanDouble)), TupleDomain.withColumnDomains(ImmutableMap.of(C_DOUBLE, Domain.notNull(DOUBLE))));
+        assertPredicateIsAlwaysFalse(not(notEqual(C_DOUBLE, nanDouble)));
+        assertUnsupportedPredicate(not(isDistinctFrom(C_DOUBLE, nanDouble)));
+
+        Expression nanReal = literalEncoder.toExpression((long) Float.floatToIntBits(Float.NaN), REAL);
+
+        assertPredicateIsAlwaysFalse(equal(C_REAL, nanReal));
+        assertPredicateIsAlwaysFalse(greaterThan(C_REAL, nanReal));
+        assertPredicateIsAlwaysFalse(greaterThanOrEqual(C_REAL, nanReal));
+        assertPredicateIsAlwaysFalse(lessThan(C_REAL, nanReal));
+        assertPredicateIsAlwaysFalse(lessThanOrEqual(C_REAL, nanReal));
+        assertPredicateTranslates(notEqual(C_REAL, nanReal), TupleDomain.withColumnDomains(ImmutableMap.of(C_REAL, Domain.notNull(REAL))));
+        assertUnsupportedPredicate(isDistinctFrom(C_REAL, nanReal));
+
+        assertPredicateTranslates(not(equal(C_REAL, nanReal)), TupleDomain.withColumnDomains(ImmutableMap.of(C_REAL, Domain.notNull(REAL))));
+        assertPredicateTranslates(not(greaterThan(C_REAL, nanReal)), TupleDomain.withColumnDomains(ImmutableMap.of(C_REAL, Domain.notNull(REAL))));
+        assertPredicateTranslates(not(greaterThanOrEqual(C_REAL, nanReal)), TupleDomain.withColumnDomains(ImmutableMap.of(C_REAL, Domain.notNull(REAL))));
+        assertPredicateTranslates(not(lessThan(C_REAL, nanReal)), TupleDomain.withColumnDomains(ImmutableMap.of(C_REAL, Domain.notNull(REAL))));
+        assertPredicateTranslates(not(lessThanOrEqual(C_REAL, nanReal)), TupleDomain.withColumnDomains(ImmutableMap.of(C_REAL, Domain.notNull(REAL))));
+        assertPredicateIsAlwaysFalse(not(notEqual(C_REAL, nanReal)));
+        assertUnsupportedPredicate(not(isDistinctFrom(C_REAL, nanReal)));
+    }
+
+    @Test
     public void testNonImplicitCastOnSymbolSide()
     {
         // we expect TupleDomain.all here().
@@ -748,8 +791,8 @@ public class TestDomainTranslator
 
         // B is a double column. Check that it can be compared against longs
         assertPredicateTranslates(
-                not(greaterThan(C_DOUBLE, cast(bigintLiteral(2L), DOUBLE))),
-                withColumnDomains(ImmutableMap.of(C_DOUBLE, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(DOUBLE, 2.0)), false))));
+                greaterThan(C_DOUBLE, cast(bigintLiteral(2L), DOUBLE)),
+                withColumnDomains(ImmutableMap.of(C_DOUBLE, Domain.create(ValueSet.ofRanges(Range.greaterThan(DOUBLE, 2.0)), false))));
 
         // C is a string column. Check that it can be compared.
         assertPredicateTranslates(
@@ -1107,6 +1150,26 @@ public class TestDomainTranslator
             testSimpleComparison(greaterThanOrEqual(columnExpression, fractionalNegative), columnSymbol, Range.greaterThan(columnType, columnValues.getFractionalNegative()));
         }
 
+        // greater than or equal negated
+        if (literalValues.isTypeWithNaN()) {
+            assertNoFullPushdown(not(greaterThanOrEqual(columnExpression, integerPositive)));
+            assertNoFullPushdown(not(greaterThanOrEqual(columnExpression, integerNegative)));
+            assertNoFullPushdown(not(greaterThanOrEqual(columnExpression, max)));
+            assertNoFullPushdown(not(greaterThanOrEqual(columnExpression, min)));
+            assertNoFullPushdown(not(greaterThanOrEqual(columnExpression, fractionalPositive)));
+            assertNoFullPushdown(not(greaterThanOrEqual(columnExpression, fractionalNegative)));
+        }
+        else {
+            testSimpleComparison(not(greaterThanOrEqual(columnExpression, integerPositive)), columnSymbol, Range.lessThan(columnType, columnValues.getIntegerPositive()));
+            testSimpleComparison(not(greaterThanOrEqual(columnExpression, integerNegative)), columnSymbol, Range.lessThan(columnType, columnValues.getIntegerNegative()));
+            testSimpleComparison(not(greaterThanOrEqual(columnExpression, max)), columnSymbol, Range.lessThanOrEqual(columnType, columnValues.getMax()));
+            testSimpleComparison(not(greaterThanOrEqual(columnExpression, min)), columnSymbol, Range.lessThan(columnType, columnValues.getMin()));
+            if (literalValues.isFractional()) {
+                testSimpleComparison(not(greaterThanOrEqual(columnExpression, fractionalPositive)), columnSymbol, Range.lessThanOrEqual(columnType, columnValues.getFractionalPositive()));
+                testSimpleComparison(not(greaterThanOrEqual(columnExpression, fractionalNegative)), columnSymbol, Range.lessThanOrEqual(columnType, columnValues.getFractionalNegative()));
+            }
+        }
+
         // greater than
         testSimpleComparison(greaterThan(columnExpression, integerPositive), columnSymbol, Range.greaterThan(columnType, columnValues.getIntegerPositive()));
         testSimpleComparison(greaterThan(columnExpression, integerNegative), columnSymbol, Range.greaterThan(columnType, columnValues.getIntegerNegative()));
@@ -1115,6 +1178,26 @@ public class TestDomainTranslator
         if (literalValues.isFractional()) {
             testSimpleComparison(greaterThan(columnExpression, fractionalPositive), columnSymbol, Range.greaterThan(columnType, columnValues.getFractionalPositive()));
             testSimpleComparison(greaterThan(columnExpression, fractionalNegative), columnSymbol, Range.greaterThan(columnType, columnValues.getFractionalNegative()));
+        }
+
+        // greater than negated
+        if (literalValues.isTypeWithNaN()) {
+            assertNoFullPushdown(not(greaterThan(columnExpression, integerPositive)));
+            assertNoFullPushdown(not(greaterThan(columnExpression, integerNegative)));
+            assertNoFullPushdown(not(greaterThan(columnExpression, max)));
+            assertNoFullPushdown(not(greaterThan(columnExpression, min)));
+            assertNoFullPushdown(not(greaterThan(columnExpression, fractionalPositive)));
+            assertNoFullPushdown(not(greaterThan(columnExpression, fractionalNegative)));
+        }
+        else {
+            testSimpleComparison(not(greaterThan(columnExpression, integerPositive)), columnSymbol, Range.lessThanOrEqual(columnType, columnValues.getIntegerPositive()));
+            testSimpleComparison(not(greaterThan(columnExpression, integerNegative)), columnSymbol, Range.lessThanOrEqual(columnType, columnValues.getIntegerNegative()));
+            testSimpleComparison(not(greaterThan(columnExpression, max)), columnSymbol, Range.lessThanOrEqual(columnType, columnValues.getMax()));
+            testSimpleComparison(not(greaterThan(columnExpression, min)), columnSymbol, Range.lessThan(columnType, columnValues.getMin()));
+            if (literalValues.isFractional()) {
+                testSimpleComparison(not(greaterThan(columnExpression, fractionalPositive)), columnSymbol, Range.lessThanOrEqual(columnType, columnValues.getFractionalPositive()));
+                testSimpleComparison(not(greaterThan(columnExpression, fractionalNegative)), columnSymbol, Range.lessThanOrEqual(columnType, columnValues.getFractionalNegative()));
+            }
         }
 
         // less than or equal
@@ -1127,6 +1210,26 @@ public class TestDomainTranslator
             testSimpleComparison(lessThanOrEqual(columnExpression, fractionalNegative), columnSymbol, Range.lessThanOrEqual(columnType, columnValues.getFractionalNegative()));
         }
 
+        // less than or equal negated
+        if (literalValues.isTypeWithNaN()) {
+            assertNoFullPushdown(not(lessThanOrEqual(columnExpression, integerPositive)));
+            assertNoFullPushdown(not(lessThanOrEqual(columnExpression, integerNegative)));
+            assertNoFullPushdown(not(lessThanOrEqual(columnExpression, max)));
+            assertNoFullPushdown(not(lessThanOrEqual(columnExpression, min)));
+            assertNoFullPushdown(not(lessThanOrEqual(columnExpression, fractionalPositive)));
+            assertNoFullPushdown(not(lessThanOrEqual(columnExpression, fractionalNegative)));
+        }
+        else {
+            testSimpleComparison(not(lessThanOrEqual(columnExpression, integerPositive)), columnSymbol, Range.greaterThan(columnType, columnValues.getIntegerPositive()));
+            testSimpleComparison(not(lessThanOrEqual(columnExpression, integerNegative)), columnSymbol, Range.greaterThan(columnType, columnValues.getIntegerNegative()));
+            testSimpleComparison(not(lessThanOrEqual(columnExpression, max)), columnSymbol, Range.greaterThan(columnType, columnValues.getMax()));
+            testSimpleComparison(not(lessThanOrEqual(columnExpression, min)), columnSymbol, Range.greaterThanOrEqual(columnType, columnValues.getMin()));
+            if (literalValues.isFractional()) {
+                testSimpleComparison(not(lessThanOrEqual(columnExpression, fractionalPositive)), columnSymbol, Range.greaterThan(columnType, columnValues.getFractionalPositive()));
+                testSimpleComparison(not(lessThanOrEqual(columnExpression, fractionalNegative)), columnSymbol, Range.greaterThan(columnType, columnValues.getFractionalNegative()));
+            }
+        }
+
         // less than
         testSimpleComparison(lessThan(columnExpression, integerPositive), columnSymbol, Range.lessThan(columnType, columnValues.getIntegerPositive()));
         testSimpleComparison(lessThan(columnExpression, integerNegative), columnSymbol, Range.lessThan(columnType, columnValues.getIntegerNegative()));
@@ -1135,6 +1238,26 @@ public class TestDomainTranslator
         if (literalValues.isFractional()) {
             testSimpleComparison(lessThan(columnExpression, fractionalPositive), columnSymbol, Range.lessThanOrEqual(columnType, columnValues.getFractionalPositive()));
             testSimpleComparison(lessThan(columnExpression, fractionalNegative), columnSymbol, Range.lessThanOrEqual(columnType, columnValues.getFractionalNegative()));
+        }
+
+        // less than negated
+        if (literalValues.isTypeWithNaN()) {
+            assertNoFullPushdown(not(lessThan(columnExpression, integerPositive)));
+            assertNoFullPushdown(not(lessThan(columnExpression, integerNegative)));
+            assertNoFullPushdown(not(lessThan(columnExpression, max)));
+            assertNoFullPushdown(not(lessThan(columnExpression, min)));
+            assertNoFullPushdown(not(lessThan(columnExpression, fractionalPositive)));
+            assertNoFullPushdown(not(lessThan(columnExpression, fractionalNegative)));
+        }
+        else {
+            testSimpleComparison(not(lessThan(columnExpression, integerPositive)), columnSymbol, Range.greaterThanOrEqual(columnType, columnValues.getIntegerPositive()));
+            testSimpleComparison(not(lessThan(columnExpression, integerNegative)), columnSymbol, Range.greaterThanOrEqual(columnType, columnValues.getIntegerNegative()));
+            testSimpleComparison(not(lessThan(columnExpression, max)), columnSymbol, Range.greaterThan(columnType, columnValues.getMax()));
+            testSimpleComparison(not(lessThan(columnExpression, min)), columnSymbol, Range.greaterThanOrEqual(columnType, columnValues.getMin()));
+            if (literalValues.isFractional()) {
+                testSimpleComparison(not(lessThan(columnExpression, fractionalPositive)), columnSymbol, Range.greaterThan(columnType, columnValues.getFractionalPositive()));
+                testSimpleComparison(not(lessThan(columnExpression, fractionalNegative)), columnSymbol, Range.greaterThan(columnType, columnValues.getFractionalNegative()));
+            }
         }
 
         // equal
@@ -1147,24 +1270,94 @@ public class TestDomainTranslator
             testSimpleComparison(equal(columnExpression, fractionalNegative), columnSymbol, Domain.none(columnType));
         }
 
+        // equal negated
+        if (literalValues.isTypeWithNaN()) {
+            assertNoFullPushdown(not(equal(columnExpression, integerPositive)));
+            assertNoFullPushdown(not(equal(columnExpression, integerNegative)));
+            assertNoFullPushdown(not(equal(columnExpression, max)));
+            assertNoFullPushdown(not(equal(columnExpression, min)));
+            assertNoFullPushdown(not(equal(columnExpression, fractionalPositive)));
+            assertNoFullPushdown(not(equal(columnExpression, fractionalNegative)));
+        }
+        else {
+            testSimpleComparison(not(equal(columnExpression, integerPositive)), columnSymbol, Domain.create(ValueSet.ofRanges(Range.lessThan(columnType, columnValues.getIntegerPositive()), Range.greaterThan(columnType, columnValues.getIntegerPositive())), false));
+            testSimpleComparison(not(equal(columnExpression, integerNegative)), columnSymbol, Domain.create(ValueSet.ofRanges(Range.lessThan(columnType, columnValues.getIntegerNegative()), Range.greaterThan(columnType, columnValues.getIntegerNegative())), false));
+            testSimpleComparison(not(equal(columnExpression, max)), columnSymbol, Domain.notNull(columnType));
+            testSimpleComparison(not(equal(columnExpression, min)), columnSymbol, Domain.notNull(columnType));
+            if (literalValues.isFractional()) {
+                testSimpleComparison(not(equal(columnExpression, fractionalPositive)), columnSymbol, Domain.notNull(columnType));
+                testSimpleComparison(not(equal(columnExpression, fractionalNegative)), columnSymbol, Domain.notNull(columnType));
+            }
+        }
+
         // not equal
-        testSimpleComparison(notEqual(columnExpression, integerPositive), columnSymbol, Domain.create(ValueSet.ofRanges(Range.lessThan(columnType, columnValues.getIntegerPositive()), Range.greaterThan(columnType, columnValues.getIntegerPositive())), false));
-        testSimpleComparison(notEqual(columnExpression, integerNegative), columnSymbol, Domain.create(ValueSet.ofRanges(Range.lessThan(columnType, columnValues.getIntegerNegative()), Range.greaterThan(columnType, columnValues.getIntegerNegative())), false));
-        testSimpleComparison(notEqual(columnExpression, max), columnSymbol, Domain.notNull(columnType));
-        testSimpleComparison(notEqual(columnExpression, min), columnSymbol, Domain.notNull(columnType));
-        if (literalValues.isFractional()) {
-            testSimpleComparison(notEqual(columnExpression, fractionalPositive), columnSymbol, Domain.notNull(columnType));
-            testSimpleComparison(notEqual(columnExpression, fractionalNegative), columnSymbol, Domain.notNull(columnType));
+        if (literalValues.isTypeWithNaN()) {
+            assertNoFullPushdown(notEqual(columnExpression, integerPositive));
+            assertNoFullPushdown(notEqual(columnExpression, integerNegative));
+            assertNoFullPushdown(notEqual(columnExpression, max));
+            assertNoFullPushdown(notEqual(columnExpression, min));
+            assertNoFullPushdown(notEqual(columnExpression, fractionalPositive));
+            assertNoFullPushdown(notEqual(columnExpression, integerNegative));
+        }
+        else {
+            testSimpleComparison(notEqual(columnExpression, integerPositive), columnSymbol, Domain.create(ValueSet.ofRanges(Range.lessThan(columnType, columnValues.getIntegerPositive()), Range.greaterThan(columnType, columnValues.getIntegerPositive())), false));
+            testSimpleComparison(notEqual(columnExpression, integerNegative), columnSymbol, Domain.create(ValueSet.ofRanges(Range.lessThan(columnType, columnValues.getIntegerNegative()), Range.greaterThan(columnType, columnValues.getIntegerNegative())), false));
+            testSimpleComparison(notEqual(columnExpression, max), columnSymbol, Domain.notNull(columnType));
+            testSimpleComparison(notEqual(columnExpression, min), columnSymbol, Domain.notNull(columnType));
+            if (literalValues.isFractional()) {
+                testSimpleComparison(notEqual(columnExpression, fractionalPositive), columnSymbol, Domain.notNull(columnType));
+                testSimpleComparison(notEqual(columnExpression, fractionalNegative), columnSymbol, Domain.notNull(columnType));
+            }
+        }
+
+        // not equal negated
+        if (literalValues.isTypeWithNaN()) {
+            testSimpleComparison(not(notEqual(columnExpression, integerPositive)), columnSymbol, Range.equal(columnType, columnValues.getIntegerPositive()));
+            testSimpleComparison(not(notEqual(columnExpression, integerNegative)), columnSymbol, Range.equal(columnType, columnValues.getIntegerNegative()));
+            assertNoFullPushdown(not(notEqual(columnExpression, max)));
+            assertNoFullPushdown(not(notEqual(columnExpression, min)));
+            assertNoFullPushdown(not(notEqual(columnExpression, fractionalPositive)));
+            assertNoFullPushdown(not(notEqual(columnExpression, fractionalNegative)));
+        }
+        else {
+            testSimpleComparison(not(notEqual(columnExpression, integerPositive)), columnSymbol, Range.equal(columnType, columnValues.getIntegerPositive()));
+            testSimpleComparison(not(notEqual(columnExpression, integerNegative)), columnSymbol, Range.equal(columnType, columnValues.getIntegerNegative()));
+            testSimpleComparison(not(notEqual(columnExpression, max)), columnSymbol, Domain.none(columnType));
+            testSimpleComparison(not(notEqual(columnExpression, min)), columnSymbol, Domain.none(columnType));
+            if (literalValues.isFractional()) {
+                testSimpleComparison(not(notEqual(columnExpression, fractionalPositive)), columnSymbol, Domain.none(columnType));
+                testSimpleComparison(not(notEqual(columnExpression, fractionalNegative)), columnSymbol, Domain.none(columnType));
+            }
         }
 
         // is distinct from
-        testSimpleComparison(isDistinctFrom(columnExpression, integerPositive), columnSymbol, Domain.create(ValueSet.ofRanges(Range.lessThan(columnType, columnValues.getIntegerPositive()), Range.greaterThan(columnType, columnValues.getIntegerPositive())), true));
-        testSimpleComparison(isDistinctFrom(columnExpression, integerNegative), columnSymbol, Domain.create(ValueSet.ofRanges(Range.lessThan(columnType, columnValues.getIntegerNegative()), Range.greaterThan(columnType, columnValues.getIntegerNegative())), true));
-        testSimpleComparison(isDistinctFrom(columnExpression, max), columnSymbol, Domain.all(columnType));
-        testSimpleComparison(isDistinctFrom(columnExpression, min), columnSymbol, Domain.all(columnType));
-        if (literalValues.isFractional()) {
+        if (literalValues.isTypeWithNaN()) {
+            assertNoFullPushdown(isDistinctFrom(columnExpression, integerPositive));
+            assertNoFullPushdown(isDistinctFrom(columnExpression, integerNegative));
+            testSimpleComparison(isDistinctFrom(columnExpression, max), columnSymbol, Domain.all(columnType));
+            testSimpleComparison(isDistinctFrom(columnExpression, min), columnSymbol, Domain.all(columnType));
             testSimpleComparison(isDistinctFrom(columnExpression, fractionalPositive), columnSymbol, Domain.all(columnType));
             testSimpleComparison(isDistinctFrom(columnExpression, fractionalNegative), columnSymbol, Domain.all(columnType));
+        }
+        else {
+            testSimpleComparison(isDistinctFrom(columnExpression, integerPositive), columnSymbol, Domain.create(ValueSet.ofRanges(Range.lessThan(columnType, columnValues.getIntegerPositive()), Range.greaterThan(columnType, columnValues.getIntegerPositive())), true));
+            testSimpleComparison(isDistinctFrom(columnExpression, integerNegative), columnSymbol, Domain.create(ValueSet.ofRanges(Range.lessThan(columnType, columnValues.getIntegerNegative()), Range.greaterThan(columnType, columnValues.getIntegerNegative())), true));
+            testSimpleComparison(isDistinctFrom(columnExpression, max), columnSymbol, Domain.all(columnType));
+            testSimpleComparison(isDistinctFrom(columnExpression, min), columnSymbol, Domain.all(columnType));
+            if (literalValues.isFractional()) {
+                testSimpleComparison(isDistinctFrom(columnExpression, fractionalPositive), columnSymbol, Domain.all(columnType));
+                testSimpleComparison(isDistinctFrom(columnExpression, fractionalNegative), columnSymbol, Domain.all(columnType));
+            }
+        }
+
+        // is distinct from negated
+        testSimpleComparison(not(isDistinctFrom(columnExpression, integerPositive)), columnSymbol, Range.equal(columnType, columnValues.getIntegerPositive()));
+        testSimpleComparison(not(isDistinctFrom(columnExpression, integerNegative)), columnSymbol, Range.equal(columnType, columnValues.getIntegerNegative()));
+        testSimpleComparison(not(isDistinctFrom(columnExpression, max)), columnSymbol, Domain.none(columnType));
+        testSimpleComparison(not(isDistinctFrom(columnExpression, min)), columnSymbol, Domain.none(columnType));
+        if (literalValues.isFractional()) {
+            testSimpleComparison(not(isDistinctFrom(columnExpression, fractionalPositive)), columnSymbol, Domain.none(columnType));
+            testSimpleComparison(not(isDistinctFrom(columnExpression, fractionalNegative)), columnSymbol, Domain.none(columnType));
         }
     }
 
@@ -1204,6 +1397,12 @@ public class TestDomainTranslator
         ExtractionResult result = fromPredicate(expression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         assertEquals(result.getTupleDomain(), tupleDomain);
+    }
+
+    private void assertNoFullPushdown(Expression expression)
+    {
+        ExtractionResult result = fromPredicate(expression);
+        assertNotEquals(result.getRemainingExpression(), TRUE_LITERAL);
     }
 
     private ExtractionResult fromPredicate(Expression originalPredicate)
@@ -1511,6 +1710,11 @@ public class TestDomainTranslator
         public boolean isFractional()
         {
             return type == DOUBLE || type == REAL || (type instanceof DecimalType && ((DecimalType) type).getScale() > 0);
+        }
+
+        public boolean isTypeWithNaN()
+        {
+            return type instanceof DoubleType || type instanceof RealType;
         }
     }
 }
