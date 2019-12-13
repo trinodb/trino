@@ -188,6 +188,83 @@ public class TestHiveTransactionalTable
         }
     }
 
+    @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL}, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = TEST_TIMEOUT)
+    public void testReadFullAcidWithOriginalFiles(boolean isPartitioned, BucketingType bucketingType)
+    {
+        if (getHiveVersionMajor() < 3) {
+            throw new SkipException("Presto Hive transactional tables are supported with Hive version 3 or above");
+        }
+
+        String tableName = "test_full_acid_acid_converted_table_read";
+        onHive().executeQuery("DROP TABLE IF EXISTS " + tableName);
+        verify(bucketingType.getHiveTableProperties().isEmpty()); // otherwise we would need to include that in the CREATE TABLE's TBLPROPERTIES
+        onHive().executeQuery("CREATE TABLE " + tableName + " (col INT, fcol INT) " +
+                (isPartitioned ? "PARTITIONED BY (part_col INT) " : "") +
+                bucketingType.getHiveClustering("fcol", 4) + " " +
+                "STORED AS ORC " +
+                "TBLPROPERTIES ('transactional'='false')");
+
+        try {
+            String hivePartitionString = isPartitioned ? " PARTITION (part_col=2) " : "";
+            onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " VALUES (21, 1)");
+            onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " VALUES (22, 2)");
+            onHive().executeQuery("ALTER TABLE " + tableName + " SET " + hiveTableProperties(ACID, bucketingType));
+
+            // read with original files
+            assertThat(query("SELECT col, fcol FROM " + tableName)).containsOnly(row(21, 1), row(22, 2));
+            assertThat(query("SELECT col, fcol FROM " + tableName + " WHERE fcol = 1")).containsOnly(row(21, 1));
+
+            // read with original files and insert delta
+            onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " VALUES (20, 3)");
+            assertThat(query("SELECT col, fcol FROM " + tableName)).containsOnly(row(20, 3), row(21, 1), row(22, 2));
+
+            // read with original files and delete delta
+            onHive().executeQuery("DELETE FROM " + tableName + " WHERE fcol = 2");
+            assertThat(query("SELECT col, fcol FROM " + tableName)).containsOnly(row(20, 3), row(21, 1));
+
+            // read with original files and insert+delete delta (UPDATE)
+            onHive().executeQuery("UPDATE " + tableName + " SET col = 23 WHERE fcol = 1" + (isPartitioned ? " AND part_col = 2 " : ""));
+            assertThat(query("SELECT col, fcol FROM " + tableName)).containsOnly(row(20, 3), row(23, 1));
+        }
+        finally {
+            onHive().executeQuery("DROP TABLE " + tableName);
+        }
+    }
+
+    @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL}, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = TEST_TIMEOUT)
+    public void testReadInsertOnlyWithOriginalFiles(boolean isPartitioned, BucketingType bucketingType)
+    {
+        if (getHiveVersionMajor() < 3) {
+            throw new SkipException("Presto Hive transactional tables are supported with Hive version 3 or above");
+        }
+
+        String tableName = "test_insert_only_acid_converted_table_read";
+        onHive().executeQuery("DROP TABLE IF EXISTS " + tableName);
+        verify(bucketingType.getHiveTableProperties().isEmpty()); // otherwise we would need to include that in the CREATE TABLE's TBLPROPERTIES
+        onHive().executeQuery("CREATE TABLE " + tableName + " (col INT) " +
+                (isPartitioned ? "PARTITIONED BY (part_col INT) " : "") +
+                bucketingType.getHiveClustering("col", 4) + " " +
+                "STORED AS ORC " +
+                "TBLPROPERTIES ('transactional'='false')");
+        try {
+            String hivePartitionString = isPartitioned ? " PARTITION (part_col=2) " : "";
+
+            onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " VALUES (1)");
+            onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " VALUES (2)");
+            onHive().executeQuery("ALTER TABLE " + tableName + " SET " + hiveTableProperties(INSERT_ONLY, bucketingType));
+
+            // read with original files
+            assertThat(query("SELECT col FROM " + tableName + (isPartitioned ? " WHERE part_col = 2 " : "" + " ORDER BY col"))).containsOnly(row(1), row(2));
+
+            // read with original files and delta
+            onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " VALUES (3)");
+            assertThat(query("SELECT col FROM " + tableName + (isPartitioned ? " WHERE part_col = 2 " : "" + " ORDER BY col"))).containsOnly(row(1), row(2), row(3));
+        }
+        finally {
+            onHive().executeQuery("DROP TABLE " + tableName);
+        }
+    }
+
     @Test(groups = HIVE_TRANSACTIONAL)
     public void testFailAcidBeforeHive3()
     {
