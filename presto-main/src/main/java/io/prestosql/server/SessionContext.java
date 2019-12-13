@@ -70,4 +70,9 @@ public interface SessionContext
     Optional<String> getTraceToken();
 
     boolean supportClientTransaction();
+
+    default String getOriginalUser()
+    {
+        return getIdentity().getUser();
+    }
 }

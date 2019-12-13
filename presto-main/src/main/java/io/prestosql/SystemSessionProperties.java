@@ -125,6 +125,7 @@ public final class SystemSessionProperties
     public static final String DYNAMIC_FILTERING_MAX_PER_DRIVER_ROW_COUNT = "dynamic_filtering_max_per_driver_row_count";
     public static final String DYNAMIC_FILTERING_MAX_PER_DRIVER_SIZE = "dynamic_filtering_max_per_driver_size";
     public static final String IGNORE_DOWNSTREAM_PREFERENCES = "ignore_downstream_preferences";
+    public static final String EXECUTION_USER = "execution_user";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -552,6 +553,11 @@ public final class SystemSessionProperties
                         IGNORE_DOWNSTREAM_PREFERENCES,
                         "Ignore Parent's PreferredProperties in AddExchange optimizer",
                         featuresConfig.isIgnoreDownstreamPreferences(),
+                        false),
+                stringProperty(
+                        EXECUTION_USER,
+                        "User to execute query as",
+                        "",
                         false));
     }
 
@@ -976,6 +982,11 @@ public final class SystemSessionProperties
     public static DataSize getDynamicFilteringMaxPerDriverSize(Session session)
     {
         return session.getSystemProperty(DYNAMIC_FILTERING_MAX_PER_DRIVER_SIZE, DataSize.class);
+    }
+
+    public static String getExecutionUser(Session session)
+    {
+        return session.getSystemProperty(EXECUTION_USER, String.class);
     }
 
     public static boolean ignoreDownStreamPreferences(Session session)

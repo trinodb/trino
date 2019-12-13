@@ -25,6 +25,7 @@ import javax.ws.rs.WebApplicationException;
 import java.util.Optional;
 
 import static com.google.common.net.HttpHeaders.X_FORWARDED_FOR;
+import static io.prestosql.SystemSessionProperties.EXECUTION_USER;
 import static io.prestosql.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.SystemSessionProperties.QUERY_MAX_MEMORY;
@@ -70,6 +71,7 @@ public class TestHttpRequestSessionContext
                         .put(PRESTO_ROLE, "foobar_connector=ROLE{role}")
                         .put(PRESTO_EXTRA_CREDENTIAL, "test.token.foo=bar")
                         .put(PRESTO_EXTRA_CREDENTIAL, "test.token.abc=xyz")
+                        .put(PRESTO_SESSION, EXECUTION_USER + "=user")
                         .build(),
                 "testRemote");
 
@@ -78,7 +80,7 @@ public class TestHttpRequestSessionContext
         assertEquals(context.getCatalog(), "testCatalog");
         assertEquals(context.getSchema(), "testSchema");
         assertEquals(context.getPath(), "testPath");
-        assertEquals(context.getIdentity(), Identity.ofUser("testUser"));
+        assertEquals(context.getIdentity(), Identity.ofUser("user"));
         assertEquals(context.getClientInfo(), "client-info");
         assertEquals(context.getLanguage(), "zh-TW");
         assertEquals(context.getTimeZoneId(), "Asia/Taipei");
@@ -86,7 +88,8 @@ public class TestHttpRequestSessionContext
                 QUERY_MAX_MEMORY, "1GB",
                 JOIN_DISTRIBUTION_TYPE, "partitioned",
                 HASH_PARTITION_COUNT, "43",
-                "some_session_property", "some value with , comma"));
+                "some_session_property", "some value with , comma",
+                EXECUTION_USER, "user"));
         assertEquals(context.getPreparedStatements(), ImmutableMap.of("query1", "select * from foo", "query2", "select * from bar"));
         assertEquals(context.getIdentity().getRoles(), ImmutableMap.of(
                 "foo_connector", new SelectedRole(SelectedRole.Type.ALL, Optional.empty()),
