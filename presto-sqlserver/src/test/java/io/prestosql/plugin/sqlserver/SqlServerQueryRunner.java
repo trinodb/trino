@@ -32,6 +32,7 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.testing.Closeables.closeAllSuppress;
+import static io.prestosql.plugin.base.util.MoreMaps.requireNonNullContent;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.prestosql.testing.QueryAssertions.copyTable;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
@@ -60,7 +61,7 @@ public final class SqlServerQueryRunner
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
-            connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
+            connectorProperties = new HashMap<>(requireNonNullContent(connectorProperties, "connectorProperties"));
             connectorProperties.putIfAbsent("connection-url", testingSqlServer.getJdbcUrl());
             connectorProperties.putIfAbsent("connection-user", TestingSqlServer.USER);
             connectorProperties.putIfAbsent("connection-password", TestingSqlServer.PASSWORD);

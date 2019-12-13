@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.function.BinaryOperator;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.stream.Collectors.toMap;
 
 public final class MoreMaps
@@ -35,5 +36,17 @@ public final class MoreMaps
             .map(Map::entrySet)
             .flatMap(Collection::stream)
             .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, merger));
+    }
+
+    public static <K, V> Map<K, V> requireNonNullContent(Map<K, V> map)
+    {
+        return requireNonNullContent(map, "Map");
+    }
+
+    public static <K, V> Map<K, V> requireNonNullContent(Map<K, V> map, String objectName)
+    {
+        checkArgument(!map.containsKey(null), "%s contains null keys", objectName);
+        checkArgument(!map.containsValue(null), "%s contains null values", objectName);
+        return map;
     }
 }
