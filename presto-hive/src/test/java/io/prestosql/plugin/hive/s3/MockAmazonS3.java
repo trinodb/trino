@@ -18,10 +18,8 @@ import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.CannedAccessControlList;
 import com.amazonaws.services.s3.model.GetObjectMetadataRequest;
 import com.amazonaws.services.s3.model.GetObjectRequest;
-import com.amazonaws.services.s3.model.ListObjectsRequest;
 import com.amazonaws.services.s3.model.ListObjectsV2Request;
 import com.amazonaws.services.s3.model.ListObjectsV2Result;
-import com.amazonaws.services.s3.model.ObjectListing;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.PutObjectResult;
@@ -95,28 +93,6 @@ public class MockAmazonS3
     {
         this.acl = putObjectRequest.getCannedAcl();
         return new PutObjectResult();
-    }
-
-    @Override
-    public ObjectListing listObjects(ListObjectsRequest listObjectsRequest)
-    {
-        ObjectListing listing = new ObjectListing();
-
-        S3ObjectSummary standard = new S3ObjectSummary();
-        standard.setStorageClass(StorageClass.Standard.toString());
-        standard.setKey("test/standard");
-        standard.setLastModified(new Date());
-        listing.getObjectSummaries().add(standard);
-
-        if (hasGlacierObjects) {
-            S3ObjectSummary glacier = new S3ObjectSummary();
-            glacier.setStorageClass(StorageClass.Glacier.toString());
-            glacier.setKey("test/glacier");
-            glacier.setLastModified(new Date());
-            listing.getObjectSummaries().add(glacier);
-        }
-
-        return listing;
     }
 
     @Override

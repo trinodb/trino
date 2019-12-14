@@ -531,14 +531,9 @@ public class PrestoS3FileSystem
                     return null;
                 }
 
-                final ListObjectsV2Request nextRequest = new ListObjectsV2Request()
-                        .withBucketName(previous.getBucketName())
-                        .withPrefix(previous.getPrefix())
-                        .withDelimiter(previous.getDelimiter())
-                        .withRequesterPays(requesterPaysEnabled)
-                        .withContinuationToken(previous.getNextContinuationToken());
+                request.setContinuationToken(previous.getNextContinuationToken());
 
-                return s3.listObjectsV2(nextRequest);
+                return s3.listObjectsV2(request);
             }
         };
 
