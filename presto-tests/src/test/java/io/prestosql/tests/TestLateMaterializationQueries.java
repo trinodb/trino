@@ -25,20 +25,20 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
-import static io.prestosql.SystemSessionProperties.WORK_PROCESSOR_PIPELINES;
+import static io.prestosql.SystemSessionProperties.LATE_MATERIALIZATION;
 import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static org.testng.Assert.assertTrue;
 
-public class TestWorkProcessorPipelineQueries
+public class TestLateMaterializationQueries
         extends AbstractTestQueryFramework
 {
-    protected TestWorkProcessorPipelineQueries()
+    protected TestLateMaterializationQueries()
     {
         super(() -> TpchQueryRunnerBuilder
                 .builder()
                 .amendSession(builder -> builder
-                        .setSystemProperty(WORK_PROCESSOR_PIPELINES, "true")
+                        .setSystemProperty(LATE_MATERIALIZATION, "true")
                         .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.toString()))
                 // make TPCH connector produce multiple pages per split
                 .withProducePages(true)
@@ -71,10 +71,10 @@ public class TestWorkProcessorPipelineQueries
         DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
         QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
 
-        ResultWithQueryId<MaterializedResult> workProcessorResultResultWithQueryId = queryRunner.executeWithQueryId(workProcessorPipelines(), sql);
+        ResultWithQueryId<MaterializedResult> workProcessorResultResultWithQueryId = queryRunner.executeWithQueryId(lateMaterialization(), sql);
         QueryInfo workProcessorQueryInfo = queryManager.getFullQueryInfo(workProcessorResultResultWithQueryId.getQueryId());
 
-        ResultWithQueryId<MaterializedResult> noWorkProcessorResultResultWithQueryId = queryRunner.executeWithQueryId(noWorkProcessorPipelines(), sql);
+        ResultWithQueryId<MaterializedResult> noWorkProcessorResultResultWithQueryId = queryRunner.executeWithQueryId(noLateMaterialization(), sql);
         QueryInfo noWorkProcessorQueryInfo = queryManager.getFullQueryInfo(noWorkProcessorResultResultWithQueryId.getQueryId());
 
         // ensure results are correct
@@ -88,17 +88,17 @@ public class TestWorkProcessorPipelineQueries
         assertTrue(workProcessorProcessedInputBytes < noWorkProcessorProcessedInputBytes, "Expected work processor query to process less input data");
     }
 
-    private Session workProcessorPipelines()
+    private Session lateMaterialization()
     {
         return Session.builder(getQueryRunner().getDefaultSession())
-                .setSystemProperty(WORK_PROCESSOR_PIPELINES, "true")
+                .setSystemProperty(LATE_MATERIALIZATION, "true")
                 .build();
     }
 
-    private Session noWorkProcessorPipelines()
+    private Session noLateMaterialization()
     {
         return Session.builder(getQueryRunner().getDefaultSession())
-                .setSystemProperty(WORK_PROCESSOR_PIPELINES, "false")
+                .setSystemProperty(LATE_MATERIALIZATION, "false")
                 .build();
     }
 }
