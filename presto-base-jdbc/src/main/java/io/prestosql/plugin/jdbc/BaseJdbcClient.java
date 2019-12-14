@@ -560,7 +560,7 @@ public class BaseJdbcClient
         String columnNames = handle.getColumnNames().stream()
                 .map(this::quoted)
                 .collect(joining(", "));
-        String insertSql = format("INSERT INTO %s (%s) SELECT * FROM %s", targetTable, columnNames, temporaryTable);
+        String insertSql = format("INSERT INTO %s (%s) SELECT %s FROM %s", targetTable, columnNames, columnNames, temporaryTable);
         String cleanupSql = "DROP TABLE " + temporaryTable;
 
         try (Connection connection = getConnection(identity, handle)) {
@@ -658,8 +658,11 @@ public class BaseJdbcClient
     public String buildInsertSql(JdbcOutputTableHandle handle)
     {
         return format(
-                "INSERT INTO %s VALUES (%s)",
+                "INSERT INTO %s (%s) VALUES (%s)",
                 quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName()),
+                handle.getColumnNames().stream()
+                    .map(this::quoted)
+                    .collect(joining(", ")),
                 join(",", nCopies(handle.getColumnNames().size(), "?")));
     }
 
