@@ -121,7 +121,7 @@ public class FeaturesConfig
     private boolean useMarkDistinct = true;
     private boolean preferPartialAggregation = true;
     private boolean optimizeTopNRowNumber = true;
-    private boolean workProcessorPipelines;
+    private boolean lateMaterializationEnabled;
     private boolean skipRedundantSort = true;
     private boolean predicatePushdownUseTableProperties = true;
     private boolean ignoreDownstreamPreferences;
@@ -952,15 +952,16 @@ public class FeaturesConfig
         return this;
     }
 
-    public boolean isWorkProcessorPipelines()
+    public boolean isLateMaterializationEnabled()
     {
-        return workProcessorPipelines;
+        return lateMaterializationEnabled;
     }
 
-    @Config("experimental.work-processor-pipelines")
-    public FeaturesConfig setWorkProcessorPipelines(boolean workProcessorPipelines)
+    @Config("experimental.late-materialization.enabled")
+    @LegacyConfig("experimental.work-processor-pipelines")
+    public FeaturesConfig setLateMaterializationEnabled(boolean lateMaterializationEnabled)
     {
-        this.workProcessorPipelines = workProcessorPipelines;
+        this.lateMaterializationEnabled = lateMaterializationEnabled;
         return this;
     }
 
