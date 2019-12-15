@@ -982,7 +982,6 @@ public abstract class BaseJdbcClient
     {
         requireNonNull(name, "name is null");
         requireNonNull(escape, "escape is null");
-        checkArgument(!escape.isEmpty(), "Escape string must not be empty");
         checkArgument(!escape.equals("_"), "Escape string must not be '_'");
         checkArgument(!escape.equals("%"), "Escape string must not be '%'");
         name = name.replace(escape, escape + escape);
