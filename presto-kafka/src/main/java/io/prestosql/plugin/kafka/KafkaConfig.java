@@ -31,7 +31,7 @@ import java.util.stream.StreamSupport;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
-public class KafkaConnectorConfig
+public class KafkaConfig
 {
     private static final int KAFKA_DEFAULT_PORT = 9092;
 
@@ -77,7 +77,7 @@ public class KafkaConnectorConfig
     }
 
     @Config("kafka.table-description-dir")
-    public KafkaConnectorConfig setTableDescriptionDir(File tableDescriptionDir)
+    public KafkaConfig setTableDescriptionDir(File tableDescriptionDir)
     {
         this.tableDescriptionDir = tableDescriptionDir;
         return this;
@@ -90,7 +90,7 @@ public class KafkaConnectorConfig
     }
 
     @Config("kafka.table-names")
-    public KafkaConnectorConfig setTableNames(String tableNames)
+    public KafkaConfig setTableNames(String tableNames)
     {
         this.tableNames = ImmutableSet.copyOf(Splitter.on(',').omitEmptyStrings().trimResults().split(tableNames));
         return this;
@@ -103,7 +103,7 @@ public class KafkaConnectorConfig
     }
 
     @Config("kafka.default-schema")
-    public KafkaConnectorConfig setDefaultSchema(String defaultSchema)
+    public KafkaConfig setDefaultSchema(String defaultSchema)
     {
         this.defaultSchema = defaultSchema;
         return this;
@@ -116,7 +116,7 @@ public class KafkaConnectorConfig
     }
 
     @Config("kafka.nodes")
-    public KafkaConnectorConfig setNodes(String nodes)
+    public KafkaConfig setNodes(String nodes)
     {
         this.nodes = (nodes == null) ? null : parseNodes(nodes);
         return this;
@@ -129,7 +129,7 @@ public class KafkaConnectorConfig
     }
 
     @Config("kafka.connect-timeout")
-    public KafkaConnectorConfig setKafkaConnectTimeout(String kafkaConnectTimeout)
+    public KafkaConfig setKafkaConnectTimeout(String kafkaConnectTimeout)
     {
         this.kafkaConnectTimeout = Duration.valueOf(kafkaConnectTimeout);
         return this;
@@ -141,7 +141,7 @@ public class KafkaConnectorConfig
     }
 
     @Config("kafka.buffer-size")
-    public KafkaConnectorConfig setKafkaBufferSize(String kafkaBufferSize)
+    public KafkaConfig setKafkaBufferSize(String kafkaBufferSize)
     {
         this.kafkaBufferSize = DataSize.valueOf(kafkaBufferSize);
         return this;
@@ -153,7 +153,7 @@ public class KafkaConnectorConfig
     }
 
     @Config("kafka.hide-internal-columns")
-    public KafkaConnectorConfig setHideInternalColumns(boolean hideInternalColumns)
+    public KafkaConfig setHideInternalColumns(boolean hideInternalColumns)
     {
         this.hideInternalColumns = hideInternalColumns;
         return this;
@@ -163,7 +163,7 @@ public class KafkaConnectorConfig
     {
         Splitter splitter = Splitter.on(',').omitEmptyStrings().trimResults();
         return StreamSupport.stream(splitter.split(nodes).spliterator(), false)
-                .map(KafkaConnectorConfig::toHostAddress)
+                .map(KafkaConfig::toHostAddress)
                 .collect(toImmutableSet());
     }
 

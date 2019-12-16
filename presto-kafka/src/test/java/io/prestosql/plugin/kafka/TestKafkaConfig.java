@@ -23,12 +23,12 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
-public class TestKafkaConnectorConfig
+public class TestKafkaConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(KafkaConnectorConfig.class)
+        assertRecordedDefaults(recordDefaults(KafkaConfig.class)
                 .setNodes("")
                 .setKafkaConnectTimeout("10s")
                 .setKafkaBufferSize("64kB")
@@ -51,7 +51,7 @@ public class TestKafkaConnectorConfig
                 .put("kafka.hide-internal-columns", "false")
                 .build();
 
-        KafkaConnectorConfig expected = new KafkaConnectorConfig()
+        KafkaConfig expected = new KafkaConfig()
                 .setTableDescriptionDir(new File("/var/lib/kafka"))
                 .setTableNames("table1, table2, table3")
                 .setDefaultSchema("kafka")
