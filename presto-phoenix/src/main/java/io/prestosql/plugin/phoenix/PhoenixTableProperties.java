@@ -15,7 +15,6 @@ package io.prestosql.plugin.phoenix;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.session.PropertyMetadata;
-import io.prestosql.spi.type.TypeManager;
 import org.apache.hadoop.util.StringUtils;
 
 import javax.inject.Inject;
@@ -52,7 +51,7 @@ public final class PhoenixTableProperties
     private final List<PropertyMetadata<?>> tableProperties;
 
     @Inject
-    public PhoenixTableProperties(TypeManager typeManager)
+    public PhoenixTableProperties()
     {
         tableProperties = ImmutableList.of(
                 stringProperty(

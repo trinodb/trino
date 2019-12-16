@@ -16,7 +16,6 @@ package io.prestosql.plugin.phoenix;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.session.PropertyMetadata;
-import io.prestosql.spi.type.TypeManager;
 
 import javax.inject.Inject;
 
@@ -34,7 +33,7 @@ public class PhoenixColumnProperties
     private final List<PropertyMetadata<?>> columnProperties;
 
     @Inject
-    public PhoenixColumnProperties(TypeManager typeManager)
+    public PhoenixColumnProperties()
     {
         columnProperties = ImmutableList.of(
                 booleanProperty(
