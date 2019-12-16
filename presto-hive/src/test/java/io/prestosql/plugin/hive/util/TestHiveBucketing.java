@@ -235,8 +235,8 @@ public class TestHiveBucketing
             nativeContainerValues[i] = toNativeContainerValue(type, hiveValue);
         }
         ImmutableList<Block> blockList = blockListBuilder.build();
-        int result1 = HiveBucketing.getBucketHashCode(bucketingVersion, hiveTypeInfos, new Page(blockList.toArray(new Block[blockList.size()])), 2);
-        int result2 = HiveBucketing.getBucketHashCode(bucketingVersion, hiveTypeInfos, nativeContainerValues);
+        int result1 = bucketingVersion.getBucketHashCode(hiveTypeInfos, new Page(blockList.toArray(new Block[blockList.size()])), 2);
+        int result2 = bucketingVersion.getBucketHashCode(hiveTypeInfos, nativeContainerValues);
         assertEquals(result1, result2, "overloads of getBucketHashCode produced different result");
         return result1;
     }
