@@ -104,7 +104,7 @@ public class KafkaRecordSet
         return new KafkaRecordCursor();
     }
 
-    public class KafkaRecordCursor
+    private class KafkaRecordCursor
             implements RecordCursor
     {
         private long totalBytes;
@@ -115,7 +115,7 @@ public class KafkaRecordSet
 
         private final FieldValueProvider[] currentRowValues = new FieldValueProvider[columnHandles.size()];
 
-        KafkaRecordCursor()
+        private KafkaRecordCursor()
         {
         }
 

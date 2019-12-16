@@ -140,7 +140,7 @@ public class KafkaConfig
         return this;
     }
 
-    public static ImmutableSet<HostAddress> parseNodes(String nodes)
+    private static ImmutableSet<HostAddress> parseNodes(String nodes)
     {
         Splitter splitter = Splitter.on(',').omitEmptyStrings().trimResults();
         return StreamSupport.stream(splitter.split(nodes).spliterator(), false)

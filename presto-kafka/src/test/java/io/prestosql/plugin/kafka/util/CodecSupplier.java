@@ -52,7 +52,7 @@ public final class CodecSupplier<T>
     {
         private static final long serialVersionUID = 1L;
 
-        public TypeDeserializer()
+        private TypeDeserializer()
         {
             super(Type.class);
         }
