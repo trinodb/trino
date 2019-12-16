@@ -99,7 +99,7 @@ public class TestingKafka
             extends kafka.javaapi.producer.Producer<K, V>
             implements AutoCloseable
     {
-        public CloseableProducer(ProducerConfig config)
+        private CloseableProducer(ProducerConfig config)
         {
             super(config);
         }

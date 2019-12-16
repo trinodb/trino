@@ -55,7 +55,7 @@ public class KafkaConnectorModule
         binder.install(new DecoderModule());
     }
 
-    public static final class TypeDeserializer
+    private static final class TypeDeserializer
             extends FromStringDeserializer<Type>
     {
         private static final long serialVersionUID = 1L;
