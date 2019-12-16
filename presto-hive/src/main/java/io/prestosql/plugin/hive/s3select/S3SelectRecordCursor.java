@@ -16,7 +16,6 @@ package io.prestosql.plugin.hive.s3select;
 import com.google.common.annotations.VisibleForTesting;
 import io.prestosql.plugin.hive.GenericHiveRecordCursor;
 import io.prestosql.plugin.hive.HiveColumnHandle;
-import io.prestosql.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Writable;
@@ -53,8 +52,7 @@ class S3SelectRecordCursor<K, V extends Writable>
             long totalBytes,
             Properties splitSchema,
             List<HiveColumnHandle> columns,
-            DateTimeZone hiveStorageTimeZone,
-            TypeManager typeManager)
+            DateTimeZone hiveStorageTimeZone)
     {
         super(configuration, path, recordReader, totalBytes, updateSplitSchema(splitSchema, columns), columns, hiveStorageTimeZone);
     }
