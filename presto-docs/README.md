@@ -132,7 +132,14 @@ version you have to override the pom version with the `PRESTO_VERSION`
 environment variable.
 
 ```bash
-export PRESTO_VERSION
+PRESTO_VERSION=327 make clean html
+```
+
+If you work on the docs for more than one invocation, you can export the
+variable and use it with sphinx as well as sphinx-autobuild.
+
+```bash
+export PRESTO_VERSION=327
 make clean html
 ```
 
