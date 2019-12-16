@@ -27,9 +27,6 @@ import static io.prestosql.spi.transaction.IsolationLevel.READ_COMMITTED;
 import static io.prestosql.spi.transaction.IsolationLevel.checkConnectorSupports;
 import static java.util.Objects.requireNonNull;
 
-/**
- * Kafka specific implementation of the Presto Connector SPI. This is a read only connector.
- */
 public class KafkaConnector
         implements Connector
 {

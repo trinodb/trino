@@ -58,9 +58,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
-/**
- * Kafka specific implementation of {@link ConnectorSplitManager}.
- */
 public class KafkaSplitManager
         implements ConnectorSplitManager
 {

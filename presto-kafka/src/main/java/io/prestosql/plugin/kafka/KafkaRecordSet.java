@@ -47,9 +47,6 @@ import static io.prestosql.plugin.kafka.KafkaErrorCode.KAFKA_SPLIT_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-/**
- * Kafka specific record set. Returns a cursor for a topic which iterates over a Kafka partition segment.
- */
 public class KafkaRecordSet
         implements RecordSet
 {

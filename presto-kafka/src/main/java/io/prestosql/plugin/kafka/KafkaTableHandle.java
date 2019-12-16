@@ -24,9 +24,6 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-/**
- * Kafka specific {@link ConnectorTableHandle}.
- */
 public final class KafkaTableHandle
         implements ConnectorTableHandle
 {

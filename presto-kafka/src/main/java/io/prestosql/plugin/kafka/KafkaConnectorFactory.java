@@ -32,9 +32,6 @@ import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 
-/**
- * Creates Kafka Connectors based off catalogName and specific configuration.
- */
 public class KafkaConnectorFactory
         implements ConnectorFactory
 {

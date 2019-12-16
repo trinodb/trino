@@ -30,9 +30,6 @@ import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static java.util.Objects.requireNonNull;
 
-/**
- * Guice module for the Apache Kafka connector.
- */
 public class KafkaConnectorModule
         implements Module
 {
