@@ -19,4 +19,4 @@ Presto Documentation
     develop
     release
 
-.. Note: If "release" is not the last item, the CSS must be updated.
+.. Note: The CSS relies on "release" being the last item and the title.

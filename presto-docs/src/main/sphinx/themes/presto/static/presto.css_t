@@ -155,7 +155,7 @@ tt.docutils.literal, code.docutils.literal {
 }
 
 /* hide children of Release Notes */
-div.toctree-wrapper > ul > li:last-child > ul {
+#presto-documentation > div.toctree-wrapper > ul > li:last-child > ul {
     display: none;
 }
 
