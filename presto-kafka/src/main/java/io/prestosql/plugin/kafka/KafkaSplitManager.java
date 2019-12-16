@@ -71,13 +71,13 @@ public class KafkaSplitManager
 
     @Inject
     public KafkaSplitManager(
-            KafkaConnectorConfig kafkaConnectorConfig,
+            KafkaConfig kafkaConfig,
             KafkaSimpleConsumerManager consumerManager)
     {
         this.consumerManager = requireNonNull(consumerManager, "consumerManager is null");
 
-        requireNonNull(kafkaConnectorConfig, "kafkaConfig is null");
-        this.nodes = ImmutableSet.copyOf(kafkaConnectorConfig.getNodes());
+        requireNonNull(kafkaConfig, "kafkaConfig is null");
+        this.nodes = ImmutableSet.copyOf(kafkaConfig.getNodes());
     }
 
     @Override
