@@ -117,6 +117,7 @@ Property                                                Description
                                                         must contain the pattern ``${USER}``, which is
                                                         replaced by the actual username during the password
                                                         authentication. Example: ``${USER}@corp.example.com``.
+``ldap.cache-ttl``                                      LDAP cache duration. Defaults to ``1h``.
 ======================================================= ======================================================
 
 Based on the LDAP server implementation type, the property
