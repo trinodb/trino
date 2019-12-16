@@ -372,6 +372,10 @@ public class LazyBlock
         private void load(boolean recursive)
         {
             if (loader == null) {
+                if (recursive) {
+                    block = block.getLoadedBlock();
+                }
+
                 return;
             }
 
