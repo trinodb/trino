@@ -16,6 +16,7 @@ package io.prestosql.plugin.kafka;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
@@ -35,39 +36,12 @@ public class KafkaConfig
 {
     private static final int KAFKA_DEFAULT_PORT = 9092;
 
-    /**
-     * Seed nodes for Kafka cluster. At least one must exist.
-     */
     private Set<HostAddress> nodes = ImmutableSet.of();
-
-    /**
-     * Timeout to connect to Kafka.
-     */
     private Duration kafkaConnectTimeout = Duration.valueOf("10s");
-
-    /**
-     * Buffer size for connecting to Kafka.
-     */
     private DataSize kafkaBufferSize = new DataSize(64, Unit.KILOBYTE);
-
-    /**
-     * The schema name to use in the connector.
-     */
     private String defaultSchema = "default";
-
-    /**
-     * Set of tables known to this connector. For each table, a description file may be present in the catalog folder which describes columns for the given topic.
-     */
     private Set<String> tableNames = ImmutableSet.of();
-
-    /**
-     * Folder holding the JSON description files for Kafka topics.
-     */
     private File tableDescriptionDir = new File("etc/kafka/");
-
-    /**
-     * Whether internal columns are shown in table metadata or not. Default is no.
-     */
     private boolean hideInternalColumns = true;
 
     @NotNull
@@ -77,6 +51,7 @@ public class KafkaConfig
     }
 
     @Config("kafka.table-description-dir")
+    @ConfigDescription("Folder holding JSON description files for Kafka topics")
     public KafkaConfig setTableDescriptionDir(File tableDescriptionDir)
     {
         this.tableDescriptionDir = tableDescriptionDir;
@@ -90,6 +65,7 @@ public class KafkaConfig
     }
 
     @Config("kafka.table-names")
+    @ConfigDescription("Set of tables known to this connector")
     public KafkaConfig setTableNames(String tableNames)
     {
         this.tableNames = ImmutableSet.copyOf(Splitter.on(',').omitEmptyStrings().trimResults().split(tableNames));
@@ -103,6 +79,7 @@ public class KafkaConfig
     }
 
     @Config("kafka.default-schema")
+    @ConfigDescription("Schema name to use in the connector")
     public KafkaConfig setDefaultSchema(String defaultSchema)
     {
         this.defaultSchema = defaultSchema;
@@ -116,6 +93,7 @@ public class KafkaConfig
     }
 
     @Config("kafka.nodes")
+    @ConfigDescription("Seed nodes for Kafka cluster. At least one must exist")
     public KafkaConfig setNodes(String nodes)
     {
         this.nodes = (nodes == null) ? null : parseNodes(nodes);
@@ -129,6 +107,7 @@ public class KafkaConfig
     }
 
     @Config("kafka.connect-timeout")
+    @ConfigDescription("Kafka connection timeout")
     public KafkaConfig setKafkaConnectTimeout(String kafkaConnectTimeout)
     {
         this.kafkaConnectTimeout = Duration.valueOf(kafkaConnectTimeout);
@@ -141,6 +120,7 @@ public class KafkaConfig
     }
 
     @Config("kafka.buffer-size")
+    @ConfigDescription("Kafka message consumer buffer size")
     public KafkaConfig setKafkaBufferSize(String kafkaBufferSize)
     {
         this.kafkaBufferSize = DataSize.valueOf(kafkaBufferSize);
@@ -153,6 +133,7 @@ public class KafkaConfig
     }
 
     @Config("kafka.hide-internal-columns")
+    @ConfigDescription("Whether internal columns are shown in table metadata or not. Default is no")
     public KafkaConfig setHideInternalColumns(boolean hideInternalColumns)
     {
         this.hideInternalColumns = hideInternalColumns;
@@ -163,8 +144,8 @@ public class KafkaConfig
     {
         Splitter splitter = Splitter.on(',').omitEmptyStrings().trimResults();
         return StreamSupport.stream(splitter.split(nodes).spliterator(), false)
-                .map(KafkaConfig::toHostAddress)
-                .collect(toImmutableSet());
+            .map(KafkaConfig::toHostAddress)
+            .collect(toImmutableSet());
     }
 
     private static HostAddress toHostAddress(String value)
