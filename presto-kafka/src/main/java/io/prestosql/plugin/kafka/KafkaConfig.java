@@ -44,48 +44,6 @@ public class KafkaConfig
     private File tableDescriptionDir = new File("etc/kafka/");
     private boolean hideInternalColumns = true;
 
-    @NotNull
-    public File getTableDescriptionDir()
-    {
-        return tableDescriptionDir;
-    }
-
-    @Config("kafka.table-description-dir")
-    @ConfigDescription("Folder holding JSON description files for Kafka topics")
-    public KafkaConfig setTableDescriptionDir(File tableDescriptionDir)
-    {
-        this.tableDescriptionDir = tableDescriptionDir;
-        return this;
-    }
-
-    @NotNull
-    public Set<String> getTableNames()
-    {
-        return tableNames;
-    }
-
-    @Config("kafka.table-names")
-    @ConfigDescription("Set of tables known to this connector")
-    public KafkaConfig setTableNames(String tableNames)
-    {
-        this.tableNames = ImmutableSet.copyOf(Splitter.on(',').omitEmptyStrings().trimResults().split(tableNames));
-        return this;
-    }
-
-    @NotNull
-    public String getDefaultSchema()
-    {
-        return defaultSchema;
-    }
-
-    @Config("kafka.default-schema")
-    @ConfigDescription("Schema name to use in the connector")
-    public KafkaConfig setDefaultSchema(String defaultSchema)
-    {
-        this.defaultSchema = defaultSchema;
-        return this;
-    }
-
     @Size(min = 1)
     public Set<HostAddress> getNodes()
     {
@@ -127,6 +85,34 @@ public class KafkaConfig
         return this;
     }
 
+    @NotNull
+    public String getDefaultSchema()
+    {
+        return defaultSchema;
+    }
+
+    @Config("kafka.default-schema")
+    @ConfigDescription("Schema name to use in the connector")
+    public KafkaConfig setDefaultSchema(String defaultSchema)
+    {
+        this.defaultSchema = defaultSchema;
+        return this;
+    }
+
+    @NotNull
+    public Set<String> getTableNames()
+    {
+        return tableNames;
+    }
+
+    @Config("kafka.table-names")
+    @ConfigDescription("Set of tables known to this connector")
+    public KafkaConfig setTableNames(String tableNames)
+    {
+        this.tableNames = ImmutableSet.copyOf(Splitter.on(',').omitEmptyStrings().trimResults().split(tableNames));
+        return this;
+    }
+
     public boolean isHideInternalColumns()
     {
         return hideInternalColumns;
@@ -137,6 +123,20 @@ public class KafkaConfig
     public KafkaConfig setHideInternalColumns(boolean hideInternalColumns)
     {
         this.hideInternalColumns = hideInternalColumns;
+        return this;
+    }
+
+    @NotNull
+    public File getTableDescriptionDir()
+    {
+        return tableDescriptionDir;
+    }
+
+    @Config("kafka.table-description-dir")
+    @ConfigDescription("Folder holding JSON description files for Kafka topics")
+    public KafkaConfig setTableDescriptionDir(File tableDescriptionDir)
+    {
+        this.tableDescriptionDir = tableDescriptionDir;
         return this;
     }
 
