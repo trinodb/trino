@@ -24,9 +24,6 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-/**
- * Kafka specific connector column handle.
- */
 public final class KafkaColumnHandle
         implements DecoderColumnHandle, Comparable<KafkaColumnHandle>
 {

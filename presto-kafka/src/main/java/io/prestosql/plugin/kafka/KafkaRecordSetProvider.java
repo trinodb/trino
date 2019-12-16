@@ -35,9 +35,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.plugin.kafka.KafkaHandleResolver.convertSplit;
 import static java.util.Objects.requireNonNull;
 
-/**
- * Factory for Kafka specific {@link RecordSet} instances.
- */
 public class KafkaRecordSetProvider
         implements ConnectorRecordSetProvider
 {
