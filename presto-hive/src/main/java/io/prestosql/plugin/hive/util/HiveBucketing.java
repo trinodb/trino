@@ -61,8 +61,32 @@ public final class HiveBucketing
 {
     public enum BucketingVersion
     {
-        BUCKETING_V1(1),
-        BUCKETING_V2(2),
+        BUCKETING_V1(1) {
+            @Override
+            int getBucketHashCode(List<TypeInfo> types, Object[] values)
+            {
+                return HiveBucketingV1.getBucketHashCode(types, values);
+            }
+
+            @Override
+            int getBucketHashCode(List<TypeInfo> types, Page page, int position)
+            {
+                return HiveBucketingV1.getBucketHashCode(types, page, position);
+            }
+        },
+        BUCKETING_V2(2) {
+            @Override
+            int getBucketHashCode(List<TypeInfo> types, Object[] values)
+            {
+                return HiveBucketingV2.getBucketHashCode(types, values);
+            }
+
+            @Override
+            int getBucketHashCode(List<TypeInfo> types, Page page, int position)
+            {
+                return HiveBucketingV2.getBucketHashCode(types, page, position);
+            }
+        },
         /**/;
 
         private final int version;
@@ -76,6 +100,10 @@ public final class HiveBucketing
         {
             return version;
         }
+
+        abstract int getBucketHashCode(List<TypeInfo> types, Object[] values);
+
+        abstract int getBucketHashCode(List<TypeInfo> types, Page page, int position);
     }
 
     private static final Set<HiveType> SUPPORTED_TYPES_FOR_BUCKET_FILTER = ImmutableSet.of(
@@ -90,44 +118,18 @@ public final class HiveBucketing
 
     public static int getHiveBucket(BucketingVersion bucketingVersion, int bucketCount, List<TypeInfo> types, Page page, int position)
     {
-        return getBucketNumber(getBucketHashCode(bucketingVersion, types, page, position), bucketCount);
+        return getBucketNumber(bucketingVersion.getBucketHashCode(types, page, position), bucketCount);
     }
 
     public static int getHiveBucket(BucketingVersion bucketingVersion, int bucketCount, List<TypeInfo> types, Object[] values)
     {
-        return getBucketNumber(getBucketHashCode(bucketingVersion, types, values), bucketCount);
+        return getBucketNumber(bucketingVersion.getBucketHashCode(types, values), bucketCount);
     }
 
     @VisibleForTesting
     static int getBucketNumber(int hashCode, int bucketCount)
     {
         return (hashCode & Integer.MAX_VALUE) % bucketCount;
-    }
-
-    @VisibleForTesting
-    static int getBucketHashCode(BucketingVersion bucketingVersion, List<TypeInfo> types, Page page, int position)
-    {
-        switch (bucketingVersion) {
-            case BUCKETING_V1:
-                return HiveBucketingV1.getBucketHashCode(types, page, position);
-            case BUCKETING_V2:
-                return HiveBucketingV2.getBucketHashCode(types, page, position);
-            default:
-                throw new IllegalArgumentException("Unsupported bucketing version: " + bucketingVersion);
-        }
-    }
-
-    @VisibleForTesting
-    static int getBucketHashCode(BucketingVersion bucketingVersion, List<TypeInfo> types, Object[] values)
-    {
-        switch (bucketingVersion) {
-            case BUCKETING_V1:
-                return HiveBucketingV1.getBucketHashCode(types, values);
-            case BUCKETING_V2:
-                return HiveBucketingV2.getBucketHashCode(types, values);
-            default:
-                throw new IllegalArgumentException("Unsupported bucketing version: " + bucketingVersion);
-        }
     }
 
     public static Optional<HiveBucketHandle> getHiveBucketHandle(Table table, TypeManager typeManager)
