@@ -72,9 +72,9 @@ This property is optional; the default is ``_schema``.
 ``mongodb.credentials``
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-A comma separated list of ``username:password@collection`` credentials.
+A comma separated list of ``username:password@database`` credentials.
 
-This property is optional; no default value.
+This property is optional; no default value. The ``database`` should be the authentication database for the user (e.g. ``admin``).
 
 ``mongodb.min-connections-per-host``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
