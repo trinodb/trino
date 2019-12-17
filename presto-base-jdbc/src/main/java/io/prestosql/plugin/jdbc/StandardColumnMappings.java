@@ -27,6 +27,7 @@ import org.joda.time.chrono.ISOChronology;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
+import java.math.RoundingMode;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -65,6 +66,7 @@ import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
+import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.DAYS;
@@ -146,7 +148,7 @@ public final class StandardColumnMappings
         return PreparedStatement::setDouble;
     }
 
-    public static ColumnMapping decimalColumnMapping(DecimalType decimalType)
+    public static ColumnMapping decimalColumnMapping(DecimalType decimalType, RoundingMode roundingMode)
     {
         // JDBC driver can return BigDecimal with lower scale than column's scale when there are trailing zeroes
         int scale = decimalType.getScale();
@@ -158,7 +160,7 @@ public final class StandardColumnMappings
         }
         return ColumnMapping.sliceMapping(
                 decimalType,
-                (resultSet, columnIndex) -> encodeScaledValue(resultSet.getBigDecimal(columnIndex), scale),
+                (resultSet, columnIndex) -> encodeScaledValue(resultSet.getBigDecimal(columnIndex).setScale(scale, roundingMode)),
                 longDecimalWriteFunction(decimalType));
     }
 
@@ -420,7 +422,7 @@ public final class StandardColumnMappings
                 if (precision > Decimals.MAX_PRECISION) {
                     return Optional.empty();
                 }
-                return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0))));
+                return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0)), UNNECESSARY));
 
             case Types.CHAR:
             case Types.NCHAR:

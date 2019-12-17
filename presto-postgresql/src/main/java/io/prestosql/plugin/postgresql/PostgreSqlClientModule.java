@@ -19,8 +19,11 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
+import com.google.inject.multibindings.Multibinder;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
+import io.prestosql.plugin.jdbc.DecimalConfig;
+import io.prestosql.plugin.jdbc.DecimalSessionPropertiesProvider;
 import io.prestosql.plugin.jdbc.DriverConnectionFactory;
 import io.prestosql.plugin.jdbc.ForBaseJdbc;
 import io.prestosql.plugin.jdbc.JdbcClient;
@@ -41,8 +44,11 @@ public class PostgreSqlClientModule
                 .to(PostgreSqlClient.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(BaseJdbcConfig.class);
         configBinder(binder).bindConfig(PostgreSqlConfig.class);
+        configBinder(binder).bindConfig(DecimalConfig.class);
 
-        newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(PostgreSqlSessionProperties.class).in(Scopes.SINGLETON);
+        Multibinder multiBinder = newSetBinder(binder, SessionPropertiesProvider.class);
+        multiBinder.addBinding().to(PostgreSqlSessionProperties.class).in(Scopes.SINGLETON);
+        multiBinder.addBinding().to(DecimalSessionPropertiesProvider.class).in(Scopes.SINGLETON);
     }
 
     @Provides
