@@ -32,7 +32,11 @@ import io.prestosql.elasticsearch.ElasticsearchConfig;
 import io.prestosql.spi.PrestoException;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.CredentialsProvider;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
+import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.util.EntityUtils;
 import org.elasticsearch.ElasticsearchStatusException;
 import org.elasticsearch.action.search.ClearScrollRequest;
@@ -190,6 +194,12 @@ public class ElasticsearchClient
                 if (config.isVerifyHostnames()) {
                     clientBuilder.setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE);
                 }
+            }
+
+            if (config.isAuthenticationEnabled()) {
+                CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+                credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(config.getUsername().get(), config.getPassword().get()));
+                clientBuilder.setDefaultCredentialsProvider(credentialsProvider);
             }
 
             awsSecurityConfig.ifPresent(securityConfig -> clientBuilder.addInterceptorLast(new AwsRequestSigner(

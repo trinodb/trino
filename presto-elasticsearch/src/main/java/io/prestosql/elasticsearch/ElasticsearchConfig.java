@@ -70,6 +70,10 @@ public class ElasticsearchConfig
 
     private Security security;
 
+    private boolean authenticationEnabled;
+    private String username;
+    private String password;
+
     @NotNull
     public String getHost()
     {
@@ -279,6 +283,43 @@ public class ElasticsearchConfig
     public ElasticsearchConfig setSecurity(Security security)
     {
         this.security = security;
+        return this;
+    }
+
+    public boolean isAuthenticationEnabled()
+    {
+        return authenticationEnabled;
+    }
+
+    @Config("elasticsearch.authentication.enabled")
+    public ElasticsearchConfig setAuthenticationEnabled(boolean authenticationEnabled)
+    {
+        this.authenticationEnabled = authenticationEnabled;
+        return this;
+    }
+
+    public Optional<String> getUsername()
+    {
+        return Optional.ofNullable(username);
+    }
+
+    @Config("elasticsearch.username")
+    public ElasticsearchConfig setUsername(String username)
+    {
+        this.username = username;
+        return this;
+    }
+
+    public Optional<String> getPassword()
+    {
+        return Optional.ofNullable(password);
+    }
+
+    @Config("elasticsearch.password")
+    @ConfigSecuritySensitive
+    public ElasticsearchConfig setPassword(String password)
+    {
+        this.password = password;
         return this;
     }
 }
