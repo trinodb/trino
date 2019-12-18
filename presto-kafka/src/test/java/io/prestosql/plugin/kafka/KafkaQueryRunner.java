@@ -57,6 +57,12 @@ public final class KafkaQueryRunner
     static DistributedQueryRunner createKafkaQueryRunner(TestingKafka testingKafka, Iterable<TpchTable<?>> tables)
             throws Exception
     {
+        return createKafkaQueryRunner(testingKafka, tables, ImmutableMap.of());
+    }
+
+    static DistributedQueryRunner createKafkaQueryRunner(TestingKafka testingKafka, Iterable<TpchTable<?>> tables, Map<SchemaTableName, KafkaTopicDescription> topicDescriptions)
+            throws Exception
+    {
         DistributedQueryRunner queryRunner = null;
         try {
             queryRunner = new DistributedQueryRunner(createSession(), 2);
@@ -70,9 +76,15 @@ public final class KafkaQueryRunner
                 testingKafka.createTopics(kafkaTopicName(table));
             }
 
-            Map<SchemaTableName, KafkaTopicDescription> topicDescriptions = createTpchTopicDescriptions(queryRunner.getCoordinator().getMetadata(), tables);
+            Map<SchemaTableName, KafkaTopicDescription> tpchTopicDescriptions = createTpchTopicDescriptions(queryRunner.getCoordinator().getMetadata(), tables);
 
-            installKafkaPlugin(testingKafka, queryRunner, topicDescriptions);
+            installKafkaPlugin(
+                    testingKafka,
+                    queryRunner,
+                    ImmutableMap.<SchemaTableName, KafkaTopicDescription>builder()
+                            .putAll(topicDescriptions)
+                            .putAll(tpchTopicDescriptions)
+                            .build());
 
             TestingPrestoClient prestoClient = queryRunner.getClient();
 

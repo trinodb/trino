@@ -21,7 +21,6 @@ import java.io.Closeable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 
 import static io.prestosql.plugin.kafka.util.TestUtils.toProperties;
 import static org.testcontainers.containers.KafkaContainer.KAFKA_PORT;
@@ -49,10 +48,10 @@ public class TestingKafka
 
     public void createTopics(String topic)
     {
-        createTopics(2, 1, new Properties(), topic);
+        createTopics(2, 1, topic);
     }
 
-    public void createTopics(int partitions, int replication, Properties topicProperties, String topic)
+    private void createTopics(int partitions, int replication, String topic)
     {
         try {
             List<String> command = new ArrayList<>();
@@ -64,10 +63,8 @@ public class TestingKafka
             command.add("kafka-topics");
             command.add("--topic");
             command.add(topic);
-            for (Map.Entry<Object, Object> property : topicProperties.entrySet()) {
-                command.add("--config");
-                command.add(property.getKey() + "=" + property.getValue());
-            }
+            command.add("--config");
+            command.add("segment.bytes=16384");
 
             container.execInContainer(command.toArray(new String[0]));
         }
