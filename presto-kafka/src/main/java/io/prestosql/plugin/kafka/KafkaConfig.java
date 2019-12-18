@@ -144,8 +144,8 @@ public class KafkaConfig
     {
         Splitter splitter = Splitter.on(',').omitEmptyStrings().trimResults();
         return StreamSupport.stream(splitter.split(nodes).spliterator(), false)
-            .map(KafkaConfig::toHostAddress)
-            .collect(toImmutableSet());
+                .map(KafkaConfig::toHostAddress)
+                .collect(toImmutableSet());
     }
 
     private static HostAddress toHostAddress(String value)
