@@ -556,7 +556,7 @@ public class TestHiveFileFormats
                 .map(input -> new HivePartitionKey(input.getName(), (String) input.getWriteValue()))
                 .collect(toList());
 
-        Configuration configuration = new Configuration();
+        Configuration configuration = new Configuration(false);
         configuration.set("io.compression.codecs", LzoCodec.class.getName() + "," + LzopCodec.class.getName());
         Optional<ConnectorPageSource> pageSource = HivePageSourceProvider.createHivePageSource(
                 ImmutableSet.of(cursorProvider),
@@ -619,7 +619,7 @@ public class TestHiveFileFormats
         Optional<ConnectorPageSource> pageSource = HivePageSourceProvider.createHivePageSource(
                 ImmutableSet.of(),
                 ImmutableSet.of(sourceFactory),
-                new Configuration(),
+                new Configuration(false),
                 session,
                 split.getPath(),
                 OptionalInt.empty(),

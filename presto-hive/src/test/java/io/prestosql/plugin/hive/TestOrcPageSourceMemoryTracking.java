@@ -132,7 +132,7 @@ public class TestOrcPageSourceMemoryTracking
 {
     private static final String ORC_RECORD_WRITER = OrcOutputFormat.class.getName() + "$OrcRecordWriter";
     private static final Constructor<? extends RecordWriter> WRITER_CONSTRUCTOR = getOrcWriterConstructor();
-    private static final Configuration CONFIGURATION = new Configuration();
+    private static final Configuration CONFIGURATION = new Configuration(false);
     private static final int NUM_ROWS = 50000;
     private static final int STRIPE_ROWS = 20000;
     private static final Metadata metadata = createTestMetadataManager();
@@ -478,7 +478,7 @@ public class TestOrcPageSourceMemoryTracking
             return HivePageSourceProvider.createHivePageSource(
                     ImmutableSet.of(),
                     ImmutableSet.of(orcPageSourceFactory),
-                    new Configuration(),
+                    new Configuration(false),
                     session,
                     fileSplit.getPath(),
                     OptionalInt.empty(),
