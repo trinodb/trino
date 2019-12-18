@@ -139,7 +139,7 @@ public class PrestoServer
             injector.getInstance(ResourceGroupManager.class).loadConfigurationManager();
             injector.getInstance(AccessControlManager.class).loadSystemAccessControl();
             injector.getInstance(PasswordAuthenticatorManager.class).loadPasswordAuthenticator();
-            injector.getInstance(EventListenerManager.class).loadConfiguredEventListener();
+            injector.getInstance(EventListenerManager.class).loadConfiguredEventListeners();
 
             injector.getInstance(Announcer.class).start();
 
