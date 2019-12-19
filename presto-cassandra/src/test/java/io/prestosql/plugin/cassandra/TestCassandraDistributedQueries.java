@@ -15,6 +15,7 @@ package io.prestosql.plugin.cassandra;
 
 import io.prestosql.testing.AbstractTestDistributedQueries;
 import io.prestosql.testing.MaterializedResult;
+import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.Test;
 
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -27,9 +28,11 @@ import static io.prestosql.testing.assertions.Assert.assertEquals;
 public class TestCassandraDistributedQueries
         extends AbstractTestDistributedQueries
 {
-    public TestCassandraDistributedQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(CassandraQueryRunner::createCassandraQueryRunner);
+        return CassandraQueryRunner.createCassandraQueryRunner();
     }
 
     @Override
