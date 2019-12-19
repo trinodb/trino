@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.testing.AbstractTestDistributedQueries;
 import io.prestosql.testing.MaterializedResult;
+import io.prestosql.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -37,9 +38,11 @@ import static org.testng.Assert.assertTrue;
 public class TestAccumuloDistributedQueries
         extends AbstractTestDistributedQueries
 {
-    public TestAccumuloDistributedQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createAccumuloQueryRunner(ImmutableMap.of()));
+        return createAccumuloQueryRunner(ImmutableMap.of());
     }
 
     @Override

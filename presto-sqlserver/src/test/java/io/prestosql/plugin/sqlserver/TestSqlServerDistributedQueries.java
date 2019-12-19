@@ -16,6 +16,7 @@ package io.prestosql.plugin.sqlserver;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.tpch.TpchTable;
 import io.prestosql.testing.AbstractTestDistributedQueries;
+import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -25,23 +26,21 @@ import static io.prestosql.plugin.sqlserver.SqlServerQueryRunner.createSqlServer
 public class TestSqlServerDistributedQueries
         extends AbstractTestDistributedQueries
 {
-    private final TestingSqlServer sqlServer;
+    private TestingSqlServer sqlServer;
 
-    public TestSqlServerDistributedQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        this(new TestingSqlServer());
-    }
-
-    public TestSqlServerDistributedQueries(TestingSqlServer testingSqlServer)
-    {
-        super(() -> createSqlServerQueryRunner(testingSqlServer, ImmutableMap.of(), TpchTable.getTables()));
-        this.sqlServer = testingSqlServer;
+        this.sqlServer = new TestingSqlServer();
+        return createSqlServerQueryRunner(sqlServer, ImmutableMap.of(), TpchTable.getTables());
     }
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
     {
         sqlServer.close();
+        sqlServer = null;
     }
 
     @Override

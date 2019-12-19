@@ -15,21 +15,18 @@ package io.prestosql.plugin.raptor.legacy;
 
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.testing.AbstractTestDistributedQueries;
+import io.prestosql.testing.QueryRunner;
 
 import static io.prestosql.plugin.raptor.legacy.RaptorQueryRunner.createRaptorQueryRunner;
 
 public class TestRaptorDistributedQueries
         extends AbstractTestDistributedQueries
 {
-    @SuppressWarnings("unused")
-    public TestRaptorDistributedQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        this(() -> createRaptorQueryRunner(ImmutableMap.of(), true, false));
-    }
-
-    protected TestRaptorDistributedQueries(QueryRunnerSupplier supplier)
-    {
-        super(supplier);
+        return createRaptorQueryRunner(ImmutableMap.of(), true, false);
     }
 
     @Override
