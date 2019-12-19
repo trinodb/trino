@@ -111,4 +111,14 @@ public class TestLocalQueries
         // https://github.com/cloudera/hue/blob/b49e98c1250c502be596667ce1f0fe118983b432/desktop/libs/notebook/src/notebook/connectors/jdbc.py#L213
         assertQuerySucceeds(getSession(), "SELECT column_name, data_type, column_comment FROM information_schema.columns WHERE table_schema='local' AND TABLE_NAME='nation'");
     }
+
+    @Test
+    public void testTransformValuesInTry()
+    {
+        // Test resetting of transform_values internal state after recovery from try()
+        assertQuery(
+                "SELECT json_format(CAST(try(transform_values(m, (k, v) -> k / v)) AS json)) " +
+                        "FROM (VALUES map(ARRAY[1, 2], ARRAY[0, 0]),  map(ARRAY[28], ARRAY[2]), map(ARRAY[18], ARRAY[2]), map(ARRAY[4, 5], ARRAY[1, 0]),  map(ARRAY[12], ARRAY[3])) AS t(m)",
+                "VALUES NULL, '{\"28\":14}', '{\"18\":9}', NULL, '{\"12\":4}'");
+    }
 }

@@ -13,6 +13,7 @@
  */
 package io.prestosql.operator.scalar;
 
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import io.airlift.bytecode.BytecodeBlock;
@@ -24,6 +25,7 @@ import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.ForLoop;
 import io.airlift.bytecode.control.IfStatement;
+import io.airlift.bytecode.control.TryCatch;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionArgumentDefinition;
@@ -61,6 +63,7 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantString;
 import static io.airlift.bytecode.expression.BytecodeExpressions.equal;
 import static io.airlift.bytecode.expression.BytecodeExpressions.getStatic;
+import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.lessThan;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.airlift.bytecode.expression.BytecodeExpressions.subtract;
@@ -223,6 +226,7 @@ public final class MapTransformValuesFunction
             writeTransformedValueElement = new BytecodeBlock().append(blockBuilder.invoke("appendNull", BlockBuilder.class).pop());
         }
 
+        Variable transformationException = scope.declareVariable(Throwable.class, "transformationException");
         body.append(new ForLoop()
                 .initialize(position.set(constantInt(0)))
                 .condition(lessThan(position, positionCount))
@@ -230,7 +234,19 @@ public final class MapTransformValuesFunction
                 .body(new BytecodeBlock()
                         .append(loadKeyElement)
                         .append(loadValueElement)
-                        .append(transformedValueElement.set(function.invoke("apply", Object.class, keyElement.cast(Object.class), valueElement.cast(Object.class)).cast(transformedValueJavaType)))
+                        .append(
+                                new TryCatch(
+                                        "Close builder before throwing to avoid subsequent calls finding it in an inconsistent state if we are in in a TRY() call.",
+                                        transformedValueElement.set(function.invoke("apply", Object.class, keyElement.cast(Object.class), valueElement.cast(Object.class))
+                                                .cast(transformedValueJavaType)),
+                                        new BytecodeBlock()
+                                                .append(mapBlockBuilder.invoke("closeEntry", BlockBuilder.class).pop())
+                                                .append(pageBuilder.invoke("declarePosition", void.class))
+                                                .putVariable(transformationException)
+                                                .append(invokeStatic(Throwables.class, "throwIfUnchecked", void.class, transformationException))
+                                                .append(newInstance(RuntimeException.class, transformationException))
+                                                .throwObject(),
+                                        type(Throwable.class)))
                         .append(keySqlType.invoke("appendTo", void.class, block, position, blockBuilder))
                         .append(writeTransformedValueElement)));
 
