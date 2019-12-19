@@ -35,7 +35,7 @@ public class TransactionScopeCachingJdbcClient
     }
 
     @Override
-    protected JdbcClient getDelegate()
+    protected JdbcClient delegate()
     {
         return delegate;
     }
