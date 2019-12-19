@@ -51,6 +51,7 @@ public class TestFilterStatsCalculator
     private SymbolStatsEstimate mediumVarcharStats;
     private FilterStatsCalculator statsCalculator;
     private PlanNodeStatsEstimate standardInputStatistics;
+    private PlanNodeStatsEstimate zeroStatistics;
     private TypeProvider standardTypes;
     private Session session;
     private Metadata metadata;
@@ -125,6 +126,17 @@ public class TestFilterStatsCalculator
                 .addSymbolStatistics(new Symbol("mediumVarchar"), mediumVarcharStats)
                 .setOutputRowCount(1000.0)
                 .build();
+        zeroStatistics = PlanNodeStatsEstimate.builder()
+                .addSymbolStatistics(new Symbol("x"), SymbolStatsEstimate.zero())
+                .addSymbolStatistics(new Symbol("y"), SymbolStatsEstimate.zero())
+                .addSymbolStatistics(new Symbol("z"), SymbolStatsEstimate.zero())
+                .addSymbolStatistics(new Symbol("leftOpen"), SymbolStatsEstimate.zero())
+                .addSymbolStatistics(new Symbol("rightOpen"), SymbolStatsEstimate.zero())
+                .addSymbolStatistics(new Symbol("unknownRange"), SymbolStatsEstimate.zero())
+                .addSymbolStatistics(new Symbol("emptyRange"), SymbolStatsEstimate.zero())
+                .addSymbolStatistics(new Symbol("mediumVarchar"), SymbolStatsEstimate.zero())
+                .setOutputRowCount(0)
+                .build();
 
         standardTypes = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
                 .put(new Symbol("x"), DoubleType.DOUBLE)
@@ -145,18 +157,8 @@ public class TestFilterStatsCalculator
     @Test
     public void testBooleanLiteralStats()
     {
-        assertExpression("true")
-                .equalTo(standardInputStatistics);
-
-        assertExpression("false")
-                .outputRowsCount(0.0)
-                .symbolStats("x", SymbolStatsAssertion::empty)
-                .symbolStats("y", SymbolStatsAssertion::empty)
-                .symbolStats("z", SymbolStatsAssertion::empty)
-                .symbolStats("leftOpen", SymbolStatsAssertion::empty)
-                .symbolStats("rightOpen", SymbolStatsAssertion::empty)
-                .symbolStats("emptyRange", SymbolStatsAssertion::empty)
-                .symbolStats("unknownRange", SymbolStatsAssertion::empty);
+        assertExpression("true").equalTo(standardInputStatistics);
+        assertExpression("false").equalTo(zeroStatistics);
     }
 
     @Test
