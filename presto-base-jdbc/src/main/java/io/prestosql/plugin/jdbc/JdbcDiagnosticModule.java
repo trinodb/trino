@@ -67,17 +67,12 @@ public class JdbcDiagnosticModule
                 new ReflectiveParameterNamesProvider(),
                 logger::debug));
 
-        return new ForwardingJdbcClient()
-        {
-            @Override
-            protected JdbcClient getDelegate()
-            {
-                if (logger.isDebugEnabled()) {
-                    return loggingInvocationsJdbcClient;
-                }
-                return statisticsAwareJdbcClient;
+        return ForwardingJdbcClient.of(() -> {
+            if (logger.isDebugEnabled()) {
+                return loggingInvocationsJdbcClient;
             }
-        };
+            return statisticsAwareJdbcClient;
+        });
     }
 
     @Provides
