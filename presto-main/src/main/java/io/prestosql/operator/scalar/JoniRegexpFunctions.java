@@ -37,6 +37,7 @@ import io.prestosql.type.JoniRegexpType;
 
 import java.nio.charset.StandardCharsets;
 
+import static io.airlift.slice.SliceUtf8.lengthOfCodePointFromStartByte;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.toIntExact;
@@ -89,7 +90,13 @@ public final class JoniRegexpFunctions
                 break;
             }
             if (matcher.getEnd() == matcher.getBegin()) {
-                nextStart = matcher.getEnd() + 1;
+                if (matcher.getBegin() < source.length()) {
+                    nextStart = matcher.getEnd() + lengthOfCodePointFromStartByte(source.getByte(matcher.getBegin()));
+                }
+                else {
+                    // last match is empty and we matched end of source, move past the source length to terminate the loop
+                    nextStart = matcher.getEnd() + 1;
+                }
             }
             else {
                 nextStart = matcher.getEnd();
@@ -211,7 +218,13 @@ public final class JoniRegexpFunctions
                 break;
             }
             if (matcher.getEnd() == matcher.getBegin()) {
-                nextStart = matcher.getEnd() + 1;
+                if (matcher.getBegin() < source.length()) {
+                    nextStart = matcher.getEnd() + lengthOfCodePointFromStartByte(source.getByte(matcher.getBegin()));
+                }
+                else {
+                    // last match is empty and we matched end of source, move past the source length to terminate the loop
+                    nextStart = matcher.getEnd() + 1;
+                }
             }
             else {
                 nextStart = matcher.getEnd();
@@ -284,7 +297,13 @@ public final class JoniRegexpFunctions
                 break;
             }
             if (matcher.getEnd() == matcher.getBegin()) {
-                nextStart = matcher.getEnd() + 1;
+                if (matcher.getBegin() < source.length()) {
+                    nextStart = matcher.getEnd() + lengthOfCodePointFromStartByte(source.getByte(matcher.getBegin()));
+                }
+                else {
+                    // last match is empty and we matched end of source, move past the source length to terminate the loop
+                    nextStart = matcher.getEnd() + 1;
+                }
             }
             else {
                 nextStart = matcher.getEnd();

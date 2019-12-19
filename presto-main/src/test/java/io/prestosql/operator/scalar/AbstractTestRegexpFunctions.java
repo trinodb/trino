@@ -89,6 +89,11 @@ public abstract class AbstractTestRegexpFunctions
     @Test
     public void testRegexpReplace()
     {
+        assertFunction("REGEXP_REPLACE('abc有朋$%X自9远方来', '', 'Y')", createVarcharType(97), "YaYbYcY有Y朋Y$Y%YXY自Y9Y远Y方Y来Y");
+        assertFunction("REGEXP_REPLACE('a有朋💰', '.', 'Y')", createVarcharType(14), "YYYY");
+        assertFunction("REGEXP_REPLACE('a有朋💰', '.', '1$02')", createVarcharType(44), "1a21有21朋21💰2");
+        assertFunction("REGEXP_REPLACE('', '', 'Y')", createVarcharType(1), "Y");
+
         assertFunction("REGEXP_REPLACE('fun stuff.', '[a-z]')", createVarcharType(10), " .");
         assertFunction("REGEXP_REPLACE('fun stuff.', '[a-z]', '*')", createVarcharType(65), "*** *****.");
 
@@ -131,6 +136,11 @@ public abstract class AbstractTestRegexpFunctions
     @Test
     public void testRegexpReplaceLambda()
     {
+        assertFunction("REGEXP_REPLACE('abc有朋$%X自9远方来', '', x -> 'Y')", createUnboundedVarcharType(), "YaYbYcY有Y朋Y$Y%YXY自Y9Y远Y方Y来Y");
+        assertFunction("REGEXP_REPLACE('a有朋💰', '.', x -> 'Y')", createUnboundedVarcharType(), "YYYY");
+        assertFunction("REGEXP_REPLACE('a有朋💰', '(.)', x -> '1' || x[1] || '2')", createUnboundedVarcharType(), "1a21有21朋21💰2");
+        assertFunction("REGEXP_REPLACE('', '', x -> 'Y')", createUnboundedVarcharType(), "Y");
+
         // One or more matches with non-empty, not null capturing groups
         assertFunction("REGEXP_REPLACE('x', '(x)', x -> upper(x[1]))", createUnboundedVarcharType(), "X");
         assertFunction("REGEXP_REPLACE('xxx xxx xxx', '(x)', x -> upper(x[1]))", createUnboundedVarcharType(), "XXX XXX XXX");
@@ -207,6 +217,13 @@ public abstract class AbstractTestRegexpFunctions
     @Test
     public void testRegexpExtractAll()
     {
+        assertFunction(
+                "REGEXP_EXTRACT_ALL('abc有朋$%X自9远方来💰', '')",
+                new ArrayType(createVarcharType(14)),
+                ImmutableList.of("", "", "", "", "", "", "", "", "", "", "", "", "", "", ""));
+        assertFunction("REGEXP_EXTRACT_ALL('a有朋💰', '.')", new ArrayType(createVarcharType(4)), ImmutableList.of("a", "有", "朋", "💰"));
+        assertFunction("REGEXP_EXTRACT_ALL('', '')", new ArrayType(createVarcharType(0)), ImmutableList.of(""));
+
         assertFunction("REGEXP_EXTRACT_ALL('rat cat\nbat dog', '.at')", new ArrayType(createVarcharType(15)), ImmutableList.of("rat", "cat", "bat"));
         assertFunction("REGEXP_EXTRACT_ALL('rat cat\nbat dog', '(.)at', 1)", new ArrayType(createVarcharType(15)), ImmutableList.of("r", "c", "b"));
         List<String> nullList = new ArrayList<>();
@@ -221,6 +238,14 @@ public abstract class AbstractTestRegexpFunctions
     @Test
     public void testRegexpSplit()
     {
+        assertFunction(
+                "REGEXP_SPLIT('abc有朋$%X自9远方来💰', '')",
+                new ArrayType(createVarcharType(14)),
+                ImmutableList.of("", "a", "b", "c", "有", "朋", "$", "%", "X", "自", "9", "远", "方", "来", "💰", ""));
+        assertFunction("REGEXP_SPLIT('a有朋💰', '.')", new ArrayType(createVarcharType(4)), ImmutableList.of("", "", "", "", ""));
+        assertFunction("REGEXP_SPLIT('', '')", new ArrayType(createVarcharType(0)), ImmutableList.of("", ""));
+
+        assertFunction("REGEXP_SPLIT('abc', 'a')", new ArrayType(createVarcharType(3)), ImmutableList.of("", "bc"));
         assertFunction("REGEXP_SPLIT('a.b:c;d', '[\\.:;]')", new ArrayType(createVarcharType(7)), ImmutableList.of("a", "b", "c", "d"));
         assertFunction("REGEXP_SPLIT('a.b:c;d', '\\.')", new ArrayType(createVarcharType(7)), ImmutableList.of("a", "b:c;d"));
         assertFunction("REGEXP_SPLIT('a.b:c;d', ':')", new ArrayType(createVarcharType(7)), ImmutableList.of("a.b", "c;d"));
