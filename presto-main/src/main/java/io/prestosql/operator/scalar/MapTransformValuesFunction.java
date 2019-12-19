@@ -79,13 +79,13 @@ import static io.prestosql.util.CompilerUtils.defineClass;
 import static io.prestosql.util.CompilerUtils.makeClassName;
 import static io.prestosql.util.Reflection.methodHandle;
 
-public final class MapTransformValueFunction
+public final class MapTransformValuesFunction
         extends SqlScalarFunction
 {
-    public static final MapTransformValueFunction MAP_TRANSFORM_VALUE_FUNCTION = new MapTransformValueFunction();
-    private static final MethodHandle STATE_FACTORY = methodHandle(MapTransformKeyFunction.class, "createState", MapType.class);
+    public static final MapTransformValuesFunction MAP_TRANSFORM_VALUES_FUNCTION = new MapTransformValuesFunction();
+    private static final MethodHandle STATE_FACTORY = methodHandle(MapTransformKeysFunction.class, "createState", MapType.class);
 
-    private MapTransformValueFunction()
+    private MapTransformValuesFunction()
     {
         super(new FunctionMetadata(
                 new Signature(
@@ -246,7 +246,7 @@ public final class MapTransformValueFunction
                         subtract(mapBlockBuilder.invoke("getPositionCount", int.class), constantInt(1)))
                 .ret());
 
-        Class<?> generatedClass = defineClass(definition, Object.class, binder.getBindings(), MapTransformValueFunction.class.getClassLoader());
+        Class<?> generatedClass = defineClass(definition, Object.class, binder.getBindings(), MapTransformValuesFunction.class.getClassLoader());
         return methodHandle(generatedClass, "transform", Object.class, Block.class, BinaryFunctionInterface.class);
     }
 }
