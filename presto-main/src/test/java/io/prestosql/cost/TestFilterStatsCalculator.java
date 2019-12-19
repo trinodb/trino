@@ -159,6 +159,7 @@ public class TestFilterStatsCalculator
     {
         assertExpression("true").equalTo(standardInputStatistics);
         assertExpression("false").equalTo(zeroStatistics);
+        assertExpression("CAST(NULL AS boolean)").equalTo(zeroStatistics);
     }
 
     @Test
@@ -257,6 +258,8 @@ public class TestFilterStatsCalculator
     @Test
     public void testAndStats()
     {
+        assertExpression("x < 0e0 AND x > 1e0").equalTo(zeroStatistics);
+
         assertExpression("x < 0e0 AND x > DOUBLE '-7.5'")
                 .outputRowsCount(281.25)
                 .symbolStats(new Symbol("x"), symbolAssert ->
@@ -296,6 +299,9 @@ public class TestFilterStatsCalculator
 
         assertExpression("'a' IN ('b', 'c') AND unknownRange = 3e0")
                 .outputRowsCount(0);
+
+        assertExpression("CAST(NULL AS boolean) AND CAST(NULL AS boolean)").equalTo(zeroStatistics);
+        assertExpression("CAST(NULL AS boolean) AND (x < 0e0 AND x > 1e0)").equalTo(zeroStatistics);
     }
 
     @Test
