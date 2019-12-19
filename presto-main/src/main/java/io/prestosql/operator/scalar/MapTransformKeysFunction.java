@@ -84,13 +84,13 @@ import static io.prestosql.util.CompilerUtils.defineClass;
 import static io.prestosql.util.CompilerUtils.makeClassName;
 import static io.prestosql.util.Reflection.methodHandle;
 
-public final class MapTransformKeyFunction
+public final class MapTransformKeysFunction
         extends SqlScalarFunction
 {
-    public static final MapTransformKeyFunction MAP_TRANSFORM_KEY_FUNCTION = new MapTransformKeyFunction();
-    private static final MethodHandle STATE_FACTORY = methodHandle(MapTransformKeyFunction.class, "createState", MapType.class);
+    public static final MapTransformKeysFunction MAP_TRANSFORM_KEYS_FUNCTION = new MapTransformKeysFunction();
+    private static final MethodHandle STATE_FACTORY = methodHandle(MapTransformKeysFunction.class, "createState", MapType.class);
 
-    private MapTransformKeyFunction()
+    private MapTransformKeysFunction()
     {
         super(new FunctionMetadata(
                 new Signature(
@@ -187,7 +187,7 @@ public final class MapTransformKeyFunction
                 TypedSet.class,
                 constantType(binder, transformedKeyType),
                 divide(positionCount, constantInt(2)),
-                constantString(MAP_TRANSFORM_KEY_FUNCTION.getFunctionMetadata().getSignature().getName()))));
+                constantString(MAP_TRANSFORM_KEYS_FUNCTION.getFunctionMetadata().getSignature().getName()))));
 
         // throw null key exception block
         BytecodeNode throwNullKeyException = new BytecodeBlock()
@@ -285,7 +285,7 @@ public final class MapTransformKeyFunction
                         subtract(mapBlockBuilder.invoke("getPositionCount", int.class), constantInt(1)))
                 .ret());
 
-        Class<?> generatedClass = defineClass(definition, Object.class, binder.getBindings(), MapTransformKeyFunction.class.getClassLoader());
+        Class<?> generatedClass = defineClass(definition, Object.class, binder.getBindings(), MapTransformKeysFunction.class.getClassLoader());
         return methodHandle(generatedClass, "transform", Object.class, ConnectorSession.class, Block.class, BinaryFunctionInterface.class);
     }
 }
