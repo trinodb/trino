@@ -56,7 +56,7 @@
         <dep.testng.version>6.10</dep.testng.version>
         <dep.assertj-core.version>3.8.0</dep.assertj-core.version>
         <!-- TODO: remove after updating to Airbase 94 -->
-        <dep.slf4j.version>1.7.28</dep.slf4j.version>
+        <dep.slf4j.version>1.7.29</dep.slf4j.version>
         <dep.jmxutils.version>1.21</dep.jmxutils.version>
         <dep.gcs.version>2.0.0</dep.gcs.version>
         <dep.errorprone.version>2.3.3</dep.errorprone.version>
@@ -1246,7 +1246,7 @@
             <dependency>
                 <groupId>org.testcontainers</groupId>
                 <artifactId>testcontainers-bom</artifactId>
-                <version>1.12.3</version>
+                <version>1.12.4</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
