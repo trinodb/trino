@@ -336,6 +336,8 @@ public interface Metadata
 
     Optional<TableHandle> applySample(Session session, TableHandle table, SampleType sampleType, double sampleRatio);
 
+    default void validateScan(Session session, TableHandle table) {}
+
     //
     // Roles and Grants
     //
