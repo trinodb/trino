@@ -57,6 +57,10 @@ Date and Time Functions
 
     This is an alias for ``CAST(x AS date)``.
 
+.. function:: last_day_of_month(x) -> date
+
+    Returns the last day of the month.
+
 .. function:: from_iso8601_timestamp(string) -> timestamp with time zone
 
     Parses the ISO 8601 formatted ``string`` into a ``timestamp with time zone``.
@@ -65,19 +69,27 @@ Date and Time Functions
 
     Parses the ISO 8601 formatted ``string`` into a ``date``.
 
+.. function:: at_timezone(timestamp, zone) -> timestamp with time zone
+
+    Change the time zone component of ``timestamp`` to ``zone`` while preserving the instant in time.
+
+.. function:: with_timezone(timestamp, zone) -> timestamp with time zone
+
+    Returns a timestamp with time zone from ``timestamp`` and ``zone``.
+
 .. function:: from_unixtime(unixtime) -> timestamp
 
-    Returns the UNIX timestamp ``unixtime`` as a timestamp.
+    Returns the UNIX timestamp ``unixtime`` as a timestamp. ``unixtime`` is the number of seconds since ``1970-01-01 00:00:00``.
 
-.. function:: from_unixtime(unixtime, string) -> timestamp with time zone
+.. function:: from_unixtime(unixtime, zone) -> timestamp with time zone
 
     Returns the UNIX timestamp ``unixtime`` as a timestamp with time zone
-    using ``string`` for the time zone.
+    using ``zone`` for the time zone. ``unixtime`` is the number of seconds since ``1970-01-01 00:00:00``.
 
 .. function:: from_unixtime(unixtime, hours, minutes) -> timestamp with time zone
 
     Returns the UNIX timestamp ``unixtime`` as a timestamp with time zone
-    using ``hours`` and ``minutes`` for the time zone offset.
+    using ``hours`` and ``minutes`` for the time zone offset. ``unixtime`` is the number of seconds since ``1970-01-01 00:00:00``.
 
 .. function:: localtime -> time
 

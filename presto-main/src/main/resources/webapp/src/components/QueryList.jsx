@@ -103,13 +103,13 @@ export class QueryListItem extends React.Component {
 
         const memoryDetails = (
             <div className="col-xs-12 tinystat-row">
-                <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Current reserved memory">
+                <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Current total reserved memory">
                     <span className="glyphicon glyphicon-scale" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
-                    {query.queryStats.userMemoryReservation}
+                    {query.queryStats.totalMemoryReservation}
                 </span>
-                <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Peak memory">
+                <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Peak total memory">
                     <span className="glyphicon glyphicon-fire" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
-                    {query.queryStats.peakUserMemoryReservation}
+                    {query.queryStats.peakTotalMemoryReservation}
                 </span>
                 <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Cumulative user memory">
                     <span className="glyphicon glyphicon-equalizer" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;

@@ -1,6 +1,11 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 source "${BASH_SOURCE%/*}/locations.sh"
+
+# docker-compose leaves behind empty files on host corresponding to volume targets
+function remove_empty_property_files() {
+  find "${BASH_SOURCE%/*}/../conf/presto/etc" -type f -size 0 -delete
+}
 
 # docker-compose down is not good enough because it's ignores services created with "run" command
 function stop_all_containers() {
@@ -54,3 +59,10 @@ function getAvailableEnvironments() {
      | grep -v files | grep -v common | xargs -n1 basename
 }
 
+function usage() {
+  echo "Usage: $0 <environment> $@"
+  echo
+  echo "Where <environment> is one of following:"
+  getAvailableEnvironments | sort | sed 's/^/    - /'
+  exit 1
+}

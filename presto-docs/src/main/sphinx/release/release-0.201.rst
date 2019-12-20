@@ -35,7 +35,7 @@ Hive Changes
   with stripe minimum data size ``hive.orc.writer.stripe-min-size``.
 * Change ORC writer validation configuration ``hive.orc.writer.validate`` to switch to a
   sampling percentage ``hive.orc.writer.validation-percentage``.
-* Fix optimized ORC writer writing incorrect data of type `map` or `array`.
+* Fix optimized ORC writer writing incorrect data of type ``map`` or ``array``.
 * Fix ``SHOW PARTITIONS`` and the ``$partitions`` table for tables that have null partition
   values.
 * Fix impersonation for the simple HDFS authentication to use login user rather than current

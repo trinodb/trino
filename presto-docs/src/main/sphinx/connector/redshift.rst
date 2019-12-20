@@ -3,7 +3,7 @@ Redshift Connector
 ==================
 
 The Redshift connector allows querying and creating tables in an
-external Amazon Redshift cluster. This can be used to join data between
+external `Amazon Redshift <https://aws.amazon.com/redshift/>`_ cluster. This can be used to join data between
 different systems like Redshift and Hive, or between two different
 Redshift clusters.
 
@@ -32,8 +32,8 @@ or want to connect to multiple Redshift clusters, you must configure
 multiple instances of the Redshift connector.
 
 To add another catalog, simply add another properties file to ``etc/catalog``
-with a different name (making sure it ends in ``.properties``). For example,
-if you name the property file ``sales.properties``, Presto will create a
+with a different name, making sure it ends in ``.properties``. For example,
+if you name the property file ``sales.properties``, Presto creates a
 catalog named ``sales`` using the configured connector.
 
 Querying Redshift
@@ -68,8 +68,6 @@ Redshift Connector Limitations
 The following SQL statements are not yet supported:
 
 * :doc:`/sql/delete`
-* :doc:`/sql/alter-table`
-* :doc:`/sql/create-table` (:doc:`/sql/create-table-as` is supported)
 * :doc:`/sql/grant`
 * :doc:`/sql/revoke`
 * :doc:`/sql/show-grants`

@@ -4,9 +4,9 @@
  acos | double | double | scalar | true | arc cosine |
  approx_distinct | bigint | T | aggregate | true | |
  approx_distinct | bigint | T, double | aggregate | true | |
- approx_percentile | bigint | bigint, bigint, double | aggregate | true | |
+ approx_percentile | bigint | bigint, double, double | aggregate | true | |
  approx_percentile | bigint | bigint, double | aggregate | true | |
- approx_percentile | double | double, bigint, double | aggregate | true | |
+ approx_percentile | double | double, double, double | aggregate | true | |
  approx_percentile | double | double, double | aggregate | true | |
  approx_set | HyperLogLog | bigint | aggregate | true | |
  approx_set | HyperLogLog | double | aggregate | true | |

@@ -7,7 +7,6 @@ hdfs:
 
 databases:
   hive:
-    host: hadoop-master
     jdbc_url: jdbc:hive2://${databases.hive.host}:10000/default;principal=hive/hadoop-master@LABS.TERADATA.COM;auth=kerberos;kerberosAuthType=fromSubject;
     jdbc_user: hdfs # Note: databases.hive.jdbc_user is not being used in kerberized environment as of now
     jdbc_password: na
@@ -33,7 +32,7 @@ databases:
     #   2) It should have the required privileges (such as SELECT) on Hive tables (such as hive.default.nation)
     jdbc_user: hdfs
 
-    https_keystore_path: /docker/volumes/conf/presto/etc/docker.cluster.jks
+    https_keystore_path: /docker/presto-product-tests/conf/presto/etc/docker.cluster.jks
     https_keystore_password: '123456'
     cli_kerberos_authentication: true
     cli_kerberos_principal: presto-client/presto-master.docker.cluster@LABS.TERADATA.COM

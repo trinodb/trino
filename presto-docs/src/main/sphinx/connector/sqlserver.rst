@@ -3,7 +3,7 @@ SQL Server Connector
 ====================
 
 The SQL Server connector allows querying and creating tables in an
-external SQL Server database. This can be used to join data between
+external `Microsoft SQL Server <https://www.microsoft.com/sql-server/>`_ database. This can be used to join data between
 different systems like SQL Server and Hive, or between two different
 SQL Server instances.
 
@@ -32,8 +32,8 @@ or want to connect to multiple instances of the SQL Server, you must configure
 multiple catalogs, one for each instance.
 
 To add another catalog, simply add another properties file to ``etc/catalog``
-with a different name (making sure it ends in ``.properties``). For example,
-if you name the property file ``sales.properties``, Presto will create a
+with a different name, making sure it ends in ``.properties``. For example,
+if you name the property file ``sales.properties``, Presto creates a
 catalog named ``sales`` using the configured connector.
 
 Querying SQL Server
@@ -91,7 +91,5 @@ Complete list of `SQL Server data types
 The following SQL statements are not yet supported:
 
 * :doc:`/sql/delete`
-* :doc:`/sql/alter-table`
-* :doc:`/sql/create-table` (:doc:`/sql/create-table-as` is supported)
 * :doc:`/sql/grant`
 * :doc:`/sql/revoke`

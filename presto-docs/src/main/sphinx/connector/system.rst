@@ -50,6 +50,11 @@ that can be set when creating a new schema.
 The table properties table contains the list of available properties
 that can be set when creating a new table.
 
+``metadata.table_comments``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The table comments table contains the list of table comment.
+
 ``runtime.nodes``
 ^^^^^^^^^^^^^^^^^
 
@@ -61,15 +66,15 @@ cluster along with their status.
 
 The queries table contains information about currently and recently
 running queries on the Presto cluster. From this table you can find out
-the original query text (SQL), the identity of the user who ran the query
-and performance information about the query including how long the query
+the original query SQL text, the identity of the user who ran the query,
+and performance information about the query, including how long the query
 was queued and analyzed.
 
 ``runtime.tasks``
 ^^^^^^^^^^^^^^^^^
 
 The tasks table contains information about the tasks involved in a
-Presto query including where they were executed and and how many rows
+Presto query, including where they were executed, and and how many rows
 and bytes each task processed.
 
 ``runtime.transactions``
@@ -85,4 +90,4 @@ System Connector Procedures
 .. function:: runtime.kill_query(query_id, message)
 
     Kill the query identified by ``query_id``. The query failure message
-    will include the specified ``message``.
+    includes the specified ``message``.

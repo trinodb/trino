@@ -1,0 +1,13 @@
+export DOCKER_IMAGES_VERSION=${DOCKER_IMAGES_VERSION:-24}
+
+if test -v HADOOP_BASE_IMAGE; then
+    test -v TESTS_HIVE_VERSION_MAJOR
+    test -v TESTS_HIVE_VERSION_MINOR
+else
+    test ! -v TESTS_HIVE_VERSION_MAJOR
+    test ! -v TESTS_HIVE_VERSION_MINOR
+
+    export HADOOP_BASE_IMAGE="prestodev/hdp2.6-hive"
+    export TESTS_HIVE_VERSION_MAJOR="1"
+    export TESTS_HIVE_VERSION_MINOR="2"
+fi

@@ -4,16 +4,16 @@
   "topicName": "structural_datatype_avro",
   "message": {
     "dataFormat": "avro",
-    "dataSchema": "/docker/volumes/conf/presto/etc/catalog/kafka/structural_datatype_avro_schema.avsc",
+    "dataSchema": "/docker/presto-product-tests/conf/presto/etc/catalog/kafka/structural_datatype_avro_schema.avsc",
     "fields": [
       {
         "name": "c_array",
-        "type": "ARRAY<BIGINT>",
+        "type": "ARRAY(BIGINT)",
         "mapping": "a_array"
       },
       {
         "name": "c_map",
-        "type": "MAP<VARCHAR, VARCHAR>",
+        "type": "MAP(VARCHAR, VARCHAR)",
         "mapping": "a_map"
       }
     ]

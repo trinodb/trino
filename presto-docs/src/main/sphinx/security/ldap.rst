@@ -4,9 +4,9 @@ LDAP Authentication
 
 Presto can be configured to enable frontend LDAP authentication over
 HTTPS for clients, such as the :ref:`cli_ldap`, or the JDBC and ODBC
-drivers. At present only simple LDAP authentication mechanism involving
+drivers. At present, only simple LDAP authentication mechanism involving
 username and password is supported. The Presto client sends a username
-and password to the coordinator and coordinator validates these
+and password to the coordinator, and the coordinator validates these
 credentials using an external LDAP service.
 
 To enable LDAP authentication for Presto, configuration changes are made on
@@ -34,7 +34,7 @@ TLS Configuration on Presto Coordinator
 
 You need to import the LDAP server's TLS certificate to the default Java
 truststore of the Presto coordinator to secure TLS connection. You can use
-the following example `keytool` command to import the certificate
+the following example ``keytool`` command to import the certificate
 ``ldap_server.crt``, to the truststore on the coordinator.
 
 .. code-block:: none
@@ -42,7 +42,7 @@ the following example `keytool` command to import the certificate
     $ keytool -import -keystore <JAVA_HOME>/jre/lib/security/cacerts -trustcacerts -alias ldap_server -file ldap_server.crt
 
 In addition to this, access to the Presto coordinator should be
-through HTTPS. You can do it by creating a :ref:`server_java_keystore` on
+through HTTPS. You can do that by creating a :ref:`server_java_keystore` on
 the coordinator.
 
 Presto Coordinator Node Configuration
@@ -89,6 +89,10 @@ Property                                                Description
                                                         used to secure TLS.
 ``http-server.https.keystore.key``                      The password for the keystore. This must match the
                                                         password you specified when creating the keystore.
+``http-server.authentication.allow-forwarded-https``    Enable treating forwarded HTTPS requests over HTTP
+                                                        as secure.  Requires the ``X-Forwarded-Proto`` header
+                                                        to be set to ``https`` on forwarded requests.
+                                                        Default value is ``false``.
 ======================================================= ======================================================
 
 Password Authenticator Configuration
@@ -110,9 +114,10 @@ Property                                                Description
                                                         ``ldaps://`` since Presto allows only Secure LDAP.
 ``ldap.user-bind-pattern``                              This property can be used to specify the LDAP user
                                                         bind string for password authentication. This property
-                                                        must contain the pattern ``${USER}`` which will be
+                                                        must contain the pattern ``${USER}``, which is
                                                         replaced by the actual username during the password
                                                         authentication. Example: ``${USER}@corp.example.com``.
+``ldap.cache-ttl``                                      LDAP cache duration. Defaults to ``1h``.
 ======================================================= ======================================================
 
 Based on the LDAP server implementation type, the property
@@ -148,8 +153,8 @@ Authorization based on LDAP Group Membership
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 You can further restrict the set of users allowed to connect to the Presto
-coordinator based on their group membership by setting the optional
-``ldap.group-auth-pattern`` and ``ldap.user-base-dn`` properties in addition
+coordinator, based on their group membership, by setting the optional
+``ldap.group-auth-pattern`` and ``ldap.user-base-dn`` properties, in addition
 to the basic LDAP authentication properties.
 
 ======================================================= ======================================================
@@ -160,10 +165,10 @@ Property                                                Description
                                                         Example: ``OU=America,DC=corp,DC=example,DC=com``
 ``ldap.group-auth-pattern``                             This property is used to specify the LDAP query for
                                                         the LDAP group membership authorization. This query
-                                                        will be executed against the LDAP server and if
-                                                        successful, the user will be authorized.
-                                                        This property must contain a pattern ``${USER}``
-                                                        which will be replaced by the actual username in
+                                                        is executed against the LDAP server and if
+                                                        successful, the user is authorized.
+                                                        This property must contain a pattern ``${USER}``,
+                                                        which is replaced by the actual username in
                                                         the group authorization search query.
                                                         See samples below.
 ======================================================= ======================================================
@@ -200,7 +205,7 @@ Example:
 For OpenLDAP, for this query to work, make sure you enable the
 ``memberOf`` `overlay <http://www.openldap.org/doc/admin24/overlays.html>`_.
 
-You can also use this property for scenarios where you want to authorize a user
+You can use this property for scenarios where you want to authorize a user
 based on complex group authorization search queries. For example, if you want to
 authorize a user belonging to any one of multiple groups (in OpenLDAP), this
 property may be set as follows:
@@ -225,9 +230,9 @@ authentication. The Presto CLI can use either a :ref:`Java Keystore
 <server_java_keystore>` file or :ref:`Java Truststore <cli_java_truststore>`
 for its TLS configuration.
 
-If you are using keystore file, it can be copied to the client machine and used
+If you are using a keystore file, it can be copied to the client machine and used
 for its TLS configuration. If you are using truststore, you can either use
-default java truststores or create a custom truststore on the CLI. We do not
+default Java truststores or create a custom truststore on the CLI. We do not
 recommend using self-signed certificates in production.
 
 Presto CLI Execution
@@ -272,7 +277,7 @@ Option                          Description
                                 password you specified when creating the truststore.
 ``--user``                      The LDAP username. For Active Directory this should be your
                                 ``sAMAccountName`` and for OpenLDAP this should be the ``uid`` of
-                                the user. This is the username which will be
+                                the user. This is the username which is
                                 used to replace the ``${USER}`` placeholder pattern in the properties
                                 specified in ``config.properties``.
 ``--password``                  Prompts for a password for the ``user``.
@@ -291,7 +296,7 @@ SSL Debugging for Presto CLI
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 If you encounter any SSL related errors when running Presto CLI, you can run CLI using ``-Djavax.net.debug=ssl``
-parameter for debugging. You should use the Presto CLI executable jar to enable this. Eg:
+parameter for debugging. You should use the Presto CLI executable jar to enable this. E.g.:
 
 .. code-block:: none
 
@@ -307,10 +312,33 @@ Common SSL errors
 java.security.cert.CertificateException: No subject alternative names present
 *****************************************************************************
 
-This error is seen when the Presto coordinator’s certificate is invalid and does not have the IP you provide
-in the ``--server`` argument of the CLI. You will have to regenerate the coordinator's SSL certificate
+This error is seen when the Presto coordinator’s certificate is invalid, and does not have the IP you provide
+in the ``--server`` argument of the CLI. You have to regenerate the coordinator's SSL certificate
 with the appropriate :abbr:`SAN (Subject Alternative Name)` added.
 
-Adding a SAN to this certificate is required in cases where ``https://`` uses IP address in the URL rather
+Adding a SAN to this certificate is required in cases where ``https://`` uses IP address in the URL, rather
 than the domain contained in the coordinator's certificate, and the certificate does not contain the
 :abbr:`SAN (Subject Alternative Name)` parameter with the matching IP address as an alternative attribute.
+
+Authentication or SSL errors with JDK Upgrade
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Starting with the JDK 8u181 release, to improve the robustness of LDAPS
+(secure LDAP over TLS) connections, endpoint identification algorithms have
+been enabled by default. See release notes
+`from Oracle <https://www.oracle.com/technetwork/java/javase/8u181-relnotes-4479407.html#JDK-8200666.>`_.
+The same LDAP server certificate on the Presto coordinator, running on JDK
+version >= 8u181, that was previously able to successfully connect to an
+LDAPS server, may now fail with the below error:
+
+.. code-block:: none
+
+    javax.naming.CommunicationException: simple bind failed: ldapserver:636
+    [Root exception is javax.net.ssl.SSLHandshakeException: java.security.cert.CertificateException: No subject alternative DNS name matching ldapserver found.]
+
+If you want to temporarily disable endpoint identification, you can add the
+property ``-Dcom.sun.jndi.ldap.object.disableEndpointIdentification=true``
+to Presto's ``jvm.config`` file. However, in a production environment, we
+suggest fixing the issue by regenerating the LDAP server certificate so that
+the certificate :abbr:`SAN (Subject Alternative Name)` or certificate subject
+name matches the LDAP server.

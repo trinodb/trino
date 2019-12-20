@@ -3,9 +3,9 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.facebook.presto</groupId>
+        <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.216-SNAPSHOT</version>
+        <version>327-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-docs</artifactId>
@@ -15,17 +15,6 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
     </properties>
-
-    <!--
-    Generate HTML docs quickly while developing:
-
-    brew install python
-    pip2 install sphinx
-
-    make -C presto-docs clean html
-
-    open presto-docs/target/html/index.html
-    -->
 
     <build>
         <pluginManagement>
@@ -37,6 +26,7 @@
                         <excludes combine.children="append">
                             <exclude>**/*.conf</exclude>
                             <exclude>**/*.css_t</exclude>
+                            <exclude>src/main/sphinx/ext/sitemap.py</exclude>
                         </excludes>
                     </configuration>
                 </plugin>
@@ -56,7 +46,7 @@
                         <configuration>
                             <outputFile>${project.build.directory}/PrestoThriftService.thrift</outputFile>
                             <classes>
-                                <class>com.facebook.presto.connector.thrift.api.PrestoThriftService</class>
+                                <class>io.prestosql.plugin.thrift.api.PrestoThriftService</class>
                             </classes>
                             <recursive>true</recursive>
                         </configuration>
@@ -64,8 +54,8 @@
                 </executions>
                 <dependencies>
                     <dependency>
-                        <groupId>com.facebook.presto</groupId>
-                        <artifactId>presto-thrift-connector-api</artifactId>
+                        <groupId>io.prestosql</groupId>
+                        <artifactId>presto-thrift-api</artifactId>
                         <version>${project.version}</version>
                     </dependency>
                 </dependencies>
@@ -82,7 +72,7 @@
                             <goal>java</goal>
                         </goals>
                         <configuration>
-                            <mainClass>com.facebook.presto.sql.ReservedIdentifiers</mainClass>
+                            <mainClass>io.prestosql.sql.ReservedIdentifiers</mainClass>
                             <arguments>
                                 <argument>validateDocs</argument>
                                 <argument>${project.basedir}/src/main/sphinx/language/reserved.rst</argument>
@@ -112,7 +102,7 @@
                 </configuration>
                 <dependencies>
                     <dependency>
-                        <groupId>com.facebook.presto</groupId>
+                        <groupId>io.prestosql</groupId>
                         <artifactId>presto-parser</artifactId>
                         <version>${project.version}</version>
                     </dependency>

@@ -1,0 +1,38 @@
+{
+  "tableName": "test_table",
+  "schemaName": "prod",
+  "streamName": "test_kinesis_stream",
+  "message": {
+    "dataFormat": "json",
+    "fields": [
+      {
+        "name": "client_id",
+        "type": "BIGINT",
+        "mapping": "client_id",
+        "comment": "The client ID field"
+      },
+      {
+        "name": "acct_balance",
+        "type": "DOUBLE",
+        "mapping": "acct_balance",
+        "comment": "Current account balance"
+      },
+      {
+        "name": "service_type",
+        "mapping": "service_type",
+        "type": "VARCHAR(20)"
+      },
+      {
+        "name": "signup_date",
+        "mapping": "signup_date",
+        "type": "DATE",
+        "dataFormat": "iso8601"
+      }
+    ]
+  },
+  "comment" : "This test adds some extra fields to make sure they are ignored and don't cause issues.",
+  "client_metadata" : {
+    "name" : "Sample Query",
+    "query" : "select client_id, service_type, signup_date, _shard_id, _message_length from prod.test_table"
+  }
+}

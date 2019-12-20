@@ -11,16 +11,22 @@ from different data sources.
     connector/accumulo
     connector/blackhole
     connector/cassandra
+    connector/elasticsearch
+    connector/googlesheets
     connector/hive
+    connector/hive-gcs-tutorial
     connector/hive-security
     connector/jmx
     connector/kafka
     connector/kafka-tutorial
+    connector/kinesis
     connector/kudu
     connector/localfile
     connector/memory
+    connector/memsql
     connector/mongodb
     connector/mysql
+    connector/phoenix
     connector/postgresql
     connector/redis
     connector/redshift

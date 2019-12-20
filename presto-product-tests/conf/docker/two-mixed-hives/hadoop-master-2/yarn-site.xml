@@ -1,0 +1,71 @@
+<?xml version="1.0"?>
+<configuration>
+    <property>
+        <name>yarn.nodemanager.aux-services</name>
+        <value>mapreduce_shuffle</value>
+    </property>
+
+    <property>
+        <name>yarn.nodemanager.aux-services.mapreduce_shuffle.class</name>
+        <value>org.apache.hadoop.mapred.ShuffleHandler</value>
+    </property>
+
+    <property>
+        <name>yarn.log-aggregation-enable</name>
+        <value>true</value>
+    </property>
+
+    <property>
+        <name>yarn.dispatcher.exit-on-error</name>
+        <value>true</value>
+    </property>
+
+    <property>
+        <description>List of directories to store localized files in.</description>
+        <name>yarn.nodemanager.local-dirs</name>
+        <value>/var/lib/hadoop-yarn/cache/${user.name}/nm-local-dir</value>
+    </property>
+
+    <property>
+        <description>Where to store container logs.</description>
+        <name>yarn.nodemanager.log-dirs</name>
+        <value>/var/log/hadoop-yarn/containers</value>
+    </property>
+
+    <property>
+        <description>Where to aggregate logs to.</description>
+        <name>yarn.nodemanager.remote-app-log-dir</name>
+        <value>/var/log/hadoop-yarn/apps</value>
+    </property>
+
+    <property>
+        <description>Classpath for typical applications.</description>
+        <name>yarn.application.classpath</name>
+        <value>
+            /etc/hadoop/conf,
+            /usr/hdp/current/hadoop-client/*,
+            /usr/hdp/current/hadoop-client/lib/*,
+            /usr/hdp/current/hadoop-hdfs-client/*,
+            /usr/hdp/current/hadoop-hdfs-client/lib/*,
+            /usr/hdp/current/hadoop-yarn-client/*,
+            /usr/hdp/current/hadoop-yarn-client/lib/*,
+            /usr/hdp/current/hadoop-mapreduce-client/*,
+            /usr/hdp/current/hadoop-mapreduce-client/lib/*
+        </value>
+    </property>
+
+    <property>
+        <name>yarn.resourcemanager.hostname</name>
+        <value>hadoop-master-2</value>
+    </property>
+
+    <property>
+        <name>yarn.nodemanager.disk-health-checker.max-disk-utilization-per-disk-percentage</name>
+        <value>100</value>
+    </property>
+
+    <property>
+        <name>yarn.log.server.url</name>
+        <value>http://hadoop-master-2:19888/jobhistory/logs</value>
+    </property>
+</configuration>

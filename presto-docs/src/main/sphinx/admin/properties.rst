@@ -2,7 +2,7 @@
 Properties Reference
 ====================
 
-This section describes the most important config properties that
+This section describes the most important config properties, that
 may be used to tune Presto or alter its behavior when required.
 
 .. contents::
@@ -20,19 +20,19 @@ General Properties
     * **Allowed values:** ``AUTOMATIC``, ``PARTITIONED``, ``BROADCAST``
     * **Default value:** ``PARTITIONED``
 
-    The type of distributed join to use.  When set to ``PARTITIONED``, presto will
-    use hash distributed joins.  When set to ``BROADCAST``, it will broadcast the
+    The type of distributed join to use.  When set to ``PARTITIONED``, Presto
+    uses hash distributed joins.  When set to ``BROADCAST``, it broadcasts the
     right table to all nodes in the cluster that have data from the left table.
     Partitioned joins require redistributing both tables using a hash of the join key.
-    This can be slower (sometimes substantially) than broadcast joins, but allows much
-    larger joins. In particular broadcast joins will be faster if the right table is
+    This can be slower, sometimes substantially, than broadcast joins, but allows much
+    larger joins. In particular broadcast joins are faster, if the right table is
     much smaller than the left.  However, broadcast joins require that the tables on the right
     side of the join after filtering fit in memory on each node, whereas distributed joins
     only need to fit in distributed memory across all nodes. When set to ``AUTOMATIC``,
-    Presto will make a cost based decision as to which distribution type is optimal.
-    It will also consider switching the left and right inputs to the join.  In ``AUTOMATIC``
-    mode, Presto will default to hash distributed joins if no cost could be computed, such as if
-    the tables do not have statistics. This can also be specified on a per-query basis using
+    Presto makes a cost based decision as to which distribution type is optimal.
+    It considers switching the left and right inputs to the join.  In ``AUTOMATIC``
+    mode, Presto defaults to hash distributed joins if no cost could be computed, such as if
+    the tables do not have statistics. This can be specified on a per-query basis using
     the ``join_distribution_type`` session property.
 
 ``redistribute-writes``
@@ -43,9 +43,9 @@ General Properties
 
     This property enables redistribution of data before writing. This can
     eliminate the performance impact of data skew when writing by hashing it
-    across nodes in the cluster. It can be disabled when it is known that the
-    output data set is not skewed in order to avoid the overhead of hashing and
-    redistributing all the data across the network. This can also be specified
+    across nodes in the cluster. It can be disabled, when it is known that the
+    output data set is not skewed, in order to avoid the overhead of hashing and
+    redistributing all the data across the network. This can be specified
     on a per-query basis using the ``redistribute_writes`` session property.
 
 .. _tuning-memory:
@@ -61,10 +61,10 @@ Memory Management Properties
 
     This is the max amount of user memory a query can use on a worker.
     User memory is allocated during execution for things that are directly
-    attributable to or controllable by a user query. For example, memory used
+    attributable to, or controllable by, a user query. For example, memory used
     by the hash tables built during execution, memory used during sorting, etc.
-    When the user memory allocation of a query on any worker hits this limit
-    it will be killed.
+    When the user memory allocation of a query on any worker hits this limit,
+    it is killed.
 
 ``query.max-total-memory-per-node``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -74,9 +74,9 @@ Memory Management Properties
 
     This is the max amount of user and system memory a query can use on a worker.
     System memory is allocated during execution for things that are not directly
-    attributable to or controllable by a user query. For example, memory allocated
+    attributable to, or controllable by, a user query. For example, memory allocated
     by the readers, writers, network buffers, etc. When the sum of the user and
-    system memory allocated by a query on any worker hits this limit it will be killed.
+    system memory allocated by a query on any worker hits this limit, it is killed.
     The value of ``query.max-total-memory-per-node`` must be greater than
     ``query.max-memory-per-node``.
 
@@ -88,22 +88,22 @@ Memory Management Properties
 
     This is the max amount of user memory a query can use across the entire cluster.
     User memory is allocated during execution for things that are directly
-    attributable to or controllable by a user query. For example, memory used
+    attributable to, or controllable by, a user query. For example, memory used
     by the hash tables built during execution, memory used during sorting, etc.
     When the user memory allocation of a query across all workers hits this limit
-    it will be killed.
+    it is killed.
 
 ``query.max-total-memory``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``data size``
-    * **Default value:** ``query.max-total-memory * 2``
+    * **Default value:** ``query.max-memory * 2``
 
     This is the max amount of user and system memory a query can use across the entire cluster.
     System memory is allocated during execution for things that are not directly
-    attributable to or controllable by a user query. For example, memory allocated
+    attributable to, or controllable by, a user query. For example, memory allocated
     by the readers, writers, network buffers, etc. When the sum of the user and
-    system memory allocated by a query across all workers hits this limit it will be
+    system memory allocated by a query across all workers hits this limit it is
     killed. The value of ``query.max-total-memory`` must be greater than
     ``query.max-memory``.
 
@@ -116,34 +116,12 @@ Memory Management Properties
     This is the amount of memory set aside as headroom/buffer in the JVM heap
     for allocations that are not tracked by Presto.
 
-``resources.reserved-system-memory``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-    * **Type:** ``data size``
-    * **Default value:** ``JVM max memory * 0.4``
-
-    The amount of JVM memory reserved for system memory usage. System memory is
-    allocated during execution for things that are not directly attributable to
-    or controllable by a user query. For example, memory allocated by the readers,
-    writers, and network buffers, etc. This also accounts for memory that is not
-    tracked by the memory tracking system.
-
-    The purpose of this property is to prevent the JVM from running out of
-    memory (OOM). The default value is suitable for smaller JVM heap sizes or
-    clusters with many concurrent queries. If running fewer queries with a
-    large heap, a smaller value may work. Basically, set this value large
-    enough that the JVM does not fail with ``OutOfMemoryError``.
-
-    Please note that this config property is only used when
-    ``deprecated.legacy-system-pool-enabled=true``, and it will be removed
-    in the future.
-
 .. _tuning-spilling:
 
 Spilling Properties
 -------------------
 
-``experimental.spill-enabled``
+``spill-enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``boolean``
@@ -152,21 +130,42 @@ Spilling Properties
     Try spilling memory to disk to avoid exceeding memory limits for the query.
 
     Spilling works by offloading memory to disk. This process can allow a query with a large memory
-    footprint to pass at the cost of slower execution times. Currently, spilling is supported only for
-    aggregations and joins (inner and outer), so this property will not reduce memory usage required for
-    window functions, sorting and other join types.
-
-    Be aware that this is an experimental feature and should be used with care.
+    footprint to pass at the cost of slower execution times. Spilling is supported for
+    aggregations, joins (inner and outer), sorting, and window functions. This property does not
+    reduce memory usage required for other join types.
 
     This config property can be overridden by the ``spill_enabled`` session property.
 
-``experimental.spiller-spill-path``
+
+``spill-order-by``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``true``
+
+    Try spilling memory to disk to avoid exceeding memory limits for the query when running sorting operators.
+    This property must be used in conjunction with the ``spill-enabled`` property.
+
+    This config property can be overridden by the ``spill_order_by`` session property.
+
+``spill-window-operator``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``true``
+
+    Try spilling memory to disk to avoid exceeding memory limits for the query when running window operators;
+    This property must be used in conjunction with the ``spill-enabled`` property.
+
+    This config property can be overridden by the ``spill_window_operator`` session property.
+
+``spiller-spill-path``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``string``
     * **No default value.** Must be set when spilling is enabled
 
-    Directory where spilled content will be written. It can be a comma separated
+    Directory where spilled content is written. It can be a comma separated
     list to spill simultaneously to multiple directories, which helps to utilize
     multiple drives installed in the system.
 
@@ -174,16 +173,16 @@ Spilling Properties
     to the drive on which the JVM logs are written, as disk overutilization might
     cause JVM to pause for lengthy periods, causing queries to fail.
 
-``experimental.spiller-max-used-space-threshold``
+``spiller-max-used-space-threshold``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``double``
     * **Default value:** ``0.9``
 
     If disk space usage ratio of a given spill path is above this threshold,
-    this spill path will not be eligible for spilling.
+    this spill path is not eligible for spilling.
 
-``experimental.spiller-threads``
+``spiller-threads``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``integer``
@@ -192,7 +191,7 @@ Spilling Properties
     Number of spiller threads. Increase this value if the default is not able
     to saturate the underlying spilling device (for example, when using RAID).
 
-``experimental.max-spill-per-node``
+``max-spill-per-node``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``data size``
@@ -200,7 +199,7 @@ Spilling Properties
 
     Max spill space to be used by all queries on a single node.
 
-``experimental.query-max-spill-per-node``
+``query-max-spill-per-node``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``data size``
@@ -208,13 +207,30 @@ Spilling Properties
 
     Max spill space to be used by a single query on a single node.
 
-``experimental.aggregation-operator-unspill-memory-limit``
+``aggregation-operator-unspill-memory-limit``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``data size``
     * **Default value:** ``4 MB``
 
     Limit for memory used for unspilling a single aggregation operator instance.
+
+``spill-compression-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``false``
+
+    Enables data compression for pages spilled to disk.
+
+``spill-encryption-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``false``
+
+    Enables using a randomly generated secret key (per spill file) to encrypt and decrypt
+    data spilled to disk.
 
 
 Exchange Properties
@@ -246,7 +262,7 @@ communication issues or improve network utilization.
     Multiplier determining the number of concurrent requests relative to
     available buffer memory. The maximum number of requests is determined
     using a heuristic of the number of clients that can fit into available
-    buffer space based on average buffer usage per request times this
+    buffer space, based on average buffer usage per request times this
     multiplier. For example, with an ``exchange.max-buffer-size`` of ``32 MB``
     and ``20 MB`` already used and average size per request being ``2MB``,
     the maximum number of clients is
@@ -262,8 +278,8 @@ communication issues or improve network utilization.
 
     Size of buffer in the exchange client that holds data fetched from other
     nodes before it is processed. A larger buffer can increase network
-    throughput for larger clusters and thus decrease query processing time,
-    but will reduce the amount of memory available for other usages.
+    throughput for larger clusters, and thus decrease query processing time,
+    but reduces the amount of memory available for other usages.
 
 ``exchange.max-response-size``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -273,13 +289,13 @@ communication issues or improve network utilization.
     * **Default value:** ``16MB``
 
     Maximum size of a response returned from an exchange request. The response
-    will be placed in the exchange client buffer which is shared across all
+    is placed in the exchange client buffer, which is shared across all
     concurrent requests for the exchange.
 
-    Increasing the value may improve network throughput if there is high
+    Increasing the value may improve network throughput, if there is high
     latency. Decreasing the value may improve query performance for large
-    clusters as it reduces skew due to the exchange client buffer holding
-    responses for more tasks (rather than hold more data from fewer tasks).
+    clusters as it reduces skew, due to the exchange client buffer holding
+    responses for more tasks, rather than hold more data from fewer tasks.
 
 ``sink.max-buffer-size``
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -288,10 +304,10 @@ communication issues or improve network utilization.
     * **Default value:** ``32MB``
 
     Output buffer size for task data that is waiting to be pulled by upstream
-    tasks. If the task output is hash partitioned, then the buffer will be
+    tasks. If the task output is hash partitioned, then the buffer is
     shared across all of the partitioned consumers. Increasing this value may
-    improve network throughput for data transferred between stages if the
-    network has high latency or if there are many nodes in the cluster.
+    improve network throughput for data transferred between stages, if the
+    network has high latency, or if there are many nodes in the cluster.
 
 .. _task-properties:
 
@@ -305,11 +321,11 @@ Task Properties
     * **Restrictions:** must be a power of two
     * **Default value:** ``16``
 
-    Default local concurrency for parallel operators such as joins and aggregations.
+    Default local concurrency for parallel operators, such as joins and aggregations.
     This value should be adjusted up or down based on the query concurrency and worker
     resource utilization. Lower values are better for clusters that run many queries
-    concurrently because the cluster will already be utilized by all the running
-    queries, so adding more concurrency will result in slow downs due to context
+    concurrently, because the cluster is already utilized by all the running
+    queries, so adding more concurrency results in slow downs due to context
     switching and other overhead. Higher values are better for clusters that only run
     one or a few queries at a time. This can also be specified on a per-query basis
     using the ``task_concurrency`` session property.
@@ -323,7 +339,7 @@ Task Properties
 
     Maximum number of threads that may be created to handle HTTP responses. Threads are
     created on demand and are cleaned up when idle, thus there is no overhead to a large
-    value if the number of requests to be handled is small. More threads may be helpful
+    value, if the number of requests to be handled is small. More threads may be helpful
     on clusters with a high number of concurrent queries, or on clusters with hundreds
     or thousands of workers.
 
@@ -336,7 +352,7 @@ Task Properties
 
     Number of threads used to handle timeouts when generating HTTP responses. This value
     should be increased if all the threads are frequently in use. This can be monitored
-    via the ``com.facebook.presto.server:name=AsyncHttpExecutionMBean:TimeoutExecutor``
+    via the ``io.prestosql.server:name=AsyncHttpExecutionMBean:TimeoutExecutor``
     JMX object. If ``ActiveCount`` is always the same as ``PoolSize``, increase the
     number of threads.
 
@@ -358,7 +374,7 @@ Task Properties
     * **Default value:** ``16MB``
 
     Maximum size of partial aggregation results for distributed aggregations. Increasing this
-    value can result in less network transfer and lower CPU utilization by allowing more
+    value can result in less network transfer and lower CPU utilization, by allowing more
     groups to be kept locally before being flushed, at the cost of additional memory usage.
 
 ``task.max-worker-threads``
@@ -368,11 +384,11 @@ Task Properties
     * **Default value:** ``Node CPUs * 2``
 
     Sets the number of threads used by workers to process splits. Increasing this number
-    can improve throughput if worker CPU utilization is low and all the threads are in use,
-    but will cause increased heap space usage. Setting the value too high may cause a drop
+    can improve throughput, if worker CPU utilization is low and all the threads are in use,
+    but it causes increased heap space usage. Setting the value too high may cause a drop
     in performance due to a context switching. The number of active threads is available
     via the ``RunningSplits`` property of the
-    ``com.facebook.presto.execution.executor:name=TaskExecutor.RunningSplits`` JXM object.
+    ``io.prestosql.execution.executor:name=TaskExecutor.RunningSplits`` JXM object.
 
 ``task.min-drivers``
 ^^^^^^^^^^^^^^^^^^^^
@@ -395,11 +411,12 @@ Task Properties
 
     The number of concurrent writer threads per worker per query. Increasing this value may
     increase write speed, especially when a query is not I/O bound and can take advantage
-    of additional CPU for parallel writes (some connectors can be bottlenecked on CPU when
-    writing due to compression or other factors). Setting this too high may cause the cluster
+    of additional CPU for parallel writes. Some connectors can be bottlenecked on CPU when
+    writing due to compression or other factors. Setting this too high may cause the cluster
     to become overloaded due to excessive resource utilization. This can also be specified on
     a per-query basis using the ``task_writer_count`` session property.
 
+.. _node-scheduler-properties:
 
 Node Scheduler Properties
 -------------------------
@@ -413,13 +430,13 @@ Node Scheduler Properties
     The target value for the total number of splits that can be running for
     each worker node.
 
-    Using a higher value is recommended if queries are submitted in large batches
-    (e.g., running a large group of reports periodically) or for connectors that
+    Using a higher value is recommended, if queries are submitted in large batches
+    (e.g., running a large group of reports periodically), or for connectors that
     produce many splits that complete quickly. Increasing this value may improve
-    query latency by ensuring that the workers have enough splits to keep them
+    query latency, by ensuring that the workers have enough splits to keep them
     fully utilized.
 
-    Setting this too high will waste memory and may result in lower performance
+    Setting this too high wastes memory and may result in lower performance
     due to splits not being balanced across workers. Ideally, it should be set
     such that there is always at least one split waiting to be processed, but
     not higher.
@@ -436,7 +453,7 @@ Node Scheduler Properties
     required to prevent starvation and deadlocks.
 
     This value must be smaller than ``node-scheduler.max-splits-per-node``,
-    will usually be increased for the same reasons, and has similar drawbacks
+    is usually increased for the same reasons, and has similar drawbacks
     if set too high.
 
 ``node-scheduler.min-candidates``
@@ -446,25 +463,70 @@ Node Scheduler Properties
     * **Minimum value:** ``1``
     * **Default value:** ``10``
 
-    The minimum number of candidate nodes that will be evaluated by the
+    The minimum number of candidate nodes that are evaluated by the
     node scheduler when choosing the target node for a split. Setting
     this value too low may prevent splits from being properly balanced
     across all worker nodes. Setting it too high may increase query
     latency and increase CPU usage on the coordinator.
 
-``node-scheduler.network-topology``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``node-scheduler.policy``
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``string``
-    * **Allowed values:** ``legacy``, ``flat``
-    * **Default value:** ``legacy``
+    * **Allowed values:** ``uniform``, ``topology``
+    * **Default value:** ``uniform``
 
-    Sets the network topology to use when scheduling splits. ``legacy`` will ignore
-    the topology when scheduling splits. ``flat`` will try to schedule splits on the host
-    where the data is located by reserving 50% of the work queue for local splits.
-    It is recommended to use ``flat`` for clusters where distributed storage runs on
-    the same nodes as Presto workers.
+    Sets the node scheduler policy to use when scheduling splits. ``uniform``  attempts
+    to schedule splits on the host where the data is located, while maintaining a uniform
+    distribution across all hosts. ``topology`` tries to schedule splits according to
+    the topology distance between nodes and splits. It is recommended to use ``uniform``
+    for clusters where distributed storage runs on the same nodes as Presto workers.
 
+``node-scheduler.network-topology.segments``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``string``
+    * **Default value:** ``machine``
+
+    A comma-separated string describing the meaning of each segment of a network location.
+    For example, setting ``region,rack,machine`` means a network location contains three segments.
+
+``node-scheduler.network-topology.type``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``string``
+    * **Allowed values:** ``flat``, ``file``
+    * **Default value:** ``flat``
+
+    Sets the network topology type. To use this option, ``node-scheduler.policy`` must be set to
+    ``topology``. ``flat`` has only one segment, with one value for each machine.
+    ``file`` loads the topology from a file as described below.
+
+``node-scheduler.network-topology.file``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``string``
+
+    Load the network topology from a file. To use this option, ``node-scheduler.network-topology.type``
+    must be set to ``file``. Each line contains a mapping between a host name and a
+    network location, separated by whitespace. Network location must begin with a leading
+    ``/`` and segments are separated by a ``/``.
+
+.. code-block:: none
+
+    192.168.0.1 /region1/rack1/machine1
+    192.168.0.2 /region1/rack1/machine2
+    hdfs01.example.com /region2/rack2/machine3
+
+``node-scheduler.network-topology.refresh-period``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``duration``
+    * **Minimum value:** ``1ms``
+    * **Default value:** ``5m``
+
+    Controls how often the network topology file is reloaded.  To use this option,
+    ``node-scheduler.network-topology.type`` must be set to ``file``.
 
 Optimizer Properties
 --------------------
@@ -487,11 +549,11 @@ Optimizer Properties
     Compute hash codes for distribution, joins, and aggregations early during execution,
     allowing result to be shared between operations later in the query. This can reduce
     CPU usage by avoiding computing the same hash multiple times, but at the cost of
-    additional network transfer for the hashes. In most cases it will decrease overall
+    additional network transfer for the hashes. In most cases it decreases overall
     query processing time. This can also be specified on a per-query basis using the
     ``optimize_hash_generation`` session property.
 
-    It is often helpful to disable this property when using :doc:`/sql/explain` in order
+    It is often helpful to disable this property, when using :doc:`/sql/explain` in order
     to make the query plan easier to read.
 
 ``optimizer.optimize-metadata-queries``
@@ -503,22 +565,13 @@ Optimizer Properties
     Enable optimization of some aggregations by using values that are stored as metadata.
     This allows Presto to execute some simple queries in constant time. Currently, this
     optimization applies to ``max``, ``min`` and ``approx_distinct`` of partition
-    keys and other aggregation insensitive to the cardinality of the input (including
-    ``DISTINCT`` aggregates). Using this may speed up some queries significantly.
+    keys and other aggregation insensitive to the cardinality of the input,including
+    ``DISTINCT`` aggregates. Using this may speed up some queries significantly.
 
-    The main drawback is that it can produce incorrect results if the connector returns
+    The main drawback is that it can produce incorrect results, if the connector returns
     partition keys for partitions that have no rows. In particular, the Hive connector
-    can return empty partitions if they were created by other systems (Presto cannot
-    create them).
-
-``optimizer.optimize-single-distinct``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-    * **Type:** ``boolean``
-    * **Default value:** ``true``
-
-    The single distinct optimization will try to replace multiple ``DISTINCT`` clauses
-    with a single ``GROUP BY`` clause, which can be substantially faster to execute.
+    can return empty partitions, if they were created by other systems. Presto cannot
+    create them.
 
 ``optimizer.push-aggregation-through-join``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -548,9 +601,9 @@ Optimizer Properties
     * **Default value:** ``true``
 
     Parallelize writes when using ``UNION ALL`` in queries that write data. This improves the
-    speed of writing output tables in ``UNION ALL`` queries because these writes do not require
+    speed of writing output tables in ``UNION ALL`` queries, because these writes do not require
     additional synchronization when collecting results. Enabling this optimization can improve
-    ``UNION ALL`` speed when write speed is not yet saturated. However, it may slow down queries
+    ``UNION ALL`` speed, when write speed is not yet saturated. However, it may slow down queries
     in an already heavily loaded system. This can also be specified on a per-query basis
     using the ``push_table_write_through_union`` session property.
 
@@ -563,12 +616,12 @@ Optimizer Properties
     * **Default value:** ``ELIMINATE_CROSS_JOINS``
 
     The join reordering strategy to use.  ``NONE`` maintains the order the tables are listed in the
-    query.  ``ELIMINATE_CROSS_JOINS`` reorders joins to eliminate cross joins where possible and
-    otherwise maintains the original query order. When reordering joins it also strives to maintain the
-    original table order as much as possible. ``AUTOMATIC`` enumerates possible orders and uses
-    statistics-based cost estimation to determine the least cost order. If stats are not available or if
+    query.  ``ELIMINATE_CROSS_JOINS`` reorders joins to eliminate cross joins, where possible, and
+    otherwise maintains the original query order. When reordering joins, it also strives to maintain the
+    original table order as much as possible. ``AUTOMATIC`` enumerates possible orders, and uses
+    statistics-based cost estimation to determine the least cost order. If stats are not available, or if
     for any reason a cost could not be computed, the ``ELIMINATE_CROSS_JOINS`` strategy is used. This can
-    also be specified on a per-query basis using the ``join_reordering_strategy`` session property.
+    be specified on a per-query basis using the ``join_reordering_strategy`` session property.
 
 ``optimizer.max-reordered-joins``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -596,7 +649,7 @@ The following properties allow tuning the :doc:`/functions/regexp`.
 
     Which library to use for regular expression functions.
     ``JONI`` is generally faster for common usage, but can require exponential
-    time for certain expression patterns. ``RE2J`` uses a different algorithm
+    time for certain expression patterns. ``RE2J`` uses a different algorithm,
     which guarantees linear time, but is often slower.
 
 ``re2j.dfa-states-limit``
@@ -606,9 +659,9 @@ The following properties allow tuning the :doc:`/functions/regexp`.
     * **Minimum value:** ``2``
     * **Default value:** ``2147483647``
 
-    The maximum number of states to use when RE2J builds the fast
-    but potentially memory intensive deterministic finite automaton (DFA)
-    for regular expression matching. If the limit is reached, RE2J will fall
+    The maximum number of states to use when RE2J builds the fast,
+    but potentially memory intensive, deterministic finite automaton (DFA)
+    for regular expression matching. If the limit is reached, RE2J falls
     back to the algorithm that uses the slower, but less memory intensive
     non-deterministic finite automaton (NFA). Decreasing this value decreases the
     maximum memory footprint of a regular expression search at the cost of speed.
@@ -620,9 +673,9 @@ The following properties allow tuning the :doc:`/functions/regexp`.
     * **Minimum value:** ``0``
     * **Default value:** ``5``
 
-    The number of times that RE2J will retry the DFA algorithm when
+    The number of times that RE2J retries the DFA algorithm, when
     it reaches a states limit before using the slower, but less memory
-    intensive NFA algorithm for all future inputs for that search. If hitting the
+    intensive NFA algorithm, for all future inputs for that search. If hitting the
     limit for a given input row is likely to be an outlier, you want to be able
     to process subsequent rows using the faster DFA algorithm. If you are likely
     to hit the limit on matches for subsequent rows as well, you want to use the

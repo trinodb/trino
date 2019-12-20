@@ -1,0 +1,23 @@
+{
+  "tableName": "test_table",
+  "schemaName": "prod",
+  "streamName": "test_kinesis_stream",
+  "message": {
+    "dataFormat": "json",
+    "fields": [{
+      "name": "id",
+      "type": "BIGINT",
+      "mapping": "id",
+      "comment": "comment",
+      "hidden": "false"
+    },
+      {
+        "name": "name",
+        "type": "VARCHAR",
+        "mapping": "name",
+        "comment": "comment",
+        "hidden": "false"
+      }
+    ]
+  }
+}

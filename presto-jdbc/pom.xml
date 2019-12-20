@@ -3,9 +3,9 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.facebook.presto</groupId>
+        <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.216-SNAPSHOT</version>
+        <version>327-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-jdbc</artifactId>
@@ -13,23 +13,23 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <shadeBase>com.facebook.presto.jdbc.internal</shadeBase>
+        <shadeBase>io.prestosql.jdbc.\$internal</shadeBase>
     </properties>
 
     <dependencies>
         <dependency>
-            <groupId>com.facebook.presto</groupId>
+            <groupId>io.prestosql</groupId>
             <artifactId>presto-client</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-spi</artifactId>
         </dependency>
 
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>okhttp</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>concurrent</artifactId>
         </dependency>
 
         <dependency>
@@ -77,31 +77,37 @@
 
         <!-- for testing -->
         <dependency>
-            <groupId>com.facebook.presto</groupId>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-spi</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.prestosql</groupId>
             <artifactId>presto-main</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.presto</groupId>
+            <groupId>io.prestosql</groupId>
             <artifactId>presto-parser</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.presto</groupId>
+            <groupId>io.prestosql</groupId>
             <artifactId>presto-tpch</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.presto</groupId>
+            <groupId>io.prestosql</groupId>
             <artifactId>presto-hive-hadoop2</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.presto</groupId>
+            <groupId>io.prestosql</groupId>
             <artifactId>presto-blackhole</artifactId>
             <scope>test</scope>
         </dependency>
@@ -131,8 +137,8 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>concurrent</artifactId>
+            <groupId>com.google.inject</groupId>
+            <artifactId>guice</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -151,28 +157,6 @@
 
     <build>
         <plugins>
-            <!-- workaround for MSHADE-195 -->
-            <plugin>
-                <artifactId>maven-source-plugin</artifactId>
-                <executions>
-                    <!-- disable the default execution -->
-                    <execution>
-                        <id>attach-sources</id>
-                        <configuration>
-                            <skipSource>true</skipSource>
-                        </configuration>
-                    </execution>
-                    <!-- enable only the test jar; the sources jar is attached by the shade plugin -->
-                    <execution>
-                        <id>test-only</id>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>test-jar-no-fork</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
@@ -188,11 +172,11 @@
                             <dependencyReducedPomLocation>${project.build.directory}/pom.xml</dependencyReducedPomLocation>
                             <relocations>
                                 <relocation>
-                                    <pattern>com.facebook.presto.client</pattern>
+                                    <pattern>io.prestosql.client</pattern>
                                     <shadedPattern>${shadeBase}.client</shadedPattern>
                                 </relocation>
                                 <relocation>
-                                    <pattern>com.facebook.presto.spi</pattern>
+                                    <pattern>io.prestosql.spi</pattern>
                                     <shadedPattern>${shadeBase}.spi</shadedPattern>
                                 </relocation>
                                 <relocation>
@@ -218,10 +202,6 @@
                                 <relocation>
                                     <pattern>javax.inject</pattern>
                                     <shadedPattern>${shadeBase}.inject</shadedPattern>
-                                </relocation>
-                                <relocation>
-                                    <pattern>org.openjdk.jol</pattern>
-                                    <shadedPattern>${shadeBase}.jol</shadedPattern>
                                 </relocation>
                                 <relocation>
                                     <pattern>org.joda.time</pattern>

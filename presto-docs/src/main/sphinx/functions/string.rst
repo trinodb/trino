@@ -130,6 +130,12 @@ String Functions
     Returns the starting position of the first instance of ``substring`` in
     ``string``. Positions start with ``1``. If not found, ``0`` is returned.
 
+.. function:: strpos(string, substring, instance) -> bigint
+
+    Returns the position of the N-th ``instance`` of ``substring`` in ``string``.
+    When ``instance`` is a negative number the search will start from the end of ``string``.
+    Positions start with ``1``. If not found, ``0`` is returned.
+
 .. function:: position(substring IN string) -> bigint
 
     Returns the starting position of the first instance of ``substring`` in
@@ -201,6 +207,6 @@ Unicode Functions
 .. function:: from_utf8(binary, replace) -> varchar
 
     Decodes a UTF-8 encoded string from ``binary``. Invalid UTF-8 sequences
-    are replaced with `replace`. The replacement string `replace` must either
+    are replaced with ``replace``. The replacement string ``replace`` must either
     be a single character or empty (in which case invalid characters are
     removed).

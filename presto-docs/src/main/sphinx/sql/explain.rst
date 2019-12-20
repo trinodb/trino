@@ -49,53 +49,84 @@ Logical plan:
 .. code-block:: none
 
     presto:tiny> EXPLAIN SELECT regionkey, count(*) FROM nation GROUP BY 1;
-                                                    Query Plan
-    ----------------------------------------------------------------------------------------------------------
-     - Output[regionkey, _col1] => [regionkey:bigint, count:bigint]
-             _col1 := count
-         - RemoteExchange[GATHER] => regionkey:bigint, count:bigint
-             - Aggregate(FINAL)[regionkey] => [regionkey:bigint, count:bigint]
-                    count := "count"("count_8")
-                 - LocalExchange[HASH][$hashvalue] ("regionkey") => regionkey:bigint, count_8:bigint, $hashvalue:bigint
-                     - RemoteExchange[REPARTITION][$hashvalue_9] => regionkey:bigint, count_8:bigint, $hashvalue_9:bigint
-                         - Project[] => [regionkey:bigint, count_8:bigint, $hashvalue_10:bigint]
-                                 $hashvalue_10 := "combine_hash"(BIGINT '0', COALESCE("$operator$hash_code"("regionkey"), 0))
-                             - Aggregate(PARTIAL)[regionkey] => [regionkey:bigint, count_8:bigint]
-                                     count_8 := "count"(*)
-                                 - TableScan[tpch:tpch:nation:sf0.1, originalConstraint = true] => [regionkey:bigint]
-                                         regionkey := tpch:regionkey
+                                                       Query Plan
+    -----------------------------------------------------------------------------------------------------------------
+     Output[regionkey, _col1]
+     │   Layout: [regionkey:bigint, count:bigint]
+     │   Estimates: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+     │   _col1 := count
+     └─ RemoteExchange[GATHER]
+        │   Layout: [regionkey:bigint, count:bigint]
+        │   Estimates: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+        └─ Aggregate(FINAL)[regionkey]
+           │   Layout: [regionkey:bigint, count:bigint]
+           │   Estimates: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+           │   count := count("count_8")
+           └─ LocalExchange[HASH][$hashvalue] ("regionkey")
+              │   Layout: [regionkey:bigint, count_8:bigint, $hashvalue:bigint]
+              │   Estimates: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+              └─ RemoteExchange[REPARTITION][$hashvalue_9]
+                 │   Layout: [regionkey:bigint, count_8:bigint, $hashvalue_9:bigint]
+                 │   Estimates: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+                 └─ Project[]
+                    │   Layout: [regionkey:bigint, count_8:bigint, $hashvalue_10:bigint]
+                    │   Estimates: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+                    │   $hashvalue_10 := "combine_hash"(bigint '0', COALESCE("$operator$hash_code"("regionkey"), 0))
+                    └─ Aggregate(PARTIAL)[regionkey]
+                       │   Layout: [regionkey:bigint, count_8:bigint]
+                       │   count_8 := count(*)
+                       └─ TableScan[tpch:nation:sf0.01]
+                              Layout: [regionkey:bigint]
+                              Estimates: {rows: 25 (225B), cpu: 225, memory: 0B, network: 0B}
+                              regionkey := tpch:regionkey
 
 Distributed plan:
 
 .. code-block:: none
 
     presto:tiny> EXPLAIN (TYPE DISTRIBUTED) SELECT regionkey, count(*) FROM nation GROUP BY 1;
-                                              Query Plan
-    ----------------------------------------------------------------------------------------------
+                                                  Query Plan
+    ------------------------------------------------------------------------------------------------------
      Fragment 0 [SINGLE]
          Output layout: [regionkey, count]
          Output partitioning: SINGLE []
-         - Output[regionkey, _col1] => [regionkey:bigint, count:bigint]
-                 _col1 := count
-             - RemoteSource[1] => [regionkey:bigint, count:bigint]
+         Stage Execution Strategy: UNGROUPED_EXECUTION
+         Output[regionkey, _col1]
+         │   Layout: [regionkey:bigint, count:bigint]
+         │   Estimates: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+         │   _col1 := count
+         └─ RemoteSource[1]
+                Layout: [regionkey:bigint, count:bigint]
 
      Fragment 1 [HASH]
          Output layout: [regionkey, count]
          Output partitioning: SINGLE []
-         - Aggregate(FINAL)[regionkey] => [regionkey:bigint, count:bigint]
-                 count := "count"("count_8")
-             - LocalExchange[HASH][$hashvalue] ("regionkey") => regionkey:bigint, count_8:bigint, $hashvalue:bigint
-                 - RemoteSource[2] => [regionkey:bigint, count_8:bigint, $hashvalue_9:bigint]
+         Stage Execution Strategy: UNGROUPED_EXECUTION
+         Aggregate(FINAL)[regionkey]
+         │   Layout: [regionkey:bigint, count:bigint]
+         │   Estimates: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+         │   count := count("count_8")
+         └─ LocalExchange[HASH][$hashvalue] ("regionkey")
+            │   Layout: [regionkey:bigint, count_8:bigint, $hashvalue:bigint]
+            │   Estimates: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+            └─ RemoteSource[2]
+                   Layout: [regionkey:bigint, count_8:bigint, $hashvalue_9:bigint]
 
      Fragment 2 [SOURCE]
          Output layout: [regionkey, count_8, $hashvalue_10]
          Output partitioning: HASH [regionkey][$hashvalue_10]
-         - Project[] => [regionkey:bigint, count_8:bigint, $hashvalue_10:bigint]
-                 $hashvalue_10 := "combine_hash"(BIGINT '0', COALESCE("$operator$hash_code"("regionkey"), 0))
-             - Aggregate(PARTIAL)[regionkey] => [regionkey:bigint, count_8:bigint]
-                     count_8 := "count"(*)
-                 - TableScan[tpch:tpch:nation:sf0.1, originalConstraint = true] => [regionkey:bigint]
-                         regionkey := tpch:regionkey
+         Stage Execution Strategy: UNGROUPED_EXECUTION
+         Project[]
+         │   Layout: [regionkey:bigint, count_8:bigint, $hashvalue_10:bigint]
+         │   Estimates: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+         │   $hashvalue_10 := "combine_hash"(bigint '0', COALESCE("$operator$hash_code"("regionkey"), 0))
+         └─ Aggregate(PARTIAL)[regionkey]
+            │   Layout: [regionkey:bigint, count_8:bigint]
+            │   count_8 := count(*)
+            └─ TableScan[tpch:nation:sf0.01, grouped = false]
+                   Layout: [regionkey:bigint]
+                   Estimates: {rows: 25 (225B), cpu: 225, memory: 0B, network: 0B}
+                   regionkey := tpch:regionkey
 
 Validate:
 
@@ -139,7 +170,14 @@ IO:
                }
              } ]
            }
-         } ]
+         } ],
+         "estimate" : {
+           "outputRowCount" : 15000.0,
+           "outputSizeInBytes" : 1597294.0,
+           "cpuCost" : 1597294.0,
+           "maxMemory" : 0.0,
+           "networkCost" : 0.0
+         },
        } ],
        "outputTable" : {
          "catalog" : "hive",
@@ -147,6 +185,13 @@ IO:
            "schema" : "tpch",
            "table" : "test_nation"
          }
+       },
+       "estimate" : {
+         "outputRowCount" : 15000.0,
+         "outputSizeInBytes" : 1597294.0,
+         "cpuCost" : 1597294.0,
+         "maxMemory" : 0.0,
+         "networkCost" : 1597294.0
        }
      }
 

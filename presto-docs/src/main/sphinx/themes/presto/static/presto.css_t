@@ -12,6 +12,8 @@
  * limitations under the License.
  */
 
+@import url('https://fonts.googleapis.com/css?family=Lato:400,700,900');
+
 @import url("haiku.css");
 
 html {
@@ -20,12 +22,25 @@ html {
 }
 
 body {
-    font-family: 'Helvetica Neue', Helvetica, Arial, 'lucida grande', tahoma, verdana, arial, sans-serif;
+    font-family: 'Lato', sans-serif;
     color: #222222;
 }
 
+a:link, a:visited {
+  font-weight: bold;
+  text-decoration: none;
+  color: #44af5c; }
+
+a:hover, a:active {
+  text-decoration: none;
+  color: #299642; }
+
+h1, h2, h3, h4, h5, h6 {
+  color: #5a92f5;
+  font-weight: 700; }
+
 div.header {
-    background-color: #374665;
+    background-color: #000;
     background-image: url(presto.png);
     background-position: 36px 50%;
     background-repeat: no-repeat;
@@ -43,7 +58,11 @@ div.header h1 a {
 }
 
 div.topnav {
-    background: #eeeeee;
+    background: #f3f3f3;
+}
+
+div.bottomnav {
+    background: #f3f3f3;
 }
 
 div.topnav,
@@ -90,6 +109,20 @@ div.content ul > li {
     background-image: url(bullet.png);
 }
 
+div.toctree-wrapper ul > li.toctree-l1 {
+    list-style-type: none;
+    background-image: none;
+    background: none;
+    padding: 0 0 0 0
+}
+
+div.toctree-wrapper ul > li > ul > li.toctree-l2 {
+    list-style-type: none;
+    background-image: none;
+    background: none;
+    padding: 0 0 0 1em
+}
+
 div.topic {
     border: none;
 }
@@ -122,7 +155,7 @@ tt.docutils.literal, code.docutils.literal {
 }
 
 /* hide children of Release Notes */
-div.toctree-wrapper > ul > li:last-child > ul {
+#presto-documentation > div.toctree-wrapper > ul > li:last-child > ul {
     display: none;
 }
 

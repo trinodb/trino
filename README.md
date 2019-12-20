@@ -1,15 +1,15 @@
-# Presto [![Build Status](https://travis-ci.org/prestodb/presto.svg?branch=master)](https://travis-ci.org/prestodb/presto)
+# Presto
+[![Build Status](https://github.com/prestosql/presto/workflows/CI/badge.svg)](https://github.com/prestosql/presto/actions?query=workflow%3ACI+event%3Apush+branch%3Amaster)
 
 Presto is a distributed SQL query engine for big data.
 
-See the [User Manual](https://prestodb.io/docs/current/) for deployment instructions and end user documentation.
+See the [User Manual](https://prestosql.io/docs/current/) for deployment instructions and end user documentation.
 
 ## Requirements
 
 * Mac OS X or Linux
-* Java 8 Update 151 or higher (8u151+), 64-bit. Both Oracle JDK and OpenJDK are supported.
-* Maven 3.3.9+ (for building)
-* Python 2.4+ (for running with the launcher script)
+* Java 8 Update 161 or higher (8u161+), 64-bit. Both Oracle JDK and OpenJDK are supported.
+* Python 2.6+ (for running with the launcher script)
 
 ## Building Presto
 
@@ -37,14 +37,14 @@ After opening the project in IntelliJ, double check that the Java SDK is properl
 
 Presto comes with sample configuration that should work out-of-the-box for development. Use the following options to create a run configuration:
 
-* Main Class: `com.facebook.presto.server.PrestoServer`
+* Main Class: `io.prestosql.server.PrestoServer`
 * VM Options: `-ea -XX:+UseG1GC -XX:G1HeapRegionSize=32M -XX:+UseGCOverheadLimit -XX:+ExplicitGCInvokesConcurrent -Xmx2G -Dconfig=etc/config.properties -Dlog.levels-file=etc/log.properties`
 * Working directory: `$MODULE_DIR$`
 * Use classpath of module: `presto-main`
 
 The working directory should be the `presto-main` subdirectory. In IntelliJ, using `$MODULE_DIR$` accomplishes this automatically.
 
-Additionally, the Hive plugin must be configured with location of your Hive metastore Thrift service. Add the following to the list of VM options, replacing `localhost:9083` with the correct host and port (or use the below value if you do not have a Hive metastore):
+Additionally, the Hive plugin must be configured with the location of your Hive metastore Thrift service. Add the following to the list of VM options, replacing `localhost:9083` with the correct host and port (or use the below value if you do not have a Hive metastore):
 
     -Dhive.metastore.uri=thrift://localhost:9083
 
@@ -57,6 +57,7 @@ If your Hive metastore or HDFS cluster is not directly accessible to your local 
 Then add the following to the list of VM options:
 
     -Dhive.metastore.thrift.client.socks-proxy=localhost:1080
+    -Dhive.hdfs.socks-proxy=localhost:1080
 
 ### Running the CLI
 
@@ -72,11 +73,13 @@ In the sample configuration, the Hive connector is mounted in the `hive` catalog
 
     SHOW TABLES FROM hive.default;
 
-## Code Style
+## Development
+
+### Code Style
 
 We recommend you use IntelliJ as your IDE. The code style template for the project can be found in the [codestyle](https://github.com/airlift/codestyle) repository along with our general programming and Java guidelines. In addition to those you should also adhere to the following:
 
-* Alphabetize sections in the documentation source files (both in table of contents files and other regular documentation files). In general, alphabetize methods/variables/sections if such ordering already exists in the surrounding code.
+* Alphabetize sections in the documentation source files (both in the table of contents files and other regular documentation files). In general, alphabetize methods/variables/sections if such ordering already exists in the surrounding code.
 * When appropriate, use the Java 8 stream API. However, note that the stream implementation does not perform well so avoid using it in inner loops or otherwise performance sensitive sections.
 * Categorize errors when throwing exceptions. For example, PrestoException takes an error code as an argument, `PrestoException(HIVE_TOO_MANY_OPEN_PARTITIONS)`. This categorization lets you generate reports so you can monitor the frequency of various failures.
 * Ensure that all files have the appropriate license header; you can generate the license by running `mvn license:format`.
@@ -85,7 +88,23 @@ We recommend you use IntelliJ as your IDE. The code style template for the proje
 * Use an assertion from Airlift's `Assertions` class if there is one that covers your case rather than writing the assertion by hand. Over time we may move over to more fluent assertions like AssertJ.
 * When writing a Git commit message, follow these [guidelines](https://chris.beams.io/posts/git-commit/).
 
-## Building the Web UI
+### Additional IDE configuration
+
+When using IntelliJ to develop Presto, we recommend starting with all of the default inspections,
+with some modifications.
+
+Enable the following inspections:
+
+- ``Java | Internationalization | Implicit usage of platform's default charset``,
+- ``Java | Class structure | Utility class is not 'final'``,
+- ``Java | Class structure | Utility class with 'public' constructor``,
+- ``Java | Class structure | Utility class without 'private' constructor``.
+
+Disable the following inspections:
+
+- ``Java | Abstraction issues | 'Optional' used as field or parameter type``.
+
+### Building the Web UI
 
 The Presto Web UI is composed of several React components and is written in JSX and ES6. This source code is compiled and packaged into browser-compatible Javascript, which is then checked in to the Presto source code (in the `dist` folder). You must have [Node.js](https://nodejs.org/en/download/) and [Yarn](https://yarnpkg.com/en/) installed to execute these commands. To update this folder after making changes, simply run:
 
@@ -100,3 +119,8 @@ To simplify iteration, you can also run in `watch` mode, which automatically re-
     yarn --cwd presto-main/src/main/resources/webapp/src run watch
 
 To iterate quickly, simply re-build the project in IntelliJ after packaging is complete. Project resources will be hot-reloaded and changes are reflected on browser refresh.
+
+## Writing and Building Documentation
+
+More information about the documentation process can be found in the
+[README file in presto-docs](./presto-docs/README.md).

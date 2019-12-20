@@ -7,7 +7,7 @@ services:
     ports:
       - '15432:15432'
     environment:
-      POSTGRES_PASSWORD: swarm
-      POSTGRES_USER: swarm
+      POSTGRES_PASSWORD: test
+      POSTGRES_USER: test
       POSTGRES_DB: test
       PGPORT: 15432

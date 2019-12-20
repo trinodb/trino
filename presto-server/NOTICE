@@ -2,7 +2,8 @@ THE FOLLOWING IS SOFTWARE LICENSED BY THIRD PARTIES UNDER OPEN SOURCE LICENSES T
 
 -----
 
-The following software may be included in this product: aether. The source code is available at http://eclipse.org/aether/download/. You may also request a copy of the source code by sending a request to opensource@fb.com. This software contains the following license and notice below:
+The following software may be included in this product: aether. The source code is available at http://eclipse.org/aether/download/.
+This software contains the following license and notice below:
 
 Eclipse Public License - v 1.0
 
@@ -367,7 +368,8 @@ THE POSSIBILITY OF SUCH DAMAGE.
 
 -----
 
-The following software may be included in this product: findbugs. The source code is available at http://code.google.com/p/findbugs/. You may also request a copy of the source code by sending a request to opensource@fb.com. This software contains the following license and notice below:
+The following software may be included in this product: findbugs. The source code is available at http://code.google.com/p/findbugs/.
+This software contains the following license and notice below:
 
 		  GNU LESSER GENERAL PUBLIC LICENSE
 		       Version 2.1, February 1999
@@ -1879,7 +1881,7 @@ http://code.google.com/p/jsr-305/
 
 -----
 
-The following software may be included in this product: floatingdecimal. The source code is available at https://github.com/airlift/floatingdecimal. You may also request a copy of the source code by sending a request to opensource@fb.com. This software contains the following license and notice below:
+The following software may be included in this product: floatingdecimal. The source code is available at https://github.com/airlift/floatingdecimal. This software contains the following license and notice below:
 
 /*
 * Copyright (c) 1996, 2011, Oracle and/or its affiliates. All rights reserved.
@@ -2248,7 +2250,8 @@ Public License instead of this License.
 
 -----
 
-The following software may be included in this product: H2 Database Engine. The source code is available at http://www.h2database.com/html/download.html. You may also request a copy of the source code by sending a request to opensource@fb.com. This software contains the following license and notice below:
+The following software may be included in this product: H2 Database Engine. The source code is available at http://www.h2database.com/html/download.html.
+This software contains the following license and notice below:
 
 Eclipse Public License - v 1.0
 
@@ -2340,7 +2343,8 @@ This Agreement is governed by the laws of the State of New York and the intellec
 
 -----
 
-The following software may be included in this product: java servlet api. The source code is available at https://java.net/projects/servlet-spec/. You may also request a copy of the source code by sending a request to opensource@fb.com. This software contains the following license and notice below:
+The following software may be included in this product: java servlet api. The source code is available at https://java.net/projects/servlet-spec/.
+This software contains the following license and notice below:
 
 COMMON DEVELOPMENT AND DISTRIBUTION LICENSE (CDDL - Version 1.1)
 1. Definitions.
@@ -2493,7 +2497,8 @@ SOFTWARE.
 
 -----
 
-The following software may be included in this product: jersey. The source code is available at https://jersey.java.net/download.html. You may also request a copy of the source code by sending a request to opensource@fb.com. This software contains the following license and notice below:
+The following software may be included in this product: jersey. The source code is available at https://jersey.java.net/download.html.
+This software contains the following license and notice below:
 
 COMMON DEVELOPMENT AND DISTRIBUTION LICENSE (CDDL - Version 1.1)
 1. Definitions.
@@ -2694,7 +2699,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 -----
 
-The following software may be included in this product: logback. The source code is available at http://logback.qos.ch/download.html. You may also request a copy of the source code by sending a request to opensource@fb.com. This software contains the following license and notice below:
+The following software may be included in this product: logback. The source code is available at http://logback.qos.ch/download.html.
+This software contains the following license and notice below:
 
 Eclipse Public License - v 1.0
 
