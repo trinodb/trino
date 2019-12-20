@@ -418,7 +418,7 @@ public final class HiveSessionProperties
             return false;
         }
 
-        // session property can not force validation when sampling is enabled
+        // session property cannot force validation when sampling is enabled
         // todo change this if session properties support null
         return ThreadLocalRandom.current().nextDouble(100) < percentage;
     }

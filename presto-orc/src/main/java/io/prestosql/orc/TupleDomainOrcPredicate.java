@@ -102,12 +102,12 @@ public class TupleDomainOrcPredicate
             return false;
         }
 
-        // if bloom filters are not enabled, we can not restrict the range overlap
+        // if bloom filters are not enabled, we cannot restrict the range overlap
         if (!orcBloomFiltersEnabled) {
             return true;
         }
 
-        // if there an overlap in null values, the bloom filter can not eliminate the overlap
+        // if there an overlap in null values, the bloom filter cannot eliminate the overlap
         if (predicateDomain.isNullAllowed() && stripeDomain.isNullAllowed()) {
             return true;
         }

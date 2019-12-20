@@ -158,7 +158,7 @@ public class ArbitraryOutputBuffer
     @Override
     public void setOutputBuffers(OutputBuffers newOutputBuffers)
     {
-        checkState(!Thread.holdsLock(this), "Can not set output buffers while holding a lock on this");
+        checkState(!Thread.holdsLock(this), "Cannot set output buffers while holding a lock on this");
         requireNonNull(newOutputBuffers, "newOutputBuffers is null");
 
         synchronized (this) {
@@ -201,7 +201,7 @@ public class ArbitraryOutputBuffer
     @Override
     public void enqueue(List<SerializedPage> pages)
     {
-        checkState(!Thread.holdsLock(this), "Can not enqueue pages while holding a lock on this");
+        checkState(!Thread.holdsLock(this), "Cannot enqueue pages while holding a lock on this");
         requireNonNull(pages, "page is null");
 
         // ignore pages after "no more pages" is set
@@ -246,7 +246,7 @@ public class ArbitraryOutputBuffer
     @Override
     public ListenableFuture<BufferResult> get(OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
     {
-        checkState(!Thread.holdsLock(this), "Can not get pages while holding a lock on this");
+        checkState(!Thread.holdsLock(this), "Cannot get pages while holding a lock on this");
         requireNonNull(bufferId, "bufferId is null");
         checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
 
@@ -256,7 +256,7 @@ public class ArbitraryOutputBuffer
     @Override
     public void acknowledge(OutputBufferId bufferId, long sequenceId)
     {
-        checkState(!Thread.holdsLock(this), "Can not acknowledge pages while holding a lock on this");
+        checkState(!Thread.holdsLock(this), "Cannot acknowledge pages while holding a lock on this");
         requireNonNull(bufferId, "bufferId is null");
 
         getBuffer(bufferId).acknowledgePages(sequenceId);
@@ -265,7 +265,7 @@ public class ArbitraryOutputBuffer
     @Override
     public void abort(OutputBufferId bufferId)
     {
-        checkState(!Thread.holdsLock(this), "Can not abort while holding a lock on this");
+        checkState(!Thread.holdsLock(this), "Cannot abort while holding a lock on this");
         requireNonNull(bufferId, "bufferId is null");
 
         getBuffer(bufferId).destroy();
@@ -276,7 +276,7 @@ public class ArbitraryOutputBuffer
     @Override
     public void setNoMorePages()
     {
-        checkState(!Thread.holdsLock(this), "Can not set no more pages while holding a lock on this");
+        checkState(!Thread.holdsLock(this), "Cannot set no more pages while holding a lock on this");
         state.compareAndSet(OPEN, NO_MORE_PAGES);
         state.compareAndSet(NO_MORE_BUFFERS, FLUSHING);
         memoryManager.setNoBlockOnFull();
@@ -294,7 +294,7 @@ public class ArbitraryOutputBuffer
     @Override
     public void destroy()
     {
-        checkState(!Thread.holdsLock(this), "Can not destroy while holding a lock on this");
+        checkState(!Thread.holdsLock(this), "Cannot destroy while holding a lock on this");
 
         // ignore destroy if the buffer already in a terminal state.
         if (state.setIf(FINISHED, oldState -> !oldState.isTerminal())) {
@@ -448,7 +448,7 @@ public class ArbitraryOutputBuffer
 
         public void destroy()
         {
-            checkState(!Thread.holdsLock(this), "Can not destroy master buffer while holding a lock on this");
+            checkState(!Thread.holdsLock(this), "Cannot destroy master buffer while holding a lock on this");
             List<SerializedPageReference> pages;
             synchronized (this) {
                 pages = ImmutableList.copyOf(masterBuffer);

@@ -96,7 +96,7 @@ final class TypeRegistry
     {
         requireNonNull(types, "types is null");
 
-        // Manually register UNKNOWN type without a verifyTypeClass call since it is a special type that can not be used by functions
+        // Manually register UNKNOWN type without a verifyTypeClass call since it is a special type that cannot be used by functions
         this.types.put(UNKNOWN.getTypeSignature(), UNKNOWN);
 
         // always add the built-in types; Presto will not function without these

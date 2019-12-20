@@ -1308,7 +1308,7 @@ public class PrestoS3FileSystem
      *
      * @param uri The URI from which to extract a host value.
      * @return The host value where uri.getAuthority() is used when uri.getHost() returns null as long as no UserInfo is present.
-     * @throws IllegalArgumentException If the bucket can not be determined from the URI.
+     * @throws IllegalArgumentException If the bucket cannot be determined from the URI.
      */
     public static String getBucketName(URI uri)
     {

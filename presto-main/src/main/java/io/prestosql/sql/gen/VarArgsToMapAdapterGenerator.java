@@ -74,7 +74,7 @@ public final class VarArgsToMapAdapterGenerator
         MethodDefinition methodDefinition = classDefinition.declareMethod(a(PUBLIC, STATIC), "varArgsToMap", type(returnType), parameterList);
         BytecodeBlock body = methodDefinition.getBody();
 
-        // ImmutableMap.Builder can not be used here because it doesn't allow nulls.
+        // ImmutableMap.Builder cannot be used here because it doesn't allow nulls.
         Variable map = methodDefinition.getScope().declareVariable(
                 "map",
                 methodDefinition.getBody(),

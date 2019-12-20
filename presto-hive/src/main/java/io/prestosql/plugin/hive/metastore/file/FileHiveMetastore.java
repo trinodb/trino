@@ -170,7 +170,7 @@ public class FileHiveMetastore
         requireNonNull(database, "database is null");
 
         if (database.getLocation().isPresent()) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, "Database can not be created with a location set");
+            throw new PrestoException(HIVE_METASTORE_ERROR, "Database cannot be created with a location set");
         }
 
         verifyDatabaseNotExists(database.getDatabaseName());
@@ -267,7 +267,7 @@ public class FileHiveMetastore
                     throw new PrestoException(HIVE_METASTORE_ERROR, "External table location does not exist");
                 }
                 if (isChildDirectory(catalogDirectory, externalLocation) && !isIcebergTable(table.getParameters())) {
-                    throw new PrestoException(HIVE_METASTORE_ERROR, "External table location can not be inside the system metadata directory");
+                    throw new PrestoException(HIVE_METASTORE_ERROR, "External table location cannot be inside the system metadata directory");
                 }
             }
             catch (IOException e) {
@@ -673,7 +673,7 @@ public class FileHiveMetastore
                     throw new PrestoException(HIVE_METASTORE_ERROR, "External partition location does not exist");
                 }
                 if (isChildDirectory(catalogDirectory, externalLocation)) {
-                    throw new PrestoException(HIVE_METASTORE_ERROR, "External partition location can not be inside the system metadata directory");
+                    throw new PrestoException(HIVE_METASTORE_ERROR, "External partition location cannot be inside the system metadata directory");
                 }
             }
             catch (IOException e) {
@@ -681,7 +681,7 @@ public class FileHiveMetastore
             }
         }
         else {
-            throw new PrestoException(NOT_SUPPORTED, "Partitions can not be added to " + table.getTableType());
+            throw new PrestoException(NOT_SUPPORTED, "Partitions cannot be added to " + table.getTableType());
         }
     }
 

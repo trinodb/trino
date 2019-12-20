@@ -235,7 +235,7 @@ public class TestHiveFileFormats
             throws Exception
     {
         List<TestColumn> testColumns = TEST_COLUMNS.stream()
-                // t_map_null_key_* must be disabled because Presto can not produce maps with null keys so the writer will throw
+                // t_map_null_key_* must be disabled because Presto cannot produce maps with null keys so the writer will throw
                 .filter(TestHiveFileFormats::withoutNullMapKeyTests)
                 .collect(toImmutableList());
 
@@ -285,7 +285,7 @@ public class TestHiveFileFormats
         List<TestColumn> testColumns = TEST_COLUMNS.stream()
                 // RCBinary interprets empty VARCHAR as nulls
                 .filter(testColumn -> !testColumn.getName().equals("t_empty_varchar"))
-                // t_map_null_key_* must be disabled because Presto can not produce maps with null keys so the writer will throw
+                // t_map_null_key_* must be disabled because Presto cannot produce maps with null keys so the writer will throw
                 .filter(TestHiveFileFormats::withoutNullMapKeyTests)
                 .collect(toList());
 
@@ -319,7 +319,7 @@ public class TestHiveFileFormats
                 new ParquetReaderConfig(),
                 new ParquetWriterConfig()).getSessionProperties());
 
-        // A Presto page can not contain a map with null keys, so a page based writer can not write null keys
+        // A Presto page cannot contain a map with null keys, so a page based writer cannot write null keys
         List<TestColumn> testColumns = TEST_COLUMNS.stream()
                 .filter(testColumn -> !testColumn.getName().equals("t_map_null_key") && !testColumn.getName().equals("t_map_null_key_complex_value") && !testColumn.getName().equals("t_map_null_key_complex_key_value"))
                 .collect(toList());
