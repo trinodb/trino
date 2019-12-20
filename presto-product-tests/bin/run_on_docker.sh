@@ -31,8 +31,8 @@ function hadoop_master_container(){
 
 function check_hadoop() {
   HADOOP_MASTER_CONTAINER=$(hadoop_master_container)
-  docker exec ${HADOOP_MASTER_CONTAINER} supervisorctl status hive-server2 | grep -iq running && \
-    docker exec ${HADOOP_MASTER_CONTAINER} netstat -lpn | grep -iq 0.0.0.0:10000
+  docker exec ${HADOOP_MASTER_CONTAINER} supervisorctl status hive-server2 | grep -i running &> /dev/null && \
+    docker exec ${HADOOP_MASTER_CONTAINER} netstat -lpn | grep -i 0.0.0.0:10000 &> /dev/null
 }
 
 function check_any_container_is_up() {
@@ -48,7 +48,7 @@ function run_in_application_runner_container() {
 }
 
 function check_presto() {
-  run_in_application_runner_container /docker/presto-product-tests/conf/docker/files/presto-cli.sh --execute "SHOW CATALOGS" | grep -iq hive
+  run_in_application_runner_container /docker/presto-product-tests/conf/docker/files/presto-cli.sh --execute "SHOW CATALOGS" | grep -i hive &> /dev/null
 }
 
 function run_product_tests() {
