@@ -32,7 +32,6 @@ import io.prestosql.server.SessionContext;
 import io.prestosql.server.protocol.Slug;
 import io.prestosql.spi.ErrorCode;
 import io.prestosql.spi.QueryId;
-import org.assertj.core.util.VisibleForTesting;
 
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
@@ -244,7 +243,6 @@ public class QueuedStatementResource
                 .build();
     }
 
-    @VisibleForTesting
     public static String getScheme(String xForwardedProto, @Context UriInfo uriInfo)
     {
         if (!isNullOrEmpty(xForwardedProto)) {

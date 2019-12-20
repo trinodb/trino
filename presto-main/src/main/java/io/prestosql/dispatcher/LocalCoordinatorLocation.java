@@ -17,7 +17,7 @@ import javax.ws.rs.core.UriInfo;
 
 import java.net.URI;
 
-import static com.google.common.base.Strings.isNullOrEmpty;
+import static io.prestosql.dispatcher.QueuedStatementResource.getScheme;
 
 public class LocalCoordinatorLocation
         implements CoordinatorLocation
@@ -25,7 +25,7 @@ public class LocalCoordinatorLocation
     @Override
     public URI getUri(UriInfo uriInfo, String xForwardedProto)
     {
-        String scheme = isNullOrEmpty(xForwardedProto) ? uriInfo.getRequestUri().getScheme() : xForwardedProto;
+        String scheme = getScheme(xForwardedProto, uriInfo);
         return uriInfo.getRequestUriBuilder()
                 .scheme(scheme)
                 .replacePath("")

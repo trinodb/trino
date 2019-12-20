@@ -57,7 +57,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.Threads.threadsNamed;
@@ -73,6 +72,7 @@ import static io.prestosql.client.PrestoHeaders.PRESTO_SET_ROLE;
 import static io.prestosql.client.PrestoHeaders.PRESTO_SET_SCHEMA;
 import static io.prestosql.client.PrestoHeaders.PRESTO_SET_SESSION;
 import static io.prestosql.client.PrestoHeaders.PRESTO_STARTED_TRANSACTION_ID;
+import static io.prestosql.dispatcher.QueuedStatementResource.getScheme;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.server.protocol.Slug.Context.EXECUTING_QUERY;
 import static java.util.Objects.requireNonNull;
@@ -158,10 +158,7 @@ public class ExecutingStatementResource
             @Suspended AsyncResponse asyncResponse)
     {
         Query query = getQuery(queryId, slug, token);
-        if (isNullOrEmpty(proto)) {
-            proto = uriInfo.getRequestUri().getScheme();
-        }
-
+        proto = getScheme(proto, uriInfo);
         asyncQueryResults(query, token, maxWait, targetResultSize, uriInfo, proto, asyncResponse);
     }
 
