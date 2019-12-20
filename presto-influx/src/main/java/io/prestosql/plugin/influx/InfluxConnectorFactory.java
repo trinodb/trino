@@ -1,3 +1,17 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package io.prestosql.plugin.influx;
 
 import com.google.inject.Injector;
@@ -12,20 +26,25 @@ import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
-public class InfluxConnectorFactory implements ConnectorFactory {
+public class InfluxConnectorFactory
+    implements ConnectorFactory
+{
 
     @Override
-    public String getName() {
+    public String getName()
+    {
         return "influx";
     }
 
     @Override
-    public ConnectorHandleResolver getHandleResolver() {
+    public ConnectorHandleResolver getHandleResolver()
+    {
         return new InfluxHandleResolver();
     }
 
     @Override
-    public Connector create(String catalogName, Map<String, String> config, ConnectorContext context) {
+    public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
+    {
         requireNonNull(config, "config is null");
 
         Bootstrap app = new Bootstrap(
