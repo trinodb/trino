@@ -16,7 +16,6 @@ package io.prestosql.plugin.influx;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.type.BigintType;
@@ -26,29 +25,36 @@ import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 
-public class InfluxColumn
-    extends ColumnMetadata
-{
+import java.util.Locale;
 
+import static com.google.common.base.MoreObjects.ToStringHelper;
+
+public class InfluxColumn
+        extends ColumnMetadata
+{
     public static final InfluxColumn TIME = new InfluxColumn("time", "time", Kind.TIME);
     // map InfluxDB types to Presto types
-    private final static ImmutableMap<String, Type> TYPES_MAPPING = new ImmutableMap.Builder<String, Type>()
-        .put("string", VarcharType.VARCHAR)
-        .put("boolean", BooleanType.BOOLEAN)
-        .put("integer", BigintType.BIGINT)
-        .put("float", DoubleType.DOUBLE)
-        .put("time", TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE)
-        .build();
+    private static final ImmutableMap<String, Type> TYPES_MAPPING = new ImmutableMap.Builder<String, Type>()
+            .put("string", VarcharType.VARCHAR)
+            .put("boolean", BooleanType.BOOLEAN)
+            .put("integer", BigintType.BIGINT)
+            .put("float", DoubleType.DOUBLE)
+            .put("time", TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE)
+            .build();
     private final String influxName;
     private final String influxType;
     private final Kind kind;
 
     @JsonCreator
     public InfluxColumn(@JsonProperty("influxName") String influxName,
-        @JsonProperty("influxType") String influxType,
-        @JsonProperty("kind") Kind kind)
+            @JsonProperty("influxType") String influxType,
+            @JsonProperty("kind") Kind kind)
     {
-        super(influxName.toLowerCase(), TYPES_MAPPING.get(influxType), null, kind.name().toLowerCase(), false);
+        super(influxName.toLowerCase(Locale.ENGLISH),
+                TYPES_MAPPING.get(influxType),
+                null,
+                kind.name().toLowerCase(Locale.ENGLISH),
+                false);
         this.influxName = influxName;
         this.influxType = influxType;
         this.kind = kind;
@@ -72,12 +78,12 @@ public class InfluxColumn
         return kind;
     }
 
-    protected MoreObjects.ToStringHelper toStringHelper(Object self)
+    protected ToStringHelper toStringHelper(Object self)
     {
-        MoreObjects.ToStringHelper helper = com.google.common.base.MoreObjects.toStringHelper(self)
-            .addValue(getName())
-            .addValue(getType())
-            .addValue(kind);
+        ToStringHelper helper = com.google.common.base.MoreObjects.toStringHelper(self)
+                .addValue(getName())
+                .addValue(getType())
+                .addValue(kind);
         if (!getName().equals(getInfluxName())) {
             helper.add("influx-name", getInfluxName());
         }

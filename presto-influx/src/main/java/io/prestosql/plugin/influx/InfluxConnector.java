@@ -29,9 +29,8 @@ import static io.prestosql.spi.transaction.IsolationLevel.READ_COMMITTED;
 import static io.prestosql.spi.transaction.IsolationLevel.checkConnectorSupports;
 
 public class InfluxConnector
-    implements Connector
+        implements Connector
 {
-
     private final LifeCycleManager lifeCycleManager;
     private final InfluxMetadata metadata;
     private final InfluxSplitManager splitManager;
@@ -39,9 +38,9 @@ public class InfluxConnector
 
     @Inject
     public InfluxConnector(LifeCycleManager lifeCycleManager,
-        InfluxMetadata metadata,
-        InfluxSplitManager splitManager,
-        InfluxRecordSetProvider recordSetProvider)
+            InfluxMetadata metadata,
+            InfluxSplitManager splitManager,
+            InfluxRecordSetProvider recordSetProvider)
     {
         this.lifeCycleManager = lifeCycleManager;
         this.metadata = metadata;

@@ -26,9 +26,8 @@ import javax.inject.Inject;
 import java.util.Collections;
 
 public class InfluxSplitManager
-    implements ConnectorSplitManager
+        implements ConnectorSplitManager
 {
-
     private final InfluxClient client;
 
     @Inject

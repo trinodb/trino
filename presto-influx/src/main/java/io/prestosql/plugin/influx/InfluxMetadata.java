@@ -48,9 +48,8 @@ import java.util.Optional;
 import static java.util.Objects.requireNonNull;
 
 public class InfluxMetadata
-    implements ConnectorMetadata
+        implements ConnectorMetadata
 {
-
     private final InfluxClient client;
 
     @Inject
@@ -170,10 +169,10 @@ public class InfluxMetadata
     {
         InfluxTableHandle table = (InfluxTableHandle) handle;
         return Optional.of(new LimitApplicationResult<>(new InfluxTableHandle(
-            table.getRetentionPolicy(),
-            table.getMeasurement(),
-            table.getWhere(),
-            limit), true));
+                table.getRetentionPolicy(),
+                table.getMeasurement(),
+                table.getWhere(),
+                limit), true));
     }
 
     @Override
@@ -256,7 +255,7 @@ public class InfluxMetadata
                 boolean first = true;
                 for (Object value : values.getDiscreteValues().getValues()) {
                     where.append(first ? where.isEmpty() ? "WHERE (" : " AND (" : " OR ")
-                        .add(column).append(" = ").add(value);
+                            .add(column).append(" = ").add(value);
                     first = false;
                 }
                 if (first) {
@@ -275,9 +274,9 @@ public class InfluxMetadata
         client.logger.debug("applyFilter(" + handle + ", " + constraint.getSummary().toString(session) + ") = " + all + ", " + where);
         InfluxTableHandle table = (InfluxTableHandle) handle;
         return Optional.of(new ConstraintApplicationResult<>(new InfluxTableHandle(
-            table.getRetentionPolicy(),
-            table.getMeasurement(),
-            where,
-            table.getLimit()), all ? TupleDomain.all() : constraint.getSummary()));
+                table.getRetentionPolicy(),
+                table.getMeasurement(),
+                where,
+                table.getLimit()), all ? TupleDomain.all() : constraint.getSummary()));
     }
 }

@@ -21,7 +21,7 @@ import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
 public class InfluxHandleResolver
-    implements ConnectorHandleResolver
+        implements ConnectorHandleResolver
 {
     @Override
     public Class<? extends ConnectorTableHandle> getTableHandleClass()

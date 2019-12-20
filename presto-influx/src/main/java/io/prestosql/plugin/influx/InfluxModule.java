@@ -21,9 +21,8 @@ import com.google.inject.Scopes;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class InfluxModule
-    implements Module
+        implements Module
 {
-
     @Override
     public void configure(Binder binder)
     {

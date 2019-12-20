@@ -22,10 +22,9 @@ import io.prestosql.spi.connector.SchemaTableName;
 import static java.util.Objects.requireNonNull;
 
 public class InfluxTableHandle
-    extends SchemaTableName
-    implements ConnectorTableHandle
+        extends SchemaTableName
+        implements ConnectorTableHandle
 {
-
     private final String retentionPolicy;
     private final String measurement;
     private final InfluxQL where;
@@ -33,9 +32,9 @@ public class InfluxTableHandle
 
     @JsonCreator
     public InfluxTableHandle(@JsonProperty("retentionPolicy") String retentionPolicy,
-        @JsonProperty("measurement") String measurement,
-        @JsonProperty("where") InfluxQL where,
-        @JsonProperty("limit") Long limit)
+            @JsonProperty("measurement") String measurement,
+            @JsonProperty("where") InfluxQL where,
+            @JsonProperty("limit") Long limit)
     {
         super(retentionPolicy, measurement);
         this.retentionPolicy = requireNonNull(retentionPolicy, "retentionPolicy is null");
@@ -76,7 +75,7 @@ public class InfluxTableHandle
     public InfluxQL getFromWhere()
     {
         InfluxQL from = new InfluxQL("FROM ")
-            .addIdentifier(getRetentionPolicy()).append('.').addIdentifier(getMeasurement());
+                .addIdentifier(getRetentionPolicy()).append('.').addIdentifier(getMeasurement());
         if (!getWhere().isEmpty()) {
             from.append(' ').append(getWhere().toString());
         }

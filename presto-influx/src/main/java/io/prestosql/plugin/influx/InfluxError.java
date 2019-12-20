@@ -19,12 +19,13 @@ import io.prestosql.spi.ErrorCodeSupplier;
 import io.prestosql.spi.ErrorType;
 import io.prestosql.spi.PrestoException;
 
+import java.util.Arrays;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 public enum InfluxError
-    implements ErrorCodeSupplier
+        implements ErrorCodeSupplier
 {
-
     GENERAL(ErrorType.INTERNAL_ERROR),
     EXTERNAL(ErrorType.EXTERNAL),
     IDENTIFIER_CASE_SENSITIVITY(ErrorType.EXTERNAL),
@@ -38,31 +39,29 @@ public enum InfluxError
         this.errorCode = new ErrorCode(ERROR_BASE + ordinal(), name(), type);
     }
 
-    public void check(boolean condition, String message, String context)
+    public void check(boolean condition, String message, Object... context)
     {
         if (!condition) {
-            fail(message, context);
+            fail(message, getContextString(context));
         }
     }
 
-    public void check(boolean condition, String message)
+    public void fail(String message, Object... context)
     {
-        check(condition, message, null);
-    }
-
-    public void fail(String message, String context)
-    {
-        throw new PrestoException(this, message + (context != null && !context.isEmpty() ? " " + context : ""));
-    }
-
-    public void fail(String message)
-    {
-        fail(message, null);
+        throw new PrestoException(this, message + getContextString(context));
     }
 
     public void fail(Throwable t)
     {
         throw new PrestoException(this, t);
+    }
+
+    private static String getContextString(Object[] context)
+    {
+        if (context == null || context.length == 0) {
+            return "";
+        }
+        return " " + String.join(" ", Arrays.stream(context).toString());
     }
 
     @Override
@@ -75,7 +74,7 @@ public enum InfluxError
     public String toString()
     {
         return toStringHelper(this)
-            .add("code", errorCode)
-            .toString();
+                .add("code", errorCode)
+                .toString();
     }
 }

@@ -25,9 +25,9 @@ import java.util.List;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class InfluxSplit implements ConnectorSplit
+public class InfluxSplit
+        implements ConnectorSplit
 {
-
     private final HostAddress address;
 
     @JsonCreator
@@ -75,7 +75,7 @@ public class InfluxSplit implements ConnectorSplit
     public String toString()
     {
         return toStringHelper(this)
-            .add("host", address)
-            .toString();
+                .add("host", address)
+                .toString();
     }
 }

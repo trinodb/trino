@@ -19,9 +19,8 @@ import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.ConnectorFactory;
 
 public class InfluxPlugin
-    implements Plugin
+        implements Plugin
 {
-
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {

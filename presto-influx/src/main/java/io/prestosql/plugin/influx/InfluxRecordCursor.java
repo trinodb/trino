@@ -23,9 +23,8 @@ import java.util.List;
 import java.util.Objects;
 
 public class InfluxRecordCursor
-    implements RecordCursor
+        implements RecordCursor
 {
-
     private final List<InfluxColumn> columns;
     private final List<Object[]> rows;
     private Object[] row;

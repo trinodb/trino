@@ -27,9 +27,8 @@ import java.util.Map;
 import static java.util.Objects.requireNonNull;
 
 public class InfluxConnectorFactory
-    implements ConnectorFactory
+        implements ConnectorFactory
 {
-
     @Override
     public String getName()
     {
@@ -48,14 +47,14 @@ public class InfluxConnectorFactory
         requireNonNull(config, "config is null");
 
         Bootstrap app = new Bootstrap(
-            new JsonModule(),
-            new InfluxModule());
+                new JsonModule(),
+                new InfluxModule());
 
         Injector injector = app
-            .strictConfig()
-            .doNotInitializeLogging()
-            .setRequiredConfigurationProperties(config)
-            .initialize();
+                .strictConfig()
+                .doNotInitializeLogging()
+                .setRequiredConfigurationProperties(config)
+                .initialize();
 
         return injector.getInstance(InfluxConnector.class);
     }

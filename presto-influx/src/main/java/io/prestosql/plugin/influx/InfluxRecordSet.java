@@ -29,9 +29,8 @@ import java.util.List;
 import java.util.Map;
 
 public class InfluxRecordSet
-    implements RecordSet
+        implements RecordSet
 {
-
     private final List<InfluxColumn> columns;
     private final List<Type> columnTypes;
     private final List<Object[]> rows;
@@ -47,7 +46,7 @@ public class InfluxRecordSet
         }
         this.columnTypes = columnTypes.build();
         this.rows = new ArrayList<>();
-        final int IGNORE = -1;
+        final int ignore = -1;
         for (JsonNode series : results) {
             if (!series.has("values")) {
                 continue;
@@ -56,13 +55,13 @@ public class InfluxRecordSet
             JsonNode header = series.get("columns");
             int[] fields = new int[header.size()];
             for (int i = 0; i < fields.length; i++) {
-                fields[i] = mapping.getOrDefault(header.get(i).textValue(), IGNORE);
+                fields[i] = mapping.getOrDefault(header.get(i).textValue(), ignore);
             }
             for (JsonNode values : series.get("values")) {
                 Object[] row = new Object[columns.size()];
                 for (int i = 0; i < fields.length; i++) {
                     int slot = fields[i];
-                    if (slot != IGNORE) {
+                    if (slot != ignore) {
                         final Object value;
                         JsonNode node = values.get(i);
                         if (node.isNull()) {

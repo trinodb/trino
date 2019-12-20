@@ -31,9 +31,8 @@ import java.util.List;
 import static java.util.Objects.requireNonNull;
 
 public class InfluxRecordSetProvider
-    implements ConnectorRecordSetProvider
+        implements ConnectorRecordSetProvider
 {
-
     private final InfluxClient client;
 
     @Inject

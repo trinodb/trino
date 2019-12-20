@@ -31,6 +31,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
@@ -39,7 +40,6 @@ import static java.util.Objects.requireNonNull;
 
 public class InfluxClient
 {
-
     final Logger logger;
     private final InfluxConfig config;
     // the various metadata are cached for a configurable number of milliseconds so we don't hammer the server
@@ -82,55 +82,54 @@ public class InfluxClient
     private Map<String, InfluxColumn> getTags(String tableName)
     {
         return tagKeys.computeIfAbsent(tableName,
-            k -> new CachedMetaData<>(() -> {
-                String measurement = measurements.get().get(tableName);
-                if (measurement == null) {
-                    return Collections.emptyMap();
-                }
-                String query = new InfluxQL("SHOW TAG KEYS FROM ")
-                    .addIdentifier(measurement)
-                    .toString();
-                ImmutableMap.Builder<String, InfluxColumn> tags = new ImmutableMap.Builder<>();
-                for (Map.Entry<String, String> name : showNames(query).entrySet()) {
-                    tags.put(name.getKey(), new InfluxColumn(name.getValue(), "string", InfluxColumn.Kind.TAG));
-                }
-                return tags.build();
-            }
-            ))
-            .get();
+                k -> new CachedMetaData<>(() -> {
+                    String measurement = measurements.get().get(tableName);
+                    if (measurement == null) {
+                        return Collections.emptyMap();
+                    }
+                    String query = new InfluxQL("SHOW TAG KEYS FROM ")
+                            .addIdentifier(measurement)
+                            .toString();
+                    ImmutableMap.Builder<String, InfluxColumn> tags = new ImmutableMap.Builder<>();
+                    for (Map.Entry<String, String> name : showNames(query).entrySet()) {
+                        tags.put(name.getKey(), new InfluxColumn(name.getValue(), "string", InfluxColumn.Kind.TAG));
+                    }
+                    return tags.build();
+                }))
+                .get();
     }
 
     private Map<String, InfluxColumn> getFields(String schemaName, String tableName)
     {
         return fields.computeIfAbsent(schemaName,
-            k -> new HashMap<>())
-            .computeIfAbsent(tableName,
-                k -> new CachedMetaData<>(() -> {
-                    String retentionPolicy = retentionPolicies.get().get(schemaName);
-                    String measurement = measurements.get().get(tableName);
-                    if (retentionPolicy == null || measurement == null) {
-                        return Collections.emptyMap();
-                    }
-                    String query = new InfluxQL("SHOW FIELD KEYS FROM ")
-                        .addIdentifier(retentionPolicy).append('.')
-                        .addIdentifier(measurement)
-                        .toString();
-                    Map<String, InfluxColumn> fields = new HashMap<>();
-                    for (JsonNode series : execute(query)) {
-                        if (series.has("values")) {
-                            for (JsonNode row : series.get("values")) {
-                                String name = row.get(0).textValue();
-                                String influxType = row.get(1).textValue();
-                                InfluxColumn collision = fields.put(name.toLowerCase(), new InfluxColumn(name, influxType, InfluxColumn.Kind.FIELD));
-                                if (collision != null) {
-                                    InfluxError.IDENTIFIER_CASE_SENSITIVITY.fail("identifier " + name + " collides with " + collision.getInfluxName(), query);
+                k -> new HashMap<>())
+                .computeIfAbsent(tableName,
+                        k -> new CachedMetaData<>(() -> {
+                            String retentionPolicy = retentionPolicies.get().get(schemaName);
+                            String measurement = measurements.get().get(tableName);
+                            if (retentionPolicy == null || measurement == null) {
+                                return Collections.emptyMap();
+                            }
+                            String query = new InfluxQL("SHOW FIELD KEYS FROM ")
+                                    .addIdentifier(retentionPolicy).append('.')
+                                    .addIdentifier(measurement)
+                                    .toString();
+                            Map<String, InfluxColumn> fields = new HashMap<>();
+                            for (JsonNode series : execute(query)) {
+                                if (series.has("values")) {
+                                    for (JsonNode row : series.get("values")) {
+                                        String name = row.get(0).textValue();
+                                        String influxType = row.get(1).textValue();
+                                        InfluxColumn collision = fields.put(name.toLowerCase(Locale.ENGLISH), new InfluxColumn(name, influxType, InfluxColumn.Kind.FIELD));
+                                        if (collision != null) {
+                                            InfluxError.IDENTIFIER_CASE_SENSITIVITY.fail("identifier " + name + " collides with " + collision.getInfluxName(), query);
+                                        }
+                                    }
                                 }
                             }
-                        }
-                    }
-                    return ImmutableMap.copyOf(fields);
-                }))
-            .get();
+                            return ImmutableMap.copyOf(fields);
+                        }))
+                .get();
     }
 
     public boolean tableExistsInSchema(String schemaName, String tableName)
@@ -161,7 +160,7 @@ public class InfluxClient
         if (series.has("values")) {
             for (JsonNode row : series.get("values")) {
                 String name = row.get(0).textValue();
-                String collision = names.put(name.toLowerCase(), name);
+                String collision = names.put(name.toLowerCase(Locale.ENGLISH), name);
                 if (collision != null) {
                     InfluxError.IDENTIFIER_CASE_SENSITIVITY.fail("identifier " + name + " collides with " + collision, query);
                 }
@@ -176,7 +175,7 @@ public class InfluxClient
         final JsonNode response;
         try {
             URL url = new URL("http://" + config.getUserName() + ":" + config.getPassword() + "@" + config.getHost() + ":" + config.getPort() +
-                "/query?db=" + config.getDatabase() + "&q=" + URLEncoder.encode(query, StandardCharsets.UTF_8.toString()));
+                    "/query?db=" + config.getDatabase() + "&q=" + URLEncoder.encode(query, StandardCharsets.UTF_8.toString()));
             response = new ObjectMapper().readTree(url);
         }
         catch (Throwable t) {
@@ -199,7 +198,6 @@ public class InfluxClient
 
     private class CachedMetaData<T>
     {
-
         private final Supplier<T> loader;
         private T value;
         private long lastLoaded;

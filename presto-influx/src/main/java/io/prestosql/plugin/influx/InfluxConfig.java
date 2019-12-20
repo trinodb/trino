@@ -20,7 +20,6 @@ import javax.validation.constraints.NotNull;
 
 public class InfluxConfig
 {
-
     private long cacheMetaDataMillis = 10000;
     private String host = "localhost";
     private int port = 8086;

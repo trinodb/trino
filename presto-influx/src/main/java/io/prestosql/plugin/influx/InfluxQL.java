@@ -20,7 +20,6 @@ import io.airlift.slice.Slice;
 
 public class InfluxQL
 {
-
     private final StringBuilder influxQL;
 
     public InfluxQL()
@@ -72,7 +71,7 @@ public class InfluxQL
 
     public InfluxQL add(Object value)
     {
-        assert !(value instanceof InfluxColumn) : value;
+        InfluxError.GENERAL.check(!(value instanceof InfluxColumn), "value cannot be a column", value);
         if (value == null) {
             influxQL.append("null");
         }
