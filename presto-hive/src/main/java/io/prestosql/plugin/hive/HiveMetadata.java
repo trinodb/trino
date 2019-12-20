@@ -45,6 +45,7 @@ import io.prestosql.plugin.hive.statistics.HiveStatisticsProvider;
 import io.prestosql.plugin.hive.util.HiveUtil;
 import io.prestosql.plugin.hive.util.HiveWriteUtils;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.StandardErrorCode;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -98,6 +99,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -109,6 +111,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -375,7 +378,7 @@ public class HiveMetadata
 
             handle = handle.withAnalyzePartitionValues(list);
             HivePartitionResult partitions = partitionManager.getPartitions(handle, list);
-            handle = partitionManager.applyPartitionResult(handle, partitions);
+            handle = partitionManager.applyPartitionResult(handle, partitions, Optional.empty());
         }
 
         if (analyzeColumnNames.isPresent()) {
@@ -1846,15 +1849,36 @@ public class HiveMetadata
         checkArgument(!handle.getAnalyzePartitionValues().isPresent() || constraint.getSummary().isAll(), "Analyze should not have a constraint");
 
         HivePartitionResult partitionResult = partitionManager.getPartitions(metastore, new HiveIdentity(session), handle, constraint);
-        HiveTableHandle newHandle = partitionManager.applyPartitionResult(handle, partitionResult);
+        HiveTableHandle newHandle = partitionManager.applyPartitionResult(handle, partitionResult, constraint.getColumns());
 
         if (handle.getPartitions().equals(newHandle.getPartitions()) &&
                 handle.getCompactEffectivePredicate().equals(newHandle.getCompactEffectivePredicate()) &&
-                handle.getBucketFilter().equals(newHandle.getBucketFilter())) {
+                handle.getBucketFilter().equals(newHandle.getBucketFilter()) &&
+                handle.getConstraintColumns().equals(newHandle.getConstraintColumns())) {
             return Optional.empty();
         }
 
         return Optional.of(new ConstraintApplicationResult<>(newHandle, partitionResult.getUnenforcedConstraint()));
+    }
+
+    @Override
+    public void validateScan(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        HiveTableHandle handle = (HiveTableHandle) tableHandle;
+        if (HiveSessionProperties.isQueryPartitionFilterRequired(session) && handle.getEnforcedConstraint().isAll()) {
+            List<HiveColumnHandle> partitionColumns = handle.getPartitionColumns();
+            if (!partitionColumns.isEmpty()) {
+                Optional<Set<ColumnHandle>> referencedColumns = handle.getConstraintColumns();
+                if (!referencedColumns.isPresent() || Collections.disjoint(referencedColumns.get(), partitionColumns)) {
+                    String partitionColumnNames = partitionColumns.stream()
+                            .map(HiveColumnHandle::getName)
+                            .collect(Collectors.joining(","));
+                    throw new PrestoException(
+                            StandardErrorCode.QUERY_REJECTED,
+                            String.format("Filter required on %s.%s for at least one partition column: %s ", handle.getSchemaName(), handle.getTableName(), partitionColumnNames));
+                }
+            }
+        }
     }
 
     @Override
@@ -1947,7 +1971,8 @@ public class HiveMetadata
                         hivePartitioningHandle.getBucketCount())),
                 hiveTable.getBucketFilter(),
                 hiveTable.getAnalyzePartitionValues(),
-                hiveTable.getAnalyzeColumnNames());
+                hiveTable.getAnalyzeColumnNames(),
+                Optional.empty());
     }
 
     @VisibleForTesting
