@@ -434,11 +434,11 @@ public class CoordinatorModule
         executionBinder.addBinding(statement).to(DataDefinitionExecutionFactory.class).in(Scopes.SINGLETON);
     }
 
-    private void bindLowMemoryKiller(String name, Class<? extends LowMemoryKiller> clazz)
+    private void bindLowMemoryKiller(LowMemoryKillerPolicy policy, Class<? extends LowMemoryKiller> clazz)
     {
         install(installModuleIf(
                 MemoryManagerConfig.class,
-                config -> name.equals(config.getLowMemoryKillerPolicy()),
+                config -> policy == config.getLowMemoryKillerPolicy(),
                 binder -> binder.bind(LowMemoryKiller.class).to(clazz).in(Scopes.SINGLETON)));
     }
 
