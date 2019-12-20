@@ -21,28 +21,30 @@ public class InfluxMetadata implements ConnectorMetadata {
 
     @Override
     public List<String> listSchemaNames(ConnectorSession session) {
-        return ImmutableList.copyOf(client.getRetentionPolicies().keySet());
+        return ImmutableList.copyOf(client.getSchemaNames());
     }
 
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName) {
-        Collection<String> retentionPolicies;
+        Collection<String> schemaNames;
         if (schemaName.isPresent()) {
-            if (client.getRetentionPolicies().containsKey(schemaName.get())) {
-                retentionPolicies = Collections.singletonList(schemaName.get());
+            if (client.getSchemaNames().contains(schemaName.get())) {
+                schemaNames = Collections.singletonList(schemaName.get());
             } else {
                 return Collections.emptyList();
             }
         } else {
-            retentionPolicies = client.getRetentionPolicies().keySet();
+            schemaNames = client.getSchemaNames();
         }
         // in Influx, all measurements can exist in all retention policies,
         // (and all tickets asking for a way to know which measurements are actually
         // used in which retention policy are closed as wont-fix)
         ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
-        for (String measurementName: client.getMeasurements().keySet()) {
-            for (String retentionPolicy: retentionPolicies) {
-                builder.add(new SchemaTableName(retentionPolicy, measurementName));
+        for (String tableName: client.getTableNames()) {
+            for (String matchingSchemaName: schemaNames) {
+                if (client.tableExistsInSchema(matchingSchemaName, tableName)) {
+                    builder.add(new SchemaTableName(matchingSchemaName, tableName));
+                }
             }
         }
         return builder.build();
@@ -51,8 +53,8 @@ public class InfluxMetadata implements ConnectorMetadata {
     @Override
     public InfluxTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
-        String retentionPolicy = client.getRetentionPolicies().get(tableName.getSchemaName());
-        String measurement = client.getMeasurements().get(tableName.getTableName());
+        String retentionPolicy = client.getRetentionPolicy(tableName.getSchemaName());
+        String measurement = client.getMeasurement(tableName.getTableName());
         if (retentionPolicy != null && measurement != null) {
             return new InfluxTableHandle(retentionPolicy, measurement);
         }
@@ -63,16 +65,16 @@ public class InfluxMetadata implements ConnectorMetadata {
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix) {
         requireNonNull(prefix, "prefix is null");
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> result = ImmutableMap.builder();
-        Collection<String> retentionPolicies = client.getRetentionPolicies().keySet();
-        Collection<String> measurements = client.getMeasurements().keySet();
-        Map<String, ConnectorTableMetadata> metadata = new HashMap<>();
-        for (String retentionPolicy: retentionPolicies) {
-            for (String measurement: measurements) {
-                SchemaTableName schemaTableName = new SchemaTableName(retentionPolicy, measurement);
+        Collection<String> schemaNames = client.getSchemaNames();
+        Collection<String> tableNames = client.getTableNames();
+        for (String schemaName: schemaNames) {
+            for (String tableName: tableNames) {
+                SchemaTableName schemaTableName = new SchemaTableName(schemaName, tableName);
                 if (prefix.matches(schemaTableName)) {
-                    result.put(schemaTableName, metadata.computeIfAbsent(measurement,
-                        k -> getTableMetadata(session, new InfluxTableHandle(retentionPolicy, measurement)))
-                        .getColumns());
+                    List<InfluxColumn> columns = client.getColumns(schemaName, tableName);
+                    if (!columns.isEmpty()) {
+                        result.put(schemaTableName, ImmutableList.copyOf(columns));
+                    }
                 }
             }
         }
@@ -83,7 +85,7 @@ public class InfluxMetadata implements ConnectorMetadata {
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table) {
         InfluxTableHandle influxTable = (InfluxTableHandle)table;
         ImmutableList.Builder<ColumnMetadata> columns = new ImmutableList.Builder<>();
-        for (InfluxColumn column: client.getColumns(influxTable.getTableName())) {
+        for (InfluxColumn column: client.getColumns(influxTable.getSchemaName(), influxTable.getTableName())) {
             columns.add(new InfluxColumnHandle(influxTable.getRetentionPolicy(), influxTable.getMeasurement(), column));
         }
         return new ConnectorTableMetadata(influxTable, columns.build());
@@ -125,36 +127,51 @@ public class InfluxMetadata implements ConnectorMetadata {
             if (values instanceof SortedRangeSet) {
                 boolean first = true;
                 for (Range range : values.getRanges().getOrderedRanges()) {
+                    if (!range.isSingleValue() && !range.getLow().getValueBlock().isPresent() && !range.getHigh().getValueBlock().isPresent()) {
+                        // can't do an IS NULL
+                        client.logger.debug("can't tackle range " + column + ": " + range.toString(session));
+                        all = false;
+                        continue;
+                    }
                     where.append(first ? where.isEmpty() ? "WHERE ((" : " AND ((" : ") OR (");
                     if (range.isSingleValue()) {
                         where.add(column).append(" = ").add(range.getSingleValue());
                     } else {
-                        final String low;
-                        switch (range.getLow().getBound()) {
-                            case EXACTLY:
-                                low = " >= ";
-                                break;
-                            case ABOVE:
-                                low = " > ";
-                                break;
-                            default:
-                                InfluxError.GENERAL.fail("bad low bound", range.toString(session));
-                                continue;
+                        boolean hasLow = false;
+                        if (range.getLow().getValueBlock().isPresent()) {
+                            final String low;
+                            switch (range.getLow().getBound()) {
+                                case EXACTLY:
+                                    low = " >= ";
+                                    break;
+                                case ABOVE:
+                                    low = " > ";
+                                    break;
+                                default:
+                                    InfluxError.GENERAL.fail("bad low bound", range.toString(session));
+                                    continue;
+                            }
+                            where.add(column).append(low).add(range.getLow().getValue());
+                            hasLow = true;
                         }
-                        final String high;
-                        switch (range.getHigh().getBound()) {
-                            case EXACTLY:
-                                high = " <= ";
-                                break;
-                            case BELOW:
-                                high = " < ";
-                                break;
-                            default:
-                                InfluxError.GENERAL.fail("bad high bound", range.toString(session));
-                                continue;
+                        if (range.getHigh().getValueBlock().isPresent()) {
+                            final String high;
+                            switch (range.getHigh().getBound()) {
+                                case EXACTLY:
+                                    high = " <= ";
+                                    break;
+                                case BELOW:
+                                    high = " < ";
+                                    break;
+                                default:
+                                    InfluxError.GENERAL.fail("bad high bound", range.toString(session));
+                                    continue;
+                            }
+                            if (hasLow) {
+                                where.append(" AND ");
+                            }
+                            where.add(column).append(high).add(range.getHigh().getValue());
                         }
-                        where.add(column).append(low).add(range.getLow().getValue()).append(" AND ")
-                            .add(column).append(high).add(range.getHigh().getValue());
                     }
                     first = false;
                 }

@@ -26,7 +26,7 @@ public class InfluxClient {
     private final CachedMetaData<Map<String, String>> retentionPolicies;
     private final CachedMetaData<Map<String, String>> measurements;
     private final Map<String, CachedMetaData<Map<String, InfluxColumn>>> tagKeys;
-    private final Map<String, CachedMetaData<Map<String, InfluxColumn>>> fields;
+    private final Map<String, Map<String, CachedMetaData<Map<String, InfluxColumn>>>> fields;
 
     @Inject
     public InfluxClient(InfluxConfig config) {
@@ -40,18 +40,32 @@ public class InfluxClient {
         this.fields = new ConcurrentHashMap<>();
     }
 
-    public Map<String, String> getRetentionPolicies() {
-        return retentionPolicies.get();
+    public Collection<String> getSchemaNames() {
+        return retentionPolicies.get().keySet();
     }
 
-    public Map<String, String> getMeasurements() {
-        return measurements.get();
+    public String getRetentionPolicy(String schemaName) {
+        return retentionPolicies.get().get(schemaName);
     }
 
-    public Map<String, InfluxColumn> getTags(String measurement) {
-        return tagKeys.computeIfAbsent(measurement,
+    public Collection<String> getTableNames() {
+        return measurements.get().keySet();
+    }
+
+    public String getMeasurement(String tableName) {
+        return measurements.get().get(tableName);
+    }
+
+    private Map<String, InfluxColumn> getTags(String tableName) {
+        return tagKeys.computeIfAbsent(tableName,
             k -> new CachedMetaData<>(() -> {
-                String query = "SHOW TAG KEYS FROM " + getMeasurements().get(measurement);
+                String measurement = measurements.get().get(tableName);
+                if (measurement == null) {
+                    return Collections.emptyMap();
+                }
+                String query = new InfluxQL("SHOW TAG KEYS FROM ")
+                    .addIdentifier(measurement)
+                    .toString();
                 ImmutableMap.Builder<String, InfluxColumn> tags = new ImmutableMap.Builder<>();
                 for (Map.Entry<String, String> name: showNames(query).entrySet()) {
                     tags.put(name.getKey(), new InfluxColumn(name.getValue(), "string", InfluxColumn.Kind.TAG));
@@ -62,33 +76,51 @@ public class InfluxClient {
             .get();
     }
 
-    public Map<String, InfluxColumn> getFields(String measurement) {
-        return fields.computeIfAbsent(measurement,
-            k -> new CachedMetaData<>(() -> {
-                String query = "SHOW FIELD KEYS FROM " + getMeasurements().get(measurement);
-                Map<String, InfluxColumn> fields = new HashMap<>();
-                for (QueryResult.Series series : execute(query)) {
-                    int nameIndex = series.getColumns().indexOf("fieldKey");
-                    int typeIndex = series.getColumns().indexOf("fieldType");
-                    for (List<Object> row : series.getValues()) {
-                        String name = row.get(nameIndex).toString();
-                        String influxType = row.get(typeIndex).toString();
-                        InfluxColumn collision = fields.put(name.toLowerCase(), new InfluxColumn(name, influxType, InfluxColumn.Kind.FIELD));
-                        if (collision != null) {
-                            InfluxError.IDENTIFIER_CASE_SENSITIVITY.fail("identifier " + name + " collides with " + collision.getInfluxName(), query);
+    private Map<String, InfluxColumn> getFields(String schemaName, String tableName) {
+        return fields.computeIfAbsent(schemaName,
+            k -> new HashMap<>())
+            .computeIfAbsent(tableName,
+                k -> new CachedMetaData<>(() -> {
+                    String retentionPolicy =  retentionPolicies.get().get(schemaName);
+                    String measurement = measurements.get().get(tableName);
+                    if (retentionPolicy == null || measurement == null) {
+                        return Collections.emptyMap();
+                    }
+                    String query = new InfluxQL("SHOW FIELD KEYS FROM ")
+                        .addIdentifier(retentionPolicy).append('.')
+                        .addIdentifier(measurement)
+                        .toString();
+                    Map<String, InfluxColumn> fields = new HashMap<>();
+                    for (QueryResult.Series series : execute(query)) {
+                        int nameIndex = series.getColumns().indexOf("fieldKey");
+                        int typeIndex = series.getColumns().indexOf("fieldType");
+                        for (List<Object> row : series.getValues()) {
+                            String name = row.get(nameIndex).toString();
+                            String influxType = row.get(typeIndex).toString();
+                            InfluxColumn collision = fields.put(name.toLowerCase(), new InfluxColumn(name, influxType, InfluxColumn.Kind.FIELD));
+                            if (collision != null) {
+                                InfluxError.IDENTIFIER_CASE_SENSITIVITY.fail("identifier " + name + " collides with " + collision.getInfluxName(), query);
+                            }
                         }
                     }
-                }
-                return ImmutableMap.copyOf(fields);
-            }))
+                    return ImmutableMap.copyOf(fields);
+                }))
             .get();
     }
 
-    public List<InfluxColumn> getColumns(String measurement) {
+    public boolean tableExistsInSchema(String schemaName, String tableName) {
+        return !getFields(schemaName, tableName).isEmpty();
+    }
+
+    public List<InfluxColumn> getColumns(String schemaName, String tableName) {
+        Collection<InfluxColumn> fields = getFields(schemaName, tableName).values();
+        if (fields.isEmpty()) {
+            return Collections.emptyList();
+        }
         ImmutableList.Builder<InfluxColumn> columns = new ImmutableList.Builder<>();
         columns.add(InfluxColumn.TIME);
-        columns.addAll(getTags(measurement).values());
-        columns.addAll(getFields(measurement).values());
+        columns.addAll(getTags(tableName).values());
+        columns.addAll(fields);
         return columns.build();
     }
 

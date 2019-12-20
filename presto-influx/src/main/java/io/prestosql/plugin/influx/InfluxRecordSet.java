@@ -6,14 +6,13 @@ import io.prestosql.spi.connector.RecordSet;
 import io.prestosql.spi.type.Type;
 import org.influxdb.dto.QueryResult;
 
-import java.time.ZoneId;
 import java.util.*;
 
 public class InfluxRecordSet implements RecordSet {
 
     private final List<InfluxColumn> columns;
     private final List<Type> columnTypes;
-    private final List<List<Object>> rows;
+    private final List<Object[]> rows;
 
     public InfluxRecordSet(List<InfluxColumn> columns, List<QueryResult.Series> results) {
         this.columns = columns;
@@ -25,26 +24,25 @@ public class InfluxRecordSet implements RecordSet {
         }
         this.columnTypes = columnTypes.build();
         this.rows = new ArrayList<>();
-        Object[] row = new Object[columns.size()];
+        final int IGNORE = -1;
         for (QueryResult.Series series: results) {
             if (series.getValues().isEmpty()) {
                 continue;
             }
-            Arrays.fill(row, null);
-            if (series.getTags() != null) {
-                for (Map.Entry<String, String> tag : series.getTags().entrySet()) {
-                    row[mapping.get(tag.getKey())] = tag.getValue();
-                }
-            }
+            // we can't push down group-bys so we have no tags to consider
             int[] fields = new int[series.getColumns().size()];
             for (int i = 0; i < fields.length; i++) {
-                fields[i] = mapping.get(series.getColumns().get(i));
+                fields[i] = mapping.getOrDefault(series.getColumns().get(i), IGNORE);
             }
             for (List<Object> values: series.getValues()) {
+                Object[] row = new Object[columns.size()];
                 for (int i = 0; i < fields.length; i++) {
-                    row[fields[i]] = values.get(i);
+                    int slot = fields[i];
+                    if (slot != IGNORE) {
+                        row[slot] = values.get(i);
+                    }
                 }
-                rows.add(ImmutableList.copyOf(row));
+                rows.add(row);
             }
         }
     }

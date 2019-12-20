@@ -9,15 +9,15 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 
-import static java.time.format.DateTimeFormatter.ISO_DATE_TIME;
 
 public class InfluxRecordCursor implements RecordCursor {
 
     private final List<InfluxColumn> columns;
-    private final List<List<Object>> rows;
+    private final List<Object[]> rows;
+    private Object[] row;
     private int rowId;
 
-    public InfluxRecordCursor(List<InfluxColumn> columns, List<List<Object>> rows) {
+    public InfluxRecordCursor(List<InfluxColumn> columns, List<Object[]> rows) {
         this.columns = columns;
         this.rows = rows;
         this.rowId = -1;
@@ -40,7 +40,8 @@ public class InfluxRecordCursor implements RecordCursor {
 
     @Override
     public boolean advanceNextPosition() {
-        return ++rowId < rows.size();
+        row = ++rowId < rows.size()? rows.get(rowId): null;
+        return row != null;
     }
 
     @Override
@@ -90,7 +91,7 @@ public class InfluxRecordCursor implements RecordCursor {
 
     @Override
     public Object getObject(int field) {
-        Object value = rows.get(rowId).get(field);
+        Object value = row[field];
         if (columns.get(field).getKind() == InfluxColumn.Kind.TIME && value instanceof String) {
             return Instant.parse((String) value).toEpochMilli();
         }
@@ -99,11 +100,12 @@ public class InfluxRecordCursor implements RecordCursor {
 
     @Override
     public boolean isNull(int field) {
-        return rows.get(rowId).get(field) == null;
+        return row[field] == null;
     }
 
     @Override
     public void close() {
         rowId = rows.size();
+        row = null;
     }
 }

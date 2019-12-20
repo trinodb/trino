@@ -25,22 +25,14 @@ public class InfluxRecordSetProvider implements ConnectorRecordSetProvider {
     public RecordSet getRecordSet(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle tableHandle, List<? extends ColumnHandle> columns) {
         InfluxTableHandle table = (InfluxTableHandle) tableHandle;
         client.logger.info("getRecordSet(" + split + ", " + table + ", " + columns + ")");
-        InfluxQL query = new InfluxQL();
         ImmutableList.Builder<InfluxColumn> handles = ImmutableList.builder();
-        boolean hasTime = false;
         for (ColumnHandle handle: columns) {
             InfluxColumnHandle column = (InfluxColumnHandle) handle;
-            hasTime |= column.getInfluxName().equals("time");
             InfluxError.GENERAL.check(column.getMeasurement().equals(table.getMeasurement()), "bad measurement for " + column + " in " + table);
             InfluxError.GENERAL.check(column.getRetentionPolicy().equals(table.getRetentionPolicy()), "bad retention-policy for " + column + " in " + table);
-            query.append(query.isEmpty()? "SELECT ": ", ").add(column);
             handles.add(column);
         }
-        if (!hasTime) {
-            query.append(query.isEmpty()? "SELECT time": ", time");
-            handles.add(InfluxColumn.TIME);
-        }
-        query.append(' ').append(table.getFromWhere());
+        InfluxQL query = new InfluxQL("SELECT * ").append(table.getFromWhere());
         List<QueryResult.Series> results = client.execute(query.toString());  // actually run the query against our Influx server
         return new InfluxRecordSet(handles.build(), results);
     }
