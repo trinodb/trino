@@ -341,13 +341,13 @@ public class BaseJdbcClient
 
         checkState(!ranges.get().isEmpty(), "The split ranges is empty");
         List<JdbcSplit> splits = ranges.get().stream()
-                .map(BaseJdbcClient::convertRangeInfoIntoIntoPredicate)
+                .map(BaseJdbcClient::convertRangeInfoIntoPredicate)
                 .map(x -> new JdbcSplit(Optional.of(x)))
                 .collect(Collectors.toList());
         return new FixedSplitSource(splits);
     }
 
-    static String convertRangeInfoIntoIntoPredicate(RangeInfo rangeInfo)
+    static String convertRangeInfoIntoPredicate(RangeInfo rangeInfo)
     {
         StringBuilder sql = new StringBuilder();
         String expression = rangeInfo.getExpression();
