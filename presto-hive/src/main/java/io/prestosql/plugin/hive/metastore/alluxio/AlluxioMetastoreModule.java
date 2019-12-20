@@ -21,7 +21,6 @@ import alluxio.conf.PropertyKey;
 import alluxio.master.MasterClientContext;
 import alluxio.util.ConfigurationUtils;
 import com.google.inject.Binder;
-import com.google.inject.Inject;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;

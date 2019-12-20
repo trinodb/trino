@@ -87,7 +87,6 @@
         <module>presto-parquet</module>
         <module>presto-rcfile</module>
         <module>presto-hive</module>
-        <module>presto-hive-alluxio</module>
         <module>presto-hive-hadoop2</module>
         <module>presto-teradata-functions</module>
         <module>presto-example-http</module>
