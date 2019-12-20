@@ -158,7 +158,7 @@ public class TestMemoryManager
             for (BasicQueryInfo info : queryRunner.getCoordinator().getQueryManager().getQueries()) {
                 if (info.getState().isDone()) {
                     assertNotNull(info.getErrorCode());
-                    assertEquals(info.getErrorCode().getCode(), CLUSTER_OUT_OF_MEMORY.toErrorCode().getCode());
+                    assertEquals(info.getErrorCode(), CLUSTER_OUT_OF_MEMORY.toErrorCode());
                     return;
                 }
             }
