@@ -6,22 +6,47 @@ import io.prestosql.spi.connector.RecordSet;
 import io.prestosql.spi.type.Type;
 import org.influxdb.dto.QueryResult;
 
-import java.util.List;
+import java.time.ZoneId;
+import java.util.*;
 
 public class InfluxRecordSet implements RecordSet {
 
-    private final List<InfluxColumnHandle> columns;
+    private final List<InfluxColumn> columns;
     private final List<Type> columnTypes;
-    private final List<QueryResult.Series> results;
+    private final List<List<Object>> rows;
 
-    public InfluxRecordSet(List<InfluxColumnHandle> columns, List<QueryResult.Series> results) {
+    public InfluxRecordSet(List<InfluxColumn> columns, List<QueryResult.Series> results) {
         this.columns = columns;
         ImmutableList.Builder<Type> columnTypes = new ImmutableList.Builder<>();
-        for (InfluxColumnHandle column: columns) {
+        Map<String, Integer> mapping = new HashMap<>();
+        for (InfluxColumn column: columns) {
             columnTypes.add(column.getType());
+            mapping.put(column.getInfluxName(), mapping.size());
         }
         this.columnTypes = columnTypes.build();
-        this.results = results;
+        this.rows = new ArrayList<>();
+        Object[] row = new Object[columns.size()];
+        for (QueryResult.Series series: results) {
+            if (series.getValues().isEmpty()) {
+                continue;
+            }
+            Arrays.fill(row, null);
+            if (series.getTags() != null) {
+                for (Map.Entry<String, String> tag : series.getTags().entrySet()) {
+                    row[mapping.get(tag.getKey())] = tag.getValue();
+                }
+            }
+            int[] fields = new int[series.getColumns().size()];
+            for (int i = 0; i < fields.length; i++) {
+                fields[i] = mapping.get(series.getColumns().get(i));
+            }
+            for (List<Object> values: series.getValues()) {
+                for (int i = 0; i < fields.length; i++) {
+                    row[fields[i]] = values.get(i);
+                }
+                rows.add(ImmutableList.copyOf(row));
+            }
+        }
     }
 
     @Override
@@ -31,6 +56,6 @@ public class InfluxRecordSet implements RecordSet {
 
     @Override
     public RecordCursor cursor() {
-        return new InfluxRecordCursor(results, columns);
+        return new InfluxRecordCursor(columns, rows);
     }
 }

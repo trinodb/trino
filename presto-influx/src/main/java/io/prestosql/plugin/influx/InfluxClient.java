@@ -2,8 +2,10 @@ package io.prestosql.plugin.influx;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.log.Logger;
 import io.prestosql.spi.HostAddress;
 import org.influxdb.InfluxDB;
+import org.influxdb.InfluxDBException;
 import org.influxdb.InfluxDBFactory;
 import org.influxdb.dto.Query;
 import org.influxdb.dto.QueryResult;
@@ -17,6 +19,7 @@ import static java.util.Objects.requireNonNull;
 
 public class InfluxClient {
 
+    final Logger logger;
     private final InfluxConfig config;
     private final InfluxDB influxDB;
     // the various metadata are cached for a configurable number of milliseconds so we don't hammer the server
@@ -27,6 +30,7 @@ public class InfluxClient {
 
     @Inject
     public InfluxClient(InfluxConfig config) {
+        this.logger = Logger.get(getClass());
         this.config = requireNonNull(config, "config is null");
         this.influxDB = InfluxDBFactory.connect("http://" + config.getHost() + ":" + config.getPort(),
             config.getUserName(), config.getPassword());
@@ -71,7 +75,7 @@ public class InfluxClient {
                         String influxType = row.get(typeIndex).toString();
                         InfluxColumn collision = fields.put(name.toLowerCase(), new InfluxColumn(name, influxType, InfluxColumn.Kind.FIELD));
                         if (collision != null) {
-                            InfluxErrorCode.IDENTIFIER_CASE_SENSITIVITY.fail("identifier " + name + " collides with " + collision.getInfluxName(), query);
+                            InfluxError.IDENTIFIER_CASE_SENSITIVITY.fail("identifier " + name + " collides with " + collision.getInfluxName(), query);
                         }
                     }
                 }
@@ -95,7 +99,7 @@ public class InfluxClient {
                 String name = row.get(0).toString();
                 String collision = names.put(name.toLowerCase(), name);
                 if (collision != null) {
-                    InfluxErrorCode.IDENTIFIER_CASE_SENSITIVITY.fail("identifier " + name + " collides with " + collision, query);
+                    InfluxError.IDENTIFIER_CASE_SENSITIVITY.fail("identifier " + name + " collides with " + collision, query);
                 }
             }
         }
@@ -103,10 +107,19 @@ public class InfluxClient {
     }
 
     List<QueryResult.Series> execute(String query) {
-        QueryResult result = influxDB.query(new Query(query, config.getDatabase()));
-        InfluxErrorCode.GENERAL_ERROR.check(!result.hasError(), result.getError(), query);
-        InfluxErrorCode.GENERAL_ERROR.check(result.getResults().size() == 1, "expecting 1 series", query);
-        return result.getResults().get(0).getSeries();
+        logger.debug("executing: " + query);
+        QueryResult result;
+        try {
+            result = influxDB.query(new Query(query, config.getDatabase()));
+        } catch (InfluxDBException e) {
+            InfluxError.GENERAL.fail(e.toString(), query);
+            return Collections.emptyList();
+        }
+        InfluxError.GENERAL.check(!result.hasError(), result.getError(), query);
+        InfluxError.GENERAL.check(result.getResults().size() == 1, "expecting 1 series", query);
+        InfluxError.GENERAL.check(!result.getResults().get(0).hasError(), result.getResults().get(0).getError(), query);
+        List<QueryResult.Series> series = result.getResults().get(0).getSeries();
+        return series != null? series: Collections.emptyList();
     }
 
     public HostAddress getHostAddress() {

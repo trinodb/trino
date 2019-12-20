@@ -5,16 +5,19 @@ import io.prestosql.spi.ErrorCodeSupplier;
 import io.prestosql.spi.ErrorType;
 import io.prestosql.spi.PrestoException;
 
-public enum InfluxErrorCode implements ErrorCodeSupplier {
+import static com.google.common.base.MoreObjects.toStringHelper;
 
-    GENERAL_ERROR(1, ErrorType.EXTERNAL),
-    IDENTIFIER_CASE_SENSITIVITY(2, ErrorType.EXTERNAL);
+public enum InfluxError implements ErrorCodeSupplier {
+
+    GENERAL (ErrorType.INTERNAL_ERROR),
+    IDENTIFIER_CASE_SENSITIVITY (ErrorType.EXTERNAL),
+    BAD_VALUE (ErrorType.USER_ERROR);
 
     private static final int ERROR_BASE = 0;  // FIXME needs allocating
-    private ErrorCode errorCode;
+    private final ErrorCode errorCode;
 
-    InfluxErrorCode(int code, ErrorType type) {
-        this.errorCode = new ErrorCode(code + ERROR_BASE, name(), ErrorType.EXTERNAL);
+    InfluxError(ErrorType type) {
+        this.errorCode = new ErrorCode(ERROR_BASE + ordinal(), name(), type);
     }
 
     public void check(boolean condition, String message, String context) {
@@ -38,5 +41,12 @@ public enum InfluxErrorCode implements ErrorCodeSupplier {
     @Override
     public ErrorCode toErrorCode() {
         return errorCode;
+    }
+
+    @Override
+    public String toString() {
+        return toStringHelper(this)
+            .add("code", errorCode)
+            .toString();
     }
 }

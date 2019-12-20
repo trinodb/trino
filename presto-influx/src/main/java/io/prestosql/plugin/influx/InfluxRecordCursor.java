@@ -1,21 +1,25 @@
 package io.prestosql.plugin.influx;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.type.Type;
-import org.influxdb.dto.QueryResult;
 
+import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
+
+import static java.time.format.DateTimeFormatter.ISO_DATE_TIME;
 
 public class InfluxRecordCursor implements RecordCursor {
 
-    private final List<QueryResult.Series> results;
-    private final List<InfluxColumnHandle> columns;
+    private final List<InfluxColumn> columns;
+    private final List<List<Object>> rows;
     private int rowId;
 
-    public InfluxRecordCursor(List<QueryResult.Series> results, List<InfluxColumnHandle> columns) {
-        this.results = results;
+    public InfluxRecordCursor(List<InfluxColumn> columns, List<List<Object>> rows) {
         this.columns = columns;
+        this.rows = rows;
         this.rowId = -1;
     }
 
@@ -31,46 +35,75 @@ public class InfluxRecordCursor implements RecordCursor {
 
     @Override
     public Type getType(int field) {
-        return null;
+        return columns.get(field).getType();
     }
 
     @Override
     public boolean advanceNextPosition() {
-        rowId++;
-        return rowId < 1;
+        return ++rowId < rows.size();
     }
 
     @Override
     public boolean getBoolean(int field) {
+        Object value = getObject(field);
+        if (value instanceof Boolean) {
+            return (Boolean) value;
+        }
+        if (value instanceof Number) {
+            return ((Number) value).intValue() != 0;
+        }
+        if (value != null) {
+            InfluxError.BAD_VALUE.fail("cannot cast " + columns.get(field) + ": " + value.getClass() + ": " + value + " to boolean");
+        }
         return false;
     }
 
     @Override
     public long getLong(int field) {
+        Object value = getObject(field);
+        if (value instanceof Number) {
+            return ((Number) value).longValue();
+        }
+        if (value != null) {
+            InfluxError.BAD_VALUE.fail("cannot cast " + columns.get(field) + ": " + value.getClass() + ": " + value + " to long");
+        }
         return 0;
     }
 
     @Override
     public double getDouble(int field) {
+        Object value = getObject(field);
+        if (value instanceof Number) {
+            return ((Number) value).doubleValue();
+        }
+        if (value != null) {
+            InfluxError.BAD_VALUE.fail("cannot cast " + columns.get(field) + ": " + value.getClass() + ": " + value + " to double");
+        }
         return 0;
     }
 
     @Override
     public Slice getSlice(int field) {
-        return null;
+        String value = Objects.toString(getObject(field), null);
+        return value != null? Slices.utf8Slice(value): null;
     }
 
     @Override
     public Object getObject(int field) {
-        return null;
+        Object value = rows.get(rowId).get(field);
+        if (columns.get(field).getKind() == InfluxColumn.Kind.TIME && value instanceof String) {
+            return Instant.parse((String) value).toEpochMilli();
+        }
+        return value;
     }
 
     @Override
     public boolean isNull(int field) {
-        return true;
+        return rows.get(rowId).get(field) == null;
     }
 
     @Override
     public void close() {
+        rowId = rows.size();
     }
 }

@@ -2,8 +2,8 @@ package io.prestosql.plugin.influx;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.type.*;
 
@@ -15,9 +15,9 @@ public class InfluxColumn extends ColumnMetadata {
         .put("boolean", BooleanType.BOOLEAN)
         .put("integer", BigintType.BIGINT)
         .put("float", DoubleType.DOUBLE)
-        .put("_time", TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE)
+        .put("time", TimestampType.TIMESTAMP)
         .build();
-    public static final InfluxColumn TIME = new InfluxColumn("time", "_time", Kind.TIME);
+    public static final InfluxColumn TIME = new InfluxColumn("time", "time", Kind.TIME);
 
     private final String influxName;
     private final String influxType;
@@ -46,6 +46,22 @@ public class InfluxColumn extends ColumnMetadata {
     @JsonProperty
     public Kind getKind() {
         return kind;
+    }
+
+    protected MoreObjects.ToStringHelper toStringHelper(Object self) {
+        MoreObjects.ToStringHelper helper = com.google.common.base.MoreObjects.toStringHelper(self)
+            .addValue(getName())
+            .addValue(getType())
+            .addValue(kind);
+        if (!getName().equals(getInfluxName())) {
+            helper.add("influx-name", getInfluxName());
+        }
+        return helper;
+    }
+
+    @Override
+    public String toString() {
+       return toStringHelper(this).toString();
     }
 
     public enum Kind {

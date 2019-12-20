@@ -3,6 +3,7 @@ package io.prestosql.plugin.influx;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.spi.connector.*;
+import io.prestosql.spi.predicate.*;
 
 import javax.inject.Inject;
 import java.util.*;
@@ -11,7 +12,7 @@ import static java.util.Objects.requireNonNull;
 
 public class InfluxMetadata implements ConnectorMetadata {
 
-    private InfluxClient client;
+    private final InfluxClient client;
 
     @Inject
     public InfluxMetadata(InfluxClient client) {
@@ -50,9 +51,10 @@ public class InfluxMetadata implements ConnectorMetadata {
     @Override
     public InfluxTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
-        if (client.getRetentionPolicies().containsKey(tableName.getSchemaName()) &&
-            client.getMeasurements().containsKey(tableName.getTableName())) {
-            return new InfluxTableHandle(tableName.getSchemaName(), tableName.getTableName());
+        String retentionPolicy = client.getRetentionPolicies().get(tableName.getSchemaName());
+        String measurement = client.getMeasurements().get(tableName.getTableName());
+        if (retentionPolicy != null && measurement != null) {
+            return new InfluxTableHandle(retentionPolicy, measurement);
         }
         return null;
     }
@@ -69,7 +71,7 @@ public class InfluxMetadata implements ConnectorMetadata {
                 SchemaTableName schemaTableName = new SchemaTableName(retentionPolicy, measurement);
                 if (prefix.matches(schemaTableName)) {
                     result.put(schemaTableName, metadata.computeIfAbsent(measurement,
-                        k -> getTableMetadata(session, new InfluxTableHandle(schemaTableName.getSchemaName(), schemaTableName.getTableName())))
+                        k -> getTableMetadata(session, new InfluxTableHandle(retentionPolicy, measurement)))
                         .getColumns());
                 }
             }
@@ -82,7 +84,7 @@ public class InfluxMetadata implements ConnectorMetadata {
         InfluxTableHandle influxTable = (InfluxTableHandle)table;
         ImmutableList.Builder<ColumnMetadata> columns = new ImmutableList.Builder<>();
         for (InfluxColumn column: client.getColumns(influxTable.getTableName())) {
-            columns.add(new InfluxColumnHandle(influxTable.getSchemaName(), influxTable.getTableName(), column));
+            columns.add(new InfluxColumnHandle(influxTable.getRetentionPolicy(), influxTable.getMeasurement(), column));
         }
         return new ConnectorTableMetadata(influxTable, columns.build());
     }
@@ -111,5 +113,80 @@ public class InfluxMetadata implements ConnectorMetadata {
     public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
     {
         return new ConnectorTableProperties();
+    }
+
+    @Override
+    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint) {
+        boolean all = true;
+        InfluxQL where = new InfluxQL();
+        for (Map.Entry<ColumnHandle, Domain> predicate: constraint.getSummary().getDomains().orElse(Collections.emptyMap()).entrySet()) {
+            InfluxColumnHandle column = (InfluxColumnHandle) predicate.getKey();
+            ValueSet values = predicate.getValue().getValues();
+            if (values instanceof SortedRangeSet) {
+                boolean first = true;
+                for (Range range : values.getRanges().getOrderedRanges()) {
+                    where.append(first ? where.isEmpty() ? "WHERE ((" : " AND ((" : ") OR (");
+                    if (range.isSingleValue()) {
+                        where.add(column).append(" = ").add(range.getSingleValue());
+                    } else {
+                        final String low;
+                        switch (range.getLow().getBound()) {
+                            case EXACTLY:
+                                low = " >= ";
+                                break;
+                            case ABOVE:
+                                low = " > ";
+                                break;
+                            default:
+                                InfluxError.GENERAL.fail("bad low bound", range.toString(session));
+                                continue;
+                        }
+                        final String high;
+                        switch (range.getHigh().getBound()) {
+                            case EXACTLY:
+                                high = " <= ";
+                                break;
+                            case BELOW:
+                                high = " < ";
+                                break;
+                            default:
+                                InfluxError.GENERAL.fail("bad high bound", range.toString(session));
+                                continue;
+                        }
+                        where.add(column).append(low).add(range.getLow().getValue()).append(" AND ")
+                            .add(column).append(high).add(range.getHigh().getValue());
+                    }
+                    first = false;
+                }
+                if (first) {
+                    client.logger.warn("unhandled SortedRangeSet " + column + ":" + values.getClass().getName() + "=" + values.toString(session));
+                    all = false;
+                } else {
+                    where.append("))");
+                }
+            } else if (values instanceof EquatableValueSet) {
+                boolean first = true;
+                for (Object value: values.getDiscreteValues().getValues()) {
+                    where.append(first? where.isEmpty()? "WHERE (": " AND (": " OR ")
+                        .add(column).append(" = ").add(value);
+                    first = false;
+                }
+                if (first) {
+                    client.logger.warn("unhandled EquatableValueSet " + column + ":" + values.getClass().getName() + "=" + values.toString(session));
+                    all = false;
+                } else {
+                    where.append(')');
+                }
+            } else {
+                client.logger.warn("unhandled predicate " + column + ":" + values.getClass().getName() + "=" + values.toString(session));
+                all = false;
+            }
+        }
+        client.logger.debug("applyFilter(" + handle + ", " + constraint.getSummary().toString(session) + ") = " + all + ", " + where);
+        InfluxTableHandle table = (InfluxTableHandle) handle;
+        return Optional.of(new ConstraintApplicationResult<>(new InfluxTableHandle(
+            table.getRetentionPolicy(),
+            table.getMeasurement(),
+            where), all? TupleDomain.all(): constraint.getSummary()));
     }
 }

@@ -3,12 +3,13 @@ package io.prestosql.plugin.influx;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
+
 
 public class InfluxColumnHandle extends InfluxColumn implements ColumnHandle {
 
-    private final SchemaTableName schemaTableName;
+    private final String retentionPolicy;
+    private final String measurement;
 
     @JsonCreator
     public InfluxColumnHandle(@JsonProperty("retentionPolicy") String retentionPolicy,
@@ -17,7 +18,8 @@ public class InfluxColumnHandle extends InfluxColumn implements ColumnHandle {
                               @JsonProperty("influxType") String influxType,
                               @JsonProperty("kind") Kind kind) {
         super(influxName, influxType, kind);
-        this.schemaTableName = new SchemaTableName(retentionPolicy, measurement);
+        this.retentionPolicy = retentionPolicy;
+        this.measurement = measurement;
     }
 
     public InfluxColumnHandle(String retentionPolicy,
@@ -26,17 +28,21 @@ public class InfluxColumnHandle extends InfluxColumn implements ColumnHandle {
         this(retentionPolicy, measurement, column.getInfluxName(), column.getInfluxType(), column.getKind());
     }
 
-    public SchemaTableName getSchemaTableName() {
-        return schemaTableName;
-    }
-
     @JsonProperty
     public String getRetentionPolicy() {
-        return schemaTableName.getSchemaName();
+        return retentionPolicy;
     }
 
     @JsonProperty
     public String getMeasurement() {
-        return schemaTableName.getTableName();
+        return measurement;
+    }
+
+    @Override
+    public String toString() {
+        return toStringHelper(this)
+            .addValue(getRetentionPolicy())
+            .addValue(getMeasurement())
+            .toString();
     }
 }
