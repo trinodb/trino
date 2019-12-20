@@ -12,19 +12,22 @@ public class InfluxTableHandle extends SchemaTableName implements ConnectorTable
     private final String retentionPolicy;
     private final String measurement;
     private final InfluxQL where;
+    private final Long limit;
 
     @JsonCreator
     public InfluxTableHandle(@JsonProperty("retentionPolicy") String retentionPolicy,
                              @JsonProperty("measurement") String measurement,
-                             @JsonProperty("where") InfluxQL where) {
+                             @JsonProperty("where") InfluxQL where,
+                             @JsonProperty("limit") Long limit) {
         super(retentionPolicy, measurement);
         this.retentionPolicy = requireNonNull(retentionPolicy, "retentionPolicy is null");
         this.measurement = requireNonNull(measurement, "measurement is null");
         this.where = requireNonNull(where, "where is null");
+        this.limit = limit;
     }
 
     public InfluxTableHandle(String retentionPolicy, String measurement) {
-        this(retentionPolicy, measurement, new InfluxQL());
+        this(retentionPolicy, measurement, new InfluxQL(), null);
     }
 
     @JsonProperty
@@ -42,11 +45,19 @@ public class InfluxTableHandle extends SchemaTableName implements ConnectorTable
         return where;
     }
 
+    @JsonProperty
+    public Long getLimit() {
+        return limit;
+    }
+
     public InfluxQL getFromWhere() {
         InfluxQL from = new InfluxQL("FROM ")
             .addIdentifier(getRetentionPolicy()).append('.').addIdentifier(getMeasurement());
         if (!getWhere().isEmpty()) {
             from.append(' ').append(getWhere().toString());
+        }
+        if (getLimit() != null) {
+            from.append(" LIMIT ").append(getLimit());
         }
         return from;
     }

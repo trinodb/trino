@@ -32,6 +32,16 @@ public class InfluxQL {
         return this;
     }
 
+    public InfluxQL append(long l) {
+        influxQL.append(l);
+        return this;
+    }
+
+    public InfluxQL append(int i) {
+        influxQL.append(i);
+        return this;
+    }
+
     public InfluxQL add(InfluxColumn column) {
         addIdentifier(column.getInfluxName());
         return this;

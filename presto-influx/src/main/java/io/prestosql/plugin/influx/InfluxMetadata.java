@@ -118,6 +118,16 @@ public class InfluxMetadata implements ConnectorMetadata {
     }
 
     @Override
+    public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorSession session, ConnectorTableHandle handle, long limit) {
+        InfluxTableHandle table = (InfluxTableHandle) handle;
+        return Optional.of(new LimitApplicationResult<>(new InfluxTableHandle(
+            table.getRetentionPolicy(),
+            table.getMeasurement(),
+            table.getWhere(),
+            limit), true));
+    }
+
+    @Override
     public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint) {
         boolean all = true;
         InfluxQL where = new InfluxQL();
@@ -204,6 +214,7 @@ public class InfluxMetadata implements ConnectorMetadata {
         return Optional.of(new ConstraintApplicationResult<>(new InfluxTableHandle(
             table.getRetentionPolicy(),
             table.getMeasurement(),
-            where), all? TupleDomain.all(): constraint.getSummary()));
+            where,
+            table.getLimit()), all? TupleDomain.all(): constraint.getSummary()));
     }
 }

@@ -15,7 +15,7 @@ public class InfluxColumn extends ColumnMetadata {
         .put("boolean", BooleanType.BOOLEAN)
         .put("integer", BigintType.BIGINT)
         .put("float", DoubleType.DOUBLE)
-        .put("time", TimestampType.TIMESTAMP)
+        .put("time", TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE)
         .build();
     public static final InfluxColumn TIME = new InfluxColumn("time", "time", Kind.TIME);
 

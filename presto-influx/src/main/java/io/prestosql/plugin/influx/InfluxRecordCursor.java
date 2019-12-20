@@ -3,6 +3,8 @@ package io.prestosql.plugin.influx;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.prestosql.spi.connector.RecordCursor;
+import io.prestosql.spi.type.DateTimeEncoding;
+import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.Type;
 
 import java.time.Instant;
@@ -93,7 +95,8 @@ public class InfluxRecordCursor implements RecordCursor {
     public Object getObject(int field) {
         Object value = row[field];
         if (columns.get(field).getKind() == InfluxColumn.Kind.TIME && value instanceof String) {
-            return Instant.parse((String) value).toEpochMilli();
+            Instant timestamp = Instant.parse((String) value);
+            return DateTimeEncoding.packDateTimeWithZone(timestamp.toEpochMilli(), TimeZoneKey.UTC_KEY);
         }
         return value;
     }
