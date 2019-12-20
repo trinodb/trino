@@ -885,14 +885,20 @@ public class PredicatePushDown
             ImmutableSet<Symbol> leftScope = ImmutableSet.copyOf(leftSymbols);
             ImmutableSet<Symbol> rightScope = ImmutableSet.copyOf(rightSymbols);
 
+            // Attempt to simplify the effective left/right predicates with the predicate we're pushing down
+            // This, effectively, inlines any constants derived from such predicate
+            EqualityInference predicateInference = EqualityInference.newInstance(metadata, inheritedPredicate);
+            Expression simplifiedLeftEffectivePredicate = predicateInference.rewrite(leftEffectivePredicate, leftScope);
+            Expression simplifiedRightEffectivePredicate = predicateInference.rewrite(rightEffectivePredicate, rightScope);
+
             // simplify predicate based on known equalities guaranteed by the left/right side
             EqualityInference assertions = EqualityInference.newInstance(metadata, leftEffectivePredicate, rightEffectivePredicate);
             inheritedPredicate = assertions.rewrite(inheritedPredicate, Sets.union(leftScope, rightScope));
 
             // Generate equality inferences
-            EqualityInference allInference = EqualityInference.newInstance(metadata, inheritedPredicate, leftEffectivePredicate, rightEffectivePredicate, joinPredicate);
-            EqualityInference allInferenceWithoutLeftInferred = EqualityInference.newInstance(metadata, inheritedPredicate, rightEffectivePredicate, joinPredicate);
-            EqualityInference allInferenceWithoutRightInferred = EqualityInference.newInstance(metadata, inheritedPredicate, leftEffectivePredicate, joinPredicate);
+            EqualityInference allInference = EqualityInference.newInstance(metadata, inheritedPredicate, leftEffectivePredicate, rightEffectivePredicate, joinPredicate, simplifiedLeftEffectivePredicate, simplifiedRightEffectivePredicate);
+            EqualityInference allInferenceWithoutLeftInferred = EqualityInference.newInstance(metadata, inheritedPredicate, rightEffectivePredicate, joinPredicate, simplifiedRightEffectivePredicate);
+            EqualityInference allInferenceWithoutRightInferred = EqualityInference.newInstance(metadata, inheritedPredicate, leftEffectivePredicate, joinPredicate, simplifiedLeftEffectivePredicate);
 
             // Add equalities from the inference back in
             leftPushDownConjuncts.addAll(allInferenceWithoutLeftInferred.generateEqualitiesPartitionedBy(leftScope).getScopeEqualities());
@@ -918,7 +924,7 @@ public class PredicatePushDown
             }
 
             // See if we can push the right effective predicate to the left side
-            for (Expression conjunct : EqualityInference.nonInferrableConjuncts(metadata, rightEffectivePredicate)) {
+            for (Expression conjunct : EqualityInference.nonInferrableConjuncts(metadata, simplifiedRightEffectivePredicate)) {
                 Expression rewritten = allInference.rewrite(conjunct, leftScope);
                 if (rewritten != null) {
                     leftPushDownConjuncts.add(rewritten);
@@ -926,7 +932,7 @@ public class PredicatePushDown
             }
 
             // See if we can push the left effective predicate to the right side
-            for (Expression conjunct : EqualityInference.nonInferrableConjuncts(metadata, leftEffectivePredicate)) {
+            for (Expression conjunct : EqualityInference.nonInferrableConjuncts(metadata, simplifiedLeftEffectivePredicate)) {
                 Expression rewritten = allInference.rewrite(conjunct, rightScope);
                 if (rewritten != null) {
                     rightPushDownConjuncts.add(rewritten);
