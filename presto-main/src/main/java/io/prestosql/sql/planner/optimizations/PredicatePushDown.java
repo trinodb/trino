@@ -1038,7 +1038,7 @@ public class PredicatePushDown
             Set<Symbol> innerSymbols = ImmutableSet.copyOf(innerSymbolsForOuterJoin);
             for (Expression conjunct : extractConjuncts(inheritedPredicate)) {
                 if (isDeterministic(conjunct, metadata)) {
-                    // Ignore a conjunct for this test if we can not deterministically get responses from it
+                    // Ignore a conjunct for this test if we cannot deterministically get responses from it
                     Object response = nullInputEvaluator(innerSymbols, conjunct);
                     if (response == null || response instanceof NullLiteral || Boolean.FALSE.equals(response)) {
                         // If there is a single conjunct that returns FALSE or NULL given all NULL inputs for the inner side symbols of an outer join
@@ -1051,7 +1051,7 @@ public class PredicatePushDown
             return false;
         }
 
-        // Temporary implementation for joins because the SimplifyExpressions optimizers can not run properly on join clauses
+        // Temporary implementation for joins because the SimplifyExpressions optimizers cannot run properly on join clauses
         private Expression simplifyExpression(Expression expression)
         {
             Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, symbolAllocator.getTypes(), expression);

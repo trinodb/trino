@@ -319,7 +319,7 @@ public class OrcTester
     {
         Type mapType = mapType(type, type);
 
-        // maps can not have a null key, so select a value to use for the map key when the value is null
+        // maps cannot have a null key, so select a value to use for the map key when the value is null
         Object readNullKeyValue = Iterables.getLast(readValues);
 
         // values in simple map

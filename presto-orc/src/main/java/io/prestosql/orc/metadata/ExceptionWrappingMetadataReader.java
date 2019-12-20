@@ -37,7 +37,7 @@ public class ExceptionWrappingMetadataReader
     {
         this.orcDataSourceId = requireNonNull(orcDataSourceId, "orcDataSourceId is null");
         this.delegate = requireNonNull(delegate, "delegate is null");
-        checkArgument(!(delegate instanceof ExceptionWrappingMetadataReader), "ExceptionWrappingMetadataReader can not wrap a ExceptionWrappingMetadataReader");
+        checkArgument(!(delegate instanceof ExceptionWrappingMetadataReader), "ExceptionWrappingMetadataReader cannot wrap a ExceptionWrappingMetadataReader");
     }
 
     @Override

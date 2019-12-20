@@ -114,7 +114,7 @@ public class OrcType
         }
         this.length = requireNonNull(length, "length is null");
         this.precision = requireNonNull(precision, "precision is null");
-        this.scale = requireNonNull(scale, "scale can not be null");
+        this.scale = requireNonNull(scale, "scale cannot be null");
     }
 
     public OrcTypeKind getOrcTypeKind()

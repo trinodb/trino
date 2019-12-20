@@ -34,7 +34,7 @@ final class ReaderUtils
 
         throw new OrcCorruptionException(
                 column.getOrcDataSourceId(),
-                "Can not read SQL type %s from ORC stream %s of type %s",
+                "Cannot read SQL type %s from ORC stream %s of type %s",
                 actual,
                 column.getPath(),
                 column.getColumnType());

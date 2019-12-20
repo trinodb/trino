@@ -173,7 +173,7 @@ public final class SortedRangeSet
     public Range getSpan()
     {
         if (lowIndexedRanges.isEmpty()) {
-            throw new IllegalStateException("Can not get span if no ranges exist");
+            throw new IllegalStateException("Cannot get span if no ranges exist");
         }
         return lowIndexedRanges.firstEntry().getValue().span(lowIndexedRanges.lastEntry().getValue());
     }

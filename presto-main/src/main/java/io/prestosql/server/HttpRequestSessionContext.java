@@ -146,7 +146,7 @@ public final class HttpRequestSessionContext
 
                 assertRequest(!propertyName.isEmpty(), "Invalid %s header", PRESTO_SESSION);
 
-                // catalog session properties can not be validated until the transaction has stated, so we delay system property validation also
+                // catalog session properties cannot be validated until the transaction has stated, so we delay system property validation also
                 systemProperties.put(propertyName, propertyValue);
             }
             else if (nameParts.size() == 2) {
@@ -156,7 +156,7 @@ public final class HttpRequestSessionContext
                 assertRequest(!catalogName.isEmpty(), "Invalid %s header", PRESTO_SESSION);
                 assertRequest(!propertyName.isEmpty(), "Invalid %s header", PRESTO_SESSION);
 
-                // catalog session properties can not be validated until the transaction has stated
+                // catalog session properties cannot be validated until the transaction has stated
                 catalogSessionProperties.computeIfAbsent(catalogName, id -> new HashMap<>()).put(propertyName, propertyValue);
             }
             else {

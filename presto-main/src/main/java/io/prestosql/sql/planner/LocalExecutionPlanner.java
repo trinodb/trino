@@ -635,7 +635,7 @@ public class LocalExecutionPlanner
 
         public LocalExecutionPlanContext createSubContext()
         {
-            checkState(!indexSourceContext.isPresent(), "index build plan can not have sub-contexts");
+            checkState(!indexSourceContext.isPresent(), "index build plan cannot have sub-contexts");
             return new LocalExecutionPlanContext(taskContext, types, driverFactories, indexSourceContext, dynamicFiltersCollector, nextPipelineId);
         }
 

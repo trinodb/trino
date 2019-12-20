@@ -247,7 +247,7 @@ public class AggregationNode
         // there is no need for distributed aggregation. Single node FINAL aggregation will suffice,
         // since all input have to be aggregated into one line output.
         //
-        // 2. aggregations that must produce default output and are not decomposable, we can not distribute them.
+        // 2. aggregations that must produce default output and are not decomposable, we cannot distribute them.
         return (hasEmptyGroupingSet() && !hasNonEmptyGroupingSet()) || (hasDefaultOutput() && !isDecomposable(metadata));
     }
 

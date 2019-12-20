@@ -96,7 +96,7 @@ public class FileSingleStreamSpillerFactory
     {
         this.serdeFactory = new PagesSerdeFactory(blockEncodingSerde, spillCompressionEnabled);
         this.executor = requireNonNull(executor, "executor is null");
-        this.spillerStats = requireNonNull(spillerStats, "spillerStats can not be null");
+        this.spillerStats = requireNonNull(spillerStats, "spillerStats cannot be null");
         requireNonNull(spillPaths, "spillPaths is null");
         this.spillPaths = ImmutableList.copyOf(spillPaths);
         spillPaths.forEach(path -> {

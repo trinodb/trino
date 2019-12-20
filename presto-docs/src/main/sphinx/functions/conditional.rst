@@ -133,7 +133,7 @@ Query failure without ``TRY``:
 
 .. code-block:: none
 
-    Query failed: Can not cast 'P332a' to BIGINT
+    Query failed: Cannot cast 'P332a' to BIGINT
 
 ``NULL`` values with ``TRY``:
 

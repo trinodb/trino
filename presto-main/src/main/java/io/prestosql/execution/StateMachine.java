@@ -101,7 +101,7 @@ public class StateMachine<T>
      */
     public T set(T newState)
     {
-        checkState(!Thread.holdsLock(lock), "Can not set state while holding the lock");
+        checkState(!Thread.holdsLock(lock), "Cannot set state while holding the lock");
         requireNonNull(newState, "newState is null");
 
         T oldState;
@@ -112,7 +112,7 @@ public class StateMachine<T>
                 return state;
             }
 
-            checkState(!isTerminalState(state), "%s can not transition from %s to %s", name, state, newState);
+            checkState(!isTerminalState(state), "%s cannot transition from %s to %s", name, state, newState);
 
             oldState = state;
             state = newState;
@@ -138,7 +138,7 @@ public class StateMachine<T>
      */
     public boolean setIf(T newState, Predicate<T> predicate)
     {
-        checkState(!Thread.holdsLock(lock), "Can not set state while holding the lock");
+        checkState(!Thread.holdsLock(lock), "Cannot set state while holding the lock");
         requireNonNull(newState, "newState is null");
 
         while (true) {
@@ -170,7 +170,7 @@ public class StateMachine<T>
      */
     public boolean compareAndSet(T expectedState, T newState)
     {
-        checkState(!Thread.holdsLock(lock), "Can not set state while holding the lock");
+        checkState(!Thread.holdsLock(lock), "Cannot set state while holding the lock");
         requireNonNull(expectedState, "expectedState is null");
         requireNonNull(newState, "newState is null");
 
@@ -186,7 +186,7 @@ public class StateMachine<T>
                 return false;
             }
 
-            checkState(!isTerminalState(state), "%s can not transition from %s to %s", name, state, newState);
+            checkState(!isTerminalState(state), "%s cannot transition from %s to %s", name, state, newState);
 
             state = newState;
 
@@ -205,12 +205,12 @@ public class StateMachine<T>
 
     private void fireStateChanged(T newState, FutureStateChange<T> futureStateChange, List<StateChangeListener<T>> stateChangeListeners)
     {
-        checkState(!Thread.holdsLock(lock), "Can not fire state change event while holding the lock");
+        checkState(!Thread.holdsLock(lock), "Cannot fire state change event while holding the lock");
         requireNonNull(newState, "newState is null");
 
         // always fire listener callbacks from a different thread
         safeExecute(() -> {
-            checkState(!Thread.holdsLock(lock), "Can not notify while holding the lock");
+            checkState(!Thread.holdsLock(lock), "Cannot notify while holding the lock");
             try {
                 futureStateChange.complete(newState);
             }
@@ -238,7 +238,7 @@ public class StateMachine<T>
      */
     public ListenableFuture<T> getStateChange(T currentState)
     {
-        checkState(!Thread.holdsLock(lock), "Can not wait for state change while holding the lock");
+        checkState(!Thread.holdsLock(lock), "Cannot wait for state change while holding the lock");
         requireNonNull(currentState, "currentState is null");
 
         synchronized (lock) {

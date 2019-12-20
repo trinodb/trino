@@ -183,7 +183,7 @@ public class KafkaSplitManager
     {
         TopicAndPartition topicAndPartition = new TopicAndPartition(topicName, partitionId);
 
-        // The API implies that this will always return all of the offsets. So it seems a partition can not have
+        // The API implies that this will always return all of the offsets. So it seems a partition cannot have
         // more than Integer.MAX_VALUE-1 segments.
         //
         // This also assumes that the lowest value returned will be the first segment available. So if segments have been dropped off, this value

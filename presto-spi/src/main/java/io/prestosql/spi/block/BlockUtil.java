@@ -75,7 +75,7 @@ final class BlockUtil
         else if (newSize > MAX_ARRAY_SIZE) {
             newSize = MAX_ARRAY_SIZE;
             if (newSize == currentSize) {
-                throw new IllegalArgumentException(format("Can not grow array beyond '%s'", MAX_ARRAY_SIZE));
+                throw new IllegalArgumentException(format("Cannot grow array beyond '%s'", MAX_ARRAY_SIZE));
             }
         }
         return (int) newSize;

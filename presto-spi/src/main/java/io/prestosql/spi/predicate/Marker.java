@@ -61,7 +61,7 @@ public final class Marker
             throw new IllegalArgumentException("type must be orderable");
         }
         if (!valueBlock.isPresent() && bound == Bound.EXACTLY) {
-            throw new IllegalArgumentException("Can not be equal to unbounded");
+            throw new IllegalArgumentException("Cannot be equal to unbounded");
         }
         if (valueBlock.isPresent() && valueBlock.get().getPositionCount() != 1) {
             throw new IllegalArgumentException("value block should only have one position");

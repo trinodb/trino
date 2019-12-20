@@ -75,7 +75,7 @@ public class JsonWebTokenAuthenticator
         JwtParser jwtParser = Jwts.parser()
                 .setSigningKeyResolver(new SigningKeyResolver()
                 {
-                    // interface uses raw types and this can not be fixed here
+                    // interface uses raw types and this cannot be fixed here
                     @SuppressWarnings("rawtypes")
                     @Override
                     public Key resolveSigningKey(JwsHeader header, Claims claims)

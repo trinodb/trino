@@ -97,7 +97,7 @@ public class LookupOuterOperator
         @Override
         public OperatorFactory duplicate()
         {
-            throw new UnsupportedOperationException("Source operator factories can not be duplicated");
+            throw new UnsupportedOperationException("Source operator factories cannot be duplicated");
         }
     }
 

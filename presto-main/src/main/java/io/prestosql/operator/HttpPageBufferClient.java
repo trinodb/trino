@@ -463,7 +463,7 @@ public final class HttpPageBufferClient
 
     private void handleFailure(Throwable t, HttpResponseFuture<?> expectedFuture)
     {
-        // Can not delegate to other callback while holding a lock on this
+        // Cannot delegate to other callback while holding a lock on this
         checkNotHoldsLock(this);
 
         requestsFailed.incrementAndGet();

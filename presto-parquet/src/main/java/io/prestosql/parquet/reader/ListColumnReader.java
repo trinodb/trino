@@ -72,7 +72,7 @@ public final class ListColumnReader
     {
         int size = 1;
         while (hasMoreElements(repetitionLevels, nextIndex) && !isCollectionBeginningMarker(repetitionLevels, maxRepetitionLevel, nextIndex)) {
-            // Collection elements can not only be primitive, but also can have nested structure
+            // Collection elements cannot only be primitive, but also can have nested structure
             // Counting only elements which belong to current collection, skipping inner elements of nested collections/structs
             if (repetitionLevels[nextIndex] <= maxRepetitionLevel) {
                 size++;
