@@ -2256,6 +2256,21 @@ public abstract class AbstractTestJoinQueries
                 "WITH small_part AS (SELECT * FROM part WHERE name = 'a') SELECT lineitem.orderkey FROM small_part RIGHT JOIN lineitem ON  small_part.partkey = lineitem.partkey");
     }
 
+    @Test
+    public void testEquijoinOnDifferentTypesWithFilter()
+    {
+        // Exercises a join on integer vs bigint with a filter on the integer column that can be pushed down
+        // below the join. Needs to run in distributed mode to reproduce the issue (i.e., with AddExchanges enabled)
+        assertQuery("" +
+                "WITH" +
+                "   t1 AS (SELECT linenumber AS id1 FROM lineitem), " +
+                "   t2 AS (SELECT nationkey AS id2 FROM nation) " +
+                "SELECT id1 " +
+                "FROM t1 " +
+                "JOIN t2 ON id1 = id2 " +
+                "WHERE id1 = 10");
+    }
+
     private Session noJoinReordering()
     {
         return Session.builder(getSession())
