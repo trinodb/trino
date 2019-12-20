@@ -4,8 +4,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.spi.connector.*;
 import io.prestosql.spi.predicate.*;
+import io.prestosql.spi.type.DateTimeEncoding;
 
 import javax.inject.Inject;
+import java.time.Instant;
 import java.util.*;
 
 import static java.util.Objects.requireNonNull;
@@ -161,7 +163,11 @@ public class InfluxMetadata implements ConnectorMetadata {
                                     InfluxError.GENERAL.fail("bad low bound", range.toString(session));
                                     continue;
                             }
-                            where.add(column).append(low).add(range.getLow().getValue());
+                            Object value = range.getLow().getValue();
+                            if (column.getKind() == InfluxColumn.Kind.TIME && value instanceof Long) {
+                                value = Instant.ofEpochMilli(DateTimeEncoding.unpackMillisUtc((Long)value)).toString();
+                            }
+                            where.add(column).append(low).add(value);
                             hasLow = true;
                         }
                         if (range.getHigh().getValueBlock().isPresent()) {
@@ -180,7 +186,11 @@ public class InfluxMetadata implements ConnectorMetadata {
                             if (hasLow) {
                                 where.append(" AND ");
                             }
-                            where.add(column).append(high).add(range.getHigh().getValue());
+                            Object value = range.getHigh().getValue();
+                            if (column.getKind() == InfluxColumn.Kind.TIME && value instanceof Long) {
+                                value = Instant.ofEpochMilli(DateTimeEncoding.unpackMillisUtc((Long)value)).toString();
+                            }
+                            where.add(column).append(high).add(value);
                         }
                     }
                     first = false;

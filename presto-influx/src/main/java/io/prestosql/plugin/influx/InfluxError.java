@@ -10,6 +10,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 public enum InfluxError implements ErrorCodeSupplier {
 
     GENERAL (ErrorType.INTERNAL_ERROR),
+    EXTERNAL (ErrorType.EXTERNAL),
     IDENTIFIER_CASE_SENSITIVITY (ErrorType.EXTERNAL),
     BAD_VALUE (ErrorType.USER_ERROR);
 
@@ -36,6 +37,10 @@ public enum InfluxError implements ErrorCodeSupplier {
 
     public void fail(String message) {
         fail(message, null);
+    }
+
+    public void fail(Throwable t) {
+        throw new PrestoException(this, t);
     }
 
     @Override

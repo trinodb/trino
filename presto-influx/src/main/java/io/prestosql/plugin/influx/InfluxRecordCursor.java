@@ -93,12 +93,7 @@ public class InfluxRecordCursor implements RecordCursor {
 
     @Override
     public Object getObject(int field) {
-        Object value = row[field];
-        if (columns.get(field).getKind() == InfluxColumn.Kind.TIME && value instanceof String) {
-            Instant timestamp = Instant.parse((String) value);
-            return DateTimeEncoding.packDateTimeWithZone(timestamp.toEpochMilli(), TimeZoneKey.UTC_KEY);
-        }
-        return value;
+        return row[field];
     }
 
     @Override

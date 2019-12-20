@@ -1,11 +1,14 @@
 package io.prestosql.plugin.influx;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.RecordSet;
+import io.prestosql.spi.type.DateTimeEncoding;
+import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.Type;
-import org.influxdb.dto.QueryResult;
 
+import java.time.Instant;
 import java.util.*;
 
 public class InfluxRecordSet implements RecordSet {
@@ -14,7 +17,7 @@ public class InfluxRecordSet implements RecordSet {
     private final List<Type> columnTypes;
     private final List<Object[]> rows;
 
-    public InfluxRecordSet(List<InfluxColumn> columns, List<QueryResult.Series> results) {
+    public InfluxRecordSet(List<InfluxColumn> columns, JsonNode results) {
         this.columns = columns;
         ImmutableList.Builder<Type> columnTypes = new ImmutableList.Builder<>();
         Map<String, Integer> mapping = new HashMap<>();
@@ -25,21 +28,49 @@ public class InfluxRecordSet implements RecordSet {
         this.columnTypes = columnTypes.build();
         this.rows = new ArrayList<>();
         final int IGNORE = -1;
-        for (QueryResult.Series series: results) {
-            if (series.getValues().isEmpty()) {
+        for (JsonNode series: results) {
+            if (!series.has("values")) {
                 continue;
             }
             // we can't push down group-bys so we have no tags to consider
-            int[] fields = new int[series.getColumns().size()];
+            JsonNode header = series.get("columns");
+            int[] fields = new int[header.size()];
             for (int i = 0; i < fields.length; i++) {
-                fields[i] = mapping.getOrDefault(series.getColumns().get(i), IGNORE);
+                fields[i] = mapping.getOrDefault(header.get(i).textValue(), IGNORE);
             }
-            for (List<Object> values: series.getValues()) {
+            for (JsonNode values: series.get("values")) {
                 Object[] row = new Object[columns.size()];
                 for (int i = 0; i < fields.length; i++) {
                     int slot = fields[i];
                     if (slot != IGNORE) {
-                        row[slot] = values.get(i);
+                        final Object value;
+                        JsonNode node = values.get(i);
+                        if (node.isNull()) {
+                            value = null;
+                        } else {
+                            switch (columns.get(slot).getInfluxType()) {
+                                case "string":
+                                    value = node.textValue();
+                                    break;
+                                case "boolean":
+                                    value = node.booleanValue();
+                                    break;
+                                case "integer":
+                                    value = node.longValue();
+                                    break;
+                                case "float":
+                                    value = node.doubleValue();
+                                    break;
+                                case "time":
+                                    Instant timestamp = Instant.parse(node.textValue());
+                                    value = DateTimeEncoding.packDateTimeWithZone(timestamp.toEpochMilli(), TimeZoneKey.UTC_KEY);
+                                    break;
+                                default:
+                                    InfluxError.GENERAL.fail("cannot map " + node + " to " + columns.get(slot));
+                                    value = null;
+                            }
+                        }
+                        row[slot] = value;
                     }
                 }
                 rows.add(row);

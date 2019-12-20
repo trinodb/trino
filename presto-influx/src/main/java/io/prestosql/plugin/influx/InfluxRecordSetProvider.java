@@ -1,13 +1,10 @@
 package io.prestosql.plugin.influx;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.connector.*;
-import org.influxdb.dto.QueryResult;
 
 import javax.inject.Inject;
-import java.time.ZoneId;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
@@ -32,8 +29,8 @@ public class InfluxRecordSetProvider implements ConnectorRecordSetProvider {
             InfluxError.GENERAL.check(column.getRetentionPolicy().equals(table.getRetentionPolicy()), "bad retention-policy for " + column + " in " + table);
             handles.add(column);
         }
-        InfluxQL query = new InfluxQL("SELECT * ").append(table.getFromWhere());
-        List<QueryResult.Series> results = client.execute(query.toString());  // actually run the query against our Influx server
+        String query = new InfluxQL("SELECT * ").append(table.getFromWhere()).toString();
+        JsonNode results = client.execute(query);  // actually run the query against our Influx server
         return new InfluxRecordSet(handles.build(), results);
     }
 }
