@@ -20,6 +20,7 @@ Security Changes
 ----------------
 
 * Allow using multiple system access controls. (:issue:`2178`)
+* Add :doc:`/security/password-file`. (:issue:`797`)
 
 Hive Connector Changes
 ----------------------
