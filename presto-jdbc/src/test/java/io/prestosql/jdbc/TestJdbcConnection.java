@@ -111,6 +111,16 @@ public class TestJdbcConnection
     }
 
     @Test
+    public void testImmediateCommit()
+            throws SQLException
+    {
+        try (Connection connection = createConnection()) {
+            connection.setAutoCommit(false);
+            connection.commit();
+        }
+    }
+
+    @Test
     public void testRollback()
             throws SQLException
     {
@@ -129,6 +139,16 @@ public class TestJdbcConnection
 
         try (Connection connection = createConnection()) {
             assertThat(listTables(connection)).doesNotContain("test_rollback");
+        }
+    }
+
+    @Test
+    public void testImmediateRollback()
+            throws SQLException
+    {
+        try (Connection connection = createConnection()) {
+            connection.setAutoCommit(false);
+            connection.rollback();
         }
     }
 
