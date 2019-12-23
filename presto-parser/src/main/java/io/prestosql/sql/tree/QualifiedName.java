@@ -105,6 +105,11 @@ public class QualifiedName
         return Iterables.getLast(parts);
     }
 
+    public Identifier getOriginalSuffix()
+    {
+        return Iterables.getLast(originalParts);
+    }
+
     @Override
     public boolean equals(Object o)
     {

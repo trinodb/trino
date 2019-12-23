@@ -26,13 +26,10 @@ import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.ConnectorFactory;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
-import io.prestosql.transaction.TransactionBuilder;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
-
-import java.util.List;
 
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.execution.QueryState.FAILED;
@@ -137,18 +134,5 @@ public class TestMetadataManager
         // cancel query
         dispatchManager.cancelQuery(queryId);
         assertEquals(metadataManager.getActiveQueryIds().size(), 0);
-    }
-
-    @Test
-    public void testUpperCaseSchemaIsChangedToLowerCase()
-    {
-        TransactionBuilder.transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
-                .execute(
-                        TEST_SESSION,
-                        transactionSession -> {
-                            List<String> expectedSchemas = ImmutableList.of("information_schema", "upper_case_schema");
-                            assertEquals(queryRunner.getMetadata().listSchemaNames(transactionSession, "upper_case_schema_catalog"), expectedSchemas);
-                            return null;
-                        });
     }
 }

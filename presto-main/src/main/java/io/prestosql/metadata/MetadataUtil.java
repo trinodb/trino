@@ -84,20 +84,23 @@ public final class MetadataUtil
         return sessionCatalog.get();
     }
 
-    public static CatalogSchemaName createCatalogSchemaName(Session session, Node node, Optional<QualifiedName> schema)
+    public static CatalogSchemaName createCatalogSchemaName(Session session, Node node, Optional<QualifiedName> schema, Metadata metadata)
     {
         String catalogName = session.getCatalog().orElse(null);
         String schemaName = session.getSchema().orElse(null);
 
         if (schema.isPresent()) {
-            List<String> parts = schema.get().getParts();
+            List<Identifier> parts = schema.get().getOriginalParts();
             if (parts.size() > 2) {
                 throw semanticException(SYNTAX_ERROR, node, "Too many parts in schema name: %s", schema.get());
             }
             if (parts.size() == 2) {
-                catalogName = parts.get(0);
+                catalogName = parts.get(0).getValue().toLowerCase(ENGLISH);
             }
-            schemaName = schema.get().getSuffix();
+            if (catalogName == null) {
+                throw semanticException(MISSING_CATALOG_NAME, node, "Catalog must be specified when session catalog is not set");
+            }
+            schemaName = metadata.getNameCanonicalizer(session, catalogName).canonicalize(schema.get().getOriginalSuffix().getValue(), schema.get().getOriginalSuffix().isDelimited());
         }
 
         if (catalogName == null) {
