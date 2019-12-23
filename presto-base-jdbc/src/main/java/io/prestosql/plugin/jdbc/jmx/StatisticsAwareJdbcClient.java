@@ -233,7 +233,7 @@ public class StatisticsAwareJdbcClient
     @Override
     public void createSchema(JdbcIdentity identity, String schemaName)
     {
-        stats.getCreateSchema().wrap(() -> getDelegate().createSchema(identity, schemaName));
+        stats.getCreateSchema().wrap(() -> delegate().createSchema(identity, schemaName));
     }
 
     public static final class JdbcClientStats
