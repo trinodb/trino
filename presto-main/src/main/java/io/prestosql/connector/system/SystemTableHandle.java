@@ -22,8 +22,6 @@ import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.Objects;
 
-import static io.prestosql.metadata.MetadataUtil.checkSchemaName;
-import static io.prestosql.metadata.MetadataUtil.checkTableName;
 import static java.util.Objects.requireNonNull;
 
 public class SystemTableHandle
@@ -39,8 +37,8 @@ public class SystemTableHandle
             @JsonProperty("tableName") String tableName,
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint)
     {
-        this.schemaName = checkSchemaName(schemaName);
-        this.tableName = checkTableName(tableName);
+        this.schemaName = requireNonNull(schemaName, "schemaName is null");
+        this.tableName = requireNonNull(tableName, "tableName is null");
         this.constraint = requireNonNull(constraint, "constraint is null");
     }
 

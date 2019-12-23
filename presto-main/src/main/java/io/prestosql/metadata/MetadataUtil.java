@@ -49,35 +49,9 @@ public final class MetadataUtil
 {
     private MetadataUtil() {}
 
-    public static void checkTableName(String catalogName, Optional<String> schemaName, Optional<String> tableName)
-    {
-        checkCatalogName(catalogName);
-        schemaName.ifPresent(name -> checkLowerCase(name, "schemaName"));
-        tableName.ifPresent(name -> checkLowerCase(name, "tableName"));
-
-        checkArgument(schemaName.isPresent() || !tableName.isPresent(), "tableName specified but schemaName is missing");
-    }
-
     public static String checkCatalogName(String catalogName)
     {
         return checkLowerCase(catalogName, "catalogName");
-    }
-
-    public static String checkSchemaName(String schemaName)
-    {
-        return checkLowerCase(schemaName, "schemaName");
-    }
-
-    public static String checkTableName(String tableName)
-    {
-        return checkLowerCase(tableName, "tableName");
-    }
-
-    public static void checkObjectName(String catalogName, String schemaName, String objectName)
-    {
-        checkLowerCase(catalogName, "catalogName");
-        checkLowerCase(schemaName, "schemaName");
-        checkLowerCase(objectName, "objectName");
     }
 
     public static String checkLowerCase(String value, String name)

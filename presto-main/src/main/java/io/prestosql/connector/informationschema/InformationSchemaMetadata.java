@@ -67,7 +67,6 @@ import static io.prestosql.metadata.MetadataUtil.findColumnMetadata;
 import static io.prestosql.metadata.NamePart.createDefaultNamePart;
 import static io.prestosql.metadata.NamePart.createDelimitedNamePart;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
@@ -247,7 +246,6 @@ public class InformationSchemaMetadata
         Optional<Set<String>> schemas = filterString(constraint, SCHEMA_COLUMN_HANDLE);
         if (schemas.isPresent()) {
             return schemas.get().stream()
-                    .filter(this::isLowerCase)
                     .filter(schema -> !predicate.isPresent() || predicate.get().test(schemaAsFixedValues(schema)))
                     .map(schema -> new QualifiedTablePrefix(catalogName, schema))
                     .collect(toImmutableSet());
@@ -280,7 +278,6 @@ public class InformationSchemaMetadata
                             .map(schemaName -> Stream.of(prefix))
                             .orElseGet(() -> listSchemaNames(session)))
                     .flatMap(prefix -> tables.get().stream()
-                            .filter(this::isLowerCase)
                             .map(table -> new QualifiedObjectName(createDefaultNamePart(catalogName), createDelimitedNamePart(prefix.getSchemaName().get()), createDelimitedNamePart(table))))
                     .filter(objectName -> !isColumnsEnumeratingTable(informationSchemaTable) || metadata.getTableHandle(session, objectName).isPresent() || metadata.getView(session, objectName).isPresent())
                     .filter(objectName -> !predicate.isPresent() || predicate.get().test(asFixedValues(objectName)))
@@ -360,10 +357,5 @@ public class InformationSchemaMetadata
                 CATALOG_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(objectName.getLegacyCatalogName())),
                 SCHEMA_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(objectName.getLegacySchemaName())),
                 TABLE_NAME_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(objectName.getLegacyObjectName())));
-    }
-
-    private boolean isLowerCase(String value)
-    {
-        return value.toLowerCase(ENGLISH).equals(value);
     }
 }

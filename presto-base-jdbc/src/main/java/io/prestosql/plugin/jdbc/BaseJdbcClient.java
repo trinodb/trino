@@ -196,12 +196,12 @@ public class BaseJdbcClient
     public List<SchemaTableName> getTableNames(JdbcIdentity identity, Optional<String> schema)
     {
         try (Connection connection = connectionFactory.openConnection(identity)) {
-            Optional<String> remoteSchema = schema.map(schemaName -> toRemoteSchemaName(identity, connection, schemaName));
+            Optional<String> remoteSchema = schema.map(schemaName -> toRemoteSchemaName(identity, connection, schemaName.toLowerCase(ENGLISH)));
             try (ResultSet resultSet = getTables(connection, remoteSchema, Optional.empty())) {
                 ImmutableList.Builder<SchemaTableName> list = ImmutableList.builder();
                 while (resultSet.next()) {
-                    String tableSchema = getTableSchemaName(resultSet);
-                    String tableName = resultSet.getString("TABLE_NAME");
+                    String tableSchema = getTableSchemaName(resultSet).toLowerCase(ENGLISH);
+                    String tableName = resultSet.getString("TABLE_NAME").toLowerCase(ENGLISH);
                     list.add(new SchemaTableName(tableSchema, tableName));
                 }
                 return list.build();
@@ -216,8 +216,8 @@ public class BaseJdbcClient
     public Optional<JdbcTableHandle> getTableHandle(JdbcIdentity identity, SchemaTableName schemaTableName)
     {
         try (Connection connection = connectionFactory.openConnection(identity)) {
-            String remoteSchema = toRemoteSchemaName(identity, connection, schemaTableName.getSchemaName());
-            String remoteTable = toRemoteTableName(identity, connection, remoteSchema, schemaTableName.getTableName());
+            String remoteSchema = toRemoteSchemaName(identity, connection, schemaTableName.getSchemaName().toLowerCase(ENGLISH));
+            String remoteTable = toRemoteTableName(identity, connection, remoteSchema, schemaTableName.getTableName().toLowerCase(ENGLISH));
             try (ResultSet resultSet = getTables(connection, Optional.of(remoteSchema), Optional.of(remoteTable))) {
                 List<JdbcTableHandle> tableHandles = new ArrayList<>();
                 while (resultSet.next()) {
@@ -410,8 +410,8 @@ public class BaseJdbcClient
 
         try (Connection connection = connectionFactory.openConnection(identity)) {
             boolean uppercase = connection.getMetaData().storesUpperCaseIdentifiers();
-            String remoteSchema = toRemoteSchemaName(identity, connection, schemaTableName.getSchemaName());
-            String remoteTable = toRemoteTableName(identity, connection, remoteSchema, schemaTableName.getTableName());
+            String remoteSchema = toRemoteSchemaName(identity, connection, schemaTableName.getSchemaName().toLowerCase(ENGLISH));
+            String remoteTable = toRemoteTableName(identity, connection, remoteSchema, schemaTableName.getTableName().toLowerCase(ENGLISH));
             if (uppercase) {
                 tableName = tableName.toUpperCase(ENGLISH);
             }
@@ -467,8 +467,8 @@ public class BaseJdbcClient
 
         try (Connection connection = connectionFactory.openConnection(identity)) {
             boolean uppercase = connection.getMetaData().storesUpperCaseIdentifiers();
-            String remoteSchema = toRemoteSchemaName(identity, connection, schemaTableName.getSchemaName());
-            String remoteTable = toRemoteTableName(identity, connection, remoteSchema, schemaTableName.getTableName());
+            String remoteSchema = toRemoteSchemaName(identity, connection, schemaTableName.getSchemaName().toLowerCase(ENGLISH));
+            String remoteTable = toRemoteTableName(identity, connection, remoteSchema, schemaTableName.getTableName().toLowerCase(ENGLISH));
             String tableName = generateTemporaryTableName();
             if (uppercase) {
                 tableName = tableName.toUpperCase(ENGLISH);
