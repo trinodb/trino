@@ -25,6 +25,7 @@ import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.tree.GrantorSpecification;
+import io.prestosql.sql.tree.Identifier;
 import io.prestosql.sql.tree.Node;
 import io.prestosql.sql.tree.PrincipalSpecification;
 import io.prestosql.sql.tree.QualifiedName;
@@ -142,11 +143,11 @@ public final class MetadataUtil
             throw new PrestoException(SYNTAX_ERROR, format("Too many dots in table name: %s", name));
         }
 
-        List<String> parts = Lists.reverse(name.getParts());
-        String objectName = parts.get(0);
-        String schemaName = (parts.size() > 1) ? parts.get(1) : session.getSchema().orElseThrow(() ->
+        List<Identifier> parts = Lists.reverse(name.getOriginalParts());
+        NamePart objectName = new NamePart(parts.get(0).getValue(), parts.get(0).isDelimited());
+        NamePart schemaName = (parts.size() > 1) ? new NamePart(parts.get(1).getValue(), parts.get(1).isDelimited()) : session.getSchema().map(NamePart::createDelimitedNamePart).orElseThrow(() ->
                 semanticException(MISSING_SCHEMA_NAME, node, "Schema must be specified when session schema is not set"));
-        String catalogName = (parts.size() > 2) ? parts.get(2) : session.getCatalog().orElseThrow(() ->
+        NamePart catalogName = (parts.size() > 2) ? new NamePart(parts.get(2).getValue(), parts.get(2).isDelimited()) : session.getCatalog().map(NamePart::createDelimitedNamePart).orElseThrow(() ->
                 semanticException(MISSING_CATALOG_NAME, node, "Catalog must be specified when session catalog is not set"));
 
         return new QualifiedObjectName(catalogName, schemaName, objectName);
