@@ -27,7 +27,6 @@ import java.util.List;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.prestosql.metadata.MetadataUtil.createCatalogName;
-import static java.util.Locale.ENGLISH;
 
 public class SetRoleTask
         implements DataDefinitionTask<SetRole>
@@ -46,7 +45,7 @@ public class SetRoleTask
         if (statement.getType() == SetRole.Type.ROLE) {
             accessControl.checkCanSetRole(
                     SecurityContext.of(session),
-                    statement.getRole().map(c -> c.getValue().toLowerCase(ENGLISH)).get(),
+                    statement.getRole().map(role -> metadata.getNameCanonicalizer(session, catalog).canonicalize(role.getValue(), role.isDelimited())).get(),
                     catalog);
         }
         SelectedRole.Type type;
@@ -63,7 +62,7 @@ public class SetRoleTask
             default:
                 throw new IllegalArgumentException("Unsupported type: " + statement.getType());
         }
-        stateMachine.addSetRole(catalog, new SelectedRole(type, statement.getRole().map(c -> c.getValue().toLowerCase(ENGLISH))));
+        stateMachine.addSetRole(catalog, new SelectedRole(type, statement.getRole().map(role -> metadata.getNameCanonicalizer(session, catalog).canonicalize(role.getValue(), role.isDelimited()))));
         return immediateFuture(null);
     }
 }
