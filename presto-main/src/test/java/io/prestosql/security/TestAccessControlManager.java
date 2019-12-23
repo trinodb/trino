@@ -53,6 +53,7 @@ import java.util.Set;
 
 import static io.prestosql.connector.CatalogName.createInformationSchemaCatalogName;
 import static io.prestosql.connector.CatalogName.createSystemTablesCatalogName;
+import static io.prestosql.metadata.AbstractMockMetadata.dummyMetadata;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.security.AccessDeniedException.denySelectColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denySelectTable;
@@ -71,14 +72,14 @@ public class TestAccessControlManager
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Presto server is still initializing")
     public void testInitializing()
     {
-        AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager(), new AccessControlConfig());
+        AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager(), dummyMetadata(), new AccessControlConfig());
         accessControlManager.checkCanSetUser(Optional.empty(), "foo");
     }
 
     @Test
     public void testNoneSystemAccessControl()
     {
-        AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager(), new AccessControlConfig());
+        AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager(), dummyMetadata(), new AccessControlConfig());
         accessControlManager.setSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
         accessControlManager.checkCanSetUser(Optional.empty(), USER_NAME);
     }
@@ -89,7 +90,7 @@ public class TestAccessControlManager
         Identity identity = Identity.forUser(USER_NAME).withPrincipal(PRINCIPAL).build();
         QualifiedObjectName tableName = new QualifiedObjectName("catalog", "schema", "table");
         TransactionManager transactionManager = createTestTransactionManager();
-        AccessControlManager accessControlManager = new AccessControlManager(transactionManager, new AccessControlConfig());
+        AccessControlManager accessControlManager = new AccessControlManager(transactionManager, dummyMetadata(), new AccessControlConfig());
 
         accessControlManager.setSystemAccessControl(ReadOnlySystemAccessControl.NAME, ImmutableMap.of());
         accessControlManager.checkCanSetUser(Optional.of(PRINCIPAL), USER_NAME);
@@ -136,7 +137,7 @@ public class TestAccessControlManager
     @Test
     public void testSetAccessControl()
     {
-        AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager(), new AccessControlConfig());
+        AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager(), dummyMetadata(), new AccessControlConfig());
 
         TestSystemAccessControlFactory accessControlFactory = new TestSystemAccessControlFactory("test");
         accessControlManager.addSystemAccessControlFactory(accessControlFactory);
@@ -151,7 +152,7 @@ public class TestAccessControlManager
     public void testNoCatalogAccessControl()
     {
         TransactionManager transactionManager = createTestTransactionManager();
-        AccessControlManager accessControlManager = new AccessControlManager(transactionManager, new AccessControlConfig());
+        AccessControlManager accessControlManager = new AccessControlManager(transactionManager, dummyMetadata(), new AccessControlConfig());
 
         TestSystemAccessControlFactory accessControlFactory = new TestSystemAccessControlFactory("test");
         accessControlManager.addSystemAccessControlFactory(accessControlFactory);
@@ -168,7 +169,7 @@ public class TestAccessControlManager
     {
         CatalogManager catalogManager = new CatalogManager();
         TransactionManager transactionManager = createTestTransactionManager(catalogManager);
-        AccessControlManager accessControlManager = new AccessControlManager(transactionManager, new AccessControlConfig());
+        AccessControlManager accessControlManager = new AccessControlManager(transactionManager, dummyMetadata(), new AccessControlConfig());
 
         TestSystemAccessControlFactory accessControlFactory = new TestSystemAccessControlFactory("test");
         accessControlManager.addSystemAccessControlFactory(accessControlFactory);
@@ -198,7 +199,7 @@ public class TestAccessControlManager
     {
         CatalogManager catalogManager = new CatalogManager();
         TransactionManager transactionManager = createTestTransactionManager(catalogManager);
-        AccessControlManager accessControlManager = new AccessControlManager(transactionManager, new AccessControlConfig());
+        AccessControlManager accessControlManager = new AccessControlManager(transactionManager, dummyMetadata(), new AccessControlConfig());
 
         TestSystemAccessControlFactory accessControlFactory = new TestSystemAccessControlFactory("test");
         accessControlManager.addSystemAccessControlFactory(accessControlFactory);

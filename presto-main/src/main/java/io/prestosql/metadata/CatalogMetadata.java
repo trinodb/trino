@@ -19,17 +19,20 @@ import io.prestosql.connector.CatalogName;
 import io.prestosql.spi.connector.ConnectorCapabilities;
 import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.SchemaTableName;
 
 import java.util.List;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.Sets.immutableEnumSet;
+import static io.prestosql.metadata.NameCanonicalizer.LEGACY_NAME_CANONICALIZER;
+import static io.prestosql.metadata.NamePart.createDefaultNamePart;
 import static java.util.Objects.requireNonNull;
 
 public class CatalogMetadata
 {
-    private static final String INFORMATION_SCHEMA_NAME = "information_schema";
+    private static final NamePart INFORMATION_SCHEMA_NAME = createDefaultNamePart("information_schema");
 
     private final CatalogName catalogName;
     private final ConnectorMetadata metadata;
@@ -108,11 +111,12 @@ public class CatalogMetadata
 
     public CatalogName getConnectorId(Session session, QualifiedObjectName table)
     {
-        if (table.getLegacySchemaName().equals(INFORMATION_SCHEMA_NAME)) {
+        if (LEGACY_NAME_CANONICALIZER.canonicalize(INFORMATION_SCHEMA_NAME).equals(LEGACY_NAME_CANONICALIZER.canonicalize(table.getSchemaName()))) {
             return informationSchemaId;
         }
 
-        if (systemTables.getTableHandle(session.toConnectorSession(systemTablesId), table.asSchemaTableName()) != null) {
+        SchemaTableName schemaTableName = table.asSchemaTableName((((identifier, delimited) -> systemTables.canonicalize(session.toConnectorSession(systemTablesId), identifier, delimited))));
+        if (systemTables.getTableHandle(session.toConnectorSession(systemTablesId), schemaTableName) != null) {
             return systemTablesId;
         }
 

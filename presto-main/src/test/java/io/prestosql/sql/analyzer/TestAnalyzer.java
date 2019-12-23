@@ -2034,7 +2034,7 @@ public class TestAnalyzer
         metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
         metadata.addFunctions(ImmutableList.of(APPLY_FUNCTION));
 
-        accessControl = new AccessControlManager(transactionManager, new AccessControlConfig());
+        accessControl = new AccessControlManager(transactionManager, metadata, new AccessControlConfig());
 
         Catalog tpchTestCatalog = createTestingCatalog(TPCH_CATALOG, TPCH_CATALOG_NAME);
         catalogManager.registerCatalog(tpchTestCatalog);

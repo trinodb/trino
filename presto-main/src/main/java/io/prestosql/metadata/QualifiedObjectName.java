@@ -26,7 +26,9 @@ import java.util.Objects;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.metadata.NameCanonicalizer.LEGACY_NAME_CANONICALIZER;
 import static io.prestosql.metadata.NamePart.createDefaultNamePart;
+import static io.prestosql.metadata.NamePart.createDelimitedNamePart;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -92,19 +94,19 @@ public class QualifiedObjectName
         return objectName.getLegacyName();
     }
 
-    public SchemaTableName asSchemaTableName()
+    public SchemaTableName asSchemaTableName(NameCanonicalizer canonicalizer)
     {
-        return new SchemaTableName(schemaName.getLegacyName(), objectName.getLegacyName());
+        return new SchemaTableName(canonicalizer.canonicalize(schemaName), canonicalizer.canonicalize(objectName));
     }
 
-    public CatalogSchemaTableName asCatalogSchemaTableName()
+    public CatalogSchemaTableName asCatalogSchemaTableName(NameCanonicalizer canonicalizer)
     {
-        return new CatalogSchemaTableName(catalogName.getLegacyName(), schemaName.getLegacyName(), objectName.getLegacyName());
+        return new CatalogSchemaTableName(LEGACY_NAME_CANONICALIZER.canonicalize(catalogName), canonicalizer.canonicalize(schemaName), canonicalizer.canonicalize(objectName));
     }
 
-    public QualifiedTablePrefix asQualifiedTablePrefix()
+    public QualifiedTablePrefix asQualifiedTablePrefix(NameCanonicalizer canonicalizer)
     {
-        return new QualifiedTablePrefix(catalogName.getLegacyName(), schemaName.getLegacyName(), objectName.getLegacyName());
+        return new QualifiedTablePrefix(LEGACY_NAME_CANONICALIZER.canonicalize(catalogName), canonicalizer.canonicalize(schemaName), canonicalizer.canonicalize(objectName));
     }
 
     @Override
@@ -136,6 +138,6 @@ public class QualifiedObjectName
 
     public static Function<SchemaTableName, QualifiedObjectName> convertFromSchemaTableName(String catalogName)
     {
-        return input -> new QualifiedObjectName(catalogName, input.getSchemaName(), input.getTableName());
+        return input -> new QualifiedObjectName(createDefaultNamePart(catalogName), createDelimitedNamePart(input.getSchemaName()), createDelimitedNamePart(input.getTableName()));
     }
 }

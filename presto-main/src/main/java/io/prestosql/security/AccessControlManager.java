@@ -20,7 +20,10 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.prestosql.FullConnectorSecurityContext;
+import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.NameCanonicalizer;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.plugin.base.security.AllowAllSystemAccessControl;
 import io.prestosql.plugin.base.security.FileBasedSystemAccessControl;
@@ -59,6 +62,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -78,6 +82,7 @@ public class AccessControlManager
     private static final String NAME_PROPERTY = "access-control.name";
 
     private final TransactionManager transactionManager;
+    private final BiFunction<Session, String, NameCanonicalizer> nameCanonicalizerProvider;
     private final List<File> configFiles;
     private final Map<String, SystemAccessControlFactory> systemAccessControlFactories = new ConcurrentHashMap<>();
     private final Map<CatalogName, CatalogAccessControlEntry> connectorAccessControl = new ConcurrentHashMap<>();
@@ -89,13 +94,14 @@ public class AccessControlManager
     private final CounterStat authorizationFail = new CounterStat();
 
     @Inject
-    public AccessControlManager(TransactionManager transactionManager, AccessControlConfig config)
+    public AccessControlManager(TransactionManager transactionManager, Metadata metadata, AccessControlConfig config)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.configFiles = ImmutableList.copyOf(config.getAccessControlFiles());
         addSystemAccessControlFactory(new AllowAllSystemAccessControl.Factory());
         addSystemAccessControlFactory(new ReadOnlySystemAccessControl.Factory());
         addSystemAccessControlFactory(new FileBasedSystemAccessControl.Factory());
+        this.nameCanonicalizerProvider = metadata::getNameCanonicalizer;
     }
 
     public final void addSystemAccessControlFactory(SystemAccessControlFactory accessControlFactory)
@@ -282,9 +288,9 @@ public class AccessControlManager
 
         checkCanAccessCatalog(securityContext, tableName.getLegacyCatalogName());
 
-        systemAuthorizationCheck(control -> control.checkCanCreateTable(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName()));
+        systemAuthorizationCheck(control -> control.checkCanCreateTable(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(nameCanonicalizerProvider.apply(securityContext.getSession(), tableName.getLegacyCatalogName()))));
 
-        catalogAuthorizationCheck(tableName.getLegacyCatalogName(), securityContext, (control, context) -> control.checkCanCreateTable(context, tableName.asSchemaTableName()));
+        catalogAuthorizationCheck(tableName.getLegacyCatalogName(), securityContext, (control, context) -> control.checkCanCreateTable(context, tableName.asSchemaTableName(nameCanonicalizerProvider.apply(securityContext.getSession(), tableName.getLegacyCatalogName()))));
     }
 
     @Override
@@ -295,9 +301,9 @@ public class AccessControlManager
 
         checkCanAccessCatalog(securityContext, tableName.getLegacyCatalogName());
 
-        systemAuthorizationCheck(control -> control.checkCanDropTable(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName()));
+        systemAuthorizationCheck(control -> control.checkCanDropTable(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(nameCanonicalizerProvider.apply(securityContext.getSession(), tableName.getLegacyCatalogName()))));
 
-        catalogAuthorizationCheck(tableName.getLegacyCatalogName(), securityContext, (control, context) -> control.checkCanDropTable(context, tableName.asSchemaTableName()));
+        catalogAuthorizationCheck(tableName.getLegacyCatalogName(), securityContext, (control, context) -> control.checkCanDropTable(context, tableName.asSchemaTableName(nameCanonicalizerProvider.apply(securityContext.getSession(), tableName.getLegacyCatalogName()))));
     }
 
     @Override
@@ -309,9 +315,9 @@ public class AccessControlManager
 
         checkCanAccessCatalog(securityContext, tableName.getLegacyCatalogName());
 
-        systemAuthorizationCheck(control -> control.checkCanRenameTable(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(), newTableName.asCatalogSchemaTableName()));
+        systemAuthorizationCheck(control -> control.checkCanRenameTable(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(nameCanonicalizerProvider.apply(securityContext.getSession(), tableName.getLegacyCatalogName())), newTableName.asCatalogSchemaTableName(nameCanonicalizerProvider.apply(securityContext.getSession(), tableName.getLegacyCatalogName()))));
 
-        catalogAuthorizationCheck(tableName.getLegacyCatalogName(), securityContext, (control, context) -> control.checkCanRenameTable(context, tableName.asSchemaTableName(), newTableName.asSchemaTableName()));
+        catalogAuthorizationCheck(tableName.getLegacyCatalogName(), securityContext, (control, context) -> control.checkCanRenameTable(context, tableName.asSchemaTableName(nameCanonicalizerProvider.apply(securityContext.getSession(), tableName.getLegacyCatalogName())), newTableName.asSchemaTableName(nameCanonicalizerProvider.apply(securityContext.getSession(), tableName.getLegacyCatalogName()))));
     }
 
     @Override
@@ -322,9 +328,9 @@ public class AccessControlManager
 
         checkCanAccessCatalog(securityContext, tableName.getLegacyCatalogName());
 
-        systemAuthorizationCheck(control -> control.checkCanSetTableComment(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName()));
+        systemAuthorizationCheck(control -> control.checkCanSetTableComment(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(nameCanonicalizerProvider.apply(securityContext.getSession(), tableName.getLegacyCatalogName()))));
 
-        catalogAuthorizationCheck(tableName.getLegacyCatalogName(), securityContext, (control, context) -> control.checkCanSetTableComment(context, tableName.asSchemaTableName()));
+        catalogAuthorizationCheck(tableName.getLegacyCatalogName(), securityContext, (control, context) -> control.checkCanSetTableComment(context, tableName.asSchemaTableName(nameCanonicalizerProvider.apply(securityContext.getSession(), tableName.getLegacyCatalogName()))));
     }
 
     @Override
@@ -404,9 +410,9 @@ public class AccessControlManager
 
         checkCanAccessCatalog(securityContext, tableName.getLegacyCatalogName());
 
-        systemAuthorizationCheck(control -> control.checkCanAddColumn(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName()));
+        systemAuthorizationCheck(control -> control.checkCanAddColumn(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(nameCanonicalizerProvider.apply(securityContext.getSession(), tableName.getLegacyCatalogName()))));
 
-        catalogAuthorizationCheck(tableName.getLegacyCatalogName(), securityContext, (control, context) -> control.checkCanAddColumn(context, tableName.asSchemaTableName()));
+        catalogAuthorizationCheck(tableName.getLegacyCatalogName(), securityContext, (control, context) -> control.checkCanAddColumn(context, tableName.asSchemaTableName(nameCanonicalizerProvider.apply(securityContext.getSession(), tableName.getLegacyCatalogName()))));
     }
 
     @Override
@@ -417,9 +423,9 @@ public class AccessControlManager
 
         checkCanAccessCatalog(securityContext, tableName.getLegacyCatalogName());
 
-        systemAuthorizationCheck(control -> control.checkCanDropColumn(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName()));
+        systemAuthorizationCheck(control -> control.checkCanDropColumn(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(nameCanonicalizerProvider.apply(securityContext.getSession(), tableName.getLegacyCatalogName()))));
 
-        catalogAuthorizationCheck(tableName.getLegacyCatalogName(), securityContext, (control, context) -> control.checkCanDropColumn(context, tableName.asSchemaTableName()));
+        catalogAuthorizationCheck(tableName.getLegacyCatalogName(), securityContext, (control, context) -> control.checkCanDropColumn(context, tableName.asSchemaTableName(nameCanonicalizerProvider.apply(securityContext.getSession(), tableName.getLegacyCatalogName()))));
     }
 
     @Override
@@ -430,9 +436,9 @@ public class AccessControlManager
 
         checkCanAccessCatalog(securityContext, tableName.getLegacyCatalogName());
 
-        systemAuthorizationCheck(control -> control.checkCanRenameColumn(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName()));
+        systemAuthorizationCheck(control -> control.checkCanRenameColumn(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(nameCanonicalizerProvider.apply(securityContext.getSession(), tableName.getLegacyCatalogName()))));
 
-        catalogAuthorizationCheck(tableName.getLegacyCatalogName(), securityContext, (control, context) -> control.checkCanRenameColumn(context, tableName.asSchemaTableName()));
+        catalogAuthorizationCheck(tableName.getLegacyCatalogName(), securityContext, (control, context) -> control.checkCanRenameColumn(context, tableName.asSchemaTableName(nameCanonicalizerProvider.apply(securityContext.getSession(), tableName.getLegacyCatalogName()))));
     }
 
     @Override
@@ -443,9 +449,9 @@ public class AccessControlManager
 
         checkCanAccessCatalog(securityContext, tableName.getLegacyCatalogName());
 
-        systemAuthorizationCheck(control -> control.checkCanInsertIntoTable(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName()));
+        systemAuthorizationCheck(control -> control.checkCanInsertIntoTable(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(nameCanonicalizerProvider.apply(securityContext.getSession(), tableName.getLegacyCatalogName()))));
 
-        catalogAuthorizationCheck(tableName.getLegacyCatalogName(), securityContext, (control, context) -> control.checkCanInsertIntoTable(context, tableName.asSchemaTableName()));
+        catalogAuthorizationCheck(tableName.getLegacyCatalogName(), securityContext, (control, context) -> control.checkCanInsertIntoTable(context, tableName.asSchemaTableName(nameCanonicalizerProvider.apply(securityContext.getSession(), tableName.getLegacyCatalogName()))));
     }
 
     @Override
@@ -456,9 +462,9 @@ public class AccessControlManager
 
         checkCanAccessCatalog(securityContext, tableName.getLegacyCatalogName());
 
-        systemAuthorizationCheck(control -> control.checkCanDeleteFromTable(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName()));
+        systemAuthorizationCheck(control -> control.checkCanDeleteFromTable(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(nameCanonicalizerProvider.apply(securityContext.getSession(), tableName.getLegacyCatalogName()))));
 
-        catalogAuthorizationCheck(tableName.getLegacyCatalogName(), securityContext, (control, context) -> control.checkCanDeleteFromTable(context, tableName.asSchemaTableName()));
+        catalogAuthorizationCheck(tableName.getLegacyCatalogName(), securityContext, (control, context) -> control.checkCanDeleteFromTable(context, tableName.asSchemaTableName(nameCanonicalizerProvider.apply(securityContext.getSession(), tableName.getLegacyCatalogName()))));
     }
 
     @Override
@@ -469,9 +475,9 @@ public class AccessControlManager
 
         checkCanAccessCatalog(securityContext, viewName.getLegacyCatalogName());
 
-        systemAuthorizationCheck(control -> control.checkCanCreateView(securityContext.toSystemSecurityContext(), viewName.asCatalogSchemaTableName()));
+        systemAuthorizationCheck(control -> control.checkCanCreateView(securityContext.toSystemSecurityContext(), viewName.asCatalogSchemaTableName(nameCanonicalizerProvider.apply(securityContext.getSession(), viewName.getLegacyCatalogName()))));
 
-        catalogAuthorizationCheck(viewName.getLegacyCatalogName(), securityContext, (control, context) -> control.checkCanCreateView(context, viewName.asSchemaTableName()));
+        catalogAuthorizationCheck(viewName.getLegacyCatalogName(), securityContext, (control, context) -> control.checkCanCreateView(context, viewName.asSchemaTableName(nameCanonicalizerProvider.apply(securityContext.getSession(), viewName.getLegacyCatalogName()))));
     }
 
     @Override
@@ -483,9 +489,9 @@ public class AccessControlManager
 
         checkCanAccessCatalog(securityContext, viewName.getLegacyCatalogName());
 
-        systemAuthorizationCheck(control -> control.checkCanRenameView(securityContext.toSystemSecurityContext(), viewName.asCatalogSchemaTableName(), newViewName.asCatalogSchemaTableName()));
+        systemAuthorizationCheck(control -> control.checkCanRenameView(securityContext.toSystemSecurityContext(), viewName.asCatalogSchemaTableName(nameCanonicalizerProvider.apply(securityContext.getSession(), viewName.getLegacyCatalogName())), newViewName.asCatalogSchemaTableName(nameCanonicalizerProvider.apply(securityContext.getSession(), viewName.getLegacyCatalogName()))));
 
-        catalogAuthorizationCheck(viewName.getLegacyCatalogName(), securityContext, (control, context) -> control.checkCanRenameView(context, viewName.asSchemaTableName(), newViewName.asSchemaTableName()));
+        catalogAuthorizationCheck(viewName.getLegacyCatalogName(), securityContext, (control, context) -> control.checkCanRenameView(context, viewName.asSchemaTableName(nameCanonicalizerProvider.apply(securityContext.getSession(), viewName.getLegacyCatalogName())), newViewName.asSchemaTableName(nameCanonicalizerProvider.apply(securityContext.getSession(), viewName.getLegacyCatalogName()))));
     }
 
     @Override
@@ -496,9 +502,9 @@ public class AccessControlManager
 
         checkCanAccessCatalog(securityContext, viewName.getLegacyCatalogName());
 
-        systemAuthorizationCheck(control -> control.checkCanDropView(securityContext.toSystemSecurityContext(), viewName.asCatalogSchemaTableName()));
+        systemAuthorizationCheck(control -> control.checkCanDropView(securityContext.toSystemSecurityContext(), viewName.asCatalogSchemaTableName(nameCanonicalizerProvider.apply(securityContext.getSession(), viewName.getLegacyCatalogName()))));
 
-        catalogAuthorizationCheck(viewName.getLegacyCatalogName(), securityContext, (control, context) -> control.checkCanDropView(context, viewName.asSchemaTableName()));
+        catalogAuthorizationCheck(viewName.getLegacyCatalogName(), securityContext, (control, context) -> control.checkCanDropView(context, viewName.asSchemaTableName(nameCanonicalizerProvider.apply(securityContext.getSession(), viewName.getLegacyCatalogName()))));
     }
 
     @Override
@@ -509,9 +515,9 @@ public class AccessControlManager
 
         checkCanAccessCatalog(securityContext, tableName.getLegacyCatalogName());
 
-        systemAuthorizationCheck(control -> control.checkCanCreateViewWithSelectFromColumns(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(), columnNames));
+        systemAuthorizationCheck(control -> control.checkCanCreateViewWithSelectFromColumns(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(nameCanonicalizerProvider.apply(securityContext.getSession(), tableName.getLegacyCatalogName())), columnNames));
 
-        catalogAuthorizationCheck(tableName.getLegacyCatalogName(), securityContext, (control, context) -> control.checkCanCreateViewWithSelectFromColumns(context, tableName.asSchemaTableName(), columnNames));
+        catalogAuthorizationCheck(tableName.getLegacyCatalogName(), securityContext, (control, context) -> control.checkCanCreateViewWithSelectFromColumns(context, tableName.asSchemaTableName(nameCanonicalizerProvider.apply(securityContext.getSession(), tableName.getLegacyCatalogName())), columnNames));
     }
 
     @Override
@@ -523,9 +529,9 @@ public class AccessControlManager
 
         checkCanAccessCatalog(securityContext, tableName.getLegacyCatalogName());
 
-        systemAuthorizationCheck(control -> control.checkCanGrantTablePrivilege(securityContext.toSystemSecurityContext(), privilege, tableName.asCatalogSchemaTableName(), grantee, withGrantOption));
+        systemAuthorizationCheck(control -> control.checkCanGrantTablePrivilege(securityContext.toSystemSecurityContext(), privilege, tableName.asCatalogSchemaTableName(nameCanonicalizerProvider.apply(securityContext.getSession(), tableName.getLegacyCatalogName())), grantee, withGrantOption));
 
-        catalogAuthorizationCheck(tableName.getLegacyCatalogName(), securityContext, (control, context) -> control.checkCanGrantTablePrivilege(context, privilege, tableName.asSchemaTableName(), grantee, withGrantOption));
+        catalogAuthorizationCheck(tableName.getLegacyCatalogName(), securityContext, (control, context) -> control.checkCanGrantTablePrivilege(context, privilege, tableName.asSchemaTableName(nameCanonicalizerProvider.apply(securityContext.getSession(), tableName.getLegacyCatalogName())), grantee, withGrantOption));
     }
 
     @Override
@@ -537,9 +543,9 @@ public class AccessControlManager
 
         checkCanAccessCatalog(securityContext, tableName.getLegacyCatalogName());
 
-        systemAuthorizationCheck(control -> control.checkCanRevokeTablePrivilege(securityContext.toSystemSecurityContext(), privilege, tableName.asCatalogSchemaTableName(), revokee, grantOptionFor));
+        systemAuthorizationCheck(control -> control.checkCanRevokeTablePrivilege(securityContext.toSystemSecurityContext(), privilege, tableName.asCatalogSchemaTableName(nameCanonicalizerProvider.apply(securityContext.getSession(), tableName.getLegacyCatalogName())), revokee, grantOptionFor));
 
-        catalogAuthorizationCheck(tableName.getLegacyCatalogName(), securityContext, (control, context) -> control.checkCanRevokeTablePrivilege(context, privilege, tableName.asSchemaTableName(), revokee, grantOptionFor));
+        catalogAuthorizationCheck(tableName.getLegacyCatalogName(), securityContext, (control, context) -> control.checkCanRevokeTablePrivilege(context, privilege, tableName.asSchemaTableName(nameCanonicalizerProvider.apply(securityContext.getSession(), tableName.getLegacyCatalogName())), revokee, grantOptionFor));
     }
 
     @Override
@@ -574,9 +580,9 @@ public class AccessControlManager
 
         checkCanAccessCatalog(securityContext, tableName.getLegacyCatalogName());
 
-        systemAuthorizationCheck(control -> control.checkCanSelectFromColumns(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(), columnNames));
+        systemAuthorizationCheck(control -> control.checkCanSelectFromColumns(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(nameCanonicalizerProvider.apply(securityContext.getSession(), tableName.getLegacyCatalogName())), columnNames));
 
-        catalogAuthorizationCheck(tableName.getLegacyCatalogName(), securityContext, (control, context) -> control.checkCanSelectFromColumns(context, tableName.asSchemaTableName(), columnNames));
+        catalogAuthorizationCheck(tableName.getLegacyCatalogName(), securityContext, (control, context) -> control.checkCanSelectFromColumns(context, tableName.asSchemaTableName(nameCanonicalizerProvider.apply(securityContext.getSession(), tableName.getLegacyCatalogName())), columnNames));
     }
 
     @Override

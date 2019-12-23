@@ -64,6 +64,8 @@ import static io.prestosql.connector.informationschema.InformationSchemaTable.TA
 import static io.prestosql.connector.informationschema.InformationSchemaTable.TABLE_PRIVILEGES;
 import static io.prestosql.connector.informationschema.InformationSchemaTable.VIEWS;
 import static io.prestosql.metadata.MetadataUtil.findColumnMetadata;
+import static io.prestosql.metadata.NamePart.createDefaultNamePart;
+import static io.prestosql.metadata.NamePart.createDelimitedNamePart;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -279,10 +281,10 @@ public class InformationSchemaMetadata
                             .orElseGet(() -> listSchemaNames(session)))
                     .flatMap(prefix -> tables.get().stream()
                             .filter(this::isLowerCase)
-                            .map(table -> new QualifiedObjectName(catalogName, prefix.getSchemaName().get(), table)))
+                            .map(table -> new QualifiedObjectName(createDefaultNamePart(catalogName), createDelimitedNamePart(prefix.getSchemaName().get()), createDelimitedNamePart(table))))
                     .filter(objectName -> !isColumnsEnumeratingTable(informationSchemaTable) || metadata.getTableHandle(session, objectName).isPresent() || metadata.getView(session, objectName).isPresent())
                     .filter(objectName -> !predicate.isPresent() || predicate.get().test(asFixedValues(objectName)))
-                    .map(QualifiedObjectName::asQualifiedTablePrefix)
+                    .map(name -> name.asQualifiedTablePrefix(metadata.getNameCanonicalizer(session, name.getLegacyCatalogName())))
                     .collect(toImmutableSet());
         }
 
@@ -295,7 +297,7 @@ public class InformationSchemaMetadata
                         metadata.listTables(session, prefix).stream(),
                         metadata.listViews(session, prefix).stream()))
                 .filter(objectName -> predicate.get().test(asFixedValues(objectName)))
-                .map(QualifiedObjectName::asQualifiedTablePrefix)
+                .map(qualifiedObjectName -> qualifiedObjectName.asQualifiedTablePrefix(metadata.getNameCanonicalizer(session, qualifiedObjectName.getLegacyCatalogName())))
                 .collect(toImmutableSet());
     }
 

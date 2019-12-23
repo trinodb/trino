@@ -62,7 +62,7 @@ public final class MetadataListing
     public static Set<SchemaTableName> listTables(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)
     {
         Set<SchemaTableName> tableNames = metadata.listTables(session, prefix).stream()
-                .map(QualifiedObjectName::asSchemaTableName)
+                .map(name -> name.asSchemaTableName(metadata.getNameCanonicalizer(session, name.getLegacyCatalogName())))
                 .collect(toImmutableSet());
         return accessControl.filterTables(session.toSecurityContext(), prefix.getCatalogName(), tableNames);
     }
@@ -70,7 +70,7 @@ public final class MetadataListing
     public static Set<SchemaTableName> listViews(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)
     {
         Set<SchemaTableName> tableNames = metadata.listViews(session, prefix).stream()
-                .map(QualifiedObjectName::asSchemaTableName)
+                .map(qualifiedObjectName -> qualifiedObjectName.asSchemaTableName(metadata.getNameCanonicalizer(session, qualifiedObjectName.getLegacyCatalogName())))
                 .collect(toImmutableSet());
         return accessControl.filterTables(session.toSecurityContext(), prefix.getCatalogName(), tableNames);
     }
@@ -91,7 +91,7 @@ public final class MetadataListing
     public static Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)
     {
         Map<SchemaTableName, List<ColumnMetadata>> tableColumns = metadata.listTableColumns(session, prefix).entrySet().stream()
-                .collect(toImmutableMap(entry -> entry.getKey().asSchemaTableName(), Entry::getValue));
+                .collect(toImmutableMap(entry -> entry.getKey().asSchemaTableName(metadata.getNameCanonicalizer(session, entry.getKey().getLegacyCatalogName())), Entry::getValue));
         Set<SchemaTableName> allowedTables = accessControl.filterTables(
                 session.toSecurityContext(),
                 prefix.getCatalogName(),

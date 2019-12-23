@@ -26,6 +26,8 @@ import static com.google.common.base.Verify.verify;
 import static io.prestosql.metadata.MetadataUtil.checkCatalogName;
 import static io.prestosql.metadata.MetadataUtil.checkSchemaName;
 import static io.prestosql.metadata.MetadataUtil.checkTableName;
+import static io.prestosql.metadata.NamePart.createDefaultNamePart;
+import static io.prestosql.metadata.NamePart.createDelimitedNamePart;
 
 @Immutable
 public class QualifiedTablePrefix
@@ -112,17 +114,17 @@ public class QualifiedTablePrefix
     {
         if (tableName.isPresent()) {
             verify(schemaName.isPresent());
-            return Optional.of(new QualifiedObjectName(catalogName, schemaName.get(), tableName.get()));
+            return Optional.of(new QualifiedObjectName(createDefaultNamePart(catalogName), createDelimitedNamePart(schemaName.get()), createDelimitedNamePart(tableName.get())));
         }
 
         return Optional.empty();
     }
 
-    public boolean matches(QualifiedObjectName objectName)
+    public boolean matches(QualifiedObjectName objectName, NameCanonicalizer nameCanonicalizer)
     {
         return Objects.equals(catalogName, objectName.getLegacyCatalogName())
-                && schemaName.map(schema -> Objects.equals(schema, objectName.getLegacySchemaName())).orElse(true)
-                && tableName.map(table -> Objects.equals(table, objectName.getLegacyObjectName())).orElse(true);
+                && schemaName.map(schema -> Objects.equals(schema, nameCanonicalizer.canonicalize(objectName.getSchemaName()))).orElse(true)
+                && tableName.map(table -> Objects.equals(table, nameCanonicalizer.canonicalize(objectName.getObjectName()))).orElse(true);
     }
 
     @Override

@@ -106,7 +106,7 @@ public class TestPrepareTask
                 new ResourceGroupId("test"),
                 false,
                 transactionManager,
-                new AccessControlManager(transactionManager, new AccessControlConfig()),
+                new AccessControlManager(transactionManager, metadata, new AccessControlConfig()),
                 executor,
                 metadata,
                 WarningCollector.NOOP);

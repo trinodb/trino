@@ -585,7 +585,7 @@ class StatementAnalyzer
                     metadata,
                     analysis.getParameters());
 
-            ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(targetTable.asSchemaTableName(), columns.build(), properties, node.getComment());
+            ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(targetTable.asSchemaTableName(metadata.getNameCanonicalizer(session, targetTable.getLegacyCatalogName())), columns.build(), properties, node.getComment());
 
             // analyze target table layout
             Optional<NewTableLayout> newTableLayout = metadata.getNewTableLayout(session, targetTable.getLegacyCatalogName(), tableMetadata);

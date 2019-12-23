@@ -371,7 +371,7 @@ final class ShowQueriesRewrite
                 throw semanticException(TABLE_NOT_FOUND, showColumns, "Table '%s' does not exist", tableName);
             }
 
-            accessControl.checkCanShowColumnsMetadata(session.toSecurityContext(), tableName.asCatalogSchemaTableName());
+            accessControl.checkCanShowColumnsMetadata(session.toSecurityContext(), tableName.asCatalogSchemaTableName(metadata.getNameCanonicalizer(session, tableName.getLegacyCatalogName())));
 
             return simpleQuery(
                     selectList(
@@ -457,7 +457,7 @@ final class ShowQueriesRewrite
                     throw semanticException(TABLE_NOT_FOUND, node, "Table '%s' does not exist", objectName);
                 }
 
-                accessControl.checkCanShowColumnsMetadata(session.toSecurityContext(), new CatalogSchemaTableName(tableHandle.get().getCatalogName().getCatalogName(), objectName.asSchemaTableName()));
+                accessControl.checkCanShowColumnsMetadata(session.toSecurityContext(), new CatalogSchemaTableName(tableHandle.get().getCatalogName().getCatalogName(), objectName.asSchemaTableName(metadata.getNameCanonicalizer(session, objectName.getLegacyCatalogName()))));
                 ConnectorTableMetadata connectorTableMetadata = metadata.getTableMetadata(session, tableHandle.get()).getMetadata();
 
                 Map<String, PropertyMetadata<?>> allColumnProperties = metadata.getColumnPropertyManager().getAllProperties().get(tableHandle.get().getCatalogName());
