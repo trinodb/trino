@@ -227,6 +227,6 @@ public abstract class ForwardingJdbcClient
     @Override
     public void createSchema(JdbcIdentity identity, String schemaName)
     {
-        getDelegate().createSchema(identity, schemaName);
+        delegate().createSchema(identity, schemaName);
     }
 }
