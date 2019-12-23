@@ -64,6 +64,7 @@ import java.util.Set;
 
 import static io.prestosql.metadata.FunctionId.toFunctionId;
 import static io.prestosql.metadata.FunctionKind.SCALAR;
+import static io.prestosql.metadata.NameCanonicalizer.LEGACY_NAME_CANONICALIZER;
 import static io.prestosql.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 
@@ -691,5 +692,11 @@ public abstract class AbstractMockMetadata
     public Optional<ProjectionApplicationResult<TableHandle>> applyProjection(Session session, TableHandle table, List<ConnectorExpression> projections, Map<String, ColumnHandle> assignments)
     {
         return Optional.empty();
+    }
+
+    @Override
+    public NameCanonicalizer getNameCanonicalizer(Session session, String catalogName)
+    {
+        return LEGACY_NAME_CANONICALIZER;
     }
 }
