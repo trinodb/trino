@@ -43,6 +43,11 @@ public enum KafkaInternalFieldDescription
     PARTITION_ID_FIELD("_partition_id", BigintType.BIGINT, "Partition Id"),
 
     /**
+     * <tt>_timestamp</tt> - Kafka message timestamp.
+     */
+    TIMESTAMP_FIELD("_timestamp", BigintType.BIGINT, "Message creation timestamp"),
+
+    /**
      * <tt>_partition_offset</tt> - The current offset of the message in the partition.
      */
     PARTITION_OFFSET_FIELD("_partition_offset", BigintType.BIGINT, "Offset for the message within the partition"),
