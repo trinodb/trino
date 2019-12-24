@@ -460,7 +460,15 @@ public class ElasticsearchClient
                     result.add(new IndexMetadata.Field(name, new IndexMetadata.PrimitiveType(type)));
                 }
                 else {
-                    LOG.debug("Empty object field %s ignored, row type must have at least one field", name);
+                    if (value.has("properties") && value.get("properties").fields().hasNext()) {
+                        // According to elasticsearch implementation, this case will never happen.
+                        // cf objectMapper implementation in elasticsearch repo.
+                        // However this case is theoretically correct.
+                        result.add(new IndexMetadata.Field(name, parseType(value.get("properties"))));
+                    }
+                    else {
+                        LOG.debug("Empty object field %s ignored, row type must have at least one field", name);
+                    }
                 }
             }
             else if (value.has("properties")) {
