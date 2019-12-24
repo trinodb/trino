@@ -349,6 +349,32 @@ public class TestSubqueries
     }
 
     @Test
+    public void testRemoveUnreferencedScalarSubqueryOrInput()
+    {
+        // scalar unreferenced input, empty subquery, nonempty correlation
+        assertions.assertQueryReturnsEmptyResult("SELECT b FROM (VALUES 1) t(a) INNER JOIN LATERAL (SELECT 2 WHERE a = 2) t2(b) ON true");
+        assertions.assertQuery("SELECT b FROM (VALUES 1) t(a) LEFT JOIN LATERAL (SELECT 2 WHERE a = 2) t2(b) ON true", "VALUES CAST(null AS INTEGER)");
+
+        // scalar unreferenced input, empty subquery, empty correlation
+        assertions.assertQueryReturnsEmptyResult("SELECT b FROM (VALUES 1) t(a) INNER JOIN LATERAL (SELECT 2 WHERE 0 = 1) t2(b) ON true");
+        assertions.assertQuery("SELECT b FROM (VALUES 1) t(a) LEFT JOIN LATERAL (SELECT 2 WHERE 0 = 1) t2(b) ON true", "VALUES CAST(null AS INTEGER)");
+        assertions.assertQueryReturnsEmptyResult("SELECT b FROM (VALUES 1) t(a) RIGHT JOIN LATERAL (SELECT 2 WHERE 0 = 1) t2(b) ON true");
+        assertions.assertQuery("SELECT b FROM (VALUES 1) t(a) FULL JOIN LATERAL (SELECT 2 WHERE 0 = 1) t2(b) ON true", "VALUES CAST(null AS INTEGER)");
+
+        // scalar unreferenced subquery, at least scalar input
+        assertions.assertQuery("SELECT a FROM (VALUES 1, 2) t(a) INNER JOIN LATERAL (VALUES a) t2(b) ON true", "VALUES 1, 2");
+        assertions.assertQuery("SELECT a FROM (VALUES 1, 2) t(a) LEFT JOIN LATERAL (VALUES a) t2(b) ON true", "VALUES 1, 2");
+        assertions.assertQuery("SELECT a FROM (VALUES 1, 2) t(a) RIGHT JOIN LATERAL (VALUES 3) t2(b) ON true", "VALUES 1, 2");
+        assertions.assertQuery("SELECT a FROM (VALUES 1, 2) t(a) FULL JOIN LATERAL (VALUES 3) t2(b) ON true", "VALUES 1, 2");
+
+        // scalar unreferenced subquery, empty input
+        assertions.assertQueryReturnsEmptyResult("SELECT a FROM (SELECT 1 where 0 = 1) t(a) INNER JOIN LATERAL (VALUES a) t2(b) ON true");
+        assertions.assertQueryReturnsEmptyResult("SELECT a FROM (SELECT 1 where 0 = 1) t(a) LEFT JOIN LATERAL (VALUES a) t2(b) ON true");
+        assertions.assertQueryReturnsEmptyResult("SELECT a FROM (SELECT 1 where 0 = 1) t(a) RIGHT JOIN LATERAL (VALUES 2) t2(b) ON true");
+        assertions.assertQueryReturnsEmptyResult("SELECT a FROM (SELECT 1 where 0 = 1) t(a) FULL JOIN LATERAL (VALUES 2) t2(b) ON true");
+    }
+
+    @Test
     public void testCorrelatedSubqueryWithExplicitCoercion()
     {
         assertions.assertQuery(

@@ -187,7 +187,12 @@ public final class MetastoreUtil
                         (table.getStorage().getSerdeParameters().get(AVRO_SCHEMA_URL_KEY) != null));
     }
 
-    public static String makePartName(List<Column> partitionColumns, List<String> values)
+    public static String makePartitionName(Table table, Partition partition)
+    {
+        return makePartitionName(table.getPartitionColumns(), partition.getValues());
+    }
+
+    public static String makePartitionName(List<Column> partitionColumns, List<String> values)
     {
         return toPartitionName(partitionColumns.stream().map(Column::getName).collect(toList()), values);
     }

@@ -11,22 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.type;
+package io.prestosql.plugin.password.file;
 
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.databind.JsonSerializer;
-import com.fasterxml.jackson.databind.SerializerProvider;
-import io.airlift.slice.Slice;
-
-import java.io.IOException;
-
-public class RawSliceSerializer
-        extends JsonSerializer<Slice>
+public enum HashingAlgorithm
 {
-    @Override
-    public void serialize(Slice slice, JsonGenerator jsonGenerator, SerializerProvider serializerProvider)
-            throws IOException
-    {
-        jsonGenerator.writeRawValue(slice.toStringUtf8());
-    }
+    BCRYPT,
+    PBKDF2,
+    /**/;
 }

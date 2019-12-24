@@ -33,7 +33,6 @@ import java.util.Set;
 
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
-import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.toCQLCompatibleString;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -87,7 +86,7 @@ public class CassandraPartitionManager
                 if (column.isIndexed() && domain.isSingleValue()) {
                     sb.append(CassandraCqlUtils.validColumnName(column.getName()))
                             .append(" = ")
-                            .append(CassandraCqlUtils.cqlValue(toCQLCompatibleString(entry.getValue().getSingleValue()), column.getCassandraType()));
+                            .append(column.getCassandraType().toCqlLiteral(entry.getValue().getSingleValue()));
                     indexedColumns.add(column);
                     // Only one indexed column predicate can be pushed down.
                     break;
@@ -141,7 +140,7 @@ public class CassandraPartitionManager
                     ranges -> {
                         ImmutableSet.Builder<Object> columnValues = ImmutableSet.builder();
                         for (Range range : ranges.getOrderedRanges()) {
-                            // if the range is not a single value, we can not perform partition pruning
+                            // if the range is not a single value, we cannot perform partition pruning
                             if (!range.isSingleValue()) {
                                 return ImmutableSet.of();
                             }

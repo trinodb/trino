@@ -142,7 +142,7 @@ public class RowExpressionCompiler
                     generator = new BindCodeGenerator(compiledLambdaMap, context.getLambdaInterface().get());
                     break;
                 default:
-                    throw new IllegalStateException("Can not compile special form: " + specialForm.getForm());
+                    throw new IllegalStateException("Cannot compile special form: " + specialForm.getForm());
             }
 
             BytecodeGeneratorContext generatorContext = new BytecodeGeneratorContext(

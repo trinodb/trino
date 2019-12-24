@@ -2464,7 +2464,7 @@ public abstract class AbstractTestQueries
         assertEquals(
                 getOnlyElement(result.getOnlyColumnAsSet()),
                 "SET SESSION foo = ?\n" +
-                "Parameters: [7]");
+                        "Parameters: [7]");
     }
 
     @Test

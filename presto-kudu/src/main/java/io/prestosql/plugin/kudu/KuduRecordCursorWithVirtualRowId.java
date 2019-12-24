@@ -25,6 +25,8 @@ import org.apache.kudu.client.PartialRow;
 import java.util.List;
 import java.util.Map;
 
+import static io.prestosql.plugin.kudu.KuduColumnHandle.ROW_ID_POSITION;
+
 public class KuduRecordCursorWithVirtualRowId
         extends KuduRecordCursor
 {
@@ -49,7 +51,7 @@ public class KuduRecordCursorWithVirtualRowId
     @Override
     public Slice getSlice(int field)
     {
-        if (fieldMapping.get(field) == -1) {
+        if (fieldMapping.get(field) == ROW_ID_POSITION) {
             PartialRow partialRow = buildPrimaryKey();
             return Slices.wrappedBuffer(KeyEncoderAccessor.encodePrimaryKey(partialRow));
         }

@@ -18,6 +18,7 @@ import io.prestosql.dispatcher.DispatchManager;
 import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.QueryStats;
 import io.prestosql.server.BasicQueryInfo;
+import io.prestosql.spi.ErrorCode;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -68,6 +69,9 @@ public class QuerySystemTable
             .column("started", TIMESTAMP)
             .column("last_heartbeat", TIMESTAMP)
             .column("end", TIMESTAMP)
+
+            .column("error_type", createUnboundedVarcharType())
+            .column("error_code", createUnboundedVarcharType())
             .build();
 
     private final Optional<DispatchManager> dispatchManager;
@@ -116,7 +120,10 @@ public class QuerySystemTable
                     toTimeStamp(queryStats.getCreateTime()),
                     toTimeStamp(queryStats.getExecutionStartTime()),
                     toTimeStamp(queryStats.getLastHeartbeat()),
-                    toTimeStamp(queryStats.getEndTime()));
+                    toTimeStamp(queryStats.getEndTime()),
+
+                    Optional.ofNullable(queryInfo.getErrorType()).map(Enum::name).orElse(null),
+                    Optional.ofNullable(queryInfo.getErrorCode()).map(ErrorCode::getName).orElse(null));
         }
         return table.build().cursor();
     }

@@ -21,7 +21,6 @@ import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import io.airlift.joni.Regex;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.airlift.slice.Slice;
@@ -44,6 +43,7 @@ import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.tree.Extract.Field;
+import io.prestosql.type.JoniRegexp;
 import io.prestosql.type.LikeFunctions;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -1570,7 +1570,7 @@ public class TestExpressionCompiler
             for (String pattern : stringLefts) {
                 Boolean expected = null;
                 if (value != null && pattern != null) {
-                    Regex regex = LikeFunctions.likePattern(utf8Slice(pattern), utf8Slice("\\"));
+                    JoniRegexp regex = LikeFunctions.likePattern(utf8Slice(pattern), utf8Slice("\\"));
                     expected = LikeFunctions.likeVarchar(utf8Slice(value), regex);
                 }
                 assertExecute(generateExpression("%s like %s", value, pattern), BOOLEAN, expected);

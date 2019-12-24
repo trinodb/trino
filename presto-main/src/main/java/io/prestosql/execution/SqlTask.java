@@ -351,7 +351,7 @@ public class SqlTask
 
         // If the caller's current state is already done, just return the current
         // state of this task as it will either be done or possibly still running
-        // (due to a bug in the caller), since we can not transition from a done
+        // (due to a bug in the caller), since we cannot transition from a done
         // state.
         if (callersCurrentState.isDone()) {
             return immediateFuture(getTaskInfo());

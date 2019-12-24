@@ -52,4 +52,5 @@ env HADOOP_BASE_IMAGE="not-used" TESTS_HIVE_VERSION_MAJOR="3" TESTS_HIVE_VERSION
     -g hdp3_only,storage_formats,hive_transactional \
     || exit_code=1
 
+echo "$0: exiting with ${exit_code}"
 exit "${exit_code}"

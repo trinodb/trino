@@ -235,6 +235,7 @@ import static io.prestosql.SystemSessionProperties.getTaskConcurrency;
 import static io.prestosql.SystemSessionProperties.getTaskWriterCount;
 import static io.prestosql.SystemSessionProperties.isEnableDynamicFiltering;
 import static io.prestosql.SystemSessionProperties.isExchangeCompressionEnabled;
+import static io.prestosql.SystemSessionProperties.isLateMaterializationEnabled;
 import static io.prestosql.SystemSessionProperties.isSpillEnabled;
 import static io.prestosql.SystemSessionProperties.isSpillOrderBy;
 import static io.prestosql.SystemSessionProperties.isSpillWindowOperator;
@@ -575,7 +576,7 @@ public class LocalExecutionPlanner
                 }
             }
 
-            if (SystemSessionProperties.isWorkProcessorPipelines(taskContext.getSession())) {
+            if (isLateMaterializationEnabled(taskContext.getSession())) {
                 operatorFactories = WorkProcessorPipelineSourceOperator.convertOperators(getNextOperatorId(), operatorFactories);
             }
 
@@ -634,7 +635,7 @@ public class LocalExecutionPlanner
 
         public LocalExecutionPlanContext createSubContext()
         {
-            checkState(!indexSourceContext.isPresent(), "index build plan can not have sub-contexts");
+            checkState(!indexSourceContext.isPresent(), "index build plan cannot have sub-contexts");
             return new LocalExecutionPlanContext(taskContext, types, driverFactories, indexSourceContext, dynamicFiltersCollector, nextPipelineId);
         }
 

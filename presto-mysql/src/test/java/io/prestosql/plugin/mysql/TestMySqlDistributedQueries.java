@@ -18,6 +18,7 @@ import io.airlift.testing.mysql.TestingMySqlServer;
 import io.airlift.tpch.TpchTable;
 import io.prestosql.testing.AbstractTestDistributedQueries;
 import io.prestosql.testing.MaterializedResult;
+import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -30,24 +31,21 @@ import static io.prestosql.testing.assertions.Assert.assertEquals;
 public class TestMySqlDistributedQueries
         extends AbstractTestDistributedQueries
 {
-    private final TestingMySqlServer mysqlServer;
+    private TestingMySqlServer mysqlServer;
 
-    public TestMySqlDistributedQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this(new TestingMySqlServer("testuser", "testpass", "tpch"));
-    }
-
-    public TestMySqlDistributedQueries(TestingMySqlServer mysqlServer)
-    {
-        super(() -> createMySqlQueryRunner(mysqlServer, ImmutableMap.of(), TpchTable.getTables()));
-        this.mysqlServer = mysqlServer;
+        this.mysqlServer = new TestingMySqlServer("testuser", "testpass", "tpch");
+        return createMySqlQueryRunner(mysqlServer, ImmutableMap.of(), TpchTable.getTables());
     }
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
     {
         mysqlServer.close();
+        mysqlServer = null;
     }
 
     @Override
@@ -80,6 +78,12 @@ public class TestMySqlDistributedQueries
                 .build();
 
         assertEquals(actual, expectedParametrizedVarchar);
+    }
+
+    @Override
+    public void testInsertWithCoercion()
+    {
+        // this connector uses a non-canonical type for varchar columns in tpch
     }
 
     @Override

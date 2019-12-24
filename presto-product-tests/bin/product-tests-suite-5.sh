@@ -14,4 +14,5 @@ presto-product-tests/bin/run_on_docker.sh \
     -g storage_formats,hdfs_impersonation,authorization \
     || exit_code=1
 
+echo "$0: exiting with ${exit_code}"
 exit "${exit_code}"

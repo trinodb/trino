@@ -324,6 +324,17 @@ public abstract class AbstractTestAggregations
     }
 
     @Test
+    public void testAggregationFilterWithSubquery()
+    {
+        assertQuery("" +
+                        "WITH company AS (SELECT * FROM (VALUES (1, 10), (2, 20)) t(dep_id, salary)), " +
+                        "department AS (SELECT 1 id) " +
+                        "SELECT dep_id, sum(salary), sum(salary) FILTER (WHERE EXISTS (SELECT 1 FROM department WHERE department.id = company.dep_id)) " +
+                        "FROM company GROUP BY dep_id",
+                "VALUES (1, 10, 10), (2, 20, NULL)");
+    }
+
+    @Test
     public void testAggregationWithProjection()
     {
         assertQuery("SELECT sum(totalprice * 2) - sum(totalprice) FROM orders");

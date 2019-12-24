@@ -323,12 +323,6 @@ public class HivePageSourceProvider
             return coercionFrom;
         }
 
-        /**
-         * @param columns columns that need to be returned to engine
-         * @param requiredInterimColumns columns that are needed for processing, but shouldn't be returned to engine (may overlaps with columns)
-         * @param columnCoercions map from hive column index to hive type
-         * @param bucketNumber empty if table is not bucketed, a number within [0, # bucket in table) otherwise
-         */
         public static List<ColumnMapping> buildColumnMappings(
                 List<HivePartitionKey> partitionKeys,
                 List<HiveColumnHandle> columns,

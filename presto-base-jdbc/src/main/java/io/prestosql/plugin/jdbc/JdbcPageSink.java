@@ -29,14 +29,13 @@ import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
 import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_NON_TRANSIENT_ERROR;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
@@ -96,11 +95,8 @@ public class JdbcPageSink
         }
         else {
             List<ColumnMapping> columnMappings = handle.getJdbcColumnTypes().get().stream()
-                    .map(typeHandle -> {
-                        Optional<ColumnMapping> columnMapping = jdbcClient.toPrestoType(session, connection, typeHandle);
-                        checkState(columnMapping.isPresent(), "missing column mapping");
-                        return columnMapping.get();
-                    })
+                    .map(typeHandle -> jdbcClient.toPrestoType(session, connection, typeHandle)
+                            .orElseThrow(() -> new PrestoException(NOT_SUPPORTED, "Underlying type is not supported for INSERT: " + typeHandle)))
                     .collect(toImmutableList());
 
             columnWriters = columnMappings.stream()

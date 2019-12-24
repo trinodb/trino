@@ -57,7 +57,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -385,7 +384,7 @@ public class TestBackgroundHiveSplitLoader
     public void testSplitsGenerationWithAbortedTransactions()
             throws Exception
     {
-        java.nio.file.Path tablePath = Files.createTempDirectory(UUID.randomUUID().toString());
+        java.nio.file.Path tablePath = Files.createTempDirectory("TestBackgroundHiveSplitLoader");
         Table table = table(
                 tablePath.toString(),
                 ImmutableList.of(),

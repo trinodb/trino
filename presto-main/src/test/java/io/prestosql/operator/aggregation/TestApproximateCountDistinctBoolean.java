@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Booleans;
 import io.prestosql.spi.type.Type;
-import io.prestosql.sql.tree.QualifiedName;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -25,19 +24,10 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 
 public class TestApproximateCountDistinctBoolean
         extends AbstractTestApproximateCountDistinct
 {
-    @Override
-    protected InternalAggregationFunction getAggregationFunction()
-    {
-        return metadata.getAggregateFunctionImplementation(
-                metadata.resolveFunction(QualifiedName.of("approx_distinct"), fromTypes(BOOLEAN, DOUBLE)));
-    }
-
     @Override
     protected Type getValueType()
     {
@@ -60,7 +50,7 @@ public class TestApproximateCountDistinctBoolean
                 {true, true, true},
                 {false, false, false},
                 {true, false, true, false},
-                };
+        };
     }
 
     @Test(dataProvider = "inputSequences")

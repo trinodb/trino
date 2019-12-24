@@ -304,10 +304,10 @@ public class StringRowSerializer
         if (Types.isArrayType(type)) {
             throw new PrestoException(NOT_SUPPORTED, "arrays are not (yet?) supported for StringRowSerializer");
         }
-        else if (Types.isMapType(type)) {
+        if (Types.isMapType(type)) {
             throw new PrestoException(NOT_SUPPORTED, "maps are not (yet?) supported for StringRowSerializer");
         }
-        else if (type.equals(BIGINT) && value instanceof Integer) {
+        if (type.equals(BIGINT) && value instanceof Integer) {
             setLong(text, ((Integer) value).longValue());
         }
         else if (type.equals(BIGINT) && value instanceof Long) {

@@ -26,6 +26,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.List;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.tpch.TpchTable.ORDERS;
@@ -217,6 +218,21 @@ public class TestMySqlIntegrationSmokeTest
                 "VALUES (NULL, CAST('2012-12-31' AS DATE), 1), (CAST('2013-01-01' AS DATE), CAST('2013-01-02' AS DATE), 2)");
 
         assertUpdate("DROP TABLE test_insert_not_null");
+    }
+
+    @Override
+    protected boolean canDropSchema()
+    {
+        return false;
+    }
+
+    @Override
+    protected void cleanUpSchemas(List<String> schemaNames)
+            throws SQLException
+    {
+        for (String schemaName : schemaNames) {
+            execute("DROP SCHEMA " + schemaName);
+        }
     }
 
     @Test

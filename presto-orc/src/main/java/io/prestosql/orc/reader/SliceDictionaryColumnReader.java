@@ -312,7 +312,7 @@ public class SliceDictionaryColumnReader
     }
 
     @Override
-    public void startStripe(ZoneId timeZone, InputStreamSources dictionaryStreamSources, ColumnMetadata<ColumnEncoding> encoding)
+    public void startStripe(ZoneId fileTimeZone, ZoneId storageTimeZone, InputStreamSources dictionaryStreamSources, ColumnMetadata<ColumnEncoding> encoding)
     {
         dictionaryDataStreamSource = dictionaryStreamSources.getInputStreamSource(column, DICTIONARY_DATA, ByteArrayInputStream.class);
         dictionaryLengthStreamSource = dictionaryStreamSources.getInputStreamSource(column, LENGTH, LongInputStream.class);

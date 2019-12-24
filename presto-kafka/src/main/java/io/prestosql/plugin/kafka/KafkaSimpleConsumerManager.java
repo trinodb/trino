@@ -45,14 +45,14 @@ public class KafkaSimpleConsumerManager
 
     @Inject
     public KafkaSimpleConsumerManager(
-            KafkaConnectorConfig kafkaConnectorConfig,
+            KafkaConfig kafkaConfig,
             NodeManager nodeManager)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
 
-        requireNonNull(kafkaConnectorConfig, "kafkaConfig is null");
-        this.connectTimeoutMillis = toIntExact(kafkaConnectorConfig.getKafkaConnectTimeout().toMillis());
-        this.bufferSizeBytes = toIntExact(kafkaConnectorConfig.getKafkaBufferSize().toBytes());
+        requireNonNull(kafkaConfig, "kafkaConfig is null");
+        this.connectTimeoutMillis = toIntExact(kafkaConfig.getKafkaConnectTimeout().toMillis());
+        this.bufferSizeBytes = toIntExact(kafkaConfig.getKafkaBufferSize().toBytes());
 
         this.consumerCache = CacheBuilder.newBuilder().build(CacheLoader.from(this::createConsumer));
     }

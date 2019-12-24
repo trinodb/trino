@@ -71,6 +71,17 @@ public final class Re2JRegexp
         }
     }
 
+    public String pattern()
+    {
+        return re2jPattern.pattern();
+    }
+
+    @Override
+    public String toString()
+    {
+        return pattern();
+    }
+
     public boolean matches(Slice source)
     {
         return re2jPatternWithoutDotStartPrefix.find(source);

@@ -58,9 +58,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
-/**
- * Kafka specific implementation of {@link ConnectorSplitManager}.
- */
 public class KafkaSplitManager
         implements ConnectorSplitManager
 {
@@ -71,13 +68,13 @@ public class KafkaSplitManager
 
     @Inject
     public KafkaSplitManager(
-            KafkaConnectorConfig kafkaConnectorConfig,
+            KafkaConfig kafkaConfig,
             KafkaSimpleConsumerManager consumerManager)
     {
         this.consumerManager = requireNonNull(consumerManager, "consumerManager is null");
 
-        requireNonNull(kafkaConnectorConfig, "kafkaConfig is null");
-        this.nodes = ImmutableSet.copyOf(kafkaConnectorConfig.getNodes());
+        requireNonNull(kafkaConfig, "kafkaConfig is null");
+        this.nodes = ImmutableSet.copyOf(kafkaConfig.getNodes());
     }
 
     @Override
@@ -186,7 +183,7 @@ public class KafkaSplitManager
     {
         TopicAndPartition topicAndPartition = new TopicAndPartition(topicName, partitionId);
 
-        // The API implies that this will always return all of the offsets. So it seems a partition can not have
+        // The API implies that this will always return all of the offsets. So it seems a partition cannot have
         // more than Integer.MAX_VALUE-1 segments.
         //
         // This also assumes that the lowest value returned will be the first segment available. So if segments have been dropped off, this value

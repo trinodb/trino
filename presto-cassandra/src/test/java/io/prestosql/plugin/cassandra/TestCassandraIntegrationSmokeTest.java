@@ -95,6 +95,18 @@ public class TestCassandraIntegrationSmokeTest
         return false;
     }
 
+    @Override
+    protected boolean canCreateSchema()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean canDropSchema()
+    {
+        return false;
+    }
+
     @Test
     public void testPartitionKeyPredicate()
     {

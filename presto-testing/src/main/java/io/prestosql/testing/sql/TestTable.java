@@ -13,14 +13,15 @@
  */
 package io.prestosql.testing.sql;
 
-import java.security.SecureRandom;
+import com.google.common.collect.ImmutableList;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import java.security.SecureRandom;
+import java.util.List;
+
 import static java.lang.Character.MAX_RADIX;
 import static java.lang.Math.abs;
 import static java.lang.Math.min;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 
 public class TestTable
         implements AutoCloseable
@@ -33,12 +34,25 @@ public class TestTable
 
     public TestTable(SqlExecutor sqlExecutor, String namePrefix, String tableDefinition)
     {
-        checkArgument(!tableDefinition.contains("{TABLE_NAME}"), "tableDefinition should not contain '{TABLE_NAME}': %s", tableDefinition);
-        this.sqlExecutor = requireNonNull(sqlExecutor, "sqlExecutor is null");
-        requireNonNull(namePrefix, "namePrefix is null");
-        requireNonNull(tableDefinition, "tableDefinition is null");
+        this(sqlExecutor, namePrefix, tableDefinition, ImmutableList.of());
+    }
+
+    public TestTable(SqlExecutor sqlExecutor, String namePrefix, String tableDefinition, List<String> rowsToInsert)
+    {
+        this.sqlExecutor = sqlExecutor;
         this.name = namePrefix + "_" + randomTableSuffix();
         sqlExecutor.execute(format("CREATE TABLE %s %s", name, tableDefinition));
+        try {
+            for (String row : rowsToInsert) {
+                // some databases do not support multi value insert statement
+                sqlExecutor.execute(format("INSERT INTO %s VALUES (%s)", name, row));
+            }
+        }
+        catch (Exception e) {
+            try (TestTable ignored = this) {
+                throw e;
+            }
+        }
     }
 
     public String getName()

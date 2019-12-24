@@ -244,7 +244,7 @@ public final class SessionPropertyManager
     public static String serializeSessionProperty(Type type, Object value)
     {
         if (value == null) {
-            throw new PrestoException(INVALID_SESSION_PROPERTY, "Session property can not be null");
+            throw new PrestoException(INVALID_SESSION_PROPERTY, "Session property cannot be null");
         }
         if (BooleanType.BOOLEAN.equals(type)) {
             return value.toString();
@@ -270,7 +270,7 @@ public final class SessionPropertyManager
     private static Object deserializeSessionProperty(Type type, String value)
     {
         if (value == null) {
-            throw new PrestoException(INVALID_SESSION_PROPERTY, "Session property can not be null");
+            throw new PrestoException(INVALID_SESSION_PROPERTY, "Session property cannot be null");
         }
         if (VarcharType.VARCHAR.equals(type)) {
             return value;

@@ -33,6 +33,7 @@ import io.prestosql.spi.type.Type;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.api.Database;
+import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
 import org.apache.hadoop.hive.metastore.api.PrincipalType;
@@ -56,6 +57,7 @@ import java.util.function.Function;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.prestosql.plugin.hive.HiveBasicStatistics.createEmptyStatistics;
@@ -64,6 +66,7 @@ import static io.prestosql.plugin.hive.util.HiveUtil.toPartitionValues;
 import static io.prestosql.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static java.util.Locale.US;
 import static java.util.Objects.requireNonNull;
+import static org.apache.hadoop.hive.common.FileUtils.makePartName;
 import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
 import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
 import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
@@ -425,7 +428,12 @@ public class InMemoryThriftMetastore
     }
 
     @Override
-    public synchronized PartitionStatistics getTableStatistics(HiveIdentity identity, String databaseName, String tableName)
+    public synchronized PartitionStatistics getTableStatistics(HiveIdentity identity, Table table)
+    {
+        return getTableStatistics(table.getDbName(), table.getTableName());
+    }
+
+    private synchronized PartitionStatistics getTableStatistics(String databaseName, String tableName)
     {
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
         PartitionStatistics statistics = columnStatistics.get(schemaTableName);
@@ -436,7 +444,18 @@ public class InMemoryThriftMetastore
     }
 
     @Override
-    public synchronized Map<String, PartitionStatistics> getPartitionStatistics(HiveIdentity identity, String databaseName, String tableName, Set<String> partitionNames)
+    public synchronized Map<String, PartitionStatistics> getPartitionStatistics(HiveIdentity identity, Table table, List<Partition> partitions)
+    {
+        List<String> partitionColumns = table.getPartitionKeys().stream()
+                .map(FieldSchema::getName)
+                .collect(toImmutableList());
+        Set<String> partitionNames = partitions.stream()
+                .map(partition -> makePartName(partitionColumns, partition.getValues()))
+                .collect(toImmutableSet());
+        return getPartitionStatistics(table.getDbName(), table.getTableName(), partitionNames);
+    }
+
+    private synchronized Map<String, PartitionStatistics> getPartitionStatistics(String databaseName, String tableName, Set<String> partitionNames)
     {
         ImmutableMap.Builder<String, PartitionStatistics> result = ImmutableMap.builder();
         for (String partitionName : partitionNames) {
@@ -453,14 +472,14 @@ public class InMemoryThriftMetastore
     @Override
     public synchronized void updateTableStatistics(HiveIdentity identity, String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update)
     {
-        columnStatistics.put(new SchemaTableName(databaseName, tableName), update.apply(getTableStatistics(identity, databaseName, tableName)));
+        columnStatistics.put(new SchemaTableName(databaseName, tableName), update.apply(getTableStatistics(databaseName, tableName)));
     }
 
     @Override
     public synchronized void updatePartitionStatistics(HiveIdentity identity, String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
     {
         PartitionName partitionKey = PartitionName.partition(databaseName, tableName, partitionName);
-        partitionColumnStatistics.put(partitionKey, update.apply(getPartitionStatistics(identity, databaseName, tableName, ImmutableSet.of(partitionName)).get(partitionName)));
+        partitionColumnStatistics.put(partitionKey, update.apply(getPartitionStatistics(databaseName, tableName, ImmutableSet.of(partitionName)).get(partitionName)));
     }
 
     @Override

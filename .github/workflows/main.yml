@@ -5,7 +5,7 @@ on: [push, pull_request]
 env:
   MAVEN_OPTS: "-Xmx512M -XX:+ExitOnOutOfMemoryError"
   MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
-  MAVEN_FAST_INSTALL: "-B -e -V -T C1 -DskipTests -Dair.check.skip-all"
+  MAVEN_FAST_INSTALL: "-B -V -T C1 -DskipTests -Dair.check.skip-all"
 
 jobs:
   maven-checks:
@@ -18,11 +18,11 @@ jobs:
       - name: Maven Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./mvnw install -B -e -V -T C1 -DskipTests -P ci -pl '!presto-server-rpm'
+          ./mvnw install -B -V -T C1 -DskipTests -P ci -pl '!presto-server-rpm'
       - name: Test Server RPM
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./mvnw install -B -e -P ci -pl presto-server-rpm
+          ./mvnw install -B -P ci -pl presto-server-rpm
       - name: Test Docker Image
         run: docker/build-local.sh
 
@@ -40,7 +40,7 @@ jobs:
       - name: Error Prone Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./mvnw -B -e -T C1 clean test-compile -Dair.check.skip-all -P errorprone-compiler-presto \
+          ./mvnw -B -T C1 clean test-compile -Dair.check.skip-all -P errorprone-compiler-presto \
             -pl '!presto-docs,!presto-server,!presto-server-rpm'
 
   web-ui-checks:
@@ -105,7 +105,7 @@ jobs:
           ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!presto-docs,!presto-server,!presto-server-rpm'
       - name: Maven Tests
         run: |
-          ./mvnw test -B -e -Dair.check.skip-all -pl '
+          ./mvnw test -B -Dair.check.skip-all -pl '
             !presto-main,
             !presto-tests,
             !presto-raptor-legacy,
@@ -130,7 +130,8 @@ jobs:
           "presto-raptor-legacy",
           "presto-accumulo",
           "presto-cassandra",
-          "presto-hive,presto-orc,presto-parquet",
+          "presto-hive,presto-orc",
+          "presto-hive,presto-parquet -P test-parquet",
           "presto-mongodb,presto-kafka,presto-elasticsearch",
           "presto-redis",
           "presto-sqlserver,presto-postgresql,presto-mysql",
@@ -146,7 +147,7 @@ jobs:
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl $(echo '${{ matrix.modules }}' | cut -d' ' -f1)
       - name: Maven Tests
-        run: ./mvnw test -B -e -Dair.check.skip-all -pl ${{ matrix.modules }}
+        run: ./mvnw test -B -Dair.check.skip-all -pl ${{ matrix.modules }}
 
   product-tests:
     runs-on: ubuntu-latest

@@ -44,6 +44,13 @@ public final class H2QueryRunner
 
     public static DistributedQueryRunner createH2QueryRunner(Iterable<TpchTable<?>> tables)
             throws Exception
+
+    {
+        return createH2QueryRunner(tables, TestingH2JdbcModule.createProperties());
+    }
+
+    public static DistributedQueryRunner createH2QueryRunner(Iterable<TpchTable<?>> tables, Map<String, String> properties)
+            throws Exception
     {
         DistributedQueryRunner queryRunner = null;
         try {
@@ -52,7 +59,6 @@ public final class H2QueryRunner
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
-            Map<String, String> properties = TestingH2JdbcModule.createProperties();
             createSchema(properties, "tpch");
 
             queryRunner.installPlugin(new JdbcPlugin("base-jdbc", new TestingH2JdbcModule()));

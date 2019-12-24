@@ -130,7 +130,7 @@ databases:
       host: kafka
       port: 9092
     zookeeper:
-      host: kafka
+      host: zookeeper
       port: 2181
     presto_database_name: presto
     presto_kafka_catalog: kafka

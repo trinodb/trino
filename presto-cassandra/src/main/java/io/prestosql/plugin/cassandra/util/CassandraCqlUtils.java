@@ -17,10 +17,8 @@ import com.datastax.driver.core.querybuilder.QueryBuilder;
 import com.datastax.driver.core.querybuilder.Select;
 import com.datastax.driver.core.querybuilder.Select.Selection;
 import com.fasterxml.jackson.core.io.JsonStringEncoder;
-import io.airlift.slice.Slice;
 import io.prestosql.plugin.cassandra.CassandraColumnHandle;
 import io.prestosql.plugin.cassandra.CassandraTableHandle;
-import io.prestosql.plugin.cassandra.CassandraType;
 import io.prestosql.spi.connector.ColumnHandle;
 
 import java.util.Arrays;
@@ -154,35 +152,5 @@ public final class CassandraCqlUtils
     public static Select selectDistinctFrom(CassandraTableHandle tableHandle, List<CassandraColumnHandle> columns)
     {
         return from(select(columns).distinct(), tableHandle);
-    }
-
-    public static Select selectCountAllFrom(CassandraTableHandle tableHandle)
-    {
-        String schema = validSchemaName(tableHandle.getSchemaName());
-        String table = validTableName(tableHandle.getTableName());
-        return QueryBuilder.select().countAll().from(schema, table);
-    }
-
-    public static String cqlValue(String value, CassandraType cassandraType)
-    {
-        switch (cassandraType) {
-            case ASCII:
-            case TEXT:
-            case VARCHAR:
-                return quoteStringLiteral(value);
-            case INET:
-                // remove '/' in the string. e.g. /127.0.0.1
-                return quoteStringLiteral(value.substring(1));
-            default:
-                return value;
-        }
-    }
-
-    public static String toCQLCompatibleString(Object value)
-    {
-        if (value instanceof Slice) {
-            return ((Slice) value).toStringUtf8();
-        }
-        return value.toString();
     }
 }

@@ -42,8 +42,8 @@ public class StatsCalculatorAssertion
 
     public StatsCalculatorAssertion(StatsCalculator statsCalculator, Session session, PlanNode planNode, TypeProvider types)
     {
-        this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator can not be null");
-        this.session = requireNonNull(session, "sesssion can not be null");
+        this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator cannot be null");
+        this.session = requireNonNull(session, "sesssion cannot be null");
         this.planNode = requireNonNull(planNode, "planNode is null");
         this.types = requireNonNull(types, "types is null");
 

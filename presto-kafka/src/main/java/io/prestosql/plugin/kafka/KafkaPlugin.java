@@ -25,9 +25,6 @@ import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 
-/**
- * Presto plugin to use Apache Kafka as a data source.
- */
 public class KafkaPlugin
         implements Plugin
 {

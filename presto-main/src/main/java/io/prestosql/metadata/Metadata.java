@@ -121,7 +121,7 @@ public interface Metadata
     List<QualifiedObjectName> listTables(Session session, QualifiedTablePrefix prefix);
 
     /**
-     * Gets all of the columns on the specified table, or an empty map if the columns can not be enumerated.
+     * Gets all of the columns on the specified table, or an empty map if the columns cannot be enumerated.
      *
      * @throws RuntimeException if table handle is no longer valid
      */
@@ -189,7 +189,7 @@ public interface Metadata
     /**
      * Drops the specified table
      *
-     * @throws RuntimeException if the table can not be dropped or table handle is no longer valid
+     * @throws RuntimeException if the table cannot be dropped or table handle is no longer valid
      */
     void dropTable(Session session, TableHandle tableHandle);
 

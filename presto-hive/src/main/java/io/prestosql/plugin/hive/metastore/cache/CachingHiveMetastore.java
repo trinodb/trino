@@ -16,14 +16,15 @@ package io.prestosql.plugin.hive.metastore.cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.SetMultimap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.units.Duration;
 import io.prestosql.plugin.hive.HivePartition;
 import io.prestosql.plugin.hive.HiveType;
+import io.prestosql.plugin.hive.PartitionNotFoundException;
 import io.prestosql.plugin.hive.PartitionStatistics;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.Database;
@@ -41,6 +42,7 @@ import io.prestosql.plugin.hive.metastore.TablesWithParameterCacheKey;
 import io.prestosql.plugin.hive.metastore.UserTableKey;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.connector.TableNotFoundException;
 import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticType;
 import io.prestosql.spi.type.Type;
@@ -69,11 +71,13 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMultimap;
+import static com.google.common.collect.Maps.immutableEntry;
 import static com.google.common.collect.Streams.stream;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
-import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
+import static io.prestosql.plugin.hive.HivePartitionManager.extractPartitionValues;
 import static io.prestosql.plugin.hive.metastore.HivePartitionName.hivePartitionName;
 import static io.prestosql.plugin.hive.metastore.HiveTableName.hiveTableName;
+import static io.prestosql.plugin.hive.metastore.MetastoreUtil.makePartitionName;
 import static io.prestosql.plugin.hive.metastore.PartitionFilter.partitionFilter;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -279,6 +283,12 @@ public class CachingHiveMetastore
         return delegate.getAllDatabases();
     }
 
+    private Table getExistingTable(HiveIdentity identity, String databaseName, String tableName)
+    {
+        return getTable(identity, databaseName, tableName)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
+    }
+
     @Override
     public Optional<Table> getTable(HiveIdentity identity, String databaseName, String tableName)
     {
@@ -298,24 +308,26 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public PartitionStatistics getTableStatistics(HiveIdentity identity, String databaseName, String tableName)
+    public PartitionStatistics getTableStatistics(HiveIdentity identity, Table table)
     {
-        return get(tableStatisticsCache, new WithIdentity<>(updateIdentity(identity), hiveTableName(databaseName, tableName)));
+        return get(tableStatisticsCache, new WithIdentity<>(updateIdentity(identity), hiveTableName(table.getDatabaseName(), table.getTableName())));
     }
 
     private PartitionStatistics loadTableColumnStatistics(WithIdentity<HiveTableName> hiveTableName)
     {
-        return delegate.getTableStatistics(hiveTableName.getIdentity(), hiveTableName.getKey().getDatabaseName(), hiveTableName.getKey().getTableName());
+        HiveTableName tableName = hiveTableName.getKey();
+        Table table = getExistingTable(hiveTableName.getIdentity(), tableName.getDatabaseName(), tableName.getTableName());
+        return delegate.getTableStatistics(hiveTableName.getIdentity(), table);
     }
 
     @Override
-    public Map<String, PartitionStatistics> getPartitionStatistics(HiveIdentity identity, String databaseName, String tableName, Set<String> partitionNames)
+    public Map<String, PartitionStatistics> getPartitionStatistics(HiveIdentity identity, Table table, List<Partition> partitions)
     {
-        HiveTableName hiveTableName = hiveTableName(databaseName, tableName);
-        List<WithIdentity<HivePartitionName>> partitions = partitionNames.stream()
-                .map(partitionName -> new WithIdentity<>(updateIdentity(identity), hivePartitionName(hiveTableName, partitionName)))
+        HiveTableName hiveTableName = hiveTableName(table.getDatabaseName(), table.getTableName());
+        List<WithIdentity<HivePartitionName>> partitionNames = partitions.stream()
+                .map(partition -> new WithIdentity<>(updateIdentity(identity), hivePartitionName(hiveTableName, makePartitionName(table, partition))))
                 .collect(toImmutableList());
-        Map<WithIdentity<HivePartitionName>, PartitionStatistics> statistics = getAll(partitionStatisticsCache, partitions);
+        Map<WithIdentity<HivePartitionName>, PartitionStatistics> statistics = getAll(partitionStatisticsCache, partitionNames);
         return statistics.entrySet()
                 .stream()
                 .collect(toImmutableMap(entry -> entry.getKey().getKey().getPartitionName().get(), Entry::getValue));
@@ -323,17 +335,14 @@ public class CachingHiveMetastore
 
     private PartitionStatistics loadPartitionColumnStatistics(WithIdentity<HivePartitionName> partition)
     {
+        HiveTableName tableName = partition.getKey().getHiveTableName();
         String partitionName = partition.getKey().getPartitionName().get();
+        Table table = getExistingTable(partition.getIdentity(), tableName.getDatabaseName(), tableName.getTableName());
         Map<String, PartitionStatistics> partitionStatistics = delegate.getPartitionStatistics(
                 partition.getIdentity(),
-                partition.getKey().getHiveTableName().getDatabaseName(),
-                partition.getKey().getHiveTableName().getTableName(),
-                ImmutableSet.of(partitionName));
-        PartitionStatistics result = partitionStatistics.get(partitionName);
-        if (result == null) {
-            throw new PrestoException(HIVE_PARTITION_DROPPED_DURING_QUERY, "Statistics result does not contain entry for partition: " + partition.getKey().getPartitionName());
-        }
-        return result;
+                table,
+                ImmutableList.of(getExistingPartition(partition.getIdentity(), table, partition.getKey().getPartitionValues())));
+        return partitionStatistics.get(partitionName);
     }
 
     private Map<WithIdentity<HivePartitionName>, PartitionStatistics> loadPartitionColumnStatistics(Iterable<? extends WithIdentity<HivePartitionName>> keys)
@@ -341,19 +350,17 @@ public class CachingHiveMetastore
         SetMultimap<WithIdentity<HiveTableName>, WithIdentity<HivePartitionName>> tablePartitions = stream(keys)
                 .collect(toImmutableSetMultimap(value -> new WithIdentity<>(value.getIdentity(), value.getKey().getHiveTableName()), Function.identity()));
         ImmutableMap.Builder<WithIdentity<HivePartitionName>, PartitionStatistics> result = ImmutableMap.builder();
-        tablePartitions.keySet().forEach(table -> {
-            Set<WithIdentity<HivePartitionName>> partitionNames = tablePartitions.get(table);
+        tablePartitions.keySet().forEach(tableName -> {
+            Set<WithIdentity<HivePartitionName>> partitionNames = tablePartitions.get(tableName);
             Set<String> partitionNameStrings = partitionNames.stream()
                     .map(partitionName -> partitionName.getKey().getPartitionName().get())
                     .collect(toImmutableSet());
-            Map<String, PartitionStatistics> statisticsByPartitionName = delegate.getPartitionStatistics(table.getIdentity(), table.getKey().getDatabaseName(), table.getKey().getTableName(), partitionNameStrings);
+            Table table = getExistingTable(tableName.getIdentity(), tableName.getKey().getDatabaseName(), tableName.getKey().getTableName());
+            List<Partition> partitions = getExistingPartitionsByNames(tableName.getIdentity(), table, ImmutableList.copyOf(partitionNameStrings));
+            Map<String, PartitionStatistics> statisticsByPartitionName = delegate.getPartitionStatistics(tableName.getIdentity(), table, partitions);
             for (WithIdentity<HivePartitionName> partitionName : partitionNames) {
                 String stringNameForPartition = partitionName.getKey().getPartitionName().get();
-                PartitionStatistics partitionStatistics = statisticsByPartitionName.get(stringNameForPartition);
-                if (partitionStatistics == null) {
-                    throw new PrestoException(HIVE_PARTITION_DROPPED_DURING_QUERY, "Statistics result does not contain entry for partition: " + stringNameForPartition);
-                }
-                result.put(partitionName, partitionStatistics);
+                result.put(partitionName, statisticsByPartitionName.get(stringNameForPartition));
             }
         });
         return result.build();
@@ -367,7 +374,10 @@ public class CachingHiveMetastore
             delegate.updateTableStatistics(identity, databaseName, tableName, update);
         }
         finally {
-            tableStatisticsCache.invalidate(new WithIdentity<>(identity, hiveTableName(databaseName, tableName)));
+            HiveTableName hiveTableName = hiveTableName(databaseName, tableName);
+            tableStatisticsCache.invalidate(new WithIdentity<>(identity, hiveTableName));
+            // basic stats are stored as table properties
+            tableCache.invalidate(new WithIdentity<>(identity, hiveTableName));
         }
     }
 
@@ -379,7 +389,10 @@ public class CachingHiveMetastore
             delegate.updatePartitionStatistics(identity, databaseName, tableName, partitionName, update);
         }
         finally {
-            partitionStatisticsCache.invalidate(new WithIdentity<>(identity, hivePartitionName(hiveTableName(databaseName, tableName), partitionName)));
+            HivePartitionName hivePartitionName = hivePartitionName(hiveTableName(databaseName, tableName), partitionName);
+            partitionStatisticsCache.invalidate(new WithIdentity<>(identity, hivePartitionName));
+            // basic stats are stored as partition properties
+            partitionCache.invalidate(new WithIdentity<>(identity, hivePartitionName));
         }
     }
 
@@ -582,6 +595,24 @@ public class CachingHiveMetastore
         tableStatisticsCache.asMap().keySet().stream()
                 .filter(table -> table.getKey().getDatabaseName().equals(databaseName) && table.getKey().getTableName().equals(tableName))
                 .forEach(tableCache::invalidate);
+    }
+
+    private Partition getExistingPartition(HiveIdentity identity, Table table, List<String> partitionValues)
+    {
+        return getPartition(identity, table, partitionValues)
+                .orElseThrow(() -> new PartitionNotFoundException(table.getSchemaTableName(), partitionValues));
+    }
+
+    private List<Partition> getExistingPartitionsByNames(HiveIdentity identity, Table table, List<String> partitionNames)
+    {
+        Map<String, Partition> partitions = getPartitionsByNames(identity, table, partitionNames).entrySet().stream()
+                .map(entry -> immutableEntry(entry.getKey(), entry.getValue().orElseThrow(() ->
+                        new PartitionNotFoundException(table.getSchemaTableName(), extractPartitionValues(entry.getKey())))))
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+
+        return partitionNames.stream()
+                .map(partitions::get)
+                .collect(toImmutableList());
     }
 
     @Override

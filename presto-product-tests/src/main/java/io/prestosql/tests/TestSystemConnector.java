@@ -56,12 +56,14 @@ public class TestSystemConnector
                 "  created," +
                 "  started," +
                 "  last_heartbeat," +
-                "  'end' " +
+                "  \"end\"," +
+                "  error_type," +
+                "  error_code " +
                 "FROM system.runtime.queries";
         JDBCType arrayType = usingSimbaJdbcDriver(defaultQueryExecutor().getConnection()) ? VARCHAR : ARRAY;
         assertThat(query(sql))
                 .hasColumns(VARCHAR, VARCHAR, VARCHAR, VARCHAR, arrayType,
-                        BIGINT, BIGINT, BIGINT, TIMESTAMP, TIMESTAMP, TIMESTAMP, VARCHAR)
+                        BIGINT, BIGINT, BIGINT, TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP, VARCHAR, VARCHAR)
                 .hasAnyRows();
     }
 
@@ -91,12 +93,12 @@ public class TestSystemConnector
                 "  created," +
                 "  start," +
                 "  last_heartbeat," +
-                "  'end' " +
+                "  \"end\" " +
                 "FROM SYSTEM.runtime.tasks";
         assertThat(query(sql))
                 .hasColumns(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR,
                         BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT,
-                        BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, TIMESTAMP, TIMESTAMP, TIMESTAMP, VARCHAR)
+                        BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP)
                 .hasAnyRows();
     }
 

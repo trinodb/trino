@@ -319,7 +319,7 @@ public class OrcTester
     {
         Type mapType = mapType(type, type);
 
-        // maps can not have a null key, so select a value to use for the map key when the value is null
+        // maps cannot have a null key, so select a value to use for the map key when the value is null
         Object readNullKeyValue = Iterables.getLast(readValues);
 
         // values in simple map
@@ -840,10 +840,10 @@ public class OrcTester
             throws Exception
     {
         RecordWriter recordWriter = createOrcRecordWriter(outputFile, format, compression, type);
-        return writeOrcFileColumnHive(outputFile, format, recordWriter, type, values);
+        return writeOrcFileColumnHive(outputFile, recordWriter, type, values);
     }
 
-    public static DataSize writeOrcFileColumnHive(File outputFile, Format format, RecordWriter recordWriter, Type type, Iterator<?> values)
+    public static DataSize writeOrcFileColumnHive(File outputFile, RecordWriter recordWriter, Type type, Iterator<?> values)
             throws Exception
     {
         SettableStructObjectInspector objectInspector = createSettableStructObjectInspector("test", type);
@@ -976,7 +976,7 @@ public class OrcTester
             return date;
         }
         if (type.equals(TIMESTAMP)) {
-            long millisUtc = (int) ((SqlTimestamp) value).getMillisUtc();
+            long millisUtc = ((SqlTimestamp) value).getMillisUtc();
             return new Timestamp(millisUtc);
         }
         if (type instanceof DecimalType) {

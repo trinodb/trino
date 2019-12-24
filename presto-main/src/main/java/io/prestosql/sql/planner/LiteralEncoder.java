@@ -14,7 +14,7 @@
 package io.prestosql.sql.planner;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.primitives.Ints;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -23,6 +23,7 @@ import io.airlift.slice.SliceUtf8;
 import io.prestosql.block.BlockSerdeUtil;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
+import io.prestosql.operator.scalar.JsonPath;
 import io.prestosql.operator.scalar.VarbinaryFunctions;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.CharType;
@@ -42,13 +43,18 @@ import io.prestosql.sql.tree.LongLiteral;
 import io.prestosql.sql.tree.NullLiteral;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.StringLiteral;
+import io.prestosql.type.CodePointsType;
+import io.prestosql.type.JoniRegexp;
+import io.prestosql.type.JsonPathType;
+import io.prestosql.type.Re2JRegexp;
+import io.prestosql.type.Re2JRegexpType;
 
 import java.util.List;
-import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.metadata.LiteralFunction.LITERAL_FUNCTION_NAME;
 import static io.prestosql.metadata.LiteralFunction.typeForMagicLiteral;
+import static io.prestosql.operator.scalar.CharacterStringCasts.codePointsToSliceUtf8;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
@@ -60,6 +66,11 @@ import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.prestosql.type.CodePointsType.CODE_POINTS;
+import static io.prestosql.type.JoniRegexpType.JONI_REGEXP;
+import static io.prestosql.type.JsonPathType.JSON_PATH;
+import static io.prestosql.type.LikePatternType.LIKE_PATTERN;
+import static io.prestosql.type.Re2JRegexpType.RE2J_REGEXP;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
@@ -67,7 +78,6 @@ import static java.util.Objects.requireNonNull;
 
 public final class LiteralEncoder
 {
-    private static final Set<Class<?>> SUPPORTED_PRIMITIVE_TYPES = ImmutableSet.of(boolean.class, long.class, double.class, Slice.class, Block.class);
     private final Metadata metadata;
 
     public LiteralEncoder(Metadata metadata)
@@ -88,18 +98,6 @@ public final class LiteralEncoder
             expressions.add(toExpression(object, type));
         }
         return expressions.build();
-    }
-
-    public static boolean canEncode(Object object, Type type)
-    {
-        if (object instanceof Expression) {
-            return true;
-        }
-
-        if (object == null) {
-            return true;
-        }
-        return SUPPORTED_PRIMITIVE_TYPES.contains(Primitives.unwrap(type.getJavaType()));
     }
 
     public Expression toExpression(Object object, Type type)
@@ -222,6 +220,22 @@ public final class LiteralEncoder
 
         if (type.equals(DATE)) {
             return new GenericLiteral("DATE", new SqlDate(toIntExact((Long) object)).toString());
+        }
+
+        if (type.equals(LIKE_PATTERN) || type.equals(JONI_REGEXP)) {
+            return new GenericLiteral(type.getBaseName(), ((JoniRegexp) object).pattern().toStringUtf8());
+        }
+
+        if (type.equals(RE2J_REGEXP)) {
+            return new GenericLiteral(Re2JRegexpType.NAME, ((Re2JRegexp) object).pattern());
+        }
+
+        if (type.equals(JSON_PATH)) {
+            return new GenericLiteral(JsonPathType.NAME, ((JsonPath) object).pattern());
+        }
+
+        if (type.equals(CODE_POINTS)) {
+            return new GenericLiteral(CodePointsType.NAME, codePointsToSliceUtf8(Ints.asList((int[]) object)).toStringUtf8());
         }
 
         if (object instanceof Block) {

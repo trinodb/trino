@@ -160,7 +160,7 @@ public class CassandraClientModule
                     config.getSpeculativeExecutionLimit())); // maximum number of executions
         }
 
-        return new NativeCassandraSession(
+        return new CassandraSession(
                 extraColumnMetadataCodec,
                 new ReopeningCluster(() -> {
                     contactPoints.forEach(clusterBuilder::addContactPoint);

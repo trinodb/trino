@@ -30,7 +30,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static io.prestosql.spi.security.AccessDeniedException.denyAddColumn;
-import static io.prestosql.spi.security.AccessDeniedException.denyCatalogAccess;
 import static io.prestosql.spi.security.AccessDeniedException.denyCommentTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateRole;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateSchema;
@@ -77,12 +76,6 @@ public class DenyAllAccessControl
     public Set<String> filterCatalogs(Identity identity, Set<String> catalogs)
     {
         return ImmutableSet.of();
-    }
-
-    @Override
-    public void checkCanAccessCatalog(Identity identity, String catalogName)
-    {
-        denyCatalogAccess(catalogName);
     }
 
     @Override

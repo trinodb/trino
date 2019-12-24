@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.prestosql.Session;
+import io.prestosql.plugin.jdbc.UnsupportedTypeHandling;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.testing.AbstractTestQueryFramework;
@@ -31,6 +32,7 @@ import io.prestosql.testing.datatype.DataType;
 import io.prestosql.testing.datatype.DataTypeTest;
 import io.prestosql.testing.sql.JdbcSqlExecutor;
 import io.prestosql.testing.sql.PrestoSqlExecutor;
+import io.prestosql.testing.sql.TestTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
@@ -55,6 +57,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.BaseEncoding.base16;
 import static io.airlift.json.JsonCodec.listJsonCodec;
 import static io.airlift.json.JsonCodec.mapJsonCodec;
+import static io.prestosql.plugin.jdbc.BaseJdbcPropertiesProvider.UNSUPPORTED_TYPE_HANDLING;
+import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.prestosql.plugin.postgresql.PostgreSqlConfig.ArrayMapping.AS_ARRAY;
 import static io.prestosql.plugin.postgresql.PostgreSqlConfig.ArrayMapping.AS_JSON;
 import static io.prestosql.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
@@ -335,7 +339,7 @@ public class TestPostgreSqlTypeMapping
             // test insert into column that has forced varchar mapping
             assertQueryFails(
                     "INSERT INTO tpch.test_forced_varchar_mapping (tsrange_col) VALUES ('some value')",
-                    "Underlying type that is force mapped to VARCHAR is not supported for INSERT: tsrange");
+                    "Underlying type that is mapped to VARCHAR is not supported for INSERT: tsrange");
         }
         finally {
             jdbcSqlExecutor.execute("DROP TABLE tpch.test_forced_varchar_mapping");
@@ -343,9 +347,18 @@ public class TestPostgreSqlTypeMapping
     }
 
     @Test
-    public void testDecimalExceedingPrecisionMax()
+    public void testDecimalExceedingPrecisionMaxIgnored()
     {
-        testUnsupportedDataType("decimal(50,0)");
+        testUnsupportedDataTypeAsIgnored("decimal(50,0)", "12345678901234567890123456789012345678901234567890");
+    }
+
+    @Test
+    public void testDecimalExceedingPrecisionMaxConvertedToVarchar()
+    {
+        testUnsupportedDataTypeConvertedToVarchar(
+                "decimal(50,0)",
+                "12345678901234567890123456789012345678901234567890",
+                "'12345678901234567890123456789012345678901234567890'");
     }
 
     @Test
@@ -920,18 +933,75 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip(uuidDataType, java.util.UUID.fromString("123e4567-e89b-12d3-a456-426655440000"));
     }
 
-    private void testUnsupportedDataType(String databaseDataType)
+    private void testUnsupportedDataTypeAsIgnored(String dataTypeName, String databaseValue)
     {
         JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl());
-        jdbcSqlExecutor.execute(format("CREATE TABLE tpch.test_unsupported_data_type(key varchar(5), unsupported_column %s)", databaseDataType));
-        try {
+        try (TestTable table = new TestTable(
+                jdbcSqlExecutor,
+                "tpch.unsupported_type",
+                format("(key varchar(5), unsupported_column %s)", dataTypeName),
+                ImmutableList.of(
+                        "'1', NULL",
+                        "'2', " + databaseValue))) {
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES 1, 2");
             assertQuery(
-                    "SELECT column_name FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = 'test_unsupported_data_type'",
-                    "VALUES 'key'"); // no 'unsupported_column'
+                    "DESC " + table.getName(),
+                    "VALUES ('key', 'varchar(5)','', '')"); // no 'unsupported_column'
+
+            assertUpdate(format("INSERT INTO %s VALUES '3'", table.getName()), 1);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES '1', '2', '3'");
         }
-        finally {
-            jdbcSqlExecutor.execute("DROP TABLE tpch.test_unsupported_data_type");
+    }
+
+    private void testUnsupportedDataTypeConvertedToVarchar(String dataTypeName, String databaseValue, String prestoValue)
+    {
+        JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl());
+        try (TestTable table = new TestTable(
+                jdbcSqlExecutor,
+                "tpch.unsupported_type",
+                format("(key varchar(5), unsupported_column %s)", dataTypeName),
+                ImmutableList.of(
+                        "1, NULL",
+                        "2, " + databaseValue))) {
+            Session convertToVarchar = withUnsupportedType(CONVERT_TO_VARCHAR);
+            assertQuery(
+                    convertToVarchar,
+                    "SELECT * FROM " + table.getName(),
+                    format("VALUES ('1', NULL), ('2', %s)", prestoValue));
+            assertQuery(
+                    convertToVarchar,
+                    format("SELECT key FROM %s WHERE unsupported_column = %s", table.getName(), prestoValue),
+                    "VALUES '2'");
+            assertQuery(
+                    convertToVarchar,
+                    "DESC " + table.getName(),
+                    "VALUES " +
+                            "('key', 'varchar(5)', '', ''), " +
+                            "('unsupported_column', 'varchar', '', '')");
+            assertQueryFails(
+                    convertToVarchar,
+                    format("INSERT INTO %s (key, unsupported_column) VALUES (3, NULL)", table.getName()),
+                    "Insert query has mismatched column types: Table: \\[varchar\\(5\\), varchar\\], Query: \\[integer, unknown\\]");
+            assertQueryFails(
+                    convertToVarchar,
+                    format("INSERT INTO %s (key, unsupported_column) VALUES (4, %s)", table.getName(), prestoValue),
+                    "Insert query has mismatched column types: Table: \\[varchar\\(5\\), varchar\\], Query: \\[integer, varchar\\(50\\)\\]");
+            assertUpdate(
+                    convertToVarchar,
+                    format("INSERT INTO %s (key) VALUES '5'", table.getName()),
+                    1);
+            assertQuery(
+                    convertToVarchar,
+                    "SELECT * FROM " + table.getName(),
+                    format("VALUES ('1', NULL), ('2', %s), ('5', NULL)", prestoValue));
         }
+    }
+
+    private Session withUnsupportedType(UnsupportedTypeHandling unsupportedTypeHandling)
+    {
+        return Session.builder(getSession())
+                .setCatalogSessionProperty("postgresql", UNSUPPORTED_TYPE_HANDLING, unsupportedTypeHandling.name())
+                .build();
     }
 
     public static DataType<ZonedDateTime> prestoTimestampWithTimeZoneDataType()

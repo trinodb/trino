@@ -1163,7 +1163,7 @@ public class AddExchanges
                 return new PlanWithProperties(node.replaceChildren(partitionedChildren));
             }
             else {
-                // Presto currently can not execute stage that has multiple table scans, so in that case
+                // Presto currently cannot execute stage that has multiple table scans, so in that case
                 // we have to insert REMOTE exchange with FIXED_ARBITRARY_DISTRIBUTION instead of local exchange
                 return new PlanWithProperties(
                         new ExchangeNode(

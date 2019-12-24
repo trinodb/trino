@@ -30,7 +30,7 @@ import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static io.prestosql.util.StructuralTestUtil.mapType;
 
-public class TestMapTransformValueFunction
+public class TestMapTransformValuesFunction
         extends AbstractTestFunctions
 {
     @Test

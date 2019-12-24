@@ -57,7 +57,7 @@ public class StatisticsAwareJdbcClient
     }
 
     @Override
-    protected JdbcClient getDelegate()
+    protected JdbcClient delegate()
     {
         return delegate;
     }
@@ -72,162 +72,168 @@ public class StatisticsAwareJdbcClient
     @Override
     public boolean schemaExists(JdbcIdentity identity, String schema)
     {
-        return stats.schemaExists.wrap(() -> getDelegate().schemaExists(identity, schema));
+        return stats.schemaExists.wrap(() -> delegate().schemaExists(identity, schema));
     }
 
     @Override
     public Set<String> getSchemaNames(JdbcIdentity identity)
     {
-        return stats.getSchemaNames.wrap(() -> getDelegate().getSchemaNames(identity));
+        return stats.getSchemaNames.wrap(() -> delegate().getSchemaNames(identity));
     }
 
     @Override
     public List<SchemaTableName> getTableNames(JdbcIdentity identity, Optional<String> schema)
     {
-        return stats.getTableNames.wrap(() -> getDelegate().getTableNames(identity, schema));
+        return stats.getTableNames.wrap(() -> delegate().getTableNames(identity, schema));
     }
 
     @Override
     public Optional<JdbcTableHandle> getTableHandle(JdbcIdentity identity, SchemaTableName schemaTableName)
     {
-        return stats.getTableHandle.wrap(() -> getDelegate().getTableHandle(identity, schemaTableName));
+        return stats.getTableHandle.wrap(() -> delegate().getTableHandle(identity, schemaTableName));
     }
 
     @Override
     public List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle)
     {
-        return stats.getColumns.wrap(() -> getDelegate().getColumns(session, tableHandle));
+        return stats.getColumns.wrap(() -> delegate().getColumns(session, tableHandle));
     }
 
     @Override
     public Optional<ColumnMapping> toPrestoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
-        return stats.toPrestoType.wrap(() -> getDelegate().toPrestoType(session, connection, typeHandle));
+        return stats.toPrestoType.wrap(() -> delegate().toPrestoType(session, connection, typeHandle));
     }
 
     @Override
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
-        return stats.toWriteMapping.wrap(() -> getDelegate().toWriteMapping(session, type));
+        return stats.toWriteMapping.wrap(() -> delegate().toWriteMapping(session, type));
     }
 
     @Override
     public ConnectorSplitSource getSplits(JdbcIdentity identity, JdbcTableHandle layoutHandle)
     {
-        return stats.getSplits.wrap(() -> getDelegate().getSplits(identity, layoutHandle));
+        return stats.getSplits.wrap(() -> delegate().getSplits(identity, layoutHandle));
     }
 
     @Override
     public Connection getConnection(JdbcIdentity identity, JdbcSplit split)
             throws SQLException
     {
-        return stats.getConnectionWithSplit.wrap(() -> getDelegate().getConnection(identity, split));
+        return stats.getConnectionWithSplit.wrap(() -> delegate().getConnection(identity, split));
     }
 
     @Override
     public void abortReadConnection(Connection connection)
             throws SQLException
     {
-        stats.abortReadConnection.wrap(() -> getDelegate().abortReadConnection(connection));
+        stats.abortReadConnection.wrap(() -> delegate().abortReadConnection(connection));
     }
 
     @Override
     public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columnHandles)
             throws SQLException
     {
-        return stats.buildSql.wrap(() -> getDelegate().buildSql(session, connection, split, tableHandle, columnHandles));
+        return stats.buildSql.wrap(() -> delegate().buildSql(session, connection, split, tableHandle, columnHandles));
     }
 
     @Override
     public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
     {
-        stats.addColumn.wrap(() -> getDelegate().addColumn(session, handle, column));
+        stats.addColumn.wrap(() -> delegate().addColumn(session, handle, column));
     }
 
     @Override
     public void dropColumn(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle column)
     {
-        stats.dropColumn.wrap(() -> getDelegate().dropColumn(identity, handle, column));
+        stats.dropColumn.wrap(() -> delegate().dropColumn(identity, handle, column));
     }
 
     @Override
     public void renameColumn(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
     {
-        stats.renameColumn.wrap(() -> getDelegate().renameColumn(identity, handle, jdbcColumn, newColumnName));
+        stats.renameColumn.wrap(() -> delegate().renameColumn(identity, handle, jdbcColumn, newColumnName));
     }
 
     @Override
     public void renameTable(JdbcIdentity identity, JdbcTableHandle handle, SchemaTableName newTableName)
     {
-        stats.renameTable.wrap(() -> getDelegate().renameTable(identity, handle, newTableName));
+        stats.renameTable.wrap(() -> delegate().renameTable(identity, handle, newTableName));
     }
 
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        stats.createTable.wrap(() -> getDelegate().createTable(session, tableMetadata));
+        stats.createTable.wrap(() -> delegate().createTable(session, tableMetadata));
     }
 
     @Override
     public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        return stats.beginCreateTable.wrap(() -> getDelegate().beginCreateTable(session, tableMetadata));
+        return stats.beginCreateTable.wrap(() -> delegate().beginCreateTable(session, tableMetadata));
     }
 
     @Override
     public void commitCreateTable(JdbcIdentity identity, JdbcOutputTableHandle handle)
     {
-        stats.commitCreateTable.wrap(() -> getDelegate().commitCreateTable(identity, handle));
+        stats.commitCreateTable.wrap(() -> delegate().commitCreateTable(identity, handle));
     }
 
     @Override
     public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle)
     {
-        return stats.beginInsertTable.wrap(() -> getDelegate().beginInsertTable(session, tableHandle));
+        return stats.beginInsertTable.wrap(() -> delegate().beginInsertTable(session, tableHandle));
     }
 
     @Override
     public void finishInsertTable(JdbcIdentity identity, JdbcOutputTableHandle handle)
     {
-        stats.finishInsertTable.wrap(() -> getDelegate().finishInsertTable(identity, handle));
+        stats.finishInsertTable.wrap(() -> delegate().finishInsertTable(identity, handle));
     }
 
     @Override
     public void dropTable(JdbcIdentity identity, JdbcTableHandle jdbcTableHandle)
     {
-        stats.dropTable.wrap(() -> getDelegate().dropTable(identity, jdbcTableHandle));
+        stats.dropTable.wrap(() -> delegate().dropTable(identity, jdbcTableHandle));
     }
 
     @Override
     public void rollbackCreateTable(JdbcIdentity identity, JdbcOutputTableHandle handle)
     {
-        stats.rollbackCreateTable.wrap(() -> getDelegate().rollbackCreateTable(identity, handle));
+        stats.rollbackCreateTable.wrap(() -> delegate().rollbackCreateTable(identity, handle));
     }
 
     @Override
     public String buildInsertSql(JdbcOutputTableHandle handle)
     {
-        return stats.buildInsertSql.wrap(() -> getDelegate().buildInsertSql(handle));
+        return stats.buildInsertSql.wrap(() -> delegate().buildInsertSql(handle));
     }
 
     @Override
     public Connection getConnection(JdbcIdentity identity, JdbcOutputTableHandle handle)
             throws SQLException
     {
-        return stats.getConnectionWithHandle.wrap(() -> getDelegate().getConnection(identity, handle));
+        return stats.getConnectionWithHandle.wrap(() -> delegate().getConnection(identity, handle));
     }
 
     @Override
     public PreparedStatement getPreparedStatement(Connection connection, String sql)
             throws SQLException
     {
-        return stats.getPreparedStatement.wrap(() -> getDelegate().getPreparedStatement(connection, sql));
+        return stats.getPreparedStatement.wrap(() -> delegate().getPreparedStatement(connection, sql));
     }
 
     @Override
     public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain)
     {
-        return stats.getTableStatistics.wrap(() -> getDelegate().getTableStatistics(session, handle, tupleDomain));
+        return stats.getTableStatistics.wrap(() -> delegate().getTableStatistics(session, handle, tupleDomain));
+    }
+
+    @Override
+    public void createSchema(JdbcIdentity identity, String schemaName)
+    {
+        stats.getCreateSchema().wrap(() -> delegate().createSchema(identity, schemaName));
     }
 
     public static final class JdbcClientStats
@@ -258,6 +264,7 @@ public class StatisticsAwareJdbcClient
         private final JdbcApiStats renameColumn = new JdbcApiStats();
         private final JdbcApiStats renameTable = new JdbcApiStats();
         private final JdbcApiStats createTable = new JdbcApiStats();
+        private final JdbcApiStats createSchema = new JdbcApiStats();
 
         @Managed
         @Nested
@@ -439,6 +446,13 @@ public class StatisticsAwareJdbcClient
         public JdbcApiStats getCreateTable()
         {
             return createTable;
+        }
+
+        @Managed
+        @Nested
+        public JdbcApiStats getCreateSchema()
+        {
+            return createSchema;
         }
     }
 }

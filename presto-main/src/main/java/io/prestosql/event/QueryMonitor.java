@@ -148,6 +148,7 @@ public class QueryMonitor
                         ofMillis(queryInfo.getQueryStats().getQueuedTime().toMillis()),
                         Optional.empty(),
                         Optional.empty(),
+                        Optional.empty(),
                         0,
                         0,
                         0,
@@ -228,6 +229,7 @@ public class QueryMonitor
                 ofMillis(queryStats.getQueuedTime().toMillis()),
                 Optional.of(ofMillis(queryStats.getResourceWaitingTime().toMillis())),
                 Optional.of(ofMillis(queryStats.getAnalysisTime().toMillis())),
+                Optional.of(ofMillis(queryStats.getExecutionTime().toMillis())),
                 queryStats.getPeakUserMemoryReservation().toBytes(),
                 queryStats.getPeakTotalMemoryReservation().toBytes(),
                 queryStats.getPeakTaskUserMemory().toBytes(),
@@ -285,7 +287,7 @@ public class QueryMonitor
         }
         catch (Exception e) {
             // Sometimes it is expected to fail. For example if generated plan is too long.
-            // Don't fail to create event if the plan can not be created.
+            // Don't fail to create event if the plan cannot be created.
             log.warn(e, "Error creating explain plan for query %s", queryInfo.getQueryId());
         }
         return Optional.empty();

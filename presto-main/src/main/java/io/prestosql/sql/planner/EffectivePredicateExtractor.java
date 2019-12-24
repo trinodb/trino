@@ -71,7 +71,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * Computes the effective predicate at the top of the specified PlanNode
  * <p>
- * Note: non-deterministic predicates can not be pulled up (so they will be ignored)
+ * Note: non-deterministic predicates cannot be pulled up (so they will be ignored)
  */
 public class EffectivePredicateExtractor
 {

@@ -688,7 +688,7 @@ public final class GeoFunctions
         if (fractionStep == 0) {
             return Collections.singletonList(path.getPoint(0));
         }
-        else if (fractionStep == 1) {
+        if (fractionStep == 1) {
             return Collections.singletonList((path.getPoint(path.getPointCount() - 1)));
         }
 

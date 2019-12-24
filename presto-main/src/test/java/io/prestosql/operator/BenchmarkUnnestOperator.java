@@ -277,16 +277,16 @@ public class BenchmarkUnnestOperator
             if (type instanceof ArrayType) {
                 return produceArrayBlock((ArrayType) type, entries, primitiveNullsRatio, rowNullsRatio);
             }
-            else if (type instanceof MapType) {
+            if (type instanceof MapType) {
                 return produceMapBlock((MapType) type, entries, primitiveNullsRatio, rowNullsRatio);
             }
-            else if (type instanceof RowType) {
+            if (type instanceof RowType) {
                 return produceRowBlock((RowType) type, entries, primitiveNullsRatio, rowNullsRatio);
             }
-            else if (type == VARCHAR) {
+            if (type == VARCHAR) {
                 return produceStringBlock(entries, primitiveNullsRatio);
             }
-            else if (type == INTEGER) {
+            if (type == INTEGER) {
                 return produceIntBlock(entries, primitiveNullsRatio);
             }
 

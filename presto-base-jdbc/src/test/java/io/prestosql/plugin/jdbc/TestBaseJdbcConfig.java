@@ -36,7 +36,8 @@ public class TestBaseJdbcConfig
                 .setConnectionUrl(null)
                 .setCaseInsensitiveNameMatching(false)
                 .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES))
-                .setJdbcTypesMappedToVarchar(null));
+                .setJdbcTypesMappedToVarchar(null)
+                .setUnsupportedTypeHandling(UnsupportedTypeHandling.IGNORE));
     }
 
     @Test
@@ -47,13 +48,15 @@ public class TestBaseJdbcConfig
                 .put("case-insensitive-name-matching", "true")
                 .put("case-insensitive-name-matching.cache-ttl", "1s")
                 .put("jdbc-types-mapped-to-varchar", "mytype,struct_type1")
+                .put("unsupported-type-handling", "CONVERT_TO_VARCHAR")
                 .build();
 
         BaseJdbcConfig expected = new BaseJdbcConfig()
                 .setConnectionUrl("jdbc:h2:mem:config")
                 .setCaseInsensitiveNameMatching(true)
                 .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, SECONDS))
-                .setJdbcTypesMappedToVarchar("mytype, struct_type1");
+                .setJdbcTypesMappedToVarchar("mytype, struct_type1")
+                .setUnsupportedTypeHandling(UnsupportedTypeHandling.CONVERT_TO_VARCHAR);
 
         assertFullMapping(properties, expected);
 

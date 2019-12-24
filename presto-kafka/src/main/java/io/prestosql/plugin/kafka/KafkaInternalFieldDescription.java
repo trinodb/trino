@@ -123,7 +123,7 @@ public enum KafkaInternalFieldDescription
         return columnName;
     }
 
-    public Type getType()
+    private Type getType()
     {
         return type;
     }

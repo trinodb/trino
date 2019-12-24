@@ -365,7 +365,7 @@ public final class SqlStageExecution
         if (stateMachine.getState().isDone()) {
             return Optional.empty();
         }
-        checkState(!splitsScheduled.get(), "scheduleTask can not be called once splits have been scheduled");
+        checkState(!splitsScheduled.get(), "scheduleTask cannot be called once splits have been scheduled");
         return Optional.of(scheduleTask(node, new TaskId(stateMachine.getStageId(), partition), ImmutableMultimap.of(), totalPartitions));
     }
 
