@@ -143,7 +143,6 @@ import static io.prestosql.transaction.InMemoryTransactionManager.createTestTran
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.Collections.singletonList;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public final class MetadataManager
@@ -496,13 +495,7 @@ public final class MetadataManager
     {
         CatalogName catalogName = tableHandle.getCatalogName();
         ConnectorMetadata metadata = getMetadata(session, catalogName);
-        Map<String, ColumnHandle> handles = metadata.getColumnHandles(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle());
-
-        ImmutableMap.Builder<String, ColumnHandle> map = ImmutableMap.builder();
-        for (Entry<String, ColumnHandle> mapEntry : handles.entrySet()) {
-            map.put(mapEntry.getKey().toLowerCase(ENGLISH), mapEntry.getValue());
-        }
-        return map.build();
+        return ImmutableMap.copyOf(metadata.getColumnHandles(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle()));
     }
 
     @Override
@@ -649,7 +642,7 @@ public final class MetadataManager
     {
         CatalogName catalogName = tableHandle.getCatalogName();
         ConnectorMetadata metadata = getMetadataForWrite(session, catalogName);
-        metadata.renameColumn(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), source, target.toLowerCase(ENGLISH));
+        metadata.renameColumn(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), source, target);
     }
 
     @Override

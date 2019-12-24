@@ -77,6 +77,7 @@ public class AddColumnTask
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());
 
         ColumnDefinition element = statement.getColumn();
+        String columnName = metadata.getNameCanonicalizer(session, catalogName.getCatalogName()).canonicalize(element.getName().getValue(), element.getName().isDelimited());
         Type type;
         try {
             type = metadata.getType(toTypeSignature(element.getType()));
@@ -104,7 +105,7 @@ public class AddColumnTask
                 parameterExtractor(statement, parameters));
 
         ColumnMetadata column = ColumnMetadata.builder()
-                .setName(element.getName().getValue())
+                .setName(columnName)
                 .setType(type)
                 .setNullable(element.isNullable())
                 .setComment(element.getComment())
