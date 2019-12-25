@@ -27,16 +27,18 @@ public class SecurityContext
     public static SecurityContext of(Session session)
     {
         requireNonNull(session, "session is null");
-        return new SecurityContext(session.getRequiredTransactionId(), session.getIdentity());
+        return new SecurityContext(session.getRequiredTransactionId(), session.getIdentity(), session);
     }
 
     private final TransactionId transactionId;
     private final Identity identity;
+    private final Session session;
 
-    public SecurityContext(TransactionId transactionId, Identity identity)
+    public SecurityContext(TransactionId transactionId, Identity identity, Session session)
     {
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
         this.identity = requireNonNull(identity, "identity is null");
+        this.session = requireNonNull(session, "session is null");
     }
 
     public TransactionId getTransactionId()
@@ -47,6 +49,11 @@ public class SecurityContext
     public Identity getIdentity()
     {
         return identity;
+    }
+
+    public Session getSession()
+    {
+        return session;
     }
 
     public SystemSecurityContext toSystemSecurityContext()

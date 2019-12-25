@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
+import io.prestosql.Session;
 import io.prestosql.metadata.NewTableLayout;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.ResolvedFunction;
@@ -26,7 +27,6 @@ import io.prestosql.security.AccessControl;
 import io.prestosql.security.SecurityContext;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
-import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.tree.AllColumns;
 import io.prestosql.sql.tree.ExistsPredicate;
@@ -634,17 +634,17 @@ public class Analysis
         return joinUsing.get(NodeRef.of(node));
     }
 
-    public void addTableColumnReferences(AccessControl accessControl, Identity identity, Multimap<QualifiedObjectName, String> tableColumnMap)
+    public void addTableColumnReferences(AccessControl accessControl, Session session, Multimap<QualifiedObjectName, String> tableColumnMap)
     {
-        AccessControlInfo accessControlInfo = new AccessControlInfo(accessControl, identity);
+        AccessControlInfo accessControlInfo = new AccessControlInfo(accessControl, session);
         Map<QualifiedObjectName, Set<String>> references = tableColumnReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>());
         tableColumnMap.asMap()
                 .forEach((key, value) -> references.computeIfAbsent(key, k -> new HashSet<>()).addAll(value));
     }
 
-    public void addEmptyColumnReferencesForTable(AccessControl accessControl, Identity identity, QualifiedObjectName table)
+    public void addEmptyColumnReferencesForTable(AccessControl accessControl, Session session, QualifiedObjectName table)
     {
-        AccessControlInfo accessControlInfo = new AccessControlInfo(accessControl, identity);
+        AccessControlInfo accessControlInfo = new AccessControlInfo(accessControl, session);
         tableColumnReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>()).computeIfAbsent(table, k -> new HashSet<>());
     }
 
@@ -850,12 +850,12 @@ public class Analysis
     public static final class AccessControlInfo
     {
         private final AccessControl accessControl;
-        private final Identity identity;
+        private final Session session;
 
-        public AccessControlInfo(AccessControl accessControl, Identity identity)
+        public AccessControlInfo(AccessControl accessControl, Session session)
         {
             this.accessControl = requireNonNull(accessControl, "accessControl is null");
-            this.identity = requireNonNull(identity, "identity is null");
+            this.session = requireNonNull(session, "session is null");
         }
 
         public AccessControl getAccessControl()
@@ -865,7 +865,7 @@ public class Analysis
 
         public SecurityContext getSecurityContext(TransactionId transactionId)
         {
-            return new SecurityContext(transactionId, identity);
+            return new SecurityContext(transactionId, session.getIdentity(), session);
         }
 
         @Override
@@ -880,19 +880,19 @@ public class Analysis
 
             AccessControlInfo that = (AccessControlInfo) o;
             return Objects.equals(accessControl, that.accessControl) &&
-                    Objects.equals(identity, that.identity);
+                    Objects.equals(session.getIdentity(), that.session.getIdentity());
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(accessControl, identity);
+            return Objects.hash(accessControl, session.getIdentity());
         }
 
         @Override
         public String toString()
         {
-            return format("AccessControl: %s, Identity: %s", accessControl.getClass(), identity);
+            return format("AccessControl: %s, Identity: %s", accessControl.getClass(), session.getIdentity());
         }
     }
 }

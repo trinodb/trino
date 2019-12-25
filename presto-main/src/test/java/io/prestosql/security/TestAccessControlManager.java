@@ -56,6 +56,7 @@ import static io.prestosql.connector.CatalogName.createSystemTablesCatalogName;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.security.AccessDeniedException.denySelectColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denySelectTable;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static io.prestosql.transaction.TransactionBuilder.transaction;
 import static java.util.Objects.requireNonNull;
@@ -96,7 +97,12 @@ public class TestAccessControlManager
 
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
-                    SecurityContext context = new SecurityContext(transactionId, identity);
+                    SecurityContext context = SecurityContext.of(
+                            testSessionBuilder()
+                                    .setTransactionId(transactionId)
+                                    .setIdentity(identity)
+                                    .build());
+
                     accessControlManager.checkCanSetCatalogSessionProperty(context, "catalog", "property");
                     accessControlManager.checkCanShowSchemas(context, "catalog");
                     accessControlManager.checkCanShowTablesMetadata(context, new CatalogSchemaName("catalog", "schema"));
@@ -113,7 +119,13 @@ public class TestAccessControlManager
         try {
             transaction(transactionManager, accessControlManager)
                     .execute(transactionId -> {
-                        accessControlManager.checkCanInsertIntoTable(new SecurityContext(transactionId, identity), tableName);
+                        accessControlManager.checkCanInsertIntoTable(
+                                SecurityContext.of(
+                                        testSessionBuilder()
+                                                .setTransactionId(transactionId)
+                                                .setIdentity(identity)
+                                                .build()),
+                                tableName);
                     });
             fail();
         }
@@ -174,7 +186,11 @@ public class TestAccessControlManager
     private static SecurityContext context(TransactionId transactionId)
     {
         Identity identity = Identity.forUser(USER_NAME).withPrincipal(PRINCIPAL).build();
-        return new SecurityContext(transactionId, identity);
+        return SecurityContext.of(
+                testSessionBuilder()
+                        .setTransactionId(transactionId)
+                        .setIdentity(identity)
+                        .build());
     }
 
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Access Denied: Cannot select from table secured_catalog.schema.table")

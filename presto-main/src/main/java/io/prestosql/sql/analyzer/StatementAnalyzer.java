@@ -507,7 +507,7 @@ class StatementAnalyzer
             // user must have read and insert permission in order to analyze stats of a table
             analysis.addTableColumnReferences(
                     accessControl,
-                    session.getIdentity(),
+                    session,
                     ImmutableMultimap.<QualifiedObjectName, String>builder()
                             .putAll(tableName, metadata.getColumnHandles(session, tableHandle).keySet())
                             .build());
@@ -943,7 +943,7 @@ class StatementAnalyzer
             }
 
             QualifiedObjectName name = createQualifiedObjectName(session, table, table.getName());
-            analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), name);
+            analysis.addEmptyColumnReferencesForTable(accessControl, session, name);
 
             // is this a reference to a view?
             Optional<ConnectorViewDefinition> optionalView = metadata.getView(session, name);
