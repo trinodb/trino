@@ -1,0 +1,9 @@
+<settings>
+ <servers>
+  <server>
+   <id>treasuredata</id>
+   <username>${env.TD_ARTIFACTORY_USERNAME}</username>
+   <password>${env.TD_ARTIFACTORY_PASSWORD}</password>
+  </server>
+ </servers>
+</settings>
