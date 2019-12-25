@@ -219,6 +219,8 @@ import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createDeci
 import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createDoubleColumnStatistics;
 import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
 import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createStringColumnStatistics;
+import static io.prestosql.plugin.hive.metastore.SortingColumn.Order.ASCENDING;
+import static io.prestosql.plugin.hive.metastore.SortingColumn.Order.DESCENDING;
 import static io.prestosql.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.prestosql.plugin.hive.util.HiveUtil.columnExtraInfo;
@@ -300,6 +302,13 @@ public abstract class AbstractTestHive
             .add(new ColumnMetadata("t_array", ARRAY_TYPE))
             .add(new ColumnMetadata("t_map", MAP_TYPE))
             .add(new ColumnMetadata("t_row", ROW_TYPE))
+            .build();
+
+    private static final List<ColumnMetadata> CREATE_BUCKETED_SORTED_TABLE_COLUMNS = ImmutableList.<ColumnMetadata>builder()
+            .add(new ColumnMetadata("id", VARCHAR))
+            .add(new ColumnMetadata("value_asc", VARCHAR))
+            .add(new ColumnMetadata("value_desc", BIGINT))
+            .add(new ColumnMetadata("ds", VARCHAR))
             .build();
 
     private static final MaterializedResult CREATE_TABLE_DATA =
@@ -2129,6 +2138,117 @@ public abstract class AbstractTestHive
     }
 
     @Test
+    public void testSortedBucketedTableCreationRollback()
+            throws Exception
+    {
+        SchemaTableName temporaryCreateRollbackTable = temporaryTable("create_rollback");
+        try {
+            Path stagingPathRoot;
+            try (Transaction transaction = newTransaction()) {
+                ConnectorSession session = newSession();
+                ConnectorMetadata metadata = transaction.getMetadata();
+
+                // begin creating the table
+                ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(temporaryCreateRollbackTable, CREATE_TABLE_COLUMNS,
+                        createTableProperties(TEXTFILE, ImmutableList.of("id"), 2, ImmutableList.of(new SortingColumn("id", ASCENDING))));
+
+                ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(session, tableMetadata, Optional.empty());
+
+                // write the data
+                ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, outputHandle);
+                sink.appendPage(CREATE_TABLE_DATA.toPage());
+                getFutureValue(sink.finish());
+
+                // verify we have data files
+                stagingPathRoot = getStagingPathRoot(outputHandle);
+                HdfsContext context = new HdfsContext(session, temporaryCreateRollbackTable.getSchemaName(), temporaryCreateRollbackTable.getTableName());
+                assertFalse(listAllDataFiles(context, stagingPathRoot).isEmpty());
+
+                // rollback the table
+                transaction.rollback();
+            }
+
+            // verify all files have been deleted
+            HdfsContext context = new HdfsContext(newSession(), temporaryCreateRollbackTable.getSchemaName(), temporaryCreateRollbackTable.getTableName());
+            assertTrue(listAllDataFiles(context, stagingPathRoot).isEmpty());
+
+            // verify table is not in the metastore
+            try (Transaction transaction = newTransaction()) {
+                ConnectorSession session = newSession();
+                ConnectorMetadata metadata = transaction.getMetadata();
+                assertNull(metadata.getTableHandle(session, temporaryCreateRollbackTable));
+            }
+        }
+        finally {
+            dropTable(temporaryCreateRollbackTable);
+        }
+    }
+
+    @Test
+    public void testSortedBucketedTableCreationRollbackTmpFiles() throws Exception
+    {
+        SchemaTableName temporaryCreateRollbackTable = temporaryTable("create_rollback_bucketed_sorted");
+        try {
+            int bucketCount = 3;
+            Path stagingPathRoot;
+            try (Transaction transaction = newTransaction()) {
+                ConnectorSession session = newSession();
+                ConnectorMetadata metadata = transaction.getMetadata();
+
+                // begin creating the table
+                ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(temporaryCreateRollbackTable,
+                        CREATE_BUCKETED_SORTED_TABLE_COLUMNS,
+                        createTableProperties(RCBINARY, ImmutableList.of("id"), bucketCount,
+                                ImmutableList.of(
+                                        new SortingColumn("value_asc", ASCENDING),
+                                        new SortingColumn("value_desc", DESCENDING))));
+
+                ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(session, tableMetadata, Optional.empty());
+
+                // write the data
+                ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, outputHandle);
+                List<Type> types = tableMetadata.getColumns().stream()
+                        .map(ColumnMetadata::getType)
+                        .collect(toList());
+                ThreadLocalRandom random = ThreadLocalRandom.current();
+                for (int i = 0; i < 50; i++) {
+                    MaterializedResult.Builder builder = MaterializedResult.resultBuilder(session, types);
+                    for (int j = 0; j < 1000; j++) {
+                        builder.row(
+                                UUID.randomUUID().toString(),
+                                "test" + random.nextInt(100),
+                                random.nextLong(100_000),
+                                "2018-04-01");
+                    }
+                    sink.appendPage(builder.build().toPage());
+                }
+
+                // verify we have data files
+                stagingPathRoot = getStagingPathRoot(outputHandle);
+                HdfsContext context = new HdfsContext(session, temporaryCreateRollbackTable.getSchemaName(), temporaryCreateRollbackTable.getTableName());
+                assertFalse(listAllDataFiles(context, stagingPathRoot).isEmpty());
+
+                // rollback the table
+                transaction.rollback();
+            }
+
+            // verify all files have been deleted
+            HdfsContext context = new HdfsContext(newSession(), temporaryCreateRollbackTable.getSchemaName(), temporaryCreateRollbackTable.getTableName());
+            assertTrue(listAllDataFiles(context, stagingPathRoot).isEmpty());
+
+            // verify table is not in the metastore
+            try (Transaction transaction = newTransaction()) {
+                ConnectorSession session = newSession();
+                ConnectorMetadata metadata = transaction.getMetadata();
+                assertNull(metadata.getTableHandle(session, temporaryCreateRollbackTable));
+            }
+        }
+        finally {
+            dropTable(temporaryCreateRollbackTable);
+        }
+    }
+
+    @Test
     public void testTableCreationIgnoreExisting()
     {
         List<Column> columns = ImmutableList.of(new Column("dummy", HiveType.valueOf("uniontype<smallint,tinyint>"), Optional.empty()));
@@ -2237,22 +2357,14 @@ public abstract class AbstractTestHive
             // begin creating the table
             ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(
                     table,
-                    ImmutableList.<ColumnMetadata>builder()
-                            .add(new ColumnMetadata("id", VARCHAR))
-                            .add(new ColumnMetadata("value_asc", VARCHAR))
-                            .add(new ColumnMetadata("value_desc", BIGINT))
-                            .add(new ColumnMetadata("ds", VARCHAR))
-                            .build(),
-                    ImmutableMap.<String, Object>builder()
-                            .put(STORAGE_FORMAT_PROPERTY, RCBINARY)
-                            .put(PARTITIONED_BY_PROPERTY, ImmutableList.of("ds"))
-                            .put(BUCKETED_BY_PROPERTY, ImmutableList.of("id"))
-                            .put(BUCKET_COUNT_PROPERTY, bucketCount)
-                            .put(SORTED_BY_PROPERTY, ImmutableList.builder()
-                                    .add(new SortingColumn("value_asc", SortingColumn.Order.ASCENDING))
-                                    .add(new SortingColumn("value_desc", SortingColumn.Order.DESCENDING))
-                                    .build())
-                            .build());
+                    CREATE_BUCKETED_SORTED_TABLE_COLUMNS,
+                    createTableProperties(RCBINARY,
+                            ImmutableList.of("ds"),
+                            ImmutableList.of("id"),
+                            bucketCount,
+                            ImmutableList.of(
+                                    new SortingColumn("value_asc", ASCENDING),
+                                    new SortingColumn("value_desc", DESCENDING))));
 
             ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(session, tableMetadata, Optional.empty());
 
@@ -4365,14 +4477,27 @@ public abstract class AbstractTestHive
         return createTableProperties(storageFormat, ImmutableList.of());
     }
 
-    private static Map<String, Object> createTableProperties(HiveStorageFormat storageFormat, Iterable<String> parititonedBy)
+    private static Map<String, Object> createTableProperties(HiveStorageFormat storageFormat, Iterable<String> partitionedBy)
+    {
+        return createTableProperties(storageFormat, partitionedBy, ImmutableList.of(), 0, ImmutableList.of());
+    }
+
+    private static Map<String, Object> createTableProperties(HiveStorageFormat storageFormat, Iterable<String> bucketedBy,
+                                                               int bucketCount, Iterable<SortingColumn> sortedBy)
+    {
+        return createTableProperties(storageFormat, ImmutableList.of(), bucketedBy, bucketCount, sortedBy);
+    }
+
+    private static Map<String, Object> createTableProperties(HiveStorageFormat storageFormat, Iterable<String> partitonedBy,
+                                                             Iterable<String> bucketedBy, int bucketCount,
+                                                             Iterable<SortingColumn> sortedBy)
     {
         return ImmutableMap.<String, Object>builder()
                 .put(STORAGE_FORMAT_PROPERTY, storageFormat)
-                .put(PARTITIONED_BY_PROPERTY, ImmutableList.copyOf(parititonedBy))
-                .put(BUCKETED_BY_PROPERTY, ImmutableList.of())
-                .put(BUCKET_COUNT_PROPERTY, 0)
-                .put(SORTED_BY_PROPERTY, ImmutableList.of())
+                .put(PARTITIONED_BY_PROPERTY, ImmutableList.copyOf(partitonedBy))
+                .put(BUCKETED_BY_PROPERTY, bucketedBy)
+                .put(BUCKET_COUNT_PROPERTY, bucketCount)
+                .put(SORTED_BY_PROPERTY, sortedBy)
                 .build();
     }
 

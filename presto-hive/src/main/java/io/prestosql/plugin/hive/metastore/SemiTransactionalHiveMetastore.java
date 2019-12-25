@@ -59,6 +59,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -73,6 +74,7 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_TABLE_DROPPED_DURING_QUERY;
 import static io.prestosql.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
+import static io.prestosql.plugin.hive.HiveWriterFactory.BUCKET_NUMBER_PADDING;
 import static io.prestosql.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_NEW_DIRECTORY;
 import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static io.prestosql.plugin.hive.util.HiveUtil.isPrestoView;
@@ -95,6 +97,7 @@ public class SemiTransactionalHiveMetastore
 {
     private static final Logger log = Logger.get(SemiTransactionalHiveMetastore.class);
     private static final int PARTITION_COMMIT_BATCH_SIZE = 8;
+    private static final Pattern BUCKETED_SORTED_PREFIX = Pattern.compile("^([.]tmp-sort[.])?0\\d{" + BUCKET_NUMBER_PADDING + "}_\\d_.+");
 
     private final HiveMetastore delegate;
     private final HdfsEnvironment hdfsEnvironment;
@@ -1858,7 +1861,8 @@ public class SemiTransactionalHiveMetastore
                 boolean eligible = false;
                 // never delete presto dot files
                 if (!fileName.startsWith(".presto")) {
-                    eligible = queryIds.stream().anyMatch(id -> fileName.startsWith(id) || fileName.endsWith(id));
+                    eligible = queryIds.stream().anyMatch(id -> fileName.startsWith(id) || fileName.endsWith(id)
+                            || (BUCKETED_SORTED_PREFIX.matcher(fileName).matches() && fileName.contains(id)));
                 }
                 if (eligible) {
                     if (!deleteIfExists(fileSystem, filePath, false)) {
