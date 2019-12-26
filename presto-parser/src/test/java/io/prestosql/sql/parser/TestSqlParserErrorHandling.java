@@ -25,6 +25,7 @@ import static org.testng.Assert.fail;
 public class TestSqlParserErrorHandling
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
+    private static final ParsingOptions PARSING_OPTIONS = new ParsingOptions();
 
     @DataProvider(name = "expressions")
     public Object[][] getExpressions()
@@ -166,7 +167,7 @@ public class TestSqlParserErrorHandling
     public void testStatement(String sql, String error)
     {
         try {
-            SQL_PARSER.createStatement(sql);
+            SQL_PARSER.createStatement(sql, PARSING_OPTIONS);
             fail("Expected parsing to fail");
         }
         catch (ParsingException e) {
@@ -178,7 +179,7 @@ public class TestSqlParserErrorHandling
     public void testExpression(String sql, String error)
     {
         try {
-            SQL_PARSER.createExpression(sql);
+            SQL_PARSER.createExpression(sql, PARSING_OPTIONS);
             fail("Expected parsing to fail");
         }
         catch (ParsingException e) {
@@ -190,7 +191,7 @@ public class TestSqlParserErrorHandling
     public void testParsingExceptionPositionInfo()
     {
         try {
-            SQL_PARSER.createStatement("select *\nfrom x\nwhere from");
+            SQL_PARSER.createStatement("select *\nfrom x\nwhere from", PARSING_OPTIONS);
             fail("expected exception");
         }
         catch (ParsingException e) {
@@ -213,7 +214,7 @@ public class TestSqlParserErrorHandling
     public void testStackOverflowStatement()
     {
         for (int size = 6000; size <= 100_000; size *= 2) {
-            SQL_PARSER.createStatement("SELECT " + Joiner.on(" OR ").join(nCopies(size, "x = y")));
+            SQL_PARSER.createStatement("SELECT " + Joiner.on(" OR ").join(nCopies(size, "x = y")), PARSING_OPTIONS);
         }
     }
 }
