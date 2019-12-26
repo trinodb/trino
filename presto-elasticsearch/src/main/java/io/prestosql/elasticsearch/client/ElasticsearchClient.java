@@ -446,31 +446,31 @@ public class ElasticsearchClient
 
             String name = field.getKey();
             JsonNode value = field.getValue();
+            //default type is object
+            String type = "object";
             if (value.has("type")) {
-                String type = value.get("type").asText();
-
-                if (type.equals("date")) {
+                type = value.get("type").asText();
+            }
+            switch (type) {
+                case "date":
                     List<String> formats = ImmutableList.of();
                     if (value.has("format")) {
                         formats = Arrays.asList(value.get("format").asText().split("\\|\\|"));
                     }
                     result.add(new IndexMetadata.Field(name, new IndexMetadata.DateTimeType(formats)));
-                }
-                else if (!type.equals("object")) {
+                    break;
+
+                case "object":
+                    if (value.has("properties")) {
+                        result.add(new IndexMetadata.Field(name, parseType(value.get("properties"))));
+                    }
+                    else {
+                        LOG.debug("Ignoring empty object field: %s", name);
+                    }
+                    break;
+
+                default:
                     result.add(new IndexMetadata.Field(name, new IndexMetadata.PrimitiveType(type)));
-                }
-                else if (value.has("properties") && value.get("properties").fields().hasNext()) {
-                    // According to elasticsearch implementation, this case will never happen.
-                    // cf objectMapper implementation in elasticsearch repo.
-                    // However this case is theoretically correct.
-                    result.add(new IndexMetadata.Field(name, parseType(value.get("properties"))));
-                }
-                else {
-                    LOG.debug("Empty object field %s ignored, row type must have at least one field", name);
-                }
-            }
-            else if (value.has("properties")) {
-                result.add(new IndexMetadata.Field(name, parseType(value.get("properties"))));
             }
         }
 
