@@ -68,7 +68,7 @@ public class TestSpatialJoinPlanning
     {
         LocalQueryRunner queryRunner = LocalQueryRunner.create(testSessionBuilder()
                 .setCatalog("memory")
-                .setSchema("default")
+                .setSchema("DEFAULT")
                 .build());
         queryRunner.installPlugin(new GeoPlugin());
         queryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());

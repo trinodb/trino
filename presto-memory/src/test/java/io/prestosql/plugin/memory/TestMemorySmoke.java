@@ -177,29 +177,38 @@ public class TestMemorySmoke
     @Test
     public void testCreateSchema()
     {
-        assertQueryFails("DROP SCHEMA schema1", "line 1:1: Schema 'memory.schema1' does not exist");
+        assertQueryFails("DROP SCHEMA schema1", "line 1:1: Schema 'memory.SCHEMA1' does not exist");
+        assertQueryFails("DROP SCHEMA \"schema1\"", "line 1:1: Schema 'memory.schema1' does not exist");
         assertUpdate("CREATE SCHEMA schema1");
-        assertQueryFails("CREATE SCHEMA schema1", "line 1:1: Schema 'memory.schema1' already exists");
+        assertQueryFails("CREATE SCHEMA SCHEMA1", "line 1:1: Schema 'memory.SCHEMA1' already exists");
+        assertUpdate("CREATE SCHEMA \"schema1\"");
+        assertQueryFails("CREATE SCHEMA \"schema1\"", "line 1:1: Schema 'memory.schema1' already exists");
         assertUpdate("CREATE TABLE schema1.x(t int)");
-        assertQueryFails("DROP SCHEMA schema1", "Schema not empty: schema1");
+        assertUpdate("CREATE TABLE \"schema1\".\"x\"(t int)");
+        assertQueryFails("DROP SCHEMA schema1", "Schema not empty: SCHEMA1");
+        assertQueryFails("DROP SCHEMA \"schema1\"", "Schema not empty: schema1");
         assertUpdate("DROP TABLE schema1.x");
+        assertUpdate("DROP TABLE \"schema1\".\"x\"");
         assertUpdate("DROP SCHEMA schema1");
-        assertQueryFails("DROP SCHEMA schema1", "line 1:1: Schema 'memory.schema1' does not exist");
+        assertUpdate("DROP SCHEMA \"schema1\"");
+        assertQueryFails("DROP SCHEMA schema1", "line 1:1: Schema 'memory.SCHEMA1' does not exist");
+        assertQueryFails("DROP SCHEMA \"schema1\"", "line 1:1: Schema 'memory.schema1' does not exist");
         assertUpdate("DROP SCHEMA IF EXISTS schema1");
+        assertUpdate("DROP SCHEMA IF EXISTS \"schema1\"");
     }
 
     @Test
     public void testCreateTableInNonDefaultSchema()
     {
         assertUpdate("CREATE SCHEMA schema1");
-        assertUpdate("CREATE SCHEMA schema2");
+        assertUpdate("CREATE SCHEMA \"schema2\"");
 
-        assertQueryResult("SHOW SCHEMAS", "default", "information_schema", "schema1", "schema2");
-        assertUpdate("CREATE TABLE schema1.nation AS SELECT * FROM tpch.tiny.nation WHERE nationkey % 2 = 0", "SELECT count(*) FROM nation WHERE MOD(nationkey, 2) = 0");
-        assertUpdate("CREATE TABLE schema2.nation AS SELECT * FROM tpch.tiny.nation WHERE nationkey % 2 = 1", "SELECT count(*) FROM nation WHERE MOD(nationkey, 2) = 1");
+        assertQueryResult("SHOW SCHEMAS", "DEFAULT", "SCHEMA1", "information_schema", "schema2");
+        assertUpdate("CREATE TABLE scHema1.nation AS SELECT * FROM tpch.tiny.nation WHERE nationkey % 2 = 0", "SELECT count(*) FROM nation WHERE MOD(nationkey, 2) = 0");
+        assertUpdate("CREATE TABLE \"schema2\".nation AS SELECT * FROM tpch.tiny.nation WHERE nationkey % 2 = 1", "SELECT count(*) FROM nation WHERE MOD(nationkey, 2) = 1");
 
-        assertQueryResult("SELECT count(*) FROM schema1.nation", 13L);
-        assertQueryResult("SELECT count(*) FROM schema2.nation", 12L);
+        assertQueryResult("SELECT count(*) FROM schemA1.nation", 13L);
+        assertQueryResult("SELECT count(*) FROM \"schema2\".nation", 12L);
     }
 
     @Test
@@ -207,9 +216,12 @@ public class TestMemorySmoke
     {
         int tablesBeforeCreate = listMemoryTables().size();
 
-        assertQueryFails("CREATE TABLE schema3.test_table3 (x date)", "Schema schema3 not found");
-        assertQueryFails("CREATE VIEW schema4.test_view4 AS SELECT 123 x", "Schema schema4 not found");
-        assertQueryFails("CREATE OR REPLACE VIEW schema5.test_view5 AS SELECT 123 x", "Schema schema5 not found");
+        assertQueryFails("CREATE TABLE schema3.test_table3 (x date)", "Schema SCHEMA3 not found");
+        assertQueryFails("CREATE TABLE \"schema3\".test_table3 (x date)", "Schema schema3 not found");
+        assertQueryFails("CREATE VIEW \"schema4\".test_view4 AS SELECT 123 x", "Schema schema4 not found");
+        assertQueryFails("CREATE VIEW scheMa4.test_view4 AS SELECT 123 x", "Schema SCHEMA4 not found");
+        assertQueryFails("CREATE OR REPLACE VIEW \"schema5\".test_view5 AS SELECT 123 x", "Schema schema5 not found");
+        assertQueryFails("CREATE OR REPLACE VIEW scHema5.test_view5 AS SELECT 123 x", "Schema SCHEMA5 not found");
 
         int tablesAfterCreate = listMemoryTables().size();
         assertEquals(tablesBeforeCreate, tablesAfterCreate);
@@ -219,7 +231,7 @@ public class TestMemorySmoke
     public void testRenameTable()
     {
         assertUpdate("CREATE TABLE test_table_to_be_renamed (a BIGINT)");
-        assertQueryFails("ALTER TABLE test_table_to_be_renamed RENAME TO memory.test_schema_not_exist.test_table_renamed", "Schema test_schema_not_exist not found");
+        assertQueryFails("ALTER TABLE test_table_to_be_renamed RENAME TO memory.test_schema_not_exist.test_table_renamed", "Schema TEST_SCHEMA_NOT_EXIST not found");
         assertUpdate("ALTER TABLE test_table_to_be_renamed RENAME TO test_table_renamed");
         assertQueryResult("SELECT count(*) FROM test_table_renamed", 0L);
 
@@ -236,18 +248,18 @@ public class TestMemorySmoke
     {
         @Language("SQL") String query = "SELECT orderkey, orderstatus, totalprice / 2 half FROM orders";
 
-        assertUpdate("CREATE VIEW test_view AS SELECT 123 x");
-        assertUpdate("CREATE OR REPLACE VIEW test_view AS " + query);
+        assertUpdate("CREATE VIEW \"test_view\" AS SELECT 123 x");
+        assertUpdate("CREATE OR REPLACE VIEW \"test_view\" AS " + query);
 
-        assertQueryFails("CREATE TABLE test_view (x date)", "View \\[default.test_view] already exists");
-        assertQueryFails("CREATE VIEW test_view AS SELECT 123 x", "View already exists: default.test_view");
+        assertQueryFails("CREATE TABLE \"test_view\" (x date)", "View \\[DEFAULT.test_view] already exists");
+        assertQueryFails("CREATE VIEW \"test_view\" AS SELECT 123 x", "View already exists: DEFAULT.test_view");
 
-        assertQuery("SELECT * FROM test_view", query);
+        assertQuery("SELECT * FROM \"test_view\"", query);
 
         assertTrue(computeActual("SHOW TABLES").getOnlyColumnAsSet().contains("test_view"));
 
-        assertUpdate("DROP VIEW test_view");
-        assertQueryFails("DROP VIEW test_view", "line 1:1: View 'memory.default.test_view' does not exist");
+        assertUpdate("DROP VIEW \"test_view\"");
+        assertQueryFails("DROP VIEW \"test_view\"", "line 1:1: View 'memory.default.test_view' does not exist");
     }
 
     @Test
@@ -256,7 +268,7 @@ public class TestMemorySmoke
         @Language("SQL") String query = "SELECT orderkey, orderstatus, totalprice / 2 half FROM orders";
 
         assertUpdate("CREATE VIEW test_view_to_be_renamed AS " + query);
-        assertQueryFails("ALTER VIEW test_view_to_be_renamed RENAME TO memory.test_schema_not_exist.test_view_renamed", "Schema test_schema_not_exist not found");
+        assertQueryFails("ALTER VIEW test_view_to_be_renamed RENAME TO memory.test_schema_not_exist.test_view_renamed", "Schema TEST_SCHEMA_NOT_EXIST not found");
         assertUpdate("ALTER VIEW test_view_to_be_renamed RENAME TO test_view_renamed");
         assertQuery("SELECT * FROM test_view_renamed", query);
 
@@ -270,7 +282,7 @@ public class TestMemorySmoke
 
     private List<QualifiedObjectName> listMemoryTables()
     {
-        return getQueryRunner().listTables(getSession(), "memory", "default");
+        return getQueryRunner().listTables(getSession(), "memory", "DEFAULT");
     }
 
     private void assertQueryResult(@Language("SQL") String sql, Object... expected)

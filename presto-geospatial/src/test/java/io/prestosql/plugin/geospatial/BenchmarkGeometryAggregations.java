@@ -67,7 +67,7 @@ public class BenchmarkGeometryAggregations
         {
             queryRunner = LocalQueryRunner.create(testSessionBuilder()
                     .setCatalog("memory")
-                    .setSchema("default")
+                    .setSchema("DEFAULT")
                     .build());
             queryRunner.installPlugin(new GeoPlugin());
             queryRunner.createCatalog("memory", new MemoryConnectorFactory(), ImmutableMap.of());
