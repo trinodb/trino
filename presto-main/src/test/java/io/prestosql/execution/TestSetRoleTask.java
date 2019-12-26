@@ -23,6 +23,7 @@ import io.prestosql.security.AllowAllAccessControl;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
 import io.prestosql.spi.security.SelectedRole;
 import io.prestosql.sql.analyzer.FeaturesConfig;
+import io.prestosql.sql.parser.ParsingOptions;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.tree.SetRole;
 import io.prestosql.transaction.TransactionManager;
@@ -88,7 +89,7 @@ public class TestSetRoleTask
 
     private void assertSetRole(String statement, Map<String, SelectedRole> expected)
     {
-        SetRole setRole = (SetRole) parser.createStatement(statement);
+        SetRole setRole = (SetRole) parser.createStatement(statement, new ParsingOptions());
         QueryStateMachine stateMachine = QueryStateMachine.begin(
                 statement,
                 Optional.empty(),

@@ -47,6 +47,7 @@ import io.prestosql.spi.session.PropertyMetadata;
 import io.prestosql.spi.transaction.IsolationLevel;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.sql.parser.ParsingOptions;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.tree.Statement;
 import io.prestosql.testing.TestingMetadata;
@@ -2232,7 +2233,7 @@ public class TestAnalyzer
                 .readUncommitted()
                 .execute(clientSession, session -> {
                     Analyzer analyzer = createAnalyzer(session, metadata);
-                    Statement statement = SQL_PARSER.createStatement(query);
+                    Statement statement = SQL_PARSER.createStatement(query, new ParsingOptions());
                     analyzer.analyze(statement);
                 });
     }
