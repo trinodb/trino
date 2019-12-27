@@ -2269,6 +2269,18 @@ public abstract class AbstractTestJoinQueries
                 "FROM t1 " +
                 "JOIN t2 ON id1 = id2 " +
                 "WHERE id1 = 10");
+
+        assertQuery("" +
+                "WITH " +
+                "   t1 AS (SELECT linenumber AS id1 FROM lineitem), " +
+                "   t2 AS (SELECT nationkey AS id2 FROM nation), " +
+                "   t3 AS (SELECT linenumber AS id3 FROM lineitem), " +
+                "   t4 AS (SELECT nationkey AS id4 FROM nation) " +
+                "SELECT id3 " +
+                "FROM (SELECT * FROM t1 JOIN t2 ON id1 = id2) u " +
+                "JOIN (SELECT * FROM t3 JOIN t4 ON id3 = id4) v " +
+                "ON id1 = id4 " +
+                "WHERE id3 = 10");
     }
 
     private Session noJoinReordering()
