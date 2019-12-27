@@ -168,7 +168,7 @@ public class RemoveUnsupportedDynamicFilters
             return combineConjuncts(metadata, extractConjuncts(expression)
                     .stream()
                     .filter(conjunct ->
-                            getDescriptor(metadata, conjunct)
+                            getDescriptor(conjunct)
                                     .map(descriptor -> {
                                         if (allowedDynamicFilterIds.contains(descriptor.getId())) {
                                             consumedDynamicFilterIds.add(descriptor.getId());
@@ -181,7 +181,7 @@ public class RemoveUnsupportedDynamicFilters
 
         private Expression removeAllDynamicFilters(Expression expression)
         {
-            DynamicFilters.ExtractResult extractResult = extractDynamicFilters(metadata, expression);
+            DynamicFilters.ExtractResult extractResult = extractDynamicFilters(expression);
             if (extractResult.getDynamicConjuncts().isEmpty()) {
                 return expression;
             }

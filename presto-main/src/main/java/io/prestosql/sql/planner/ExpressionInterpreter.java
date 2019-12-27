@@ -923,7 +923,7 @@ public class ExpressionInterpreter
             // do not optimize non-deterministic functions
             if (optimize && (!functionMetadata.isDeterministic() ||
                     hasUnresolvedValue(argumentValues) ||
-                    isDynamicFilter(metadata, node) ||
+                    isDynamicFilter(node) ||
                     resolvedFunction.getSignature().getName().equals("fail"))) {
                 verify(!node.isDistinct(), "window does not support distinct");
                 verify(!node.getOrderBy().isPresent(), "window does not support order by");
