@@ -81,15 +81,6 @@ public class SqlParser
         enhancedErrorHandlerEnabled = options.isEnhancedErrorHandlerEnabled();
     }
 
-    /**
-     * Consider using {@link #createStatement(String, ParsingOptions)}
-     */
-    @Deprecated
-    public Statement createStatement(String sql)
-    {
-        return createStatement(sql, new ParsingOptions());
-    }
-
     public Statement createStatement(String sql, ParsingOptions parsingOptions)
     {
         return (Statement) invokeParser("statement", sql, SqlBaseParser::singleStatement, parsingOptions);
