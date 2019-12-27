@@ -85,10 +85,12 @@ import io.prestosql.type.UnknownType;
 
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -596,17 +598,61 @@ public class LogicalPlanner
 
     private static Map<NodeRef<LambdaArgumentDeclaration>, Symbol> buildLambdaDeclarationToSymbolMap(Analysis analysis, SymbolAllocator symbolAllocator)
     {
-        Map<NodeRef<LambdaArgumentDeclaration>, Symbol> resultMap = new LinkedHashMap<>();
+        Map<Key, Symbol> allocations = new HashMap<>();
+        Map<NodeRef<LambdaArgumentDeclaration>, Symbol> result = new LinkedHashMap<>();
+
         for (Entry<NodeRef<Expression>, Type> entry : analysis.getTypes().entrySet()) {
             if (!(entry.getKey().getNode() instanceof LambdaArgumentDeclaration)) {
                 continue;
             }
-            NodeRef<LambdaArgumentDeclaration> lambdaArgumentDeclaration = NodeRef.of((LambdaArgumentDeclaration) entry.getKey().getNode());
-            if (resultMap.containsKey(lambdaArgumentDeclaration)) {
-                continue;
+
+            LambdaArgumentDeclaration argument = (LambdaArgumentDeclaration) entry.getKey().getNode();
+            Key key = new Key(argument, entry.getValue());
+
+            // Allocate the same symbol for all lambda argument names with a given type. This is needed to be able to
+            // properly identify multiple instances of syntactically equal lambda expressions during planning as expressions
+            // get rewritten via TranslationMap
+            Symbol symbol = allocations.get(key);
+            if (symbol == null) {
+                symbol = symbolAllocator.newSymbol(argument, entry.getValue());
+                allocations.put(key, symbol);
             }
-            resultMap.put(lambdaArgumentDeclaration, symbolAllocator.newSymbol(lambdaArgumentDeclaration.getNode(), entry.getValue()));
+
+            result.put(NodeRef.of(argument), symbol);
         }
-        return resultMap;
+
+        return result;
+    }
+
+    private static class Key
+    {
+        private final LambdaArgumentDeclaration argument;
+        private final Type type;
+
+        public Key(LambdaArgumentDeclaration argument, Type type)
+        {
+            this.argument = requireNonNull(argument, "argument is null");
+            this.type = requireNonNull(type, "type is null");
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            Key key = (Key) o;
+            return Objects.equals(argument, key.argument) &&
+                    Objects.equals(type, key.type);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(argument, type);
+        }
     }
 }
