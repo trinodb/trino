@@ -256,7 +256,6 @@ import static io.prestosql.spi.StandardErrorCode.COMPILER_ERROR;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
 import static io.prestosql.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
-import static io.prestosql.sql.DynamicFilters.extractDynamicFilters;
 import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
 import static io.prestosql.sql.gen.LambdaBytecodeGenerator.compileLambdaProvider;
 import static io.prestosql.sql.planner.ExpressionNodeInliner.replaceExpression;
@@ -1236,7 +1235,7 @@ public class LocalExecutionPlanner
             }
             Map<Symbol, Integer> outputMappings = outputMappingsBuilder.build();
 
-            Optional<DynamicFilters.ExtractResult> extractDynamicFilterResult = filterExpression.map(expression -> extractDynamicFilters(metadata, expression));
+            Optional<DynamicFilters.ExtractResult> extractDynamicFilterResult = filterExpression.map(DynamicFilters::extractDynamicFilters);
             Optional<Expression> staticFilters = extractDynamicFilterResult
                     .map(DynamicFilters.ExtractResult::getStaticConjuncts)
                     .map(filter -> combineConjuncts(metadata, filter));
@@ -2105,7 +2104,7 @@ public class LocalExecutionPlanner
             log.debug("[Join] Dynamic filters: %s", node.getDynamicFilters());
             LocalDynamicFiltersCollector collector = context.getDynamicFiltersCollector();
             return LocalDynamicFilter
-                    .create(metadata, node, partitionCount)
+                    .create(node, partitionCount)
                     .map(filter -> {
                         // Intersect dynamic filters' predicates when they become ready,
                         // in order to support multiple join nodes in the same plan fragment.

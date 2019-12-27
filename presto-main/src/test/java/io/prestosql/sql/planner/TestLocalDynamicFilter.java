@@ -199,7 +199,7 @@ public class TestLocalDynamicFilter
                 OPTIMIZED_AND_VALIDATED,
                 false);
         JoinNode joinNode = searchJoins(subplan.getChildren().get(0).getFragment()).findOnlyElement();
-        LocalDynamicFilter filter = LocalDynamicFilter.create(METADATA, joinNode, 1).get();
+        LocalDynamicFilter filter = LocalDynamicFilter.create(joinNode, 1).get();
         String filterId = Iterables.getOnlyElement(filter.getBuildChannels().keySet());
         Symbol probeSymbol = Iterables.getOnlyElement(joinNode.getCriteria()).getLeft();
 
@@ -223,7 +223,7 @@ public class TestLocalDynamicFilter
                 session);
         JoinNode joinNode = searchJoins(subplan.getChildren().get(0).getFragment()).findOnlyElement();
         assertEquals(joinNode.getDynamicFilters().isEmpty(), false);
-        assertEquals(LocalDynamicFilter.create(METADATA, joinNode, 1), Optional.empty());
+        assertEquals(LocalDynamicFilter.create(joinNode, 1), Optional.empty());
     }
 
     @Test
@@ -237,7 +237,7 @@ public class TestLocalDynamicFilter
                 OPTIMIZED_AND_VALIDATED,
                 false);
         JoinNode joinNode = searchJoins(subplan.getChildren().get(0).getFragment()).findOnlyElement();
-        LocalDynamicFilter filter = LocalDynamicFilter.create(METADATA, joinNode, 1).get();
+        LocalDynamicFilter filter = LocalDynamicFilter.create(joinNode, 1).get();
         List<String> filterIds = filter
                 .getBuildChannels()
                 .entrySet()
@@ -268,7 +268,7 @@ public class TestLocalDynamicFilter
         List<JoinNode> joinNodes = searchJoins(subplan.getChildren().get(0).getFragment()).findAll();
         assertEquals(joinNodes.size(), 2);
         for (JoinNode joinNode : joinNodes) {
-            LocalDynamicFilter filter = LocalDynamicFilter.create(METADATA, joinNode, 1).get();
+            LocalDynamicFilter filter = LocalDynamicFilter.create(joinNode, 1).get();
             String filterId = Iterables.getOnlyElement(filter.getBuildChannels().keySet());
             Symbol probeSymbol = Iterables.getOnlyElement(joinNode.getCriteria()).getLeft();
 
@@ -291,7 +291,7 @@ public class TestLocalDynamicFilter
                 OPTIMIZED_AND_VALIDATED,
                 true);
         JoinNode joinNode = searchJoins(subplan.getFragment()).findOnlyElement();
-        LocalDynamicFilter filter = LocalDynamicFilter.create(METADATA, joinNode, 1).get();
+        LocalDynamicFilter filter = LocalDynamicFilter.create(joinNode, 1).get();
         String filterId = Iterables.getOnlyElement(filter.getBuildChannels().keySet());
 
         filter.getTupleDomainConsumer().accept(TupleDomain.withColumnDomains(ImmutableMap.of(

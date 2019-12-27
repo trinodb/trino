@@ -177,7 +177,7 @@ public class DistributedExecutionPlanner
         {
             List<DynamicFilters.Descriptor> dynamicFilters = filter
                     .map(FilterNode::getPredicate)
-                    .map(expression -> extractDynamicFilters(metadata, expression))
+                    .map(DynamicFilters::extractDynamicFilters)
                     .map(DynamicFilters.ExtractResult::getDynamicConjuncts)
                     .orElse(ImmutableList.of());
 
