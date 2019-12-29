@@ -205,6 +205,11 @@ public final class ExpressionUtils
         return and(conjuncts);
     }
 
+    public static Expression combineDisjuncts(Metadata metadata, Expression... expressions)
+    {
+        return combineDisjuncts(metadata, Arrays.asList(expressions));
+    }
+
     public static Expression combineDisjuncts(Metadata metadata, Collection<Expression> expressions)
     {
         return combineDisjunctsWithDefault(metadata, expressions, FALSE_LITERAL);

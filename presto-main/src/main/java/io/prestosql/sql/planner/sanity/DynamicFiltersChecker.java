@@ -18,6 +18,7 @@ import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.sql.DynamicFilters;
+import io.prestosql.sql.planner.SubExpressionExtractor;
 import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.plan.FilterNode;
@@ -25,15 +26,17 @@ import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.OutputNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanVisitor;
+import io.prestosql.sql.tree.Expression;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.difference;
 import static com.google.common.collect.Sets.intersection;
-import static io.prestosql.sql.DynamicFilters.extractDynamicFilters;
 
 /**
  * When dynamic filter assignments are present on a Join node, they should be consumed by a Filter node on it's probe side
@@ -73,7 +76,8 @@ public class DynamicFiltersChecker
                         "Dynamic filters present in join were not fully consumed by it's probe side.");
 
                 Set<String> consumedBuildSide = node.getRight().accept(this, context);
-                verify(intersection(currentJoinDynamicFilters, consumedBuildSide).isEmpty());
+                verify(intersection(currentJoinDynamicFilters, consumedBuildSide).isEmpty(),
+                        "Dynamic filters present in join were consumed by it's build side.");
 
                 Set<String> unmatched = new HashSet<>(consumedBuildSide);
                 unmatched.addAll(consumedProbeSide);
@@ -85,13 +89,21 @@ public class DynamicFiltersChecker
             public Set<String> visitFilter(FilterNode node, Void context)
             {
                 ImmutableSet.Builder<String> consumed = ImmutableSet.builder();
-                List<DynamicFilters.Descriptor> dynamicFilters = extractDynamicFilters(node.getPredicate()).getDynamicConjuncts();
-                dynamicFilters.stream()
+                extractDynamicPredicates(node.getPredicate()).stream()
                         .map(DynamicFilters.Descriptor::getId)
                         .forEach(consumed::add);
                 consumed.addAll(node.getSource().accept(this, context));
                 return consumed.build();
             }
         }, null);
+    }
+
+    private static List<DynamicFilters.Descriptor> extractDynamicPredicates(Expression expression)
+    {
+        return SubExpressionExtractor.extract(expression).stream()
+                .map(DynamicFilters::getDescriptor)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(toImmutableList());
     }
 }
