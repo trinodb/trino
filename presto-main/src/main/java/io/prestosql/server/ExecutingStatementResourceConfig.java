@@ -17,26 +17,22 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.DataSize;
 
-import javax.annotation.Nullable;
-
-import java.util.Optional;
-
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class ExecutingStatementResourceConfig
 {
-    private Optional<DataSize> serverTargetResultSize;
+    private DataSize serverTargetResultSize = new DataSize(1, MEGABYTE);
 
-    public Optional<DataSize> getServerTargetResultSize()
+    public DataSize getServerTargetResultSize()
     {
         return serverTargetResultSize;
     }
 
-    @Config("query.target-result-size.default-mb")
-    @ConfigDescription("Chunk size (in MB) for query results in JSON responses sent to client")
-    public ExecutingStatementResourceConfig setServerTargetResultSize(@Nullable String targetResultSize)
+    @Config("query.target-result-size.default")
+    @ConfigDescription("Chunk size for query results in JSON responses sent to client")
+    public ExecutingStatementResourceConfig setServerTargetResultSize(DataSize targetResultSize)
     {
-        this.serverTargetResultSize = Optional.of(new DataSize(Integer.parseInt(targetResultSize), MEGABYTE));
+        this.serverTargetResultSize = targetResultSize;
         return this;
     }
 }

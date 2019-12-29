@@ -54,7 +54,6 @@ import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.util.Map.Entry;
 import java.util.NoSuchElementException;
-import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledExecutorService;
@@ -91,10 +90,9 @@ public class ExecutingStatementResource
     private static final Duration MAX_WAIT_TIME = new Duration(1, SECONDS);
     private static final Ordering<Comparable<Duration>> WAIT_ORDERING = Ordering.natural().nullsLast();
 
-    private static final DataSize DEFAULT_TARGET_RESULT_SIZE = new DataSize(1, MEGABYTE);
     private static final DataSize MAX_TARGET_RESULT_SIZE = new DataSize(128, MEGABYTE);
 
-    private final Optional<DataSize> serverTargetResultSize;
+    private final DataSize serverTargetResultSize;
 
     private final QueryManager queryManager;
     private final ExchangeClientSupplier exchangeClientSupplier;
@@ -219,18 +217,11 @@ public class ExecutingStatementResource
             AsyncResponse asyncResponse)
     {
         Duration wait = WAIT_ORDERING.min(MAX_WAIT_TIME, maxWait);
-        //precedence:
-        //1. passed to session
-        //2. server side config
-        //3. default
-        if (targetResultSize != null) {
-            targetResultSize = Ordering.natural().min(targetResultSize, MAX_TARGET_RESULT_SIZE);
-        }
-        else if (serverTargetResultSize != null && serverTargetResultSize.isPresent()) {
-            targetResultSize = Ordering.natural().min(serverTargetResultSize.get(), MAX_TARGET_RESULT_SIZE);
+        if (targetResultSize == null) {
+            targetResultSize = Ordering.natural().min(serverTargetResultSize, MAX_TARGET_RESULT_SIZE);
         }
         else {
-            targetResultSize = DEFAULT_TARGET_RESULT_SIZE;
+            targetResultSize = Ordering.natural().min(targetResultSize, MAX_TARGET_RESULT_SIZE);
         }
 
         ListenableFuture<QueryResults> queryResultsFuture = query.waitForResults(token, uriInfo, scheme, wait, targetResultSize);

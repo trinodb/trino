@@ -14,6 +14,7 @@
 package io.prestosql.server;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -21,6 +22,7 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class TestExecutingStatementResourceConfig
 {
@@ -28,18 +30,18 @@ public class TestExecutingStatementResourceConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(ExecutingStatementResourceConfig.class)
-                .setServerTargetResultSize(null));
+                .setServerTargetResultSize(new DataSize(1, MEGABYTE)));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("query.target-result-size.default-mb", "4")
+                .put("query.target-result-size.default", "4MB")
                 .build();
 
         ExecutingStatementResourceConfig expected = new ExecutingStatementResourceConfig()
-                .setServerTargetResultSize("4");
+                .setServerTargetResultSize(new DataSize(4, MEGABYTE));
 
         assertFullMapping(properties, expected);
     }
