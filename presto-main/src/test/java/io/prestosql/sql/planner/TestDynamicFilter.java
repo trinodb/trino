@@ -216,4 +216,36 @@ public class TestDynamicFilter
                                 exchange(
                                         project(tableScan("part", ImmutableMap.of("PART_PK", "partkey")))))));
     }
+
+    @Test
+    public void testNestedDynamicFiltersRemoval()
+    {
+        assertPlan(
+                "WITH t AS (" +
+                        "  SELECT o.clerk FROM (" +
+                        "    (orders o LEFT JOIN orders o1 ON o1.clerk = o.clerk) " +
+                        "      LEFT JOIN orders o2 ON o2.clerk = o1.clerk)" +
+                        ") " +
+                        "SELECT t.clerk " +
+                        "FROM orders o3 JOIN t ON t.clerk = o3.clerk",
+                anyTree(
+                        join(INNER,
+                                ImmutableList.of(equiJoinClause("ORDERS_CK", "ORDERS_CK6")),
+                                ImmutableMap.of("ORDERS_CK", "ORDERS_CK6"),
+                                Optional.empty(),
+                                tableScan("orders", ImmutableMap.of("ORDERS_CK", "clerk")),
+                                anyTree(
+                                        join(LEFT,
+                                                ImmutableList.of(equiJoinClause("ORDERS_CK16", "ORDERS_CK27")),
+                                                anyTree(
+                                                        join(LEFT,
+                                                                ImmutableList.of(equiJoinClause("ORDERS_CK6", "ORDERS_CK16")),
+                                                                project(
+                                                                        tableScan("orders", ImmutableMap.of("ORDERS_CK6", "clerk"))),
+                                                                exchange(
+                                                                        project(
+                                                                                tableScan("orders", ImmutableMap.of("ORDERS_CK16", "clerk")))))),
+                                                anyTree(
+                                                        tableScan("orders", ImmutableMap.of("ORDERS_CK27", "clerk"))))), metadata)));
+    }
 }

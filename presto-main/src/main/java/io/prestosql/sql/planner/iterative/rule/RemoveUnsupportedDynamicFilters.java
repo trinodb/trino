@@ -13,6 +13,7 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
@@ -29,6 +30,9 @@ import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanVisitor;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.ExpressionRewriter;
+import io.prestosql.sql.tree.ExpressionTreeRewriter;
+import io.prestosql.sql.tree.LogicalBinaryExpression;
 
 import java.util.HashSet;
 import java.util.List;
@@ -40,7 +44,9 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.sql.DynamicFilters.extractDynamicFilters;
 import static io.prestosql.sql.DynamicFilters.getDescriptor;
+import static io.prestosql.sql.DynamicFilters.isDynamicFilter;
 import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
+import static io.prestosql.sql.ExpressionUtils.combinePredicates;
 import static io.prestosql.sql.ExpressionUtils.extractConjuncts;
 import static io.prestosql.sql.planner.plan.ChildReplacer.replaceChildren;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -167,6 +173,7 @@ public class RemoveUnsupportedDynamicFilters
         {
             return combineConjuncts(metadata, extractConjuncts(expression)
                     .stream()
+                    .map(this::removeNestedDynamicFilters)
                     .filter(conjunct ->
                             getDescriptor(conjunct)
                                     .map(descriptor -> {
@@ -181,11 +188,46 @@ public class RemoveUnsupportedDynamicFilters
 
         private Expression removeAllDynamicFilters(Expression expression)
         {
-            DynamicFilters.ExtractResult extractResult = extractDynamicFilters(expression);
+            Expression rewrittenExpression = removeNestedDynamicFilters(expression);
+            DynamicFilters.ExtractResult extractResult = extractDynamicFilters(rewrittenExpression);
             if (extractResult.getDynamicConjuncts().isEmpty()) {
-                return expression;
+                return rewrittenExpression;
             }
             return combineConjuncts(metadata, extractResult.getStaticConjuncts());
+        }
+
+        private Expression removeNestedDynamicFilters(Expression expression)
+        {
+            return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>() {
+                @Override
+                public Expression rewriteLogicalBinaryExpression(LogicalBinaryExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+                {
+                    LogicalBinaryExpression rewrittenNode = treeRewriter.defaultRewrite(node, context);
+
+                    boolean modified = (node != rewrittenNode);
+                    ImmutableList.Builder<Expression> expressionBuilder = ImmutableList.builder();
+                    if (isDynamicFilter(rewrittenNode.getLeft())) {
+                        expressionBuilder.add(TRUE_LITERAL);
+                        modified = true;
+                    }
+                    else {
+                        expressionBuilder.add(rewrittenNode.getLeft());
+                    }
+
+                    if (isDynamicFilter(rewrittenNode.getRight())) {
+                        expressionBuilder.add(TRUE_LITERAL);
+                        modified = true;
+                    }
+                    else {
+                        expressionBuilder.add(rewrittenNode.getRight());
+                    }
+
+                    if (!modified) {
+                        return node;
+                    }
+                    return combinePredicates(metadata, node.getOperator(), expressionBuilder.build());
+                }
+            }, expression);
         }
     }
 
