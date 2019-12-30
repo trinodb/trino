@@ -76,7 +76,7 @@ public class TestJoinNodeFlattener
     @BeforeClass
     public void setUp()
     {
-        queryRunner = new LocalQueryRunner(testSessionBuilder().build());
+        queryRunner = LocalQueryRunner.create(testSessionBuilder().build());
     }
 
     @AfterClass(alwaysRun = true)

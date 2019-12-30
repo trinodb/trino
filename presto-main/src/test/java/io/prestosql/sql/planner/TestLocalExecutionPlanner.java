@@ -34,7 +34,7 @@ public class TestLocalExecutionPlanner
     @BeforeClass
     public void setUp()
     {
-        runner = new LocalQueryRunner(TEST_SESSION);
+        runner = LocalQueryRunner.create(TEST_SESSION);
     }
 
     @AfterClass(alwaysRun = true)

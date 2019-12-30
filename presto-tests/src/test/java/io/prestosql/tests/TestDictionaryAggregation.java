@@ -29,7 +29,7 @@ public class TestDictionaryAggregation
     public TestDictionaryAggregation()
     {
         super(() -> {
-            LocalQueryRunner queryRunner = new LocalQueryRunner(testSessionBuilder()
+            LocalQueryRunner queryRunner = LocalQueryRunner.create(testSessionBuilder()
                     .setSystemProperty(DICTIONARY_AGGREGATION, "true")
                     .setSystemProperty(REORDER_JOINS, "false") // no JOIN reordering
                     .build());

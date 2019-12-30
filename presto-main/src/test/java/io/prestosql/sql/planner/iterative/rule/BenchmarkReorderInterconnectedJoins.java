@@ -83,7 +83,7 @@ public class BenchmarkReorderInterconnectedJoins
                     .setCatalog("tpch")
                     .setSchema("tiny")
                     .build();
-            queryRunner = new LocalQueryRunner(session);
+            queryRunner = LocalQueryRunner.create(session);
             queryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
             StringBuilder stringBuilder = new StringBuilder();
             stringBuilder.append("EXPLAIN SELECT * FROM nation n1");
