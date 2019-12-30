@@ -47,7 +47,7 @@ public final class Re2JRegexpReplaceLambdaFunction
             @SqlType("function(array(varchar), varchar(x))") UnaryFunctionInterface replaceFunction)
     {
         // If there is no match we can simply return the original source without doing copy.
-        Matcher matcher = pattern.re2jPattern.matcher(source);
+        Matcher matcher = pattern.matcher(source);
         if (!matcher.find()) {
             return source;
         }
