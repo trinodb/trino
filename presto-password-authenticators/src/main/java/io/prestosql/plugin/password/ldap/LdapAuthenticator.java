@@ -13,6 +13,8 @@
  */
 package io.prestosql.plugin.password.ldap;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.CharMatcher;
 import com.google.common.base.VerifyException;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -55,6 +57,8 @@ public class LdapAuthenticator
         implements PasswordAuthenticator
 {
     private static final Logger log = Logger.get(LdapAuthenticator.class);
+    private static final CharMatcher SPECIAL_CHARACTERS = CharMatcher.anyOf(",=+<>#;*()\"\\\u0000");
+    private static final CharMatcher WHITESPACE = CharMatcher.anyOf(" \r");
 
     private final String userBindSearchPattern;
     private final Optional<String> groupAuthorizationSearchPattern;
@@ -102,6 +106,9 @@ public class LdapAuthenticator
 
     private Principal authenticate(String user, String password)
     {
+        if (containsSpecialCharacters(user)) {
+            throw new AccessDeniedException("Username contains a special LDAP character");
+        }
         Map<String, String> environment = createEnvironment(user, password);
         DirContext context = null;
         try {
@@ -124,6 +131,22 @@ public class LdapAuthenticator
                 closeContext(context);
             }
         }
+    }
+
+    /**
+     * Returns {@code true} when parameter contains a character that has a special meaning in
+     * LDAP search or bind name (DN).
+     *
+     * Based on <a href="https://www.owasp.org/index.php/Preventing_LDAP_Injection_in_Java">Preventing_LDAP_Injection_in_Java</a> and
+     * {@link javax.naming.ldap.Rdn#escapeValue(Object) escapeValue} method.
+     */
+    @VisibleForTesting
+    static boolean containsSpecialCharacters(String user)
+    {
+        if (WHITESPACE.indexIn(user) == 0 || WHITESPACE.lastIndexIn(user) == user.length() - 1) {
+            return true;
+        }
+        return SPECIAL_CHARACTERS.matchesAnyOf(user);
     }
 
     private Map<String, String> createEnvironment(String user, String password)
