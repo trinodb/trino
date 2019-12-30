@@ -18,12 +18,14 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 
 import static io.prestosql.plugin.hive.s3select.S3SelectLineRecordReader.UnrecoverableS3OperationException;
+import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestS3SelectLineRecordReader
+public class TestUnrecoverableS3OperationException
 {
-    @Test(expectedExceptions = UnrecoverableS3OperationException.class, expectedExceptionsMessageRegExp = "java.io.IOException: test io exception \\(Bucket: test-bucket, Key: test-key\\)")
-    public void testUnrecoverableS3ExceptionMessage()
+    @Test
+    public void testMessage()
     {
-        throw new UnrecoverableS3OperationException("test-bucket", "test-key", new IOException("test io exception"));
+        assertThat(new UnrecoverableS3OperationException("test-bucket", "test-key", new IOException("test io exception")))
+                .hasMessage("java.io.IOException: test io exception (Bucket: test-bucket, Key: test-key)");
     }
 }
