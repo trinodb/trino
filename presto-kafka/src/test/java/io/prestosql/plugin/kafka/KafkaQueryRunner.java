@@ -16,6 +16,7 @@ package io.prestosql.plugin.kafka;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
+import io.airlift.log.Level;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.airlift.tpch.TpchTable;
@@ -63,6 +64,9 @@ public final class KafkaQueryRunner
     static DistributedQueryRunner createKafkaQueryRunner(TestingKafka testingKafka, Iterable<TpchTable<?>> tables, Map<SchemaTableName, KafkaTopicDescription> topicDescriptions)
             throws Exception
     {
+        Logging logging = Logging.initialize();
+        logging.setLevel("org.apache.kafka", Level.WARN);
+
         DistributedQueryRunner queryRunner = null;
         try {
             queryRunner = new DistributedQueryRunner(createSession(), 2);
