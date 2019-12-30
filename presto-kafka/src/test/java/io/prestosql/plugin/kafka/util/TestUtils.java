@@ -13,15 +13,11 @@
  */
 package io.prestosql.plugin.kafka.util;
 
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
 import io.airlift.json.JsonCodec;
 import io.prestosql.metadata.QualifiedObjectName;
-import io.prestosql.plugin.kafka.KafkaPlugin;
 import io.prestosql.plugin.kafka.KafkaTopicDescription;
 import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.TestingPrestoClient;
 import org.apache.kafka.clients.producer.KafkaProducer;
 
@@ -44,21 +40,6 @@ public final class TestUtils
             properties.setProperty(entry.getKey(), entry.getValue());
         }
         return properties;
-    }
-
-    public static void installKafkaPlugin(TestingKafka testingKafka, QueryRunner queryRunner, Map<SchemaTableName, KafkaTopicDescription> topicDescriptions)
-    {
-        KafkaPlugin kafkaPlugin = new KafkaPlugin();
-        kafkaPlugin.setTableDescriptionSupplier(() -> topicDescriptions);
-        queryRunner.installPlugin(kafkaPlugin);
-
-        Map<String, String> kafkaConfig = ImmutableMap.of(
-                "kafka.nodes", testingKafka.getConnectString(),
-                "kafka.table-names", Joiner.on(",").join(topicDescriptions.keySet()),
-                "kafka.connect-timeout", "120s",
-                "kafka.messages-per-split", "1000",
-                "kafka.default-schema", "default");
-        queryRunner.createCatalog("kafka", "kafka", kafkaConfig);
     }
 
     public static void loadTpchTopic(TestingKafka testingKafka, TestingPrestoClient prestoClient, String topicName, QualifiedObjectName tpchTableName)
