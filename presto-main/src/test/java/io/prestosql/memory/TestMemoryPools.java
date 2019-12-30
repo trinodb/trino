@@ -52,7 +52,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.prestosql.testing.LocalQueryRunner.queryRunnerWithInitialTransaction;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.testing.TestingTaskContext.createTaskContext;
 import static java.lang.String.format;
@@ -85,7 +84,9 @@ public class TestMemoryPools
                 .setSystemProperty("task_default_concurrency", "1")
                 .build();
 
-        localQueryRunner = queryRunnerWithInitialTransaction(session);
+        localQueryRunner = LocalQueryRunner.builder(session)
+                .withInitialTransaction()
+                .build();
 
         // add tpch
         localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());

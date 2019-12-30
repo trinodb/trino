@@ -118,7 +118,9 @@ public class MemoryLocalQueryRunner
 
     private static LocalQueryRunner createMemoryLocalQueryRunner(Session session)
     {
-        LocalQueryRunner localQueryRunner = LocalQueryRunner.queryRunnerWithInitialTransaction(session);
+        LocalQueryRunner localQueryRunner = LocalQueryRunner.builder(session)
+                .withInitialTransaction()
+                .build();
 
         // add tpch
         localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());

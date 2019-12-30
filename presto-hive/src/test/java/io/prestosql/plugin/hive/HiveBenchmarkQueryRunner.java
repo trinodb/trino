@@ -59,7 +59,7 @@ public final class HiveBenchmarkQueryRunner
                 .setSchema("tpch")
                 .build();
 
-        LocalQueryRunner localQueryRunner = new LocalQueryRunner(session);
+        LocalQueryRunner localQueryRunner = LocalQueryRunner.create(session);
 
         // add tpch
         localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());

@@ -72,7 +72,9 @@ public class TestAddExchangesPlans
                 .build();
         FeaturesConfig featuresConfig = new FeaturesConfig()
                 .setSpillerSpillPaths("/tmp/test_spill_path");
-        LocalQueryRunner queryRunner = new LocalQueryRunner(session, featuresConfig);
+        LocalQueryRunner queryRunner = LocalQueryRunner.builder(session)
+                .withFeaturesConfig(featuresConfig)
+                .build();
         queryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
         return queryRunner;
     }

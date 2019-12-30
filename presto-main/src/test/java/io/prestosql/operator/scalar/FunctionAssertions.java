@@ -214,7 +214,9 @@ public final class FunctionAssertions
     public FunctionAssertions(Session session, FeaturesConfig featuresConfig)
     {
         this.session = requireNonNull(session, "session is null");
-        runner = new LocalQueryRunner(session, featuresConfig);
+        runner = LocalQueryRunner.builder(session)
+                .withFeaturesConfig(featuresConfig)
+                .build();
         metadata = runner.getMetadata();
         compiler = runner.getExpressionCompiler();
         typeAnalyzer = new TypeAnalyzer(SQL_PARSER, metadata);

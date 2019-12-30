@@ -66,7 +66,7 @@ public class TestSpatialJoinPlanning
 
     private static LocalQueryRunner createQueryRunner()
     {
-        LocalQueryRunner queryRunner = new LocalQueryRunner(testSessionBuilder()
+        LocalQueryRunner queryRunner = LocalQueryRunner.create(testSessionBuilder()
                 .setCatalog("memory")
                 .setSchema("default")
                 .build());

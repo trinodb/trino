@@ -52,7 +52,7 @@ class QueryAssertions
 
     public QueryAssertions(Session session)
     {
-        runner = new LocalQueryRunner(session);
+        runner = LocalQueryRunner.create(session);
     }
 
     public void assertFails(@Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)

@@ -79,8 +79,10 @@ public class RuleTester
         session = sessionBuilder.build();
 
         queryRunner = nodeCountForStats
-                .map(nodeCount -> LocalQueryRunner.queryRunnerWithFakeNodeCountForStats(session, nodeCount))
-                .orElseGet(() -> new LocalQueryRunner(session));
+                .map(nodeCount -> LocalQueryRunner.builder(session)
+                        .withNodeCountForStats(nodeCount)
+                        .build())
+                .orElseGet(() -> LocalQueryRunner.create(session));
         queryRunner.createCatalog(session.getCatalog().get(),
                 new TpchConnectorFactory(1),
                 ImmutableMap.of());

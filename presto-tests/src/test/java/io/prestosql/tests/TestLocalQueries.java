@@ -49,7 +49,9 @@ public class TestLocalQueries
                 .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "true")
                 .build();
 
-        LocalQueryRunner localQueryRunner = new LocalQueryRunner(defaultSession, ImmutableMap.of(TESTING_CATALOG, TEST_CATALOG_PROPERTIES));
+        LocalQueryRunner localQueryRunner = LocalQueryRunner.builder(defaultSession)
+                .withDefaultSessionProperties(ImmutableMap.of(TESTING_CATALOG, TEST_CATALOG_PROPERTIES))
+                .build();
 
         // add the tpch catalog
         // local queries run directly against the generator

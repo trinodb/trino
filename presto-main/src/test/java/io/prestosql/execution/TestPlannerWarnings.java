@@ -61,7 +61,7 @@ public class TestPlannerWarnings
     @BeforeClass
     public void setUp()
     {
-        queryRunner = new LocalQueryRunner(testSessionBuilder()
+        queryRunner = LocalQueryRunner.create(testSessionBuilder()
                 .setCatalog("local")
                 .setSchema("tiny")
                 .build());

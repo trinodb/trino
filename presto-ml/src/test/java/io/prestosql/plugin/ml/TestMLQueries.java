@@ -52,7 +52,7 @@ public class TestMLQueries
                 .setSchema(TINY_SCHEMA_NAME)
                 .build();
 
-        LocalQueryRunner localQueryRunner = new LocalQueryRunner(defaultSession);
+        LocalQueryRunner localQueryRunner = LocalQueryRunner.create(defaultSession);
 
         // add the tpch catalog
         // local queries run directly against the generator

@@ -73,7 +73,7 @@ public class TestQueryContext
             assertTrue(reservedPool.reserve(secondQuery, "test", secondQueryMemory).isDone());
         }
 
-        try (LocalQueryRunner localQueryRunner = new LocalQueryRunner(TEST_SESSION)) {
+        try (LocalQueryRunner localQueryRunner = LocalQueryRunner.create(TEST_SESSION)) {
             QueryContext queryContext = new QueryContext(
                     new QueryId("query"),
                     new DataSize(10, BYTE),
