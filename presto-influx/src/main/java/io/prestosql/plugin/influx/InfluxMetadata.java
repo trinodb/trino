@@ -181,6 +181,8 @@ public class InfluxMetadata
         boolean all = true;
         InfluxQL where = new InfluxQL();
         for (Map.Entry<ColumnHandle, Domain> predicate : constraint.getSummary().getDomains().orElse(Collections.emptyMap()).entrySet()) {
+            int startPos = where.getPos();
+            boolean ok = true;  // can we handle this column?
             InfluxColumnHandle column = (InfluxColumnHandle) predicate.getKey();
             ValueSet values = predicate.getValue().getValues();
             if (values instanceof SortedRangeSet) {
@@ -188,8 +190,8 @@ public class InfluxMetadata
                 for (Range range : values.getRanges().getOrderedRanges()) {
                     if (!range.isSingleValue() && !range.getLow().getValueBlock().isPresent() && !range.getHigh().getValueBlock().isPresent()) {
                         // can't do an IS NULL
-                        client.logger.debug("can't tackle range " + column + ": " + range.toString(session));
-                        all = false;
+                        client.logger.warn("unhandled range " + column + ": " + range.toString(session));
+                        ok = false;
                         continue;
                     }
                     where.append(first ? where.isEmpty() ? "WHERE ((" : " AND ((" : ") OR (");
@@ -208,7 +210,8 @@ public class InfluxMetadata
                                     low = " > ";
                                     break;
                                 default:
-                                    InfluxError.GENERAL.fail("bad low bound", range.toString(session));
+                                    client.logger.warn("unhandled low bound " + column + ": " + range.toString(session));
+                                    ok = false;
                                     continue;
                             }
                             Object value = range.getLow().getValue();
@@ -228,7 +231,8 @@ public class InfluxMetadata
                                     high = " < ";
                                     break;
                                 default:
-                                    InfluxError.GENERAL.fail("bad high bound", range.toString(session));
+                                    client.logger.warn("unhandled high bound " + column + ": " + range.toString(session));
+                                    ok = false;
                                     continue;
                             }
                             if (hasLow) {
@@ -244,8 +248,8 @@ public class InfluxMetadata
                     first = false;
                 }
                 if (first) {
-                    client.logger.warn("unhandled SortedRangeSet " + column + ":" + values.getClass().getName() + "=" + values.toString(session));
-                    all = false;
+                    client.logger.warn("unhandled SortedRangeSet " + column + ": " + values.getClass().getName() + "=" + values.toString(session));
+                    ok = false;
                 }
                 else {
                     where.append("))");
@@ -259,15 +263,21 @@ public class InfluxMetadata
                     first = false;
                 }
                 if (first) {
-                    client.logger.warn("unhandled EquatableValueSet " + column + ":" + values.getClass().getName() + "=" + values.toString(session));
-                    all = false;
+                    client.logger.warn("unhandled EquatableValueSet " + column + ": " + values.getClass().getName() + "=" + values.toString(session));
+                    ok = false;
                 }
                 else {
                     where.append(')');
                 }
             }
             else {
-                client.logger.warn("unhandled predicate " + column + ":" + values.getClass().getName() + "=" + values.toString(session));
+                client.logger.warn("unhandled predicate " + column + ": " + values.getClass().getName() + "=" + values.toString(session));
+                ok = false;
+            }
+            if (!ok) {
+                // undo everything we did add to the where-clause
+                where.truncate(startPos);
+                // and tell Presto we couldn't handle all the filtering
                 all = false;
             }
         }

@@ -63,6 +63,17 @@ public class InfluxQL
         return this;
     }
 
+    public int getPos()
+    {
+        return influxQL.length();
+    }
+
+    public void truncate(int pos)
+    {
+        InfluxError.GENERAL.check(influxQL.length() >= pos, "bad truncation (" + pos + " > " + influxQL.length() + ")", influxQL);
+        influxQL.setLength(pos);
+    }
+
     public InfluxQL add(InfluxColumn column)
     {
         addIdentifier(column.getInfluxName());
