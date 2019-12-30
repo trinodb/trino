@@ -171,6 +171,7 @@ public class KafkaSplitManager
     private static boolean isURI(String location)
     {
         try {
+            //noinspection ResultOfMethodCallIgnored
             URI.create(location);
         }
         catch (Exception e) {
