@@ -153,6 +153,7 @@ built-in ones:
           Column       |  Type   | Extra |                   Comment
     -------------------+---------+-------+---------------------------------------------
      _partition_id     | bigint  |       | Partition Id
+     _timestamp        | bigint  |       | Message creation timestamp
      _partition_offset | bigint  |       | Offset for the message within the partition
      _segment_start    | bigint  |       | Segment start offset
      _segment_end      | bigint  |       | Segment end offset
@@ -230,6 +231,7 @@ The customer table now has an additional column: ``kafka_key``.
     -------------------+---------+-------+---------------------------------------------
      kafka_key         | bigint  |       |
      _partition_id     | bigint  |       | Partition Id
+     _timestamp        | bigint  |       | Message creation timestamp
      _partition_offset | bigint  |       | Offset for the message within the partition
      _segment_start    | bigint  |       | Segment start offset
      _segment_end      | bigint  |       | Segment end offset
@@ -356,6 +358,7 @@ the sum query from earlier can operate on the ``account_balance`` column directl
      market_segment    | varchar |       |
      comment           | varchar |       |
      _partition_id     | bigint  |       | Partition Id
+     _timestamp        | bigint  |       | Message creation timestamp
      _partition_offset | bigint  |       | Offset for the message within the partition
      _segment_start    | bigint  |       | Segment start offset
      _segment_end      | bigint  |       | Segment end offset

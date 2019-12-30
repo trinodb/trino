@@ -142,6 +142,7 @@ For each defined table, the connector maintains the following columns:
 Column name             Type      Description
 ======================= ========= =============================
 ``_partition_id``       BIGINT    ID of the Kafka partition which contains this row.
+``_timestamp``          BIGINT    Message creation timestamp
 ``_partition_offset``   BIGINT    Offset within the Kafka partition for this row.
 ``_segment_start``      BIGINT    Lowest offset in the segment (inclusive) which contains this row. This offset is partition specific.
 ``_segment_end``        BIGINT    Highest offset in the segment (exclusive) which contains this row. The offset is partition specific. This is the same value as ``_segment_start`` of the next segment (if it exists).

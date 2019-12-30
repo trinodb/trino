@@ -200,6 +200,9 @@ public class KafkaRecordSet
                 if (columnHandle.isInternal()) {
                     KafkaInternalFieldDescription fieldDescription = KafkaInternalFieldDescription.forColumnName(columnHandle.getName());
                     switch (fieldDescription) {
+                        case TIMESTAMP_FIELD:
+                            currentRowValuesMap.put(columnHandle, longValueProvider(messageAndOffset.message().timestamp()));
+                            break;
                         case SEGMENT_COUNT_FIELD:
                             currentRowValuesMap.put(columnHandle, longValueProvider(totalMessages));
                             break;

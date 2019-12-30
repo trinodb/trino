@@ -20,9 +20,12 @@ import io.prestosql.plugin.kafka.util.TestingKafka;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.MaterializedResult;
+import io.prestosql.testing.MaterializedRow;
 import kafka.producer.KeyedMessage;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
+import java.time.Instant;
 
 import java.util.UUID;
 
@@ -90,5 +93,21 @@ public class TestMinimalFunctionality
                 producer.send(builder.build());
             }
         }
+    }
+
+    @Test
+    public void testTopicMetadata() {
+        long currentTimestamp = Instant.now().toEpochMilli();
+
+        createMessages(topicName);
+
+        MaterializedResult result = getQueryRunner().execute(getSession(), "SELECT max(_timestamp) FROM default." + topicName);
+
+        assertTrue(result.getMaterializedRows().size() > 0);
+
+        MaterializedRow row = result.getMaterializedRows().get(0);
+        long messageCreationTimestamp = (Long) row.getField(0);
+
+        assertTrue(messageCreationTimestamp >= currentTimestamp);
     }
 }
