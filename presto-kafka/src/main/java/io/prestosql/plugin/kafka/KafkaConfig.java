@@ -23,6 +23,7 @@ import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 import io.prestosql.spi.HostAddress;
 
+import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 
@@ -43,6 +44,7 @@ public class KafkaConfig
     private Set<String> tableNames = ImmutableSet.of();
     private File tableDescriptionDir = new File("etc/kafka/");
     private boolean hideInternalColumns = true;
+    private int messagesPerSplit = 100_000;
 
     @Size(min = 1)
     public Set<HostAddress> getNodes()
@@ -151,5 +153,19 @@ public class KafkaConfig
     private static HostAddress toHostAddress(String value)
     {
         return HostAddress.fromString(value).withDefaultPort(KAFKA_DEFAULT_PORT);
+    }
+
+    @Min(1)
+    public int getMessagesPerSplit()
+    {
+        return messagesPerSplit;
+    }
+
+    @Config("kafka.messages-per-split")
+    @ConfigDescription("Count of Kafka messages to be processed by single Presto Kafka connector split")
+    public KafkaConfig setMessagesPerSplit(int messagesPerSplit)
+    {
+        this.messagesPerSplit = messagesPerSplit;
+        return this;
     }
 }

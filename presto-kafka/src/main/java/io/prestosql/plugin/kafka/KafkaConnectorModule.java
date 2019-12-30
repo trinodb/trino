@@ -36,13 +36,11 @@ public class KafkaConnectorModule
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(KafkaConnector.class).in(Scopes.SINGLETON);
-
         binder.bind(KafkaMetadata.class).in(Scopes.SINGLETON);
         binder.bind(KafkaSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(KafkaRecordSetProvider.class).in(Scopes.SINGLETON);
 
-        binder.bind(KafkaSimpleConsumerManager.class).in(Scopes.SINGLETON);
+        binder.bind(KafkaConsumerFactory.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(KafkaConfig.class);
 
