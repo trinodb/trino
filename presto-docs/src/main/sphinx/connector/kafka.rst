@@ -10,7 +10,7 @@ Kafka Connector
 Overview
 --------
 
-This connector allows the use of `Apache Kafka <https://kafka.apache.org/>`_ 
+This connector allows the use of `Apache Kafka <https://kafka.apache.org/>`_
 topics as tables in Presto.
 Each message is presented as a row in Presto.
 
