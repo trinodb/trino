@@ -60,7 +60,6 @@ public class TestingKafka
             command.add(Integer.toString(partitions));
             command.add("--replication-factor");
             command.add(Integer.toString(replication));
-            command.add("kafka-topics");
             command.add("--topic");
             command.add(topic);
             command.add("--config");
