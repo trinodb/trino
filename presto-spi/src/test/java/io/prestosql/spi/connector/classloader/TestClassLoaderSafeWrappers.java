@@ -19,8 +19,10 @@ import io.prestosql.spi.connector.ConnectorNodePartitioningProvider;
 import io.prestosql.spi.connector.ConnectorPageSink;
 import io.prestosql.spi.connector.ConnectorPageSinkProvider;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
+import io.prestosql.spi.connector.ConnectorRecordSetProvider;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
+import io.prestosql.spi.connector.RecordSet;
 import io.prestosql.spi.connector.SystemTable;
 import org.testng.annotations.Test;
 
@@ -40,5 +42,7 @@ public class TestClassLoaderSafeWrappers
         assertAllMethodsOverridden(ConnectorNodePartitioningProvider.class, ClassLoaderSafeNodePartitioningProvider.class);
         assertAllMethodsOverridden(ConnectorSplitSource.class, ClassLoaderSafeConnectorSplitSource.class);
         assertAllMethodsOverridden(SystemTable.class, ClassLoaderSafeSystemTable.class);
+        assertAllMethodsOverridden(ConnectorRecordSetProvider.class, ClassLoaderSafeConnectorRecordSetProvider.class);
+        assertAllMethodsOverridden(RecordSet.class, ClassLoaderSafeRecordSet.class);
     }
 }
