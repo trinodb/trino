@@ -20,7 +20,8 @@ import io.prestosql.plugin.kafka.util.TestingKafka;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.QueryRunner;
-import kafka.producer.KeyedMessage;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -28,7 +29,6 @@ import java.util.UUID;
 
 import static io.prestosql.plugin.kafka.KafkaQueryRunner.createKafkaQueryRunner;
 import static io.prestosql.plugin.kafka.util.TestUtils.createEmptyTopicDescription;
-import static io.prestosql.plugin.kafka.util.TestingKafka.CloseableProducer;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
@@ -79,15 +79,13 @@ public class TestMinimalFunctionality
 
     private void createMessages(String topicName)
     {
-        try (CloseableProducer<Long, Object> producer = testingKafka.createProducer()) {
+        try (KafkaProducer<Long, Object> producer = testingKafka.createProducer()) {
             int jMax = 10_000;
             int iMax = 100_000 / jMax;
             for (long i = 0; i < iMax; i++) {
-                ImmutableList.Builder<KeyedMessage<Long, Object>> builder = ImmutableList.builder();
                 for (long j = 0; j < jMax; j++) {
-                    builder.add(new KeyedMessage<>(topicName, i, ImmutableMap.of("id", Long.toString(i * iMax + j), "value", UUID.randomUUID().toString())));
+                    producer.send(new ProducerRecord<>(topicName, i, ImmutableMap.of("id", Long.toString(i * iMax + j), "value", UUID.randomUUID().toString())));
                 }
-                producer.send(builder.build());
             }
         }
     }

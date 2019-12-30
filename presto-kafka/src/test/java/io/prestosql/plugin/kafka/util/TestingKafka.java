@@ -14,7 +14,9 @@
 package io.prestosql.plugin.kafka.util;
 
 import com.google.common.collect.ImmutableMap;
-import kafka.producer.ProducerConfig;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.serialization.LongSerializer;
 import org.testcontainers.containers.KafkaContainer;
 
 import java.io.Closeable;
@@ -62,8 +64,6 @@ public class TestingKafka
             command.add(Integer.toString(replication));
             command.add("--topic");
             command.add(topic);
-            command.add("--config");
-            command.add("segment.bytes=16384");
 
             container.execInContainer(command.toArray(new String[0]));
         }
@@ -77,27 +77,16 @@ public class TestingKafka
         return container.getContainerIpAddress() + ":" + container.getMappedPort(KAFKA_PORT);
     }
 
-    public CloseableProducer<Long, Object> createProducer()
+    public KafkaProducer<Long, Object> createProducer()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("metadata.broker.list", getConnectString())
-                .put("serializer.class", JsonEncoder.class.getName())
-                .put("key.serializer.class", NumberEncoder.class.getName())
-                .put("partitioner.class", NumberPartitioner.class.getName())
-                .put("request.required.acks", "1")
+                .put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, getConnectString())
+                .put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, LongSerializer.class.getName())
+                .put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class.getName())
+                .put(ProducerConfig.PARTITIONER_CLASS_CONFIG, NumberPartitioner.class.getName())
+                .put(ProducerConfig.ACKS_CONFIG, "1")
                 .build();
 
-        ProducerConfig producerConfig = new ProducerConfig(toProperties(properties));
-        return new CloseableProducer<>(producerConfig);
-    }
-
-    public static class CloseableProducer<K, V>
-            extends kafka.javaapi.producer.Producer<K, V>
-            implements AutoCloseable
-    {
-        private CloseableProducer(ProducerConfig config)
-        {
-            super(config);
-        }
+        return new KafkaProducer<>(toProperties(properties));
     }
 }

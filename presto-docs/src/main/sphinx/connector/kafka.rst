@@ -59,6 +59,7 @@ Property Name                   Description
 ``kafka.buffer-size``           Kafka read buffer size
 ``kafka.table-description-dir`` Directory containing topic description files
 ``kafka.hide-internal-columns`` Controls whether internal columns are part of the table schema or not
+``kafka.messages-per-split``    Number of messages that will be processed by single Presto split
 =============================== ==============================================================
 
 ``kafka.table-names``

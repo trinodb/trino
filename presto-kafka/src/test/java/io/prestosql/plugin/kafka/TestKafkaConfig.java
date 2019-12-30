@@ -35,7 +35,8 @@ public class TestKafkaConfig
                 .setDefaultSchema("default")
                 .setTableNames("")
                 .setTableDescriptionDir(new File("etc/kafka/"))
-                .setHideInternalColumns(true));
+                .setHideInternalColumns(true)
+                .setMessagesPerSplit(100_000));
     }
 
     @Test
@@ -49,6 +50,7 @@ public class TestKafkaConfig
                 .put("kafka.connect-timeout", "1h")
                 .put("kafka.buffer-size", "1MB")
                 .put("kafka.hide-internal-columns", "false")
+                .put("kafka.messages-per-split", "1")
                 .build();
 
         KafkaConfig expected = new KafkaConfig()
@@ -58,7 +60,8 @@ public class TestKafkaConfig
                 .setNodes("localhost:12345, localhost:23456")
                 .setKafkaConnectTimeout("1h")
                 .setKafkaBufferSize("1MB")
-                .setHideInternalColumns(false);
+                .setHideInternalColumns(false)
+                .setMessagesPerSplit(1);
 
         assertFullMapping(properties, expected);
     }

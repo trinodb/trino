@@ -13,28 +13,35 @@
  */
 package io.prestosql.plugin.kafka.util;
 
-import org.apache.kafka.clients.producer.Partitioner;
-import org.apache.kafka.common.Cluster;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.kafka.common.serialization.Serializer;
 
 import java.util.Map;
 
-import static java.lang.Math.toIntExact;
-
-public class NumberPartitioner
-        implements Partitioner
+public class JsonSerializer
+        implements Serializer<Object>
 {
-    @Override
-    public void configure(Map<String, ?> configs) {}
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
-    public int partition(String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster)
+    public void configure(Map<String, ?> props, boolean isKey)
     {
-        if (key instanceof Number) {
-            return toIntExact(((Number) key).longValue() % cluster.partitionCountForTopic(topic));
-        }
-        return 0;
     }
 
     @Override
-    public void close() {}
+    public byte[] serialize(String topic, Object data)
+    {
+        try {
+            return objectMapper.writeValueAsBytes(data);
+        }
+        catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public void close()
+    {
+    }
 }

@@ -38,14 +38,14 @@ import static java.util.Objects.requireNonNull;
 public class KafkaRecordSetProvider
         implements ConnectorRecordSetProvider
 {
-    private DispatchingRowDecoderFactory decoderFactory;
-    private final KafkaSimpleConsumerManager consumerManager;
+    private final DispatchingRowDecoderFactory decoderFactory;
+    private final KafkaConsumerFactory consumerFactory;
 
     @Inject
-    public KafkaRecordSetProvider(DispatchingRowDecoderFactory decoderFactory, KafkaSimpleConsumerManager consumerManager)
+    public KafkaRecordSetProvider(DispatchingRowDecoderFactory decoderFactory, KafkaConsumerFactory consumerFactory)
     {
         this.decoderFactory = requireNonNull(decoderFactory, "decoderFactory is null");
-        this.consumerManager = requireNonNull(consumerManager, "consumerManager is null");
+        this.consumerFactory = requireNonNull(consumerFactory, "consumerManager is null");
     }
 
     @Override
@@ -73,7 +73,7 @@ public class KafkaRecordSetProvider
                         .filter(col -> !col.isKeyDecoder())
                         .collect(toImmutableSet()));
 
-        return new KafkaRecordSet(kafkaSplit, consumerManager, kafkaColumns, keyDecoder, messageDecoder);
+        return new KafkaRecordSet(kafkaSplit, consumerFactory, kafkaColumns, keyDecoder, messageDecoder);
     }
 
     private Map<String, String> getDecoderParameters(Optional<String> dataSchema)
