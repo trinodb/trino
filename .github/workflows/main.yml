@@ -73,6 +73,17 @@ jobs:
         run: |
           source presto-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
             presto-hive-hadoop2/bin/run_hive_tests.sh
+      - name: Run Hive S3 Tests
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AwsAccessKey }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AwsSecretKey }}
+          S3_BUCKET: "presto-ci-test"
+          S3_BUCKET_ENDPOINT: "s3.us-east-2.amazonaws.com"
+        run: |
+          if [ "AWS_ACCESS_KEY_ID" != "" ]; then
+            source presto-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
+              presto-hive-hadoop2/bin/run_hive_s3_tests.sh
+          fi
 
   kudu-tests:
     runs-on: ubuntu-latest
