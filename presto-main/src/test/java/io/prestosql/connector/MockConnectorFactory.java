@@ -27,7 +27,9 @@ import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorContext;
 import io.prestosql.spi.connector.ConnectorFactory;
 import io.prestosql.spi.connector.ConnectorHandleResolver;
+import io.prestosql.spi.connector.ConnectorInsertTableHandle;
 import io.prestosql.spi.connector.ConnectorMetadata;
+import io.prestosql.spi.connector.ConnectorNewTableLayout;
 import io.prestosql.spi.connector.ConnectorRecordSetProvider;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplitManager;
@@ -63,19 +65,22 @@ public class MockConnectorFactory
     private final BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews;
     private final Function<SchemaTableName, List<ColumnMetadata>> getColumns;
     private final ApplyProjection applyProjection;
+    private final BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> getInsertLayout;
 
     private MockConnectorFactory(
             Function<ConnectorSession, List<String>> listSchemaNames,
             BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables,
             BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews,
             Function<SchemaTableName, List<ColumnMetadata>> getColumns,
-            ApplyProjection applyProjection)
+            ApplyProjection applyProjection,
+            BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> getInsertLayout)
     {
         this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
         this.listTables = requireNonNull(listTables, "listTables is null");
         this.getViews = requireNonNull(getViews, "getViews is null");
         this.getColumns = getColumns;
         this.applyProjection = applyProjection;
+        this.getInsertLayout = requireNonNull(getInsertLayout, "getInsertLayout is null");
     }
 
     @Override
@@ -93,7 +98,7 @@ public class MockConnectorFactory
     @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        return new MockConnector(context, listSchemaNames, listTables, getViews, getColumns, applyProjection);
+        return new MockConnector(context, listSchemaNames, listTables, getViews, getColumns, applyProjection, getInsertLayout);
     }
 
     public static Builder builder()
@@ -116,6 +121,7 @@ public class MockConnectorFactory
         private final BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews;
         private final Function<SchemaTableName, List<ColumnMetadata>> getColumns;
         private final ApplyProjection applyProjection;
+        private final BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> getInsertLayout;
 
         private MockConnector(
                 ConnectorContext context,
@@ -123,7 +129,8 @@ public class MockConnectorFactory
                 BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables,
                 BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews,
                 Function<SchemaTableName, List<ColumnMetadata>> getColumns,
-                ApplyProjection applyProjection)
+                ApplyProjection applyProjection,
+                BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> getInsertLayout)
         {
             this.context = requireNonNull(context, "context is null");
             this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
@@ -131,6 +138,7 @@ public class MockConnectorFactory
             this.getViews = requireNonNull(getViews, "getViews is null");
             this.getColumns = requireNonNull(getColumns, "getColumns is null");
             this.applyProjection = requireNonNull(applyProjection, "applyProjection is null");
+            this.getInsertLayout = requireNonNull(getInsertLayout, "getInsertLayout is null");
         }
 
         @Override
@@ -234,6 +242,19 @@ public class MockConnectorFactory
             }
 
             @Override
+            public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
+            {
+                return new MockConnectorInsertTableHandle();
+            }
+
+            @Override
+            public Optional<ConnectorNewTableLayout> getInsertLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
+            {
+                MockConnectorTableHandle table = (MockConnectorTableHandle) tableHandle;
+                return getInsertLayout.apply(session, table.getTableName());
+            }
+
+            @Override
             public boolean usesLegacyTableLayouts()
             {
                 return false;
@@ -284,6 +305,11 @@ public class MockConnectorFactory
         }
     }
 
+    private static class MockConnectorInsertTableHandle
+            implements ConnectorInsertTableHandle
+    {
+    }
+
     public static final class Builder
     {
         private Function<ConnectorSession, List<String>> listSchemaNames = defaultListSchemaNames();
@@ -291,6 +317,7 @@ public class MockConnectorFactory
         private BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews = defaultGetViews();
         private Function<SchemaTableName, List<ColumnMetadata>> getColumns = defaultGetColumns();
         private ApplyProjection applyProjection = (session, handle, projections, assignments) -> Optional.empty();
+        private BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> getInsertLayout = defaultGetInsertLayout();
 
         public Builder withListSchemaNames(Function<ConnectorSession, List<String>> listSchemaNames)
         {
@@ -322,9 +349,15 @@ public class MockConnectorFactory
             return this;
         }
 
+        public Builder withGetInsertLayout(BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> getInsertLayout)
+        {
+            this.getInsertLayout = requireNonNull(getInsertLayout, "getInsertLayout is null");
+            return this;
+        }
+
         public MockConnectorFactory build()
         {
-            return new MockConnectorFactory(listSchemaNames, listTables, getViews, getColumns, applyProjection);
+            return new MockConnectorFactory(listSchemaNames, listTables, getViews, getColumns, applyProjection, getInsertLayout);
         }
 
         public static Function<ConnectorSession, List<String>> defaultListSchemaNames()
@@ -340,6 +373,11 @@ public class MockConnectorFactory
         public static BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> defaultGetViews()
         {
             return (session, schemaTablePrefix) -> ImmutableMap.of();
+        }
+
+        public static BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> defaultGetInsertLayout()
+        {
+            return (session, tableHandle) -> Optional.empty();
         }
 
         public static Function<SchemaTableName, List<ColumnMetadata>> defaultGetColumns()
