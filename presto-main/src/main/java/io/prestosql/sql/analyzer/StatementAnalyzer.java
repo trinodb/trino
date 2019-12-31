@@ -344,7 +344,7 @@ class StatementAnalyzer
                     .map(ColumnMetadata::getName)
                     .collect(toImmutableList());
 
-            // analyze target table layout
+            // analyze target table layout, table columns should contain all partition columns
             Optional<NewTableLayout> newTableLayout = metadata.getInsertLayout(session, targetTableHandle.get());
             newTableLayout.ifPresent(layout -> {
                 if (!ImmutableSet.copyOf(tableColumns).containsAll(layout.getPartitionColumns())) {
