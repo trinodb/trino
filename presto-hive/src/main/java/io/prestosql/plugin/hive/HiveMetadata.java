@@ -2002,7 +2002,16 @@ public class HiveMetadata
 
         Optional<HiveBucketHandle> hiveBucketHandle = getHiveBucketHandle(table, typeManager);
         if (!hiveBucketHandle.isPresent()) {
-            return Optional.empty();
+            // return preferred layout which is partitioned by partition columns
+            List<Column> partitionColumns = table.getPartitionColumns();
+            if (partitionColumns.isEmpty()) {
+                return Optional.empty();
+            }
+
+            return Optional.of(new ConnectorNewTableLayout(
+                    partitionColumns.stream()
+                            .map(Column::getName)
+                            .collect(toImmutableList())));
         }
         HiveBucketProperty bucketProperty = table.getStorage().getBucketProperty()
                 .orElseThrow(() -> new NoSuchElementException("Bucket property should be set"));
@@ -2031,7 +2040,13 @@ public class HiveMetadata
         validateCsvColumns(tableMetadata);
         Optional<HiveBucketProperty> bucketProperty = getBucketProperty(tableMetadata.getProperties());
         if (!bucketProperty.isPresent()) {
-            return Optional.empty();
+            // return preferred layout which is partitioned by partition columns
+            List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
+            if (partitionedBy.isEmpty()) {
+                return Optional.empty();
+            }
+
+            return Optional.of(new ConnectorNewTableLayout(partitionedBy));
         }
         if (!bucketProperty.get().getSortedBy().isEmpty() && !isSortedWritingEnabled(session)) {
             throw new PrestoException(NOT_SUPPORTED, "Writing to bucketed sorted Hive tables is disabled");
