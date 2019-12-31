@@ -13,10 +13,13 @@
  */
 package io.prestosql.sql;
 
+import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.Identifier;
+import io.prestosql.sql.tree.InListExpression;
+import io.prestosql.sql.tree.InPredicate;
 import io.prestosql.sql.tree.IsNullPredicate;
 import io.prestosql.sql.tree.LikePredicate;
 import io.prestosql.sql.tree.LogicalBinaryExpression;
@@ -54,6 +57,35 @@ public class TestExpressionUtils
         assertEquals(
                 ExpressionUtils.combineConjuncts(metadata, a, b, a, c, d, c, e),
                 and(and(and(a, b), and(c, d)), e));
+    }
+
+    @Test
+    public void testOr()
+    {
+        Expression a = new ComparisonExpression(EQUAL, name("a"), new LongLiteral("1"));
+        Expression b = new ComparisonExpression(EQUAL, name("a"), new LongLiteral("2"));
+        Expression c = new ComparisonExpression(EQUAL, name("a"), new LongLiteral("3"));
+        Expression d = new ComparisonExpression(EQUAL, name("a"), new LongLiteral("4"));
+        Expression e = new ComparisonExpression(EQUAL, name("a"), new LongLiteral("5"));
+
+        assertEquals(
+                ExpressionUtils.combineDisjuncts(metadata, ImmutableList.of(a, b, c, d, e)),
+                new InPredicate(name("a"), new InListExpression(ImmutableList.of(
+                        new LongLiteral("1"),
+                        new LongLiteral("2"),
+                        new LongLiteral("3"),
+                        new LongLiteral("4"),
+                        new LongLiteral("5")))));
+
+        assertEquals(
+                ExpressionUtils.combineDisjuncts(metadata, ImmutableList.of(a, b, c, d, e, new InPredicate(name("a"), new InListExpression(ImmutableList.of(new LongLiteral("6")))))),
+                new InPredicate(name("a"), new InListExpression(ImmutableList.of(
+                        new LongLiteral("1"),
+                        new LongLiteral("2"),
+                        new LongLiteral("3"),
+                        new LongLiteral("4"),
+                        new LongLiteral("5"),
+                        new LongLiteral("6")))));
     }
 
     @Test

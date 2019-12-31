@@ -14,7 +14,10 @@
 package io.prestosql.sql;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Multimap;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.sql.planner.DeterminismEvaluator;
 import io.prestosql.sql.planner.Symbol;
@@ -24,6 +27,8 @@ import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.ExpressionRewriter;
 import io.prestosql.sql.tree.ExpressionTreeRewriter;
 import io.prestosql.sql.tree.Identifier;
+import io.prestosql.sql.tree.InListExpression;
+import io.prestosql.sql.tree.InPredicate;
 import io.prestosql.sql.tree.IsNullPredicate;
 import io.prestosql.sql.tree.LambdaExpression;
 import io.prestosql.sql.tree.LogicalBinaryExpression;
@@ -32,6 +37,7 @@ import io.prestosql.sql.tree.NotExpression;
 import io.prestosql.sql.tree.SymbolReference;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
@@ -43,8 +49,10 @@ import java.util.function.Predicate;
 
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.prestosql.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.IS_DISTINCT_FROM;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -225,7 +233,35 @@ public final class ExpressionUtils
             return TRUE_LITERAL;
         }
 
-        return disjuncts.isEmpty() ? emptyDefault : or(disjuncts);
+        ImmutableMultimap.Builder<Expression, Expression> builder = ImmutableMultimap.builder();
+        ImmutableList.Builder<Expression> expressionBuilder = ImmutableList.builder();
+        List<Expression> tempExpressionHolder = new ArrayList<>();
+        for (Expression disjunct : disjuncts) {
+            if (disjunct instanceof ComparisonExpression && ((ComparisonExpression) disjunct).getOperator() == EQUAL) {
+                ComparisonExpression comparisonExpression = (ComparisonExpression) disjunct;
+                builder.put(comparisonExpression.getLeft(), comparisonExpression.getRight());
+            }
+            else if (disjunct instanceof InPredicate && ((InPredicate) disjunct).getValueList() instanceof InListExpression) {
+                InPredicate predicate = (InPredicate) disjunct;
+                ((InListExpression) predicate.getValueList()).getValues().forEach(value -> builder.put(predicate.getValue(), value));
+            }
+            else {
+                tempExpressionHolder.add(disjunct);
+            }
+        }
+
+        Multimap<Expression, Expression> similarExpression = builder.build();
+        for (Expression expression : similarExpression.keySet()) {
+            if (similarExpression.get(expression).size() == 1) {
+                expressionBuilder.add(new ComparisonExpression(EQUAL, expression, getOnlyElement(similarExpression.get(expression))));
+            }
+            else {
+                expressionBuilder.add(new InPredicate(expression, new InListExpression(ImmutableList.copyOf(ImmutableSet.copyOf(similarExpression.get(expression))))));
+            }
+        }
+        expressionBuilder.addAll(tempExpressionHolder);
+
+        return disjuncts.isEmpty() ? emptyDefault : or(expressionBuilder.build());
     }
 
     public static Expression filterDeterministicConjuncts(Metadata metadata, Expression expression)
