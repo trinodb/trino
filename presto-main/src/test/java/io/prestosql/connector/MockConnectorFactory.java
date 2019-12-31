@@ -266,6 +266,7 @@ public class MockConnectorFactory
                 return new ConnectorTableProperties();
             }
         }
+<<<<<<< HEAD
 
         public static class MockConnectorTableHandle
                 implements ConnectorTableHandle
@@ -302,6 +303,25 @@ public class MockConnectorFactory
             {
                 return Objects.hash(tableName);
             }
+=======
+    }
+
+    private static class MockConnectorTableHandle
+            implements ConnectorTableHandle
+    {
+        private final SchemaTableName tableName;
+
+        @JsonCreator
+        public MockConnectorTableHandle(@JsonProperty SchemaTableName tableName)
+        {
+            this.tableName = requireNonNull(tableName, "tableName is null");
+        }
+
+        @JsonProperty
+        public SchemaTableName getTableName()
+        {
+            return tableName;
+>>>>>>> Unnest MockConnectorTableHandle
         }
     }
 
