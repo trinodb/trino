@@ -549,6 +549,7 @@ public class RaptorMetadata
 
         Optional<RaptorPartitioningHandle> partitioning = layout
                 .map(ConnectorNewTableLayout::getPartitioning)
+                .map(Optional::get)
                 .map(RaptorPartitioningHandle.class::cast);
 
         ImmutableList.Builder<RaptorColumnHandle> columnHandles = ImmutableList.builder();

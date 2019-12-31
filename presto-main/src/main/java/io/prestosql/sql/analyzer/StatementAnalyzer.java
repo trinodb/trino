@@ -594,11 +594,18 @@ class StatementAnalyzer
                     .map(ColumnMetadata::getName)
                     .collect(toImmutableSet());
 
-            newTableLayout.ifPresent(layout -> {
+            if (newTableLayout.isPresent()) {
+                NewTableLayout layout = newTableLayout.get();
                 if (!columnNames.containsAll(layout.getPartitionColumns())) {
-                    throw new PrestoException(NOT_SUPPORTED, "INSERT must write all distribution columns: " + layout.getPartitionColumns());
+                    if (layout.getLayout().getPartitioning().isPresent()) {
+                        throw new PrestoException(NOT_SUPPORTED, "INSERT must write all distribution columns: " + layout.getPartitionColumns());
+                    }
+                    else {
+                        // created table does not contain all columns required by preferred layout
+                        newTableLayout = Optional.empty();
+                    }
                 }
-            });
+            }
 
             analysis.setCreate(new Analysis.Create(
                     Optional.of(targetTable),
