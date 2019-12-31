@@ -203,7 +203,7 @@ public class MockConnectorFactory
             {
                 MockConnectorTableHandle table = (MockConnectorTableHandle) tableHandle;
                 return getColumns.apply(table.getTableName()).stream()
-                        .collect(toImmutableMap(column -> column.getName(), column -> new TpchColumnHandle(column.getName(), column.getType())));
+                        .collect(toImmutableMap(ColumnMetadata::getName, column -> new TpchColumnHandle(column.getName(), column.getType())));
             }
 
             @Override
