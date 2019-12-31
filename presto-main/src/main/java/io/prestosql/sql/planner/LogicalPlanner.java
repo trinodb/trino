@@ -97,6 +97,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Streams.zip;
 import static io.prestosql.SystemSessionProperties.isCollectPlanStatisticsForAllQueries;
+import static io.prestosql.SystemSessionProperties.isUsePreferredWritePartitioning;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.statistics.TableStatisticType.ROW_COUNT;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -430,12 +431,19 @@ public class LogicalPlanner
 
             List<Symbol> outputLayout = new ArrayList<>(symbols);
 
-            PartitioningHandle partitioningHandle = writeTableLayout.get().getPartitioning()
-                    .orElse(FIXED_HASH_DISTRIBUTION);
-
-            partitioningScheme = Optional.of(new PartitioningScheme(
-                    Partitioning.create(partitioningHandle, partitionFunctionArguments),
-                    outputLayout));
+            Optional<PartitioningHandle> partitioningHandle = writeTableLayout.get().getPartitioning();
+            if (partitioningHandle.isPresent()) {
+                partitioningScheme = Optional.of(new PartitioningScheme(
+                        Partitioning.create(partitioningHandle.get(), partitionFunctionArguments),
+                        outputLayout));
+            }
+            else if (isUsePreferredWritePartitioning(session)) {
+                // TODO: move to iterative optimizer and use CBO
+                // empty connector partitioning handle means evenly partitioning on partitioning columns
+                partitioningScheme = Optional.of(new PartitioningScheme(
+                        Partitioning.create(FIXED_HASH_DISTRIBUTION, partitionFunctionArguments),
+                        outputLayout));
+            }
         }
 
         if (!statisticsMetadata.isEmpty()) {

@@ -69,6 +69,7 @@ public final class SystemSessionProperties
     public static final String QUERY_MAX_CPU_TIME = "query_max_cpu_time";
     public static final String QUERY_MAX_STAGE_COUNT = "query_max_stage_count";
     public static final String REDISTRIBUTE_WRITES = "redistribute_writes";
+    public static final String USE_PREFERRED_WRITE_PARTITIONING = "use_preferred_write_partitioning";
     public static final String SCALE_WRITERS = "scale_writers";
     public static final String WRITER_MIN_SIZE = "writer_min_size";
     public static final String PUSH_TABLE_WRITE_THROUGH_UNION = "push_table_write_through_union";
@@ -203,6 +204,11 @@ public final class SystemSessionProperties
                         REDISTRIBUTE_WRITES,
                         "Force parallel distributed writes",
                         featuresConfig.isRedistributeWrites(),
+                        false),
+                booleanProperty(
+                        USE_PREFERRED_WRITE_PARTITIONING,
+                        "Use preferred write partitioning",
+                        featuresConfig.isUsePreferredWritePartitioning(),
                         false),
                 booleanProperty(
                         SCALE_WRITERS,
@@ -625,6 +631,11 @@ public final class SystemSessionProperties
     public static boolean isRedistributeWrites(Session session)
     {
         return session.getSystemProperty(REDISTRIBUTE_WRITES, Boolean.class);
+    }
+
+    public static boolean isUsePreferredWritePartitioning(Session session)
+    {
+        return session.getSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, Boolean.class);
     }
 
     public static boolean isScaleWriters(Session session)

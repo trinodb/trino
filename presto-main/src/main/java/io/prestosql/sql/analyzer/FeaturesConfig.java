@@ -78,6 +78,7 @@ public class FeaturesConfig
     private JoinReorderingStrategy joinReorderingStrategy = JoinReorderingStrategy.AUTOMATIC;
     private int maxReorderedJoins = 9;
     private boolean redistributeWrites = true;
+    private boolean usePreferredWritePartitioning;
     private boolean scaleWriters;
     private DataSize writerMinSize = new DataSize(32, DataSize.Unit.MEGABYTE);
     private boolean optimizeMetadataQueries;
@@ -360,6 +361,18 @@ public class FeaturesConfig
     public FeaturesConfig setRedistributeWrites(boolean redistributeWrites)
     {
         this.redistributeWrites = redistributeWrites;
+        return this;
+    }
+
+    public boolean isUsePreferredWritePartitioning()
+    {
+        return usePreferredWritePartitioning;
+    }
+
+    @Config("use-preferred-write-partitioning")
+    public FeaturesConfig setUsePreferredWritePartitioning(boolean usePreferredWritePartitioning)
+    {
+        this.usePreferredWritePartitioning = usePreferredWritePartitioning;
         return this;
     }
 
