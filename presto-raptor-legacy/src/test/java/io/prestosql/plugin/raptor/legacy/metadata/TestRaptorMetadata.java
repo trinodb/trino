@@ -384,8 +384,9 @@ public class TestRaptorMetadata
 
         ConnectorNewTableLayout layout = metadata.getNewTableLayout(SESSION, ordersTable).get();
         assertEquals(layout.getPartitionColumns(), ImmutableList.of("orderkey", "custkey"));
-        assertInstanceOf(layout.getPartitioning(), RaptorPartitioningHandle.class);
-        RaptorPartitioningHandle partitioning = (RaptorPartitioningHandle) layout.getPartitioning();
+        assertTrue(layout.getPartitioning().isPresent());
+        assertInstanceOf(layout.getPartitioning().get(), RaptorPartitioningHandle.class);
+        RaptorPartitioningHandle partitioning = (RaptorPartitioningHandle) layout.getPartitioning().get();
         assertEquals(partitioning.getDistributionId(), 1);
 
         ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, ordersTable, Optional.of(layout));

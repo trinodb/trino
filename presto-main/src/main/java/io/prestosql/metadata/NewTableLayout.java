@@ -56,9 +56,10 @@ public class NewTableLayout
         return layout;
     }
 
-    public PartitioningHandle getPartitioning()
+    public Optional<PartitioningHandle> getPartitioning()
     {
-        return new PartitioningHandle(Optional.of(catalogName), Optional.of(transactionHandle), layout.getPartitioning());
+        return layout.getPartitioning()
+                .map(partitioning -> new PartitioningHandle(Optional.of(catalogName), Optional.of(transactionHandle), partitioning));
     }
 
     public List<String> getPartitionColumns()
