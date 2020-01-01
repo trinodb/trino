@@ -47,7 +47,7 @@ public abstract class BaseHivePartitioningTest
         }
         else {
             // if there is no ResultSet (UPDATE statements), try to find it in system.runtime.queries table
-            queryId = (String) query(format("select query_id from system.runtime.queries where query = '%s'", sqlStatement)).row(0).get(0);
+            queryId = (String) query(format("SELECT max_by(query_id, created) FROM system.runtime.queries WHERE query = '%s'", sqlStatement)).row(0).get(0);
         }
         return queryStatsClient.getQueryStats(queryId).get().getRawInputPositions();
     }
