@@ -20,14 +20,12 @@ import java.util.List;
 
 import static java.lang.Character.MAX_RADIX;
 import static java.lang.Math.abs;
-import static java.lang.Math.min;
 import static java.lang.String.format;
 
 public class TestTable
         implements AutoCloseable
 {
     private static final SecureRandom random = new SecureRandom();
-    private static final int RANDOM_SUFFIX_LENGTH = 12;
 
     private final SqlExecutor sqlExecutor;
     private final String name;
@@ -68,7 +66,6 @@ public class TestTable
 
     private static String randomTableSuffix()
     {
-        String randomSuffix = Long.toString(abs(random.nextLong()), MAX_RADIX);
-        return randomSuffix.substring(0, min(RANDOM_SUFFIX_LENGTH, randomSuffix.length()));
+        return Long.toString(abs(random.nextLong()), MAX_RADIX);
     }
 }
