@@ -13,17 +13,22 @@
  */
 package io.prestosql.tests.hive;
 
+import io.prestosql.jdbc.PrestoResultSet;
+import io.prestosql.tempto.BeforeTestWithContext;
+import io.prestosql.tempto.ProductTest;
 import io.prestosql.tempto.Requirement;
 import io.prestosql.tempto.RequirementsProvider;
 import io.prestosql.tempto.configuration.Configuration;
 import io.prestosql.tempto.query.QueryResult;
+import io.prestosql.tests.querystats.QueryStatsClient;
 import org.testng.annotations.Test;
 
-import static io.prestosql.tempto.Requirements.compose;
-import static io.prestosql.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
+import javax.inject.Inject;
+
+import java.sql.SQLException;
+
 import static io.prestosql.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
 import static io.prestosql.tempto.fulfillment.table.TableRequirements.mutableTable;
-import static io.prestosql.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
 import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.SMOKE;
 import static io.prestosql.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_BIGINT_REGIONKEY;
@@ -32,17 +37,22 @@ import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTablePartitioningInsertInto
-        extends BaseHivePartitioningTest
+        extends ProductTest
         implements RequirementsProvider
 {
-    private static final String TARGET_NATION_NAME = "target_nation_test";
+    private QueryStatsClient queryStatsClient;
 
     @Override
     public Requirement getRequirements(Configuration configuration)
     {
-        return compose(
-                mutableTable(NATION_PARTITIONED_BY_BIGINT_REGIONKEY),
-                mutableTable(NATION, TARGET_NATION_NAME, CREATED));
+        return mutableTable(NATION_PARTITIONED_BY_BIGINT_REGIONKEY);
+    }
+
+    @Inject
+    @BeforeTestWithContext
+    public void setUp(QueryStatsClient queryStatsClient)
+    {
+        this.queryStatsClient = queryStatsClient;
     }
 
     @Test(groups = SMOKE)
@@ -71,16 +81,18 @@ public class TestTablePartitioningInsertInto
             throws Exception
     {
         String partitionedNation = mutableTablesState().get(NATION_PARTITIONED_BY_BIGINT_REGIONKEY.getTableHandle()).getNameInDatabase();
-        String targetNation = mutableTablesState().get(TARGET_NATION_NAME).getNameInDatabase();
-        String query = format(
-                "INSERT INTO %s SELECT p_nationkey, p_name, p_regionkey, p_comment FROM %s WHERE %s",
-                targetNation,
-                partitionedNation,
-                condition);
+        String query = format("SELECT p_nationkey, p_name, p_regionkey, p_comment FROM %s WHERE %s", partitionedNation, condition);
         QueryResult queryResult = query(query);
 
-        long processedLinesCount = getProcessedLinesCount(query, queryResult);
+        long processedLinesCount = getProcessedLinesCount(queryResult);
         int expectedLinesCount = expectedProcessedSplits * NATION_PARTITIONED_BY_REGIONKEY_NUMBER_OF_LINES_PER_SPLIT;
         assertThat(processedLinesCount).isEqualTo(expectedLinesCount);
+    }
+
+    private long getProcessedLinesCount(QueryResult queryResult)
+            throws SQLException
+    {
+        String queryId = queryResult.getJdbcResultSet().get().unwrap(PrestoResultSet.class).getQueryId();
+        return queryStatsClient.getQueryStats(queryId).get().getRawInputPositions();
     }
 }
