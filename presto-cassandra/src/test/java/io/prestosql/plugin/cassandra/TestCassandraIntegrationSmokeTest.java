@@ -79,7 +79,7 @@ public class TestCassandraIntegrationSmokeTest
     @BeforeClass
     public void setUp()
     {
-        session = EmbeddedCassandra.getSession();
+        session = CassandraServer.getSession();
         createTestTables(session, KEYSPACE, DATE_TIME_LOCAL);
     }
 

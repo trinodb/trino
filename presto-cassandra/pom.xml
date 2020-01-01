@@ -160,8 +160,8 @@
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql.cassandra</groupId>
-            <artifactId>cassandra-server</artifactId>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
             <scope>test</scope>
         </dependency>
 
