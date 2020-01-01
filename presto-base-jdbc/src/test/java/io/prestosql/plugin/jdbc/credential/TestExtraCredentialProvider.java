@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.jdbc.credential;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.bootstrap.Bootstrap;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
@@ -30,7 +29,6 @@ public class TestExtraCredentialProvider
     public void testUserNameOverwritten()
     {
         Map<String, String> properties = ImmutableMap.of(
-                "connection-url", "jdbc:h2:mem:config",
                 "connection-user", "default_user",
                 "connection-password", "default_password",
                 "user-credential-name", "user");
@@ -45,7 +43,6 @@ public class TestExtraCredentialProvider
     public void testPasswordOverwritten()
     {
         Map<String, String> properties = ImmutableMap.of(
-                "connection-url", "jdbc:h2:mem:config",
                 "connection-user", "default_user",
                 "connection-password", "default_password",
                 "password-credential-name", "password");
@@ -60,7 +57,6 @@ public class TestExtraCredentialProvider
     public void testCredentialsOverwritten()
     {
         Map<String, String> properties = ImmutableMap.of(
-                "connection-url", "jdbc:h2:mem:config",
                 "connection-user", "default_user",
                 "connection-password", "default_password",
                 "user-credential-name", "user",
@@ -76,7 +72,6 @@ public class TestExtraCredentialProvider
     public void testCredentialsNotOverwritten()
     {
         Map<String, String> properties = ImmutableMap.of(
-                "connection-url", "jdbc:h2:mem:config",
                 "connection-user", "default_user",
                 "connection-password", "default_password",
                 "user-credential-name", "user",
@@ -94,7 +89,10 @@ public class TestExtraCredentialProvider
 
     private static CredentialProvider getCredentialProvider(Map<String, String> properties)
     {
-        return new Bootstrap(ImmutableList.of(new CredentialProviderModule()))
+        return new Bootstrap(new CredentialProviderModule())
+                .strictConfig()
+                .doNotInitializeLogging()
+                .quiet()
                 .setRequiredConfigurationProperties(properties)
                 .initialize()
                 .getInstance(CredentialProvider.class);
