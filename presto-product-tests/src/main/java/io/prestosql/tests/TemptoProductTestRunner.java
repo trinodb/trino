@@ -13,23 +13,8 @@
  */
 package io.prestosql.tests;
 
-import com.google.common.collect.ImmutableList;
-import io.prestosql.tempto.fulfillment.table.kafka.KafkaTableManager;
-import io.prestosql.tempto.internal.fulfillment.ldap.LdapObjectFulfiller;
-import io.prestosql.tempto.internal.fulfillment.ldap.LdapObjectModuleProvider;
 import io.prestosql.tempto.runner.TemptoRunner;
 import io.prestosql.tempto.runner.TemptoRunnerCommandLineParser;
-import io.prestosql.tests.querystats.QueryStatsClientModuleProvider;
-
-import static io.prestosql.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_AVRO;
-import static io.prestosql.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_ORC;
-import static io.prestosql.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_PARQUET;
-import static io.prestosql.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_RCFILE;
-import static io.prestosql.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
-import static io.prestosql.tests.hive.TestHiveBucketedTables.BUCKETED_NATION;
-import static io.prestosql.tests.hive.TestHiveBucketedTables.BUCKETED_NATION_PREPARED;
-import static io.prestosql.tests.hive.TestHiveBucketedTables.BUCKETED_PARTITIONED_NATION;
-import static io.prestosql.tests.hive.TestHiveBucketedTables.BUCKETED_SORTED_NATION;
 
 public final class TemptoProductTestRunner
 {
@@ -39,25 +24,7 @@ public final class TemptoProductTestRunner
                 .setTestsPackage("io.prestosql.tests.*", false)
                 .setExcludedGroups("quarantine", true)
                 .build();
-        TemptoRunner.runTempto(
-                parser,
-                args,
-                () -> ImmutableList.of(),
-                () -> ImmutableList.of(
-                        LdapObjectModuleProvider.class,
-                        QueryStatsClientModuleProvider.class),
-                () -> ImmutableList.of(LdapObjectFulfiller.class),
-                () -> ImmutableList.of(KafkaTableManager.class),
-                () -> ImmutableList.of(
-                        ALL_HIVE_SIMPLE_TYPES_TEXTFILE,
-                        ALL_HIVE_SIMPLE_TYPES_RCFILE,
-                        ALL_HIVE_SIMPLE_TYPES_AVRO,
-                        ALL_HIVE_SIMPLE_TYPES_ORC,
-                        ALL_HIVE_SIMPLE_TYPES_PARQUET,
-                        BUCKETED_NATION,
-                        BUCKETED_PARTITIONED_NATION,
-                        BUCKETED_NATION_PREPARED,
-                        BUCKETED_SORTED_NATION));
+        TemptoRunner.runTempto(parser, args);
     }
 
     private TemptoProductTestRunner() {}

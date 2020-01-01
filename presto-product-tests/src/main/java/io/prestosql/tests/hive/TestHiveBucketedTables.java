@@ -20,6 +20,7 @@ import io.prestosql.tempto.Requirements;
 import io.prestosql.tempto.RequirementsProvider;
 import io.prestosql.tempto.configuration.Configuration;
 import io.prestosql.tempto.fulfillment.table.MutableTableRequirement;
+import io.prestosql.tempto.fulfillment.table.TableDefinitionsRepository;
 import io.prestosql.tempto.fulfillment.table.hive.HiveTableDefinition;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -52,15 +53,19 @@ public class TestHiveBucketedTables
 {
     private static final Logger log = Logger.get(TestHiveBucketedTables.class);
 
+    @TableDefinitionsRepository.RepositoryTableDefinition
     public static final HiveTableDefinition BUCKETED_NATION = bucketTableDefinition("bucket_nation", false, false);
 
+    @TableDefinitionsRepository.RepositoryTableDefinition
     public static final HiveTableDefinition BUCKETED_NATION_PREPARED = HiveTableDefinition.builder("bucket_nation_prepared")
             .setCreateTableDDLTemplate("Table %NAME% should be only used with CTAS queries")
             .setNoData()
             .build();
 
+    @TableDefinitionsRepository.RepositoryTableDefinition
     public static final HiveTableDefinition BUCKETED_SORTED_NATION = bucketTableDefinition("bucketed_sorted_nation", true, false);
 
+    @TableDefinitionsRepository.RepositoryTableDefinition
     public static final HiveTableDefinition BUCKETED_PARTITIONED_NATION = bucketTableDefinition("bucketed_partitioned_nation", false, true);
 
     private static HiveTableDefinition bucketTableDefinition(String tableName, boolean sorted, boolean partitioned)

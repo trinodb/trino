@@ -23,12 +23,14 @@ import io.airlift.http.client.HttpClientConfig;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.json.ObjectMapperProvider;
 import io.prestosql.tempto.configuration.Configuration;
+import io.prestosql.tempto.initialization.AutoModuleProvider;
 import io.prestosql.tempto.initialization.SuiteModuleProvider;
 
 import javax.inject.Named;
 
 import java.net.URI;
 
+@AutoModuleProvider
 public class QueryStatsClientModuleProvider
         implements SuiteModuleProvider
 {
