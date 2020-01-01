@@ -21,13 +21,10 @@ import com.google.common.io.Resources;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-import org.apache.cassandra.service.CassandraDaemon;
-
-import javax.management.ObjectName;
+import org.testcontainers.containers.GenericContainer;
 
 import java.io.File;
 import java.io.IOException;
-import java.lang.management.ManagementFactory;
 import java.net.InetSocketAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -45,21 +42,22 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.testcontainers.utility.MountableFile.forHostPath;
 import static org.testng.Assert.assertEquals;
 
-public final class EmbeddedCassandra
+public final class CassandraServer
 {
-    private static Logger log = Logger.get(EmbeddedCassandra.class);
+    private static Logger log = Logger.get(CassandraServer.class);
 
-    private static final String HOST = "127.0.0.1";
     private static final int PORT = 9142;
 
     private static final Duration REFRESH_SIZE_ESTIMATES_TIMEOUT = new Duration(1, MINUTES);
 
+    private static GenericContainer<?> dockerContainer;
     private static CassandraSession session;
     private static boolean initialized;
 
-    private EmbeddedCassandra() {}
+    private CassandraServer() {}
 
     public static synchronized void start()
             throws Exception
@@ -70,18 +68,16 @@ public final class EmbeddedCassandra
 
         log.info("Starting cassandra...");
 
-        System.setProperty("cassandra.config", "file:" + prepareCassandraYaml());
-        System.setProperty("cassandra-foreground", "true");
-        System.setProperty("cassandra.native.epoll.enabled", "false");
-
-        CassandraDaemon cassandraDaemon = new CassandraDaemon();
-        cassandraDaemon.activate();
+        dockerContainer = new GenericContainer<>("cassandra:2.1.16")
+                .withExposedPorts(PORT)
+                .withCopyFileToContainer(forHostPath(prepareCassandraYaml()), "/etc/cassandra/cassandra.yaml");
+        dockerContainer.start();
 
         Cluster.Builder clusterBuilder = Cluster.builder()
                 .withProtocolVersion(V3)
                 .withClusterName("TestCluster")
                 .addContactPointsWithPorts(ImmutableList.of(
-                        new InetSocketAddress(HOST, PORT)))
+                        new InetSocketAddress(dockerContainer.getContainerIpAddress(), dockerContainer.getMappedPort(PORT))))
                 .withMaxSchemaAgreementWaitSeconds(30);
 
         ReopeningCluster cluster = new ReopeningCluster(clusterBuilder::build);
@@ -95,11 +91,11 @@ public final class EmbeddedCassandra
         }
         catch (RuntimeException e) {
             cluster.close();
-            cassandraDaemon.deactivate();
+            dockerContainer.stop();
             throw e;
         }
 
-        EmbeddedCassandra.session = session;
+        CassandraServer.session = session;
         initialized = true;
     }
 
@@ -131,18 +127,18 @@ public final class EmbeddedCassandra
     public static synchronized String getHost()
     {
         checkIsInitialized();
-        return HOST;
+        return dockerContainer.getContainerIpAddress();
     }
 
     public static synchronized int getPort()
     {
         checkIsInitialized();
-        return PORT;
+        return dockerContainer.getMappedPort(PORT);
     }
 
     private static void checkIsInitialized()
     {
-        checkState(initialized, "EmbeddedCassandra must be started with #start() method before retrieving the cluster retrieval");
+        checkState(initialized, "CassandraServer must be started with #start() method before retrieving the cluster retrieval");
     }
 
     private static void checkConnectivity(CassandraSession session)
@@ -175,24 +171,12 @@ public final class EmbeddedCassandra
     private static void flushTable(String keyspace, String table)
             throws Exception
     {
-        ManagementFactory
-                .getPlatformMBeanServer()
-                .invoke(
-                        new ObjectName("org.apache.cassandra.db:type=StorageService"),
-                        "forceKeyspaceFlush",
-                        new Object[] {keyspace, new String[] {table}},
-                        new String[] {"java.lang.String", "[Ljava.lang.String;"});
+        dockerContainer.execInContainer("nodetool", "flush", keyspace, table);
     }
 
     private static void refreshSizeEstimates()
             throws Exception
     {
-        ManagementFactory
-                .getPlatformMBeanServer()
-                .invoke(
-                        new ObjectName("org.apache.cassandra.db:type=StorageService"),
-                        "refreshSizeEstimates",
-                        new Object[] {},
-                        new String[] {});
+        dockerContainer.execInContainer("nodetool", "refreshsizeestimates");
     }
 }

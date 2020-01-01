@@ -1189,18 +1189,6 @@
 
             <dependency>
                 <groupId>io.prestosql.cassandra</groupId>
-                <artifactId>cassandra-server</artifactId>
-                <version>2.1.16-2</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>io.netty</groupId>
-                        <artifactId>netty-all</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>io.prestosql.cassandra</groupId>
                 <artifactId>cassandra-driver</artifactId>
                 <version>3.1.4-2</version>
             </dependency>
