@@ -42,8 +42,7 @@ public abstract class BaseHivePartitioningTest
             throws SQLException
     {
         String queryId;
-        if (queryResult.getJdbcResultSet().isPresent() && queryResult.getJdbcResultSet().get().isWrapperFor(PrestoResultSet.class)) {
-            // if PrestoResult is available, just unwrap it from ResultSet and extract query id
+        if (queryResult.getJdbcResultSet().isPresent()) {
             queryId = queryResult.getJdbcResultSet().get().unwrap(PrestoResultSet.class).getQueryId();
         }
         else {
