@@ -2002,6 +2002,14 @@ public class TestAnalyzer
                 .hasErrorCode(INVALID_COLUMN_REFERENCE);
         assertFails("SELECT * FROM (VALUES array[2, 2]) a(x) FULL OUTER JOIN LATERAL(VALUES x) ON true")
                 .hasErrorCode(INVALID_COLUMN_REFERENCE);
+        // FULL join involving LATERAL relation only supported with condition ON TRUE
+        analyze("SELECT * FROM (VALUES 1) FULL OUTER JOIN LATERAL(VALUES 2) ON true");
+        assertFails("SELECT * FROM (VALUES 1) a(x) FULL OUTER JOIN LATERAL(VALUES 2) b(x) USING (x)")
+                .hasErrorCode(NOT_SUPPORTED);
+        assertFails("SELECT * FROM (VALUES 1) FULL OUTER JOIN LATERAL(VALUES 2) ON 1 = 1")
+                .hasErrorCode(NOT_SUPPORTED);
+        assertFails("SELECT * FROM (VALUES 1) FULL OUTER JOIN LATERAL(VALUES 2) ON false")
+                .hasErrorCode(NOT_SUPPORTED);
     }
 
     @Test

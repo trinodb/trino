@@ -15,17 +15,28 @@ package io.prestosql.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.CorrelatedJoinNode;
 import io.prestosql.sql.planner.plan.JoinNode;
+import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.IfExpression;
+import io.prestosql.sql.tree.NullLiteral;
 
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.matching.Pattern.empty;
+import static io.prestosql.sql.planner.plan.CorrelatedJoinNode.Type.FULL;
+import static io.prestosql.sql.planner.plan.CorrelatedJoinNode.Type.INNER;
+import static io.prestosql.sql.planner.plan.CorrelatedJoinNode.Type.LEFT;
+import static io.prestosql.sql.planner.plan.CorrelatedJoinNode.Type.RIGHT;
 import static io.prestosql.sql.planner.plan.Patterns.CorrelatedJoin.correlation;
 import static io.prestosql.sql.planner.plan.Patterns.correlatedJoin;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -45,30 +56,69 @@ public class TransformUncorrelatedSubqueryToJoin
     @Override
     public Result apply(CorrelatedJoinNode correlatedJoinNode, Captures captures, Context context)
     {
-        return Result.ofPlanNode(new JoinNode(
-                context.getIdAllocator().getNextId(),
-                correlatedJoinNode.getType().toJoinNodeType(),
-                correlatedJoinNode.getInput(),
-                correlatedJoinNode.getSubquery(),
-                ImmutableList.of(),
-                ImmutableList.<Symbol>builder()
-                        .addAll(correlatedJoinNode.getInput().getOutputSymbols())
-                        .addAll(correlatedJoinNode.getSubquery().getOutputSymbols())
-                        .build(),
-                filter(correlatedJoinNode.getFilter()),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                ImmutableMap.of()));
-    }
-
-    private Optional<Expression> filter(Expression criteria)
-    {
-        if (criteria.equals(TRUE_LITERAL)) {
-            return Optional.empty();
+        // handle INNER and LEFT correlated join
+        if (correlatedJoinNode.getType() == INNER || correlatedJoinNode.getType() == LEFT) {
+            return Result.ofPlanNode(rewriteToJoin(
+                    correlatedJoinNode,
+                    correlatedJoinNode.getType().toJoinNodeType(),
+                    correlatedJoinNode.getFilter()));
         }
 
-        return Optional.of(criteria);
+        checkState(
+                correlatedJoinNode.getType() == RIGHT || correlatedJoinNode.getType() == FULL,
+                "unexpected CorrelatedJoin type: " + correlatedJoinNode.getType());
+
+        // handle RIGHT and FULL correlated join ON TRUE
+        JoinNode.Type type;
+        if (correlatedJoinNode.getType() == RIGHT) {
+            type = JoinNode.Type.INNER;
+        }
+        else {
+            type = JoinNode.Type.LEFT;
+        }
+        JoinNode joinNode = rewriteToJoin(correlatedJoinNode, type, TRUE_LITERAL);
+
+        if (correlatedJoinNode.getFilter().equals(TRUE_LITERAL)) {
+            return Result.ofPlanNode(joinNode);
+        }
+
+        // handle RIGHT correlated join on condition other than TRUE
+        if (correlatedJoinNode.getType() == RIGHT) {
+            Assignments.Builder assignments = Assignments.builder();
+            assignments.putIdentities(Sets.intersection(
+                    ImmutableSet.copyOf(correlatedJoinNode.getSubquery().getOutputSymbols()),
+                    ImmutableSet.copyOf(correlatedJoinNode.getOutputSymbols())));
+            for (Symbol inputSymbol : Sets.intersection(
+                    ImmutableSet.copyOf(correlatedJoinNode.getInput().getOutputSymbols()),
+                    ImmutableSet.copyOf(correlatedJoinNode.getOutputSymbols()))) {
+                assignments.put(inputSymbol, new IfExpression(correlatedJoinNode.getFilter(), inputSymbol.toSymbolReference(), new NullLiteral()));
+            }
+            ProjectNode projectNode = new ProjectNode(
+                    context.getIdAllocator().getNextId(),
+                    joinNode,
+                    assignments.build());
+
+            return Result.ofPlanNode(projectNode);
+        }
+
+        // no support for FULL correlated join on condition other than TRUE
+        return Result.empty();
+    }
+
+    private JoinNode rewriteToJoin(CorrelatedJoinNode parent, JoinNode.Type type, Expression filter)
+    {
+        return new JoinNode(
+                parent.getId(),
+                type,
+                parent.getInput(),
+                parent.getSubquery(),
+                ImmutableList.of(),
+                parent.getOutputSymbols(),
+                filter.equals(TRUE_LITERAL) ? Optional.empty() : Optional.of(filter),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableMap.of());
     }
 }

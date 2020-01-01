@@ -1345,6 +1345,14 @@ class StatementAnalyzer
                         }
                     }
                 }
+                else if (node.getType() == FULL) {
+                    if (!(criteria instanceof JoinOn) || !((JoinOn) criteria).getExpression().equals(TRUE_LITERAL)) {
+                        throw semanticException(
+                                NOT_SUPPORTED,
+                                criteria instanceof JoinOn ? ((JoinOn) criteria).getExpression() : node,
+                                "FULL JOIN involving LATERAL relation is only supported with condition ON TRUE");
+                    }
+                }
             }
 
             if (criteria instanceof JoinUsing) {
