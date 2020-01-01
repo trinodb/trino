@@ -1982,6 +1982,14 @@ public class TestAnalyzer
                 .hasErrorCode(INVALID_COLUMN_REFERENCE);
         assertFails("SELECT * FROM (VALUES array[2, 2]) a(x) FULL OUTER JOIN UNNEST(x) ON true")
                 .hasErrorCode(INVALID_COLUMN_REFERENCE);
+        // Join involving UNNEST only supported without condition (cross join) or with condition ON TRUE
+        analyze("SELECT * FROM (VALUES 1), UNNEST(array[2])");
+        assertFails("SELECT * FROM (VALUES array[2, 2]) a(x) LEFT JOIN UNNEST(x) b(x) USING (x)")
+                .hasErrorCode(NOT_SUPPORTED);
+        assertFails("SELECT * FROM (VALUES array[2, 2]) a(x) LEFT JOIN UNNEST(x) ON 1 = 1")
+                .hasErrorCode(NOT_SUPPORTED);
+        assertFails("SELECT * FROM (VALUES array[2, 2]) a(x) LEFT JOIN UNNEST(x) ON false")
+                .hasErrorCode(NOT_SUPPORTED);
     }
 
     @Test

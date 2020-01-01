@@ -60,7 +60,6 @@ import io.prestosql.sql.tree.InPredicate;
 import io.prestosql.sql.tree.Intersect;
 import io.prestosql.sql.tree.Join;
 import io.prestosql.sql.tree.JoinCriteria;
-import io.prestosql.sql.tree.JoinOn;
 import io.prestosql.sql.tree.JoinUsing;
 import io.prestosql.sql.tree.LambdaArgumentDeclaration;
 import io.prestosql.sql.tree.Lateral;
@@ -224,14 +223,7 @@ class RelationPlanner
 
         Optional<Unnest> unnest = getUnnest(node.getRight());
         if (unnest.isPresent()) {
-            if (node.getType() == CROSS || node.getType() == IMPLICIT) {
-                return planJoinUnnest(leftPlan, node, unnest.get());
-            }
-            checkState(node.getCriteria().isPresent(), "missing Join criteria");
-            if (node.getCriteria().get() instanceof JoinOn && ((JoinOn) node.getCriteria().get()).getExpression().equals(TRUE_LITERAL)) {
-                return planJoinUnnest(leftPlan, node, unnest.get());
-            }
-            throw semanticException(NOT_SUPPORTED, unnest.get(), "UNNEST in conditional JOIN is not supported");
+            return planJoinUnnest(leftPlan, node, unnest.get());
         }
 
         Optional<Lateral> lateral = getLateral(node.getRight());
