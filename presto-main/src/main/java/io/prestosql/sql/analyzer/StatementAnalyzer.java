@@ -222,6 +222,7 @@ import static io.prestosql.sql.analyzer.ScopeReferenceExtractor.hasReferencesToS
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.planner.ExpressionInterpreter.expressionOptimizer;
+import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.prestosql.sql.tree.ExplainType.Type.DISTRIBUTED;
 import static io.prestosql.sql.tree.FrameBound.Type.CURRENT_ROW;
 import static io.prestosql.sql.tree.FrameBound.Type.FOLLOWING;
@@ -1326,11 +1327,24 @@ class StatementAnalyzer
             Scope left = process(node.getLeft(), scope);
             Scope right = process(node.getRight(), isLateralRelation(node.getRight()) ? Optional.of(left) : scope);
 
-            if (isLateralRelation(node.getRight()) && (node.getType().equals(RIGHT) || node.getType().equals(FULL))) {
-                Stream<Expression> leftScopeReferences = getReferencesToScope(node.getRight(), analysis, left);
-                leftScopeReferences.findFirst().ifPresent(reference -> {
-                    throw semanticException(INVALID_COLUMN_REFERENCE, reference, "LATERAL reference not allowed in %s JOIN", node.getType().name());
-                });
+            if (isLateralRelation(node.getRight())) {
+                if (node.getType().equals(RIGHT) || node.getType().equals(FULL)) {
+                    Stream<Expression> leftScopeReferences = getReferencesToScope(node.getRight(), analysis, left);
+                    leftScopeReferences.findFirst().ifPresent(reference -> {
+                        throw semanticException(INVALID_COLUMN_REFERENCE, reference, "LATERAL reference not allowed in %s JOIN", node.getType().name());
+                    });
+                }
+                if (isUnnestRelation(node.getRight())) {
+                    if (criteria != null) {
+                        if (!(criteria instanceof JoinOn) || !((JoinOn) criteria).getExpression().equals(TRUE_LITERAL)) {
+                            throw semanticException(
+                                    NOT_SUPPORTED,
+                                    criteria instanceof JoinOn ? ((JoinOn) criteria).getExpression() : node,
+                                    "%s JOIN involving UNNEST is only supported with condition ON TRUE",
+                                    node.getType().name());
+                        }
+                    }
+                }
             }
 
             if (criteria instanceof JoinUsing) {
@@ -1439,6 +1453,14 @@ class StatementAnalyzer
                 return isLateralRelation(((AliasedRelation) node).getRelation());
             }
             return node instanceof Unnest || node instanceof Lateral;
+        }
+
+        private boolean isUnnestRelation(Relation node)
+        {
+            if (node instanceof AliasedRelation) {
+                return isUnnestRelation(((AliasedRelation) node).getRelation());
+            }
+            return node instanceof Unnest;
         }
 
         @Override

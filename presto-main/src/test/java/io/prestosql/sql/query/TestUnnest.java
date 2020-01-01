@@ -116,7 +116,7 @@ public class TestUnnest
                 "VALUES (ARRAY[], null, CAST(NULL AS bigint))");
         assertions.assertFails(
                 "SELECT * FROM (VALUES ARRAY[1, null]) a(x) LEFT OUTER JOIN UNNEST(x) b(y) ON b.y = 1",
-                "line .*: UNNEST in conditional JOIN is not supported");
+                "line .*: LEFT JOIN involving UNNEST is only supported with condition ON TRUE");
         assertions.assertQuery(
                 "SELECT * FROM (VALUES 'a', 'b') LEFT JOIN UNNEST(ARRAY[]) ON TRUE",
                 "VALUES ('a', null), ('b', null)");
@@ -147,7 +147,7 @@ public class TestUnnest
                 "VALUES (ARRAY[1, null], 2, BIGINT '1'), (ARRAY[1, null], null, BIGINT '2')");
         assertions.assertFails(
                 "SELECT * FROM (VALUES ARRAY[1, null]) a(x) RIGHT OUTER JOIN UNNEST(ARRAY[2, null]) b(y) ON b.y = 1",
-                "line .*: UNNEST in conditional JOIN is not supported");
+                "line .*: RIGHT JOIN involving UNNEST is only supported with condition ON TRUE");
     }
 
     @Test
@@ -168,7 +168,7 @@ public class TestUnnest
                 "VALUES (ARRAY[], 2, BIGINT '1'), (ARRAY[], null, BIGINT '2')");
         assertions.assertFails(
                 "SELECT * FROM (VALUES ARRAY[1, null]) a(x) FULL OUTER JOIN UNNEST(ARRAY[2, null]) b(y) ON b.y = 1",
-                "line .*: UNNEST in conditional JOIN is not supported");
+                "line .*: FULL JOIN involving UNNEST is only supported with condition ON TRUE");
     }
 
     @Test
@@ -186,6 +186,6 @@ public class TestUnnest
                 "SELECT * FROM (VALUES ARRAY[]) a(x) INNER JOIN UNNEST(x) WITH ORDINALITY ON true");
         assertions.assertFails(
                 "SELECT * FROM (VALUES ARRAY[1, null]) a(x) INNER JOIN UNNEST(x) b(y) ON b.y = 1",
-                "line .*: UNNEST in conditional JOIN is not supported");
+                "line .*: INNER JOIN involving UNNEST is only supported with condition ON TRUE");
     }
 }
