@@ -258,7 +258,6 @@ public class TableScanWorkProcessorOperator
                 }
             }
 
-            // TODO: report operator stats
             return ProcessState.ofResult(page);
         }
     }
