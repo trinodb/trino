@@ -36,6 +36,7 @@ import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.type.Type;
 import io.prestosql.testing.TestingConnectorContext;
 import io.prestosql.testing.TestingConnectorSession;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -82,6 +83,7 @@ public class TestCassandraConnector
             new CassandraSessionProperties(new CassandraClientConfig()).getSessionProperties(),
             ImmutableMap.of(),
             true);
+    private CassandraServer server;
     protected String database;
     protected SchemaTableName table;
     private ConnectorMetadata metadata;
@@ -92,16 +94,16 @@ public class TestCassandraConnector
     public void setup()
             throws Exception
     {
-        CassandraServer.start();
+        this.server = new CassandraServer();
 
         String keyspace = "test_connector";
-        createTestTables(CassandraServer.getSession(), keyspace, DATE);
+        createTestTables(server.getSession(), keyspace, DATE);
 
         CassandraConnectorFactory connectorFactory = new CassandraConnectorFactory();
 
         Connector connector = connectorFactory.create("test", ImmutableMap.of(
-                "cassandra.contact-points", CassandraServer.getHost(),
-                "cassandra.native-protocol-port", Integer.toString(CassandraServer.getPort())),
+                "cassandra.contact-points", server.getHost(),
+                "cassandra.native-protocol-port", Integer.toString(server.getPort())),
                 new TestingConnectorContext());
 
         metadata = connector.getMetadata(CassandraTransactionHandle.INSTANCE);
@@ -115,6 +117,12 @@ public class TestCassandraConnector
 
         database = keyspace;
         table = new SchemaTableName(database, TABLE_ALL_TYPES.toLowerCase(ENGLISH));
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        server.close();
     }
 
     @Test

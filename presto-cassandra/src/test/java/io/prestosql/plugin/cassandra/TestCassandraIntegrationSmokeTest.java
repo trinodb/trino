@@ -20,7 +20,8 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
-import org.testng.annotations.BeforeClass;
+import io.prestosql.testing.QueryRunner;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.math.BigInteger;
@@ -31,6 +32,7 @@ import java.util.List;
 
 import static com.datastax.driver.core.utils.Bytes.toRawHexString;
 import static com.google.common.primitives.Ints.toByteArray;
+import static io.prestosql.plugin.cassandra.CassandraQueryRunner.createCassandraQueryRunner;
 import static io.prestosql.plugin.cassandra.CassandraQueryRunner.createCassandraSession;
 import static io.prestosql.plugin.cassandra.CassandraTestingUtils.TABLE_ALL_TYPES;
 import static io.prestosql.plugin.cassandra.CassandraTestingUtils.TABLE_ALL_TYPES_INSERT;
@@ -69,18 +71,24 @@ public class TestCassandraIntegrationSmokeTest
     // TODO should match DATE_TIME_LOCAL after https://github.com/prestosql/presto/issues/37
     private static final LocalDateTime TIMESTAMP_LOCAL = LocalDateTime.of(1969, 12, 31, 23, 4, 5);
 
+    private CassandraServer server;
     private CassandraSession session;
 
-    public TestCassandraIntegrationSmokeTest()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(CassandraQueryRunner::createCassandraQueryRunner);
+        CassandraServer server = new CassandraServer();
+        this.server = server;
+        this.session = server.getSession();
+        createTestTables(session, KEYSPACE, DATE_TIME_LOCAL);
+        return createCassandraQueryRunner(server);
     }
 
-    @BeforeClass
-    public void setUp()
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
     {
-        session = CassandraServer.getSession();
-        createTestTables(session, KEYSPACE, DATE_TIME_LOCAL);
+        server.close();
     }
 
     @Override

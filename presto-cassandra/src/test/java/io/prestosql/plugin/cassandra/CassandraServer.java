@@ -23,6 +23,7 @@ import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.testcontainers.containers.GenericContainer;
 
+import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -32,7 +33,6 @@ import java.util.List;
 import java.util.concurrent.TimeoutException;
 
 import static com.datastax.driver.core.ProtocolVersion.V3;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.Files.write;
 import static com.google.common.io.Resources.getResource;
@@ -45,7 +45,8 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 import static org.testng.Assert.assertEquals;
 
-public final class CassandraServer
+public class CassandraServer
+        implements Closeable
 {
     private static Logger log = Logger.get(CassandraServer.class);
 
@@ -53,31 +54,24 @@ public final class CassandraServer
 
     private static final Duration REFRESH_SIZE_ESTIMATES_TIMEOUT = new Duration(1, MINUTES);
 
-    private static GenericContainer<?> dockerContainer;
-    private static CassandraSession session;
-    private static boolean initialized;
+    private final GenericContainer<?> dockerContainer;
+    private final CassandraSession session;
 
-    private CassandraServer() {}
-
-    public static synchronized void start()
+    public CassandraServer()
             throws Exception
     {
-        if (initialized) {
-            return;
-        }
-
         log.info("Starting cassandra...");
 
-        dockerContainer = new GenericContainer<>("cassandra:2.1.16")
+        this.dockerContainer = new GenericContainer<>("cassandra:2.1.16")
                 .withExposedPorts(PORT)
                 .withCopyFileToContainer(forHostPath(prepareCassandraYaml()), "/etc/cassandra/cassandra.yaml");
-        dockerContainer.start();
+        this.dockerContainer.start();
 
         Cluster.Builder clusterBuilder = Cluster.builder()
                 .withProtocolVersion(V3)
                 .withClusterName("TestCluster")
                 .addContactPointsWithPorts(ImmutableList.of(
-                        new InetSocketAddress(dockerContainer.getContainerIpAddress(), dockerContainer.getMappedPort(PORT))))
+                        new InetSocketAddress(this.dockerContainer.getContainerIpAddress(), this.dockerContainer.getMappedPort(PORT))))
                 .withMaxSchemaAgreementWaitSeconds(30);
 
         ReopeningCluster cluster = new ReopeningCluster(clusterBuilder::build);
@@ -91,12 +85,11 @@ public final class CassandraServer
         }
         catch (RuntimeException e) {
             cluster.close();
-            dockerContainer.stop();
+            this.dockerContainer.stop();
             throw e;
         }
 
-        CassandraServer.session = session;
-        initialized = true;
+        this.session = session;
     }
 
     private static String prepareCassandraYaml()
@@ -118,27 +111,19 @@ public final class CassandraServer
         return yamlLocation.toAbsolutePath().toString();
     }
 
-    public static synchronized CassandraSession getSession()
+    public CassandraSession getSession()
     {
-        checkIsInitialized();
         return requireNonNull(session, "cluster is null");
     }
 
-    public static synchronized String getHost()
+    public String getHost()
     {
-        checkIsInitialized();
         return dockerContainer.getContainerIpAddress();
     }
 
-    public static synchronized int getPort()
+    public int getPort()
     {
-        checkIsInitialized();
         return dockerContainer.getMappedPort(PORT);
-    }
-
-    private static void checkIsInitialized()
-    {
-        checkState(initialized, "CassandraServer must be started with #start() method before retrieving the cluster retrieval");
     }
 
     private static void checkConnectivity(CassandraSession session)
@@ -150,7 +135,7 @@ public final class CassandraServer
         log.info("Cassandra version: %s", version);
     }
 
-    public static void refreshSizeEstimates(String keyspace, String table)
+    public void refreshSizeEstimates(String keyspace, String table)
             throws Exception
     {
         long deadline = System.nanoTime() + REFRESH_SIZE_ESTIMATES_TIMEOUT.roundTo(NANOSECONDS);
@@ -168,15 +153,21 @@ public final class CassandraServer
         throw new TimeoutException(format("Attempting to refresh size estimates for table %s.%s has timed out after %s", keyspace, table, REFRESH_SIZE_ESTIMATES_TIMEOUT));
     }
 
-    private static void flushTable(String keyspace, String table)
+    private void flushTable(String keyspace, String table)
             throws Exception
     {
         dockerContainer.execInContainer("nodetool", "flush", keyspace, table);
     }
 
-    private static void refreshSizeEstimates()
+    private void refreshSizeEstimates()
             throws Exception
     {
         dockerContainer.execInContainer("nodetool", "refreshsizeestimates");
+    }
+
+    @Override
+    public void close()
+    {
+        dockerContainer.close();
     }
 }
