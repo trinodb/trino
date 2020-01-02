@@ -13,6 +13,7 @@
  */
 package io.prestosql.tests.hive;
 
+import io.prestosql.execution.QueryStats;
 import io.prestosql.jdbc.PrestoResultSet;
 import io.prestosql.tempto.BeforeTestWithContext;
 import io.prestosql.tempto.ProductTest;
@@ -25,16 +26,13 @@ import org.testng.annotations.Test;
 
 import javax.inject.Inject;
 
-import java.sql.SQLException;
-
 import static io.prestosql.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
 import static io.prestosql.tempto.fulfillment.table.TableRequirements.mutableTable;
 import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.SMOKE;
 import static io.prestosql.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_BIGINT_REGIONKEY;
-import static io.prestosql.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_REGIONKEY_NUMBER_OF_LINES_PER_SPLIT;
 import static java.lang.String.format;
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.testng.Assert.assertEquals;
 
 public class TestTablePartitioningInsertInto
         extends ProductTest
@@ -84,15 +82,8 @@ public class TestTablePartitioningInsertInto
         String query = format("SELECT p_nationkey, p_name, p_regionkey, p_comment FROM %s WHERE %s", partitionedNation, condition);
         QueryResult queryResult = query(query);
 
-        long processedLinesCount = getProcessedLinesCount(queryResult);
-        int expectedLinesCount = expectedProcessedSplits * NATION_PARTITIONED_BY_REGIONKEY_NUMBER_OF_LINES_PER_SPLIT;
-        assertThat(processedLinesCount).isEqualTo(expectedLinesCount);
-    }
-
-    private long getProcessedLinesCount(QueryResult queryResult)
-            throws SQLException
-    {
         String queryId = queryResult.getJdbcResultSet().get().unwrap(PrestoResultSet.class).getQueryId();
-        return queryStatsClient.getQueryStats(queryId).get().getRawInputPositions();
+        QueryStats queryStats = queryStatsClient.getQueryStats(queryId).get();
+        assertEquals(queryStats.getCompletedDrivers(), expectedProcessedSplits + 1);
     }
 }
