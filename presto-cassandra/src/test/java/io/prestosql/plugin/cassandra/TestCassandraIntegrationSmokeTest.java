@@ -60,7 +60,6 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
 
-@Test(singleThreaded = true)
 public class TestCassandraIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
