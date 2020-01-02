@@ -19,6 +19,9 @@ import io.prestosql.tempto.configuration.Configuration;
 import io.prestosql.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
+import java.time.Duration;
+import java.util.concurrent.Callable;
+
 import static io.prestosql.tempto.Requirements.compose;
 import static io.prestosql.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
 import static io.prestosql.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
@@ -79,8 +82,29 @@ public class TestTablePartitioningInsertInto
                 condition);
         QueryResult queryResult = query(query);
 
-        long processedLinesCount = getProcessedLinesCount(query, queryResult);
         int expectedLinesCount = expectedProcessedSplits * NATION_PARTITIONED_BY_REGIONKEY_NUMBER_OF_LINES_PER_SPLIT;
-        assertThat(processedLinesCount).isEqualTo(expectedLinesCount);
+        assertEventually(Duration.ofMinutes(1), () -> {
+            long processedLinesCount = getProcessedLinesCount(query, queryResult);
+            assertThat(processedLinesCount).isEqualTo(expectedLinesCount);
+            return null;
+        });
+    }
+
+    private static void assertEventually(Duration timeout, Callable<Void> assertion)
+            throws Exception
+    {
+        long start = System.nanoTime();
+        while (!Thread.currentThread().isInterrupted()) {
+            try {
+                assertion.call();
+                return;
+            }
+            catch (Exception | AssertionError e) {
+                if (Duration.ofSeconds(0, System.nanoTime() - start).compareTo(timeout) > 0) {
+                    throw e;
+                }
+            }
+            Thread.sleep(50);
+        }
     }
 }
