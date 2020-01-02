@@ -34,6 +34,8 @@ public class BaseJdbcConfig
     private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
     private Set<String> jdbcTypesMappedToVarchar = ImmutableSet.of();
     private UnsupportedTypeHandling unsupportedTypeHandling = UnsupportedTypeHandling.IGNORE;
+    private Duration metadataCacheTtl = new Duration(0, MINUTES);
+    private boolean cacheMissing;
 
     @NotNull
     public String getConnectionUrl()
@@ -97,6 +99,34 @@ public class BaseJdbcConfig
     public BaseJdbcConfig setUnsupportedTypeHandling(UnsupportedTypeHandling unsupportedTypeHandling)
     {
         this.unsupportedTypeHandling = unsupportedTypeHandling;
+        return this;
+    }
+
+    @NotNull
+    @MinDuration("0ms")
+    public Duration getMetadataCacheTtl()
+    {
+        return metadataCacheTtl;
+    }
+
+    @Config("metadata.cache-ttl")
+    @ConfigDescription("Determines how long meta information will be cached")
+    public BaseJdbcConfig setMetadataCacheTtl(Duration metadataCacheTtl)
+    {
+        this.metadataCacheTtl = metadataCacheTtl;
+        return this;
+    }
+
+    public boolean isCacheMissing()
+    {
+        return cacheMissing;
+    }
+
+    @Config("metadata.cache-missing")
+    @ConfigDescription("Determines if missing information will be cached")
+    public BaseJdbcConfig setCacheMissing(boolean cacheMissing)
+    {
+        this.cacheMissing = cacheMissing;
         return this;
     }
 }

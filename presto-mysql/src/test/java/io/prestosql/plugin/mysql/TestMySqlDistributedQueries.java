@@ -38,7 +38,14 @@ public class TestMySqlDistributedQueries
             throws Exception
     {
         this.mysqlServer = new TestingMySqlServer("testuser", "testpass", "tpch");
-        return createMySqlQueryRunner(mysqlServer, ImmutableMap.of(), TpchTable.getTables());
+        return createMySqlQueryRunner(
+                mysqlServer,
+                ImmutableMap.<String, String>builder()
+                        // caching here speeds up tests highly, caching is not used in smoke tests
+                        .put("metadata.cache-ttl", "10m")
+                        .put("metadata.cache-missing", "true")
+                        .build(),
+                TpchTable.getTables());
     }
 
     @AfterClass(alwaysRun = true)
