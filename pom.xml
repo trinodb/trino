@@ -52,7 +52,7 @@
         <dep.jdbi3.version>3.4.0</dep.jdbi3.version>
         <dep.drift.version>1.14</dep.drift.version>
         <dep.joda.version>2.10.3</dep.joda.version>
-        <dep.tempto.version>168</dep.tempto.version>
+        <dep.tempto.version>170</dep.tempto.version>
         <dep.testng.version>6.10</dep.testng.version>
         <dep.assertj-core.version>3.8.0</dep.assertj-core.version>
         <!-- TODO: remove after updating to Airbase 94 -->
