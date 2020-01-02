@@ -45,7 +45,6 @@ public class InfluxRecordSetProvider
     public RecordSet getRecordSet(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle tableHandle, List<? extends ColumnHandle> columns)
     {
         InfluxTableHandle table = (InfluxTableHandle) tableHandle;
-        client.logger.info("getRecordSet(" + split + ", " + table + ", " + columns + ")");
         ImmutableList.Builder<InfluxColumn> handles = ImmutableList.builder();
         for (ColumnHandle handle : columns) {
             InfluxColumnHandle column = (InfluxColumnHandle) handle;
@@ -53,6 +52,9 @@ public class InfluxRecordSetProvider
             InfluxError.GENERAL.check(column.getRetentionPolicy().equals(table.getRetentionPolicy()), "bad retention-policy for " + column + " in " + table);
             handles.add(column);
         }
+        // we SELECT * as this returns tags, and returns nulls for unpopulated fields;
+        // if we ask for specific columns, e.g. SELECT a WHERE b = 1, we would be asking for SELECT a WHERE b = 1 AND a IS NOT NULL instead
+        // and there's no way to ask for tags without grouping
         String query = new InfluxQL("SELECT * ").append(table.getFromWhere()).toString();
         JsonNode results = client.execute(query);  // actually run the query against our Influx server
         return new InfluxRecordSet(handles.build(), results);

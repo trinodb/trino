@@ -18,6 +18,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.slice.Slice;
 
+/* A query builder that takes care correctly quoting identifiers and string values */
+
 public class InfluxQL
 {
     private final StringBuilder influxQL;

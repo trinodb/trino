@@ -26,6 +26,7 @@ public class InfluxConfig
     private String database;
     private String userName;
     private String password;
+    private boolean useHttps;
 
     @NotNull
     public long getCacheMetaDataMillis()
@@ -33,7 +34,7 @@ public class InfluxConfig
         return cacheMetaDataMillis;
     }
 
-    @Config("cache-meta-data-millis")
+    @Config("influx.cache-meta-data-millis")
     public InfluxConfig setCacheMetaDataMillis(long cacheMetaDataMillis)
     {
         this.cacheMetaDataMillis = cacheMetaDataMillis;
@@ -46,7 +47,7 @@ public class InfluxConfig
         return host;
     }
 
-    @Config("host")
+    @Config("influx.host")
     public InfluxConfig setHost(String host)
     {
         this.host = host;
@@ -58,7 +59,7 @@ public class InfluxConfig
         return port;
     }
 
-    @Config("port")
+    @Config("influx.port")
     public InfluxConfig setPort(int port)
     {
         this.port = port;
@@ -71,7 +72,7 @@ public class InfluxConfig
         return database;
     }
 
-    @Config("database")
+    @Config("influx.database")
     public InfluxConfig setDatabase(String database)
     {
         this.database = database;
@@ -84,7 +85,7 @@ public class InfluxConfig
         return userName;
     }
 
-    @Config("user")
+    @Config("influx.username")
     public InfluxConfig setUserName(String userName)
     {
         this.userName = userName;
@@ -97,10 +98,22 @@ public class InfluxConfig
         return password;
     }
 
-    @Config("password")
+    @Config("influx.password")
     public InfluxConfig setPassword(String password)
     {
         this.password = password;
+        return this;
+    }
+
+    public boolean isUseHttps()
+    {
+        return useHttps;
+    }
+
+    @Config("influx.use-https")
+    public InfluxConfig setUseHttps(boolean useHttps)
+    {
+        this.useHttps = useHttps;
         return this;
     }
 }

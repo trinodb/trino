@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.prestosql.spi.HostAddress;
 
+import javax.annotation.CheckForNull;
 import javax.inject.Inject;
 
 import java.net.URL;
@@ -43,10 +44,10 @@ public class InfluxClient
     final Logger logger;
     private final InfluxConfig config;
     // the various metadata are cached for a configurable number of milliseconds so we don't hammer the server
-    private final CachedMetaData<Map<String, String>> retentionPolicies;
-    private final CachedMetaData<Map<String, String>> measurements;
-    private final Map<String, CachedMetaData<Map<String, InfluxColumn>>> tagKeys;
-    private final Map<String, Map<String, CachedMetaData<Map<String, InfluxColumn>>>> fields;
+    private final CachedMetaData<Map<String, String>> retentionPolicies;  // schema name (lower-case) -> retention policy (case-sensitive)
+    private final CachedMetaData<Map<String, String>> measurements;  // table name (lower-case) -> measurement (case-sensitive)
+    private final Map<String, CachedMetaData<Map<String, InfluxColumn>>> tagKeys;  // column name (lower-case) -> tags
+    private final Map<String, Map<String, CachedMetaData<Map<String, InfluxColumn>>>> fields;  // column name (lower-case) -> measurement -> fields
 
     @Inject
     public InfluxClient(InfluxConfig config)
@@ -79,6 +80,7 @@ public class InfluxClient
         return measurements.get().get(tableName);
     }
 
+    // Influx tracks the tags in each measurement, but not which retention-policy they are used in
     private Map<String, InfluxColumn> getTags(String tableName)
     {
         return tagKeys.computeIfAbsent(tableName,
@@ -115,14 +117,17 @@ public class InfluxClient
                                     .addIdentifier(measurement)
                                     .toString();
                             Map<String, InfluxColumn> fields = new HashMap<>();
-                            for (JsonNode series : execute(query)) {
-                                if (series.has("values")) {
-                                    for (JsonNode row : series.get("values")) {
-                                        String name = row.get(0).textValue();
-                                        String influxType = row.get(1).textValue();
-                                        InfluxColumn collision = fields.put(name.toLowerCase(Locale.ENGLISH), new InfluxColumn(name, influxType, InfluxColumn.Kind.FIELD));
-                                        if (collision != null) {
-                                            InfluxError.IDENTIFIER_CASE_SENSITIVITY.fail("identifier " + name + " collides with " + collision.getInfluxName(), query);
+                            JsonNode results = execute(query);
+                            if (results != null) {
+                                for (JsonNode series : results) {
+                                    if (series.has("values")) {
+                                        for (JsonNode row : series.get("values")) {
+                                            String name = row.get(0).textValue();
+                                            String influxType = row.get(1).textValue();
+                                            InfluxColumn collision = fields.put(name.toLowerCase(Locale.ENGLISH), new InfluxColumn(name, influxType, InfluxColumn.Kind.FIELD));
+                                            if (collision != null) {
+                                                InfluxError.IDENTIFIER_CASE_SENSITIVITY.fail("identifier " + name + " collides with " + collision.getInfluxName(), query);
+                                            }
                                         }
                                     }
                                 }
@@ -154,8 +159,8 @@ public class InfluxClient
     {
         Map<String, String> names = new HashMap<>();
         JsonNode series = execute(query);
-        InfluxError.GENERAL.check(series.getNodeType().equals(JsonNodeType.ARRAY), "expecting an array, not " + series, query);
-        InfluxError.GENERAL.check(series.size() == 1, "expecting one element, not " + series, query);
+        InfluxError.GENERAL.check(series != null && series.getNodeType().equals(JsonNodeType.ARRAY), "expecting an array, not " + series, query);
+        InfluxError.GENERAL.check(series != null && series.size() == 1, "expecting one element, not " + series, query);
         series = series.get(0);
         if (series.has("values")) {
             for (JsonNode row : series.get("values")) {
@@ -169,13 +174,17 @@ public class InfluxClient
         return ImmutableMap.copyOf(names);
     }
 
+    /* Using raw HTTP because the influx java library has dependency conflicts and puts the burden of quoting identifiers on the caller */
+    @CheckForNull
     JsonNode execute(String query)
     {
-        logger.debug("executing: " + query);
         final JsonNode response;
         try {
-            URL url = new URL("http://" + config.getUserName() + ":" + config.getPassword() + "@" + config.getHost() + ":" + config.getPort() +
-                    "/query?db=" + config.getDatabase() + "&q=" + URLEncoder.encode(query, StandardCharsets.UTF_8.toString()));
+            URL url = new URL((config.isUseHttps() ? "https://" : "http://")
+                    + config.getUserName() + ":" + config.getPassword() + "@"
+                    + config.getHost() + ":" + config.getPort() +
+                    "/query?db=" + config.getDatabase() +
+                    "&q=" + URLEncoder.encode(query, StandardCharsets.UTF_8.toString()));
             response = new ObjectMapper().readTree(url);
         }
         catch (Throwable t) {
@@ -183,7 +192,7 @@ public class InfluxClient
             return null;
         }
         JsonNode results = response.get("results");
-        InfluxError.GENERAL.check(results.size() == 1, "expecting one result", query);
+        InfluxError.GENERAL.check(results != null && results.size() == 1, "expecting one result", query);
         JsonNode result = results.get(0);
         if (result.has("error")) {
             InfluxError.GENERAL.fail(result.get("error").asText(), query);

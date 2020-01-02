@@ -20,6 +20,8 @@ import io.prestosql.spi.ErrorType;
 import io.prestosql.spi.PrestoException;
 
 import java.util.Arrays;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
@@ -61,7 +63,7 @@ public enum InfluxError
         if (context == null || context.length == 0) {
             return "";
         }
-        return " " + String.join(" ", Arrays.stream(context).toString());
+        return " " + Arrays.stream(context).map(Objects::toString).collect(Collectors.joining(" "));
     }
 
     @Override

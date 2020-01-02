@@ -32,7 +32,6 @@ import static com.google.common.base.MoreObjects.ToStringHelper;
 public class InfluxColumn
         extends ColumnMetadata
 {
-    public static final InfluxColumn TIME = new InfluxColumn("time", "time", Kind.TIME);
     // map InfluxDB types to Presto types
     private static final ImmutableMap<String, Type> TYPES_MAPPING = new ImmutableMap.Builder<String, Type>()
             .put("string", VarcharType.VARCHAR)
@@ -41,6 +40,8 @@ public class InfluxColumn
             .put("float", DoubleType.DOUBLE)
             .put("time", TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE)
             .build();
+    public static final InfluxColumn TIME = new InfluxColumn("time", "time", Kind.TIME);
+
     private final String influxName;
     private final String influxType;
     private final Kind kind;

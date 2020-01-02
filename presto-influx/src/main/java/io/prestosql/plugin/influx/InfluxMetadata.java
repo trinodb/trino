@@ -44,6 +44,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 
 import static java.util.Objects.requireNonNull;
 
@@ -182,21 +184,35 @@ public class InfluxMetadata
         InfluxQL where = new InfluxQL();
         for (Map.Entry<ColumnHandle, Domain> predicate : constraint.getSummary().getDomains().orElse(Collections.emptyMap()).entrySet()) {
             int startPos = where.getPos();
-            boolean ok = true;  // can we handle this column?
             InfluxColumnHandle column = (InfluxColumnHandle) predicate.getKey();
             ValueSet values = predicate.getValue().getValues();
+            AtomicBoolean ok = new AtomicBoolean(true);  // can we handle this column?
+            Consumer<String> fail = error -> {
+                client.logger.debug("unhandled " + error + " " + column + ": " + values.toString(session));
+                ok.set(false);
+            };
             if (values instanceof SortedRangeSet) {
                 boolean first = true;
+                ranges:
                 for (Range range : values.getRanges().getOrderedRanges()) {
                     if (!range.isSingleValue() && !range.getLow().getValueBlock().isPresent() && !range.getHigh().getValueBlock().isPresent()) {
                         // can't do an IS NULL
-                        client.logger.warn("unhandled range " + column + ": " + range.toString(session));
-                        ok = false;
-                        continue;
+                        fail.accept("range");
+                        break;
                     }
                     where.append(first ? where.isEmpty() ? "WHERE ((" : " AND ((" : ") OR (");
                     if (range.isSingleValue()) {
-                        where.add(column).append(" = ").add(range.getSingleValue());
+                        Object value = range.getSingleValue();
+                        if (column.getKind() == InfluxColumn.Kind.TIME) {
+                            if (value instanceof Long) {
+                                value = Instant.ofEpochMilli(DateTimeEncoding.unpackMillisUtc((Long) value)).toString();
+                            }
+                            else {
+                                fail.accept("time");
+                                break;
+                            }
+                        }
+                        where.add(column).append(" = ").add(value);
                     }
                     else {
                         boolean hasLow = false;
@@ -210,13 +226,22 @@ public class InfluxMetadata
                                     low = " > ";
                                     break;
                                 default:
-                                    client.logger.warn("unhandled low bound " + column + ": " + range.toString(session));
-                                    ok = false;
-                                    continue;
+                                    fail.accept("low bound");
+                                    break ranges;
                             }
                             Object value = range.getLow().getValue();
-                            if (column.getKind() == InfluxColumn.Kind.TIME && value instanceof Long) {
-                                value = Instant.ofEpochMilli(DateTimeEncoding.unpackMillisUtc((Long) value)).toString();
+                            if (column.getKind() == InfluxColumn.Kind.TIME) {
+                                if (value instanceof Long) {
+                                    value = Instant.ofEpochMilli(DateTimeEncoding.unpackMillisUtc((Long) value)).toString();
+                                }
+                                else {
+                                    fail.accept("time low bound");
+                                    break;
+                                }
+                            }
+                            else if (!(value instanceof Number)) {
+                                fail.accept("tag comparision low bound");
+                                break;
                             }
                             where.add(column).append(low).add(value);
                             hasLow = true;
@@ -231,25 +256,33 @@ public class InfluxMetadata
                                     high = " < ";
                                     break;
                                 default:
-                                    client.logger.warn("unhandled high bound " + column + ": " + range.toString(session));
-                                    ok = false;
-                                    continue;
+                                    fail.accept("high bound");
+                                    break ranges;
                             }
                             if (hasLow) {
                                 where.append(" AND ");
                             }
                             Object value = range.getHigh().getValue();
-                            if (column.getKind() == InfluxColumn.Kind.TIME && value instanceof Long) {
-                                value = Instant.ofEpochMilli(DateTimeEncoding.unpackMillisUtc((Long) value)).toString();
+                            if (column.getKind() == InfluxColumn.Kind.TIME) {
+                                if (value instanceof Long) {
+                                    value = Instant.ofEpochMilli(DateTimeEncoding.unpackMillisUtc((Long) value)).toString();
+                                }
+                                else {
+                                    fail.accept("time high bound");
+                                    break;
+                                }
+                            }
+                            else if (!(value instanceof Number)) {
+                                fail.accept("tag comparison high bound");
+                                break;
                             }
                             where.add(column).append(high).add(value);
                         }
                     }
                     first = false;
                 }
-                if (first) {
-                    client.logger.warn("unhandled SortedRangeSet " + column + ": " + values.getClass().getName() + "=" + values.toString(session));
-                    ok = false;
+                if (ok.get() && first) {
+                    fail.accept("SortedRangeSet");
                 }
                 else {
                     where.append("))");
@@ -263,18 +296,16 @@ public class InfluxMetadata
                     first = false;
                 }
                 if (first) {
-                    client.logger.warn("unhandled EquatableValueSet " + column + ": " + values.getClass().getName() + "=" + values.toString(session));
-                    ok = false;
+                    fail.accept("EquatableValueSet");
                 }
                 else {
                     where.append(')');
                 }
             }
             else {
-                client.logger.warn("unhandled predicate " + column + ": " + values.getClass().getName() + "=" + values.toString(session));
-                ok = false;
+                fail.accept("predicate");
             }
-            if (!ok) {
+            if (!ok.get()) {
                 // undo everything we did add to the where-clause
                 where.truncate(startPos);
                 // and tell Presto we couldn't handle all the filtering

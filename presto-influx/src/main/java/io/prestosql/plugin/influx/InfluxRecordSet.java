@@ -47,53 +47,55 @@ public class InfluxRecordSet
         this.columnTypes = columnTypes.build();
         this.rows = new ArrayList<>();
         final int ignore = -1;
-        for (JsonNode series : results) {
-            if (!series.has("values")) {
-                continue;
-            }
-            // we can't push down group-bys so we have no tags to consider
-            JsonNode header = series.get("columns");
-            int[] fields = new int[header.size()];
-            for (int i = 0; i < fields.length; i++) {
-                fields[i] = mapping.getOrDefault(header.get(i).textValue(), ignore);
-            }
-            for (JsonNode values : series.get("values")) {
-                Object[] row = new Object[columns.size()];
-                for (int i = 0; i < fields.length; i++) {
-                    int slot = fields[i];
-                    if (slot != ignore) {
-                        final Object value;
-                        JsonNode node = values.get(i);
-                        if (node.isNull()) {
-                            value = null;
-                        }
-                        else {
-                            switch (columns.get(slot).getInfluxType()) {
-                                case "string":
-                                    value = node.textValue();
-                                    break;
-                                case "boolean":
-                                    value = node.booleanValue();
-                                    break;
-                                case "integer":
-                                    value = node.longValue();
-                                    break;
-                                case "float":
-                                    value = node.doubleValue();
-                                    break;
-                                case "time":
-                                    Instant timestamp = Instant.parse(node.textValue());
-                                    value = DateTimeEncoding.packDateTimeWithZone(timestamp.toEpochMilli(), TimeZoneKey.UTC_KEY);
-                                    break;
-                                default:
-                                    InfluxError.GENERAL.fail("cannot map " + node + " to " + columns.get(slot));
-                                    value = null;
-                            }
-                        }
-                        row[slot] = value;
-                    }
+        if (results != null) {
+            for (JsonNode series : results) {
+                if (!series.has("values")) {
+                    continue;
                 }
-                rows.add(row);
+                // we can't push down group-bys so we have no tags to consider
+                JsonNode header = series.get("columns");
+                int[] fields = new int[header.size()];
+                for (int i = 0; i < fields.length; i++) {
+                    fields[i] = mapping.getOrDefault(header.get(i).textValue(), ignore);
+                }
+                for (JsonNode values : series.get("values")) {
+                    Object[] row = new Object[columns.size()];
+                    for (int i = 0; i < fields.length; i++) {
+                        int slot = fields[i];
+                        if (slot != ignore) {
+                            final Object value;
+                            JsonNode node = values.get(i);
+                            if (node.isNull()) {
+                                value = null;
+                            }
+                            else {
+                                switch (columns.get(slot).getInfluxType()) {
+                                    case "string":
+                                        value = node.textValue();
+                                        break;
+                                    case "boolean":
+                                        value = node.booleanValue();
+                                        break;
+                                    case "integer":
+                                        value = node.longValue();
+                                        break;
+                                    case "float":
+                                        value = node.doubleValue();
+                                        break;
+                                    case "time":
+                                        Instant timestamp = Instant.parse(node.textValue());
+                                        value = DateTimeEncoding.packDateTimeWithZone(timestamp.toEpochMilli(), TimeZoneKey.UTC_KEY);
+                                        break;
+                                    default:
+                                        InfluxError.GENERAL.fail("cannot map " + node + " to " + columns.get(slot));
+                                        value = null;
+                                }
+                            }
+                            row[slot] = value;
+                        }
+                    }
+                    rows.add(row);
+                }
             }
         }
     }
