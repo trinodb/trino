@@ -33,7 +33,14 @@ public class TestPostgreSqlDistributedQueries
             throws Exception
     {
         this.postgreSqlServer = new TestingPostgreSqlServer();
-        return createPostgreSqlQueryRunner(postgreSqlServer, ImmutableMap.of(), TpchTable.getTables());
+        return createPostgreSqlQueryRunner(
+                postgreSqlServer,
+                ImmutableMap.<String, String>builder()
+                        // caching here speeds up tests highly, caching is not used in smoke tests
+                        .put("metadata.cache-ttl", "10m")
+                        .put("metadata.cache-missing", "true")
+                        .build(),
+                TpchTable.getTables());
     }
 
     @AfterClass(alwaysRun = true)

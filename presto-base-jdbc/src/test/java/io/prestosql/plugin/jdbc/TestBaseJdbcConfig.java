@@ -37,7 +37,9 @@ public class TestBaseJdbcConfig
                 .setCaseInsensitiveNameMatching(false)
                 .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES))
                 .setJdbcTypesMappedToVarchar(null)
-                .setUnsupportedTypeHandling(UnsupportedTypeHandling.IGNORE));
+                .setUnsupportedTypeHandling(UnsupportedTypeHandling.IGNORE)
+                .setMetadataCacheTtl(Duration.valueOf("0m"))
+                .setCacheMissing(false));
     }
 
     @Test
@@ -49,6 +51,8 @@ public class TestBaseJdbcConfig
                 .put("case-insensitive-name-matching.cache-ttl", "1s")
                 .put("jdbc-types-mapped-to-varchar", "mytype,struct_type1")
                 .put("unsupported-type-handling", "CONVERT_TO_VARCHAR")
+                .put("metadata.cache-ttl", "1s")
+                .put("metadata.cache-missing", "true")
                 .build();
 
         BaseJdbcConfig expected = new BaseJdbcConfig()
@@ -56,7 +60,9 @@ public class TestBaseJdbcConfig
                 .setCaseInsensitiveNameMatching(true)
                 .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, SECONDS))
                 .setJdbcTypesMappedToVarchar("mytype, struct_type1")
-                .setUnsupportedTypeHandling(UnsupportedTypeHandling.CONVERT_TO_VARCHAR);
+                .setUnsupportedTypeHandling(UnsupportedTypeHandling.CONVERT_TO_VARCHAR)
+                .setMetadataCacheTtl(Duration.valueOf("1s"))
+                .setCacheMissing(true);
 
         assertFullMapping(properties, expected);
 
