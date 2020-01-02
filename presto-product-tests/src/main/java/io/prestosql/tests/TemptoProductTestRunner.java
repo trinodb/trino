@@ -19,7 +19,6 @@ import io.prestosql.tempto.internal.fulfillment.ldap.LdapObjectFulfiller;
 import io.prestosql.tempto.internal.fulfillment.ldap.LdapObjectModuleProvider;
 import io.prestosql.tempto.runner.TemptoRunner;
 import io.prestosql.tempto.runner.TemptoRunnerCommandLineParser;
-import io.prestosql.tests.querystats.QueryStatsClientModuleProvider;
 
 import static io.prestosql.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_AVRO;
 import static io.prestosql.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_ORC;
@@ -43,9 +42,7 @@ public final class TemptoProductTestRunner
                 parser,
                 args,
                 () -> ImmutableList.of(),
-                () -> ImmutableList.of(
-                        LdapObjectModuleProvider.class,
-                        QueryStatsClientModuleProvider.class),
+                () -> ImmutableList.of(LdapObjectModuleProvider.class),
                 () -> ImmutableList.of(LdapObjectFulfiller.class),
                 () -> ImmutableList.of(KafkaTableManager.class),
                 () -> ImmutableList.of(
