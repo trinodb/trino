@@ -53,7 +53,7 @@ public class TestTablePartitioningInsertInto
         this.queryStatsClient = queryStatsClient;
     }
 
-    @Test(groups = SMOKE)
+    @Test(groups = SMOKE, invocationCount = 100)
     public void selectFromPartitionedNation()
             throws Exception
     {

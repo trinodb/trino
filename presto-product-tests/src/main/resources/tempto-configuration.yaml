@@ -1,7 +1,7 @@
 hdfs:
   username: hive
   webhdfs:
-    uri: http://${databases.hive.host}:50070
+    uri: http://${databases.hive.host}:9870
 
 databases:
   default:
