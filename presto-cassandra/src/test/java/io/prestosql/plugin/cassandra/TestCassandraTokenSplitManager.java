@@ -60,16 +60,16 @@ public class TestCassandraTokenSplitManager
         server.refreshSizeEstimates(KEYSPACE, tableName);
 
         CassandraTokenSplitManager onlyConfigSplitsPerNode = new CassandraTokenSplitManager(session, SPLIT_SIZE, Optional.of(12_345L));
-        assertEquals(12_345L, onlyConfigSplitsPerNode.getTotalPartitionsCount(KEYSPACE, tableName, Optional.empty()));
+        assertEquals(onlyConfigSplitsPerNode.getTotalPartitionsCount(KEYSPACE, tableName, Optional.empty()), 12_345L);
 
         CassandraTokenSplitManager onlySessionSplitsPerNode = new CassandraTokenSplitManager(session, SPLIT_SIZE, Optional.empty());
-        assertEquals(67_890L, onlySessionSplitsPerNode.getTotalPartitionsCount(KEYSPACE, tableName, Optional.of(67_890L)));
+        assertEquals(onlySessionSplitsPerNode.getTotalPartitionsCount(KEYSPACE, tableName, Optional.of(67_890L)), 67_890L);
 
         CassandraTokenSplitManager sessionOverrideConfig = new CassandraTokenSplitManager(session, SPLIT_SIZE, Optional.of(12_345L));
-        assertEquals(67_890L, sessionOverrideConfig.getTotalPartitionsCount(KEYSPACE, tableName, Optional.of(67_890L)));
+        assertEquals(sessionOverrideConfig.getTotalPartitionsCount(KEYSPACE, tableName, Optional.of(67_890L)), 67_890L);
 
         CassandraTokenSplitManager defaultSplitManager = new CassandraTokenSplitManager(session, SPLIT_SIZE, Optional.empty());
-        assertEquals(0, defaultSplitManager.getTotalPartitionsCount(KEYSPACE, tableName, Optional.empty()));
+        assertEquals(defaultSplitManager.getTotalPartitionsCount(KEYSPACE, tableName, Optional.empty()), 0);
     }
 
     @Test
