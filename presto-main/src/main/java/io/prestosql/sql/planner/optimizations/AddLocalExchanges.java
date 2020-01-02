@@ -482,7 +482,7 @@ public class AddLocalExchanges
         {
             StreamPreferredProperties requiredProperties;
             StreamPreferredProperties preferredProperties;
-            if (getTaskWriterCount(session) > 1) {
+            if (getTaskWriterCount(session) > 1 && !node.getPartitioningScheme().isPresent()) {
                 requiredProperties = fixedParallelism();
                 preferredProperties = fixedParallelism();
             }
