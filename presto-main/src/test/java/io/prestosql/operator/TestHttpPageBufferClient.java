@@ -246,7 +246,7 @@ public class TestHttpPageBufferClient
         assertEquals(callback.getFinishedBuffers(), 0);
         assertEquals(callback.getFailedBuffers(), 1);
         assertInstanceOf(callback.getFailure(), PageTransportErrorException.class);
-        assertContains(callback.getFailure().getMessage(), "Expected response code to be 200, but was 404 Not Found");
+        assertContains(callback.getFailure().getMessage(), "Expected response code to be 200, but was 404");
         assertStatus(client, location, "queued", 0, 1, 1, 1, "not scheduled");
 
         // send invalid content type response and verify response was ignored
