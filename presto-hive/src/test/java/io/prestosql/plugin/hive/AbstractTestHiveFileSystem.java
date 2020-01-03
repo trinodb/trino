@@ -114,6 +114,8 @@ public abstract class AbstractTestHiveFileSystem
 
     protected String database;
     protected SchemaTableName table;
+    protected SchemaTableName tableWithHeader;
+    protected SchemaTableName tableWithHeaderAndFooter;
     protected SchemaTableName temporaryCreateTable;
 
     protected HdfsEnvironment hdfsEnvironment;
@@ -155,6 +157,8 @@ public abstract class AbstractTestHiveFileSystem
     {
         database = databaseName;
         table = new SchemaTableName(database, "presto_test_external_fs");
+        tableWithHeader = new SchemaTableName(database, "presto_test_external_fs_with_header");
+        tableWithHeaderAndFooter = new SchemaTableName(database, "presto_test_external_fs_with_header_and_footer");
 
         String random = randomUUID().toString().toLowerCase(ENGLISH).replace("-", "");
         temporaryCreateTable = new SchemaTableName(database, "tmp_presto_test_create_" + random);
@@ -252,6 +256,34 @@ public abstract class AbstractTestHiveFileSystem
                         .row(92L).row(65L).row(35L) // test_table.csv.gz
                         .row(89L).row(79L).row(32L) // test_table.csv.bz2
                         .row(38L).row(46L).row(26L) // test_table.csv.lz4
+                        .build());
+    }
+
+    @Test
+    public void testGetRecordsWithHeader()
+            throws IOException
+    {
+        assertEqualsIgnoreOrder(
+                readTable(tableWithHeader),
+                MaterializedResult.resultBuilder(newSession(), BIGINT)
+                        .row(2L).row(71L).row(82L) // test_table_with_header.csv
+                        .row(81L).row(82L).row(84L) // test_table_with_header.csv.gz
+                        .row(59L).row(4L).row(52L) // test_table_with_header.csv.bz2
+                        .row(35L).row(36L).row(2L) // test_table_with_header.csv.lz4
+                        .build());
+    }
+
+    @Test
+    public void testGetRecordsWithHeaderAndFooter()
+            throws IOException
+    {
+        assertEqualsIgnoreOrder(
+                readTable(tableWithHeaderAndFooter),
+                MaterializedResult.resultBuilder(newSession(), BIGINT)
+                        .row(1L).row(41L).row(42L) // test_table_with_header_and_footer.csv
+                        .row(13L).row(56L).row(23L) // test_table_with_header_and_footer.csv.gz
+                        .row(73L).row(9L).row(50L) // test_table_with_header_and_footer.csv.bz2
+                        .row(48L).row(80L).row(16L) // test_table_with_header_and_footer.csv.lz4
                         .build());
     }
 

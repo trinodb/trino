@@ -25,6 +25,24 @@ exec_in_hadoop_master_container sudo -Eu hive beeline -u jdbc:hive2://localhost:
     STORED AS TEXTFILE
     LOCATION '${table_path}'"
 
+table_path="s3a://${S3_BUCKET}/presto_test_external_fs_with_header/"
+exec_in_hadoop_master_container hadoop fs -mkdir -p "${table_path}"
+exec_in_hadoop_master_container hadoop fs -put -f /docker/files/test_table_with_header.csv{,.gz,.bz2,.lz4} "${table_path}"
+exec_in_hadoop_master_container /usr/bin/hive -e "
+    CREATE EXTERNAL TABLE presto_test_external_fs_with_header(t_bigint bigint)
+    STORED AS TEXTFILE
+    LOCATION '${table_path}'
+    TBLPROPERTIES ('skip.header.line.count'='1')"
+
+table_path="s3a://${S3_BUCKET}/presto_test_external_fs_with_header_and_footer/"
+exec_in_hadoop_master_container hadoop fs -mkdir -p "${table_path}"
+exec_in_hadoop_master_container hadoop fs -put -f /docker/files/test_table_with_header_and_footer.csv{,.gz,.bz2,.lz4} "${table_path}"
+exec_in_hadoop_master_container /usr/bin/hive -e "
+    CREATE EXTERNAL TABLE presto_test_external_fs_with_header_and_footer(t_bigint bigint)
+    STORED AS TEXTFILE
+    LOCATION '${table_path}'
+    TBLPROPERTIES ('skip.header.line.count'='2', 'skip.footer.line.count'='2')"
+
 stop_unnecessary_hadoop_services
 
 # restart hive-metastore to apply S3 changes in core-site.xml
