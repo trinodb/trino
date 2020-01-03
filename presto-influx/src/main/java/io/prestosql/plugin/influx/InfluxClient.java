@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.prestosql.spi.HostAddress;
 
-import javax.annotation.CheckForNull;
 import javax.inject.Inject;
 
 import java.net.URL;
@@ -175,13 +174,17 @@ public class InfluxClient
     }
 
     /* Using raw HTTP because the influx java library has dependency conflicts and puts the burden of quoting identifiers on the caller */
-    @CheckForNull
     JsonNode execute(String query)
     {
         final JsonNode response;
         try {
+            String authentication = config.getUserName() != null ?
+                    config.getUserName() + (config.getPassword() != null ?
+                            ":" + config.getPassword() :
+                            "") + "@" :
+                    "";
             URL url = new URL((config.isUseHttps() ? "https://" : "http://")
-                    + config.getUserName() + ":" + config.getPassword() + "@"
+                    + authentication
                     + config.getHost() + ":" + config.getPort() +
                     "/query?db=" + config.getDatabase() +
                     "&q=" + URLEncoder.encode(query, StandardCharsets.UTF_8.toString()));

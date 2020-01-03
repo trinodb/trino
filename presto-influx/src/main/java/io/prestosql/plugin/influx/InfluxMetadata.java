@@ -44,8 +44,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Consumer;
 
 import static java.util.Objects.requireNonNull;
 
@@ -186,126 +184,120 @@ public class InfluxMetadata
             int startPos = where.getPos();
             InfluxColumnHandle column = (InfluxColumnHandle) predicate.getKey();
             ValueSet values = predicate.getValue().getValues();
-            AtomicBoolean ok = new AtomicBoolean(true);  // can we handle this column?
-            Consumer<String> fail = error -> {
-                client.logger.debug("unhandled " + error + " " + column + ": " + values.toString(session));
-                ok.set(false);
-            };
-            if (values instanceof SortedRangeSet) {
-                boolean first = true;
-                ranges:
-                for (Range range : values.getRanges().getOrderedRanges()) {
-                    if (!range.isSingleValue() && !range.getLow().getValueBlock().isPresent() && !range.getHigh().getValueBlock().isPresent()) {
-                        // can't do an IS NULL
-                        fail.accept("range");
-                        break;
-                    }
-                    where.append(first ? where.isEmpty() ? "WHERE ((" : " AND ((" : ") OR (");
-                    if (range.isSingleValue()) {
-                        Object value = range.getSingleValue();
-                        if (column.getKind() == InfluxColumn.Kind.TIME) {
-                            if (value instanceof Long) {
-                                value = Instant.ofEpochMilli(DateTimeEncoding.unpackMillisUtc((Long) value)).toString();
+            try {
+                if (values instanceof SortedRangeSet) {
+                    boolean first = true;
+                    for (Range range : values.getRanges().getOrderedRanges()) {
+                        if (!range.isSingleValue() && !range.getLow().getValueBlock().isPresent() && !range.getHigh().getValueBlock().isPresent()) {
+                            throw new UnhandledFilterException("range");
+                        }
+                        where.append(first ? where.isEmpty() ? "WHERE ((" : " AND ((" : ") OR (");
+                        if (range.isSingleValue()) {
+                            Object value = range.getSingleValue();
+                            if (column.getKind() == InfluxColumn.Kind.TIME) {
+                                if (value instanceof Long) {
+                                    value = Instant.ofEpochMilli(DateTimeEncoding.unpackMillisUtc((Long) value)).toString();
+                                }
+                                else {
+                                    throw new UnhandledFilterException("time");
+                                }
                             }
-                            else {
-                                fail.accept("time");
-                                break;
+                            where.add(column).append(" = ").add(value);
+                        }
+                        else {
+                            boolean hasLow = false;
+                            if (range.getLow().getValueBlock().isPresent()) {
+                                final String low;
+                                switch (range.getLow().getBound()) {
+                                    case EXACTLY:
+                                        low = " >= ";
+                                        break;
+                                    case ABOVE:
+                                        low = " > ";
+                                        break;
+                                    default:
+                                        throw new UnhandledFilterException("low bound");
+                                }
+                                Object value = range.getLow().getValue();
+                                if (column.getKind() == InfluxColumn.Kind.TIME) {
+                                    if (value instanceof Long) {
+                                        value = Instant.ofEpochMilli(DateTimeEncoding.unpackMillisUtc((Long) value)).toString();
+                                    }
+                                    else {
+                                        throw new UnhandledFilterException("time low bound");
+                                    }
+                                }
+                                else if (!(value instanceof Number)) {
+                                    throw new UnhandledFilterException("tag comparision low bound");
+                                }
+                                where.add(column).append(low).add(value);
+                                hasLow = true;
+                            }
+                            if (range.getHigh().getValueBlock().isPresent()) {
+                                final String high;
+                                switch (range.getHigh().getBound()) {
+                                    case EXACTLY:
+                                        high = " <= ";
+                                        break;
+                                    case BELOW:
+                                        high = " < ";
+                                        break;
+                                    default:
+                                        throw new UnhandledFilterException("high bound");
+                                }
+                                if (hasLow) {
+                                    where.append(" AND ");
+                                }
+                                Object value = range.getHigh().getValue();
+                                if (column.getKind() == InfluxColumn.Kind.TIME) {
+                                    if (value instanceof Long) {
+                                        value = Instant.ofEpochMilli(DateTimeEncoding.unpackMillisUtc((Long) value)).toString();
+                                    }
+                                    else {
+                                        throw new UnhandledFilterException("time high bound");
+                                    }
+                                }
+                                else if (!(value instanceof Number)) {
+                                    throw new UnhandledFilterException("tag comparison high bound");
+                                }
+                                where.add(column).append(high).add(value);
                             }
                         }
-                        where.add(column).append(" = ").add(value);
+                        first = false;
+                    }
+                    if (first) {
+                        if (column.getKind() == InfluxColumn.Kind.TAG) {
+                            // WHERE column IS NULL
+                            where.append(where.isEmpty() ? "WHERE (" : " AND (").add(column).append(" = '')");
+                        }
+                        else {
+                            throw new UnhandledFilterException("SortedRangeSet");
+                        }
                     }
                     else {
-                        boolean hasLow = false;
-                        if (range.getLow().getValueBlock().isPresent()) {
-                            final String low;
-                            switch (range.getLow().getBound()) {
-                                case EXACTLY:
-                                    low = " >= ";
-                                    break;
-                                case ABOVE:
-                                    low = " > ";
-                                    break;
-                                default:
-                                    fail.accept("low bound");
-                                    break ranges;
-                            }
-                            Object value = range.getLow().getValue();
-                            if (column.getKind() == InfluxColumn.Kind.TIME) {
-                                if (value instanceof Long) {
-                                    value = Instant.ofEpochMilli(DateTimeEncoding.unpackMillisUtc((Long) value)).toString();
-                                }
-                                else {
-                                    fail.accept("time low bound");
-                                    break;
-                                }
-                            }
-                            else if (!(value instanceof Number)) {
-                                fail.accept("tag comparision low bound");
-                                break;
-                            }
-                            where.add(column).append(low).add(value);
-                            hasLow = true;
-                        }
-                        if (range.getHigh().getValueBlock().isPresent()) {
-                            final String high;
-                            switch (range.getHigh().getBound()) {
-                                case EXACTLY:
-                                    high = " <= ";
-                                    break;
-                                case BELOW:
-                                    high = " < ";
-                                    break;
-                                default:
-                                    fail.accept("high bound");
-                                    break ranges;
-                            }
-                            if (hasLow) {
-                                where.append(" AND ");
-                            }
-                            Object value = range.getHigh().getValue();
-                            if (column.getKind() == InfluxColumn.Kind.TIME) {
-                                if (value instanceof Long) {
-                                    value = Instant.ofEpochMilli(DateTimeEncoding.unpackMillisUtc((Long) value)).toString();
-                                }
-                                else {
-                                    fail.accept("time high bound");
-                                    break;
-                                }
-                            }
-                            else if (!(value instanceof Number)) {
-                                fail.accept("tag comparison high bound");
-                                break;
-                            }
-                            where.add(column).append(high).add(value);
-                        }
+                        where.append("))");
                     }
-                    first = false;
                 }
-                if (ok.get() && first) {
-                    fail.accept("SortedRangeSet");
-                }
-                else {
-                    where.append("))");
-                }
-            }
-            else if (values instanceof EquatableValueSet) {
-                boolean first = true;
-                for (Object value : values.getDiscreteValues().getValues()) {
-                    where.append(first ? where.isEmpty() ? "WHERE (" : " AND (" : " OR ")
-                            .add(column).append(" = ").add(value);
-                    first = false;
-                }
-                if (first) {
-                    fail.accept("EquatableValueSet");
+                else if (values instanceof EquatableValueSet) {
+                    boolean first = true;
+                    for (Object value : values.getDiscreteValues().getValues()) {
+                        where.append(first ? where.isEmpty() ? "WHERE (" : " AND (" : " OR ")
+                                .add(column).append(" = ").add(value);
+                        first = false;
+                    }
+                    if (first) {
+                        throw new UnhandledFilterException("EquatableValueSet");
+                    }
+                    else {
+                        where.append(')');
+                    }
                 }
                 else {
-                    where.append(')');
+                    throw new UnhandledFilterException("predicate");
                 }
             }
-            else {
-                fail.accept("predicate");
-            }
-            if (!ok.get()) {
+            catch (UnhandledFilterException e) {
+                client.logger.debug("unhandled " + e + " " + column + ": " + values.toString(session));
                 // undo everything we did add to the where-clause
                 where.truncate(startPos);
                 // and tell Presto we couldn't handle all the filtering
@@ -319,5 +311,14 @@ public class InfluxMetadata
                 table.getMeasurement(),
                 where,
                 table.getLimit()), all ? TupleDomain.all() : constraint.getSummary()));
+    }
+
+    private static class UnhandledFilterException
+            extends Exception
+    {
+        private UnhandledFilterException(String message)
+        {
+            super(message);
+        }
     }
 }

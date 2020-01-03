@@ -79,7 +79,6 @@ public class InfluxConfig
         return this;
     }
 
-    @NotNull
     public String getUserName()
     {
         return userName;
@@ -92,7 +91,6 @@ public class InfluxConfig
         return this;
     }
 
-    @NotNull
     public String getPassword()
     {
         return password;

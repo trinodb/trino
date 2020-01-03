@@ -121,10 +121,8 @@ public class InfluxQL
         append(delimiter);
         for (int i = 0; i < value.length(); i++) {
             char ch = value.charAt(i);
-            if (ch < ' ' || ch > 127) {
-                InfluxError.BAD_VALUE.fail("illegal value", value);
-            }
-            if (ch == delimiter || ch == '\\') {
+            InfluxError.BAD_VALUE.check(ch >= ' ', "illegal value", value);
+            if (ch == '\\' || ch == delimiter) {
                 append('\\');
             }
             append(ch);
