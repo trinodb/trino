@@ -14,7 +14,6 @@
 package io.prestosql.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.net.HostAndPort;
 import io.airlift.concurrent.BoundedExecutor;
@@ -56,6 +55,7 @@ import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.TableNotFoundException;
 import io.prestosql.spi.security.ConnectorIdentity;
+import io.prestosql.spi.type.Type;
 import io.prestosql.sql.gen.JoinCompiler;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
@@ -70,14 +70,15 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
@@ -244,36 +245,14 @@ public abstract class AbstractTestHiveFileSystem
     public void testGetRecords()
             throws Exception
     {
-        try (Transaction transaction = newTransaction()) {
-            ConnectorMetadata metadata = transaction.getMetadata();
-            ConnectorSession session = newSession();
-
-            ConnectorTableHandle table = getTableHandle(metadata, this.table);
-            List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, table).values());
-            Map<String, Integer> columnIndex = indexColumns(columnHandles);
-
-            metadata.beginQuery(session);
-            ConnectorSplitSource splitSource = splitManager.getSplits(transaction.getTransactionHandle(), session, table, UNGROUPED_SCHEDULING);
-
-            List<ConnectorSplit> splits = getAllSplits(splitSource);
-            assertEquals(splits.size(), 4);
-
-            long sum = 0;
-            for (ConnectorSplit split : splits) {
-                try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, split, table, columnHandles)) {
-                    MaterializedResult result = materializeSourceDataStream(session, pageSource, getTypes(columnHandles));
-
-                    for (MaterializedRow row : result) {
-                        sum += (Long) row.getField(columnIndex.get("t_bigint"));
-                    }
-                }
-            }
-            // The test table is made up of multiple S3 objects with same data and different compression codec
-            // formats: uncompressed | .gz | .lz4 | .bz2
-            assertEquals(sum, 78300 * 4);
-
-            metadata.cleanupQuery(session);
-        }
+        assertEqualsIgnoreOrder(
+                readTable(table),
+                MaterializedResult.resultBuilder(newSession(), BIGINT)
+                        .row(3L).row(14L).row(15L) // test_table.csv
+                        .row(92L).row(65L).row(35L) // test_table.csv.gz
+                        .row(89L).row(79L).row(32L) // test_table.csv.bz2
+                        .row(38L).row(46L).row(26L) // test_table.csv.lz4
+                        .build());
     }
 
     @Test
@@ -281,8 +260,8 @@ public abstract class AbstractTestHiveFileSystem
             throws Exception
     {
         Path basePath = getBasePath();
-        Path tablePath = new Path(basePath, "presto_test_external_fs");
-        Path filePath = new Path(tablePath, "test1.csv");
+        Path tablePath = new Path(basePath, "presto_test_external_fs_v2");
+        Path filePath = new Path(tablePath, "test_table.csv");
         FileSystem fs = hdfsEnvironment.getFileSystem(TESTING_CONTEXT, basePath);
 
         assertTrue(fs.getFileStatus(basePath).isDirectory(), "basePath should be considered a directory");
@@ -448,23 +427,49 @@ public abstract class AbstractTestHiveFileSystem
         }
     }
 
+    protected MaterializedResult readTable(SchemaTableName tableName)
+            throws IOException
+    {
+        try (Transaction transaction = newTransaction()) {
+            ConnectorMetadata metadata = transaction.getMetadata();
+            ConnectorSession session = newSession();
+
+            ConnectorTableHandle table = getTableHandle(metadata, tableName);
+            List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, table).values());
+
+            metadata.beginQuery(session);
+            ConnectorSplitSource splitSource = splitManager.getSplits(transaction.getTransactionHandle(), session, table, UNGROUPED_SCHEDULING);
+
+            List<Type> allTypes = getTypes(columnHandles);
+            List<Type> dataTypes = getTypes(columnHandles.stream()
+                    .filter(columnHandle -> !((HiveColumnHandle) columnHandle).isHidden())
+                    .collect(toImmutableList()));
+            MaterializedResult.Builder result = MaterializedResult.resultBuilder(session, dataTypes);
+
+            List<ConnectorSplit> splits = getAllSplits(splitSource);
+            for (ConnectorSplit split : splits) {
+                try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, split, table, columnHandles)) {
+                    MaterializedResult pageSourceResult = materializeSourceDataStream(session, pageSource, allTypes);
+                    for (MaterializedRow row : pageSourceResult.getMaterializedRows()) {
+                        Object[] dataValues = IntStream.range(0, row.getFieldCount())
+                                .filter(channel -> !((HiveColumnHandle) columnHandles.get(channel)).isHidden())
+                                .mapToObj(row::getField)
+                                .toArray();
+                        result.row(dataValues);
+                    }
+                }
+            }
+
+            metadata.cleanupQuery(session);
+            return result.build();
+        }
+    }
+
     private ConnectorTableHandle getTableHandle(ConnectorMetadata metadata, SchemaTableName tableName)
     {
         ConnectorTableHandle handle = metadata.getTableHandle(newSession(), tableName);
         checkArgument(handle != null, "table not found: %s", tableName);
         return handle;
-    }
-
-    private static ImmutableMap<String, Integer> indexColumns(List<ColumnHandle> columnHandles)
-    {
-        ImmutableMap.Builder<String, Integer> index = ImmutableMap.builder();
-        int i = 0;
-        for (ColumnHandle columnHandle : columnHandles) {
-            HiveColumnHandle hiveColumnHandle = (HiveColumnHandle) columnHandle;
-            index.put(hiveColumnHandle.getName(), i);
-            i++;
-        }
-        return index.build();
     }
 
     private static class TestingHiveMetastore

@@ -93,7 +93,7 @@ public final class S3SelectPushdown
         if (inputFormat instanceof TextInputFormat) {
             return getCompressionCodec((TextInputFormat) inputFormat, path)
                     .map(codec -> (codec instanceof GzipCodec) || (codec instanceof BZip2Codec))
-                    .orElse(true);
+                    .orElse(false); // TODO (https://github.com/prestosql/presto/issues/2475) fix S3 Select when file not compressed
         }
 
         return false;
