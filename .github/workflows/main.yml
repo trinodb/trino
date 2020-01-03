@@ -83,6 +83,7 @@ jobs:
   test-action:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v1
       - run: mkdir -p ./foo_bar/target && echo "Hello world" > ./foo_bar/target/x_reports
       - uses: ./.github/actions/upload-artifacts
 
