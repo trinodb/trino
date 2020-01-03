@@ -15,23 +15,17 @@ package io.prestosql.plugin.hive.s3select;
 
 import com.amazonaws.services.s3.model.CSVInput;
 import com.amazonaws.services.s3.model.CSVOutput;
-import com.amazonaws.services.s3.model.CompressionType;
 import com.amazonaws.services.s3.model.ExpressionType;
 import com.amazonaws.services.s3.model.InputSerialization;
 import com.amazonaws.services.s3.model.OutputSerialization;
 import com.amazonaws.services.s3.model.SelectObjectContentRequest;
 import io.prestosql.plugin.hive.s3.PrestoS3FileSystem;
-import io.prestosql.spi.PrestoException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.compress.BZip2Codec;
-import org.apache.hadoop.io.compress.CompressionCodec;
-import org.apache.hadoop.io.compress.GzipCodec;
 
 import java.net.URI;
 import java.util.Properties;
 
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static org.apache.hadoop.hive.serde.serdeConstants.ESCAPE_CHAR;
 import static org.apache.hadoop.hive.serde.serdeConstants.QUOTE_CHAR;
 
@@ -80,19 +74,9 @@ class S3SelectCsvRecordReader
         selectObjectCSVInputSerialization.setComments(COMMENTS_CHAR_STR);
         selectObjectCSVInputSerialization.setQuoteCharacter(quoteChar);
         selectObjectCSVInputSerialization.setQuoteEscapeCharacter(escapeChar);
+
         InputSerialization selectObjectInputSerialization = new InputSerialization();
-
-        CompressionCodec codec = compressionCodecFactory.getCodec(path);
-        if (codec instanceof GzipCodec) {
-            selectObjectInputSerialization.setCompressionType(CompressionType.GZIP);
-        }
-        else if (codec instanceof BZip2Codec) {
-            selectObjectInputSerialization.setCompressionType(CompressionType.BZIP2);
-        }
-        else if (codec != null) {
-            throw new PrestoException(NOT_SUPPORTED, "Compression extension not supported for S3 Select: " + path);
-        }
-
+        selectObjectInputSerialization.setCompressionType(getCompressionType(path));
         selectObjectInputSerialization.setCsv(selectObjectCSVInputSerialization);
         selectObjectRequest.setInputSerialization(selectObjectInputSerialization);
 
