@@ -12,4 +12,4 @@ ARG INPUT_SHA
 RUN pip install --quiet --no-cache-dir awscli==${AWSCLI_VERSION}
 
 ADD upload-artifacts.sh /upload-artifacts.sh
-ENTRYPOINT ["/upload-artifacts.sh"]
+ENTRYPOINT /upload-artifacts.sh
