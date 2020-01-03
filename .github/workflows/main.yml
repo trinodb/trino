@@ -83,18 +83,8 @@ jobs:
   test-action:
     runs-on: ubuntu-latest
     steps:
-      - run: mkdir -p ./report && echo "Hello world" > ./report/foo.bar
-      - uses: jakejarvis/s3-sync-action@v0.5.0
-        with:
-          #args: --acl public-read --follow-symlinks --delete
-          args: --follow-symlinks --delete
-        env:
-          AWS_S3_BUCKET: "presto-ci-test"
-          AWS_ACCESS_KEY_ID: ${{ secrets.AwsAccessKey }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AwsSecretKey }}
-          AWS_REGION: 'us-east-2'
-          SOURCE_DIR: './report'
-          DEST_DIR: "foo"
+      - run: mkdir -p ./foo_bar/target && echo "Hello world" > ./foo_bar/target/x_reports
+      - uses: actions/upload-artifacts
 
 #  kudu-tests:
 #    runs-on: ubuntu-latest
