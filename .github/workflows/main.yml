@@ -73,6 +73,12 @@ jobs:
         run: |
           source presto-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
             presto-hive-hadoop2/bin/run_hive_tests.sh
+      - name: Upload Surefire heap dump on failure
+        uses: actions/upload-artifact@v1
+        if: failure()
+        with:
+          name: surefire-heapdump
+          path: /tmp/surefire-heapdump.hprof
 
   kudu-tests:
     runs-on: ubuntu-latest
@@ -91,6 +97,12 @@ jobs:
         run: presto-kudu/bin/run_kudu_tests.sh ""
       - name: Run Kudu Tests -- enable InferSchema, standard prefix
         run: presto-kudu/bin/run_kudu_tests.sh "presto::"
+      - name: Upload Surefire heap dump on failure
+        uses: actions/upload-artifact@v1
+        if: failure()
+        with:
+          name: surefire-heapdump
+          path: /tmp/surefire-heapdump.hprof
 
   test-other-modules:
     runs-on: ubuntu-latest
@@ -117,6 +129,12 @@ jobs:
             !presto-sqlserver,!presto-postgresql,!presto-mysql,
             !presto-phoenix,!presto-iceberg,
             !presto-docs,!presto-server,!presto-server-rpm'
+      - name: Upload Surefire heap dump on failure
+        uses: actions/upload-artifact@v1
+        if: failure()
+        with:
+          name: surefire-heapdump
+          path: /tmp/surefire-heapdump.hprof
 
   test-modules:
     runs-on: ubuntu-latest
@@ -148,6 +166,12 @@ jobs:
           ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl $(echo '${{ matrix.modules }}' | cut -d' ' -f1)
       - name: Maven Tests
         run: ./mvnw test -B -Dair.check.skip-all -pl ${{ matrix.modules }}
+      - name: Upload Surefire heap dump on failure
+        uses: actions/upload-artifact@v1
+        if: failure()
+        with:
+          name: surefire-heapdump
+          path: /tmp/surefire-heapdump.hprof
 
   product-tests:
     runs-on: ubuntu-latest
