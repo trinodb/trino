@@ -2,6 +2,8 @@
 
 set -euo pipefail
 
+env
+
 # Create a dedicated profile for this action to avoid conflicts with past/future actions.
 aws configure --profile upload_artifacts <<-EOF > /dev/null 2>&1
 ${INPUT_AWS_ACCESS_KEY_ID}

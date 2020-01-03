@@ -7,11 +7,11 @@ inputs:
   AWS_ACCESS_KEY_ID:
     description: xx
     requred: false
-    default: ${{ secrets.AwsAccessKey }}
+    default: ff
   AWS_SECRET_ACCESS_KEY:
     description: xx
     requred: false
-    default: ${{ secrets.AwsSecretKey }}
+    default: ff
   S3_BUCKET: xx
     description:
     requred: false
@@ -27,4 +27,4 @@ inputs:
   SHA:
     description: xx
     requred: false
-    default: ${{ github.sha }}
+    default: ff
