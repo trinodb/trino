@@ -59,9 +59,6 @@ public class InfluxQueryTest
     private Session session;
     private Map<String, String> cannedHttp;
     private final AtomicReference<String> lastQuery = new AtomicReference<>();
-    private static ZonedDateTime t1 = getTimestamp("2019-12-10T21:00:04.446Z");
-    private static ZonedDateTime t2 = getTimestamp("2019-12-10T21:00:20.446Z");
-    private static ZonedDateTime t3 = getTimestamp("2019-12-10T22:00:04.446Z");
 
     @BeforeClass
     public void beforeClass()
@@ -123,14 +120,12 @@ public class InfluxQueryTest
     }
 
     @Test
-    public synchronized void testShow()
+    public void testShow()
     {
-        MaterializedResult result = queryRunner.getClient().execute(session, "SHOW TABLES").getResult();
+        MaterializedResult result = execute("SHOW TABLES");
         assertEquals(result.getOnlyColumn().collect(Collectors.toList()), Collections.singletonList("data"));
 
-        result = queryRunner.getClient().execute(session, "DESC data")
-                .getResult()
-                .toTestTypes();
+        result = execute("DESC data");
         MaterializedResult expectedColumns = MaterializedResult
                 .resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("time", "timestamp with time zone", "time", "")
@@ -143,12 +138,11 @@ public class InfluxQueryTest
     }
 
     @Test
-    public synchronized void testSelectAll()
+    public void testSelectAll()
     {
-        MaterializedResult result = queryRunner.getClient().execute(session, "SELECT * FROM datA")
-                .getResult()
-                .toTestTypes();
-        assertEquals(lastQuery.get(), "SELECT * FROM SCHEMA.Data");
+        MaterializedResult result = execute(
+                "SELECT * FROM datA",
+                "SELECT * FROM SCHEMA.Data");
         MaterializedResult expectedColumns = MaterializedResult
                 .resultBuilder(session, TIMESTAMP_WITH_TIME_ZONE, VARCHAR, VARCHAR, DOUBLE, DOUBLE)
                 .row(t1, "a", "b", 1., 2.)
@@ -159,12 +153,11 @@ public class InfluxQueryTest
     }
 
     @Test
-    public synchronized void testSelectTagEqual()
+    public void testSelectTagEqual()
     {
-        MaterializedResult result = queryRunner.getClient().execute(session, "SELECT * FROM data WHERE k1 = 'a'")
-                .getResult()
-                .toTestTypes();
-        assertEquals(lastQuery.get(), "SELECT * FROM SCHEMA.Data WHERE ((k1 = 'a'))");
+        MaterializedResult result = execute(
+                "SELECT * FROM data WHERE k1 = 'a'",
+                "SELECT * FROM SCHEMA.Data WHERE ((k1 = 'a'))");
         MaterializedResult expectedColumns = MaterializedResult
                 .resultBuilder(session, TIMESTAMP_WITH_TIME_ZONE, VARCHAR, VARCHAR, DOUBLE, DOUBLE)
                 .row(t1, "a", "b", 1., 2.)
@@ -174,12 +167,11 @@ public class InfluxQueryTest
     }
 
     @Test
-    public synchronized void testSelectTagNotEqual()
+    public void testSelectTagNotEqual()
     {
-        MaterializedResult result = queryRunner.getClient().execute(session, "SELECT * FROM data WHERE k1 != 'd'")
-                .getResult()
-                .toTestTypes();
-        assertEquals(lastQuery.get(), "SELECT * FROM SCHEMA.Data");  // can't be pushed down
+        MaterializedResult result = execute(
+                "SELECT * FROM data WHERE k1 != 'd'",
+                "SELECT * FROM SCHEMA.Data");  // can't be pushed down
         MaterializedResult expectedColumns = MaterializedResult
                 .resultBuilder(session, TIMESTAMP_WITH_TIME_ZONE, VARCHAR, VARCHAR, DOUBLE, DOUBLE)
                 .row(t1, "a", "b", 1., 2.)
@@ -189,12 +181,25 @@ public class InfluxQueryTest
     }
 
     @Test
-    public synchronized void testSelectTagNull()
+    public void testSelectField()
     {
-        MaterializedResult result = queryRunner.getClient().execute(session, "SELECT * FROM data WHERE k1 IS NULL")
-                .getResult()
-                .toTestTypes();
-        assertEquals(lastQuery.get(), "SELECT * FROM SCHEMA.Data WHERE (k1 = '')");
+        MaterializedResult result = execute(
+                "SELECT v1 FROM data WHERE k1 != 'd'",
+                "SELECT * FROM SCHEMA.Data");  // always SELECT *, and k1 clause can't be pushed down
+        MaterializedResult expectedColumns = MaterializedResult
+                .resultBuilder(session, DOUBLE)
+                .row(1.)
+                .row(3.)
+                .build();
+        assertEquals(result, expectedColumns);
+    }
+
+    @Test
+    public void testSelectTagNull()
+    {
+        MaterializedResult result = execute(
+                "SELECT * FROM data WHERE k1 IS NULL",
+                "SELECT * FROM SCHEMA.Data WHERE (k1 = '')");
         MaterializedResult expectedColumns = MaterializedResult
                 .resultBuilder(session, TIMESTAMP_WITH_TIME_ZONE, VARCHAR, VARCHAR, DOUBLE, DOUBLE)
                 .build();
@@ -202,12 +207,11 @@ public class InfluxQueryTest
     }
 
     @Test
-    public synchronized void testSelectFieldNull()
+    public void testSelectFieldNull()
     {
-        MaterializedResult result = queryRunner.getClient().execute(session, "SELECT * FROM data WHERE v1 IS NULL")
-                .getResult()
-                .toTestTypes();
-        assertEquals(lastQuery.get(), "SELECT * FROM SCHEMA.Data");  // can't be pushed down
+        MaterializedResult result = execute(
+                "SELECT * FROM data WHERE v1 IS NULL",
+                "SELECT * FROM SCHEMA.Data");  // can't be pushed down
         MaterializedResult expectedColumns = MaterializedResult
                 .resultBuilder(session, TIMESTAMP_WITH_TIME_ZONE, VARCHAR, VARCHAR, DOUBLE, DOUBLE)
                 .build();
@@ -215,12 +219,11 @@ public class InfluxQueryTest
     }
 
     @Test
-    public synchronized void testSelectFieldEqual()
+    public void testSelectFieldEqual()
     {
-        MaterializedResult result = queryRunner.getClient().execute(session, "SELECT * FROM data WHERE v1 = 1")
-                .getResult()
-                .toTestTypes();
-        assertEquals(lastQuery.get(), "SELECT * FROM SCHEMA.Data WHERE ((v1 = 1.0))");
+        MaterializedResult result = execute(
+                "SELECT * FROM data WHERE v1 = 1",
+                "SELECT * FROM SCHEMA.Data WHERE ((v1 = 1.0))");
         MaterializedResult expectedColumns = MaterializedResult
                 .resultBuilder(session, TIMESTAMP_WITH_TIME_ZONE, VARCHAR, VARCHAR, DOUBLE, DOUBLE)
                 .row(t1, "a", "b", 1., 2.)
@@ -229,12 +232,11 @@ public class InfluxQueryTest
     }
 
     @Test
-    public synchronized void testSelectFieldBetween()
+    public void testSelectFieldBetween()
     {
-        MaterializedResult result = queryRunner.getClient().execute(session, "SELECT * FROM data WHERE v1 BETWEEN 1 AND 3")
-                .getResult()
-                .toTestTypes();
-        assertEquals(lastQuery.get(), "SELECT * FROM SCHEMA.Data WHERE ((v1 >= 1.0 AND v1 <= 3.0))");
+        MaterializedResult result = execute(
+                "SELECT * FROM data WHERE v1 BETWEEN 1 AND 3",
+                "SELECT * FROM SCHEMA.Data WHERE ((v1 >= 1.0 AND v1 <= 3.0))");
         MaterializedResult expectedColumns = MaterializedResult
                 .resultBuilder(session, TIMESTAMP_WITH_TIME_ZONE, VARCHAR, VARCHAR, DOUBLE, DOUBLE)
                 .row(t1, "a", "b", 1., 2.)
@@ -243,9 +245,18 @@ public class InfluxQueryTest
         assertEquals(result, expectedColumns);
     }
 
-    private static ZonedDateTime getTimestamp(String timestamp)
+    private synchronized MaterializedResult execute(String sql)
     {
-        return ZonedDateTime.ofInstant(Instant.parse(timestamp), ZoneId.of("UTC"));
+        return queryRunner.getClient().execute(session, sql)
+                .getResult()
+                .toTestTypes();
+    }
+
+    private synchronized MaterializedResult execute(String sql, String influxQL)
+    {
+        MaterializedResult result = execute(sql);
+        assertEquals(lastQuery.get(), influxQL);
+        return result;
     }
 
     @AfterClass
@@ -254,4 +265,9 @@ public class InfluxQueryTest
         queryRunner.close();
         httpServer.stop(0);
     }
+
+    // test data
+    private static ZonedDateTime t1 = ZonedDateTime.ofInstant(Instant.parse("2019-12-10T21:00:04.446Z"), ZoneId.of("UTC"));
+    private static ZonedDateTime t2 = ZonedDateTime.ofInstant(Instant.parse("2019-12-10T21:00:20.446Z"), ZoneId.of("UTC"));
+    private static ZonedDateTime t3 = ZonedDateTime.ofInstant(Instant.parse("2019-12-10T22:00:04.446Z"), ZoneId.of("UTC"));
 }
