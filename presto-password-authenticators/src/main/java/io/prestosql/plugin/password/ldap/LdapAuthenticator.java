@@ -173,7 +173,7 @@ public class LdapAuthenticator
 
     private static String replaceUser(String pattern, String user)
     {
-        return pattern.replaceAll("\\$\\{USER}", user);
+        return pattern.replace("${USER}", user);
     }
 
     private static void closeContext(DirContext context)
