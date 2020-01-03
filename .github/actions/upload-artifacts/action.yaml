@@ -5,26 +5,26 @@ runs:
   image: Dockerfile
 inputs:
   AWS_ACCESS_KEY_ID:
-    description:
+    description: xx
     requred: false
     default: ${{ secrets.AwsAccessKey }}
   AWS_SECRET_ACCESS_KEY:
-    description:
+    description: xx
     requred: false
     default: ${{ secrets.AwsSecretKey }}
-  S3_BUCKET:
+  S3_BUCKET: xx
     description:
     requred: false
     default: "presto-ci-test"
   S3_BUCKET_REGION:
-    description:
+    description: xx
     requred: false
     default: "us-east-2"
   S3_BUCKET_ENDPOINT:
-    description:
+    description: xx
     requred: false
     default: "s3.us-east-2.amazonaws.com"
   SHA:
-    description:
+    description: xx
     requred: false
     default: ${{ github.sha }}
