@@ -84,7 +84,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: mkdir -p ./foo_bar/target && echo "Hello world" > ./foo_bar/target/x_reports
-      - uses: actions/upload-artifacts
+      - uses: actions/upload-artifacts@master
 
 #  kudu-tests:
 #    runs-on: ubuntu-latest
