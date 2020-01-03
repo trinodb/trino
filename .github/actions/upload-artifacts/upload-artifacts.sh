@@ -6,9 +6,9 @@ AWS_S3_BUCKET=presto-ci-test
 
 # Create a dedicated profile for this action to avoid conflicts with past/future actions.
 aws configure --profile upload_artifacts <<-EOF > /dev/null 2>&1
-${AWS_ACCESS_KEY_ID}
-${AWS_SECRET_ACCESS_KEY}
-${S3_BUCKET_REGION}
+${INPUT_AWS_ACCESS_KEY_ID}
+${INPUT_AWS_SECRET_ACCESS_KEY}
+${INPUT_S3_BUCKET_REGION}
 text
 EOF
 
@@ -28,10 +28,10 @@ EOF
 trap cleanup EXIT
 
 function s3_sync {
-    aws s3 sync "$1" "s3://${S3_BUCKET}/${SHA}/" \
+    aws s3 sync "$1" "s3://${INPUT_S3_BUCKET}/${INPUT_SHA}/" \
         --profile upload_artifacts \
         --no-progress \
-        --endpoint-url ${S3_BUCKET_ENDPOINT}
+        --endpoint-url ${INPUT)S3_BUCKET_ENDPOINT}
 }
 
 s3_sync **/target/*-reports

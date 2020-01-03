@@ -3,10 +3,16 @@ description: 'Uploads build artifacts to S3'
 runs:
   using: docker
   image: Dockerfile
-env:
-  AWS_ACCESS_KEY_ID: ${{ secrets.AwsAccessKey }}
-  AWS_SECRET_ACCESS_KEY: ${{ secrets.AwsSecretKey }}
-  S3_BUCKET: "presto-ci-test"
-  S3_BUCKET_REGION: "us-east-2"
-  S3_BUCKET_ENDPOINT: "s3.us-east-2.amazonaws.com"
-  SHA: ${{ github.sha }}
+inputs:
+  AWS_ACCESS_KEY_ID:
+    default: ${{ secrets.AwsAccessKey }}
+  AWS_SECRET_ACCESS_KEY:
+    default: ${{ secrets.AwsSecretKey }}
+  S3_BUCKET:
+    default: "presto-ci-test"
+  S3_BUCKET_REGION:
+    default: "us-east-2"
+  S3_BUCKET_ENDPOINT:
+    default: "s3.us-east-2.amazonaws.com"
+  SHA:
+    default: ${{ github.sha }}
