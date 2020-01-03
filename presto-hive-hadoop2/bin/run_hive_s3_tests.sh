@@ -17,9 +17,9 @@ exec_in_hadoop_master_container sed -i \
  /etc/hadoop/conf/core-site.xml
 
 # create test table
-table_path="s3a://${S3_BUCKET}/presto_test_external_fs/"
+table_path="s3a://${S3_BUCKET}/presto_test_external_fs_v2/"
 exec_in_hadoop_master_container hadoop fs -mkdir -p "${table_path}"
-exec_in_hadoop_master_container /docker/files/hadoop-put.sh /docker/files/test1.csv{,.gz,.bz2,.lz4} "${table_path}"
+exec_in_hadoop_master_container /docker/files/hadoop-put.sh /docker/files/test_table.csv{,.gz,.bz2,.lz4} "${table_path}"
 exec_in_hadoop_master_container sudo -Eu hive beeline -u jdbc:hive2://localhost:10000/default -n hive -e "
     CREATE EXTERNAL TABLE presto_test_external_fs(t_bigint bigint)
     STORED AS TEXTFILE
