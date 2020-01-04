@@ -33,10 +33,12 @@ The following file types are supported for the Hive connector:
 * ORC
 * Parquet
 * Avro
-* RCFile
+* RCText (RCFile using ``ColumnarSerDe``)
+* RCBinary (RCFile using ``LazyBinaryColumnarSerDe``)
 * SequenceFile
-* JSON
-* Text
+* JSON (using ``org.apache.hive.hcatalog.data.JsonSerDe``)
+* CSV (using ``org.apache.hadoop.hive.serde2.OpenCSVSerde``)
+* TextFile
 
 Configuration
 -------------
