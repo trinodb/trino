@@ -22,6 +22,8 @@ import io.prestosql.spi.type.Type;
 import java.util.Objects;
 import java.util.Optional;
 
+import static io.prestosql.spi.predicate.Utils.blockToNativeValue;
+import static io.prestosql.spi.predicate.Utils.nativeValueToBlock;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -73,7 +75,7 @@ public final class Marker
 
     private static Marker create(Type type, Optional<Object> value, Bound bound)
     {
-        return new Marker(type, value.map(object -> Utils.nativeValueToBlock(type, object)), bound);
+        return new Marker(type, value.map(object -> nativeValueToBlock(type, object)), bound);
     }
 
     public static Marker upperUnbounded(Type type)
@@ -126,7 +128,7 @@ public final class Marker
         if (!valueBlock.isPresent()) {
             throw new IllegalStateException("No value to get");
         }
-        return Utils.blockToNativeValue(type, valueBlock.get());
+        return blockToNativeValue(type, valueBlock.get());
     }
 
     public Object getPrintableValue(ConnectorSession session)
