@@ -14,6 +14,7 @@
 package io.prestosql.plugin.phoenix;
 
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
+import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -110,6 +111,18 @@ public class TestPhoenixIntegrationSmokeTest
         executeInPhoenix("CREATE TABLE tpch.\"TestCaseInsensitive\" (\"pK\" bigint primary key, \"Val1\" double)");
         assertUpdate("INSERT INTO testcaseinsensitive VALUES (1, 1.1)", 1);
         assertQuery("SELECT Val1 FROM testcaseinsensitive where Val1 < 1.2", "SELECT 1.1");
+    }
+
+    @Override
+    public void testCreateSchema()
+    {
+        throw new SkipException("test disabled until issue fixed"); // TODO https://github.com/prestosql/presto/issues/2348
+    }
+
+    @Override
+    public void testDropSchema()
+    {
+        throw new SkipException("test disabled until issue fixed"); // TODO https://github.com/prestosql/presto/issues/2348
     }
 
     private void executeInPhoenix(String sql)
