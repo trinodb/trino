@@ -119,6 +119,12 @@
             <artifactId>testing</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>influxdb</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
 </project>

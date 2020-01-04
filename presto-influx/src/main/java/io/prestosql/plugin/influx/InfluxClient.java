@@ -15,7 +15,6 @@
 package io.prestosql.plugin.influx;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -24,9 +23,6 @@ import io.prestosql.spi.HostAddress;
 
 import javax.inject.Inject;
 
-import java.net.URL;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -42,6 +38,7 @@ public class InfluxClient
 {
     final Logger logger;
     private final InfluxConfig config;
+    private final InfluxHttp http;
     // the various metadata are cached for a configurable number of milliseconds so we don't hammer the server
     private final CachedMetaData<Map<String, String>> retentionPolicies;  // schema name (lower-case) -> retention policy (case-sensitive)
     private final CachedMetaData<Map<String, String>> measurements;  // table name (lower-case) -> measurement (case-sensitive)
@@ -53,6 +50,7 @@ public class InfluxClient
     {
         this.logger = Logger.get(getClass());
         this.config = requireNonNull(config, "config is null");
+        this.http = new InfluxHttp(config.getHost(), config.getPort(), config.isUseHttps(), config.getDatabase(), config.getUserName(), config.getPassword());
         this.retentionPolicies = new CachedMetaData<>(() -> showNames("SHOW RETENTION POLICIES"));
         this.measurements = new CachedMetaData<>(() -> showNames("SHOW MEASUREMENTS"));
         this.tagKeys = new ConcurrentHashMap<>();
@@ -173,34 +171,9 @@ public class InfluxClient
         return ImmutableMap.copyOf(names);
     }
 
-    /* Using raw HTTP because the influx java library has dependency conflicts and puts the burden of quoting identifiers on the caller */
     JsonNode execute(String query)
     {
-        final JsonNode response;
-        try {
-            String authentication = config.getUserName() != null ?
-                    config.getUserName() + (config.getPassword() != null ?
-                            ":" + config.getPassword() :
-                            "") + "@" :
-                    "";
-            URL url = new URL((config.isUseHttps() ? "https://" : "http://")
-                    + authentication
-                    + config.getHost() + ":" + config.getPort() +
-                    "/query?db=" + config.getDatabase() +
-                    "&q=" + URLEncoder.encode(query, StandardCharsets.UTF_8.toString()));
-            response = new ObjectMapper().readTree(url);
-        }
-        catch (Throwable t) {
-            InfluxError.EXTERNAL.fail(t);
-            return null;
-        }
-        JsonNode results = response.get("results");
-        InfluxError.GENERAL.check(results != null && results.size() == 1, "expecting one result", query);
-        JsonNode result = results.get(0);
-        if (result.has("error")) {
-            InfluxError.GENERAL.fail(result.get("error").asText(), query);
-        }
-        return result.get("series");
+        return http.query(query);
     }
 
     public HostAddress getHostAddress()

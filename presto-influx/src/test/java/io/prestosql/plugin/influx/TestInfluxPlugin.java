@@ -24,7 +24,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static org.testng.Assert.assertNotNull;
 
-public class InfluxPluginTest
+public class TestInfluxPlugin
 {
     @Test
     public void testSpinUp()
