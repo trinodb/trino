@@ -64,9 +64,7 @@ public class TestSpatialJoins
                 .setCatalog("hive")
                 .setSchema("default")
                 .build();
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
-                .setNodeCount(4)
-                .build();
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
         queryRunner.installPlugin(new GeoPlugin());
 
         File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
