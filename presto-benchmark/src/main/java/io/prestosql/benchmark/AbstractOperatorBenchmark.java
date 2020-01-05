@@ -239,7 +239,7 @@ public abstract class AbstractOperatorBenchmark
         PageFunctionCompiler functionCompiler = new PageFunctionCompiler(localQueryRunner.getMetadata(), 0);
         projections.add(functionCompiler.compileProjection(translated, Optional.empty()).get());
 
-        return new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
+        return FilterAndProjectOperator.createOperatorFactory(
                 operatorId,
                 planNodeId,
                 () -> new PageProcessor(Optional.empty(), projections.build()),

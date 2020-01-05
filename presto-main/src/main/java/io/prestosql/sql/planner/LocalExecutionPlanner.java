@@ -55,7 +55,7 @@ import io.prestosql.operator.FilterAndProjectOperator;
 import io.prestosql.operator.GroupIdOperator;
 import io.prestosql.operator.HashAggregationOperator.HashAggregationOperatorFactory;
 import io.prestosql.operator.HashBuilderOperator.HashBuilderOperatorFactory;
-import io.prestosql.operator.HashSemiJoinOperator.HashSemiJoinOperatorFactory;
+import io.prestosql.operator.HashSemiJoinOperator;
 import io.prestosql.operator.JoinBridgeManager;
 import io.prestosql.operator.JoinOperatorFactory;
 import io.prestosql.operator.JoinOperatorFactory.OuterOperatorFactoryResult;
@@ -92,7 +92,7 @@ import io.prestosql.operator.TableDeleteOperator.TableDeleteOperatorFactory;
 import io.prestosql.operator.TableScanOperator.TableScanOperatorFactory;
 import io.prestosql.operator.TaskContext;
 import io.prestosql.operator.TaskOutputOperator.TaskOutputFactory;
-import io.prestosql.operator.TopNOperator.TopNOperatorFactory;
+import io.prestosql.operator.TopNOperator;
 import io.prestosql.operator.TopNRowNumberOperator;
 import io.prestosql.operator.ValuesOperator.ValuesOperatorFactory;
 import io.prestosql.operator.WindowFunctionDefinition;
@@ -984,7 +984,7 @@ public class LocalExecutionPlanner
                 sortOrders.add(node.getOrderingScheme().getOrdering(symbol));
             }
 
-            OperatorFactory operator = new TopNOperatorFactory(
+            OperatorFactory operator = TopNOperator.createOperatorFactory(
                     context.getNextOperatorId(),
                     node.getId(),
                     source.getTypes(),
@@ -1294,7 +1294,7 @@ public class LocalExecutionPlanner
                 else {
                     Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(translatedFilter, translatedProjections, Optional.of(context.getStageId() + "_" + planNodeId));
 
-                    OperatorFactory operatorFactory = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
+                    OperatorFactory operatorFactory = FilterAndProjectOperator.createOperatorFactory(
                             context.getNextOperatorId(),
                             planNodeId,
                             pageProcessor,
@@ -2216,7 +2216,7 @@ public class LocalExecutionPlanner
                     .put(node.getSemiJoinOutput(), probeSource.getLayout().size())
                     .build();
 
-            HashSemiJoinOperatorFactory operator = new HashSemiJoinOperatorFactory(context.getNextOperatorId(), node.getId(), setProvider, probeSource.getTypes(), probeChannel, probeHashChannel);
+            OperatorFactory operator = HashSemiJoinOperator.createOperatorFactory(context.getNextOperatorId(), node.getId(), setProvider, probeSource.getTypes(), probeChannel, probeHashChannel);
             return new PhysicalOperation(operator, outputMappings, context, probeSource);
         }
 
