@@ -18,10 +18,9 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.prestosql.memory.context.AggregatedMemoryContext;
 import io.prestosql.memory.context.LocalMemoryContext;
 import io.prestosql.memory.context.MemoryTrackingContext;
+import io.prestosql.operator.BasicWorkProcessorOperatorAdapter.BasicAdapterWorkProcessorOperatorFactory;
 import io.prestosql.operator.SetBuilderOperator.SetSupplier;
 import io.prestosql.operator.WorkProcessor.TransformationState;
-import io.prestosql.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperator;
-import io.prestosql.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperatorFactory;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
@@ -37,16 +36,16 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.checkSuccess;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.prestosql.operator.BasicWorkProcessorOperatorAdapter.createAdapterOperatorFactory;
 import static io.prestosql.operator.WorkProcessor.TransformationState.blocked;
 import static io.prestosql.operator.WorkProcessor.TransformationState.finished;
 import static io.prestosql.operator.WorkProcessor.TransformationState.ofResult;
-import static io.prestosql.operator.WorkProcessorOperatorAdapter.createAdapterOperatorFactory;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static java.util.Objects.requireNonNull;
 
 public class HashSemiJoinOperator
-        implements AdapterWorkProcessorOperator
+        implements WorkProcessorOperator
 {
     public static OperatorFactory createOperatorFactory(
             int operatorId,
@@ -60,7 +59,7 @@ public class HashSemiJoinOperator
     }
 
     private static class Factory
-            implements AdapterWorkProcessorOperatorFactory
+            implements BasicAdapterWorkProcessorOperatorFactory
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
@@ -85,14 +84,7 @@ public class HashSemiJoinOperator
         public WorkProcessorOperator create(ProcessorContext processorContext, WorkProcessor<Page> sourcePages)
         {
             checkState(!closed, "Factory is already closed");
-            return new HashSemiJoinOperator(Optional.of(sourcePages), setSupplier, probeJoinChannel, probeJoinHashChannel, processorContext.getMemoryTrackingContext());
-        }
-
-        @Override
-        public AdapterWorkProcessorOperator createAdapterOperator(ProcessorContext processorContext)
-        {
-            checkState(!closed, "Factory is already closed");
-            return new HashSemiJoinOperator(Optional.empty(), setSupplier, probeJoinChannel, probeJoinHashChannel, processorContext.getMemoryTrackingContext());
+            return new HashSemiJoinOperator(sourcePages, setSupplier, probeJoinChannel, probeJoinHashChannel, processorContext.getMemoryTrackingContext());
         }
 
         @Override
@@ -127,39 +119,20 @@ public class HashSemiJoinOperator
     }
 
     private final WorkProcessor<Page> pages;
-    private final PageBuffer pageBuffer = new PageBuffer();
 
     private HashSemiJoinOperator(
-            Optional<WorkProcessor<Page>> sourcePages,
+            WorkProcessor<Page> sourcePages,
             SetSupplier channelSetFuture,
             int probeJoinChannel,
             Optional<Integer> probeHashChannel,
             MemoryTrackingContext memoryTrackingContext)
     {
-        pages = sourcePages.orElse(pageBuffer.pages())
+        pages = sourcePages
                 .transform(new SemiJoinPages(
                         channelSetFuture,
                         probeJoinChannel,
                         probeHashChannel,
                         requireNonNull(memoryTrackingContext, "memoryTrackingContext is null").aggregateUserMemoryContext()));
-    }
-
-    @Override
-    public void finish()
-    {
-        pageBuffer.finish();
-    }
-
-    @Override
-    public boolean needsInput()
-    {
-        return pageBuffer.isEmpty() && !pageBuffer.isFinished();
-    }
-
-    @Override
-    public void addInput(Page page)
-    {
-        pageBuffer.add(page);
     }
 
     @Override
