@@ -15,6 +15,7 @@ package io.prestosql.plugin.session.db;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.Closer;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Module;
@@ -22,14 +23,12 @@ import com.google.inject.Scopes;
 import com.mysql.jdbc.jdbc2.optional.MysqlDataSource;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
-import io.airlift.testing.mysql.TestingMySqlServer;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
 import io.prestosql.execution.QueryIdGenerator;
 import io.prestosql.execution.QueryManagerConfig;
 import io.prestosql.metadata.SessionPropertyManager;
-import io.prestosql.server.SessionPropertyDefaults;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.resourcegroups.SessionPropertyConfigurationManagerContext;
 import io.prestosql.spi.security.Identity;
@@ -45,12 +44,12 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.airlift.testing.Closeables.closeQuietly;
 import static io.prestosql.testing.TestingSession.DEFAULT_TIME_ZONE_KEY;
 import static java.util.Collections.emptyMap;
 import static java.util.Locale.ENGLISH;
@@ -67,11 +66,8 @@ public class TestDbSessionPropertyManagerIntegration
     private static final Duration EXAMPLE_VALUE_DEFAULT = new QueryManagerConfig().getQueryMaxCpuTime();
     private static final Duration EXAMPLE_VALUE_CONFIGURED = new Duration(50000, DAYS);
 
-    private TestingMySqlServer testingMySqlServer;
+    private TestingMySqlContainer mysqlContainer;
     private SessionPropertiesDao dao;
-    private static final String MYSQL_TEST_USER = "testuser";
-    private static final String MYSQL_TEST_PASSWORD = "testpassword";
-    private static final String MYSQL_TEST_DATABASE = "test_database";
 
     private static DistributedQueryRunner createQueryRunner()
             throws Exception
@@ -92,26 +88,35 @@ public class TestDbSessionPropertyManagerIntegration
     public void setup()
             throws Exception
     {
-        testingMySqlServer = new TestingMySqlServer(MYSQL_TEST_USER, MYSQL_TEST_PASSWORD, MYSQL_TEST_DATABASE);
+        mysqlContainer = new TestingMySqlContainer();
+        mysqlContainer.start();
         queryRunner = createQueryRunner();
     }
 
     @AfterClass(alwaysRun = true)
     public void destroy()
+            throws IOException
     {
-        closeQuietly(testingMySqlServer);
-        closeQuietly(queryRunner);
+        try (Closer closer = Closer.create()) {
+            closer.register(queryRunner);
+            closer.register(mysqlContainer::close);
+        }
     }
 
     @BeforeMethod
     public void setupTest()
     {
-        SessionPropertyDefaults sessionDefaults = queryRunner.getCoordinator().getSessionPropertyDefaults();
-        Map<String, String> configs = ImmutableMap.of("session-property-manager.db.url", testingMySqlServer.getJdbcUrl(MYSQL_TEST_DATABASE));
-        sessionDefaults.setConfigurationManager("db-test", configs);
+        queryRunner.getCoordinator().getSessionPropertyDefaults()
+                .setConfigurationManager("db-test", ImmutableMap.<String, String>builder()
+                        .put("session-property-manager.db.url", mysqlContainer.getJdbcUrl())
+                        .put("session-property-manager.db.username", mysqlContainer.getUsername())
+                        .put("session-property-manager.db.password", mysqlContainer.getPassword())
+                        .build());
 
         MysqlDataSource dataSource = new MysqlDataSource();
-        dataSource.setURL(testingMySqlServer.getJdbcUrl(MYSQL_TEST_DATABASE));
+        dataSource.setURL(mysqlContainer.getJdbcUrl());
+        dataSource.setUser(mysqlContainer.getUsername());
+        dataSource.setPassword(mysqlContainer.getPassword());
         dao = Jdbi.create(dataSource)
                 .installPlugin(new SqlObjectPlugin())
                 .onDemand(SessionPropertiesDao.class);
