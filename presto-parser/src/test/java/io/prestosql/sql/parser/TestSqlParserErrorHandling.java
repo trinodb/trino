@@ -206,7 +206,7 @@ public class TestSqlParserErrorHandling
     public void testStackOverflowExpression()
     {
         for (int size = 3000; size <= 100_000; size *= 2) {
-            SQL_PARSER.createExpression(Joiner.on(" OR ").join(nCopies(size, "x = y")));
+            SQL_PARSER.createExpression(Joiner.on(" OR ").join(nCopies(size, "x = y")), new ParsingOptions());
         }
     }
 

@@ -393,7 +393,7 @@ public final class PlanMatchPattern
                 new JoinMatcher(
                         joinType,
                         expectedEquiCriteria,
-                        expectedFilter.map(predicate -> rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(predicate))),
+                        expectedFilter.map(predicate -> rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(predicate, new ParsingOptions()))),
                         expectedDistributionType,
                         expectedSpillable,
                         Optional.empty()));
@@ -413,7 +413,7 @@ public final class PlanMatchPattern
         DynamicFilterMatcher dynamicFilterMatcher = new DynamicFilterMatcher(
                 metadata,
                 expectedDynamicFilterAliases,
-                expectedStaticFilter.map(predicate -> rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(predicate))));
+                expectedStaticFilter.map(predicate -> rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(predicate, new ParsingOptions()))));
         JoinMatcher joinMatcher = new JoinMatcher(
                 joinType,
                 expectedEquiCriteria,
@@ -502,7 +502,7 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern filter(String expectedPredicate, PlanMatchPattern source)
     {
-        return filter(rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(expectedPredicate)), source);
+        return filter(rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(expectedPredicate, new ParsingOptions())), source);
     }
 
     public static PlanMatchPattern filter(Expression expectedPredicate, PlanMatchPattern source)

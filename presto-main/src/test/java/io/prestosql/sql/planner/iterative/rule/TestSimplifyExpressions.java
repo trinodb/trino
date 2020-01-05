@@ -15,6 +15,7 @@ package io.prestosql.sql.planner.iterative.rule;
 
 import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.type.Type;
+import io.prestosql.sql.parser.ParsingOptions;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.LiteralEncoder;
 import io.prestosql.sql.planner.Symbol;
@@ -117,8 +118,9 @@ public class TestSimplifyExpressions
 
     private static void assertSimplifies(String expression, String expected)
     {
-        Expression actualExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expression));
-        Expression expectedExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expected));
+        ParsingOptions parsingOptions = new ParsingOptions();
+        Expression actualExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expression, parsingOptions));
+        Expression expectedExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expected, parsingOptions));
         Expression rewritten = rewrite(actualExpression, TEST_SESSION, new SymbolAllocator(booleanSymbolTypeMapFor(actualExpression)), METADATA, LITERAL_ENCODER, new TypeAnalyzer(SQL_PARSER, METADATA));
         assertEquals(
                 normalize(rewritten),

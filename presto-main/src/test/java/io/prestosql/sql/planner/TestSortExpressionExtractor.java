@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.ExpressionTestUtils;
+import io.prestosql.sql.parser.ParsingOptions;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.SymbolReference;
@@ -84,7 +85,7 @@ public class TestSortExpressionExtractor
 
     private Expression expression(String sql)
     {
-        return ExpressionTestUtils.planExpression(metadata, TEST_SESSION, TYPE_PROVIDER, rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(sql)));
+        return ExpressionTestUtils.planExpression(metadata, TEST_SESSION, TYPE_PROVIDER, rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(sql, new ParsingOptions())));
     }
 
     private void assertNoSortExpression(String expression)
