@@ -184,11 +184,6 @@ public class TopNOperator
         pageBuffer.finish();
     }
 
-    @Override
-    public void close()
-            throws Exception
-    {}
-
     private void addPage(Page page)
     {
         topNProcessor.addInput(page);
