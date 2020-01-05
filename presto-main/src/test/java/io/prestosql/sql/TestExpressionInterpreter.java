@@ -1466,7 +1466,7 @@ public class TestExpressionInterpreter
         for (Entry<Symbol, Type> entry : SYMBOL_TYPES.allTypes().entrySet()) {
             aliases.put(entry.getKey().getName(), new SymbolReference(entry.getKey().getName()));
         }
-        Expression rewrittenExpected = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expected));
+        Expression rewrittenExpected = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expected, new ParsingOptions()));
         assertExpressionEquals((Expression) actualOptimized, rewrittenExpected, aliases.build());
     }
 

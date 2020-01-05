@@ -86,15 +86,6 @@ public class SqlParser
         return (Statement) invokeParser("statement", sql, SqlBaseParser::singleStatement, parsingOptions);
     }
 
-    /**
-     * Consider using {@link #createExpression(String, ParsingOptions)}
-     */
-    @Deprecated
-    public Expression createExpression(String expression)
-    {
-        return createExpression(expression, new ParsingOptions());
-    }
-
     public Expression createExpression(String expression, ParsingOptions parsingOptions)
     {
         return (Expression) invokeParser("expression", expression, SqlBaseParser::standaloneExpression, parsingOptions);
