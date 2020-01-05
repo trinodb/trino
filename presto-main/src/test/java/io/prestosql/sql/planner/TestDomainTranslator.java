@@ -414,6 +414,23 @@ public class TestDomainTranslator
                 and(equal(C_BIGINT, bigintLiteral(1L)), unprocessableExpression1(C_BIGINT)),
                 and(equal(C_DOUBLE, doubleLiteral(2.0)), unprocessableExpression1(C_BIGINT))));
 
+        // Domain union implicitly adds NaN as an accepted value
+        // The original predicate is returned as the RemainingExpression
+        // (even though left and right unprocessableExpressions are the same)
+        originalPredicate = or(
+                and(greaterThan(C_DOUBLE, doubleLiteral(2.0)), unprocessableExpression1(C_DOUBLE)),
+                and(lessThan(C_DOUBLE, doubleLiteral(5.0)), unprocessableExpression1(C_DOUBLE)));
+        result = fromPredicate(originalPredicate);
+        assertEquals(result.getRemainingExpression(), originalPredicate);
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_DOUBLE, Domain.notNull(DOUBLE))));
+
+        originalPredicate = or(
+                and(greaterThan(C_REAL, realLiteral("2.0")), unprocessableExpression1(C_REAL)),
+                and(lessThan(C_REAL, realLiteral("5.0")), unprocessableExpression1(C_REAL)));
+        result = fromPredicate(originalPredicate);
+        assertEquals(result.getRemainingExpression(), originalPredicate);
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_REAL, Domain.notNull(REAL))));
+
         // We can make another optimization if one side is the super set of the other side
         originalPredicate = or(
                 and(greaterThan(C_BIGINT, bigintLiteral(1L)), greaterThan(C_DOUBLE, doubleLiteral(1.0)), unprocessableExpression1(C_BIGINT)),
@@ -1566,6 +1583,11 @@ public class TestDomainTranslator
     private static DoubleLiteral doubleLiteral(double value)
     {
         return new DoubleLiteral(Double.toString(value));
+    }
+
+    private static Expression realLiteral(String value)
+    {
+        return new GenericLiteral("REAL", value);
     }
 
     private static StringLiteral stringLiteral(String value)

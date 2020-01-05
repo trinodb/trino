@@ -372,8 +372,29 @@ public final class DomainTranslator
                                 && leftTupleDomain.getDomains().get().keySet().equals(rightTupleDomain.getDomains().get().keySet());
                         boolean oneSideIsSuperSet = leftTupleDomain.contains(rightTupleDomain) || rightTupleDomain.contains(leftTupleDomain);
 
-                        if (matchingSingleSymbolDomains || oneSideIsSuperSet) {
+                        if (oneSideIsSuperSet) {
                             remainingExpression = leftResult.getRemainingExpression();
+                        }
+                        else if (matchingSingleSymbolDomains) {
+                            // Types REAL and DOUBLE require special handling because they include NaN value. In this case, we cannot rely on the union of domains.
+                            // That is because domains covering the value set partially might union up to a domain covering the whole value set.
+                            // While the component domains didn't include NaN, the resulting domain could be further translated to predicate "TRUE" or "a IS NOT NULL",
+                            // which is satisfied by NaN. So during domain union, NaN might be implicitly added.
+                            // Example: Let 'a' be a column of type DOUBLE.
+                            //          Let left TupleDomain => (a > 0) /false for NaN/, right TupleDomain => (a < 10) /false for NaN/.
+                            //          Unioned TupleDomain => "is not null" /true for NaN/
+                            // To guard against wrong results, the current node is returned as the remainingExpression.
+                            Domain leftDomain = getOnlyElement(leftTupleDomain.getDomains().get().values());
+                            Domain rightDomain = getOnlyElement(rightTupleDomain.getDomains().get().values());
+                            Domain unionedDomain = getOnlyElement(columnUnionedTupleDomain.getDomains().get().values());
+                            Type type = leftDomain.getType();
+                            boolean implicitlyAddedNaN = (type instanceof RealType || type instanceof DoubleType) &&
+                                    !leftDomain.getValues().isAll() &&
+                                    !rightDomain.getValues().isAll() &&
+                                    unionedDomain.getValues().isAll();
+                            if (!implicitlyAddedNaN) {
+                                remainingExpression = leftResult.getRemainingExpression();
+                            }
                         }
                     }
 
