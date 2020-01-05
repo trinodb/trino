@@ -14,8 +14,10 @@
 package io.prestosql.operator;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import io.prestosql.execution.Lifespan;
 import io.prestosql.memory.context.MemoryTrackingContext;
 import io.prestosql.spi.Page;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import static java.util.Objects.requireNonNull;
 
@@ -35,7 +37,96 @@ public class WorkProcessorOperatorAdapter
     public interface AdapterWorkProcessorOperatorFactory
             extends WorkProcessorOperatorFactory
     {
-        AdapterWorkProcessorOperator create(ProcessorContext processorContext);
+        AdapterWorkProcessorOperator createAdapterOperator(ProcessorContext processorContext);
+
+        AdapterWorkProcessorOperatorFactory duplicate();
+    }
+
+    public static OperatorFactory createAdapterOperatorFactory(AdapterWorkProcessorOperatorFactory operatorFactory)
+    {
+        return new Factory(operatorFactory);
+    }
+
+    /**
+     * Provides dual {@link OperatorFactory} and {@link WorkProcessorOperatorFactory} interface.
+     */
+    private static class Factory
+            implements OperatorFactory, WorkProcessorOperatorFactory
+    {
+        final AdapterWorkProcessorOperatorFactory operatorFactory;
+
+        Factory(AdapterWorkProcessorOperatorFactory operatorFactory)
+        {
+            this.operatorFactory = requireNonNull(operatorFactory, "operatorFactory is null");
+        }
+
+        // Methods from OperatorFactory
+
+        @Override
+        public Operator createOperator(DriverContext driverContext)
+        {
+            OperatorContext operatorContext = driverContext.addOperatorContext(
+                    operatorFactory.getOperatorId(),
+                    operatorFactory.getPlanNodeId(),
+                    operatorFactory.getOperatorType());
+            return new WorkProcessorOperatorAdapter(operatorContext, operatorFactory);
+        }
+
+        @Override
+        public void noMoreOperators()
+        {
+            close();
+        }
+
+        @Override
+        public void noMoreOperators(Lifespan lifespan)
+        {
+            lifespanFinished(lifespan);
+        }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new Factory(operatorFactory.duplicate());
+        }
+
+        // Methods from WorkProcessorOperatorFactory
+
+        @Override
+        public int getOperatorId()
+        {
+            return operatorFactory.getOperatorId();
+        }
+
+        @Override
+        public PlanNodeId getPlanNodeId()
+        {
+            return operatorFactory.getPlanNodeId();
+        }
+
+        @Override
+        public String getOperatorType()
+        {
+            return operatorFactory.getOperatorType();
+        }
+
+        @Override
+        public WorkProcessorOperator create(ProcessorContext processorContext, WorkProcessor<Page> sourcePages)
+        {
+            return operatorFactory.create(processorContext, sourcePages);
+        }
+
+        @Override
+        public void lifespanFinished(Lifespan lifespan)
+        {
+            operatorFactory.lifespanFinished(lifespan);
+        }
+
+        @Override
+        public void close()
+        {
+            operatorFactory.close();
+        }
     }
 
     private final OperatorContext operatorContext;
@@ -51,7 +142,7 @@ public class WorkProcessorOperatorAdapter
                 operatorContext.aggregateSystemMemoryContext());
         memoryTrackingContext.initializeLocalMemoryContexts(workProcessorOperatorFactory.getOperatorType());
         this.workProcessorOperator = requireNonNull(workProcessorOperatorFactory, "workProcessorOperatorFactory is null")
-                .create(new ProcessorContext(operatorContext.getSession(), memoryTrackingContext, operatorContext));
+                .createAdapterOperator(new ProcessorContext(operatorContext.getSession(), memoryTrackingContext, operatorContext));
         this.pages = workProcessorOperator.getOutputPages();
         operatorContext.setInfoSupplier(() -> workProcessorOperator.getOperatorInfo().orElse(null));
     }

@@ -40,6 +40,7 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.prestosql.operator.WorkProcessor.TransformationState.blocked;
 import static io.prestosql.operator.WorkProcessor.TransformationState.finished;
 import static io.prestosql.operator.WorkProcessor.TransformationState.ofResult;
+import static io.prestosql.operator.WorkProcessorOperatorAdapter.createAdapterOperatorFactory;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static java.util.Objects.requireNonNull;
@@ -47,8 +48,19 @@ import static java.util.Objects.requireNonNull;
 public class HashSemiJoinOperator
         implements AdapterWorkProcessorOperator
 {
-    public static class HashSemiJoinOperatorFactory
-            implements OperatorFactory, AdapterWorkProcessorOperatorFactory
+    public static OperatorFactory createOperatorFactory(
+            int operatorId,
+            PlanNodeId planNodeId,
+            SetSupplier setSupplier,
+            List<? extends Type> probeTypes,
+            int probeJoinChannel,
+            Optional<Integer> probeJoinHashChannel)
+    {
+        return createAdapterOperatorFactory(new Factory(operatorId, planNodeId, setSupplier, probeTypes, probeJoinChannel, probeJoinHashChannel));
+    }
+
+    private static class Factory
+            implements AdapterWorkProcessorOperatorFactory
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
@@ -58,7 +70,7 @@ public class HashSemiJoinOperator
         private final Optional<Integer> probeJoinHashChannel;
         private boolean closed;
 
-        public HashSemiJoinOperatorFactory(int operatorId, PlanNodeId planNodeId, SetSupplier setSupplier, List<? extends Type> probeTypes, int probeJoinChannel, Optional<Integer> probeJoinHashChannel)
+        private Factory(int operatorId, PlanNodeId planNodeId, SetSupplier setSupplier, List<? extends Type> probeTypes, int probeJoinChannel, Optional<Integer> probeJoinHashChannel)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -70,28 +82,16 @@ public class HashSemiJoinOperator
         }
 
         @Override
-        public Operator createOperator(DriverContext driverContext)
+        public WorkProcessorOperator create(ProcessorContext processorContext, WorkProcessor<Page> sourcePages)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, HashSemiJoinOperator.class.getSimpleName());
-            return new WorkProcessorOperatorAdapter(operatorContext, this);
+            return new HashSemiJoinOperator(Optional.of(sourcePages), setSupplier, probeJoinChannel, probeJoinHashChannel, processorContext.getMemoryTrackingContext());
         }
 
         @Override
-        public void noMoreOperators()
+        public AdapterWorkProcessorOperator createAdapterOperator(ProcessorContext processorContext)
         {
-            closed = true;
-        }
-
-        @Override
-        public OperatorFactory duplicate()
-        {
-            return new HashSemiJoinOperatorFactory(operatorId, planNodeId, setSupplier, probeTypes, probeJoinChannel, probeJoinHashChannel);
-        }
-
-        @Override
-        public AdapterWorkProcessorOperator create(ProcessorContext processorContext)
-        {
+            checkState(!closed, "Factory is already closed");
             return new HashSemiJoinOperator(Optional.empty(), setSupplier, probeJoinChannel, probeJoinHashChannel, processorContext.getMemoryTrackingContext());
         }
 
@@ -114,16 +114,22 @@ public class HashSemiJoinOperator
         }
 
         @Override
-        public WorkProcessorOperator create(ProcessorContext processorContext, WorkProcessor<Page> sourcePages)
+        public void close()
         {
-            return new HashSemiJoinOperator(Optional.of(sourcePages), setSupplier, probeJoinChannel, probeJoinHashChannel, processorContext.getMemoryTrackingContext());
+            closed = true;
+        }
+
+        @Override
+        public Factory duplicate()
+        {
+            return new Factory(operatorId, planNodeId, setSupplier, probeTypes, probeJoinChannel, probeJoinHashChannel);
         }
     }
 
     private final WorkProcessor<Page> pages;
     private final PageBuffer pageBuffer = new PageBuffer();
 
-    public HashSemiJoinOperator(
+    private HashSemiJoinOperator(
             Optional<WorkProcessor<Page>> sourcePages,
             SetSupplier channelSetFuture,
             int probeJoinChannel,

@@ -197,7 +197,7 @@ public class LookupJoinOperatorFactory
     }
 
     @Override
-    public AdapterWorkProcessorOperator create(ProcessorContext processorContext)
+    public AdapterWorkProcessorOperator createAdapterOperator(ProcessorContext processorContext)
     {
         checkState(!closed, "Factory is already closed");
         LookupSourceFactory lookupSourceFactory = joinBridgeManager.getJoinBridge(processorContext.getLifespan());

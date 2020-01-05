@@ -32,6 +32,7 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.prestosql.operator.WorkProcessorOperatorAdapter.createAdapterOperatorFactory;
 import static io.prestosql.operator.project.MergePages.mergePages;
 import static java.util.Objects.requireNonNull;
 
@@ -41,7 +42,7 @@ public class FilterAndProjectOperator
     private final PageBuffer pageBuffer = new PageBuffer();
     private final WorkProcessor<Page> pages;
 
-    public FilterAndProjectOperator(
+    private FilterAndProjectOperator(
             Session session,
             MemoryTrackingContext memoryTrackingContext,
             DriverYieldSignal yieldSignal,
@@ -94,8 +95,25 @@ public class FilterAndProjectOperator
             throws Exception
     {}
 
-    public static class FilterAndProjectOperatorFactory
-            implements OperatorFactory, AdapterWorkProcessorOperatorFactory
+    public static OperatorFactory createOperatorFactory(
+            int operatorId,
+            PlanNodeId planNodeId,
+            Supplier<PageProcessor> processor,
+            List<Type> types,
+            DataSize minOutputPageSize,
+            int minOutputPageRowCount)
+    {
+        return createAdapterOperatorFactory(new Factory(
+                operatorId,
+                planNodeId,
+                processor,
+                types,
+                minOutputPageSize,
+                minOutputPageRowCount));
+    }
+
+    private static class Factory
+            implements AdapterWorkProcessorOperatorFactory
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
@@ -105,7 +123,7 @@ public class FilterAndProjectOperator
         private final int minOutputPageRowCount;
         private boolean closed;
 
-        public FilterAndProjectOperatorFactory(
+        private Factory(
                 int operatorId,
                 PlanNodeId planNodeId,
                 Supplier<PageProcessor> processor,
@@ -122,28 +140,24 @@ public class FilterAndProjectOperator
         }
 
         @Override
-        public Operator createOperator(DriverContext driverContext)
+        public WorkProcessorOperator create(ProcessorContext processorContext, WorkProcessor<Page> sourcePages)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, getOperatorType());
-            return new WorkProcessorOperatorAdapter(operatorContext, this);
+            return new FilterAndProjectOperator(
+                    processorContext.getSession(),
+                    processorContext.getMemoryTrackingContext(),
+                    processorContext.getDriverYieldSignal(),
+                    Optional.of(sourcePages),
+                    processor.get(),
+                    types,
+                    minOutputPageSize,
+                    minOutputPageRowCount);
         }
 
         @Override
-        public void noMoreOperators()
+        public AdapterWorkProcessorOperator createAdapterOperator(ProcessorContext processorContext)
         {
-            closed = true;
-        }
-
-        @Override
-        public OperatorFactory duplicate()
-        {
-            return new FilterAndProjectOperatorFactory(operatorId, planNodeId, processor, types, minOutputPageSize, minOutputPageRowCount);
-        }
-
-        @Override
-        public AdapterWorkProcessorOperator create(ProcessorContext processorContext)
-        {
+            checkState(!closed, "Factory is already closed");
             return new FilterAndProjectOperator(
                     processorContext.getSession(),
                     processorContext.getMemoryTrackingContext(),
@@ -174,17 +188,15 @@ public class FilterAndProjectOperator
         }
 
         @Override
-        public WorkProcessorOperator create(ProcessorContext processorContext, WorkProcessor<Page> sourcePages)
+        public void close()
         {
-            return new FilterAndProjectOperator(
-                    processorContext.getSession(),
-                    processorContext.getMemoryTrackingContext(),
-                    processorContext.getDriverYieldSignal(),
-                    Optional.of(sourcePages),
-                    processor.get(),
-                    types,
-                    minOutputPageSize,
-                    minOutputPageRowCount);
+            closed = true;
+        }
+
+        @Override
+        public AdapterWorkProcessorOperatorFactory duplicate()
+        {
+            return new Factory(operatorId, planNodeId, processor, types, minOutputPageSize, minOutputPageRowCount);
         }
     }
 }
