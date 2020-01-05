@@ -14,10 +14,10 @@
 package io.prestosql.plugin.raptor.legacy;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.testing.mysql.TestingMySqlServer;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.QueryRunner;
+import org.testcontainers.containers.MySQLContainer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -26,25 +26,35 @@ import java.util.Map;
 
 import static io.prestosql.plugin.raptor.legacy.RaptorQueryRunner.copyTables;
 import static io.prestosql.plugin.raptor.legacy.RaptorQueryRunner.createSession;
+import static java.lang.String.format;
 
 @Test
 public class TestRaptorIntegrationSmokeTestMySql
         extends TestRaptorIntegrationSmokeTest
 {
-    private TestingMySqlServer mysqlServer;
+    private MySQLContainer<?> mysqlContainer;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        mysqlServer = new TestingMySqlServer("testuser", "testpass", "testdb");
-        return createRaptorMySqlQueryRunner(mysqlServer.getJdbcUrl("testdb"));
+        mysqlContainer = new MySQLContainer<>("mysql:8.0.12");
+        mysqlContainer.start();
+        return createRaptorMySqlQueryRunner(getJdbcUrl(mysqlContainer));
     }
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
     {
-        mysqlServer.close();
+        mysqlContainer.close();
+    }
+
+    private static String getJdbcUrl(MySQLContainer<?> container)
+    {
+        return format("%s?user=%s&password=%s&useSSL=false&allowPublicKeyRetrieval=true",
+                container.getJdbcUrl(),
+                container.getUsername(),
+                container.getPassword());
     }
 
     private static QueryRunner createRaptorMySqlQueryRunner(String mysqlUrl)
