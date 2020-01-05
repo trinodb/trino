@@ -14,6 +14,7 @@
 package io.prestosql.tests;
 
 import io.prestosql.testing.AbstractTestQueryFramework;
+import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.Test;
 
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.INSERT_TABLE;
@@ -23,9 +24,10 @@ import static io.prestosql.testing.TestingAccessControlManager.privilege;
 public class TestLocalQueryRunner
         extends AbstractTestQueryFramework
 {
-    public TestLocalQueryRunner()
+    @Override
+    protected QueryRunner createQueryRunner()
     {
-        super(TestLocalQueries::createLocalQueryRunner);
+        return TestLocalQueries.createLocalQueryRunner();
     }
 
     @Test
