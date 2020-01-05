@@ -62,6 +62,7 @@ import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.planner.sanity.PlanSanityChecker;
 import io.prestosql.sql.tree.Analyze;
 import io.prestosql.sql.tree.Cast;
+import io.prestosql.sql.tree.CoalesceExpression;
 import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.CreateTableAsSelect;
 import io.prestosql.sql.tree.Delete;
@@ -514,9 +515,11 @@ public class LogicalPlanner
                 new ComparisonExpression(
                         GREATER_THAN_OR_EQUAL,
                         new GenericLiteral("BIGINT", Integer.toString(targetLength)),
-                        new FunctionCall(
-                                spaceTrimmedLength.toQualifiedName(),
-                                ImmutableList.of(new Cast(expression, toSqlType(VARCHAR))))),
+                        new CoalesceExpression(
+                                new FunctionCall(
+                                        spaceTrimmedLength.toQualifiedName(),
+                                        ImmutableList.of(new Cast(expression, toSqlType(VARCHAR)))),
+                                new GenericLiteral("BIGINT", "0"))),
                 new Cast(expression, toSqlType(toType)),
                 new Cast(
                         new FunctionCall(

@@ -494,6 +494,8 @@ public abstract class AbstractTestDistributedQueries
 
         assertUpdate("INSERT INTO test_insert_with_coercion (tinyint_column, integer_column, decimal_column, real_column) VALUES (1e0, 2e0, 3e0, 4e0)", 1);
         assertUpdate("INSERT INTO test_insert_with_coercion (char_column, bounded_varchar_column, unbounded_varchar_column) VALUES (CAST('aa     ' AS varchar), CAST('aa     ' AS varchar), CAST('aa     ' AS varchar))", 1);
+        assertUpdate("INSERT INTO test_insert_with_coercion (char_column, bounded_varchar_column, unbounded_varchar_column) VALUES (NULL, NULL, NULL)", 1);
+        assertUpdate("INSERT INTO test_insert_with_coercion (char_column, bounded_varchar_column, unbounded_varchar_column) VALUES (CAST(NULL AS varchar), CAST(NULL AS varchar), CAST(NULL AS varchar))", 1);
         assertUpdate("INSERT INTO test_insert_with_coercion (date_column) VALUES (TIMESTAMP '2019-11-18 22:13:40')", 1);
 
         assertQuery(
@@ -501,6 +503,8 @@ public abstract class AbstractTestDistributedQueries
                 "VALUES " +
                         "(1, 2, 3, 4, NULL, NULL, NULL, NULL), " +
                         "(NULL, NULL, NULL, NULL, 'aa ', 'aa ', 'aa     ', NULL), " +
+                        "(NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL), " +
+                        "(NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL), " +
                         "(NULL, NULL, NULL, NULL, NULL, NULL, NULL, DATE '2019-11-18')");
 
         assertQueryFails("INSERT INTO test_insert_with_coercion (integer_column) VALUES (3e9)", "Out of range for integer: 3.0E9");
