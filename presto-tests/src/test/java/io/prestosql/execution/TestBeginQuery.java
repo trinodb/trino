@@ -69,9 +69,7 @@ public class TestBeginQuery
                 .setCatalog("test")
                 .setSchema("default")
                 .build();
-        return DistributedQueryRunner.builder(session)
-                .setNodeCount(1)
-                .build();
+        return DistributedQueryRunner.builder(session).build();
     }
 
     @BeforeClass

@@ -38,9 +38,7 @@ public final class CassandraQueryRunner
     public static DistributedQueryRunner createCassandraQueryRunner(CassandraServer server, Iterable<TpchTable<?>> tables)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createCassandraSession("tpch"))
-                .setNodeCount(4)
-                .build();
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createCassandraSession("tpch")).build();
 
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");

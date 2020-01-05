@@ -443,7 +443,7 @@ public class DistributedQueryRunner
     public static class Builder
     {
         private Session defaultSession;
-        private int nodeCount = 4;
+        private int nodeCount = 3;
         private Map<String, String> extraProperties = ImmutableMap.of();
         private Map<String, String> coordinatorProperties = ImmutableMap.of();
         private SqlParserOptions parserOptions = DEFAULT_SQL_PARSER_OPTIONS;
