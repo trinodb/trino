@@ -78,9 +78,8 @@ public class TestCassandraIntegrationSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        CassandraServer server = new CassandraServer();
-        this.server = server;
-        this.session = server.getSession();
+        server = new CassandraServer();
+        session = server.getSession();
         createTestTables(session, KEYSPACE, DATE_TIME_LOCAL);
         return createCassandraQueryRunner(server, ORDERS);
     }
