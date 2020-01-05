@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
+import io.prestosql.testing.QueryRunner;
 import org.apache.iceberg.FileFormat;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
@@ -32,9 +33,11 @@ import static org.testng.Assert.assertFalse;
 public class TestIcebergSmoke
         extends AbstractTestIntegrationSmokeTest
 {
-    public TestIcebergSmoke()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createIcebergQueryRunner(ImmutableMap.of()));
+        return createIcebergQueryRunner(ImmutableMap.of());
     }
 
     @Override
