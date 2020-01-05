@@ -18,7 +18,6 @@ temp-testng-customsuite.xml
 test-output
 .externalToolBuilders
 *~
-\#*
 benchmark_outputs
 *.pyc
 *.class

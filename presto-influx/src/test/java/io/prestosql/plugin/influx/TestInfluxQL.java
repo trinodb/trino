@@ -24,10 +24,13 @@ public class TestInfluxQL
     public void test()
     {
         InfluxQL test = new InfluxQL();
+
         test.addIdentifier("hello").append(" = ").add("world");
-        assertEquals("hello = 'world'", test.toString());
+        assertEquals(test.toString(), "hello = 'world'");
+
         test.truncate(0);
+
         test.addIdentifier("åäö").append(" = ").add("\"åäö'");
-        assertEquals("\"åäö\" = '\"åäö\\''", test.toString());
+        assertEquals(test.toString(), "\"åäö\" = '\"åäö\\''");
     }
 }

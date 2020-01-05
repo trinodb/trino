@@ -95,15 +95,15 @@ public class InfluxHttp
                             .put("db", database)
                             .put("rp", retentionPolicy)
                             .build());
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("POST");
-            conn.setDoOutput(true);
-            conn.setFixedLengthStreamingMode(body.length);
-            conn.connect();
-            try (OutputStream out = conn.getOutputStream()) {
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("POST");
+            connection.setDoOutput(true);
+            connection.setFixedLengthStreamingMode((long) body.length);
+            connection.connect();
+            try (OutputStream out = connection.getOutputStream()) {
                 out.write(body);
             }
-            checkSuccess(conn);
+            checkSuccess(connection);
         }
         catch (Throwable t) {
             InfluxError.EXTERNAL.fail(t);
@@ -133,13 +133,13 @@ public class InfluxHttp
                 query);
     }
 
-    private void checkSuccess(HttpURLConnection conn)
+    private void checkSuccess(HttpURLConnection connection)
             throws IOException
     {
-        int responseCode = conn.getResponseCode();
+        int responseCode = connection.getResponseCode();
         if (responseCode < 200 || responseCode >= 300) {
             String errorMessage = "";
-            InputStream err = conn.getErrorStream();
+            InputStream err = connection.getErrorStream();
             if (err != null) {
                 try (Scanner scanner = new Scanner(err)) {
                     scanner.useDelimiter("\\Z");

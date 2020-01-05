@@ -23,7 +23,9 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.Collections;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -46,6 +48,7 @@ public class TestInfluxSelect
             throws Exception
     {
         influxServer = new TestingInfluxServer();
+        TestData.initServer(influxServer);
 
         // create a query runner with a real influx connector
         queryRunner = DistributedQueryRunner.builder(testSessionBuilder()
@@ -73,10 +76,10 @@ public class TestInfluxSelect
         MaterializedResult expectedColumns = MaterializedResult
                 .resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("time", "timestamp with time zone", "time", "")
-                .row("k1", "varchar", "tag", "")
-                .row("k2", "varchar", "tag", "")
-                .row("v1", "double", "field", "")
-                .row("v2", "double", "field", "")
+                .row("tag1", "varchar", "tag", "")
+                .row("tag2", "varchar", "tag", "")
+                .row("field1", "double", "field", "")
+                .row("field2", "double", "field", "")
                 .build();
         assertEquals(result, expectedColumns);
     }
@@ -91,7 +94,7 @@ public class TestInfluxSelect
     @Test
     public void testSelectTagEqual()
     {
-        MaterializedResult result = execute("SELECT * FROM data WHERE k1 = 'a'");
+        MaterializedResult result = execute("SELECT * FROM data WHERE tAG1 = 'a'");
         assertEquals(result, expect(0));
     }
 
@@ -99,14 +102,14 @@ public class TestInfluxSelect
     public void testSelectTagNotEqual()
     {
         // can't be pushed down
-        MaterializedResult result = execute("SELECT * FROM data WHERE k1 != 'd'");
+        MaterializedResult result = execute("SELECT * FROM data WHERE tAG1 != 'd'");
         assertEquals(result, expect(0, 1));
     }
 
     @Test
     public void testSelectField()
     {
-        MaterializedResult result = execute("SELECT v1 FROM data WHERE k1 != 'd'");
+        MaterializedResult result = execute("SELECT fIELD1 FROM data WHERE tAG1 != 'd'");
         MaterializedResult expectedColumns = MaterializedResult
                 .resultBuilder(session, DOUBLE)
                 .row(1.)
@@ -118,7 +121,7 @@ public class TestInfluxSelect
     @Test
     public void testSelectTagNull()
     {
-        MaterializedResult result = execute("SELECT * FROM data WHERE k1 IS NULL");
+        MaterializedResult result = execute("SELECT * FROM data WHERE tAG1 IS NULL");
         assertEquals(result, expect());
     }
 
@@ -126,21 +129,21 @@ public class TestInfluxSelect
     public void testSelectFieldNull()
     {
         // can't be pushed down
-        MaterializedResult result = execute("SELECT * FROM data WHERE v1 IS NULL");
+        MaterializedResult result = execute("SELECT * FROM data WHERE fIELD1 IS NULL");
         assertEquals(result, expect());
     }
 
     @Test
     public void testSelectFieldEqual()
     {
-        MaterializedResult result = execute("SELECT * FROM data WHERE v1 = 1");
+        MaterializedResult result = execute("SELECT * FROM data WHERE fIELD1 = 1");
         assertEquals(result, expect(0));
     }
 
     @Test
     public void testSelectFieldBetween()
     {
-        MaterializedResult result = execute("SELECT * FROM data WHERE v1 BETWEEN 1 AND 3");
+        MaterializedResult result = execute("SELECT * FROM data WHERE fIELD1 BETWEEN 1 AND 3");
         assertEquals(result, expect(0, 1));
     }
 
@@ -156,16 +159,41 @@ public class TestInfluxSelect
         MaterializedResult.Builder expected = MaterializedResult
                 .resultBuilder(session, TIMESTAMP_WITH_TIME_ZONE, VARCHAR, VARCHAR, DOUBLE, DOUBLE);
         for (int row : rows) {
-            expected.row(TestingInfluxServer.getColumns(row));
+            expected.row(TestData.getColumns(row));
         }
         return expected.build();
     }
 
     @AfterClass
     public void afterClass()
-            throws IOException
     {
         queryRunner.close();
         influxServer.close();
+    }
+
+    private static class TestData
+    {
+        private static final Instant[] T = new Instant[] {
+                Instant.parse("2019-12-10T21:00:04.446Z"),
+                Instant.parse("2019-12-10T21:00:20.446Z"),
+                Instant.parse("2019-12-10T22:00:04.446Z"),
+        };
+        private static final String[] TAG1 = new String[] {"a", "b", "d"};
+        private static final String[] TAG2 = new String[] {"b", "c", "b"};
+        private static final double[] FIELD1 = new double[] {1, 3, 5};
+        private static final double[] FIELD2 = new double[] {2, 4, 6};
+
+        private static void initServer(TestingInfluxServer server)
+        {
+            for (int row = 0; row < 3; row++) {
+                String line = String.format("%s,tag1=%s,tag2=%s field1=%f,field2=%f %d000000", TestingInfluxServer.MEASUREMENT, TAG1[row], TAG2[row], FIELD1[row], FIELD2[row], T[row].toEpochMilli());
+                server.getInfluxClient().write(TestingInfluxServer.RETENTION_POLICY, line);
+            }
+        }
+
+        private static Object[] getColumns(int row)
+        {
+            return new Object[] {ZonedDateTime.ofInstant(T[row], ZoneId.of("UTC")), TAG1[row], TAG2[row], FIELD1[row], FIELD2[row]};
+        }
     }
 }
