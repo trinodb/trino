@@ -34,14 +34,6 @@ public abstract class AbstractTestIntegrationSmokeTest
     private static final SecureRandom random = new SecureRandom();
     private static final int RANDOM_SUFFIX_LENGTH = 12;
 
-    @Deprecated
-    protected AbstractTestIntegrationSmokeTest(QueryRunnerSupplier supplier)
-    {
-        super(supplier);
-    }
-
-    protected AbstractTestIntegrationSmokeTest() {}
-
     protected boolean isDateTypeSupported()
     {
         return true;

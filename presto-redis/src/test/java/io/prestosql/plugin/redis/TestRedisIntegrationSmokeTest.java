@@ -15,6 +15,7 @@ package io.prestosql.plugin.redis;
 
 import io.prestosql.plugin.redis.util.EmbeddedRedis;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
+import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -26,18 +27,14 @@ import static io.prestosql.plugin.redis.util.EmbeddedRedis.createEmbeddedRedis;
 public class TestRedisIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private final EmbeddedRedis embeddedRedis;
+    private EmbeddedRedis embeddedRedis;
 
-    public TestRedisIntegrationSmokeTest()
+    @Override
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this(createEmbeddedRedis());
-    }
-
-    public TestRedisIntegrationSmokeTest(EmbeddedRedis embeddedRedis)
-    {
-        super(() -> createRedisQueryRunner(embeddedRedis, "string", ORDERS));
-        this.embeddedRedis = embeddedRedis;
+        embeddedRedis = createEmbeddedRedis();
+        return createRedisQueryRunner(embeddedRedis, "string", ORDERS);
     }
 
     @AfterClass(alwaysRun = true)

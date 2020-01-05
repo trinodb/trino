@@ -16,6 +16,7 @@ package io.prestosql.plugin.phoenix;
 import io.prestosql.Session;
 import io.prestosql.plugin.jdbc.UnsupportedTypeHandling;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
+import io.prestosql.testing.QueryRunner;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -36,15 +37,12 @@ public class TestPhoenixIntegrationSmokeTest
 {
     private TestingPhoenixServer testingPhoenixServer;
 
-    public TestPhoenixIntegrationSmokeTest()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        this(TestingPhoenixServer.getInstance());
-    }
-
-    public TestPhoenixIntegrationSmokeTest(TestingPhoenixServer server)
-    {
-        super(() -> createPhoenixQueryRunner(server));
-        this.testingPhoenixServer = server;
+        testingPhoenixServer = TestingPhoenixServer.getInstance();
+        return createPhoenixQueryRunner(testingPhoenixServer);
     }
 
     @AfterClass(alwaysRun = true)

@@ -17,12 +17,14 @@ import io.prestosql.spi.type.VarcharType;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
+import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.util.regex.Pattern;
 
 import static io.airlift.tpch.TpchTable.ORDERS;
+import static io.prestosql.plugin.kudu.KuduQueryRunnerFactory.createKuduQueryRunnerTpch;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static org.testng.Assert.assertTrue;
@@ -30,9 +32,11 @@ import static org.testng.Assert.assertTrue;
 public class TestKuduIntegrationSmoke
         extends AbstractTestIntegrationSmokeTest
 {
-    public TestKuduIntegrationSmoke()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> KuduQueryRunnerFactory.createKuduQueryRunnerTpch(ORDERS));
+        return createKuduQueryRunnerTpch(ORDERS);
     }
 
     /**
