@@ -16,6 +16,7 @@ package io.prestosql.plugin.redis;
 import io.airlift.tpch.TpchTable;
 import io.prestosql.plugin.redis.util.EmbeddedRedis;
 import io.prestosql.testing.AbstractTestQueries;
+import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -25,18 +26,14 @@ import static io.prestosql.plugin.redis.util.EmbeddedRedis.createEmbeddedRedis;
 public class TestRedisDistributed
         extends AbstractTestQueries
 {
-    private final EmbeddedRedis embeddedRedis;
+    private EmbeddedRedis embeddedRedis;
 
-    public TestRedisDistributed()
+    @Override
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this(createEmbeddedRedis());
-    }
-
-    public TestRedisDistributed(EmbeddedRedis embeddedRedis)
-    {
-        super(() -> RedisQueryRunner.createRedisQueryRunner(embeddedRedis, "string", TpchTable.getTables()));
-        this.embeddedRedis = embeddedRedis;
+        embeddedRedis = createEmbeddedRedis();
+        return RedisQueryRunner.createRedisQueryRunner(embeddedRedis, "string", TpchTable.getTables());
     }
 
     @AfterClass(alwaysRun = true)
