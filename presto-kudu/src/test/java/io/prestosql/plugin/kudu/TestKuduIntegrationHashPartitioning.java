@@ -15,6 +15,7 @@ package io.prestosql.plugin.kudu;
 
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.MaterializedResult;
+import io.prestosql.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -23,9 +24,11 @@ import static org.testng.Assert.assertEquals;
 public class TestKuduIntegrationHashPartitioning
         extends AbstractTestQueryFramework
 {
-    public TestKuduIntegrationHashPartitioning()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> KuduQueryRunnerFactory.createKuduQueryRunner("hash"));
+        return KuduQueryRunnerFactory.createKuduQueryRunner("hash");
     }
 
     @Test

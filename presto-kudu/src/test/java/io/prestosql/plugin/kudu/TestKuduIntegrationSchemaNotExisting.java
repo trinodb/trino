@@ -23,12 +23,8 @@ import static org.testng.Assert.fail;
 public class TestKuduIntegrationSchemaNotExisting
         extends AbstractTestQueryFramework
 {
-    public TestKuduIntegrationSchemaNotExisting()
-    {
-        super(TestKuduIntegrationSchemaNotExisting::createKuduQueryRunner);
-    }
-
-    private static QueryRunner createKuduQueryRunner()
+    @Override
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
         String oldPrefix = System.getProperty("kudu.schema-emulation.prefix");
