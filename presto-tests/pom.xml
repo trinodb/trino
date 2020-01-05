@@ -160,12 +160,6 @@
             <scope>test</scope>
         </dependency>
 
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>testing-mysql-server</artifactId>
-            <scope>test</scope>
-        </dependency>
-
         <!-- for benchmarks -->
         <dependency>
             <groupId>org.openjdk.jmh</groupId>
