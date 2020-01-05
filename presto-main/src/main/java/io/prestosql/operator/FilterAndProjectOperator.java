@@ -90,11 +90,6 @@ public class FilterAndProjectOperator
         return pages;
     }
 
-    @Override
-    public void close()
-            throws Exception
-    {}
-
     public static OperatorFactory createOperatorFactory(
             int operatorId,
             PlanNodeId planNodeId,
