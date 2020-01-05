@@ -102,7 +102,7 @@ public class TestFilterAndProjectOperator
         ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
         Supplier<PageProcessor> processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(field0, add5));
 
-        OperatorFactory operatorFactory = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
+        OperatorFactory operatorFactory = FilterAndProjectOperator.createOperatorFactory(
                 0,
                 new PlanNodeId("test"),
                 processor,
@@ -146,7 +146,7 @@ public class TestFilterAndProjectOperator
         ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
         Supplier<PageProcessor> processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(field(1, BIGINT)));
 
-        OperatorFactory operatorFactory = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
+        OperatorFactory operatorFactory = FilterAndProjectOperator.createOperatorFactory(
                 0,
                 new PlanNodeId("test"),
                 processor,

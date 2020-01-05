@@ -18,7 +18,6 @@ import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
 import io.prestosql.ExceededMemoryLimitException;
 import io.prestosql.RowPagesBuilder;
-import io.prestosql.operator.HashSemiJoinOperator.HashSemiJoinOperatorFactory;
 import io.prestosql.operator.SetBuilderOperator.SetBuilderOperatorFactory;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.type.Type;
@@ -126,7 +125,7 @@ public class TestHashSemiJoinOperator
                 .addSequencePage(10, 30, 0)
                 .build();
         Optional<Integer> probeHashChannel = hashEnabled ? Optional.of(probeTypes.size()) : Optional.empty();
-        HashSemiJoinOperatorFactory joinOperatorFactory = new HashSemiJoinOperatorFactory(
+        OperatorFactory joinOperatorFactory = HashSemiJoinOperator.createOperatorFactory(
                 2,
                 new PlanNodeId("test"),
                 setBuilderOperatorFactory.getSetProvider(),
@@ -190,7 +189,7 @@ public class TestHashSemiJoinOperator
                 .addSequencePage(10, 30, 0)
                 .build();
         Optional<Integer> probeHashChannel = hashEnabled ? Optional.of(probeTypes.size()) : Optional.empty();
-        HashSemiJoinOperatorFactory joinOperatorFactory = new HashSemiJoinOperatorFactory(
+        OperatorFactory joinOperatorFactory = HashSemiJoinOperator.createOperatorFactory(
                 2,
                 new PlanNodeId("test"),
                 setBuilderOperatorFactory.getSetProvider(),
@@ -283,7 +282,7 @@ public class TestHashSemiJoinOperator
                 .addSequencePage(4, 1)
                 .build();
         Optional<Integer> probeHashChannel = hashEnabled ? Optional.of(probeTypes.size()) : Optional.empty();
-        HashSemiJoinOperatorFactory joinOperatorFactory = new HashSemiJoinOperatorFactory(
+        OperatorFactory joinOperatorFactory = HashSemiJoinOperator.createOperatorFactory(
                 2,
                 new PlanNodeId("test"),
                 setBuilderOperatorFactory.getSetProvider(),
@@ -341,7 +340,7 @@ public class TestHashSemiJoinOperator
                 .row(2L)
                 .build();
         Optional<Integer> probeHashChannel = hashEnabled ? Optional.of(probeTypes.size()) : Optional.empty();
-        HashSemiJoinOperatorFactory joinOperatorFactory = new HashSemiJoinOperatorFactory(
+        OperatorFactory joinOperatorFactory = HashSemiJoinOperator.createOperatorFactory(
                 2,
                 new PlanNodeId("test"),
                 setBuilderOperatorFactory.getSetProvider(),
@@ -400,7 +399,7 @@ public class TestHashSemiJoinOperator
                 .row(2L)
                 .build();
         Optional<Integer> probeHashChannel = hashEnabled ? Optional.of(probeTypes.size()) : Optional.empty();
-        HashSemiJoinOperatorFactory joinOperatorFactory = new HashSemiJoinOperatorFactory(
+        OperatorFactory joinOperatorFactory = HashSemiJoinOperator.createOperatorFactory(
                 2,
                 new PlanNodeId("test"),
                 setBuilderOperatorFactory.getSetProvider(),

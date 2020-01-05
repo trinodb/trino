@@ -16,7 +16,6 @@ package io.prestosql.operator;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.prestosql.ExceededMemoryLimitException;
-import io.prestosql.operator.TopNOperator.TopNOperatorFactory;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.SortOrder;
 import io.prestosql.spi.type.Type;
@@ -212,7 +211,7 @@ public class TestTopNOperator
             List<Integer> sortChannels,
             List<SortOrder> sortOrders)
     {
-        return new TopNOperatorFactory(
+        return TopNOperator.createOperatorFactory(
                 0,
                 new PlanNodeId("test"),
                 types,
