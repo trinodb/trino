@@ -22,10 +22,6 @@ import static java.util.Objects.requireNonNull;
 public class WorkProcessorOperatorAdapter
         implements Operator
 {
-    private final OperatorContext operatorContext;
-    private final AdapterWorkProcessorOperator workProcessorOperator;
-    private final WorkProcessor<Page> pages;
-
     public interface AdapterWorkProcessorOperator
             extends WorkProcessorOperator
     {
@@ -41,6 +37,10 @@ public class WorkProcessorOperatorAdapter
     {
         AdapterWorkProcessorOperator create(ProcessorContext processorContext);
     }
+
+    private final OperatorContext operatorContext;
+    private final AdapterWorkProcessorOperator workProcessorOperator;
+    private final WorkProcessor<Page> pages;
 
     public WorkProcessorOperatorAdapter(OperatorContext operatorContext, AdapterWorkProcessorOperatorFactory workProcessorOperatorFactory)
     {
