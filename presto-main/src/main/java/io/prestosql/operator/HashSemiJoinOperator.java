@@ -168,12 +168,6 @@ public class HashSemiJoinOperator
         return pages;
     }
 
-    @Override
-    public void close()
-            throws Exception
-    {
-    }
-
     private static class SemiJoinPages
             implements WorkProcessor.Transformation<Page, Page>
     {
