@@ -19,69 +19,49 @@ import io.prestosql.Session;
 import io.prestosql.memory.context.AggregatedMemoryContext;
 import io.prestosql.memory.context.LocalMemoryContext;
 import io.prestosql.memory.context.MemoryTrackingContext;
-import io.prestosql.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperator;
-import io.prestosql.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperatorFactory;
+import io.prestosql.operator.BasicWorkProcessorOperatorAdapter.BasicAdapterWorkProcessorOperatorFactory;
 import io.prestosql.operator.project.PageProcessor;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.prestosql.operator.WorkProcessorOperatorAdapter.createAdapterOperatorFactory;
+import static io.prestosql.operator.BasicWorkProcessorOperatorAdapter.createAdapterOperatorFactory;
 import static io.prestosql.operator.project.MergePages.mergePages;
 import static java.util.Objects.requireNonNull;
 
 public class FilterAndProjectOperator
-        implements AdapterWorkProcessorOperator
+        implements WorkProcessorOperator
 {
-    private final PageBuffer pageBuffer = new PageBuffer();
     private final WorkProcessor<Page> pages;
 
     private FilterAndProjectOperator(
             Session session,
             MemoryTrackingContext memoryTrackingContext,
             DriverYieldSignal yieldSignal,
-            Optional<WorkProcessor<Page>> sourcePages,
+            WorkProcessor<Page> sourcePages,
             PageProcessor pageProcessor,
             List<Type> types,
             DataSize minOutputPageSize,
-            int minOutputPageRowCount)
+            int minOutputPageRowCount,
+            boolean avoidPageMaterialization)
     {
         AggregatedMemoryContext localAggregatedMemoryContext = newSimpleAggregatedMemoryContext();
         LocalMemoryContext outputMemoryContext = localAggregatedMemoryContext.newLocalMemoryContext(FilterAndProjectOperator.class.getSimpleName());
 
-        this.pages = sourcePages.orElse(pageBuffer.pages())
+        this.pages = sourcePages
                 .flatMap(page -> pageProcessor.createWorkProcessor(
                         session.toConnectorSession(),
                         yieldSignal,
                         outputMemoryContext,
                         page,
-                        sourcePages.isPresent()))
+                        avoidPageMaterialization))
                 .transformProcessor(processor -> mergePages(types, minOutputPageSize.toBytes(), minOutputPageRowCount, processor, localAggregatedMemoryContext))
                 .withProcessStateMonitor(state -> memoryTrackingContext.localSystemMemoryContext().setBytes(localAggregatedMemoryContext.getBytes()));
-    }
-
-    @Override
-    public final void finish()
-    {
-        pageBuffer.finish();
-    }
-
-    @Override
-    public boolean needsInput()
-    {
-        return pageBuffer.isEmpty() && !pageBuffer.isFinished();
-    }
-
-    @Override
-    public final void addInput(Page page)
-    {
-        pageBuffer.add(page);
     }
 
     @Override
@@ -108,7 +88,7 @@ public class FilterAndProjectOperator
     }
 
     private static class Factory
-            implements AdapterWorkProcessorOperatorFactory
+            implements BasicAdapterWorkProcessorOperatorFactory
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
@@ -142,26 +122,28 @@ public class FilterAndProjectOperator
                     processorContext.getSession(),
                     processorContext.getMemoryTrackingContext(),
                     processorContext.getDriverYieldSignal(),
-                    Optional.of(sourcePages),
+                    sourcePages,
                     processor.get(),
                     types,
                     minOutputPageSize,
-                    minOutputPageRowCount);
+                    minOutputPageRowCount,
+                    true);
         }
 
         @Override
-        public AdapterWorkProcessorOperator createAdapterOperator(ProcessorContext processorContext)
+        public WorkProcessorOperator createAdapterOperator(ProcessorContext processorContext, WorkProcessor<Page> sourcePages)
         {
             checkState(!closed, "Factory is already closed");
             return new FilterAndProjectOperator(
                     processorContext.getSession(),
                     processorContext.getMemoryTrackingContext(),
                     processorContext.getDriverYieldSignal(),
-                    Optional.empty(),
+                    sourcePages,
                     processor.get(),
                     types,
                     minOutputPageSize,
-                    minOutputPageRowCount);
+                    minOutputPageRowCount,
+                    false);
         }
 
         @Override
@@ -189,7 +171,7 @@ public class FilterAndProjectOperator
         }
 
         @Override
-        public AdapterWorkProcessorOperatorFactory duplicate()
+        public BasicAdapterWorkProcessorOperatorFactory duplicate()
         {
             return new Factory(operatorId, planNodeId, processor, types, minOutputPageSize, minOutputPageRowCount);
         }
