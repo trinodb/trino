@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.testing.mysql.TestingMySqlServer;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.testing.DistributedQueryRunner;
+import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -30,18 +31,14 @@ import static io.prestosql.plugin.raptor.legacy.RaptorQueryRunner.createSession;
 public class TestRaptorIntegrationSmokeTestMySql
         extends TestRaptorIntegrationSmokeTest
 {
-    private final TestingMySqlServer mysqlServer;
+    private TestingMySqlServer mysqlServer;
 
-    public TestRaptorIntegrationSmokeTestMySql()
+    @Override
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this(new TestingMySqlServer("testuser", "testpass", "testdb"));
-    }
-
-    private TestRaptorIntegrationSmokeTestMySql(TestingMySqlServer mysqlServer)
-    {
-        super(() -> createRaptorMySqlQueryRunner(mysqlServer.getJdbcUrl("testdb")));
-        this.mysqlServer = mysqlServer;
+        mysqlServer = new TestingMySqlServer("testuser", "testpass", "testdb");
+        return createRaptorMySqlQueryRunner(mysqlServer.getJdbcUrl("testdb"));
     }
 
     @AfterClass(alwaysRun = true)
@@ -50,7 +47,7 @@ public class TestRaptorIntegrationSmokeTestMySql
         mysqlServer.close();
     }
 
-    private static DistributedQueryRunner createRaptorMySqlQueryRunner(String mysqlUrl)
+    private static QueryRunner createRaptorMySqlQueryRunner(String mysqlUrl)
             throws Exception
     {
         DistributedQueryRunner queryRunner = new DistributedQueryRunner(createSession("tpch"), 2);

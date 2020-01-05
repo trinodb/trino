@@ -21,6 +21,7 @@ import io.prestosql.spi.type.ArrayType;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
+import io.prestosql.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -57,15 +58,11 @@ import static org.testng.Assert.assertNotNull;
 public class TestRaptorIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    @SuppressWarnings("unused")
-    public TestRaptorIntegrationSmokeTest()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        this(() -> createRaptorQueryRunner(ImmutableMap.of(), true, false));
-    }
-
-    protected TestRaptorIntegrationSmokeTest(QueryRunnerSupplier supplier)
-    {
-        super(supplier);
+        return createRaptorQueryRunner(ImmutableMap.of(), true, false);
     }
 
     @Test
