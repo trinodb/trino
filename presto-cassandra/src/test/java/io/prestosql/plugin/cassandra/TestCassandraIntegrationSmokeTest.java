@@ -32,6 +32,7 @@ import java.util.List;
 
 import static com.datastax.driver.core.utils.Bytes.toRawHexString;
 import static com.google.common.primitives.Ints.toByteArray;
+import static io.airlift.tpch.TpchTable.ORDERS;
 import static io.prestosql.plugin.cassandra.CassandraQueryRunner.createCassandraQueryRunner;
 import static io.prestosql.plugin.cassandra.CassandraQueryRunner.createCassandraSession;
 import static io.prestosql.plugin.cassandra.CassandraTestingUtils.TABLE_ALL_TYPES;
@@ -81,7 +82,7 @@ public class TestCassandraIntegrationSmokeTest
         this.server = server;
         this.session = server.getSession();
         createTestTables(session, KEYSPACE, DATE_TIME_LOCAL);
-        return createCassandraQueryRunner(server);
+        return createCassandraQueryRunner(server, ORDERS);
     }
 
     @AfterClass(alwaysRun = true)

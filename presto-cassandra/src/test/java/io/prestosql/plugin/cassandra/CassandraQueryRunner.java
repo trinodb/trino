@@ -13,13 +13,12 @@
  */
 package io.prestosql.plugin.cassandra;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.tpch.TpchTable;
 import io.prestosql.Session;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.testing.DistributedQueryRunner;
-
-import java.util.List;
 
 import static io.prestosql.plugin.cassandra.CassandraTestingUtils.createKeyspace;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -30,7 +29,13 @@ public final class CassandraQueryRunner
 {
     private CassandraQueryRunner() {}
 
-    public static DistributedQueryRunner createCassandraQueryRunner(CassandraServer server)
+    public static DistributedQueryRunner createCassandraQueryRunner(CassandraServer server, TpchTable<?>... tables)
+            throws Exception
+    {
+        return createCassandraQueryRunner(server, ImmutableList.copyOf(tables));
+    }
+
+    public static DistributedQueryRunner createCassandraQueryRunner(CassandraServer server, Iterable<TpchTable<?>> tables)
             throws Exception
     {
         DistributedQueryRunner queryRunner = new DistributedQueryRunner(createCassandraSession("tpch"), 4);
@@ -45,7 +50,6 @@ public final class CassandraQueryRunner
                 "cassandra.allow-drop-table", "true"));
 
         createKeyspace(server.getSession(), "tpch");
-        List<TpchTable<?>> tables = TpchTable.getTables();
         copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createCassandraSession("tpch"), tables);
         for (TpchTable<?> table : tables) {
             server.refreshSizeEstimates("tpch", table.getTableName());
