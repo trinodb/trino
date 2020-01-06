@@ -142,10 +142,36 @@ public class AvroDecoderTestUtil
 
         assertEquals(block.getPositionCount(), expected.size() * 2);
         Type valueType = ((MapType) type).getValueType();
-        for (int index = 0; index < block.getPositionCount(); index += 2) {
-            String actualKey = VARCHAR.getSlice(block, index).toStringUtf8();
-            assertTrue(expected.containsKey(actualKey));
-            checkPrimitiveValue(getObjectValue(valueType, block, index + 1), expected.get(actualKey));
+        if (valueType instanceof ArrayType) {
+            for (int index = 0; index < block.getPositionCount(); index += 2) {
+                String actualKey = VARCHAR.getSlice(block, index).toStringUtf8();
+                assertTrue(expected.containsKey(actualKey));
+                if (block.isNull(index + 1)) {
+                    assertNull(expected.get(actualKey));
+                    continue;
+                }
+                Block arrayBlock = block.getObject(index + 1, Block.class);
+                checkArrayValues(arrayBlock, valueType, expected.get(actualKey));
+            }
+        }
+        else if (valueType instanceof MapType) {
+            for (int index = 0; index < block.getPositionCount(); index += 2) {
+                String actualKey = VARCHAR.getSlice(block, index).toStringUtf8();
+                assertTrue(expected.containsKey(actualKey));
+                if (block.isNull(index + 1)) {
+                    assertNull(expected.get(actualKey));
+                    continue;
+                }
+                Block mapBlock = block.getObject(index + 1, Block.class);
+                checkMapValues(mapBlock, valueType, expected.get(actualKey));
+            }
+        }
+        else {
+            for (int index = 0; index < block.getPositionCount(); index += 2) {
+                String actualKey = VARCHAR.getSlice(block, index).toStringUtf8();
+                assertTrue(expected.containsKey(actualKey));
+                checkPrimitiveValue(getObjectValue(valueType, block, index + 1), expected.get(actualKey));
+            }
         }
     }
 }

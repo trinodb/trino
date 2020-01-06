@@ -29,12 +29,10 @@ import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.BooleanType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.DoubleType;
-import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.SqlVarbinary;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarbinaryType;
-import io.prestosql.spi.type.VarcharType;
 import org.apache.avro.AvroTypeException;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
@@ -61,7 +59,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.decoder.avro.AvroDecoderTestUtil.checkArrayValues;
 import static io.prestosql.decoder.avro.AvroDecoderTestUtil.checkMapValues;
 import static io.prestosql.decoder.util.DecoderTestUtil.checkIsNull;
@@ -97,6 +94,8 @@ public class TestAvroDecoder
     private static final Type VARCHAR_MAP_TYPE = METADATA.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
     private static final Type DOUBLE_MAP_TYPE = METADATA.getType(mapType(VARCHAR.getTypeSignature(), DOUBLE.getTypeSignature()));
     private static final Type REAL_MAP_TYPE = METADATA.getType(mapType(VARCHAR.getTypeSignature(), REAL.getTypeSignature()));
+    private static final Type MAP_OF_REAL_MAP_TYPE = METADATA.getType(mapType(VARCHAR.getTypeSignature(), REAL_MAP_TYPE.getTypeSignature()));
+    private static final Type MAP_OF_ARRAY_OF_MAP_TYPE = METADATA.getType(mapType(VARCHAR.getTypeSignature(), new ArrayType(REAL_MAP_TYPE).getTypeSignature()));
 
     private static String getAvroSchema(String name, String dataType)
     {
@@ -756,6 +755,127 @@ public class TestAvroDecoder
     }
 
     @Test
+    public void testMapOfMaps()
+    {
+        Schema schema = SchemaBuilder.map()
+                .values()
+                .map()
+                .values()
+                .floatType();
+
+        Map<String, Map<String, Float>> data = ImmutableMap.<String, Map<String, Float>>builder()
+                .put("k1", buildMapFromKeysAndValues(ImmutableList.of("key1", "key2", "key3"), ImmutableList.of(1.3F, 2.3F, -.5F)))
+                .put("k2", buildMapFromKeysAndValues(ImmutableList.of("key10", "key20", "key30"), ImmutableList.of(11.3F, 12.3F, -1.5F)))
+                .build();
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", MAP_OF_REAL_MAP_TYPE, "map_field", null, null, false, false, false);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "map_field", schema.toString(), data);
+        checkMapValue(decodedRow, row, data);
+    }
+
+    @Test
+    public void testMapOfMapsWithNulls()
+    {
+        Schema schema = SchemaBuilder.map()
+                .values()
+                .nullable().map()
+                .values()
+                .nullable().floatType();
+
+        Map<String, Map<String, Float>> data = buildMapFromKeysAndValues(ImmutableList.of("k1", "k2", "k3"),
+                Arrays.asList(buildMapFromKeysAndValues(ImmutableList.of("key1", "key2", "key3"), ImmutableList.of(1.3F, 2.3F, -.5F)),
+                        null,
+                        buildMapFromKeysAndValues(ImmutableList.of("key10", "key20", "key30"), Arrays.asList(11.3F, null, -1.5F))));
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", MAP_OF_REAL_MAP_TYPE, "map_field", null, null, false, false, false);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "map_field", schema.toString(), data);
+        checkMapValue(decodedRow, row, data);
+    }
+
+    @Test
+    public void testMapOfArrayOfMaps()
+    {
+        Schema schema = SchemaBuilder.map()
+                .values()
+                .array()
+                .items()
+                .map()
+                .values()
+                .floatType();
+
+        Map<String, List<Map<String, Float>>> data = buildMapFromKeysAndValues(ImmutableList.of("k1", "k2"),
+                Arrays.asList(Arrays.asList(buildMapFromKeysAndValues(ImmutableList.of("sk1", "sk2", "sk3"), Arrays.asList(1.3F, -5.3F, 2.3F))),
+                        Arrays.asList(buildMapFromKeysAndValues(ImmutableList.of("sk11", "sk21", "sk31"), Arrays.asList(11.3F, -1.5F, 12.3F)))));
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", MAP_OF_ARRAY_OF_MAP_TYPE, "map_field", null, null, false, false, false);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "map_field", schema.toString(), data);
+        checkMapValue(decodedRow, row, data);
+    }
+
+    @Test
+    public void testMapOfArrayOfMapsWithNulls()
+    {
+        Schema schema = SchemaBuilder.map()
+                .values()
+                .nullable().array()
+                .items()
+                .nullable().map()
+                .values()
+                .nullable().floatType();
+
+        Map<String, List<Map<String, Float>>> data = buildMapFromKeysAndValues(ImmutableList.of("k1", "k2", "k3"),
+                Arrays.asList(Arrays.asList(buildMapFromKeysAndValues(ImmutableList.of("sk1", "sk2", "sk3"), Arrays.asList(1.3F, null, 2.3F))),
+                        null,
+                        Arrays.asList(buildMapFromKeysAndValues(ImmutableList.of("sk11", "sk21", "sk31"), Arrays.asList(11.3F, -1.5F, 12.3F)))));
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", MAP_OF_ARRAY_OF_MAP_TYPE, "map_field", null, null, false, false, false);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "map_field", schema.toString(), data);
+        checkMapValue(decodedRow, row, data);
+    }
+
+    @Test
+    public void testMapOfArrayOfMapsWithDifferentKeys()
+    {
+        Schema schema = SchemaBuilder.map()
+                .values()
+                .array()
+                .items()
+                .map()
+                .values()
+                .floatType();
+
+        Map<String, List<Map<String, Float>>> data = buildMapFromKeysAndValues(ImmutableList.of("k1", "k2"),
+                Arrays.asList(Arrays.asList(buildMapFromKeysAndValues(ImmutableList.of("sk1", "sk2", "sk3"), Arrays.asList(1.3F, -5.3F, 2.3F))),
+                        Arrays.asList(buildMapFromKeysAndValues(ImmutableList.of("sk11", "sk21", "sk31"), Arrays.asList(11.3F, -1.5F, 12.3F)))));
+        Map<String, List<Map<String, Float>>> mismatchedData = buildMapFromKeysAndValues(ImmutableList.of("k1", "k2"),
+                Arrays.asList(Arrays.asList(buildMapFromKeysAndValues(ImmutableList.of("sk1", "sk2", "badKey"), Arrays.asList(1.3F, -5.3F, 2.3F))),
+                        Arrays.asList(buildMapFromKeysAndValues(ImmutableList.of("sk11", "sk21", "sk31"), Arrays.asList(11.3F, -1.5F, 12.3F)))));
+
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", MAP_OF_ARRAY_OF_MAP_TYPE, "map_field", null, null, false, false, false);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "map_field", schema.toString(), data);
+        assertThrows(AssertionError.class, () -> checkArrayValue(decodedRow, row, mismatchedData));
+    }
+
+    @Test
+    public void testMapOfArrayOfMapsWithDifferentValues()
+    {
+        Schema schema = SchemaBuilder.map()
+                .values()
+                .array()
+                .items()
+                .map()
+                .values()
+                .floatType();
+
+        Map<String, List<Map<String, Float>>> data = buildMapFromKeysAndValues(ImmutableList.of("k1", "k2"),
+                Arrays.asList(Arrays.asList(buildMapFromKeysAndValues(ImmutableList.of("sk1", "sk2", "sk3"), Arrays.asList(1.3F, -5.3F, 2.3F))),
+                        Arrays.asList(buildMapFromKeysAndValues(ImmutableList.of("sk11", "sk21", "sk31"), Arrays.asList(11.3F, -1.5F, 12.3F)))));
+        Map<String, List<Map<String, Float>>> mismatchedData = buildMapFromKeysAndValues(ImmutableList.of("k1", "k2"),
+                Arrays.asList(Arrays.asList(buildMapFromKeysAndValues(ImmutableList.of("sk1", "sk2", "sk3"), Arrays.asList(1.3F, -5.3F, -2.3F))),
+                        Arrays.asList(buildMapFromKeysAndValues(ImmutableList.of("sk11", "sk21", "sk31"), Arrays.asList(11.3F, -1.5F, 12.3F)))));
+
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", MAP_OF_ARRAY_OF_MAP_TYPE, "map_field", null, null, false, false, false);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "map_field", schema.toString(), data);
+        assertThrows(AssertionError.class, () -> checkArrayValue(decodedRow, row, mismatchedData));
+    }
+
+    @Test
     public void testArrayWithNulls()
             throws Exception
     {
@@ -948,77 +1068,6 @@ public class TestAvroDecoder
         for (int i = 0; i < actualBlock.getPositionCount(); i++) {
             assertTrue(actualBlock.isNull(i));
             assertEquals(BIGINT.getLong(actualBlock, i), expected[i]);
-        }
-    }
-
-    private static <T> void checkMapOfArrayOfMaps(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, Map<String, List<Map<String, T>>> expected)
-    {
-        checkState(handle.getType() instanceof MapType
-                && handle.getType().getTypeParameters().size() == 2
-                && handle.getType().getTypeParameters().get(0) instanceof VarcharType
-                && handle.getType().getTypeParameters().get(1) instanceof ArrayType
-                && handle.getType().getTypeParameters().get(1).getTypeParameters().size() == 1
-                && handle.getType().getTypeParameters().get(1).getTypeParameters().get(0) instanceof MapType
-                && handle.getType().getTypeParameters().get(1).getTypeParameters().get(0).getTypeParameters().size() == 2
-                && handle.getType().getTypeParameters().get(1).getTypeParameters().get(0).getTypeParameters().get(0) instanceof VarcharType, "unexpected type %s", handle.getType());
-        Type valueType = handle.getType().getTypeParameters().get(1).getTypeParameters().get(0).getTypeParameters().get(1);
-        Block actualBlock = getBlock(decodedRow, handle);
-        assertEquals(actualBlock.getPositionCount(), expected.size() * 2);
-        for (int index = 0; index < actualBlock.getPositionCount(); index += 2) {
-            String actualKey = VARCHAR.getSlice(actualBlock, index).toStringUtf8();
-            assertTrue(expected.containsKey(actualKey));
-            if (actualBlock.isNull(index + 1)) {
-                assertNull(expected.get(actualKey));
-                continue;
-            }
-            Block arrayBlock = actualBlock.getObject(index + 1, Block.class);
-            List<Map<String, T>> expectedList = expected.get(actualKey);
-            assertEquals(arrayBlock.getPositionCount(), expectedList.size());
-            for (int arrayIndex = 0; arrayIndex < arrayBlock.getPositionCount(); arrayIndex++) {
-                Block mapBlock = arrayBlock.getObject(arrayIndex, Block.class);
-                Map<String, T> expectedMap = expectedList.get(arrayIndex);
-                checkMapBlock(mapBlock, expectedMap, valueType);
-            }
-        }
-    }
-
-    private static <T> void checkMapOfMaps(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, Map<String, Map<String, T>> expected)
-    {
-        checkState(handle.getType() instanceof MapType
-                && handle.getType().getTypeParameters().size() == 2
-                && handle.getType().getTypeParameters().get(0) instanceof VarcharType
-                && handle.getType().getTypeParameters().get(1) instanceof MapType
-                && handle.getType().getTypeParameters().get(1).getTypeParameters().size() == 2
-                && handle.getType().getTypeParameters().get(1).getTypeParameters().get(0) instanceof VarcharType, "unexpected type %s", handle.getType());
-        Type valueType = handle.getType().getTypeParameters().get(1).getTypeParameters().get(1);
-        Block actualBlock = getBlock(decodedRow, handle);
-        assertEquals(actualBlock.getPositionCount(), expected.size() * 2);
-        for (int i = 0; i < actualBlock.getPositionCount(); i += 2) {
-            String actualKey = VARCHAR.getSlice(actualBlock, i).toStringUtf8();
-            assertTrue(expected.containsKey(actualKey));
-            Object actualValue;
-            if (actualBlock.isNull(i + 1)) {
-                assertNull(expected.get(actualKey));
-                continue;
-            }
-            checkMapBlock(actualBlock.getObject(i + 1, Block.class), expected.get(actualKey), valueType);
-        }
-    }
-
-    private static <T> void checkMapBlock(Block actualBlock, Map<String, T> expected, Type valueType)
-    {
-        assertEquals(actualBlock.getPositionCount(), expected.size() * 2);
-        for (int i = 0; i < actualBlock.getPositionCount(); i += 2) {
-            String actualKey = VARCHAR.getSlice(actualBlock, i).toStringUtf8();
-            Object actualValue;
-            if (actualBlock.isNull(i + 1)) {
-                actualValue = null;
-            }
-            else {
-                actualValue = valueType.getObjectValue(SESSION, actualBlock, i + 1);
-            }
-            assertTrue(expected.containsKey(actualKey));
-            assertEquals(actualValue, expected.get(actualKey));
         }
     }
 
