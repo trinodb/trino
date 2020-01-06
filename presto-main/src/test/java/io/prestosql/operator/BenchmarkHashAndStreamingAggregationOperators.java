@@ -18,7 +18,6 @@ import io.airlift.units.DataSize;
 import io.prestosql.RowPagesBuilder;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.HashAggregationOperator.HashAggregationOperatorFactory;
-import io.prestosql.operator.StreamingAggregationOperator.StreamingAggregationOperatorFactory;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.BlockBuilder;
@@ -141,7 +140,7 @@ public class BenchmarkHashAndStreamingAggregationOperators
 
         private OperatorFactory createStreamingAggregationOperatorFactory()
         {
-            return new StreamingAggregationOperatorFactory(
+            return StreamingAggregationOperator.createOperatorFactory(
                     0,
                     new PlanNodeId("test"),
                     ImmutableList.of(VARCHAR),
