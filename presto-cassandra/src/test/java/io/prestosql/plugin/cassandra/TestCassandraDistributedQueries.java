@@ -19,6 +19,7 @@ import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 
+import static io.prestosql.plugin.cassandra.CassandraQueryRunner.createCassandraQueryRunner;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
@@ -33,7 +34,7 @@ public class TestCassandraDistributedQueries
             throws Exception
     {
         this.server = new CassandraServer();
-        return CassandraQueryRunner.createCassandraQueryRunner(server, TpchTable.getTables());
+        return createCassandraQueryRunner(server, TpchTable.getTables());
     }
 
     @AfterClass(alwaysRun = true)
