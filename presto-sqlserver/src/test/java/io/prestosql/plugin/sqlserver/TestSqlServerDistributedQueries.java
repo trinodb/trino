@@ -33,6 +33,7 @@ public class TestSqlServerDistributedQueries
             throws Exception
     {
         this.sqlServer = new TestingSqlServer();
+        sqlServer.start();
         return createSqlServerQueryRunner(
                 sqlServer,
                 ImmutableMap.<String, String>builder()

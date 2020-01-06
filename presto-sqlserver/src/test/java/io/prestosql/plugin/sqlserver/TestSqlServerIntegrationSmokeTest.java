@@ -14,6 +14,7 @@
 package io.prestosql.plugin.sqlserver;
 
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
+import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -28,17 +29,15 @@ import static org.testng.Assert.assertTrue;
 public class TestSqlServerIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private final TestingSqlServer sqlServer;
+    private TestingSqlServer sqlServer;
 
-    public TestSqlServerIntegrationSmokeTest()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        this(new TestingSqlServer());
-    }
-
-    public TestSqlServerIntegrationSmokeTest(TestingSqlServer testingSqlServer)
-    {
-        super(() -> createSqlServerQueryRunner(testingSqlServer, ORDERS));
-        this.sqlServer = testingSqlServer;
+        sqlServer = new TestingSqlServer();
+        sqlServer.start();
+        return createSqlServerQueryRunner(sqlServer, ORDERS);
     }
 
     @AfterClass(alwaysRun = true)
