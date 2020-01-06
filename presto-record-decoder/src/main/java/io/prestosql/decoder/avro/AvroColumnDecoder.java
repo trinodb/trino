@@ -237,26 +237,26 @@ public class AvroColumnDecoder
         return null;
     }
 
-    private static Block serializeList(BlockBuilder blockBuilder, Object value, Type type, String columnName)
+    private static Block serializeList(BlockBuilder parentBlockBuilder, Object value, Type type, String columnName)
     {
         if (value == null) {
-            checkState(blockBuilder != null, "parent block builder is null");
-            blockBuilder.appendNull();
+            checkState(parentBlockBuilder != null, "parentBlockBuilder is null");
+            parentBlockBuilder.appendNull();
             return null;
         }
         List<?> list = (List<?>) value;
         List<Type> typeParameters = type.getTypeParameters();
         Type elementType = typeParameters.get(0);
 
-        BlockBuilder currentBlockBuilder = elementType.createBlockBuilder(null, list.size());
+        BlockBuilder blockBuilder = elementType.createBlockBuilder(null, list.size());
         for (Object element : list) {
-            serializeObject(currentBlockBuilder, element, elementType, columnName);
+            serializeObject(blockBuilder, element, elementType, columnName);
         }
-        if (blockBuilder != null) {
-            type.writeObject(blockBuilder, currentBlockBuilder.build());
+        if (parentBlockBuilder != null) {
+            type.writeObject(parentBlockBuilder, blockBuilder.build());
             return null;
         }
-        return currentBlockBuilder.build();
+        return blockBuilder.build();
     }
 
     private static void serializePrimitive(BlockBuilder blockBuilder, Object value, Type type, String columnName)
