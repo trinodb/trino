@@ -36,6 +36,7 @@ import io.prestosql.plugin.hive.PartitionStatistics;
 import io.prestosql.plugin.hive.TableAlreadyExistsException;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.StandardErrorCode;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.TableNotFoundException;
@@ -1119,26 +1120,32 @@ public class SemiTransactionalHiveMetastore
             committer.executeUpdateStatisticsOperations();
         }
         catch (Throwable t) {
-            committer.cancelUnstartedAsyncRenames();
+            try {
+                log.error(t, "Error during commit");
+                committer.cancelUnstartedAsyncRenames();
 
-            committer.undoUpdateStatisticsOperations();
-            committer.undoAddPartitionOperations();
-            committer.undoAddTableOperations();
+                committer.undoUpdateStatisticsOperations();
+                committer.undoAddPartitionOperations();
+                committer.undoAddTableOperations();
 
-            committer.waitForAsyncRenamesSuppressThrowables();
+                committer.waitForAsyncRenamesSuppressThrowables();
 
-            // fileRenameFutures must all come back before any file system cleanups are carried out.
-            // Otherwise, files that should be deleted may be created after cleanup is done.
-            committer.executeCleanupTasksForAbort(declaredIntentionsToWrite);
+                // fileRenameFutures must all come back before any file system cleanups are carried out.
+                // Otherwise, files that should be deleted may be created after cleanup is done.
+                committer.executeCleanupTasksForAbort(declaredIntentionsToWrite);
 
-            committer.executeRenameTasksForAbort();
+                committer.executeRenameTasksForAbort();
 
-            // Partition directory must be put back before relevant metastore operation can be undone
-            committer.undoAlterTableOperations();
-            committer.undoAlterPartitionOperations();
+                // Partition directory must be put back before relevant metastore operation can be undone
+                committer.undoAlterTableOperations();
+                committer.undoAlterPartitionOperations();
 
-            rollbackShared();
-
+                rollbackShared();
+            }
+            catch (Throwable e) {
+                log.error(e, "Error during rollback");
+                throw new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, format("Error during Commit : %s \n Error during Rollback: %s \n", t.getMessage(), e.getMessage()));
+            }
             throw t;
         }
 
@@ -1905,16 +1912,19 @@ public class SemiTransactionalHiveMetastore
                 deleteEmptyDirectories);
         if (!recursiveDeleteResult.getNotDeletedEligibleItems().isEmpty()) {
             logCleanupFailure(
-                    "Error deleting directory %s for %s. Some eligible items cannot be deleted: %s.",
+                    "Error deleting directory %s for %s. Some eligible items can not be deleted: %s " +
+                            "Non eligible items that could not be deleted : %s.",
                     directory.toString(),
                     reason,
-                    recursiveDeleteResult.getNotDeletedEligibleItems());
+                    recursiveDeleteResult.getNotDeletedEligibleItems(),
+                    recursiveDeleteResult.getNotDeletedNonEligibleItems());
         }
         else if (deleteEmptyDirectories && !recursiveDeleteResult.isDirectoryNoLongerExists()) {
             logCleanupFailure(
-                    "Error deleting directory %s for %s. Cannot delete the directory.",
+                    "Error deleting directory %s for %s. Can not delete the directory. Non eligible items that could not be deleted : %s.",
                     directory.toString(),
-                    reason);
+                    reason,
+                    recursiveDeleteResult.getNotDeletedNonEligibleItems());
         }
     }
 
@@ -1944,6 +1954,7 @@ public class SemiTransactionalHiveMetastore
             }
         }
         catch (IOException e) {
+            log.error(e, "Error while recursively deleting the files " + e.getMessage());
             ImmutableList.Builder<String> notDeletedItems = ImmutableList.builder();
             notDeletedItems.add(directory.toString() + "/**");
             return new RecursiveDeleteResult(false, notDeletedItems.build());
@@ -1971,6 +1982,7 @@ public class SemiTransactionalHiveMetastore
 
         boolean allDescendentsDeleted = true;
         ImmutableList.Builder<String> notDeletedEligibleItems = ImmutableList.builder();
+        ImmutableList.Builder<String> notDeletedNonEligibleItems = ImmutableList.builder();
         for (FileStatus fileStatus : allFiles) {
             if (fileStatus.isFile()) {
                 Path filePath = fileStatus.getPath();
@@ -1988,6 +2000,7 @@ public class SemiTransactionalHiveMetastore
                 }
                 else {
                     allDescendentsDeleted = false;
+                    notDeletedNonEligibleItems.add(fileName);
                 }
             }
             else if (fileStatus.isDirectory()) {
@@ -2007,11 +2020,11 @@ public class SemiTransactionalHiveMetastore
         if (allDescendentsDeleted && deleteEmptyDirectories) {
             verify(notDeletedEligibleItems.build().isEmpty());
             if (!deleteIfExists(fileSystem, directory, false)) {
-                return new RecursiveDeleteResult(false, ImmutableList.of(directory.toString() + "/"));
+                return new RecursiveDeleteResult(false, ImmutableList.of(directory.toString() + "/"), notDeletedNonEligibleItems.build());
             }
-            return new RecursiveDeleteResult(true, ImmutableList.of());
+            return new RecursiveDeleteResult(true, ImmutableList.of(), notDeletedNonEligibleItems.build());
         }
-        return new RecursiveDeleteResult(false, notDeletedEligibleItems.build());
+        return new RecursiveDeleteResult(false, notDeletedEligibleItems.build(), notDeletedNonEligibleItems.build());
     }
 
     /**
@@ -2888,11 +2901,18 @@ public class SemiTransactionalHiveMetastore
     {
         private final boolean directoryNoLongerExists;
         private final List<String> notDeletedEligibleItems;
+        private final List<String> notDeletedNonEligibleItems;
 
         public RecursiveDeleteResult(boolean directoryNoLongerExists, List<String> notDeletedEligibleItems)
         {
+            this(directoryNoLongerExists, notDeletedEligibleItems, ImmutableList.of());
+        }
+
+        public RecursiveDeleteResult(boolean directoryNoLongerExists, List<String> notDeletedEligibleItems, List<String> notDeletedNonEligibleItems)
+        {
             this.directoryNoLongerExists = directoryNoLongerExists;
             this.notDeletedEligibleItems = notDeletedEligibleItems;
+            this.notDeletedNonEligibleItems = notDeletedNonEligibleItems;
         }
 
         public boolean isDirectoryNoLongerExists()
@@ -2903,6 +2923,11 @@ public class SemiTransactionalHiveMetastore
         public List<String> getNotDeletedEligibleItems()
         {
             return notDeletedEligibleItems;
+        }
+
+        public List<String> getNotDeletedNonEligibleItems()
+        {
+            return notDeletedNonEligibleItems;
         }
     }
 
