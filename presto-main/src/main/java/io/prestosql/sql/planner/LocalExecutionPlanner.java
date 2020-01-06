@@ -87,7 +87,7 @@ import io.prestosql.operator.SpatialIndexBuilderOperator.SpatialPredicate;
 import io.prestosql.operator.SpatialJoinOperator.SpatialJoinOperatorFactory;
 import io.prestosql.operator.StageExecutionDescriptor;
 import io.prestosql.operator.StatisticsWriterOperator.StatisticsWriterOperatorFactory;
-import io.prestosql.operator.StreamingAggregationOperator.StreamingAggregationOperatorFactory;
+import io.prestosql.operator.StreamingAggregationOperator;
 import io.prestosql.operator.TableDeleteOperator.TableDeleteOperatorFactory;
 import io.prestosql.operator.TableScanOperator.TableScanOperatorFactory;
 import io.prestosql.operator.TaskContext;
@@ -2806,7 +2806,7 @@ public class LocalExecutionPlanner
                     .collect(toImmutableList());
 
             if (isStreamable) {
-                return new StreamingAggregationOperatorFactory(
+                return StreamingAggregationOperator.createOperatorFactory(
                         context.getNextOperatorId(),
                         planNodeId,
                         source.getTypes(),

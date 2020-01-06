@@ -16,7 +16,6 @@ package io.prestosql.operator;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.RowPagesBuilder;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.operator.StreamingAggregationOperator.StreamingAggregationOperatorFactory;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
 import io.prestosql.spi.Page;
 import io.prestosql.sql.gen.JoinCompiler;
@@ -58,7 +57,7 @@ public class TestStreamingAggregationOperator
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
     private DriverContext driverContext;
-    private StreamingAggregationOperatorFactory operatorFactory;
+    private OperatorFactory operatorFactory;
 
     @BeforeMethod
     public void setUp()
@@ -70,7 +69,7 @@ public class TestStreamingAggregationOperator
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
 
-        operatorFactory = new StreamingAggregationOperatorFactory(
+        operatorFactory = StreamingAggregationOperator.createOperatorFactory(
                 0,
                 new PlanNodeId("test"),
                 ImmutableList.of(BOOLEAN, VARCHAR, BIGINT),
