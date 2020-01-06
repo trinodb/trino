@@ -55,6 +55,7 @@ import io.prestosql.sql.planner.plan.WindowNode;
 import io.prestosql.sql.tree.BooleanLiteral;
 import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.IsNotNullPredicate;
 import io.prestosql.sql.tree.Literal;
 import io.prestosql.sql.tree.LongLiteral;
 import io.prestosql.sql.tree.NodeRef;
@@ -1008,6 +1009,18 @@ public class PredicatePushDown
             ImmutableList.Builder<Expression> builder = ImmutableList.builder();
             for (JoinNode.EquiJoinClause equiJoinClause : joinNode.getCriteria()) {
                 builder.add(equiJoinClause.toExpression());
+                switch (joinNode.getType()) {
+                    case INNER:
+                        builder.add(new IsNotNullPredicate(equiJoinClause.getLeft().toSymbolReference()));
+                        builder.add(new IsNotNullPredicate(equiJoinClause.getRight().toSymbolReference()));
+                        break;
+                    case LEFT:
+                        builder.add(new IsNotNullPredicate(equiJoinClause.getRight().toSymbolReference()));
+                        break;
+                    case RIGHT:
+                        builder.add(new IsNotNullPredicate(equiJoinClause.getLeft().toSymbolReference()));
+                        break;
+                }
             }
             joinNode.getFilter().ifPresent(builder::add);
             return combineConjuncts(metadata, builder.build());

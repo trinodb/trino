@@ -114,9 +114,16 @@ public class TestEliminateCrossJoins
                         join(INNER, ImmutableList.of(equiJoinClause("L_ORDERKEY", "O_ORDERKEY")),
                                 anyTree(
                                         join(INNER, ImmutableList.of(equiJoinClause("P_PARTKEY", "L_PARTKEY")), Optional.of("P_NAME < cast(L_COMMENT AS varchar(55))"),
-                                                anyTree(PART_WITH_NAME_TABLESCAN),
-                                                anyTree(filter("L_PARTKEY <> L_ORDERKEY", LINEITEM_WITH_COMMENT_TABLESCAN)))),
-                                anyTree(ORDERS_TABLESCAN))));
+                                                anyTree(
+                                                        filter("NOT(P_PARTKEY IS NULL)",
+                                                                PART_WITH_NAME_TABLESCAN)),
+                                                anyTree(
+                                                        filter(
+                                                                "NOT(L_ORDERKEY IS NULL) AND NOT(L_PARTKEY IS NULL) AND L_PARTKEY <> L_ORDERKEY",
+                                                                LINEITEM_WITH_COMMENT_TABLESCAN)))),
+                                anyTree(
+                                        filter("NOT(O_ORDERKEY IS NULL)",
+                                                ORDERS_TABLESCAN)))));
     }
 
     @Test
@@ -127,8 +134,10 @@ public class TestEliminateCrossJoins
                 anyTree(join(INNER, ImmutableList.of(equiJoinClause("L_ORDERKEY", "O_ORDERKEY")),
                         anyTree(
                                 join(INNER, ImmutableList.of(equiJoinClause("P_PARTKEY", "L_PARTKEY")),
-                                        anyTree(PART_TABLESCAN),
-                                        anyTree(filter("L_RETURNFLAG = 'R'", LINEITEM_WITH_RETURNFLAG_TABLESCAN)))),
-                        anyTree(filter("O_SHIPPRIORITY >= 10", ORDERS_WITH_SHIPPRIORITY_TABLESCAN)))));
+                                        anyTree(
+                                                filter("NOT(P_PARTKEY IS NULL)",
+                                                        PART_TABLESCAN)),
+                                        anyTree(filter("L_RETURNFLAG = 'R' AND NOT(L_ORDERKEY IS NULL) AND NOT(L_PARTKEY IS NULL)", LINEITEM_WITH_RETURNFLAG_TABLESCAN)))),
+                        anyTree(filter("O_SHIPPRIORITY >= 10 AND NOT (O_ORDERKEY IS NULL)", ORDERS_WITH_SHIPPRIORITY_TABLESCAN)))));
     }
 }

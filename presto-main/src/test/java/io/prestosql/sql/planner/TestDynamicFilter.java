@@ -61,7 +61,8 @@ public class TestDynamicFilter
                                         tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
                                 exchange(
                                         project(
-                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))))));
+                                                filter("NOT(LINEITEM_OK IS NULL)",
+                                                        tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))))));
     }
 
     @Test
@@ -82,11 +83,12 @@ public class TestDynamicFilter
                 anyTree(
                         join(INNER, ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
                                 ImmutableMap.of("ORDERS_OK", "LINEITEM_OK"),
-                                Optional.empty(),
+                                Optional.of("NOT(ORDERS_OK IS NULL)"),
                                 tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")),
                                 exchange(
                                         project(
-                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))), metadata)));
+                                                filter("NOT(LINEITEM_OK IS NULL)",
+                                                        tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))), metadata)));
     }
 
     @Test
@@ -111,11 +113,12 @@ public class TestDynamicFilter
                                 ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK"),
                                         equiJoinClause("ORDERS_CK", "LINEITEM_PK")),
                                 ImmutableMap.of("ORDERS_OK", "LINEITEM_OK", "ORDERS_CK", "LINEITEM_PK"),
-                                Optional.empty(),
+                                Optional.of("NOT(ORDERS_OK IS NULL) AND NOT(ORDERS_CK IS NULL)"),
                                 tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey", "ORDERS_CK", "custkey")),
                                 exchange(
                                         project(
-                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey", "LINEITEM_PK", "partkey")))), metadata)));
+                                                filter("NOT(LINEITEM_OK IS NULL) AND NOT(LINEITEM_PK IS NULL)",
+                                                        tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey", "LINEITEM_PK", "partkey"))))), metadata)));
     }
 
     @Test
@@ -125,11 +128,12 @@ public class TestDynamicFilter
                 anyTree(
                         join(INNER, ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
                                 ImmutableMap.of("ORDERS_OK", "LINEITEM_OK"),
-                                Optional.empty(),
+                                Optional.of("NOT(ORDERS_OK IS NULL)"),
                                 tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")),
                                 exchange(
                                         project(
-                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))), metadata)));
+                                                filter("NOT(LINEITEM_OK IS NULL)",
+                                                        tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))), metadata)));
     }
 
     @Test
@@ -139,12 +143,13 @@ public class TestDynamicFilter
                 anyTree(
                         join(INNER, ImmutableList.of(equiJoinClause("X", "Y")),
                                 ImmutableMap.of("X", "Y"),
-                                Optional.empty(),
+                                Optional.of("NOT(X IS NULL)"),
                                 tableScan("orders", ImmutableMap.of("X", "orderkey")),
                                 project(
-                                        node(EnforceSingleRowNode.class,
-                                                anyTree(
-                                                        tableScan("lineitem", ImmutableMap.of("Y", "orderkey"))))), metadata)));
+                                        filter("NOT(Y IS NULL)",
+                                                node(EnforceSingleRowNode.class,
+                                                        anyTree(
+                                                                tableScan("lineitem", ImmutableMap.of("Y", "orderkey")))))), metadata)));
 
         assertPlan("SELECT * FROM orders WHERE orderkey IN (SELECT orderkey FROM lineitem WHERE linenumber % 4 = 0)",
                 anyTree(
@@ -199,7 +204,9 @@ public class TestDynamicFilter
                                                 Optional.empty(),
                                                 tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")),
                                                 exchange(
-                                                        project(tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))), metadata)), metadata)));
+                                                        project(
+                                                                filter("NOT(ORDERS_OK IS NULL)",
+                                                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))), metadata)), metadata)));
     }
 
     @Test
@@ -214,7 +221,9 @@ public class TestDynamicFilter
                                         anyTree(node(FilterNode.class,
                                                 tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))),
                                 exchange(
-                                        project(tableScan("part", ImmutableMap.of("PART_PK", "partkey")))))));
+                                        project(
+                                                filter("NOT(PART_PK IS NULL)",
+                                                        tableScan("part", ImmutableMap.of("PART_PK", "partkey"))))))));
     }
 
     @Test
@@ -232,7 +241,7 @@ public class TestDynamicFilter
                         join(INNER,
                                 ImmutableList.of(equiJoinClause("ORDERS_CK", "ORDERS_CK6")),
                                 ImmutableMap.of("ORDERS_CK", "ORDERS_CK6"),
-                                Optional.empty(),
+                                Optional.of("NOT(ORDERS_CK IS NULL)"),
                                 tableScan("orders", ImmutableMap.of("ORDERS_CK", "clerk")),
                                 anyTree(
                                         join(LEFT,
@@ -241,10 +250,12 @@ public class TestDynamicFilter
                                                         join(LEFT,
                                                                 ImmutableList.of(equiJoinClause("ORDERS_CK6", "ORDERS_CK16")),
                                                                 project(
-                                                                        tableScan("orders", ImmutableMap.of("ORDERS_CK6", "clerk"))),
+                                                                        filter("NOT(ORDERS_CK6 IS NULL)",
+                                                                                tableScan("orders", ImmutableMap.of("ORDERS_CK6", "clerk")))),
                                                                 exchange(
                                                                         project(
-                                                                                tableScan("orders", ImmutableMap.of("ORDERS_CK16", "clerk")))))),
+                                                                                filter("NOT(ORDERS_CK16 IS NULL)",
+                                                                                        tableScan("orders", ImmutableMap.of("ORDERS_CK16", "clerk"))))))),
                                                 anyTree(
                                                         tableScan("orders", ImmutableMap.of("ORDERS_CK27", "clerk"))))), metadata)));
     }

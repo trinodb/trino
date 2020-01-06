@@ -46,6 +46,7 @@ import static io.prestosql.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.LEFT;
+import static io.prestosql.sql.planner.plan.JoinNode.Type.RIGHT;
 
 public class TestPredicatePushdown
         extends BasePlanTest
@@ -74,12 +75,12 @@ public class TestPredicatePushdown
                 anyTree(
                         join(INNER, ImmutableList.of(equiJoinClause("t_k", "u_k")),
                                 ImmutableMap.of("t_k", "u_k"),
-                                Optional.of("CAST('x' AS varchar(4)) = CAST(t_v AS varchar(4))"),
+                                Optional.of("NOT (t_k IS NULL) AND CAST('x' AS varchar(4)) = CAST(t_v AS varchar(4))"),
                                 tableScan("nation", ImmutableMap.of("t_k", "nationkey", "t_v", "name")),
                                 anyTree(
                                         project(
                                                 filter(
-                                                        "CAST('x' AS varchar(4)) = CAST(u_v AS varchar(4))",
+                                                        "NOT (u_k IS NULL) AND CAST('x' AS varchar(4)) = CAST(u_v AS varchar(4))",
                                                         tableScan("nation", ImmutableMap.of("u_k", "nationkey", "u_v", "name"))))), metadata)));
 
         // values have different types (varchar(4) vs varchar(5)) in each table
@@ -93,12 +94,12 @@ public class TestPredicatePushdown
                 anyTree(
                         join(INNER, ImmutableList.of(equiJoinClause("t_k", "u_k")),
                                 ImmutableMap.of("t_k", "u_k"),
-                                Optional.of("CAST('x' AS varchar(4)) = CAST(t_v AS varchar(4))"),
+                                Optional.of("NOT(t_k IS NULL) AND CAST('x' AS varchar(4)) = CAST(t_v AS varchar(4))"),
                                 tableScan("nation", ImmutableMap.of("t_k", "nationkey", "t_v", "name")),
                                 anyTree(
                                         project(
                                                 filter(
-                                                        "CAST('x' AS varchar(5)) = CAST(u_v AS varchar(5))",
+                                                        "NOT(u_k IS NULL) AND CAST('x' AS varchar(5)) = CAST(u_v AS varchar(5))",
                                                         tableScan("nation", ImmutableMap.of("u_k", "nationkey", "u_v", "name"))))), metadata)));
     }
 
@@ -111,7 +112,8 @@ public class TestPredicatePushdown
                                 anyTree(
                                         tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
                                 anyTree(
-                                        filter("cast('2' as varchar) = cast(LINEITEM_LINENUMBER as varchar)",
+                                        filter(
+                                                "NOT(LINEITEM_OK IS NULL) AND cast('2' as varchar) = cast(LINEITEM_LINENUMBER as varchar)",
                                                 tableScan("lineitem", ImmutableMap.of(
                                                         "LINEITEM_OK", "orderkey",
                                                         "LINEITEM_LINENUMBER", "linenumber")))))));
@@ -520,9 +522,68 @@ public class TestPredicatePushdown
                                                 "orders",
                                                 ImmutableMap.of("ORDERSTATUS", "orderstatus"))),
                                 anyTree(
-                                        filter("CAST(NAME AS varchar(1)) IN ('F', 'O')",
+                                        filter(
+                                                "CAST(NAME AS varchar(1)) IN ('F', 'O') AND (NOT (CAST(NAME AS VARCHAR(1))) IS NULL)",
                                                 tableScan(
                                                         "nation",
                                                         ImmutableMap.of("NAME", "name")))))));
+    }
+
+    @Test
+    public void testInferNotNullExpressionForJoin()
+    {
+        assertPlan("SELECT * FROM orders JOIN lineitem ON orders.orderkey = lineitem.orderkey",
+                anyTree(
+                        join(
+                                INNER,
+                                ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
+                                ImmutableMap.of("ORDERS_OK", "LINEITEM_OK"),
+                                Optional.of("NOT (ORDERS_OK IS NULL)"),
+                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")),
+                                anyTree(
+                                        filter(
+                                                "NOT(LINEITEM_OK IS NULL)",
+                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))), metadata)));
+
+        assertPlan("SELECT * FROM orders LEFT JOIN lineitem ON orders.orderkey = lineitem.orderkey",
+                anyTree(
+                        join(
+                                LEFT,
+                                ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
+                                project(
+                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
+                                anyTree(
+                                        filter(
+                                                "NOT(LINEITEM_OK IS NULL)",
+                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))))));
+
+        assertPlan("SELECT * FROM orders RIGHT JOIN lineitem ON orders.orderkey = lineitem.orderkey",
+                anyTree(
+                        join(
+                                RIGHT,
+                                ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
+                                project(
+                                        filter(
+                                                "NOT(ORDERS_OK IS NULL)",
+                                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))),
+                                anyTree(
+                                        tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))));
+    }
+
+    @Test
+    public void testInferNotNullExpressionForJoinWithRedundantFilter()
+    {
+        assertPlan("SELECT * FROM orders JOIN lineitem ON orders.orderkey = lineitem.orderkey WHERE orders.orderkey IS NOT NULL",
+                anyTree(
+                        join(
+                                INNER,
+                                ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
+                                ImmutableMap.of("ORDERS_OK", "LINEITEM_OK"),
+                                Optional.of("NOT (ORDERS_OK IS NULL)"),
+                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")),
+                                anyTree(
+                                        filter(
+                                                "NOT(LINEITEM_OK IS NULL)",
+                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))), metadata)));
     }
 }

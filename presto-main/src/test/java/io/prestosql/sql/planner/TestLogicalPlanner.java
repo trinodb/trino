@@ -229,9 +229,11 @@ public class TestLogicalPlanner
                                         join(INNER,
                                                 ImmutableList.of(equiJoinClause("O_SHIPPRIORITY", "L_LINENUMBER")),
                                                 Optional.of("O_ORDERKEY < L_ORDERKEY"),
-                                                any(tableScan("orders", ImmutableMap.of(
-                                                        "O_SHIPPRIORITY", "shippriority",
-                                                        "O_ORDERKEY", "orderkey"))),
+                                                any(
+                                                        filter("NOT(O_SHIPPRIORITY IS NULL)",
+                                                                tableScan("orders", ImmutableMap.of(
+                                                                        "O_SHIPPRIORITY", "shippriority",
+                                                                        "O_ORDERKEY", "orderkey")))),
                                                 anyTree(tableScan("lineitem", ImmutableMap.of(
                                                         "L_LINENUMBER", "linenumber",
                                                         "L_ORDERKEY", "orderkey"))))
@@ -272,9 +274,11 @@ public class TestLogicalPlanner
                                 join(INNER,
                                         ImmutableList.of(equiJoinClause("O_SHIPPRIORITY", "L_LINENUMBER")),
                                         Optional.of("O_ORDERKEY < L_ORDERKEY"),
-                                        any(tableScan("orders", ImmutableMap.of(
-                                                "O_SHIPPRIORITY", "shippriority",
-                                                "O_ORDERKEY", "orderkey"))),
+                                        anyTree(
+                                                filter("NOT(O_SHIPPRIORITY IS NULL)",
+                                                        tableScan("orders", ImmutableMap.of(
+                                                                "O_SHIPPRIORITY", "shippriority",
+                                                                "O_ORDERKEY", "orderkey")))),
                                         anyTree(tableScan("lineitem", ImmutableMap.of(
                                                 "L_LINENUMBER", "linenumber",
                                                 "L_ORDERKEY", "orderkey")))))));
@@ -300,7 +304,8 @@ public class TestLogicalPlanner
                 anyTree(
                         join(INNER, ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
                                 any(
-                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
+                                        filter("NOT(ORDERS_OK IS NULL)",
+                                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))),
                                 anyTree(
                                         tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))));
     }
@@ -312,7 +317,8 @@ public class TestLogicalPlanner
                 anyTree(
                         join(INNER, ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
                                 any(
-                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
+                                        node(FilterNode.class,
+                                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))),
                                 anyTree(
                                         tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))));
     }
@@ -340,11 +346,13 @@ public class TestLogicalPlanner
                 anyTree(
                         join(INNER, ImmutableList.of(equiJoinClause("X", "Y")),
                                 project(
-                                        tableScan("orders", ImmutableMap.of("X", "orderkey"))),
+                                        node(FilterNode.class,
+                                                tableScan("orders", ImmutableMap.of("X", "orderkey")))),
                                 project(
-                                        node(EnforceSingleRowNode.class,
-                                                anyTree(
-                                                        tableScan("lineitem", ImmutableMap.of("Y", "orderkey"))))))));
+                                        node(FilterNode.class,
+                                                node(EnforceSingleRowNode.class,
+                                                        anyTree(
+                                                                tableScan("lineitem", ImmutableMap.of("Y", "orderkey")))))))));
 
         assertPlan("SELECT * FROM orders WHERE orderkey IN (SELECT orderkey FROM lineitem WHERE linenumber % 4 = 0)",
                 anyTree(
@@ -384,7 +392,7 @@ public class TestLogicalPlanner
                                                                 "NATION_NAME", "name",
                                                                 "NATION_REGIONKEY", "regionkey")))),
                                 anyTree(
-                                        filter("REGION_NAME = CAST ('blah' AS varchar(25))",
+                                        filter("REGION_NAME = CAST ('blah' AS varchar(25)) AND NOT(REGION_REGIONKEY IS NULL)",
                                                 constrainedTableScan(
                                                         "region",
                                                         ImmutableMap.of(),
@@ -525,11 +533,12 @@ public class TestLogicalPlanner
                                 LEFT,
                                 ImmutableList.of(equiJoinClause("region_regionkey", "nation_regionkey")),
                                 any(tableScan("region", ImmutableMap.of("region_regionkey", "regionkey"))),
-                                any(rowNumber(
-                                        pattern -> pattern
-                                                .partitionBy(ImmutableList.of("nation_regionkey"))
-                                                .maxRowCountPerPartition(Optional.of(2)),
-                                        anyTree(tableScan("nation", ImmutableMap.of("nation_name", "name", "nation_regionkey", "regionkey"))))))));
+                                any(filter("NOT(nation_regionkey IS NULL)",
+                                        rowNumber(
+                                                pattern -> pattern
+                                                        .partitionBy(ImmutableList.of("nation_regionkey"))
+                                                        .maxRowCountPerPartition(Optional.of(2)),
+                                                anyTree(tableScan("nation", ImmutableMap.of("nation_name", "name", "nation_regionkey", "regionkey")))))))));
 
         // rewrite Limit to decorrelated Limit
         assertPlan("SELECT regionkey, n.nationkey FROM region LEFT JOIN LATERAL (SELECT nationkey FROM nation WHERE region.regionkey = 3 LIMIT 2) n ON TRUE",
@@ -555,15 +564,16 @@ public class TestLogicalPlanner
                                 LEFT,
                                 ImmutableList.of(equiJoinClause("region_regionkey", "nation_regionkey")),
                                 any(tableScan("region", ImmutableMap.of("region_regionkey", "regionkey"))),
-                                any(topNRowNumber(
-                                        pattern -> pattern
-                                                .specification(
-                                                        ImmutableList.of("nation_regionkey"),
-                                                        ImmutableList.of("nation_name"),
-                                                        ImmutableMap.of("nation_name", SortOrder.ASC_NULLS_LAST))
-                                                .maxRowCountPerPartition(2)
-                                                .partial(false),
-                                        anyTree(tableScan("nation", ImmutableMap.of("nation_name", "name", "nation_regionkey", "regionkey"))))))));
+                                any(filter("NOT (nation_regionkey IS NULL)",
+                                        topNRowNumber(
+                                                pattern -> pattern
+                                                        .specification(
+                                                                ImmutableList.of("nation_regionkey"),
+                                                                ImmutableList.of("nation_name"),
+                                                                ImmutableMap.of("nation_name", SortOrder.ASC_NULLS_LAST))
+                                                        .maxRowCountPerPartition(2)
+                                                        .partial(false),
+                                                anyTree(tableScan("nation", ImmutableMap.of("nation_name", "name", "nation_regionkey", "regionkey")))))))));
 
         // rewrite TopN to RowNumberNode
         assertPlan(
@@ -573,11 +583,13 @@ public class TestLogicalPlanner
                                 LEFT,
                                 ImmutableList.of(equiJoinClause("region_regionkey", "nation_regionkey")),
                                 any(tableScan("region", ImmutableMap.of("region_regionkey", "regionkey"))),
-                                any(rowNumber(
-                                        pattern -> pattern
-                                                .partitionBy(ImmutableList.of("nation_regionkey"))
-                                                .maxRowCountPerPartition(Optional.of(2)),
-                                        anyTree(tableScan("nation", ImmutableMap.of("nation_name", "name", "nation_regionkey", "regionkey"))))))));
+                                any(
+                                        filter("NOT(nation_regionkey IS NULL)",
+                                                rowNumber(
+                                                        pattern -> pattern
+                                                                .partitionBy(ImmutableList.of("nation_regionkey"))
+                                                                .maxRowCountPerPartition(Optional.of(2)),
+                                                        anyTree(tableScan("nation", ImmutableMap.of("nation_name", "name", "nation_regionkey", "regionkey")))))))));
     }
 
     @Test
@@ -889,7 +901,8 @@ public class TestLogicalPlanner
                                                                 tableScan("region", ImmutableMap.of("LEFT_REGIONKEY", "regionkey")))))),
                                 anyTree(
                                         exchange(REMOTE, REPARTITION,
-                                                tableScan("region", ImmutableMap.of("RIGHT_REGIONKEY", "regionkey")))))),
+                                                any(
+                                                        tableScan("region", ImmutableMap.of("RIGHT_REGIONKEY", "regionkey"))))))),
                 plan -> // make sure there are only two remote exchanges (one in probe and one in build side)
                         assertEquals(
                                 countOfMatchingNodes(
@@ -908,7 +921,8 @@ public class TestLogicalPlanner
                                         node(ValuesNode.class)),
                                 anyTree(
                                         exchange(REMOTE, GATHER,
-                                                node(TableScanNode.class))))));
+                                                node(FilterNode.class,
+                                                        node(TableScanNode.class)))))));
 
         // replicated join is preserved if there are no equality criteria
         assertPlanWithSession(

@@ -43,6 +43,7 @@ import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.join;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.node;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
@@ -151,7 +152,9 @@ public class TestAddExchangesPlans
                 anyTree(
                         join(INNER, ImmutableList.of(equiJoinClause("nationkey", "regionkey")), Optional.empty(), Optional.of(REPLICATED), Optional.of(false),
                                 anyNot(ExchangeNode.class,
-                                        tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))),
+                                        filter(
+                                                "NOT(nationkey is null)",
+                                                tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))),
                                 anyTree(
                                         exchange(REMOTE, REPLICATE,
                                                 anyTree(
