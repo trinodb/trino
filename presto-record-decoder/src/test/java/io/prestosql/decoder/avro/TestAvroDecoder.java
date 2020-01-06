@@ -30,7 +30,6 @@ import io.prestosql.spi.type.BooleanType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.RowType;
-import io.prestosql.spi.type.SqlVarbinary;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarbinaryType;
 import org.apache.avro.AvroTypeException;
@@ -44,8 +43,6 @@ import org.apache.avro.generic.GenericArray;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericData.EnumSymbol;
 import org.apache.avro.generic.GenericDatumWriter;
-import org.apache.avro.generic.GenericEnumSymbol;
-import org.apache.avro.generic.GenericFixed;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.GenericRecordBuilder;
 import org.assertj.core.api.ThrowableAssert;
@@ -63,6 +60,7 @@ import java.util.Set;
 
 import static io.prestosql.decoder.avro.AvroDecoderTestUtil.checkArrayValues;
 import static io.prestosql.decoder.avro.AvroDecoderTestUtil.checkMapValues;
+import static io.prestosql.decoder.avro.AvroDecoderTestUtil.checkRowValues;
 import static io.prestosql.decoder.util.DecoderTestUtil.checkIsNull;
 import static io.prestosql.decoder.util.DecoderTestUtil.checkValue;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
@@ -78,12 +76,10 @@ import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
-import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
@@ -98,6 +94,11 @@ public class TestAvroDecoder
     private static final Type REAL_MAP_TYPE = METADATA.getType(mapType(VARCHAR.getTypeSignature(), REAL.getTypeSignature()));
     private static final Type MAP_OF_REAL_MAP_TYPE = METADATA.getType(mapType(VARCHAR.getTypeSignature(), REAL_MAP_TYPE.getTypeSignature()));
     private static final Type MAP_OF_ARRAY_OF_MAP_TYPE = METADATA.getType(mapType(VARCHAR.getTypeSignature(), new ArrayType(REAL_MAP_TYPE).getTypeSignature()));
+    private static final Type MAP_OF_RECORD = METADATA.getType(mapType(VARCHAR.getTypeSignature(),
+            RowType.from(ImmutableList.<RowType.Field>builder()
+                    .add(RowType.field("sf1", DOUBLE))
+                    .add(RowType.field("sf2", BOOLEAN))
+                    .build()).getTypeSignature()));
 
     private static Schema getAvroSchema(Map<String, String> fields)
     {
@@ -984,6 +985,20 @@ public class TestAvroDecoder
                 .name("f7").type().fixed("fixed5").size(5).noDefault()
                 .name("f8").type().bytesType().noDefault()
                 .name("f9").type().booleanType().noDefault()
+                .name("f10").type().array().items()
+                .record("sub_array_field").fields()
+                .name("sf1").type().stringType().noDefault()
+                .name("sf2").type().longType().noDefault()
+                .endRecord().noDefault()
+                .name("f11").type().map().values()
+                .record("sub_map_field").fields()
+                .name("sf1").type().doubleType().noDefault()
+                .name("sf2").type().booleanType().noDefault()
+                .endRecord().noDefault()
+                .name("f12").type().record("sub_row_field").fields()
+                .name("sf1").type().intType().noDefault()
+                .name("sf2").type().enumeration("state").symbols("initialized", "running", "finished", "failed").noDefault()
+                .endRecord().noDefault()
                 .endRecord();
         RowType rowType = RowType.from(ImmutableList.<RowType.Field>builder()
                 .add(RowType.field("f1", REAL))
@@ -995,6 +1010,15 @@ public class TestAvroDecoder
                 .add(RowType.field("f7", VARBINARY))
                 .add(RowType.field("f8", VARBINARY))
                 .add(RowType.field("f9", BOOLEAN))
+                .add(RowType.field("f10", new ArrayType(RowType.from(ImmutableList.<RowType.Field>builder()
+                        .add(RowType.field("sf1", VARCHAR))
+                        .add(RowType.field("sf2", BIGINT))
+                        .build()))))
+                .add(RowType.field("f11", MAP_OF_RECORD))
+                .add(RowType.field("f12", RowType.from(ImmutableList.<RowType.Field>builder()
+                        .add(RowType.field("sf1", INTEGER))
+                        .add(RowType.field("sf2", VARCHAR))
+                        .build())))
                 .build());
         GenericRecord data = new GenericRecordBuilder(schema)
                 .set("f1", 1.5F)
@@ -1006,10 +1030,106 @@ public class TestAvroDecoder
                 .set("f7", new GenericData.Fixed(schema.getField("f7").schema(), new byte[] {5, 4, 3, 2, 1}))
                 .set("f8", ByteBuffer.wrap("mytext".getBytes(UTF_8)))
                 .set("f9", true)
+                .set("f10", ImmutableList.builder()
+                        .add(new GenericRecordBuilder(schema.getField("f10").schema().getElementType())
+                                .set("sf1", "string text")
+                                .set("sf2", 365_000_000L)
+                                .build())
+                        .add(new GenericRecordBuilder(schema.getField("f10").schema().getElementType())
+                                .set("sf1", "more string text")
+                                .set("sf2", 365_000_000_000L)
+                                .build())
+                        .build())
+                .set("f11", ImmutableMap.builder()
+                        .put("key1", new GenericRecordBuilder(schema.getField("f11").schema().getValueType())
+                                .set("sf1", 3.5D)
+                                .set("sf2", true)
+                                .build())
+                        .put("key2", new GenericRecordBuilder(schema.getField("f11").schema().getValueType())
+                                .set("sf1", 4.5D)
+                                .set("sf2", false)
+                                .build())
+                        .build())
+                .set("f12", new GenericRecordBuilder(schema.getField("f12").schema())
+                        .set("sf1", 3)
+                        .set("sf2", new GenericData.EnumSymbol(schema.getField("f12").schema().getField("sf2").schema(), "running"))
+                        .build())
                 .build();
         DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "record_field", rowType, "record_field", null, null, false, false, false);
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "record_field", schema.toString(), data);
-        checkRowBlock(getBlock(decodedRow, row), data, rowType);
+        checkRowValue(decodedRow, row, data);
+    }
+
+    @Test
+    public void testRowWithNulls()
+    {
+        Schema schema = SchemaBuilder.record("record_field")
+                .fields()
+                .name("f1").type().optional().floatType()
+                .name("f2").type().optional().doubleType()
+                .name("f3").type().optional().intType()
+                .name("f4").type().optional().longType()
+                .name("f5").type().optional().stringType()
+                .name("f6").type().optional().enumeration("color").symbols("red", "blue", "green")
+                .name("f7").type().optional().fixed("fixed5").size(5)
+                .name("f8").type().optional().bytesType()
+                .name("f9").type().optional().booleanType()
+                .name("f10").type().optional().array().items()
+                .unionOf().nullType().and().record("sub_array_field").fields()
+                .name("sf1").type().optional().stringType()
+                .name("sf2").type().optional().longType()
+                .endRecord().endUnion()
+                .name("f11").type().optional().map().values()
+                .unionOf().nullType().and()
+                .record("sub_map_field").fields()
+                .name("sf1").type().optional().doubleType()
+                .name("sf2").type().optional().booleanType()
+                .endRecord()
+                .endUnion()
+                .name("f12").type().optional().record("sub_row_field").fields()
+                .name("sf1").type().optional().intType()
+                .name("sf2").type().optional().enumeration("state").symbols("initialized", "running", "finished", "failed")
+                .endRecord()
+                .endRecord();
+        RowType rowType = RowType.from(ImmutableList.<RowType.Field>builder()
+                .add(RowType.field("f1", REAL))
+                .add(RowType.field("f2", DOUBLE))
+                .add(RowType.field("f3", INTEGER))
+                .add(RowType.field("f4", BIGINT))
+                .add(RowType.field("f5", VARCHAR))
+                .add(RowType.field("f6", VARCHAR))
+                .add(RowType.field("f7", VARBINARY))
+                .add(RowType.field("f8", VARBINARY))
+                .add(RowType.field("f9", BOOLEAN))
+                .add(RowType.field("f10", new ArrayType(RowType.from(ImmutableList.<RowType.Field>builder()
+                        .add(RowType.field("sf1", VARCHAR))
+                        .add(RowType.field("sf2", BIGINT))
+                        .build()))))
+                .add(RowType.field("f11", MAP_OF_RECORD))
+                .add(RowType.field("f12", RowType.from(ImmutableList.<RowType.Field>builder()
+                        .add(RowType.field("sf1", INTEGER))
+                        .add(RowType.field("sf2", VARCHAR))
+                        .build())))
+                .build());
+        GenericRecord data = new GenericRecordBuilder(schema).build();
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "record_field", rowType, "record_field", null, null, false, false, false);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "record_field", schema.toString(), data);
+        checkRowValue(decodedRow, row, data);
+
+        // Check nested fields with null values
+        GenericData.Array<GenericRecord> array = new GenericData.Array<GenericRecord>(schema.getField("f10").schema().getTypes().get(1),
+                Arrays.asList(
+                        new GenericRecordBuilder(schema.getField("f10").schema().getTypes().get(1).getElementType().getTypes().get(1)).build(),
+                        null));
+        data = new GenericRecordBuilder(schema)
+                .set("f10", array)
+                .set("f11", ImmutableMap.builder()
+                        .put("key1", new GenericRecordBuilder(schema.getField("f11").schema().getTypes().get(1).getValueType().getTypes().get(1)).build())
+                        .build())
+                .set("f12", new GenericRecordBuilder(schema.getField("f12").schema().getTypes().get(1)).build())
+                .build();
+        decodedRow = buildAndDecodeColumn(row, "record_field", schema.toString(), data);
+        checkRowValue(decodedRow, row, data);
     }
 
     @Test
@@ -1032,51 +1152,12 @@ public class TestAvroDecoder
                 .add(RowType.field("f2", VARCHAR))
                 .build())), "array_field", null, null, false, false, false);
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "array_field", schema.toString(), data);
-        checkArrayOfRows(decodedRow, row, data);
+        checkArrayValue(decodedRow, row, data);
     }
 
-    private static void checkArrayOfRows(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, List<GenericRecord> expected)
+    private static void checkRowValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, Object expected)
     {
-        Block actualBlock = getBlock(decodedRow, handle);
-        assertEquals(actualBlock.getPositionCount(), expected.size());
-        RowType rowType = (RowType) handle.getType().getTypeParameters().get(0);
-        for (int index = 0; index < actualBlock.getPositionCount(); index++) {
-            Block rowBlock = actualBlock.getObject(index, Block.class);
-            GenericRecord record = expected.get(index);
-            checkRowBlock(rowBlock, record, rowType);
-        }
-    }
-
-    private static void checkRowBlock(Block rowBlock, GenericRecord record, RowType rowType)
-    {
-        for (int fieldIndex = 0; fieldIndex < rowType.getFields().size(); fieldIndex++) {
-            RowType.Field rowField = rowType.getFields().get(fieldIndex);
-            Object expectedValue = record.get(rowField.getName().get());
-            if (rowBlock.isNull(fieldIndex)) {
-                assertNull(expectedValue);
-                continue;
-            }
-            Object actualValue = rowField.getType().getObjectValue(SESSION, rowBlock, fieldIndex);
-            assertEqualsPrimitive(actualValue, expectedValue);
-        }
-    }
-
-    private static void assertEqualsPrimitive(Object actual, Object expected)
-    {
-        if (expected instanceof GenericEnumSymbol) {
-            assertEquals(actual.toString(), expected.toString());
-        }
-        else if (actual instanceof SqlVarbinary) {
-            if (expected instanceof GenericFixed) {
-                assertEquals(((SqlVarbinary) actual).getBytes(), ((GenericFixed) expected).bytes());
-            }
-            else if (expected instanceof ByteBuffer) {
-                assertEquals(((SqlVarbinary) actual).getBytes(), ((ByteBuffer) expected).array());
-            }
-        }
-        else {
-            assertEquals(actual, expected);
-        }
+        checkRowValues(getBlock(decodedRow, handle), handle.getType(), expected);
     }
 
     private static void checkArrayValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, Object expected)

@@ -29,6 +29,8 @@ import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.IntegerType;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.RealType;
+import io.prestosql.spi.type.RowType;
+import io.prestosql.spi.type.RowType.Field;
 import io.prestosql.spi.type.SmallintType;
 import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
@@ -106,6 +108,15 @@ public class AvroColumnDecoder
             checkArgument(typeParameters.size() == 2, "expecting exactly two type parameters for map");
             checkArgument(typeParameters.get(0) instanceof VarcharType, "Unsupported column type '%s' for map key", typeParameters.get(0));
             return isSupportedType(type.getTypeParameters().get(1));
+        }
+
+        if (type instanceof RowType) {
+            for (Type fieldType : type.getTypeParameters()) {
+                if (!isSupportedType(fieldType)) {
+                    return false;
+                }
+            }
+            return true;
         }
         return false;
     }
@@ -219,6 +230,9 @@ public class AvroColumnDecoder
         if (type instanceof MapType) {
             return serializeMap(builder, value, type, columnName);
         }
+        if (type instanceof RowType) {
+            return serializeRow(builder, value, type, columnName);
+        }
         serializePrimitive(builder, value, type, columnName);
         return null;
     }
@@ -312,6 +326,35 @@ public class AvroColumnDecoder
         }
         blockBuilder.closeEntry();
 
+        if (parentBlockBuilder == null) {
+            return blockBuilder.getObject(0, Block.class);
+        }
+        return null;
+    }
+
+    private static Block serializeRow(BlockBuilder parentBlockBuilder, Object value, Type type, String columnName)
+    {
+        if (value == null) {
+            checkState(parentBlockBuilder != null, "parent block builder is null");
+            parentBlockBuilder.appendNull();
+            return null;
+        }
+
+        BlockBuilder blockBuilder;
+        if (parentBlockBuilder != null) {
+            blockBuilder = parentBlockBuilder;
+        }
+        else {
+            blockBuilder = type.createBlockBuilder(null, 1);
+        }
+        BlockBuilder singleRowBuilder = blockBuilder.beginBlockEntry();
+        GenericRecord record = (GenericRecord) value;
+        List<Field> fields = ((RowType) type).getFields();
+        for (Field field : fields) {
+            checkState(field.getName().isPresent(), "field name not found");
+            serializeObject(singleRowBuilder, record.get(field.getName().get()), field.getType(), columnName);
+        }
+        blockBuilder.closeEntry();
         if (parentBlockBuilder == null) {
             return blockBuilder.getObject(0, Block.class);
         }
