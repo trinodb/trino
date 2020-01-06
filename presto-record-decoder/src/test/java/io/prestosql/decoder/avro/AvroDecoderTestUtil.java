@@ -16,11 +16,13 @@ package io.prestosql.decoder.avro;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.SqlVarbinary;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 import org.apache.avro.generic.GenericEnumSymbol;
 import org.apache.avro.generic.GenericFixed;
+import org.apache.avro.generic.GenericRecord;
 
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -123,6 +125,16 @@ public class AvroDecoderTestUtil
                 checkMapValues(mapBlock, elementType, list.get(index));
             }
         }
+        else if (elementType instanceof RowType) {
+            for (int index = 0; index < block.getPositionCount(); index++) {
+                if (block.isNull(index)) {
+                    assertNull(list.get(index));
+                    continue;
+                }
+                Block rowBlock = block.getObject(index, Block.class);
+                checkRowValues(rowBlock, elementType, list.get(index));
+            }
+        }
         else {
             for (int index = 0; index < block.getPositionCount(); index++) {
                 checkPrimitiveValue(getObjectValue(elementType, block, index), list.get(index));
@@ -166,12 +178,67 @@ public class AvroDecoderTestUtil
                 checkMapValues(mapBlock, valueType, expected.get(actualKey));
             }
         }
+        else if (valueType instanceof RowType) {
+            for (int index = 0; index < block.getPositionCount(); index += 2) {
+                String actualKey = VARCHAR.getSlice(block, index).toStringUtf8();
+                assertTrue(expected.containsKey(actualKey));
+                if (block.isNull(index + 1)) {
+                    assertNull(expected.get(actualKey));
+                    continue;
+                }
+                Block rowBlock = block.getObject(index + 1, Block.class);
+                checkRowValues(rowBlock, valueType, expected.get(actualKey));
+            }
+        }
         else {
             for (int index = 0; index < block.getPositionCount(); index += 2) {
                 String actualKey = VARCHAR.getSlice(block, index).toStringUtf8();
                 assertTrue(expected.containsKey(actualKey));
                 checkPrimitiveValue(getObjectValue(valueType, block, index + 1), expected.get(actualKey));
             }
+        }
+    }
+
+    public static void checkRowValues(Block block, Type type, Object value)
+    {
+        assertNotNull(type, "Type is null");
+        assertTrue(type instanceof RowType, "Unexpected type");
+        assertNotNull(block, "Block is null");
+        assertNotNull(value, "Value is null");
+
+        GenericRecord record = (GenericRecord) value;
+        RowType rowType = (RowType) type;
+        assertEquals(record.getSchema().getFields().size(), rowType.getFields().size(), "Avro field size mismatch");
+        assertEquals(block.getPositionCount(), rowType.getFields().size(), "Presto type field size mismatch");
+        for (int fieldIndex = 0; fieldIndex < rowType.getFields().size(); fieldIndex++) {
+            RowType.Field rowField = rowType.getFields().get(fieldIndex);
+            Object expectedValue = record.get(rowField.getName().get());
+            if (block.isNull(fieldIndex)) {
+                assertNull(expectedValue);
+                continue;
+            }
+            checkField(block, rowField.getType(), fieldIndex, expectedValue);
+        }
+    }
+
+    private static void checkField(Block actualBlock, Type type, int position, Object expectedValue)
+    {
+        assertNotNull(type, "Type is null");
+        assertNotNull(actualBlock, "actualBlock is null");
+        assertTrue(!actualBlock.isNull(position));
+        assertNotNull(expectedValue, "expectedValue is null");
+
+        if (type instanceof ArrayType) {
+            checkArrayValues(actualBlock.getObject(position, Block.class), type, expectedValue);
+        }
+        else if (type instanceof MapType) {
+            checkMapValues(actualBlock.getObject(position, Block.class), type, expectedValue);
+        }
+        else if (type instanceof RowType) {
+            checkRowValues(actualBlock.getObject(position, Block.class), type, expectedValue);
+        }
+        else {
+            checkPrimitiveValue(getObjectValue(type, actualBlock, position), expectedValue);
         }
     }
 }
