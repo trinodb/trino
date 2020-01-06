@@ -16,6 +16,7 @@ package io.prestosql.decoder.avro;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.slice.Slices;
 import io.prestosql.decoder.DecoderColumnHandle;
 import io.prestosql.decoder.DecoderTestColumnHandle;
 import io.prestosql.decoder.FieldValueProvider;
@@ -28,15 +29,14 @@ import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.BooleanType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.DoubleType;
-import io.prestosql.spi.type.IntegerType;
-import io.prestosql.spi.type.SmallintType;
-import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarbinaryType;
 import org.apache.avro.AvroTypeException;
 import org.apache.avro.Schema;
+import org.apache.avro.SchemaBuilder;
 import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.generic.GenericData;
+import org.apache.avro.generic.GenericData.EnumSymbol;
 import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.generic.GenericRecord;
 import org.assertj.core.api.ThrowableAssert;
@@ -58,7 +58,10 @@ import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
+import static io.prestosql.spi.type.SmallintType.SMALLINT;
+import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -184,6 +187,25 @@ public class TestAvroDecoder
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "string_field", "\"string\"", "Mon Jul 28 20:38:07 +0000 2014");
 
         checkValue(decodedRow, row, "Mon Jul 28 20:38:07 +0000 2014");
+    }
+
+    @Test
+    public void testEnumDecodedAsVarchar()
+    {
+        Schema schema = SchemaBuilder.record("record")
+                .fields()
+                .name("enum_field")
+                .type()
+                .enumeration("Weekday")
+                .symbols("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
+                .noDefault()
+                .endRecord();
+        Schema enumType = schema.getField("enum_field").schema();
+        EnumSymbol enumValue = new GenericData.EnumSymbol(enumType, "Wednesday");
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", VARCHAR, "enum_field", null, null, false, false, false);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "enum_field", enumType.toString(), enumValue);
+
+        checkValue(decodedRow, row, "Wednesday");
     }
 
     @Test
@@ -329,10 +351,46 @@ public class TestAvroDecoder
     }
 
     @Test
+    public void testIntDecodedAsInteger()
+    {
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", INTEGER, "id", null, null, false, false, false);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "id", "\"int\"", 100_000);
+
+        checkValue(decodedRow, row, 100_000);
+    }
+
+    @Test
+    public void testIntDecodedAsSmallInt()
+    {
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", SMALLINT, "id", null, null, false, false, false);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "id", "\"int\"", 1000);
+
+        checkValue(decodedRow, row, 1000);
+    }
+
+    @Test
+    public void testIntDecodedAsTinyInt()
+    {
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", TINYINT, "id", null, null, false, false, false);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "id", "\"int\"", 100);
+
+        checkValue(decodedRow, row, 100);
+    }
+
+    @Test
     public void testFloatDecodedAsDouble()
             throws Exception
     {
         DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", DOUBLE, "float_field", null, null, false, false, false);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "float_field", "\"float\"", 10.2f);
+
+        checkValue(decodedRow, row, 10.2);
+    }
+
+    @Test
+    public void testFloatDecodedAsReal()
+    {
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", REAL, "float_field", null, null, false, false, false);
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "float_field", "\"float\"", 10.2f);
 
         checkValue(decodedRow, row, 10.2);
@@ -346,6 +404,26 @@ public class TestAvroDecoder
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "encoded", "\"bytes\"", ByteBuffer.wrap("mytext".getBytes(UTF_8)));
 
         checkValue(decodedRow, row, "mytext");
+    }
+
+    @Test
+    public void testFixedDecodedAsVarbinary()
+    {
+        Schema schema = SchemaBuilder.record("record")
+                .fields().name("fixed_field")
+                .type()
+                .fixed("fixed5")
+                .size(5)
+                .noDefault()
+                .endRecord();
+        Schema fixedType = schema.getField("fixed_field").schema();
+        GenericData.Fixed fixedValue = new GenericData.Fixed(schema.getField("fixed_field").schema());
+        byte[] bytes = {5, 4, 3, 2, 1};
+        fixedValue.bytes(bytes);
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", VARBINARY, "fixed_field", null, null, false, false, false);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "fixed_field", fixedType.toString(), fixedValue);
+
+        checkValue(decodedRow, row, Slices.wrappedBuffer(bytes));
     }
 
     @Test
@@ -564,13 +642,7 @@ public class TestAvroDecoder
         singleColumnDecoder(DOUBLE_MAP_TYPE);
 
         // some unsupported types
-        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(REAL));
-        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(IntegerType.INTEGER));
-        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(SmallintType.SMALLINT));
-        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(TinyintType.TINYINT));
         assertUnsupportedColumnTypeException(() -> singleColumnDecoder(DecimalType.createDecimalType(10, 4)));
-        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(new ArrayType(REAL)));
-        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(REAL_MAP_TYPE));
     }
 
     private void assertUnsupportedColumnTypeException(ThrowableAssert.ThrowingCallable callable)

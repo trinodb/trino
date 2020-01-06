@@ -14,7 +14,7 @@
 package io.prestosql.decoder.avro;
 
 import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.prestosql.decoder.DecoderColumnHandle;
@@ -26,16 +26,22 @@ import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.BooleanType;
 import io.prestosql.spi.type.DoubleType;
+import io.prestosql.spi.type.IntegerType;
 import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.RealType;
+import io.prestosql.spi.type.SmallintType;
+import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarbinaryType;
 import io.prestosql.spi.type.VarcharType;
+import org.apache.avro.generic.GenericEnumSymbol;
+import org.apache.avro.generic.GenericFixed;
 import org.apache.avro.generic.GenericRecord;
-import org.apache.avro.util.Utf8;
 
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -43,11 +49,22 @@ import static io.prestosql.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPO
 import static io.prestosql.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static io.prestosql.spi.type.Varchars.truncateToLength;
+import static java.lang.Float.floatToIntBits;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class AvroColumnDecoder
 {
+    private static final Set<Type> SUPPORTED_PRIMITIVE_TYPES = ImmutableSet.of(
+            BooleanType.BOOLEAN,
+            TinyintType.TINYINT,
+            SmallintType.SMALLINT,
+            IntegerType.INTEGER,
+            BigintType.BIGINT,
+            RealType.REAL,
+            DoubleType.DOUBLE,
+            VarbinaryType.VARBINARY);
+
     private final Type columnType;
     private final String columnMapping;
     private final String columnName;
@@ -94,12 +111,7 @@ public class AvroColumnDecoder
 
     private boolean isSupportedPrimitive(Type type)
     {
-        return isVarcharType(type) ||
-                ImmutableList.of(
-                        BigintType.BIGINT,
-                        BooleanType.BOOLEAN,
-                        DoubleType.DOUBLE,
-                        VarbinaryType.VARBINARY).contains(type);
+        return isVarcharType(type) || SUPPORTED_PRIMITIVE_TYPES.contains(type);
     }
 
     public FieldValueProvider decodeField(GenericRecord avroRecord)
@@ -182,12 +194,17 @@ public class AvroColumnDecoder
 
     private static Slice getSlice(Object value, Type type, String columnName)
     {
-        if (type instanceof VarcharType && value instanceof Utf8) {
+        if (type instanceof VarcharType && (value instanceof CharSequence || value instanceof GenericEnumSymbol)) {
             return truncateToLength(utf8Slice(value.toString()), type);
         }
 
-        if (type instanceof VarbinaryType && value instanceof ByteBuffer) {
-            return Slices.wrappedBuffer((ByteBuffer) value);
+        if (type instanceof VarbinaryType) {
+            if (value instanceof ByteBuffer) {
+                return Slices.wrappedBuffer((ByteBuffer) value);
+            }
+            else if (value instanceof GenericFixed) {
+                return Slices.wrappedBuffer(((GenericFixed) value).bytes());
+            }
         }
 
         throw new PrestoException(DECODER_CONVERSION_NOT_SUPPORTED, format("cannot decode object of '%s' as '%s' for column '%s'", value.getClass(), type, columnName));
@@ -201,7 +218,7 @@ public class AvroColumnDecoder
         if (type instanceof MapType) {
             return serializeMap(builder, value, type, columnName);
         }
-        serializeGeneric(builder, value, type, columnName);
+        serializePrimitive(builder, value, type, columnName);
         return null;
     }
 
@@ -235,7 +252,7 @@ public class AvroColumnDecoder
         return currentBlockBuilder.build();
     }
 
-    private static void serializeGeneric(BlockBuilder blockBuilder, Object value, Type type, String columnName)
+    private static void serializePrimitive(BlockBuilder blockBuilder, Object value, Type type, String columnName)
     {
         requireNonNull(blockBuilder, "parent blockBuilder is null");
 
@@ -249,13 +266,18 @@ public class AvroColumnDecoder
             return;
         }
 
-        if (type instanceof BigintType) {
-            type.writeLong(blockBuilder, (Long) value);
+        if ((value instanceof Integer || value instanceof Long) && (type instanceof BigintType || type instanceof IntegerType || type instanceof SmallintType || type instanceof TinyintType)) {
+            type.writeLong(blockBuilder, ((Number) value).longValue());
             return;
         }
 
         if (type instanceof DoubleType) {
             type.writeDouble(blockBuilder, (Double) value);
+            return;
+        }
+
+        if (type instanceof RealType) {
+            type.writeLong(blockBuilder, floatToIntBits((Float) value));
             return;
         }
 
