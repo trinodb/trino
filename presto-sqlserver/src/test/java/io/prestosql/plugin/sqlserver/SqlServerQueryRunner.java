@@ -54,7 +54,7 @@ public final class SqlServerQueryRunner
     public static QueryRunner createSqlServerQueryRunner(TestingSqlServer testingSqlServer, Map<String, String> connectorProperties, Iterable<TpchTable<?>> tables)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession(testingSqlServer.getUsername()))
                 .build();
         try {
             queryRunner.installPlugin(new TpchPlugin());
@@ -62,14 +62,14 @@ public final class SqlServerQueryRunner
 
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
             connectorProperties.putIfAbsent("connection-url", testingSqlServer.getJdbcUrl());
-            connectorProperties.putIfAbsent("connection-user", TestingSqlServer.USER);
-            connectorProperties.putIfAbsent("connection-password", TestingSqlServer.PASSWORD);
+            connectorProperties.putIfAbsent("connection-user", testingSqlServer.getUsername());
+            connectorProperties.putIfAbsent("connection-password", testingSqlServer.getPassword());
             connectorProperties.putIfAbsent("allow-drop-table", "true");
 
             queryRunner.installPlugin(new SqlServerPlugin());
             queryRunner.createCatalog(CATALOG, "sqlserver", connectorProperties);
 
-            provisionTables(createSession(), queryRunner, tables);
+            provisionTables(createSession(testingSqlServer.getUsername()), queryRunner, tables);
 
             return queryRunner;
         }
@@ -90,12 +90,12 @@ public final class SqlServerQueryRunner
                 .forEach(table -> copyTable(queryRunner, "tpch", TINY_SCHEMA_NAME, table.getTableName().toLowerCase(ENGLISH), session));
     }
 
-    private static Session createSession()
+    private static Session createSession(String username)
     {
         return testSessionBuilder()
                 .setCatalog(CATALOG)
                 .setSchema(TEST_SCHEMA)
-                .setIdentity(Identity.ofUser(TestingSqlServer.USER))
+                .setIdentity(Identity.ofUser(username))
                 .build();
     }
 
@@ -105,6 +105,7 @@ public final class SqlServerQueryRunner
         Logging.initialize();
 
         TestingSqlServer testingSqlServer = new TestingSqlServer();
+        testingSqlServer.start();
 
         // SqlServer is using docker container so in case that shutdown hook is not called, developer can easily clean docker container on their own
         Runtime.getRuntime().addShutdownHook(new Thread(testingSqlServer::close));
