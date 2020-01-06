@@ -31,6 +31,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static io.prestosql.spi.security.SelectedRole.Type.ROLE;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -78,7 +79,7 @@ public class TestInfluxSelect
                 .row("time", "timestamp with time zone", "time", "")
                 .row("tag1", "varchar", "tag", "")
                 .row("tag2", "varchar", "tag", "")
-                .row("field1", "double", "field", "")
+                .row("field1", "bigint", "field", "")
                 .row("field2", "double", "field", "")
                 .build();
         assertEquals(result, expectedColumns);
@@ -111,9 +112,9 @@ public class TestInfluxSelect
     {
         MaterializedResult result = execute("SELECT fIELD1 FROM data WHERE tAG1 != 'd'");
         MaterializedResult expectedColumns = MaterializedResult
-                .resultBuilder(session, DOUBLE)
-                .row(1.)
-                .row(3.)
+                .resultBuilder(session, BIGINT)
+                .row(1L)
+                .row(3L)
                 .build();
         assertEquals(result, expectedColumns);
     }
@@ -157,7 +158,7 @@ public class TestInfluxSelect
     private MaterializedResult expect(int... rows)
     {
         MaterializedResult.Builder expected = MaterializedResult
-                .resultBuilder(session, TIMESTAMP_WITH_TIME_ZONE, VARCHAR, VARCHAR, DOUBLE, DOUBLE);
+                .resultBuilder(session, TIMESTAMP_WITH_TIME_ZONE, VARCHAR, VARCHAR, BIGINT, DOUBLE);
         for (int row : rows) {
             expected.row(TestData.getColumns(row));
         }
@@ -180,13 +181,13 @@ public class TestInfluxSelect
         };
         private static final String[] TAG1 = new String[] {"a", "b", "d"};
         private static final String[] TAG2 = new String[] {"b", "c", "b"};
-        private static final double[] FIELD1 = new double[] {1, 3, 5};
+        private static final long[] FIELD1 = new long[] {1, 3, 5};
         private static final double[] FIELD2 = new double[] {2, 4, 6};
 
         private static void initServer(TestingInfluxServer server)
         {
             for (int row = 0; row < 3; row++) {
-                String line = String.format("%s,tag1=%s,tag2=%s field1=%f,field2=%f %d000000", TestingInfluxServer.MEASUREMENT, TAG1[row], TAG2[row], FIELD1[row], FIELD2[row], T[row].toEpochMilli());
+                String line = String.format("%s,tag1=%s,tag2=%s field1=%di,field2=%f %d000000", TestingInfluxServer.MEASUREMENT, TAG1[row], TAG2[row], FIELD1[row], FIELD2[row], T[row].toEpochMilli());
                 server.getInfluxClient().write(TestingInfluxServer.RETENTION_POLICY, line);
             }
         }
