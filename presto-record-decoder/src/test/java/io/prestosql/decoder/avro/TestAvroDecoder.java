@@ -29,16 +29,24 @@ import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.BooleanType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.DoubleType;
+import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.RowType;
+import io.prestosql.spi.type.SqlVarbinary;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarbinaryType;
+import io.prestosql.spi.type.VarcharType;
 import org.apache.avro.AvroTypeException;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
 import org.apache.avro.file.DataFileWriter;
+import org.apache.avro.generic.GenericArray;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericData.EnumSymbol;
 import org.apache.avro.generic.GenericDatumWriter;
+import org.apache.avro.generic.GenericEnumSymbol;
+import org.apache.avro.generic.GenericFixed;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.generic.GenericRecordBuilder;
 import org.assertj.core.api.ThrowableAssert;
 import org.testng.annotations.Test;
 
@@ -46,12 +54,16 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.decoder.avro.AvroDecoderTestUtil.checkArrayValues;
+import static io.prestosql.decoder.avro.AvroDecoderTestUtil.checkMapValues;
 import static io.prestosql.decoder.util.DecoderTestUtil.checkIsNull;
 import static io.prestosql.decoder.util.DecoderTestUtil.checkValue;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
@@ -67,11 +79,13 @@ import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
+import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 public class TestAvroDecoder
@@ -163,6 +177,16 @@ public class TestAvroDecoder
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         buildAvroRecord(schema, outputStream, values);
         return outputStream.toByteArray();
+    }
+
+    private static <V> Map<String, V> buildMapFromKeysAndValues(List<String> keys, List<V> values)
+    {
+        assertEquals(keys.size(), values.size());
+        Map<String, V> map = new HashMap<>();
+        for (int i = 0; i < keys.size(); i++) {
+            map.put(keys.get(i), values.get(i));
+        }
+        return map;
     }
 
     private static GenericData.Record buildAvroRecord(Schema schema, ByteArrayOutputStream outputStream, Map<String, Object> values)
@@ -523,7 +547,212 @@ public class TestAvroDecoder
         DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", new ArrayType(BIGINT), "array_field", null, null, false, false, false);
 
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "array_field", "{\"type\": \"array\", \"items\": [\"long\"]}", ImmutableList.of(114L, 136L));
-        checkArrayValue(decodedRow, row, new long[] {114, 136});
+        checkArrayValue(decodedRow, row, ImmutableList.of(114L, 136L));
+    }
+
+    @Test
+    public void testNestedLongArray()
+    {
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", new ArrayType(new ArrayType(BIGINT)), "array_field", null, null, false, false, false);
+        Schema schema = SchemaBuilder.array().items().array().items().longType();
+        List<List<Long>> data = ImmutableList.<List<Long>>builder()
+                .add(ImmutableList.of(12L, 15L, 17L))
+                .add(ImmutableList.of(22L, 25L, 27L, 29L))
+                .build();
+        GenericArray<List<Long>> list = new GenericData.Array<>(schema, data);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "array_field", schema.toString(), list);
+
+        checkArrayValue(decodedRow, row, list);
+    }
+
+    @Test
+    public void testNestedLongArrayWithNulls()
+    {
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", new ArrayType(new ArrayType(BIGINT)), "array_field", null, null, false, false, false);
+        Schema schema = SchemaBuilder.array().items().nullable().array().items().nullable().longType();
+        List<List<Long>> data = Arrays.asList(
+                ImmutableList.of(12L, 15L, 17L),
+                ImmutableList.of(22L, 25L, 27L, 29L),
+                null,
+                Arrays.asList(3L, 5L, null, 6L));
+
+        GenericArray<List<Long>> list = new GenericData.Array<>(schema, data);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "array_field", schema.toString(), list);
+
+        checkArrayValue(decodedRow, row, list);
+    }
+
+    @Test
+    public void testNestedStringArray()
+    {
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", new ArrayType(new ArrayType(VARCHAR)), "array_field", null, null, false, false, false);
+        Schema schema = SchemaBuilder.array().items().array().items().stringType();
+        List<List<String>> data = ImmutableList.<List<String>>builder()
+                .add(ImmutableList.of("a", "bb", "ccc"))
+                .add(ImmutableList.of("foo", "bar", "baz", "car"))
+                .build();
+        GenericArray<List<String>> list = new GenericData.Array<>(schema, data);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "array_field", schema.toString(), list);
+
+        checkArrayValue(decodedRow, row, list);
+    }
+
+    @Test
+    public void testNestedStringArrayWithNulls()
+    {
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", new ArrayType(new ArrayType(VARCHAR)), "array_field", null, null, false, false, false);
+        Schema schema = SchemaBuilder.array().items().nullable().array().items().nullable().stringType();
+        List<List<String>> data = Arrays.asList(
+                ImmutableList.of("a", "bb", "ccc"),
+                ImmutableList.of("foo", "bar", "baz", "car"),
+                null,
+                Arrays.asList("boo", "hoo", null, "hoo"));
+
+        GenericArray<List<String>> list = new GenericData.Array<>(schema, data);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "array_field", schema.toString(), list);
+
+        checkArrayValue(decodedRow, row, list);
+    }
+
+    @Test
+    public void testDeeplyNestedLongArray()
+    {
+        Schema schema = SchemaBuilder.array()
+                .items()
+                .array()
+                .items()
+                .array()
+                .items()
+                .longType();
+
+        List<List<List<Long>>> data = ImmutableList.<List<List<Long>>>builder()
+                .add(ImmutableList.<List<Long>>builder()
+                        .add(ImmutableList.of(12L, 15L, 17L))
+                        .add(ImmutableList.of(22L, 25L, 27L, 29L))
+                        .build())
+                .build();
+
+        GenericArray<List<List<Long>>> list = new GenericData.Array<>(schema, data);
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", new ArrayType(new ArrayType(new ArrayType(BIGINT))), "array_field", null, null, false, false, false);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "array_field", schema.toString(), list);
+
+        checkArrayValue(decodedRow, row, list);
+    }
+
+    @Test
+    public void testDeeplyNestedLongArrayWithNulls()
+    {
+        Schema schema = SchemaBuilder.array()
+                .items()
+                .nullable().array()
+                .items()
+                .nullable().array()
+                .items()
+                .nullable().longType();
+
+        List<List<List<Long>>> data = Arrays.asList(
+                Arrays.asList(
+                        ImmutableList.of(12L, 15L, 17L),
+                        null,
+                        Arrays.asList(3L, 5L, null, 6L),
+                        ImmutableList.of(22L, 25L, 27L, 29L)),
+                null);
+
+        GenericArray<List<List<Long>>> list = new GenericData.Array<>(schema, data);
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", new ArrayType(new ArrayType(new ArrayType(BIGINT))), "array_field", null, null, false, false, false);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "array_field", schema.toString(), list);
+
+        checkArrayValue(decodedRow, row, list);
+    }
+
+    @Test
+    public void testDeeplyNestedStringArray()
+    {
+        Schema schema = SchemaBuilder.array()
+                .items()
+                .array()
+                .items()
+                .array()
+                .items()
+                .stringType();
+
+        List<List<List<String>>> data = ImmutableList.<List<List<String>>>builder()
+                .add(ImmutableList.<List<String>>builder()
+                        .add(ImmutableList.of("a", "bb", "ccc"))
+                        .add(ImmutableList.of("foo", "bar", "baz", "car"))
+                        .build())
+                .build();
+
+        GenericArray<List<List<String>>> list = new GenericData.Array<>(schema, data);
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", new ArrayType(new ArrayType(new ArrayType(VARCHAR))), "array_field", null, null, false, false, false);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "array_field", schema.toString(), list);
+
+        checkArrayValue(decodedRow, row, list);
+    }
+
+    @Test
+    public void testDeeplyNestedStringArrayWithNulls()
+    {
+        Schema schema = SchemaBuilder.array()
+                .items()
+                .nullable().array()
+                .items()
+                .nullable().array()
+                .items()
+                .nullable().stringType();
+
+        List<List<List<String>>> data = Arrays.asList(
+                Arrays.asList(
+                        ImmutableList.of("a", "bb", "ccc"),
+                        null,
+                        Arrays.asList("boo", "hoo", null, "hoo"),
+                        ImmutableList.of("foo", "bar", "baz", "car")),
+                null);
+
+        GenericArray<List<List<String>>> list = new GenericData.Array<>(schema, data);
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", new ArrayType(new ArrayType(new ArrayType(VARCHAR))), "array_field", null, null, false, false, false);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "array_field", schema.toString(), list);
+
+        checkArrayValue(decodedRow, row, list);
+    }
+
+    @Test
+    public void testArrayOfMaps()
+    {
+        Schema schema = SchemaBuilder.array()
+                .items()
+                .map()
+                .values()
+                .floatType();
+        List<Map<String, Float>> data = ImmutableList.<Map<String, Float>>builder()
+                .add(buildMapFromKeysAndValues(ImmutableList.of("key1", "key2", "key3"), ImmutableList.of(1.3F, 2.3F, -.5F)))
+                .add(buildMapFromKeysAndValues(ImmutableList.of("key10", "key20", "key30"), ImmutableList.of(11.3F, 12.3F, -1.5F)))
+                .build();
+
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", new ArrayType(REAL_MAP_TYPE), "array_field", null, null, false, false, false);
+        GenericArray<Map<String, Float>> list = new GenericData.Array<>(schema, data);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "array_field", schema.toString(), list);
+        checkArrayValues(getBlock(decodedRow, row), row.getType(), data);
+    }
+
+    @Test
+    public void testArrayOfMapsWithNulls()
+    {
+        Schema schema = SchemaBuilder.array()
+                .items()
+                .nullable().map()
+                .values()
+                .nullable().floatType();
+        List<Map<String, Float>> data = Arrays.asList(
+                buildMapFromKeysAndValues(ImmutableList.of("key1", "key2", "key3"), ImmutableList.of(1.3F, 2.3F, -.5F)),
+                null,
+                buildMapFromKeysAndValues(ImmutableList.of("key10", "key20", "key30"), ImmutableList.of(11.3F, 12.3F, -1.5F)),
+                buildMapFromKeysAndValues(ImmutableList.of("key100", "key200", "key300"), Arrays.asList(111.3F, null, -11.5F)));
+
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", new ArrayType(REAL_MAP_TYPE), "array_field", null, null, false, false, false);
+        GenericArray<Map<String, Float>> list = new GenericData.Array<>(schema, data);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "array_field", schema.toString(), list);
+        checkArrayValues(getBlock(decodedRow, row), row.getType(), data);
     }
 
     @Test
@@ -534,7 +763,7 @@ public class TestAvroDecoder
 
         List<Long> values = new ArrayList<>();
         values.add(null);
-        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "array_field", "{\"type\": \"array\", \"items\": [\"null\"]}", values);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "array_field", "{\"type\": \"array\", \"items\": [\"long\", \"null\"]}", values);
         checkArrayItemIsNull(decodedRow, row, new long[] {0});
     }
 
@@ -567,15 +796,148 @@ public class TestAvroDecoder
         checkMapValue(decodedRow, row, expectedValues);
     }
 
-    private static void checkArrayValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, long[] expected)
+    @Test
+    public void testMapWithDifferentKeys()
+    {
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", VARCHAR_MAP_TYPE, "map_field", null, null, false, false, false);
+
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "map_field", "{\"type\": \"map\", \"values\": \"string\"}", ImmutableMap.of(
+                "key1", "abc",
+                "key2", "def",
+                "key3", "zyx"));
+        assertThrows(AssertionError.class, () -> checkMapValue(decodedRow, row, ImmutableMap.of(
+                "key1", "abc",
+                "key4", "def",
+                "key3", "zyx")));
+    }
+
+    @Test
+    public void testMapWithDifferentValues()
+    {
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", VARCHAR_MAP_TYPE, "map_field", null, null, false, false, false);
+
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "map_field", "{\"type\": \"map\", \"values\": \"string\"}", ImmutableMap.of(
+                "key1", "abc",
+                "key2", "def",
+                "key3", "zyx"));
+        assertThrows(AssertionError.class, () -> checkMapValue(decodedRow, row, ImmutableMap.of(
+                "key1", "abc",
+                "key2", "fed",
+                "key3", "zyx")));
+    }
+
+    @Test
+    public void testRow()
+    {
+        Schema schema = SchemaBuilder.record("record_field")
+                .fields()
+                .name("f1").type().floatType().noDefault()
+                .name("f2").type().doubleType().noDefault()
+                .name("f3").type().intType().noDefault()
+                .name("f4").type().longType().noDefault()
+                .name("f5").type().stringType().noDefault()
+                .name("f6").type().enumeration("color").symbols("red", "blue", "green").noDefault()
+                .name("f7").type().fixed("fixed5").size(5).noDefault()
+                .name("f8").type().bytesType().noDefault()
+                .name("f9").type().booleanType().noDefault()
+                .endRecord();
+        RowType rowType = RowType.from(ImmutableList.<RowType.Field>builder()
+                .add(RowType.field("f1", REAL))
+                .add(RowType.field("f2", DOUBLE))
+                .add(RowType.field("f3", INTEGER))
+                .add(RowType.field("f4", BIGINT))
+                .add(RowType.field("f5", VARCHAR))
+                .add(RowType.field("f6", VARCHAR))
+                .add(RowType.field("f7", VARBINARY))
+                .add(RowType.field("f8", VARBINARY))
+                .add(RowType.field("f9", BOOLEAN))
+                .build());
+        GenericRecord data = new GenericRecordBuilder(schema)
+                .set("f1", 1.5F)
+                .set("f2", 1.6D)
+                .set("f3", 5)
+                .set("f4", 6L)
+                .set("f5", "hello")
+                .set("f6", new GenericData.EnumSymbol(schema.getField("f6").schema(), "blue"))
+                .set("f7", new GenericData.Fixed(schema.getField("f7").schema(), new byte[] {5, 4, 3, 2, 1}))
+                .set("f8", ByteBuffer.wrap("mytext".getBytes(UTF_8)))
+                .set("f9", true)
+                .build();
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "record_field", rowType, "record_field", null, null, false, false, false);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "record_field", schema.toString(), data);
+        checkRowBlock(getBlock(decodedRow, row), data, rowType);
+    }
+
+    @Test
+    public void testArrayOfRow()
+    {
+        Schema schema = SchemaBuilder.array()
+                .items()
+                .record("record")
+                .fields()
+                .name("f1").type().intType().noDefault()
+                .name("f2").type().stringType().noDefault()
+                .endRecord();
+        ImmutableList.Builder<GenericRecord> dataBuilder = ImmutableList.builder();
+        for (int i = 0; i < 10; i++) {
+            dataBuilder.add(new GenericRecordBuilder(schema.getElementType()).set("f1", 100 + i).set("f2", "hi-" + i).build());
+        }
+        List<GenericRecord> data = dataBuilder.build();
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "array_field", new ArrayType(RowType.from(ImmutableList.<RowType.Field>builder()
+                .add(RowType.field("f1", INTEGER))
+                .add(RowType.field("f2", VARCHAR))
+                .build())), "array_field", null, null, false, false, false);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "array_field", schema.toString(), data);
+        checkArrayOfRows(decodedRow, row, data);
+    }
+
+    private static void checkArrayOfRows(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, List<GenericRecord> expected)
     {
         Block actualBlock = getBlock(decodedRow, handle);
-        assertEquals(actualBlock.getPositionCount(), expected.length);
-
-        for (int i = 0; i < actualBlock.getPositionCount(); i++) {
-            assertFalse(actualBlock.isNull(i));
-            assertEquals(BIGINT.getLong(actualBlock, i), expected[i]);
+        assertEquals(actualBlock.getPositionCount(), expected.size());
+        RowType rowType = (RowType) handle.getType().getTypeParameters().get(0);
+        for (int index = 0; index < actualBlock.getPositionCount(); index++) {
+            Block rowBlock = actualBlock.getObject(index, Block.class);
+            GenericRecord record = expected.get(index);
+            checkRowBlock(rowBlock, record, rowType);
         }
+    }
+
+    private static void checkRowBlock(Block rowBlock, GenericRecord record, RowType rowType)
+    {
+        for (int fieldIndex = 0; fieldIndex < rowType.getFields().size(); fieldIndex++) {
+            RowType.Field rowField = rowType.getFields().get(fieldIndex);
+            Object expectedValue = record.get(rowField.getName().get());
+            if (rowBlock.isNull(fieldIndex)) {
+                assertNull(expectedValue);
+                continue;
+            }
+            Object actualValue = rowField.getType().getObjectValue(SESSION, rowBlock, fieldIndex);
+            assertEqualsPrimitive(actualValue, expectedValue);
+        }
+    }
+
+    private static void assertEqualsPrimitive(Object actual, Object expected)
+    {
+        if (expected instanceof GenericEnumSymbol) {
+            assertEquals(actual.toString(), expected.toString());
+        }
+        else if (actual instanceof SqlVarbinary) {
+            if (expected instanceof GenericFixed) {
+                assertEquals(((SqlVarbinary) actual).getBytes(), ((GenericFixed) expected).bytes());
+            }
+            else if (expected instanceof ByteBuffer) {
+                assertEquals(((SqlVarbinary) actual).getBytes(), ((ByteBuffer) expected).array());
+            }
+        }
+        else {
+            assertEquals(actual, expected);
+        }
+    }
+
+    private static void checkArrayValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, Object expected)
+    {
+        checkArrayValues(getBlock(decodedRow, handle), handle.getType(), expected);
     }
 
     private static void checkArrayItemIsNull(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, long[] expected)
@@ -589,23 +951,80 @@ public class TestAvroDecoder
         }
     }
 
-    private static void checkMapValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderTestColumnHandle handle, Map<String, String> expected)
+    private static <T> void checkMapOfArrayOfMaps(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, Map<String, List<Map<String, T>>> expected)
     {
+        checkState(handle.getType() instanceof MapType
+                && handle.getType().getTypeParameters().size() == 2
+                && handle.getType().getTypeParameters().get(0) instanceof VarcharType
+                && handle.getType().getTypeParameters().get(1) instanceof ArrayType
+                && handle.getType().getTypeParameters().get(1).getTypeParameters().size() == 1
+                && handle.getType().getTypeParameters().get(1).getTypeParameters().get(0) instanceof MapType
+                && handle.getType().getTypeParameters().get(1).getTypeParameters().get(0).getTypeParameters().size() == 2
+                && handle.getType().getTypeParameters().get(1).getTypeParameters().get(0).getTypeParameters().get(0) instanceof VarcharType, "unexpected type %s", handle.getType());
+        Type valueType = handle.getType().getTypeParameters().get(1).getTypeParameters().get(0).getTypeParameters().get(1);
         Block actualBlock = getBlock(decodedRow, handle);
         assertEquals(actualBlock.getPositionCount(), expected.size() * 2);
+        for (int index = 0; index < actualBlock.getPositionCount(); index += 2) {
+            String actualKey = VARCHAR.getSlice(actualBlock, index).toStringUtf8();
+            assertTrue(expected.containsKey(actualKey));
+            if (actualBlock.isNull(index + 1)) {
+                assertNull(expected.get(actualKey));
+                continue;
+            }
+            Block arrayBlock = actualBlock.getObject(index + 1, Block.class);
+            List<Map<String, T>> expectedList = expected.get(actualKey);
+            assertEquals(arrayBlock.getPositionCount(), expectedList.size());
+            for (int arrayIndex = 0; arrayIndex < arrayBlock.getPositionCount(); arrayIndex++) {
+                Block mapBlock = arrayBlock.getObject(arrayIndex, Block.class);
+                Map<String, T> expectedMap = expectedList.get(arrayIndex);
+                checkMapBlock(mapBlock, expectedMap, valueType);
+            }
+        }
+    }
 
+    private static <T> void checkMapOfMaps(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, Map<String, Map<String, T>> expected)
+    {
+        checkState(handle.getType() instanceof MapType
+                && handle.getType().getTypeParameters().size() == 2
+                && handle.getType().getTypeParameters().get(0) instanceof VarcharType
+                && handle.getType().getTypeParameters().get(1) instanceof MapType
+                && handle.getType().getTypeParameters().get(1).getTypeParameters().size() == 2
+                && handle.getType().getTypeParameters().get(1).getTypeParameters().get(0) instanceof VarcharType, "unexpected type %s", handle.getType());
+        Type valueType = handle.getType().getTypeParameters().get(1).getTypeParameters().get(1);
+        Block actualBlock = getBlock(decodedRow, handle);
+        assertEquals(actualBlock.getPositionCount(), expected.size() * 2);
         for (int i = 0; i < actualBlock.getPositionCount(); i += 2) {
             String actualKey = VARCHAR.getSlice(actualBlock, i).toStringUtf8();
-            String actualValue;
+            assertTrue(expected.containsKey(actualKey));
+            Object actualValue;
+            if (actualBlock.isNull(i + 1)) {
+                assertNull(expected.get(actualKey));
+                continue;
+            }
+            checkMapBlock(actualBlock.getObject(i + 1, Block.class), expected.get(actualKey), valueType);
+        }
+    }
+
+    private static <T> void checkMapBlock(Block actualBlock, Map<String, T> expected, Type valueType)
+    {
+        assertEquals(actualBlock.getPositionCount(), expected.size() * 2);
+        for (int i = 0; i < actualBlock.getPositionCount(); i += 2) {
+            String actualKey = VARCHAR.getSlice(actualBlock, i).toStringUtf8();
+            Object actualValue;
             if (actualBlock.isNull(i + 1)) {
                 actualValue = null;
             }
             else {
-                actualValue = VARCHAR.getSlice(actualBlock, i + 1).toStringUtf8();
+                actualValue = valueType.getObjectValue(SESSION, actualBlock, i + 1);
             }
             assertTrue(expected.containsKey(actualKey));
             assertEquals(actualValue, expected.get(actualKey));
         }
+    }
+
+    private static void checkMapValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderTestColumnHandle handle, Object expected)
+    {
+        checkMapValues(getBlock(decodedRow, handle), handle.getType(), expected);
     }
 
     private static Block getBlock(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle)
