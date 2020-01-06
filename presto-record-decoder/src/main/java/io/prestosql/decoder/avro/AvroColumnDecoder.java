@@ -44,6 +44,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_USER_ERROR;
@@ -97,7 +98,7 @@ public class AvroColumnDecoder
 
         if (type instanceof ArrayType) {
             checkArgument(type.getTypeParameters().size() == 1, "expecting exactly one type parameter for array");
-            return isSupportedPrimitive(type.getTypeParameters().get(0));
+            return isSupportedType(type.getTypeParameters().get(0));
         }
 
         if (type instanceof MapType) {
@@ -225,28 +226,20 @@ public class AvroColumnDecoder
     private static Block serializeList(BlockBuilder blockBuilder, Object value, Type type, String columnName)
     {
         if (value == null) {
-            requireNonNull(blockBuilder, "parent blockBuilder is null").appendNull();
-            return blockBuilder.build();
+            checkState(blockBuilder != null, "parent block builder is null");
+            blockBuilder.appendNull();
+            return null;
         }
-
         List<?> list = (List<?>) value;
         List<Type> typeParameters = type.getTypeParameters();
         Type elementType = typeParameters.get(0);
 
-        BlockBuilder currentBlockBuilder;
-        if (blockBuilder != null) {
-            currentBlockBuilder = blockBuilder.beginBlockEntry();
-        }
-        else {
-            currentBlockBuilder = elementType.createBlockBuilder(null, list.size());
-        }
-
+        BlockBuilder currentBlockBuilder = elementType.createBlockBuilder(null, list.size());
         for (Object element : list) {
             serializeObject(currentBlockBuilder, element, elementType, columnName);
         }
-
         if (blockBuilder != null) {
-            blockBuilder.closeEntry();
+            type.writeObject(blockBuilder, currentBlockBuilder.build());
             return null;
         }
         return currentBlockBuilder.build();
