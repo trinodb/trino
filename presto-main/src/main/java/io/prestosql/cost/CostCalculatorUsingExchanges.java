@@ -255,7 +255,7 @@ public class CostCalculatorUsingExchanges
                     node,
                     node.getSource(),
                     node.getFilteringSource(),
-                    node.getDistributionType().orElse(SemiJoinNode.DistributionType.PARTITIONED).equals(SemiJoinNode.DistributionType.REPLICATED));
+                    node.getDistributionType().orElse(SemiJoinNode.DistributionType.PARTITIONED) == SemiJoinNode.DistributionType.REPLICATED);
             return costForLookupJoin(node, localCost);
         }
 

@@ -133,7 +133,7 @@ public final class OutputBufferInfo
                 Objects.equals(totalBufferedPages, that.totalBufferedPages) &&
                 Objects.equals(totalRowsSent, that.totalRowsSent) &&
                 Objects.equals(totalPagesSent, that.totalPagesSent) &&
-                Objects.equals(state, that.state) &&
+                state == that.state &&
                 Objects.equals(buffers, that.buffers);
     }
 

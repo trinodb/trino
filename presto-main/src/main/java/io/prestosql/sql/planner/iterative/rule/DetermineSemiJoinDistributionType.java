@@ -44,7 +44,6 @@ import io.prestosql.sql.planner.plan.SemiJoinNode;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 import static io.prestosql.SystemSessionProperties.getJoinDistributionType;
 import static io.prestosql.SystemSessionProperties.getJoinMaxBroadcastTableSize;
@@ -116,22 +115,19 @@ public class DetermineSemiJoinDistributionType
 
     private boolean canReplicate(SemiJoinNode node, Context context)
     {
-        Optional<DataSize> joinMaxBroadcastTableSize = getJoinMaxBroadcastTableSize(context.getSession());
-        if (!joinMaxBroadcastTableSize.isPresent()) {
-            return true;
-        }
+        DataSize joinMaxBroadcastTableSize = getJoinMaxBroadcastTableSize(context.getSession());
 
         PlanNode buildSide = node.getFilteringSource();
         PlanNodeStatsEstimate buildSideStatsEstimate = context.getStatsProvider().getStats(buildSide);
         double buildSideSizeInBytes = buildSideStatsEstimate.getOutputSizeInBytes(buildSide.getOutputSymbols(), context.getSymbolAllocator().getTypes());
-        return buildSideSizeInBytes <= joinMaxBroadcastTableSize.get().toBytes();
+        return buildSideSizeInBytes <= joinMaxBroadcastTableSize.toBytes();
     }
 
     private PlanNodeWithCost getSemiJoinNodeWithCost(SemiJoinNode possibleJoinNode, Context context)
     {
         TypeProvider types = context.getSymbolAllocator().getTypes();
         StatsProvider stats = context.getStatsProvider();
-        boolean replicated = possibleJoinNode.getDistributionType().get().equals(REPLICATED);
+        boolean replicated = possibleJoinNode.getDistributionType().get() == REPLICATED;
         /*
          *   HACK!
          *

@@ -31,6 +31,7 @@ import io.prestosql.server.SessionContext;
 import io.prestosql.server.protocol.Slug;
 import io.prestosql.spi.ErrorCode;
 import io.prestosql.spi.QueryId;
+import io.prestosql.spi.security.Identity;
 
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
@@ -48,8 +49,11 @@ import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.container.AsyncResponse;
 import javax.ws.rs.container.Suspended;
 import javax.ws.rs.core.Context;
+import javax.ws.rs.core.HttpHeaders;
+import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
+import javax.ws.rs.core.UriBuilder;
 import javax.ws.rs.core.UriInfo;
 
 import java.net.URI;
@@ -67,10 +71,10 @@ import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addTimeout;
 import static io.airlift.concurrent.Threads.threadsNamed;
-import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
-import static io.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
+import static io.airlift.jaxrs.AsyncResponseHandler.bindAsyncResponse;
 import static io.prestosql.execution.QueryState.FAILED;
 import static io.prestosql.execution.QueryState.QUEUED;
+import static io.prestosql.server.HttpRequestSessionContext.AUTHENTICATED_IDENTITY;
 import static io.prestosql.server.protocol.Slug.Context.EXECUTING_QUERY;
 import static io.prestosql.server.protocol.Slug.Context.QUEUED_QUERY;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -150,13 +154,18 @@ public class QueuedStatementResource
             String statement,
             @HeaderParam(X_FORWARDED_PROTO) String xForwardedProto,
             @Context HttpServletRequest servletRequest,
+            @Context HttpHeaders httpHeaders,
             @Context UriInfo uriInfo)
     {
         if (isNullOrEmpty(statement)) {
             throw badRequest(BAD_REQUEST, "SQL statement is empty");
         }
 
-        SessionContext sessionContext = new HttpRequestSessionContext(forwardedHeaderSupport, servletRequest);
+        String remoteAddress = servletRequest.getRemoteAddr();
+        Optional<Identity> identity = Optional.ofNullable((Identity) servletRequest.getAttribute(AUTHENTICATED_IDENTITY));
+        MultivaluedMap<String, String> headers = httpHeaders.getRequestHeaders();
+
+        SessionContext sessionContext = new HttpRequestSessionContext(forwardedHeaderSupport, headers, remoteAddress, identity);
         Query query = new Query(statement, sessionContext, dispatchManager);
         queries.put(query.getQueryId(), query);
 
@@ -409,11 +418,11 @@ public class QueuedStatementResource
         private URI getRedirectUri(CoordinatorLocation coordinatorLocation, UriInfo uriInfo, String xForwardedProto)
         {
             URI coordinatorUri = coordinatorLocation.getUri(uriInfo, xForwardedProto);
-            return uriBuilderFrom(coordinatorUri)
-                    .appendPath("/v1/statement/executing")
-                    .appendPath(queryId.toString())
-                    .appendPath(slug.makeSlug(EXECUTING_QUERY, 0))
-                    .appendPath("0")
+            return UriBuilder.fromUri(coordinatorUri)
+                    .replacePath("/v1/statement/executing")
+                    .path(queryId.toString())
+                    .path(slug.makeSlug(EXECUTING_QUERY, 0))
+                    .path("0")
                     .build();
         }
 

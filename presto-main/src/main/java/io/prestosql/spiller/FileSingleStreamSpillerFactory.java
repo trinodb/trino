@@ -14,6 +14,9 @@
 package io.prestosql.spiller;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.inject.Inject;
@@ -35,6 +38,7 @@ import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.FileStore;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 
@@ -44,8 +48,13 @@ import static io.prestosql.spi.StandardErrorCode.OUT_OF_SPILL_SPACE;
 import static io.prestosql.sql.analyzer.FeaturesConfig.SPILLER_SPILL_PATH;
 import static java.lang.String.format;
 import static java.nio.file.Files.createDirectories;
+import static java.nio.file.Files.createTempFile;
 import static java.nio.file.Files.delete;
+import static java.nio.file.Files.deleteIfExists;
 import static java.nio.file.Files.getFileStore;
+import static java.nio.file.Files.isExecutable;
+import static java.nio.file.Files.isReadable;
+import static java.nio.file.Files.isWritable;
 import static java.nio.file.Files.newDirectoryStream;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
@@ -60,6 +69,7 @@ public class FileSingleStreamSpillerFactory
     @VisibleForTesting
     static final String SPILL_FILE_SUFFIX = ".bin";
     private static final String SPILL_FILE_GLOB = "spill*.bin";
+    private static final Duration SPILL_PATH_HEALTH_EXPIRY_INTERVAL = Duration.ofMinutes(5);
 
     private final ListeningExecutorService executor;
     private final PagesSerdeFactory serdeFactory;
@@ -68,6 +78,7 @@ public class FileSingleStreamSpillerFactory
     private final double maxUsedSpaceThreshold;
     private final boolean spillEncryptionEnabled;
     private int roundRobinIndex;
+    private final LoadingCache<Path, Boolean> spillPathHealthCache;
 
     @Inject
     public FileSingleStreamSpillerFactory(Metadata metadata, SpillerStats spillerStats, FeaturesConfig featuresConfig, NodeSpillConfig nodeSpillConfig)
@@ -106,13 +117,17 @@ public class FileSingleStreamSpillerFactory
             catch (IOException e) {
                 throw new IllegalArgumentException(format("could not create spill path %s; adjust %s config property or filesystem permissions", path, SPILLER_SPILL_PATH), e);
             }
-            if (!path.toFile().canWrite()) {
-                throw new IllegalArgumentException(format("spill path %s is not writable; adjust %s config property or filesystem permissions", path, SPILLER_SPILL_PATH));
+            if (!isAccessible(path)) {
+                throw new IllegalArgumentException(format("spill path %s is not accessible, it must be +rwx; adjust %s config property or filesystem permissions", path, SPILLER_SPILL_PATH));
             }
         });
         this.maxUsedSpaceThreshold = maxUsedSpaceThreshold;
         this.spillEncryptionEnabled = spillEncryptionEnabled;
         this.roundRobinIndex = 0;
+
+        this.spillPathHealthCache = CacheBuilder.newBuilder()
+            .expireAfterWrite(SPILL_PATH_HEALTH_EXPIRY_INTERVAL)
+            .build(CacheLoader.from(path -> isAccessible(path) && isSeeminglyHealthy(path)));
     }
 
     @PostConstruct
@@ -162,7 +177,7 @@ public class FileSingleStreamSpillerFactory
         for (int i = 0; i < spillPathsCount; ++i) {
             int pathIndex = (roundRobinIndex + i) % spillPathsCount;
             Path path = spillPaths.get(pathIndex);
-            if (hasEnoughDiskSpace(path)) {
+            if (hasEnoughDiskSpace(path) && spillPathHealthCache.getUnchecked(path)) {
                 roundRobinIndex = (roundRobinIndex + i + 1) % spillPathsCount;
                 return path;
             }
@@ -170,7 +185,7 @@ public class FileSingleStreamSpillerFactory
         if (spillPaths.isEmpty()) {
             throw new PrestoException(OUT_OF_SPILL_SPACE, "No spill paths configured");
         }
-        throw new PrestoException(OUT_OF_SPILL_SPACE, "No free space available for spill");
+        throw new PrestoException(OUT_OF_SPILL_SPACE, "No free or healthy space available for spill");
     }
 
     private boolean hasEnoughDiskSpace(Path path)
@@ -181,6 +196,23 @@ public class FileSingleStreamSpillerFactory
         }
         catch (IOException e) {
             throw new PrestoException(OUT_OF_SPILL_SPACE, "Cannot determine free space for spill", e);
+        }
+    }
+
+    private boolean isAccessible(Path path)
+    {
+        return isReadable(path) && isWritable(path) && isExecutable(path);
+    }
+
+    private boolean isSeeminglyHealthy(Path path)
+    {
+        try {
+            Path healthTemp = createTempFile(path, "spill", "healthcheck");
+            return deleteIfExists(healthTemp);
+        }
+        catch (IOException e) {
+            log.warn(e, "Health check failed for spill %s", path);
+            return false;
         }
     }
 }

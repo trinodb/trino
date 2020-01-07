@@ -34,6 +34,7 @@ import java.util.stream.Collectors;
 
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -153,6 +154,28 @@ public final class SortedRangeSet
             throw new IllegalStateException("SortedRangeSet does not have just a single value");
         }
         return lowIndexedRanges.values().iterator().next().getSingleValue();
+    }
+
+    @Override
+    public boolean isDiscreteSet()
+    {
+        for (Range range : lowIndexedRanges.values()) {
+            if (!range.isSingleValue()) {
+                return false;
+            }
+        }
+        return !isNone();
+    }
+
+    @Override
+    public List<Object> getDiscreteSet()
+    {
+        if (!isDiscreteSet()) {
+            throw new IllegalStateException("SortedRangeSet is not a discrete set");
+        }
+        return unmodifiableList(lowIndexedRanges.values().stream()
+                .map(Range::getSingleValue)
+                .collect(Collectors.toList()));
     }
 
     @Override

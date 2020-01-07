@@ -21,11 +21,11 @@ import static java.util.Objects.requireNonNull;
 public class OrcReaderOptions
 {
     private static final boolean DEFAULT_BLOOM_FILTERS_ENABLED = false;
-    private static final DataSize DEFAULT_MAX_MERGE_DISTANCE = new DataSize(1, MEGABYTE);
-    private static final DataSize DEFAULT_MAX_BUFFER_SIZE = new DataSize(8, MEGABYTE);
-    private static final DataSize DEFAULT_TINY_STRIPE_THRESHOLD = new DataSize(8, MEGABYTE);
-    private static final DataSize DEFAULT_STREAM_BUFFER_SIZE = new DataSize(8, MEGABYTE);
-    private static final DataSize DEFAULT_MAX_BLOCK_SIZE = new DataSize(16, MEGABYTE);
+    private static final DataSize DEFAULT_MAX_MERGE_DISTANCE = DataSize.of(1, MEGABYTE);
+    private static final DataSize DEFAULT_MAX_BUFFER_SIZE = DataSize.of(8, MEGABYTE);
+    private static final DataSize DEFAULT_TINY_STRIPE_THRESHOLD = DataSize.of(8, MEGABYTE);
+    private static final DataSize DEFAULT_STREAM_BUFFER_SIZE = DataSize.of(8, MEGABYTE);
+    private static final DataSize DEFAULT_MAX_BLOCK_SIZE = DataSize.of(16, MEGABYTE);
     private static final boolean DEFAULT_LAZY_READ_SMALL_RANGES = true;
     private static final boolean DEFAULT_NESTED_LAZY = true;
 

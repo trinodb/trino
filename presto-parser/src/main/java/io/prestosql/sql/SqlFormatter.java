@@ -592,6 +592,10 @@ public final class SqlFormatter
             builder.append("VIEW ")
                     .append(formatName(node.getName()));
 
+            node.getComment().ifPresent(comment ->
+                    builder.append(" COMMENT ")
+                            .append(formatStringLiteral(comment)));
+
             node.getSecurity().ifPresent(security ->
                     builder.append(" SECURITY ")
                             .append(security.toString()));

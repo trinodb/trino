@@ -14,10 +14,12 @@
 package io.prestosql.sql.analyzer;
 
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Multiset;
 import io.prestosql.metadata.NewTableLayout;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.ResolvedFunction;
@@ -56,6 +58,7 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Deque;
 import java.util.HashSet;
@@ -132,6 +135,12 @@ public class Analysis
     private final Map<NodeRef<SampledRelation>, Double> sampleRatios = new LinkedHashMap<>();
 
     private final Map<NodeRef<QuerySpecification>, List<GroupingOperation>> groupingOperations = new LinkedHashMap<>();
+
+    private final Multiset<RowFilterScopeEntry> rowFilterScopes = HashMultiset.create();
+    private final Map<NodeRef<Table>, List<Expression>> rowFilters = new LinkedHashMap<>();
+
+    private final Multiset<ColumnMaskScopeEntry> columnMaskScopes = HashMultiset.create();
+    private final Map<NodeRef<Table>, Map<String, List<Expression>>> columnMasks = new LinkedHashMap<>();
 
     private Optional<Create> create = Optional.empty();
     private Optional<Insert> insert = Optional.empty();
@@ -663,6 +672,59 @@ public class Analysis
         return redundantOrderBy.contains(NodeRef.of(orderBy));
     }
 
+    public boolean hasRowFilter(QualifiedObjectName table, String identity)
+    {
+        return rowFilterScopes.contains(new RowFilterScopeEntry(table, identity));
+    }
+
+    public void registerTableForRowFiltering(QualifiedObjectName table, String identity)
+    {
+        rowFilterScopes.add(new RowFilterScopeEntry(table, identity));
+    }
+
+    public void unregisterTableForRowFiltering(QualifiedObjectName table, String identity)
+    {
+        rowFilterScopes.remove(new RowFilterScopeEntry(table, identity));
+    }
+
+    public void addRowFilter(Table table, Expression filter)
+    {
+        rowFilters.computeIfAbsent(NodeRef.of(table), node -> new ArrayList<>())
+                .add(filter);
+    }
+
+    public List<Expression> getRowFilters(Table node)
+    {
+        return rowFilters.getOrDefault(NodeRef.of(node), ImmutableList.of());
+    }
+
+    public boolean hasColumnMask(QualifiedObjectName table, String column, String identity)
+    {
+        return columnMaskScopes.contains(new ColumnMaskScopeEntry(table, column, identity));
+    }
+
+    public void registerTableForColumnMasking(QualifiedObjectName table, String column, String identity)
+    {
+        columnMaskScopes.add(new ColumnMaskScopeEntry(table, column, identity));
+    }
+
+    public void unregisterTableForColumnMasking(QualifiedObjectName table, String column, String identity)
+    {
+        columnMaskScopes.remove(new ColumnMaskScopeEntry(table, column, identity));
+    }
+
+    public void addColumnMask(Table table, String column, Expression mask)
+    {
+        Map<String, List<Expression>> masks = columnMasks.computeIfAbsent(NodeRef.of(table), node -> new LinkedHashMap<>());
+        masks.computeIfAbsent(column, name -> new ArrayList<>())
+                .add(mask);
+    }
+
+    public Map<String, List<Expression>> getColumnMasks(Table table)
+    {
+        return columnMasks.getOrDefault(NodeRef.of(table), ImmutableMap.of());
+    }
+
     @Immutable
     public static final class SelectExpression
     {
@@ -893,6 +955,73 @@ public class Analysis
         public String toString()
         {
             return format("AccessControl: %s, Identity: %s", accessControl.getClass(), identity);
+        }
+    }
+
+    private static class RowFilterScopeEntry
+    {
+        private final QualifiedObjectName table;
+        private final String identity;
+
+        public RowFilterScopeEntry(QualifiedObjectName table, String identity)
+        {
+            this.table = requireNonNull(table, "table is null");
+            this.identity = requireNonNull(identity, "identity is null");
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            RowFilterScopeEntry that = (RowFilterScopeEntry) o;
+            return table.equals(that.table) &&
+                    identity.equals(that.identity);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(table, identity);
+        }
+    }
+
+    private static class ColumnMaskScopeEntry
+    {
+        private final QualifiedObjectName table;
+        private final String column;
+        private final String identity;
+
+        public ColumnMaskScopeEntry(QualifiedObjectName table, String column, String identity)
+        {
+            this.table = requireNonNull(table, "table is null");
+            this.column = requireNonNull(column, "column is null");
+            this.identity = requireNonNull(identity, "identity is null");
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            ColumnMaskScopeEntry that = (ColumnMaskScopeEntry) o;
+            return table.equals(that.table) &&
+                    column.equals(that.column) &&
+                    identity.equals(that.identity);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(table, column, identity);
         }
     }
 }

@@ -23,6 +23,7 @@ import {
     getQueryStateColor,
     GLYPHICON_DEFAULT,
     GLYPHICON_HIGHLIGHT,
+    parseAndFormatDataSize,
     parseDataSize,
     parseDuration,
     truncateString
@@ -105,11 +106,11 @@ export class QueryListItem extends React.Component {
             <div className="col-xs-12 tinystat-row">
                 <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Current total reserved memory">
                     <span className="glyphicon glyphicon-scale" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
-                    {query.queryStats.totalMemoryReservation}
+                    {parseAndFormatDataSize(query.queryStats.totalMemoryReservation)}
                 </span>
                 <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Peak total memory">
                     <span className="glyphicon glyphicon-fire" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
-                    {query.queryStats.peakTotalMemoryReservation}
+                    {parseAndFormatDataSize(query.queryStats.peakTotalMemoryReservation)}
                 </span>
                 <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Cumulative user memory">
                     <span className="glyphicon glyphicon-equalizer" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
@@ -326,7 +327,7 @@ export class QueryList extends React.Component {
         clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
         clearTimeout(this.searchTimeoutId);
 
-        $.get('/v1/query', function (queryList) {
+        $.get('/ui/api/query', function (queryList) {
             const queryMap = queryList.reduce(function (map, query) {
                 map[query.queryId] = query;
                 return map;

@@ -49,7 +49,7 @@ import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.type.CodePointsType.CODE_POINTS;
 import static io.prestosql.type.JoniRegexpType.JONI_REGEXP;
 import static io.prestosql.type.JsonPathType.JSON_PATH;
-import static io.prestosql.type.Re2JRegexpType.RE2J_REGEXP;
+import static io.prestosql.type.Re2JRegexpType.RE2J_REGEXP_SIGNATURE;
 import static java.util.Objects.requireNonNull;
 
 public final class TypeCoercion
@@ -420,7 +420,7 @@ public final class TypeCoercion
                     case JoniRegexpType.NAME:
                         return Optional.of(JONI_REGEXP);
                     case Re2JRegexpType.NAME:
-                        return Optional.of(RE2J_REGEXP);
+                        return Optional.of(lookupType.apply(RE2J_REGEXP_SIGNATURE));
                     case JsonPathType.NAME:
                         return Optional.of(JSON_PATH);
                     case CodePointsType.NAME:
@@ -436,7 +436,7 @@ public final class TypeCoercion
                     case JoniRegexpType.NAME:
                         return Optional.of(JONI_REGEXP);
                     case Re2JRegexpType.NAME:
-                        return Optional.of(RE2J_REGEXP);
+                        return Optional.of(lookupType.apply(RE2J_REGEXP_SIGNATURE));
                     case JsonPathType.NAME:
                         return Optional.of(JSON_PATH);
                     case CodePointsType.NAME:

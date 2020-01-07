@@ -37,8 +37,8 @@ public class TestMemoryManagerConfig
         assertRecordedDefaults(recordDefaults(MemoryManagerConfig.class)
                 .setLowMemoryKillerPolicy(TOTAL_RESERVATION_ON_BLOCKED_NODES)
                 .setKillOnOutOfMemoryDelay(new Duration(5, MINUTES))
-                .setMaxQueryMemory(new DataSize(20, GIGABYTE))
-                .setMaxQueryTotalMemory(new DataSize(40, GIGABYTE)));
+                .setMaxQueryMemory(DataSize.of(20, GIGABYTE))
+                .setMaxQueryTotalMemory(DataSize.of(40, GIGABYTE)));
     }
 
     @Test
@@ -54,8 +54,8 @@ public class TestMemoryManagerConfig
         MemoryManagerConfig expected = new MemoryManagerConfig()
                 .setLowMemoryKillerPolicy(NONE)
                 .setKillOnOutOfMemoryDelay(new Duration(20, SECONDS))
-                .setMaxQueryMemory(new DataSize(2, GIGABYTE))
-                .setMaxQueryTotalMemory(new DataSize(3, GIGABYTE));
+                .setMaxQueryMemory(DataSize.of(2, GIGABYTE))
+                .setMaxQueryTotalMemory(DataSize.of(3, GIGABYTE));
 
         assertFullMapping(properties, expected);
     }

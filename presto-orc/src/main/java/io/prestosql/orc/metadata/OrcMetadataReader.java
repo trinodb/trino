@@ -76,7 +76,7 @@ public class OrcMetadataReader
         implements MetadataReader
 {
     private static final int REPLACEMENT_CHARACTER_CODE_POINT = 0xFFFD;
-    private static final int PROTOBUF_MESSAGE_MAX_LIMIT = toIntExact(new DataSize(1, GIGABYTE).toBytes());
+    private static final int PROTOBUF_MESSAGE_MAX_LIMIT = toIntExact(DataSize.of(1, GIGABYTE).toBytes());
 
     @Override
     public PostScript readPostScript(InputStream inputStream)
@@ -492,7 +492,7 @@ public class OrcMetadataReader
             precision = Optional.of(type.getPrecision());
             scale = Optional.of(type.getScale());
         }
-        return new OrcType(toTypeKind(type.getKind()), toOrcColumnId(type.getSubtypesList()), type.getFieldNamesList(), length, precision, scale);
+        return new OrcType(toTypeKind(type.getKind()), toOrcColumnId(type.getSubtypesList()), type.getFieldNamesList(), length, precision, scale, toMap(type.getAttributesList()));
     }
 
     private static List<OrcColumnId> toOrcColumnId(List<Integer> columnIds)
@@ -551,6 +551,20 @@ public class OrcMetadataReader
             default:
                 throw new IllegalStateException(typeKind + " stream type not implemented yet");
         }
+    }
+
+    // This method assumes type attributes have no duplicate key
+    private static Map<String, String> toMap(List<OrcProto.StringPair> attributes)
+    {
+        ImmutableMap.Builder<String, String> results = new ImmutableMap.Builder<>();
+        if (attributes != null) {
+            for (OrcProto.StringPair attribute : attributes) {
+                if (attribute.hasKey() && attribute.hasValue()) {
+                    results.put(attribute.getKey(), attribute.getValue());
+                }
+            }
+        }
+        return results.build();
     }
 
     private static StreamKind toStreamKind(OrcProto.Stream.Kind streamKind)

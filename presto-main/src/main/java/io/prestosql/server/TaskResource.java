@@ -64,7 +64,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addTimeout;
-import static io.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
+import static io.airlift.jaxrs.AsyncResponseHandler.bindAsyncResponse;
 import static io.prestosql.PrestoMediaTypes.PRESTO_PAGES;
 import static io.prestosql.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
 import static io.prestosql.client.PrestoHeaders.PRESTO_CURRENT_STATE;

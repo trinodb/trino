@@ -95,7 +95,7 @@ public final class Comment
             return false;
         }
         Comment o = (Comment) obj;
-        return Objects.equals(type, o.type) &&
+        return type == o.type &&
                 Objects.equals(name, o.name) &&
                 Objects.equals(comment, o.comment);
     }

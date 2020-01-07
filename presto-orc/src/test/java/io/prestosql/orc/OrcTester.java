@@ -24,6 +24,7 @@ import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.orc.metadata.CompressionKind;
+import io.prestosql.orc.metadata.OrcType;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
@@ -163,11 +164,11 @@ import static org.testng.Assert.assertTrue;
 public class OrcTester
 {
     public static final OrcReaderOptions READER_OPTIONS = new OrcReaderOptions()
-            .withMaxReadBlockSize(new DataSize(1, MEGABYTE))
-            .withMaxMergeDistance(new DataSize(1, MEGABYTE))
-            .withMaxBufferSize(new DataSize(1, MEGABYTE))
-            .withStreamBufferSize(new DataSize(1, MEGABYTE))
-            .withTinyStripeThreshold(new DataSize(1, MEGABYTE));
+            .withMaxReadBlockSize(DataSize.of(1, MEGABYTE))
+            .withMaxMergeDistance(DataSize.of(1, MEGABYTE))
+            .withMaxBufferSize(DataSize.of(1, MEGABYTE))
+            .withStreamBufferSize(DataSize.of(1, MEGABYTE))
+            .withTinyStripeThreshold(DataSize.of(1, MEGABYTE));
     public static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
 
     private static final Metadata METADATA = createTestMetadataManager();
@@ -591,10 +592,14 @@ public class OrcTester
         metadata.put("columns", "test");
         metadata.put("columns.types", createSettableStructObjectInspector("test", type).getTypeName());
 
+        List<String> columnNames = ImmutableList.of("test");
+        List<Type> types = ImmutableList.of(type);
+
         OrcWriter writer = new OrcWriter(
                 new OutputStreamOrcDataSink(new FileOutputStream(outputFile)),
                 ImmutableList.of("test"),
-                ImmutableList.of(type),
+                types,
+                OrcType.createRootOrcType(columnNames, types),
                 compression,
                 new OrcWriterOptions(),
                 false,

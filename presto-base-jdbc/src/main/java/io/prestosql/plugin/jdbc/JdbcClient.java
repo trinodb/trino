@@ -81,7 +81,7 @@ public interface JdbcClient
 
     void commitCreateTable(JdbcIdentity identity, JdbcOutputTableHandle handle);
 
-    JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle);
+    JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columns);
 
     void finishInsertTable(JdbcIdentity identity, JdbcOutputTableHandle handle);
 

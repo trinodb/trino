@@ -106,9 +106,12 @@ public class PrestoConnection
         this.applicationNamePrefix = uri.getApplicationNamePrefix();
         this.extraCredentials = uri.getExtraCredentials();
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
+        uri.getClientTags().ifPresent(tags -> clientInfo.put("ClientTags", tags));
 
+        roles.putAll(uri.getRoles());
         timeZoneId.set(ZoneId.systemDefault());
         locale.set(Locale.getDefault());
+        sessionProperties.putAll(uri.getSessionProperties());
     }
 
     @Override
@@ -629,6 +632,12 @@ public class PrestoConnection
     Map<String, String> getExtraCredentials()
     {
         return ImmutableMap.copyOf(extraCredentials);
+    }
+
+    @VisibleForTesting
+    Map<String, String> getSessionProperties()
+    {
+        return ImmutableMap.copyOf(sessionProperties);
     }
 
     ServerInfo getServerInfo()

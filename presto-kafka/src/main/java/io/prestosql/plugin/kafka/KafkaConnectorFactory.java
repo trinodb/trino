@@ -14,35 +14,28 @@
 package io.prestosql.plugin.kafka;
 
 import com.google.inject.Injector;
-import com.google.inject.Scopes;
-import com.google.inject.TypeLiteral;
+import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
-import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.json.JsonModule;
 import io.prestosql.spi.NodeManager;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorContext;
 import io.prestosql.spi.connector.ConnectorFactory;
 import io.prestosql.spi.connector.ConnectorHandleResolver;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.connector.classloader.ClassLoaderSafeConnectorRecordSetProvider;
-import io.prestosql.spi.connector.classloader.ClassLoaderSafeConnectorSplitManager;
 import io.prestosql.spi.type.TypeManager;
 
 import java.util.Map;
-import java.util.Optional;
-import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 
 public class KafkaConnectorFactory
         implements ConnectorFactory
 {
-    private final Optional<Supplier<Map<SchemaTableName, KafkaTopicDescription>>> tableDescriptionSupplier;
+    private final Module extension;
 
-    KafkaConnectorFactory(Optional<Supplier<Map<SchemaTableName, KafkaTopicDescription>>> tableDescriptionSupplier)
+    public KafkaConnectorFactory(Module extension)
     {
-        this.tableDescriptionSupplier = requireNonNull(tableDescriptionSupplier, "tableDescriptionSupplier is null");
+        this.extension = requireNonNull(extension, "extension is null");
     }
 
     @Override
@@ -66,16 +59,11 @@ public class KafkaConnectorFactory
         Bootstrap app = new Bootstrap(
                 new JsonModule(),
                 new KafkaConnectorModule(),
+                extension,
                 binder -> {
+                    binder.bind(ClassLoader.class).toInstance(KafkaConnectorFactory.class.getClassLoader());
                     binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                     binder.bind(NodeManager.class).toInstance(context.getNodeManager());
-
-                    if (tableDescriptionSupplier.isPresent()) {
-                        binder.bind(new TypeLiteral<Supplier<Map<SchemaTableName, KafkaTopicDescription>>>() {}).toInstance(tableDescriptionSupplier.get());
-                    }
-                    else {
-                        binder.bind(new TypeLiteral<Supplier<Map<SchemaTableName, KafkaTopicDescription>>>() {}).to(KafkaTableDescriptionSupplier.class).in(Scopes.SINGLETON);
-                    }
                 });
 
         Injector injector = app
@@ -84,11 +72,6 @@ public class KafkaConnectorFactory
                 .setRequiredConfigurationProperties(config)
                 .initialize();
 
-        ClassLoader classLoader = KafkaConnectorFactory.class.getClassLoader();
-        return new KafkaConnector(
-                injector.getInstance(LifeCycleManager.class),
-                injector.getInstance(KafkaMetadata.class),
-                new ClassLoaderSafeConnectorSplitManager(injector.getInstance(KafkaSplitManager.class), classLoader),
-                new ClassLoaderSafeConnectorRecordSetProvider(injector.getInstance(KafkaRecordSetProvider.class), classLoader));
+        return injector.getInstance(KafkaConnector.class);
     }
 }

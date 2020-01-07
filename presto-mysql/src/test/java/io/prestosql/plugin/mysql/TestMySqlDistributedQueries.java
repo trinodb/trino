@@ -14,20 +14,17 @@
 package io.prestosql.plugin.mysql;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.testing.mysql.TestingMySqlServer;
-import io.airlift.tpch.TpchTable;
 import io.prestosql.testing.AbstractTestDistributedQueries;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
 
 import static io.prestosql.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 
-@Test
 public class TestMySqlDistributedQueries
         extends AbstractTestDistributedQueries
 {
@@ -37,8 +34,15 @@ public class TestMySqlDistributedQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.mysqlServer = new TestingMySqlServer("testuser", "testpass", "tpch");
-        return createMySqlQueryRunner(mysqlServer, ImmutableMap.of(), TpchTable.getTables());
+        this.mysqlServer = new TestingMySqlServer();
+        return createMySqlQueryRunner(
+                mysqlServer,
+                ImmutableMap.<String, String>builder()
+                        // caching here speeds up tests highly, caching is not used in smoke tests
+                        .put("metadata.cache-ttl", "10m")
+                        .put("metadata.cache-missing", "true")
+                        .build(),
+                TpchTable.getTables());
     }
 
     @AfterClass(alwaysRun = true)

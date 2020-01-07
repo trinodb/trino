@@ -29,6 +29,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.block.BlockSerdeUtil.READ_BLOCK;
+import static io.prestosql.block.BlockSerdeUtil.READ_BLOCK_VALUE;
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
@@ -76,6 +77,9 @@ public class LiteralFunction
         if (parameterType.getJavaType() == Slice.class) {
             if (type.getJavaType() == Block.class) {
                 methodHandle = READ_BLOCK.bindTo(metadata.getBlockEncodingSerde());
+            }
+            else if (type.getJavaType() != Slice.class) {
+                methodHandle = READ_BLOCK_VALUE.bindTo(metadata.getBlockEncodingSerde()).bindTo(type);
             }
         }
 

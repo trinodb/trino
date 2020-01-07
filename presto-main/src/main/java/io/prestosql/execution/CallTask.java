@@ -45,6 +45,7 @@ import java.util.Map.Entry;
 import java.util.function.Predicate;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.prestosql.spi.StandardErrorCode.CATALOG_NOT_FOUND;
@@ -115,10 +116,14 @@ public class CallTask
             }
         }
 
-        // verify argument count
-        if (names.size() < positions.size()) {
-            throw semanticException(INVALID_ARGUMENTS, call, "Too few arguments for procedure");
-        }
+        procedure.getArguments().stream()
+                .filter(Argument::isRequired)
+                .filter(argument -> !names.containsKey(argument.getName()))
+                .map(Argument::getName)
+                .findFirst()
+                .ifPresent(argument -> {
+                    throw semanticException(INVALID_ARGUMENTS, call, "Required procedure argument '%s' is missing", argument);
+                });
 
         // get argument values
         Object[] values = new Object[procedure.getArguments().size()];
@@ -134,6 +139,16 @@ public class CallTask
             Object value = evaluateConstantExpression(expression, type, metadata, session, parameterLookup);
 
             values[index] = toTypeObjectValue(session, type, value);
+        }
+
+        // fill values with optional arguments defaults
+        for (int i = 0; i < procedure.getArguments().size(); i++) {
+            Argument argument = procedure.getArguments().get(i);
+
+            if (!names.containsKey(argument.getName())) {
+                verify(argument.isOptional());
+                values[i] = toTypeObjectValue(session, argument.getType(), argument.getDefaultValue());
+            }
         }
 
         // validate arguments

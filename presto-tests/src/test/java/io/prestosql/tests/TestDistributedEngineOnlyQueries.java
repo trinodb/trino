@@ -13,13 +13,36 @@
  */
 package io.prestosql.tests;
 
+import io.prestosql.Session;
+import io.prestosql.testing.QueryRunner;
 import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
+import org.testng.annotations.Test;
 
 public class TestDistributedEngineOnlyQueries
         extends AbstractTestEngineOnlyQueries
 {
-    public TestDistributedEngineOnlyQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> TpchQueryRunnerBuilder.builder().build());
+        return TpchQueryRunnerBuilder.builder().build();
+    }
+
+    @Test
+    public void testUse()
+    {
+        assertQueryFails("USE invalid.xyz", "Catalog does not exist: invalid");
+        assertQueryFails("USE tpch.invalid", "Schema does not exist: tpch.invalid");
+    }
+
+    @Test
+    public void testRoles()
+    {
+        Session invalid = Session.builder(getSession()).setCatalog("invalid").build();
+        assertQueryFails(invalid, "CREATE ROLE test", "Catalog does not exist: invalid");
+        assertQueryFails(invalid, "DROP ROLE test", "Catalog does not exist: invalid");
+        assertQueryFails(invalid, "GRANT bar TO USER foo", "Catalog does not exist: invalid");
+        assertQueryFails(invalid, "REVOKE bar FROM USER foo", "Catalog does not exist: invalid");
+        assertQueryFails(invalid, "SET ROLE test", "Catalog does not exist: invalid");
     }
 }

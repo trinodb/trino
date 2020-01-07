@@ -92,6 +92,7 @@ public class StatsCalculatorAssertion
         return this;
     }
 
+    @SuppressWarnings("unchecked")
     private static <T extends PlanNode> Optional<PlanNodeStatsEstimate> calculatedStats(Rule<T> rule, PlanNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types)
     {
         return rule.calculate((T) node, sourceStats, lookup, session, types);

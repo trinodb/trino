@@ -14,153 +14,150 @@
 package io.prestosql.operator;
 
 import io.prestosql.execution.TaskId;
+import io.prestosql.operator.BasicWorkProcessorOperatorAdapter.BasicAdapterWorkProcessorOperatorFactory;
+import io.prestosql.operator.WorkProcessor.TransformationState;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
+import javax.annotation.Nullable;
+
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.prestosql.operator.BasicWorkProcessorOperatorAdapter.createAdapterOperatorFactory;
+import static io.prestosql.operator.WorkProcessor.TransformationState.finished;
+import static io.prestosql.operator.WorkProcessor.TransformationState.ofResult;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 
 public class AssignUniqueIdOperator
-        implements Operator
+        implements WorkProcessorOperator
 {
     private static final long ROW_IDS_PER_REQUEST = 1L << 20L;
     private static final long MAX_ROW_ID = 1L << 40L;
 
-    public static class AssignUniqueIdOperatorFactory
-            implements OperatorFactory
+    public static OperatorFactory createOperatorFactory(int operatorId, PlanNodeId planNodeId)
+    {
+        return createAdapterOperatorFactory(new Factory(operatorId, planNodeId));
+    }
+
+    private static class Factory
+            implements BasicAdapterWorkProcessorOperatorFactory
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
         private boolean closed;
         private final AtomicLong valuePool = new AtomicLong();
 
-        public AssignUniqueIdOperatorFactory(
-                int operatorId,
-                PlanNodeId planNodeId)
+        private Factory(int operatorId, PlanNodeId planNodeId)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
         }
 
         @Override
-        public Operator createOperator(DriverContext driverContext)
+        public WorkProcessorOperator create(ProcessorContext processorContext, WorkProcessor<Page> sourcePages)
         {
             checkState(!closed, "Factory is already closed");
-
-            OperatorContext operatorContext = driverContext.addOperatorContext(
-                    operatorId,
-                    planNodeId,
-                    AssignUniqueIdOperator.class.getSimpleName());
-            return new AssignUniqueIdOperator(operatorContext, valuePool);
+            return new AssignUniqueIdOperator(processorContext, sourcePages, valuePool);
         }
 
         @Override
-        public void noMoreOperators()
+        public int getOperatorId()
+        {
+            return operatorId;
+        }
+
+        @Override
+        public PlanNodeId getPlanNodeId()
+        {
+            return planNodeId;
+        }
+
+        @Override
+        public String getOperatorType()
+        {
+            return AssignUniqueIdOperator.class.getSimpleName();
+        }
+
+        @Override
+        public void close()
         {
             closed = true;
         }
 
         @Override
-        public OperatorFactory duplicate()
+        public Factory duplicate()
         {
-            return new AssignUniqueIdOperatorFactory(operatorId, planNodeId);
+            return new Factory(operatorId, planNodeId);
         }
     }
 
-    private final OperatorContext operatorContext;
-    private boolean finishing;
-    private final AtomicLong rowIdPool;
-    private final long uniqueValueMask;
+    private final WorkProcessor<Page> pages;
 
-    private Page inputPage;
-    private long rowIdCounter;
-    private long maxRowIdCounterValue;
-
-    public AssignUniqueIdOperator(OperatorContext operatorContext, AtomicLong rowIdPool)
+    private AssignUniqueIdOperator(ProcessorContext context, WorkProcessor<Page> sourcePages, AtomicLong rowIdPool)
     {
-        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.rowIdPool = requireNonNull(rowIdPool, "rowIdPool is null");
-
-        TaskId fullTaskId = operatorContext.getDriverContext().getTaskId();
-        uniqueValueMask = (((long) fullTaskId.getStageId().getId()) << 54) | (((long) fullTaskId.getId()) << 40);
-
-        requestValues();
-    }
-
-    private void requestValues()
-    {
-        rowIdCounter = rowIdPool.getAndAdd(ROW_IDS_PER_REQUEST);
-        maxRowIdCounterValue = Math.min(rowIdCounter + ROW_IDS_PER_REQUEST, MAX_ROW_ID);
-        checkState(rowIdCounter < MAX_ROW_ID, "Unique row id exceeds a limit: %s", MAX_ROW_ID);
+        pages = sourcePages
+                .transform(new AssignUniqueId(
+                        context.getTaskId(),
+                        rowIdPool));
     }
 
     @Override
-    public OperatorContext getOperatorContext()
+    public WorkProcessor<Page> getOutputPages()
     {
-        return operatorContext;
+        return pages;
     }
 
-    @Override
-    public void finish()
+    private static class AssignUniqueId
+            implements WorkProcessor.Transformation<Page, Page>
     {
-        finishing = true;
-    }
+        private final AtomicLong rowIdPool;
+        private final long uniqueValueMask;
 
-    @Override
-    public boolean isFinished()
-    {
-        return finishing && inputPage == null;
-    }
+        private long rowIdCounter;
+        private long maxRowIdCounterValue;
 
-    @Override
-    public boolean needsInput()
-    {
-        return !finishing && inputPage == null;
-    }
+        private AssignUniqueId(TaskId taskId, AtomicLong rowIdPool)
+        {
+            this.rowIdPool = requireNonNull(rowIdPool, "rowIdPool is null");
 
-    @Override
-    public void addInput(Page page)
-    {
-        checkState(!finishing, "Operator is already finishing");
-        requireNonNull(page, "page is null");
-        checkState(inputPage == null);
-        inputPage = page;
-    }
-
-    @Override
-    public Page getOutput()
-    {
-        if (inputPage == null) {
-            return null;
+            uniqueValueMask = (((long) taskId.getStageId().getId()) << 54) | (((long) taskId.getId()) << 40);
+            requestValues();
         }
 
-        Page outputPage = processPage();
-        inputPage = null;
-        return outputPage;
-    }
-
-    private Page processPage()
-    {
-        return inputPage.appendColumn(generateIdColumn());
-    }
-
-    private Block generateIdColumn()
-    {
-        BlockBuilder block = BIGINT.createFixedSizeBlockBuilder(inputPage.getPositionCount());
-        for (int currentPosition = 0; currentPosition < inputPage.getPositionCount(); currentPosition++) {
-            if (rowIdCounter >= maxRowIdCounterValue) {
-                requestValues();
+        @Override
+        public TransformationState<Page> process(@Nullable Page inputPage)
+        {
+            if (inputPage == null) {
+                return finished();
             }
-            long rowId = rowIdCounter++;
-            verify((rowId & uniqueValueMask) == 0, "RowId and uniqueValue mask overlaps");
-            BIGINT.writeLong(block, uniqueValueMask | rowId);
+
+            return ofResult(inputPage.appendColumn(generateIdColumn(inputPage.getPositionCount())));
         }
-        return block.build();
+
+        private Block generateIdColumn(int positionCount)
+        {
+            BlockBuilder block = BIGINT.createFixedSizeBlockBuilder(positionCount);
+            for (int currentPosition = 0; currentPosition < positionCount; currentPosition++) {
+                if (rowIdCounter >= maxRowIdCounterValue) {
+                    requestValues();
+                }
+                long rowId = rowIdCounter++;
+                verify((rowId & uniqueValueMask) == 0, "RowId and uniqueValue mask overlaps");
+                BIGINT.writeLong(block, uniqueValueMask | rowId);
+            }
+            return block.build();
+        }
+
+        private void requestValues()
+        {
+            rowIdCounter = rowIdPool.getAndAdd(ROW_IDS_PER_REQUEST);
+            maxRowIdCounterValue = Math.min(rowIdCounter + ROW_IDS_PER_REQUEST, MAX_ROW_ID);
+            checkState(rowIdCounter < MAX_ROW_ID, "Unique row id exceeds a limit: %s", MAX_ROW_ID);
+        }
     }
 }

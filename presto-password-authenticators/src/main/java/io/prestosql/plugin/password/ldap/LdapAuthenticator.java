@@ -13,6 +13,8 @@
  */
 package io.prestosql.plugin.password.ldap;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.CharMatcher;
 import com.google.common.base.VerifyException;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -55,32 +57,54 @@ public class LdapAuthenticator
         implements PasswordAuthenticator
 {
     private static final Logger log = Logger.get(LdapAuthenticator.class);
+    private static final CharMatcher SPECIAL_CHARACTERS = CharMatcher.anyOf(",=+<>#;*()\"\\\u0000");
+    private static final CharMatcher WHITESPACE = CharMatcher.anyOf(" \r");
 
-    private final String userBindSearchPattern;
+    private final Optional<String> userBindSearchPattern;
     private final Optional<String> groupAuthorizationSearchPattern;
     private final Optional<String> userBaseDistinguishedName;
+    private final Optional<String> bindDistinguishedName;
+    private final Optional<String> bindPassword;
     private final Map<String, String> basicEnvironment;
     private final LoadingCache<Credentials, Principal> authenticationCache;
 
     @Inject
-    public LdapAuthenticator(LdapConfig serverConfig)
+    public LdapAuthenticator(LdapConfig ldapConfig)
     {
-        String ldapUrl = requireNonNull(serverConfig.getLdapUrl(), "ldapUrl is null");
-        this.userBindSearchPattern = requireNonNull(serverConfig.getUserBindSearchPattern(), "userBindSearchPattern is null");
-        this.groupAuthorizationSearchPattern = Optional.ofNullable(serverConfig.getGroupAuthorizationSearchPattern());
-        this.userBaseDistinguishedName = Optional.ofNullable(serverConfig.getUserBaseDistinguishedName());
+        String ldapUrl = requireNonNull(ldapConfig.getLdapUrl(), "ldapUrl is null");
+        this.userBindSearchPattern = Optional.ofNullable(ldapConfig.getUserBindSearchPattern());
+        this.groupAuthorizationSearchPattern = Optional.ofNullable(ldapConfig.getGroupAuthorizationSearchPattern());
+        this.userBaseDistinguishedName = Optional.ofNullable(ldapConfig.getUserBaseDistinguishedName());
+        this.bindDistinguishedName = Optional.ofNullable(ldapConfig.getBindDistingushedName());
+        this.bindPassword = Optional.ofNullable(ldapConfig.getBindPassword());
+
         if (groupAuthorizationSearchPattern.isPresent()) {
             checkState(userBaseDistinguishedName.isPresent(), "Base distinguished name (DN) for user is null");
         }
+        checkState(bindDistinguishedName.isPresent() == bindPassword.isPresent(),
+                "Both or none bind distinguished name and bind password must be provided");
+        checkState(
+                !bindDistinguishedName.isPresent() || groupAuthorizationSearchPattern.isPresent(),
+                "Group authorization search pattern must be provided when bind distinguished name is not used");
+        checkState(bindDistinguishedName.isPresent() || userBindSearchPattern.isPresent(),
+                "Either user bind search pattern or bind distinguished name must be provided");
 
         Map<String, String> environment = ImmutableMap.<String, String>builder()
                 .put(INITIAL_CONTEXT_FACTORY, "com.sun.jndi.ldap.LdapCtxFactory")
                 .put(PROVIDER_URL, ldapUrl)
                 .build();
         this.basicEnvironment = environment;
-        this.authenticationCache = CacheBuilder.newBuilder()
-                .expireAfterWrite(serverConfig.getLdapCacheTtl().toMillis(), MILLISECONDS)
-                .build(CacheLoader.from(this::authenticate));
+
+        if (this.bindDistinguishedName.isPresent()) {
+            this.authenticationCache = CacheBuilder.newBuilder()
+                    .expireAfterWrite(ldapConfig.getLdapCacheTtl().toMillis(), MILLISECONDS)
+                    .build(CacheLoader.from(this::authenticateWithBindDistinguishedName));
+        }
+        else {
+            this.authenticationCache = CacheBuilder.newBuilder()
+                    .expireAfterWrite(ldapConfig.getLdapCacheTtl().toMillis(), MILLISECONDS)
+                    .build(CacheLoader.from(this::authenticateWithUserBind));
+        }
     }
 
     @Override
@@ -95,94 +119,151 @@ public class LdapAuthenticator
         }
     }
 
-    private Principal authenticate(Credentials credentials)
+    private Principal authenticateWithUserBind(Credentials credentials)
     {
-        return authenticate(credentials.getUser(), credentials.getPassword());
-    }
-
-    private Principal authenticate(String user, String password)
-    {
-        Map<String, String> environment = createEnvironment(user, password);
-        DirContext context = null;
-        try {
-            context = createDirContext(environment);
-            checkForGroupMembership(user, context);
-
-            log.debug("Authentication successful for user [%s]", user);
-            return new BasicPrincipal(user);
+        String user = credentials.getUser();
+        if (containsSpecialCharacters(user)) {
+            throw new AccessDeniedException("Username contains a special LDAP character");
         }
-        catch (AuthenticationException e) {
-            log.debug("Authentication failed for user [%s]: %s", user, e.getMessage());
-            throw new AccessDeniedException("Invalid credentials");
+        try {
+            String userDistinguishedName = createUserDistinguishedName(user);
+            if (groupAuthorizationSearchPattern.isPresent()) {
+                // user password is also validated as user DN and password is used for querying LDAP
+                validateGroupMembership(user, userDistinguishedName, credentials.getPassword());
+            }
+            else {
+                validatePassword(userDistinguishedName, credentials.getPassword());
+            }
+            log.debug("Authentication successful for user [%s]", user);
         }
         catch (NamingException e) {
-            log.debug(e, "Authentication error for user [%s]", user);
+            log.debug(e, "Authentication failed for user [%s], %s", user, e.getMessage());
             throw new RuntimeException("Authentication error");
         }
+        return new BasicPrincipal(user);
+    }
+
+    private Principal authenticateWithBindDistinguishedName(Credentials credentials)
+    {
+        String user = credentials.getUser();
+        if (containsSpecialCharacters(user)) {
+            throw new AccessDeniedException("Username contains a special LDAP character");
+        }
+        try {
+            String userDistinguishedName = validateGroupMembership(user, bindDistinguishedName.get(), bindPassword.get());
+            validatePassword(userDistinguishedName, credentials.getPassword());
+            log.debug("Authentication successful for user [%s]", user);
+        }
+        catch (NamingException e) {
+            log.debug(e, "Authentication failed for user [%s], %s", user, e.getMessage());
+            throw new RuntimeException("Authentication error");
+        }
+        return new BasicPrincipal(credentials.getUser());
+    }
+
+    private String createUserDistinguishedName(String user)
+    {
+        return replaceUser(userBindSearchPattern.get(), user);
+    }
+
+    private String validateGroupMembership(String user, String contextUserDistinguishedName, String contextPassword)
+            throws NamingException
+    {
+        DirContext context = createUserDirContext(contextUserDistinguishedName, contextPassword);
+        try {
+            return validateGroupMembership(user, context);
+        }
         finally {
-            if (context != null) {
-                closeContext(context);
-            }
+            context.close();
         }
     }
 
-    private Map<String, String> createEnvironment(String user, String password)
+    /**
+     * Returns {@code true} when parameter contains a character that has a special meaning in
+     * LDAP search or bind name (DN).
+     *
+     * Based on <a href="https://www.owasp.org/index.php/Preventing_LDAP_Injection_in_Java">Preventing_LDAP_Injection_in_Java</a> and
+     * {@link javax.naming.ldap.Rdn#escapeValue(Object) escapeValue} method.
+     */
+    @VisibleForTesting
+    static boolean containsSpecialCharacters(String user)
     {
-        return ImmutableMap.<String, String>builder()
-                .putAll(basicEnvironment)
-                .put(SECURITY_AUTHENTICATION, "simple")
-                .put(SECURITY_PRINCIPAL, createPrincipal(user))
-                .put(SECURITY_CREDENTIALS, password)
-                .put(REFERRAL, "follow")
-                .build();
-    }
-
-    private String createPrincipal(String user)
-    {
-        return replaceUser(userBindSearchPattern, user);
-    }
-
-    private void checkForGroupMembership(String user, DirContext context)
-    {
-        if (!groupAuthorizationSearchPattern.isPresent()) {
-            return;
+        if (WHITESPACE.indexIn(user) == 0 || WHITESPACE.lastIndexIn(user) == user.length() - 1) {
+            return true;
         }
+        return SPECIAL_CHARACTERS.matchesAnyOf(user);
+    }
 
+    private String validateGroupMembership(String user, DirContext context)
+            throws NamingException
+    {
         String userBase = userBaseDistinguishedName.orElseThrow(VerifyException::new);
         String searchFilter = replaceUser(groupAuthorizationSearchPattern.get(), user);
         SearchControls searchControls = new SearchControls();
         searchControls.setSearchScope(SearchControls.SUBTREE_SCOPE);
 
-        boolean authorized;
+        NamingEnumeration<SearchResult> search = context.search(userBase, searchFilter, searchControls);
         try {
-            NamingEnumeration<SearchResult> search = context.search(userBase, searchFilter, searchControls);
-            authorized = search.hasMore();
+            if (!search.hasMore()) {
+                String message = format("User [%s] not a member of the authorized group", user);
+                log.debug(message);
+                throw new AccessDeniedException(message);
+            }
+
+            String userDistinguishedName = search.next().getNameInNamespace();
+            while (search.hasMore()) {
+                if (!userDistinguishedName.equals(search.next().getNameInNamespace())) {
+                    String message = format("Multiple group membership results for user [%s] with different distinguished names", user);
+                    log.debug(message);
+                    throw new AccessDeniedException(message);
+                }
+            }
+
+            log.debug("Group membership validated for user [%s]", user);
+            return userDistinguishedName;
+        }
+        finally {
             search.close();
         }
-        catch (NamingException e) {
-            log.debug("Authentication error for user [%s]: %s", user, e.getMessage());
-            throw new RuntimeException("Authentication error");
-        }
+    }
 
-        if (!authorized) {
-            String message = format("User [%s] not a member of the authorized group", user);
-            log.debug(message);
-            throw new AccessDeniedException(message);
+    private void validatePassword(String userDistinguishedName, String password)
+            throws NamingException
+    {
+        createUserDirContext(userDistinguishedName, password).close();
+    }
+
+    private DirContext createUserDirContext(String userDistinguishedName, String password)
+            throws NamingException
+    {
+        Map<String, String> environment = createEnvironment(userDistinguishedName, password);
+        try {
+            // This is the actual Authentication piece. Will throw javax.naming.AuthenticationException
+            // if the users password is not correct. Other exceptions may include IO (server not found) etc.
+            DirContext context = createDirContext(environment);
+            log.debug("Password validation successful for user DN [%s]", userDistinguishedName);
+            return context;
         }
+        catch (AuthenticationException e) {
+            log.debug("Password validation failed for user DN [%s]: %s", userDistinguishedName, e.getMessage());
+            throw new AccessDeniedException("Invalid credentials");
+        }
+    }
+
+    private Map<String, String> createEnvironment(String userDistinguishedName, String password)
+    {
+        return ImmutableMap.<String, String>builder()
+                .putAll(basicEnvironment)
+                .put(SECURITY_AUTHENTICATION, "simple")
+                .put(SECURITY_PRINCIPAL, userDistinguishedName)
+                .put(SECURITY_CREDENTIALS, password)
+                .put(REFERRAL, "follow")
+                .build();
     }
 
     private static String replaceUser(String pattern, String user)
     {
-        return pattern.replaceAll("\\$\\{USER}", user);
-    }
-
-    private static void closeContext(DirContext context)
-    {
-        try {
-            context.close();
-        }
-        catch (NamingException ignored) {
-        }
+        return pattern.replace("${USER}", user);
     }
 
     private static class Credentials

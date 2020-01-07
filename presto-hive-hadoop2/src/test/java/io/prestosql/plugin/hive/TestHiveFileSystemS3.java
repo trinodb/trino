@@ -25,10 +25,12 @@ public class TestHiveFileSystemS3
             "hive.hadoop2.databaseName",
             "hive.hadoop2.s3.awsAccessKey",
             "hive.hadoop2.s3.awsSecretKey",
-            "hive.hadoop2.s3.writableBucket"})
+            "hive.hadoop2.s3.writableBucket",
+            "hive.hadoop2.s3.testDirectory",
+    })
     @BeforeClass
-    public void setup(String host, int port, String databaseName, String awsAccessKey, String awsSecretKey, String writableBucket)
+    public void setup(String host, int port, String databaseName, String awsAccessKey, String awsSecretKey, String writableBucket, String testDirectory)
     {
-        super.setup(host, port, databaseName, awsAccessKey, awsSecretKey, writableBucket, false);
+        super.setup(host, port, databaseName, awsAccessKey, awsSecretKey, writableBucket, testDirectory, false);
     }
 }

@@ -16,23 +16,31 @@ package io.prestosql.plugin.cassandra;
 import io.prestosql.testing.AbstractTestDistributedQueries;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
-import org.testng.annotations.Test;
+import io.prestosql.tpch.TpchTable;
+import org.testng.annotations.AfterClass;
 
+import static io.prestosql.plugin.cassandra.CassandraQueryRunner.createCassandraQueryRunner;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 
-//Integrations tests fail when parallel, due to a bug or configuration error in the embedded
-//cassandra instance. This problem results in either a hang in Thrift calls or broken sockets.
-@Test(singleThreaded = true)
 public class TestCassandraDistributedQueries
         extends AbstractTestDistributedQueries
 {
+    private CassandraServer server;
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return CassandraQueryRunner.createCassandraQueryRunner();
+        this.server = new CassandraServer();
+        return createCassandraQueryRunner(server, TpchTable.getTables());
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        server.close();
     }
 
     @Override

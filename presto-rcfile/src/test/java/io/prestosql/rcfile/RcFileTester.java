@@ -125,7 +125,6 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
@@ -633,7 +632,7 @@ public class RcFileTester
                 new AircompressorCodecFactory(new HadoopCodecFactory(RcFileTester.class.getClassLoader())),
                 0,
                 tempFile.getFile().length(),
-                new DataSize(8, MEGABYTE));
+                DataSize.of(8, MEGABYTE));
 
         assertEquals(rcFileReader.getColumnCount(), 1);
 
@@ -652,8 +651,8 @@ public class RcFileTester
                 compression.getCodecName(),
                 codecFactory,
                 metadata,
-                new DataSize(100, KILOBYTE),   // use a smaller size to create more row groups
-                new DataSize(200, KILOBYTE),
+                DataSize.of(100, KILOBYTE),   // use a smaller size to create more row groups
+                DataSize.of(200, KILOBYTE),
                 true);
         BlockBuilder blockBuilder = type.createBlockBuilder(null, 1024);
         while (values.hasNext()) {
@@ -666,7 +665,7 @@ public class RcFileTester
 
         writer.validate(new FileRcFileDataSource(outputFile));
 
-        return new DataSize(output.size(), BYTE);
+        return DataSize.ofBytes(output.size());
     }
 
     private static void writeValue(Type type, BlockBuilder blockBuilder, Object value)
@@ -934,7 +933,7 @@ public class RcFileTester
         }
 
         recordWriter.close(false);
-        return new DataSize(outputFile.length(), BYTE).convertToMostSuccinctDataSize();
+        return DataSize.ofBytes(outputFile.length()).succinct();
     }
 
     private static ObjectInspector getJavaObjectInspector(Type type)

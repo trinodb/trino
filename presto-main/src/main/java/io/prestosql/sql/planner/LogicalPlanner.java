@@ -62,6 +62,7 @@ import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.planner.sanity.PlanSanityChecker;
 import io.prestosql.sql.tree.Analyze;
 import io.prestosql.sql.tree.Cast;
+import io.prestosql.sql.tree.CoalesceExpression;
 import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.CreateTableAsSelect;
 import io.prestosql.sql.tree.Delete;
@@ -96,6 +97,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Streams.zip;
 import static io.prestosql.SystemSessionProperties.isCollectPlanStatisticsForAllQueries;
+import static io.prestosql.SystemSessionProperties.isUsePreferredWritePartitioning;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.statistics.TableStatisticType.ROW_COUNT;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -105,6 +107,7 @@ import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.prestosql.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
 import static io.prestosql.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
+import static io.prestosql.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.prestosql.sql.planner.plan.TableWriterNode.CreateReference;
 import static io.prestosql.sql.planner.plan.TableWriterNode.InsertReference;
@@ -339,17 +342,13 @@ public class LogicalPlanner
 
         TableMetadata tableMetadata = metadata.getTableMetadata(session, insert.getTarget());
 
-        List<ColumnMetadata> visibleTableColumns = tableMetadata.getColumns().stream()
-                .filter(column -> !column.isHidden())
-                .collect(toImmutableList());
-        List<String> visibleTableColumnNames = visibleTableColumns.stream()
-                .map(ColumnMetadata::getName)
-                .collect(toImmutableList());
-
         RelationPlan plan = createRelationPlan(analysis, insertStatement.getQuery());
 
         Map<String, ColumnHandle> columns = metadata.getColumnHandles(session, insert.getTarget());
         Assignments.Builder assignments = Assignments.builder();
+        boolean supportsMissingColumnsOnInsert = metadata.supportsMissingColumnsOnInsert(session, insert.getTarget());
+        ImmutableList.Builder<ColumnMetadata> insertedColumnsBuilder = ImmutableList.builder();
+
         for (ColumnMetadata column : tableMetadata.getColumns()) {
             if (column.isHidden()) {
                 continue;
@@ -357,8 +356,12 @@ public class LogicalPlanner
             Symbol output = symbolAllocator.newSymbol(column.getName(), column.getType());
             int index = insert.getColumns().indexOf(columns.get(column.getName()));
             if (index < 0) {
+                if (supportsMissingColumnsOnInsert) {
+                    continue;
+                }
                 Expression cast = new Cast(new NullLiteral(), toSqlType(column.getType()));
                 assignments.put(output, cast);
+                insertedColumnsBuilder.add(column);
             }
             else {
                 Symbol input = plan.getSymbol(index);
@@ -372,11 +375,14 @@ public class LogicalPlanner
                     Expression cast = noTruncationCast(input.toSymbolReference(), queryType, tableType);
                     assignments.put(output, cast);
                 }
+                insertedColumnsBuilder.add(column);
             }
         }
+
         ProjectNode projectNode = new ProjectNode(idAllocator.getNextId(), plan.getRoot(), assignments.build());
 
-        List<Field> fields = visibleTableColumns.stream()
+        List<ColumnMetadata> insertedColumns = insertedColumnsBuilder.build();
+        List<Field> fields = insertedColumns.stream()
                 .map(column -> Field.newUnqualified(column.getName(), column.getType()))
                 .collect(toImmutableList());
         Scope scope = Scope.builder().withRelationType(RelationId.anonymous(), new RelationType(fields)).build();
@@ -386,11 +392,19 @@ public class LogicalPlanner
         String catalogName = insert.getTarget().getCatalogName().getCatalogName();
         TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, catalogName, tableMetadata.getMetadata());
 
+        List<String> insertedTableColumnNames = insertedColumns.stream()
+                .map(ColumnMetadata::getName)
+                .collect(toImmutableList());
+
         return createTableWriterPlan(
                 analysis,
                 plan,
-                new InsertReference(insert.getTarget()),
-                visibleTableColumnNames,
+                new InsertReference(
+                        insert.getTarget(),
+                        insertedTableColumnNames.stream()
+                                .map(columns::get)
+                                .collect(toImmutableList())),
+                insertedTableColumnNames,
                 insert.getNewTableLayout(),
                 statisticsMetadata);
     }
@@ -417,9 +431,19 @@ public class LogicalPlanner
 
             List<Symbol> outputLayout = new ArrayList<>(symbols);
 
-            partitioningScheme = Optional.of(new PartitioningScheme(
-                    Partitioning.create(writeTableLayout.get().getPartitioning(), partitionFunctionArguments),
-                    outputLayout));
+            Optional<PartitioningHandle> partitioningHandle = writeTableLayout.get().getPartitioning();
+            if (partitioningHandle.isPresent()) {
+                partitioningScheme = Optional.of(new PartitioningScheme(
+                        Partitioning.create(partitioningHandle.get(), partitionFunctionArguments),
+                        outputLayout));
+            }
+            else if (isUsePreferredWritePartitioning(session)) {
+                // TODO: move to iterative optimizer and use CBO
+                // empty connector partitioning handle means evenly partitioning on partitioning columns
+                partitioningScheme = Optional.of(new PartitioningScheme(
+                        Partitioning.create(FIXED_HASH_DISTRIBUTION, partitionFunctionArguments),
+                        outputLayout));
+            }
         }
 
         if (!statisticsMetadata.isEmpty()) {
@@ -514,9 +538,11 @@ public class LogicalPlanner
                 new ComparisonExpression(
                         GREATER_THAN_OR_EQUAL,
                         new GenericLiteral("BIGINT", Integer.toString(targetLength)),
-                        new FunctionCall(
-                                spaceTrimmedLength.toQualifiedName(),
-                                ImmutableList.of(new Cast(expression, toSqlType(VARCHAR))))),
+                        new CoalesceExpression(
+                                new FunctionCall(
+                                        spaceTrimmedLength.toQualifiedName(),
+                                        ImmutableList.of(new Cast(expression, toSqlType(VARCHAR)))),
+                                new GenericLiteral("BIGINT", "0"))),
                 new Cast(expression, toSqlType(toType)),
                 new Cast(
                         new FunctionCall(

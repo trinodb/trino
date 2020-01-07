@@ -24,7 +24,7 @@ import io.prestosql.spi.type.Type;
 
 import static io.airlift.slice.Slices.utf8Slice;
 
-@Description("textual representation of expression type")
+@Description("Textual representation of expression type")
 @ScalarFunction("typeof")
 public final class TypeOfFunction
 {

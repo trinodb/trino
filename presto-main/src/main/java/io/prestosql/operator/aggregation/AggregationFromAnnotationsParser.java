@@ -71,6 +71,7 @@ public final class AggregationFromAnnotationsParser
     {
         AggregationFunction aggregationAnnotation = aggregationDefinition.getAnnotation(AggregationFunction.class);
         requireNonNull(aggregationAnnotation, "aggregationAnnotation is null");
+        boolean deprecated = aggregationDefinition.getAnnotationsByType(Deprecated.class).length > 0;
 
         ImmutableList.Builder<ParametricAggregation> builder = ImmutableList.builder();
 
@@ -83,7 +84,7 @@ public final class AggregationFromAnnotationsParser
                     for (AggregationHeader header : parseHeaders(aggregationDefinition, outputFunction)) {
                         AggregationImplementation onlyImplementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, removeInputFunction, outputFunction, combineFunction, aggregationStateSerializerFactory);
                         ParametricImplementationsGroup<AggregationImplementation> implementations = ParametricImplementationsGroup.of(onlyImplementation);
-                        builder.add(new ParametricAggregation(implementations.getSignature(), header, implementations));
+                        builder.add(new ParametricAggregation(implementations.getSignature(), header, implementations, deprecated));
                     }
                 }
             }
@@ -96,6 +97,7 @@ public final class AggregationFromAnnotationsParser
     {
         ParametricImplementationsGroup.Builder<AggregationImplementation> implementationsBuilder = ParametricImplementationsGroup.builder();
         AggregationHeader header = parseHeader(aggregationDefinition);
+        boolean deprecated = aggregationDefinition.getAnnotationsByType(Deprecated.class).length > 0;
 
         for (Class<?> stateClass : getStateClasses(aggregationDefinition)) {
             Method combineFunction = getCombineFunction(aggregationDefinition, stateClass);
@@ -109,7 +111,7 @@ public final class AggregationFromAnnotationsParser
         }
 
         ParametricImplementationsGroup<AggregationImplementation> implementations = implementationsBuilder.build();
-        return new ParametricAggregation(implementations.getSignature(), header, implementations);
+        return new ParametricAggregation(implementations.getSignature(), header, implementations, deprecated);
     }
 
     private static Optional<Method> getAggregationStateSerializerFactory(Class<?> aggregationDefinition, Class<?> stateClass)

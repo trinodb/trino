@@ -30,7 +30,6 @@ import java.util.concurrent.ThreadPoolExecutor;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 
@@ -84,7 +83,7 @@ public class ExchangeClientFactory
         // TODO figure out a better way to compute the size of data that will be transferred over the network
         requireNonNull(maxResponseSize, "maxResponseSize is null");
         long maxResponseSizeBytes = (long) (Math.min(httpClient.getMaxContentLength(), maxResponseSize.toBytes()) * 0.75);
-        this.maxResponseSize = new DataSize(maxResponseSizeBytes, BYTE);
+        this.maxResponseSize = DataSize.ofBytes(maxResponseSizeBytes);
 
         this.scheduler = requireNonNull(scheduler, "scheduler is null");
 

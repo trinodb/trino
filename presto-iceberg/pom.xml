@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>328-SNAPSHOT</version>
+        <version>331-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-iceberg</artifactId>
@@ -39,6 +39,11 @@
         <dependency>
             <groupId>io.prestosql</groupId>
             <artifactId>presto-hive</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-orc</artifactId>
         </dependency>
 
         <dependency>
@@ -166,6 +171,18 @@
 
         <dependency>
             <groupId>${dep.iceberg.groupId}</groupId>
+            <artifactId>iceberg-orc</artifactId>
+            <version>${dep.iceberg.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.orc</groupId>
+                    <artifactId>orc-core</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>${dep.iceberg.groupId}</groupId>
             <artifactId>iceberg-parquet</artifactId>
             <version>${dep.iceberg.version}</version>
             <exclusions>
@@ -240,7 +257,7 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift.tpch</groupId>
+            <groupId>io.prestosql.tpch</groupId>
             <artifactId>tpch</artifactId>
             <scope>test</scope>
         </dependency>

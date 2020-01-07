@@ -13,9 +13,7 @@
  */
 package io.prestosql.tests.jdbc;
 
-import io.airlift.log.Logger;
 import io.prestosql.jdbc.PrestoConnection;
-import io.prestosql.jdbc.PrestoResultSet;
 import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.tempto.ProductTest;
 import io.prestosql.tempto.Requirement;
@@ -26,16 +24,9 @@ import io.prestosql.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequir
 import io.prestosql.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
-import javax.inject.Inject;
-import javax.inject.Named;
-
-import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
-import java.sql.Date;
-import java.sql.DriverManager;
 import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
@@ -52,37 +43,17 @@ import static io.prestosql.tempto.internal.convention.SqlResultDescriptor.sqlRes
 import static io.prestosql.tempto.query.QueryExecutor.defaultQueryExecutor;
 import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.JDBC;
-import static io.prestosql.tests.TestGroups.SIMBA_JDBC;
 import static io.prestosql.tests.TpchTableResults.PRESTO_NATION_RESULT;
 import static io.prestosql.tests.utils.JdbcDriverUtils.getSessionProperty;
 import static io.prestosql.tests.utils.JdbcDriverUtils.resetSessionProperty;
 import static io.prestosql.tests.utils.JdbcDriverUtils.setSessionProperty;
-import static io.prestosql.tests.utils.JdbcDriverUtils.usingPrestoJdbcDriver;
-import static io.prestosql.tests.utils.JdbcDriverUtils.usingSimbaJdbcDriver;
-import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.CHINESE;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestJdbc
         extends ProductTest
 {
-    private static final Logger LOGGER = Logger.get(TestJdbc.class);
     private static final String TABLE_NAME = "nation_table_name";
-
-    @Inject
-    @Named("databases.presto.jdbc_url")
-    private String prestoJdbcURL;
-
-    @Inject
-    @Named("databases.presto.jdbc_user")
-    private String prestoJdbcUser;
-
-    @Inject
-    @Named("databases.presto.jdbc_password")
-    private String prestoJdbcPassword;
 
     private static class ImmutableAndMutableNationTable
             implements RequirementsProvider
@@ -139,22 +110,8 @@ public class TestJdbc
             throws SQLException
     {
         String timeZoneId = "Indian/Kerguelen";
-        if (usingPrestoJdbcDriver(connection())) {
-            ((PrestoConnection) connection()).setTimeZoneId(timeZoneId);
-            assertConnectionTimezone(connection(), timeZoneId);
-        }
-        else {
-            String prestoJdbcURLTestTimeZone;
-            String testTimeZone = "TimeZoneID=" + timeZoneId + ";";
-            if (prestoJdbcURL.contains("TimeZoneID=")) {
-                prestoJdbcURLTestTimeZone = prestoJdbcURL.replaceFirst("TimeZoneID=[\\w/]*;", testTimeZone);
-            }
-            else {
-                prestoJdbcURLTestTimeZone = prestoJdbcURL + ";" + testTimeZone;
-            }
-            Connection testConnection = DriverManager.getConnection(prestoJdbcURLTestTimeZone, prestoJdbcUser, prestoJdbcPassword);
-            assertConnectionTimezone(testConnection, timeZoneId);
-        }
+        ((PrestoConnection) connection()).setTimeZoneId(timeZoneId); // TODO uew new connection rather than modifying a shared one
+        assertConnectionTimezone(connection(), timeZoneId);
     }
 
     private void assertConnectionTimezone(Connection connection, String timeZoneId)
@@ -166,72 +123,14 @@ public class TestJdbc
         }
     }
 
-    @Test(groups = SIMBA_JDBC)
-    public void shouldSetApplicationPrefixAndName()
-            throws SQLException
-    {
-        String applicationName = "starburst";
-        String prestoJdbcURLWithAppPrefixAndName;
-        String prestoApplicationPrefix = "applicationNamePrefix=appPrefix:;";
-
-        if (prestoJdbcURL.contains("applicationNamePrefix")) {
-            prestoJdbcURLWithAppPrefixAndName = prestoJdbcURL.replaceFirst("applicationNamePrefix=[\\w/]*;", prestoApplicationPrefix);
-        }
-        else {
-            prestoJdbcURLWithAppPrefixAndName = prestoJdbcURL + ";" + prestoApplicationPrefix;
-        }
-        Connection testConnection = DriverManager.getConnection(prestoJdbcURLWithAppPrefixAndName, prestoJdbcUser, prestoJdbcPassword);
-        testConnection.setClientInfo("APPLICATIONNAME", applicationName);
-        assertConnectionSource(testConnection, "appPrefix:starburst");
-    }
-
-    private void assertConnectionSource(Connection connection, String expectedSource)
-            throws SQLException
-    {
-        String queryId = getQueryId(connection);
-
-        try (PreparedStatement statement = connection.prepareStatement(
-                "SELECT source FROM system.runtime.queries WHERE query_id = ?")) {
-            statement.setString(1, queryId);
-            try (ResultSet rs = statement.executeQuery()) {
-                assertTrue(rs.next());
-                assertThat(rs.getString("source")).isEqualTo(expectedSource);
-                assertFalse(rs.next());
-            }
-        }
-    }
-
-    private String getQueryId(Connection connection)
-            throws SQLException
-    {
-        String queryId;
-        try (Statement statement = connection.createStatement()) {
-            QueryResult result = queryResult(statement, "SELECT 123");
-            if (result.getJdbcResultSet().isPresent() && result.getJdbcResultSet().get().isWrapperFor(PrestoResultSet.class)) {
-                // if PrestoResult is available, just unwrap it from ResultSet and extract query id
-                queryId = result.getJdbcResultSet().get().unwrap(PrestoResultSet.class).getQueryId();
-            }
-            else {
-                // if there is no ResultSet (UPDATE statements), try to find it in system.runtime.queries table
-                queryId = (String) query(format("select query_id from system.runtime.queries where query = '%s'", "SELECT 123")).row(0).get(0);
-            }
-        }
-        return queryId;
-    }
-
     @Test(groups = JDBC)
     public void shouldSetLocale()
             throws SQLException
     {
-        if (usingPrestoJdbcDriver(connection())) {
-            ((PrestoConnection) connection()).setLocale(CHINESE);
-            try (Statement statement = connection().createStatement()) {
-                QueryResult result = queryResult(statement, "SELECT date_format(TIMESTAMP '2001-01-09 09:04', '%M')");
-                assertThat(result).contains(row("一月"));
-            }
-        }
-        else {
-            LOGGER.warn("shouldSetLocale() only applies to PrestoJdbcDriver");
+        ((PrestoConnection) connection()).setLocale(CHINESE); // TODO uew new connection rather than modifying a shared one
+        try (Statement statement = connection().createStatement()) {
+            QueryResult result = queryResult(statement, "SELECT date_format(TIMESTAMP '2001-01-09 09:04', '%M')");
+            assertThat(result).contains(row("一月"));
         }
     }
 
@@ -257,18 +156,8 @@ public class TestJdbc
     public void shouldGetColumns()
             throws SQLException
     {
-        // The JDBC spec is vague on what values getColumns() should return, so accept the values that Facebook or Simba return.
-
         QueryResult result = QueryResult.forResultSet(metaData().getColumns("hive", "default", "nation", null));
-        if (usingPrestoJdbcDriver(connection())) {
-            assertThat(result).matches(sqlResultDescriptorForResource("io/prestosql/tests/jdbc/get_nation_columns.result"));
-        }
-        else if (usingSimbaJdbcDriver(connection())) {
-            assertThat(result).matches(sqlResultDescriptorForResource("io/prestosql/tests/jdbc/get_nation_columns_simba.result"));
-        }
-        else {
-            throw new IllegalStateException();
-        }
+        assertThat(result).matches(sqlResultDescriptorForResource("io/prestosql/tests/jdbc/get_nation_columns.result"));
     }
 
     @Test(groups = JDBC)
@@ -278,46 +167,6 @@ public class TestJdbc
     {
         QueryResult result = QueryResult.forResultSet(metaData().getTableTypes());
         assertThat(result).contains(row("TABLE"), row("VIEW"));
-    }
-
-    @Test(groups = {JDBC, SIMBA_JDBC})
-    public void testSqlEscapeFunctions()
-    {
-        if (usingSimbaJdbcDriver(connection())) {
-            // These functions, which are defined in the ODBC standard, are implemented within
-            // the Simba JDBC and ODBC drivers.  The drivers translate them into equivalent Presto syntax.
-            // The translated SQL is executed by Presto.  These tests do not make use of edge-case values or null
-            // values because those code paths are covered by other (non-Simba specifc) tests.
-
-            assertThat(query("select {fn char(40)}")).containsExactly(row("("));
-            assertThat(query("select {fn convert('2016-10-10', SQL_DATE)}")).containsExactly(row(Date.valueOf("2016-10-10")));
-
-            // This translates to: SELECT cast('1234.567' as DECIMAL).
-            // When casting to DECIMAL without parameters, Presto rounds to the nearest integer value.
-            assertThat(query("select {fn convert('1234.567', SQL_DECIMAL)}")).containsExactly(row(new BigDecimal(1235)));
-
-            assertThat(query("select {fn convert('123456', SQL_INTEGER)}")).containsExactly(row(123456));
-            assertThat(query("select {fn convert('123abcd', SQL_VARBINARY)}")).containsExactly(row("123abcd".getBytes(UTF_8)));
-            assertThat(query("select {fn dayofmonth(date '2016-10-20')}")).containsExactly(row(20));
-            assertThat(query("select {fn dayofweek(date '2016-10-20')}")).containsExactly(row(5));
-            assertThat(query("select {fn dayofyear(date '2016-10-20')}")).containsExactly(row(294));
-            assertThat(query("select {fn ifnull({fn ifnull(null, null)}, '2')}")).containsExactly(row("2"));
-            assertThat(query("select {fn ifnull('abc', '2')}")).containsExactly(row("abc"));
-            assertThat(query("select {fn ifnull(null, '2')}")).containsExactly(row("2"));
-            assertThat(query("select {fn lcase('ABC def 123')}")).containsExactly(row("abc def 123"));
-            assertThat(query("select {fn left('abc def', 2)}")).containsExactly(row("ab"));
-            assertThat(query("select {fn locate('d', 'abc def')}")).containsExactly(row(5));
-            assertThat(query("select {fn log(5)}")).containsExactly(row(1.60943791243));
-            assertThat(query("select {fn right('abc def', 2)}")).containsExactly(row("ef"));
-            assertThat(query("select {fn substring('abc def', 2)}")).containsExactly(row("bc def"));
-            assertThat(query("select {fn substring('abc def', 2, 2)}")).containsExactly(row("bc"));
-            assertThat(query("select {fn timestampadd(SQL_TSI_DAY, 21, date '2001-01-01')}")).containsExactly(row(Date.valueOf("2001-01-22")));
-            assertThat(query("select {fn timestampdiff(SQL_TSI_DAY,date '2001-01-01',date '2002-01-01')}")).containsExactly(row(365));
-            assertThat(query("select {fn ucase('ABC def 123')}")).containsExactly(row("ABC DEF 123"));
-        }
-        else {
-            LOGGER.warn("testSqlEscapeFunctions() only applies to EnterpriseJdbcDriver");
-        }
     }
 
     @Test(groups = JDBC)

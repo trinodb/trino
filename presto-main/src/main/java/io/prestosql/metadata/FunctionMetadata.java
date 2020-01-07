@@ -29,6 +29,7 @@ public class FunctionMetadata
     private final boolean deterministic;
     private final String description;
     private final FunctionKind kind;
+    private final boolean deprecated;
 
     public FunctionMetadata(
             Signature signature,
@@ -39,7 +40,20 @@ public class FunctionMetadata
             String description,
             FunctionKind kind)
     {
-        this(FunctionId.toFunctionId(signature), signature, nullable, argumentDefinitions, hidden, deterministic, description, kind);
+        this(FunctionId.toFunctionId(signature), signature, nullable, argumentDefinitions, hidden, deterministic, description, kind, false);
+    }
+
+    public FunctionMetadata(
+            Signature signature,
+            boolean nullable,
+            List<FunctionArgumentDefinition> argumentDefinitions,
+            boolean hidden,
+            boolean deterministic,
+            String description,
+            FunctionKind kind,
+            boolean deprecated)
+    {
+        this(FunctionId.toFunctionId(signature), signature, nullable, argumentDefinitions, hidden, deterministic, description, kind, deprecated);
     }
 
     public FunctionMetadata(
@@ -50,7 +64,8 @@ public class FunctionMetadata
             boolean hidden,
             boolean deterministic,
             String description,
-            FunctionKind kind)
+            FunctionKind kind,
+            boolean deprecated)
     {
         this.functionId = requireNonNull(functionId, "functionId is null");
         this.signature = requireNonNull(signature, "signature is null");
@@ -60,6 +75,7 @@ public class FunctionMetadata
         this.deterministic = deterministic;
         this.description = requireNonNull(description, "description is null");
         this.kind = requireNonNull(kind, "kind is null");
+        this.deprecated = deprecated;
     }
 
     public FunctionId getFunctionId()
@@ -100,6 +116,11 @@ public class FunctionMetadata
     public FunctionKind getKind()
     {
         return kind;
+    }
+
+    public boolean isDeprecated()
+    {
+        return deprecated;
     }
 
     @Override

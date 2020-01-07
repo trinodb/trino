@@ -59,12 +59,8 @@ public class TestSpatialJoinPlanning
 {
     private static final String KDB_TREE_JSON = KdbTreeUtils.toJson(new KdbTree(newLeaf(new Rectangle(0, 0, 10, 10), 0)));
 
-    public TestSpatialJoinPlanning()
-    {
-        super(() -> createQueryRunner());
-    }
-
-    private static LocalQueryRunner createQueryRunner()
+    @Override
+    protected LocalQueryRunner createLocalQueryRunner()
     {
         LocalQueryRunner queryRunner = LocalQueryRunner.create(testSessionBuilder()
                 .setCatalog("memory")

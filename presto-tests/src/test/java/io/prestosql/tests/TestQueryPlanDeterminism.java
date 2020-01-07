@@ -22,6 +22,7 @@ import io.prestosql.testing.AbstractTestQueries;
 import io.prestosql.testing.LocalQueryRunner;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.PlanDeterminismChecker;
+import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.TestingAccessControlManager;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
@@ -40,11 +41,6 @@ public class TestQueryPlanDeterminism
 {
     private PlanDeterminismChecker determinismChecker;
 
-    protected TestQueryPlanDeterminism()
-    {
-        super(TestQueryPlanDeterminism::createLocalQueryRunner);
-    }
-
     @BeforeClass
     public void setUp()
     {
@@ -57,7 +53,8 @@ public class TestQueryPlanDeterminism
         determinismChecker = null;
     }
 
-    private static LocalQueryRunner createLocalQueryRunner()
+    @Override
+    protected QueryRunner createQueryRunner()
     {
         Session defaultSession = testSessionBuilder()
                 .setCatalog("local")

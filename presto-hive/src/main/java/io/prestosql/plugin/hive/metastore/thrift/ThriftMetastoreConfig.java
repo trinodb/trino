@@ -35,6 +35,7 @@ public class ThriftMetastoreConfig
     private Duration maxBackoffDelay = RetryDriver.DEFAULT_SLEEP_TIME;
     private Duration maxRetryTime = RetryDriver.DEFAULT_MAX_RETRY_TIME;
     private boolean impersonationEnabled;
+    private boolean deleteFilesOnDrop;
     private Duration maxWaitForTransactionLock = new Duration(10, TimeUnit.MINUTES);
 
     @NotNull
@@ -140,6 +141,19 @@ public class ThriftMetastoreConfig
     public ThriftMetastoreConfig setImpersonationEnabled(boolean impersonationEnabled)
     {
         this.impersonationEnabled = impersonationEnabled;
+        return this;
+    }
+
+    public boolean isDeleteFilesOnDrop()
+    {
+        return deleteFilesOnDrop;
+    }
+
+    @Config("hive.metastore.thrift.delete-files-on-drop")
+    @ConfigDescription("Delete files on drop in case the metastore doesn't do it")
+    public ThriftMetastoreConfig setDeleteFilesOnDrop(boolean deleteFilesOnDrop)
+    {
+        this.deleteFilesOnDrop = deleteFilesOnDrop;
         return this;
     }
 

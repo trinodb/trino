@@ -86,15 +86,6 @@ public class SqlParser
         return (Statement) invokeParser("statement", sql, SqlBaseParser::singleStatement, parsingOptions);
     }
 
-    /**
-     * Consider using {@link #createExpression(String, ParsingOptions)}
-     */
-    @Deprecated
-    public Expression createExpression(String expression)
-    {
-        return createExpression(expression, new ParsingOptions());
-    }
-
     public Expression createExpression(String expression, ParsingOptions parsingOptions)
     {
         return (Expression) invokeParser("expression", expression, SqlBaseParser::standaloneExpression, parsingOptions);
@@ -134,7 +125,7 @@ public class SqlParser
                 }
             });
 
-            parser.addParseListener(new PostProcessor(Arrays.asList(parser.getRuleNames())));
+            parser.addParseListener(new PostProcessor(Arrays.asList(parser.getRuleNames()), parser));
 
             lexer.removeErrorListeners();
             lexer.addErrorListener(LEXER_ERROR_LISTENER);
@@ -156,7 +147,7 @@ public class SqlParser
             }
             catch (ParseCancellationException ex) {
                 // if we fail, parse with LL mode
-                tokenStream.reset(); // rewind input stream
+                tokenStream.seek(0); // rewind input stream
                 parser.reset();
 
                 parser.getInterpreter().setPredictionMode(PredictionMode.LL);
@@ -174,10 +165,12 @@ public class SqlParser
             extends SqlBaseBaseListener
     {
         private final List<String> ruleNames;
+        private final SqlBaseParser parser;
 
-        public PostProcessor(List<String> ruleNames)
+        public PostProcessor(List<String> ruleNames, SqlBaseParser parser)
         {
             this.ruleNames = ruleNames;
+            this.parser = parser;
         }
 
         @Override
@@ -225,12 +218,14 @@ public class SqlParser
             context.getParent().removeLastChild();
 
             Token token = (Token) context.getChild(0).getPayload();
-            context.getParent().addChild(new CommonToken(
+            Token newToken = new CommonToken(
                     new Pair<>(token.getTokenSource(), token.getInputStream()),
                     SqlBaseLexer.IDENTIFIER,
                     token.getChannel(),
                     token.getStartIndex(),
-                    token.getStopIndex()));
+                    token.getStopIndex());
+
+            context.getParent().addChild(parser.createTerminalNode(context.getParent(), newToken));
         }
     }
 }

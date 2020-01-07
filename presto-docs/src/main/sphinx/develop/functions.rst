@@ -7,7 +7,7 @@ Plugin Implementation
 
 The function framework is used to implement SQL functions. Presto includes a
 number of built-in functions. In order to implement new functions, you can
-write a plugin that returns one more more functions from ``getFunctions()``:
+write a plugin that returns one or more functions from ``getFunctions()``:
 
 .. code-block:: java
 
@@ -157,7 +157,7 @@ The ``lowercaser`` function takes a single ``VARCHAR`` argument and returns a
     public class ExampleStringFunction
     {
         @ScalarFunction("lowercaser")
-        @Description("converts the string to alternating case")
+        @Description("Converts the string to alternating case")
         @SqlType(StandardTypes.VARCHAR)
         public static Slice lowercaser(@SqlType(StandardTypes.VARCHAR) Slice slice)
         {
@@ -282,3 +282,25 @@ function follows:
   is used when performing a ``GROUP BY`` aggregation, and an implementation
   will be automatically generated for you, if you don't specify a
   ``AccumulatorStateFactory``
+
+Deprecated Function
+-------------------
+
+The ``@Deprecated`` annotation has to be used on any function that should no longer be
+used. The annotation causes Presto to generate a warning whenever a SQL statement
+uses a deprecated function. When a function is deprecated, the ``@Description``
+needs to be replaced with a note about the deprecation and the replacement function:
+
+.. code-block:: java
+
+    public class ExampleDeprecatedFunction
+    {
+        @Deprecated
+        @ScalarFunction("bad_function")
+        @Description("(DEPRECATED) Use good_function() instead")
+        @SqlType(StandardTypes.BOOLEAN)
+        public static boolean bad_function()
+        {
+            return false;
+        }
+    }

@@ -131,7 +131,7 @@ public final class LiteralInterpreter
                 type = metadata.fromSqlType(node.getType());
             }
             catch (TypeNotFoundException e) {
-                throw semanticException(TYPE_NOT_FOUND, node, "Unknown type: " + node.getType());
+                throw semanticException(TYPE_NOT_FOUND, node, "Unknown type: %s", node.getType());
             }
 
             if (JSON.equals(type)) {

@@ -1982,6 +1982,14 @@ public class TestAnalyzer
                 .hasErrorCode(INVALID_COLUMN_REFERENCE);
         assertFails("SELECT * FROM (VALUES array[2, 2]) a(x) FULL OUTER JOIN UNNEST(x) ON true")
                 .hasErrorCode(INVALID_COLUMN_REFERENCE);
+        // Join involving UNNEST only supported without condition (cross join) or with condition ON TRUE
+        analyze("SELECT * FROM (VALUES 1), UNNEST(array[2])");
+        assertFails("SELECT * FROM (VALUES array[2, 2]) a(x) LEFT JOIN UNNEST(x) b(x) USING (x)")
+                .hasErrorCode(NOT_SUPPORTED);
+        assertFails("SELECT * FROM (VALUES array[2, 2]) a(x) LEFT JOIN UNNEST(x) ON 1 = 1")
+                .hasErrorCode(NOT_SUPPORTED);
+        assertFails("SELECT * FROM (VALUES array[2, 2]) a(x) LEFT JOIN UNNEST(x) ON false")
+                .hasErrorCode(NOT_SUPPORTED);
     }
 
     @Test
@@ -1994,6 +2002,14 @@ public class TestAnalyzer
                 .hasErrorCode(INVALID_COLUMN_REFERENCE);
         assertFails("SELECT * FROM (VALUES array[2, 2]) a(x) FULL OUTER JOIN LATERAL(VALUES x) ON true")
                 .hasErrorCode(INVALID_COLUMN_REFERENCE);
+        // FULL join involving LATERAL relation only supported with condition ON TRUE
+        analyze("SELECT * FROM (VALUES 1) FULL OUTER JOIN LATERAL(VALUES 2) ON true");
+        assertFails("SELECT * FROM (VALUES 1) a(x) FULL OUTER JOIN LATERAL(VALUES 2) b(x) USING (x)")
+                .hasErrorCode(NOT_SUPPORTED);
+        assertFails("SELECT * FROM (VALUES 1) FULL OUTER JOIN LATERAL(VALUES 2) ON 1 = 1")
+                .hasErrorCode(NOT_SUPPORTED);
+        assertFails("SELECT * FROM (VALUES 1) FULL OUTER JOIN LATERAL(VALUES 2) ON false")
+                .hasErrorCode(NOT_SUPPORTED);
     }
 
     @Test
@@ -2092,6 +2108,7 @@ public class TestAnalyzer
                 Optional.of(TPCH_CATALOG),
                 Optional.of("s1"),
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
+                Optional.of("comment"),
                 Optional.of("user"),
                 false);
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v1"), viewData1, false));
@@ -2102,6 +2119,7 @@ public class TestAnalyzer
                 Optional.of(TPCH_CATALOG),
                 Optional.of("s1"),
                 ImmutableList.of(new ViewColumn("a", VARCHAR.getTypeId())),
+                Optional.of("comment"),
                 Optional.of("user"),
                 false);
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v2"), viewData2, false));
@@ -2112,6 +2130,7 @@ public class TestAnalyzer
                 Optional.of(SECOND_CATALOG),
                 Optional.of("s2"),
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
+                Optional.of("comment"),
                 Optional.of("owner"),
                 false);
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(THIRD_CATALOG, "s3", "v3"), viewData3, false));
@@ -2122,6 +2141,7 @@ public class TestAnalyzer
                 Optional.of("tpch"),
                 Optional.of("s1"),
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
+                Optional.of("comment"),
                 Optional.of("user"),
                 false);
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName("tpch", "s1", "v4"), viewData4, false));
@@ -2132,6 +2152,7 @@ public class TestAnalyzer
                 Optional.of(TPCH_CATALOG),
                 Optional.of("s1"),
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
+                Optional.of("comment"),
                 Optional.of("user"),
                 false);
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v5"), viewData5, false));

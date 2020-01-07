@@ -13,13 +13,13 @@
  */
 package io.prestosql.plugin.kafka;
 
-import io.airlift.tpch.TpchTable;
 import io.prestosql.plugin.kafka.util.TestingKafka;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.sql.TestTable;
+import io.prestosql.tpch.TpchTable;
+import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
-
-import static io.prestosql.plugin.kafka.KafkaQueryRunner.createKafkaQueryRunner;
 
 public class TestKafkaIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
@@ -31,7 +31,9 @@ public class TestKafkaIntegrationSmokeTest
             throws Exception
     {
         testingKafka = new TestingKafka();
-        return createKafkaQueryRunner(testingKafka, TpchTable.getTables());
+        return KafkaQueryRunner.builder(testingKafka)
+                .setTables(TpchTable.getTables())
+                .build();
     }
 
     @Override
@@ -46,9 +48,18 @@ public class TestKafkaIntegrationSmokeTest
         return false;
     }
 
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        throw new SkipException("Kafka connector does not support column default values");
+    }
+
     @AfterClass(alwaysRun = true)
     public void destroy()
     {
-        testingKafka.close();
+        if (testingKafka != null) {
+            testingKafka.close();
+            testingKafka = null;
+        }
     }
 }

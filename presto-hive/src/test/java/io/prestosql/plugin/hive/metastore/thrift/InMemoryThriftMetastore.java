@@ -476,10 +476,10 @@ public class InMemoryThriftMetastore
     }
 
     @Override
-    public synchronized void updatePartitionStatistics(HiveIdentity identity, String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    public synchronized void updatePartitionStatistics(HiveIdentity identity, Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
     {
-        PartitionName partitionKey = PartitionName.partition(databaseName, tableName, partitionName);
-        partitionColumnStatistics.put(partitionKey, update.apply(getPartitionStatistics(databaseName, tableName, ImmutableSet.of(partitionName)).get(partitionName)));
+        PartitionName partitionKey = PartitionName.partition(table.getDbName(), table.getTableName(), partitionName);
+        partitionColumnStatistics.put(partitionKey, update.apply(getPartitionStatistics(table.getDbName(), table.getTableName(), ImmutableSet.of(partitionName)).get(partitionName)));
     }
 
     @Override
@@ -662,7 +662,7 @@ public class InMemoryThriftMetastore
             }
             PrincipalTableKey that = (PrincipalTableKey) o;
             return Objects.equals(principalName, that.principalName) &&
-                    Objects.equals(principalType, that.principalType) &&
+                    principalType == that.principalType &&
                     Objects.equals(table, that.table) &&
                     Objects.equals(database, that.database);
         }

@@ -256,6 +256,9 @@ public class OrderByOperator
         requireNonNull(page, "page is null");
         checkSuccess(spillInProgress, "spilling failed");
 
+        // TODO: remove when retained memory accounting for pages does not
+        // count shared data structures multiple times
+        page.compact();
         pageIndex.addPage(page);
         updateMemoryUsage();
     }

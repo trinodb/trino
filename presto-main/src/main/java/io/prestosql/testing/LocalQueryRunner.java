@@ -88,6 +88,7 @@ import io.prestosql.metadata.QualifiedTablePrefix;
 import io.prestosql.metadata.SchemaPropertyManager;
 import io.prestosql.metadata.SessionPropertyManager;
 import io.prestosql.metadata.Split;
+import io.prestosql.metadata.SqlFunction;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.metadata.TablePropertyManager;
 import io.prestosql.operator.Driver;
@@ -104,6 +105,7 @@ import io.prestosql.server.PluginManager;
 import io.prestosql.server.PluginManagerConfig;
 import io.prestosql.server.ServerConfig;
 import io.prestosql.server.SessionPropertyDefaults;
+import io.prestosql.server.security.CertificateAuthenticatorManager;
 import io.prestosql.server.security.PasswordAuthenticatorManager;
 import io.prestosql.spi.PageIndexerFactory;
 import io.prestosql.spi.PageSorter;
@@ -361,6 +363,7 @@ public class LocalQueryRunner
                 new NoOpResourceGroupManager(),
                 accessControl,
                 new PasswordAuthenticatorManager(),
+                new CertificateAuthenticatorManager(),
                 new EventListenerManager(),
                 new SessionPropertyDefaults(nodeInfo));
 
@@ -530,6 +533,12 @@ public class LocalQueryRunner
     }
 
     @Override
+    public void addFunctions(List<? extends SqlFunction> functions)
+    {
+        metadata.addFunctions(functions);
+    }
+
+    @Override
     public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
         throw new UnsupportedOperationException();
@@ -607,6 +616,7 @@ public class LocalQueryRunner
     {
         lock.readLock().lock();
         try (Closer closer = Closer.create()) {
+            accessControl.checkCanExecuteQuery(session.getIdentity());
             AtomicReference<MaterializedResult.Builder> builder = new AtomicReference<>();
             PageConsumerOutputFactory outputFactory = new PageConsumerOutputFactory(types -> {
                 builder.compareAndSet(null, MaterializedResult.resultBuilder(session, types));
@@ -628,7 +638,7 @@ public class LocalQueryRunner
                 for (Driver driver : drivers) {
                     if (alwaysRevokeMemory) {
                         driver.getDriverContext().getOperatorContexts().stream()
-                                .filter(operatorContext -> operatorContext.getOperatorStats().getRevocableMemoryReservation().getValue() > 0)
+                                .filter(operatorContext -> operatorContext.getOperatorStats().getRevocableMemoryReservation().toBytes() > 0)
                                 .forEach(OperatorContext::requestMemoryRevoking);
                     }
 

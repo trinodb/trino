@@ -18,7 +18,6 @@ import io.airlift.units.DataSize;
 import io.prestosql.RowPagesBuilder;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.HashAggregationOperator.HashAggregationOperatorFactory;
-import io.prestosql.operator.StreamingAggregationOperator.StreamingAggregationOperatorFactory;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.BlockBuilder;
@@ -141,7 +140,7 @@ public class BenchmarkHashAndStreamingAggregationOperators
 
         private OperatorFactory createStreamingAggregationOperatorFactory()
         {
-            return new StreamingAggregationOperatorFactory(
+            return StreamingAggregationOperator.createOperatorFactory(
                     0,
                     new PlanNodeId("test"),
                     ImmutableList.of(VARCHAR),
@@ -171,7 +170,7 @@ public class BenchmarkHashAndStreamingAggregationOperators
                     hashChannel,
                     Optional.empty(),
                     100_000,
-                    Optional.of(new DataSize(16, MEGABYTE)),
+                    Optional.of(DataSize.of(16, MEGABYTE)),
                     false,
                     succinctBytes(8),
                     succinctBytes(Integer.MAX_VALUE),
@@ -189,7 +188,7 @@ public class BenchmarkHashAndStreamingAggregationOperators
 
         public TaskContext createTaskContext()
         {
-            return TestingTaskContext.createTaskContext(executor, scheduledExecutor, TEST_SESSION, new DataSize(2, GIGABYTE));
+            return TestingTaskContext.createTaskContext(executor, scheduledExecutor, TEST_SESSION, DataSize.of(2, GIGABYTE));
         }
 
         public OperatorFactory getOperatorFactory()

@@ -44,10 +44,20 @@ public class CreateAndInsertDataSetup
             insertRows(testTable, inputs);
         }
         catch (Exception e) {
-            testTable.close();
+            closeQuietly(testTable);
             throw e;
         }
         return testTable;
+    }
+
+    private static void closeQuietly(AutoCloseable autoCloseable)
+    {
+        //noinspection EmptyTryBlock
+        try (AutoCloseable ignore = autoCloseable) {
+            // suppress empty try-catch warning
+        }
+        catch (Exception ignored) {
+        }
     }
 
     private void insertRows(TestTable testTable, List<DataTypeTest.Input<?>> inputs)

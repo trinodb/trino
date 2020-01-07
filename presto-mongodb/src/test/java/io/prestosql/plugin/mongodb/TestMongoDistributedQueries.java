@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.mongodb;
 
-import io.airlift.tpch.TpchTable;
 import io.prestosql.testing.AbstractTestQueries;
+import io.prestosql.testing.QueryRunner;
+import io.prestosql.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static io.prestosql.plugin.mongodb.MongoQueryRunner.createMongoQueryRunner;
@@ -25,23 +25,19 @@ import static io.prestosql.plugin.mongodb.MongoQueryRunner.createMongoQueryRunne
 public class TestMongoDistributedQueries
         extends AbstractTestQueries
 {
-    private MongoQueryRunner mongoQueryRunner;
+    private MongoServer server;
 
-    public TestMongoDistributedQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createMongoQueryRunner(TpchTable.getTables()));
-    }
-
-    @BeforeClass
-    public void setUp()
-    {
-        mongoQueryRunner = (MongoQueryRunner) getQueryRunner();
+        this.server = new MongoServer();
+        return createMongoQueryRunner(server, TpchTable.getTables());
     }
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
     {
-        mongoQueryRunner.shutdown();
-        mongoQueryRunner = null;
+        server.close();
     }
 }

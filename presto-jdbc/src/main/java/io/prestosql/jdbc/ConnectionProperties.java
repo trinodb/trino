@@ -18,6 +18,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
+import io.prestosql.client.ClientSelectedRole;
 
 import java.io.File;
 import java.util.List;
@@ -29,8 +30,12 @@ import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.Maps.immutableEntry;
+import static io.prestosql.client.ClientSelectedRole.Type.ALL;
+import static io.prestosql.client.ClientSelectedRole.Type.NONE;
 import static io.prestosql.jdbc.AbstractConnectionProperty.checkedPredicate;
 import static java.util.Collections.unmodifiableMap;
+import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
 
@@ -38,6 +43,7 @@ final class ConnectionProperties
 {
     public static final ConnectionProperty<String> USER = new User();
     public static final ConnectionProperty<String> PASSWORD = new Password();
+    public static final ConnectionProperty<Map<String, ClientSelectedRole>> ROLES = new Roles();
     public static final ConnectionProperty<HostAndPort> SOCKS_PROXY = new SocksProxy();
     public static final ConnectionProperty<HostAndPort> HTTP_PROXY = new HttpProxy();
     public static final ConnectionProperty<String> APPLICATION_NAME_PREFIX = new ApplicationNamePrefix();
@@ -55,10 +61,13 @@ final class ConnectionProperties
     public static final ConnectionProperty<File> KERBEROS_CREDENTIAL_CACHE_PATH = new KerberosCredentialCachePath();
     public static final ConnectionProperty<String> ACCESS_TOKEN = new AccessToken();
     public static final ConnectionProperty<Map<String, String>> EXTRA_CREDENTIALS = new ExtraCredentials();
+    public static final ConnectionProperty<String> CLIENT_TAGS = new ClientTags();
+    public static final ConnectionProperty<Map<String, String>> SESSION_PROPERTIES = new SessionProperties();
 
     private static final Set<ConnectionProperty<?>> ALL_PROPERTIES = ImmutableSet.<ConnectionProperty<?>>builder()
             .add(USER)
             .add(PASSWORD)
+            .add(ROLES)
             .add(SOCKS_PROXY)
             .add(HTTP_PROXY)
             .add(APPLICATION_NAME_PREFIX)
@@ -76,6 +85,8 @@ final class ConnectionProperties
             .add(KERBEROS_CREDENTIAL_CACHE_PATH)
             .add(ACCESS_TOKEN)
             .add(EXTRA_CREDENTIALS)
+            .add(CLIENT_TAGS)
+            .add(SESSION_PROPERTIES)
             .build();
 
     private static final Map<String, ConnectionProperty<?>> KEY_LOOKUP = unmodifiableMap(ALL_PROPERTIES.stream()
@@ -126,6 +137,38 @@ final class ConnectionProperties
         }
     }
 
+    private static class Roles
+            extends AbstractConnectionProperty<Map<String, ClientSelectedRole>>
+    {
+        public Roles()
+        {
+            super("roles", NOT_REQUIRED, ALLOWED, Roles::parseRoles);
+        }
+
+        // Roles consists of a list of catalog role pairs.
+        // E.g., `jdbc:presto://example.net:8080/?roles=catalog1:none;catalog2:all;catalog3:role` will set following roles:
+        //  - `none` in `catalog1`
+        //  - `all` in `catalog2`
+        //  - `role` in `catalog3`
+        public static Map<String, ClientSelectedRole> parseRoles(String roles)
+        {
+            return new MapPropertyParser("roles").parse(roles).entrySet().stream()
+                    .collect(toImmutableMap(entry -> entry.getKey(), entry -> mapToClientSelectedRole(entry.getValue())));
+        }
+
+        private static ClientSelectedRole mapToClientSelectedRole(String role)
+        {
+            checkArgument(!role.contains("\""), "Role must not contain double quotes: %s", role);
+            if (ALL.name().equalsIgnoreCase(role)) {
+                return new ClientSelectedRole(ALL, Optional.empty());
+            }
+            if (NONE.name().equalsIgnoreCase(role)) {
+                return new ClientSelectedRole(NONE, Optional.empty());
+            }
+            return new ClientSelectedRole(ClientSelectedRole.Type.ROLE, Optional.of(role));
+        }
+    }
+
     private static class SocksProxy
             extends AbstractConnectionProperty<HostAndPort>
     {
@@ -156,6 +199,15 @@ final class ConnectionProperties
         public ApplicationNamePrefix()
         {
             super("applicationNamePrefix", NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
+        }
+    }
+
+    private static class ClientTags
+            extends AbstractConnectionProperty<String>
+    {
+        public ClientTags()
+        {
+            super("clientTags", NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
         }
     }
 
@@ -296,8 +348,6 @@ final class ConnectionProperties
     private static class ExtraCredentials
             extends AbstractConnectionProperty<Map<String, String>>
     {
-        private static final CharMatcher PRINTABLE_ASCII = CharMatcher.inRange((char) 0x21, (char) 0x7E);
-
         public ExtraCredentials()
         {
             super("extraCredentials", NOT_REQUIRED, ALLOWED, ExtraCredentials::parseExtraCredentials);
@@ -307,23 +357,68 @@ final class ConnectionProperties
         // E.g., `jdbc:presto://example.net:8080/?extraCredentials=abc:xyz;foo:bar` will create credentials `abc=xyz` and `foo=bar`
         public static Map<String, String> parseExtraCredentials(String extraCredentialString)
         {
-            return Splitter.on(';').splitToList(extraCredentialString).stream()
-                    .map(ExtraCredentials::parseSingleCredential)
-                    .collect(toImmutableMap(entry -> entry.get(0), entry -> entry.get(1)));
+            return new MapPropertyParser("extraCredentials").parse(extraCredentialString);
+        }
+    }
+
+    private static class SessionProperties
+            extends AbstractConnectionProperty<Map<String, String>>
+    {
+        private static final Splitter NAME_PARTS_SPLITTER = Splitter.on('.');
+
+        public SessionProperties()
+        {
+            super("sessionProperties", NOT_REQUIRED, ALLOWED, SessionProperties::parseSessionProperties);
         }
 
-        public static List<String> parseSingleCredential(String credential)
+        // Session properties consists of a list of session property name value pairs.
+        // E.g., `jdbc:presto://example.net:8080/?sessionProperties=abc:xyz;catalog.foo:bar` will create session properties `abc=xyz` and `catalog.foo=bar`
+        public static Map<String, String> parseSessionProperties(String sessionPropertiesString)
         {
-            List<String> nameValue = Splitter.on(':').splitToList(credential);
-            checkArgument(nameValue.size() == 2, "Malformed credential: %s", credential);
-            String name = nameValue.get(0);
-            String value = nameValue.get(1);
-            checkArgument(!name.isEmpty(), "Credential name is empty");
-            checkArgument(!value.isEmpty(), "Credential value is empty");
+            Map<String, String> sessionProperties = new MapPropertyParser("sessionProperties").parse(sessionPropertiesString);
+            for (String sessionPropertyName : sessionProperties.keySet()) {
+                checkArgument(NAME_PARTS_SPLITTER.splitToList(sessionPropertyName).size() <= 2, "Malformed session property name: %s", sessionPropertyName);
+            }
+            return sessionProperties;
+        }
+    }
 
-            checkArgument(PRINTABLE_ASCII.matchesAllOf(name), "Credential name contains spaces or is not printable ASCII: %s", name);
-            checkArgument(PRINTABLE_ASCII.matchesAllOf(value), "Credential value contains spaces or is not printable ASCII: %s", name);
-            return nameValue;
+    private static class MapPropertyParser
+    {
+        private static final CharMatcher PRINTABLE_ASCII = CharMatcher.inRange((char) 0x21, (char) 0x7E);
+        private static final Splitter MAP_ENTRIES_SPLITTER = Splitter.on(';');
+        private static final Splitter MAP_ENTRY_SPLITTER = Splitter.on(':');
+
+        private final String mapName;
+
+        private MapPropertyParser(String mapName)
+        {
+            this.mapName = requireNonNull(mapName, "mapName is null");
+        }
+
+        /**
+         * Parses map in a form: key1:value1;key2:value2
+         */
+        public Map<String, String> parse(String map)
+        {
+            return MAP_ENTRIES_SPLITTER.splitToList(map).stream()
+                    .map(this::parseEntry)
+                    .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+        }
+
+        private Map.Entry<String, String> parseEntry(String credential)
+        {
+            List<String> keyValue = MAP_ENTRY_SPLITTER.limit(2).splitToList(credential);
+            checkArgument(keyValue.size() == 2, "Malformed %s: %s", mapName, credential);
+            String key = keyValue.get(0);
+            String value = keyValue.get(1);
+            checkArgument(!key.isEmpty(), "%s key is empty", mapName);
+            checkArgument(!value.isEmpty(), "%s key is empty", mapName);
+
+            checkArgument(PRINTABLE_ASCII.matchesAllOf(key), "%s key '%s' contains spaces or is not printable ASCII", mapName, key);
+            // do not log value as it may contain sensitive information
+            checkArgument(PRINTABLE_ASCII.matchesAllOf(value), "%s value for key '%s' contains spaces or is not printable ASCII", mapName, key);
+            return immutableEntry(key, value);
         }
     }
 }

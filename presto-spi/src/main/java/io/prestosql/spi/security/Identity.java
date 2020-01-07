@@ -19,7 +19,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 
@@ -30,20 +29,7 @@ public class Identity
     private final Map<String, SelectedRole> roles;
     private final Map<String, String> extraCredentials;
 
-    @Deprecated
-    public Identity(String user, Optional<Principal> principal)
-    {
-        this(user, principal, emptyMap());
-    }
-
-    @Deprecated
-    public Identity(String user, Optional<Principal> principal, Map<String, SelectedRole> roles)
-    {
-        this(user, principal, roles, emptyMap());
-    }
-
-    @Deprecated
-    public Identity(String user, Optional<Principal> principal, Map<String, SelectedRole> roles, Map<String, String> extraCredentials)
+    private Identity(String user, Optional<Principal> principal, Map<String, SelectedRole> roles, Map<String, String> extraCredentials)
     {
         this.user = requireNonNull(user, "user is null");
         this.principal = requireNonNull(principal, "principal is null");
@@ -73,13 +59,19 @@ public class Identity
 
     public ConnectorIdentity toConnectorIdentity()
     {
-        return new ConnectorIdentity(user, principal, Optional.empty(), extraCredentials);
+        return ConnectorIdentity.forUser(user)
+                .withPrincipal(principal)
+                .withExtraCredentials(extraCredentials)
+                .build();
     }
 
     public ConnectorIdentity toConnectorIdentity(String catalog)
     {
-        requireNonNull(catalog, "catalog is null");
-        return new ConnectorIdentity(user, principal, Optional.ofNullable(roles.get(catalog)), extraCredentials);
+        return ConnectorIdentity.forUser(user)
+                .withPrincipal(principal)
+                .withRole(Optional.ofNullable(roles.get(catalog)))
+                .withExtraCredentials(extraCredentials)
+                .build();
     }
 
     @Override
@@ -133,7 +125,7 @@ public class Identity
 
     public static class Builder
     {
-        private final String user;
+        private String user;
         private Optional<Principal> principal = Optional.empty();
         private Map<String, SelectedRole> roles = new HashMap<>();
         private Map<String, String> extraCredentials = new HashMap<>();
@@ -143,9 +135,15 @@ public class Identity
             this.user = requireNonNull(user, "user is null");
         }
 
+        public Builder withUser(String user)
+        {
+            this.user = requireNonNull(user, "user is null");
+            return this;
+        }
+
         public Builder withPrincipal(Principal principal)
         {
-            return withPrincipal(Optional.of(principal));
+            return withPrincipal(Optional.of(requireNonNull(principal, "principal is null")));
         }
 
         public Builder withPrincipal(Optional<Principal> principal)
@@ -170,9 +168,21 @@ public class Identity
             return this;
         }
 
+        public Builder withAdditionalRoles(Map<String, SelectedRole> roles)
+        {
+            this.roles.putAll(requireNonNull(roles, "roles is null"));
+            return this;
+        }
+
         public Builder withExtraCredentials(Map<String, String> extraCredentials)
         {
             this.extraCredentials = new HashMap<>(requireNonNull(extraCredentials, "extraCredentials is null"));
+            return this;
+        }
+
+        public Builder withAdditionalExtraCredentials(Map<String, String> extraCredentials)
+        {
+            this.extraCredentials.putAll(requireNonNull(extraCredentials, "extraCredentials is null"));
             return this;
         }
 

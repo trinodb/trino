@@ -25,7 +25,7 @@ import io.prestosql.spi.type.Type;
 
 import static java.lang.Boolean.TRUE;
 
-@Description("return array containing elements that match the given predicate")
+@Description("Return array containing elements that match the given predicate")
 @ScalarFunction(value = "filter", deterministic = false)
 public final class ArrayFilterFunction
 {

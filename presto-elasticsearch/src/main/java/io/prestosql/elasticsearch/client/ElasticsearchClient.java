@@ -20,12 +20,14 @@ import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.NullNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.log.Logger;
 import io.airlift.security.pem.PemReader;
+import io.airlift.stats.TimeStat;
 import io.airlift.units.Duration;
 import io.prestosql.elasticsearch.AwsSecurityConfig;
 import io.prestosql.elasticsearch.ElasticsearchConfig;
@@ -47,6 +49,8 @@ import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -74,9 +78,9 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -94,6 +98,7 @@ import static java.lang.String.format;
 import static java.util.Collections.list;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.elasticsearch.action.search.SearchType.QUERY_THEN_FETCH;
 
 public class ElasticsearchClient
@@ -113,6 +118,10 @@ public class ElasticsearchClient
     private final AtomicBoolean started = new AtomicBoolean();
     private final Duration refreshInterval;
     private final boolean tlsEnabled;
+    private final boolean ignorePublishAddress;
+
+    private final TimeStat searchStats = new TimeStat(MILLISECONDS);
+    private final TimeStat nextPageStats = new TimeStat(MILLISECONDS);
 
     @Inject
     public ElasticsearchClient(ElasticsearchConfig config, Optional<AwsSecurityConfig> awsSecurityConfig)
@@ -121,6 +130,7 @@ public class ElasticsearchClient
 
         client = createClient(config, awsSecurityConfig);
 
+        this.ignorePublishAddress = config.isIgnorePublishAddress();
         this.scrollSize = config.getScrollSize();
         this.scrollTimeout = config.getScrollTimeout();
         this.refreshInterval = config.getNodeRefreshInterval();
@@ -134,7 +144,7 @@ public class ElasticsearchClient
             // do the first refresh eagerly
             refreshNodes();
 
-            executor.scheduleWithFixedDelay(this::refreshNodes, refreshInterval.toMillis(), refreshInterval.toMillis(), TimeUnit.MILLISECONDS);
+            executor.scheduleWithFixedDelay(this::refreshNodes, refreshInterval.toMillis(), refreshInterval.toMillis(), MILLISECONDS);
         }
     }
 
@@ -159,7 +169,7 @@ public class ElasticsearchClient
                     .map(address -> HttpHost.create(format("%s://%s", tlsEnabled ? "https" : "http", address)))
                     .toArray(HttpHost[]::new);
 
-            if (hosts.length > 0) {
+            if (hosts.length > 0 && !ignorePublishAddress) {
                 client.getLowLevelClient().setHosts(hosts);
             }
 
@@ -378,7 +388,7 @@ public class ElasticsearchClient
                 node = nodeById.get(chosen.getNode());
             }
 
-            shards.add(new Shard(chosen.getShard(), node.getAddress()));
+            shards.add(new Shard(chosen.getIndex(), chosen.getShard(), node.getAddress()));
         }
 
         return shards.build();
@@ -411,6 +421,27 @@ public class ElasticsearchClient
         });
     }
 
+    public List<String> getAliases()
+    {
+        return doRequest("/_aliases", body -> {
+            try {
+                ImmutableList.Builder<String> result = ImmutableList.builder();
+                JsonNode root = OBJECT_MAPPER.readTree(body);
+
+                Iterator<JsonNode> elements = root.elements();
+                while (elements.hasNext()) {
+                    JsonNode element = elements.next();
+                    JsonNode aliases = element.get("aliases");
+                    result.addAll(aliases.fieldNames());
+                }
+                return result.build();
+            }
+            catch (IOException e) {
+                throw new PrestoException(ELASTICSEARCH_INVALID_RESPONSE, e);
+            }
+        });
+    }
+
     public IndexMetadata getIndexMetadata(String index)
     {
         String path = format("/%s/_mappings", index);
@@ -418,7 +449,7 @@ public class ElasticsearchClient
         return doRequest(path, body -> {
             try {
                 JsonNode mappings = OBJECT_MAPPER.readTree(body)
-                        .get(index)
+                        .elements().next()
                         .get("mappings");
 
                 if (!mappings.has("properties")) {
@@ -428,7 +459,9 @@ public class ElasticsearchClient
                     mappings = mappings.elements().next();
                 }
 
-                return new IndexMetadata(parseType(mappings.get("properties")));
+                JsonNode metaNode = nullSafeNode(mappings, "_meta");
+
+                return new IndexMetadata(parseType(mappings.get("properties"), nullSafeNode(metaNode, "presto")));
             }
             catch (IOException e) {
                 throw new PrestoException(ELASTICSEARCH_INVALID_RESPONSE, e);
@@ -436,7 +469,7 @@ public class ElasticsearchClient
         });
     }
 
-    private IndexMetadata.ObjectType parseType(JsonNode properties)
+    private IndexMetadata.ObjectType parseType(JsonNode properties, JsonNode metaProperties)
     {
         Iterator<Map.Entry<String, JsonNode>> entries = properties.fields();
 
@@ -452,18 +485,22 @@ public class ElasticsearchClient
             if (value.has("type")) {
                 type = value.get("type").asText();
             }
+            JsonNode metaNode = nullSafeNode(metaProperties, name);
+            boolean isArray = !metaNode.isNull() && metaNode.has("isArray") && metaNode.get("isArray").asBoolean();
+
             switch (type) {
                 case "date":
                     List<String> formats = ImmutableList.of();
                     if (value.has("format")) {
                         formats = Arrays.asList(value.get("format").asText().split("\\|\\|"));
                     }
-                    result.add(new IndexMetadata.Field(name, new IndexMetadata.DateTimeType(formats)));
+                    result.add(new IndexMetadata.Field(isArray, name, new IndexMetadata.DateTimeType(formats)));
                     break;
 
+                case "nested":
                 case "object":
                     if (value.has("properties")) {
-                        result.add(new IndexMetadata.Field(name, parseType(value.get("properties"))));
+                        result.add(new IndexMetadata.Field(isArray, name, parseType(value.get("properties"), metaNode)));
                     }
                     else {
                         LOG.debug("Ignoring empty object field: %s", name);
@@ -471,18 +508,35 @@ public class ElasticsearchClient
                     break;
 
                 default:
-                    result.add(new IndexMetadata.Field(name, new IndexMetadata.PrimitiveType(type)));
+                    result.add(new IndexMetadata.Field(isArray, name, new IndexMetadata.PrimitiveType(type)));
             }
         }
 
         return new IndexMetadata.ObjectType(result.build());
     }
 
-    public SearchResponse beginSearch(String index, int shard, QueryBuilder query, Optional<List<String>> fields, List<String> documentFields)
+    private JsonNode nullSafeNode(JsonNode jsonNode, String name)
+    {
+        if (jsonNode == null || jsonNode.isNull() || jsonNode.get(name) == null) {
+            return NullNode.getInstance();
+        }
+        return jsonNode.get(name);
+    }
+
+    public SearchResponse beginSearch(String index, int shard, QueryBuilder query, Optional<List<String>> fields, List<String> documentFields, Optional<String> sort, OptionalLong limit)
     {
         SearchSourceBuilder sourceBuilder = SearchSourceBuilder.searchSource()
-                .query(query)
-                .size(scrollSize);
+                .query(query);
+
+        if (limit.isPresent() && limit.getAsLong() < scrollSize) {
+            // Safe to cast it to int because scrollSize is int.
+            sourceBuilder.size((int) limit.getAsLong());
+        }
+        else {
+            sourceBuilder.size(scrollSize);
+        }
+
+        sort.ifPresent(sourceBuilder::sort);
 
         fields.ifPresent(values -> {
             if (values.isEmpty()) {
@@ -494,12 +548,15 @@ public class ElasticsearchClient
         });
         documentFields.forEach(sourceBuilder::docValueField);
 
+        LOG.debug("Begin search: %s:%s, query: %s", index, shard, sourceBuilder);
+
         SearchRequest request = new SearchRequest(index)
                 .searchType(QUERY_THEN_FETCH)
                 .preference("_shards:" + shard)
                 .scroll(new TimeValue(scrollTimeout.toMillis()))
                 .source(sourceBuilder);
 
+        long start = System.nanoTime();
         try {
             return client.search(request);
         }
@@ -530,18 +587,27 @@ public class ElasticsearchClient
 
             throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, e);
         }
+        finally {
+            searchStats.add(Duration.nanosSince(start));
+        }
     }
 
     public SearchResponse nextPage(String scrollId)
     {
+        LOG.debug("Next page: %s", scrollId);
+
         SearchScrollRequest request = new SearchScrollRequest(scrollId)
                 .scroll(new TimeValue(scrollTimeout.toMillis()));
 
+        long start = System.nanoTime();
         try {
             return client.searchScroll(request);
         }
         catch (IOException e) {
             throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, e);
+        }
+        finally {
+            nextPageStats.add(Duration.nanosSince(start));
         }
     }
 
@@ -555,6 +621,20 @@ public class ElasticsearchClient
         catch (IOException e) {
             throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, e);
         }
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getSearchStats()
+    {
+        return searchStats;
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getNextPageStats()
+    {
+        return nextPageStats;
     }
 
     private <T> T doRequest(String path, ResponseHandler<T> handler)

@@ -23,7 +23,6 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -83,7 +82,7 @@ public final class SelectorResourceEstimate
 
         if (peakMemory.isPresent()) {
             Optional<DataSize> peakMemoryEstimate = resourceEstimates.getPeakMemoryBytes()
-                    .map(value -> new DataSize(value, BYTE));
+                    .map(value -> DataSize.ofBytes(value));
             if (!peakMemoryEstimate.isPresent() || !peakMemory.get().contains(peakMemoryEstimate.get())) {
                 return false;
             }

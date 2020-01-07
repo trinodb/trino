@@ -68,17 +68,17 @@ public class MemoryLocalQueryRunner
 
     public List<Page> execute(@Language("SQL") String query)
     {
-        MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(2, GIGABYTE));
-        SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(new DataSize(1, GIGABYTE));
+        MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), DataSize.of(2, GIGABYTE));
+        SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(DataSize.of(1, GIGABYTE));
         QueryContext queryContext = new QueryContext(
                 new QueryId("test"),
-                new DataSize(1, GIGABYTE),
-                new DataSize(2, GIGABYTE),
+                DataSize.of(1, GIGABYTE),
+                DataSize.of(2, GIGABYTE),
                 memoryPool,
                 new TestingGcMonitor(),
                 localQueryRunner.getExecutor(),
                 localQueryRunner.getScheduler(),
-                new DataSize(4, GIGABYTE),
+                DataSize.of(4, GIGABYTE),
                 spillSpaceTracker);
 
         TaskContext taskContext = queryContext
