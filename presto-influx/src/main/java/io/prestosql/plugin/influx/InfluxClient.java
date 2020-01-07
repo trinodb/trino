@@ -15,14 +15,25 @@
 package io.prestosql.plugin.influx;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.prestosql.spi.HostAddress;
+import io.prestosql.spi.type.TimestampWithTimeZoneType;
+import io.prestosql.spi.type.Type;
+import okhttp3.Credentials;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
+import okhttp3.ResponseBody;
 
 import javax.inject.Inject;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -30,15 +41,18 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
 public class InfluxClient
 {
     final Logger logger;
     private final InfluxConfig config;
-    private final InfluxHttp http;
+    private final OkHttpClient httpClient;
+    private final String baseUrl;
     // the various metadata are cached for a configurable number of milliseconds so we don't hammer the server
     private final CachedMetaData<Map<String, String>> retentionPolicies;  // schema name (lower-case) -> retention policy (case-sensitive)
     private final CachedMetaData<Map<String, String>> measurements;  // table name (lower-case) -> measurement (case-sensitive)
@@ -50,11 +64,23 @@ public class InfluxClient
     {
         this.logger = Logger.get(getClass());
         this.config = requireNonNull(config, "config is null");
-        this.http = new InfluxHttp(config.getHost(), config.getPort(), config.isUseHttps(), config.getDatabase(), config.getUserName(), config.getPassword());
         this.retentionPolicies = new CachedMetaData<>(() -> showNames("SHOW RETENTION POLICIES"));
         this.measurements = new CachedMetaData<>(() -> showNames("SHOW MEASUREMENTS"));
         this.tagKeys = new ConcurrentHashMap<>();
         this.fields = new ConcurrentHashMap<>();
+        OkHttpClient.Builder httpClientBuilder = new OkHttpClient.Builder()
+                .connectTimeout(config.getConnectionTimeout(), TimeUnit.SECONDS)
+                .writeTimeout(config.getWriteTimeout(), TimeUnit.SECONDS)
+                .readTimeout(config.getReadTimeout(), TimeUnit.SECONDS);
+        if (config.getUserName() != null) {
+            httpClientBuilder.authenticator((route, response) -> response
+                    .request()
+                    .newBuilder()
+                    .header("Authorization", Credentials.basic(config.getUserName(), config.getPassword()))
+                    .build());
+        }
+        this.httpClient = httpClientBuilder.build();
+        this.baseUrl = (config.isUseHttps() ? "https://" : "http://") + config.getHost() + ":" + config.getPort() + "/query?db=" + config.getDatabase();
     }
 
     public Collection<String> getSchemaNames()
@@ -91,7 +117,7 @@ public class InfluxClient
                             .toString();
                     ImmutableMap.Builder<String, InfluxColumn> tags = new ImmutableMap.Builder<>();
                     for (Map.Entry<String, String> name : showNames(query).entrySet()) {
-                        tags.put(name.getKey(), new InfluxColumn(name.getValue(), "string", InfluxColumn.Kind.TAG));
+                        tags.put(name.getKey(), new InfluxColumn(name.getValue(), "string", VARCHAR, InfluxColumn.Kind.TAG, false));
                     }
                     return tags.build();
                 }))
@@ -121,7 +147,8 @@ public class InfluxClient
                                         for (JsonNode row : series.get("values")) {
                                             String name = row.get(0).textValue();
                                             String influxType = row.get(1).textValue();
-                                            InfluxColumn collision = fields.put(name.toLowerCase(Locale.ENGLISH), new InfluxColumn(name, influxType, InfluxColumn.Kind.FIELD));
+                                            Type type = InfluxColumn.TYPES_MAPPING.get(influxType);
+                                            InfluxColumn collision = fields.put(name.toLowerCase(Locale.ENGLISH), new InfluxColumn(name, influxType, type, InfluxColumn.Kind.FIELD, false));
                                             if (collision != null) {
                                                 InfluxError.IDENTIFIER_CASE_SENSITIVITY.fail("identifier " + name + " collides with " + collision.getInfluxName(), query);
                                             }
@@ -141,23 +168,30 @@ public class InfluxClient
 
     public List<InfluxColumn> getColumns(String schemaName, String tableName)
     {
+        List<InfluxColumn> columns = InfluxTpchTestSupport.getColumns(config.getDatabase(), schemaName, tableName);
+        if (columns != null) {
+            return columns;
+        }
+        columns = new ArrayList<>();
         Collection<InfluxColumn> fields = getFields(schemaName, tableName).values();
         if (fields.isEmpty()) {
             return Collections.emptyList();
         }
-        ImmutableList.Builder<InfluxColumn> columns = new ImmutableList.Builder<>();
-        columns.add(InfluxColumn.TIME);
+        columns.add(new InfluxColumn("time", "time", TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE, InfluxColumn.Kind.TIME, false));
         columns.addAll(getTags(tableName).values());
         columns.addAll(fields);
-        return columns.build();
+        return ImmutableList.copyOf(columns);
     }
 
     private Map<String, String> showNames(String query)
     {
         Map<String, String> names = new HashMap<>();
         JsonNode series = execute(query);
-        InfluxError.GENERAL.check(series != null && series.getNodeType().equals(JsonNodeType.ARRAY), "expecting an array, not " + series, query);
-        InfluxError.GENERAL.check(series != null && series.size() == 1, "expecting one element, not " + series, query);
+        if (series == null) {
+            return Collections.emptyMap();
+        }
+        InfluxError.GENERAL.check(series.getNodeType().equals(JsonNodeType.ARRAY), "expecting an array, not " + series, query);
+        InfluxError.GENERAL.check(series.size() == 1, "expecting one element, not " + series, query);
         series = series.get(0);
         if (series.has("values")) {
             for (JsonNode row : series.get("values")) {
@@ -173,7 +207,32 @@ public class InfluxClient
 
     JsonNode execute(String query)
     {
-        return http.query(query);
+        try {
+            Response response = httpClient.newCall(new Request
+                    .Builder().url(baseUrl + "&q=" + URLEncoder.encode(query, StandardCharsets.UTF_8.toString()))
+                    .build())
+                    .execute();
+            final String responseBody;
+            try (ResponseBody body = response.body()) {
+                responseBody = body != null ? body.string() : null;
+            }
+            if (!response.isSuccessful() || responseBody == null) {
+                InfluxError.EXTERNAL.fail("cannot execute query", response.code(), query, responseBody != null ? responseBody : "<no message from influx server>");
+            }
+            JsonNode results = new ObjectMapper()
+                    .readTree(responseBody)
+                    .get("results");
+            InfluxError.GENERAL.check(results != null && results.size() == 1, "expecting one result", query);
+            JsonNode result = results.get(0);
+            if (result.has("error")) {
+                InfluxError.GENERAL.fail(result.get("error").asText(), query);
+            }
+            return result.get("series");
+        }
+        catch (Throwable t) {
+            InfluxError.EXTERNAL.fail(t);
+            return null;
+        }
     }
 
     public HostAddress getHostAddress()

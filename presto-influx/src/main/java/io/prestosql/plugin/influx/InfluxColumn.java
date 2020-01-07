@@ -28,37 +28,40 @@ import io.prestosql.spi.type.VarcharType;
 import java.util.Locale;
 
 import static com.google.common.base.MoreObjects.ToStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public class InfluxColumn
         extends ColumnMetadata
 {
     // map InfluxDB types to Presto types
-    private static final ImmutableMap<String, Type> TYPES_MAPPING = new ImmutableMap.Builder<String, Type>()
+    public static final ImmutableMap<String, Type> TYPES_MAPPING = new ImmutableMap.Builder<String, Type>()
             .put("string", VarcharType.VARCHAR)
             .put("boolean", BooleanType.BOOLEAN)
             .put("integer", BigintType.BIGINT)
             .put("float", DoubleType.DOUBLE)
             .put("time", TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE)
             .build();
-    public static final InfluxColumn TIME = new InfluxColumn("time", "time", Kind.TIME);
 
     private final String influxName;
     private final String influxType;
     private final Kind kind;
 
     @JsonCreator
-    public InfluxColumn(@JsonProperty("influxName") String influxName,
+    public InfluxColumn(
+            @JsonProperty("influxName") String influxName,
             @JsonProperty("influxType") String influxType,
-            @JsonProperty("kind") Kind kind)
+            @JsonProperty("type") Type type,
+            @JsonProperty("kind") Kind kind,
+            @JsonProperty("hidden") boolean hidden)
     {
         super(influxName.toLowerCase(Locale.ENGLISH),
-                TYPES_MAPPING.get(influxType),
+                type,
                 null,
-                kind.name().toLowerCase(Locale.ENGLISH),
-                false);
-        this.influxName = influxName;
-        this.influxType = influxType;
-        this.kind = kind;
+                null,
+                hidden);
+        this.influxName = requireNonNull(influxName);
+        this.influxType = requireNonNull(influxType);
+        this.kind = requireNonNull(kind);
     }
 
     @JsonProperty
@@ -74,9 +77,23 @@ public class InfluxColumn
     }
 
     @JsonProperty
+    @Override
+    public Type getType()
+    {
+        return super.getType();
+    }
+
+    @JsonProperty
     public Kind getKind()
     {
         return kind;
+    }
+
+    @JsonProperty
+    @Override
+    public boolean isHidden()
+    {
+        return super.isHidden();
     }
 
     protected ToStringHelper toStringHelper(Object self)
@@ -87,6 +104,9 @@ public class InfluxColumn
                 .addValue(kind);
         if (!getName().equals(getInfluxName())) {
             helper.add("influx-name", getInfluxName());
+        }
+        if (isHidden()) {
+            helper.addValue("hidden");
         }
         return helper;
     }

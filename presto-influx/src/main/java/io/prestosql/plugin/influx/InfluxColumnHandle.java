@@ -17,6 +17,7 @@ package io.prestosql.plugin.influx;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.type.Type;
 
 public class InfluxColumnHandle
         extends InfluxColumn
@@ -30,9 +31,11 @@ public class InfluxColumnHandle
             @JsonProperty("measurement") String measurement,
             @JsonProperty("influxName") String influxName,
             @JsonProperty("influxType") String influxType,
-            @JsonProperty("kind") Kind kind)
+            @JsonProperty("type") Type type,
+            @JsonProperty("kind") Kind kind,
+            @JsonProperty("hidden") boolean hidden)
     {
-        super(influxName, influxType, kind);
+        super(influxName, influxType, type, kind, hidden);
         this.retentionPolicy = retentionPolicy;
         this.measurement = measurement;
     }
@@ -41,7 +44,7 @@ public class InfluxColumnHandle
             String measurement,
             InfluxColumn column)
     {
-        this(retentionPolicy, measurement, column.getInfluxName(), column.getInfluxType(), column.getKind());
+        this(retentionPolicy, measurement, column.getInfluxName(), column.getInfluxType(), column.getType(), column.getKind(), column.isHidden());
     }
 
     @JsonProperty

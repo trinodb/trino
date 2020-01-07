@@ -69,7 +69,8 @@ public class InfluxRecordSet
                                 value = null;
                             }
                             else {
-                                switch (columns.get(slot).getInfluxType()) {
+                                InfluxColumn column = columns.get(slot);
+                                switch (column.getInfluxType()) {
                                     case "string":
                                         value = node.textValue();
                                         break;
@@ -87,7 +88,7 @@ public class InfluxRecordSet
                                         value = DateTimeEncoding.packDateTimeWithZone(timestamp.toEpochMilli(), TimeZoneKey.UTC_KEY);
                                         break;
                                     default:
-                                        InfluxError.GENERAL.fail("cannot map " + node + " to " + columns.get(slot));
+                                        InfluxError.GENERAL.fail("cannot map " + node, columns.get(slot), columns.get(slot).getInfluxType());
                                         value = null;
                                 }
                             }

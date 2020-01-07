@@ -16,12 +16,27 @@ package io.prestosql.plugin.influx;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
+
+import java.util.Locale;
+import java.util.Set;
 
 /* A query builder that takes care correctly quoting identifiers and string values */
 
 public class InfluxQL
 {
+    private static final Set<String> RESERVED_WORDS = ImmutableSet.copyOf(
+            ("all alter any as asc begin by create continuous " +
+            "database databases default delete desc destinations " +
+            "diagnostics distinct drop duration end every explain " +
+            "field for from grant grants group groups in inf " +
+            "insert into key keys kill limit show measurement " +
+            "measurements name offset on order password policy " +
+            "policies privileges queries query read replication resample " +
+            "retention revoke select series set shard shards slimit " +
+            "soffset stats subscription subscriptions tag to user" +
+            "users values where with write").split(" "));
     private final StringBuilder influxQL;
 
     public InfluxQL()
@@ -106,6 +121,9 @@ public class InfluxQL
         for (int i = 0; i < identifier.length() && safe; i++) {
             char ch = identifier.charAt(i);
             safe = (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') || (i > 0 && ch >= '0' && ch <= '9') || ch == '_';
+        }
+        if (safe) {
+            safe = !RESERVED_WORDS.contains(identifier.toLowerCase(Locale.ENGLISH));
         }
         if (safe) {
             influxQL.append(identifier);

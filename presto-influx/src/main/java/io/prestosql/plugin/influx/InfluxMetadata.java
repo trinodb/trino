@@ -79,9 +79,6 @@ public class InfluxMetadata
         else {
             schemaNames = client.getSchemaNames();
         }
-        // in Influx, all measurements can exist in all retention policies,
-        // (and all tickets asking for a way to know which measurements are actually
-        // used in which retention policy are closed as wont-fix)
         ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
         for (String tableName : client.getTableNames()) {
             for (String matchingSchemaName : schemaNames) {
@@ -227,8 +224,8 @@ public class InfluxMetadata
                                         throw new UnhandledFilterException("time low bound");
                                     }
                                 }
-                                else if (!(value instanceof Number)) {
-                                    throw new UnhandledFilterException("tag comparision low bound");
+                                if (!(value instanceof Number)) {
+                                    throw new UnhandledFilterException("non-numeric comparision low bound");
                                 }
                                 where.add(column).append(low).add(value);
                                 hasLow = true;
@@ -245,9 +242,6 @@ public class InfluxMetadata
                                     default:
                                         throw new UnhandledFilterException("high bound");
                                 }
-                                if (hasLow) {
-                                    where.append(" AND ");
-                                }
                                 Object value = range.getHigh().getValue();
                                 if (column.getKind() == InfluxColumn.Kind.TIME) {
                                     if (value instanceof Long) {
@@ -257,8 +251,11 @@ public class InfluxMetadata
                                         throw new UnhandledFilterException("time high bound");
                                     }
                                 }
-                                else if (!(value instanceof Number)) {
-                                    throw new UnhandledFilterException("tag comparison high bound");
+                                if (!(value instanceof Number)) {
+                                    throw new UnhandledFilterException("non-numeric comparison high bound");
+                                }
+                                if (hasLow) {
+                                    where.append(" AND ");
                                 }
                                 where.add(column).append(high).add(value);
                             }

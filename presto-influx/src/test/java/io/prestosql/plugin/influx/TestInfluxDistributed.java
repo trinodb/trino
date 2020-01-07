@@ -11,32 +11,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.prestosql.plugin.influx;
 
+import io.prestosql.testing.AbstractTestQueries;
+import io.prestosql.testing.QueryRunner;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import static org.testng.Assert.assertEquals;
-
-public class TestInfluxQL
+@Test
+public class TestInfluxDistributed
+        extends AbstractTestQueries
 {
-    @Test
-    public void test()
+    private InfluxQueryRunner queryRunner;
+
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        InfluxQL test = new InfluxQL();
+        queryRunner = new InfluxQueryRunner();
+        queryRunner.initTpch();
+        return queryRunner.getQueryRunner();
+    }
 
-        test.addIdentifier("hello").append(" = ").add("world");
-        assertEquals(test.toString(), "hello = 'world'");
-
-        test.truncate(0);
-
-        test.addIdentifier("åäö").append(" = ").add("\"åäö'");
-        assertEquals(test.toString(), "\"åäö\" = '\"åäö\\''");
-
-        test.truncate(0);
-
-        // from is a reserved word so must be quoted
-        test.addIdentifier("frOm").append(" = ").add("to");
-        assertEquals(test.toString(), "\"frOm\" = 'to'");
+    @AfterClass(alwaysRun = true)
+    @Override
+    public void close()
+    {
+        super.close();
+        queryRunner.close();
     }
 }

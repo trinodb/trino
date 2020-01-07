@@ -27,8 +27,10 @@ public class InfluxConfig
     private String userName;
     private String password;
     private boolean useHttps;
+    private int connectionTimeout = 10;
+    private int writeTimeout = 10;
+    private int readTimeout = 10;
 
-    @NotNull
     public long getCacheMetaDataMillis()
     {
         return cacheMetaDataMillis;
@@ -113,5 +115,38 @@ public class InfluxConfig
     {
         this.useHttps = useHttps;
         return this;
+    }
+
+    public int getConnectionTimeout()
+    {
+        return connectionTimeout;
+    }
+
+    @Config("influx.connection-timeout")
+    public void setConnectionTimeout(int connectionTimeout)
+    {
+        this.connectionTimeout = connectionTimeout;
+    }
+
+    public int getWriteTimeout()
+    {
+        return writeTimeout;
+    }
+
+    @Config("influx.write-timeout")
+    public void setWriteTimeout(int writeTimeout)
+    {
+        this.writeTimeout = writeTimeout;
+    }
+
+    public int getReadTimeout()
+    {
+        return readTimeout;
+    }
+
+    @Config("influx.read-timeout")
+    public void setReadTimeout(int readTimeout)
+    {
+        this.readTimeout = readTimeout;
     }
 }

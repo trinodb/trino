@@ -13,58 +13,43 @@
  */
 package io.prestosql.plugin.influx;
 
-import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
-import io.prestosql.spi.security.Identity;
-import io.prestosql.spi.security.SelectedRole;
-import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.io.Closeable;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Collections;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static io.prestosql.spi.security.SelectedRole.Type.ROLE;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 
 public class TestInfluxSelect
+        implements Closeable
 {
-    private TestingInfluxServer influxServer;
-    private DistributedQueryRunner queryRunner;
+    private static final DateTimeFormatter SQL_TIMESTAMP_FORMAT = DateTimeFormatter
+            .ofPattern("yyyy-MM-dd HH:mm:ss.SSS 'UTC'")
+            .withZone(ZoneOffset.UTC);
+    private InfluxQueryRunner queryRunner;
     private Session session;
 
     @BeforeClass
     public void beforeClass()
             throws Exception
     {
-        influxServer = new TestingInfluxServer();
-        TestData.initServer(influxServer);
-
-        // create a query runner with a real influx connector
-        queryRunner = DistributedQueryRunner.builder(testSessionBuilder()
-                .setIdentity(Identity.forUser("test")
-                        .withRole("catalog", new SelectedRole(ROLE, Optional.of("admin")))
-                        .build())
-                .build()).build();
-        queryRunner.installPlugin(new InfluxPlugin());
-        queryRunner.createCatalog("catalog", "influx",
-                new ImmutableMap.Builder<String, String>()
-                        .put("influx.host", influxServer.getHost())
-                        .put("influx.port", Integer.toString(influxServer.getPort()))
-                        .put("influx.database", TestingInfluxServer.DATABASE)
-                        .build());
-        session = queryRunner.getDefaultSession();
+        queryRunner = new InfluxQueryRunner();
+        session = queryRunner.createSession("schema");
+        TestData.init(queryRunner);
     }
 
     @Test
@@ -72,15 +57,19 @@ public class TestInfluxSelect
     {
         MaterializedResult result = execute("SHOW TABLES");
         assertEquals(result.getOnlyColumn().collect(Collectors.toList()), Collections.singletonList("data"));
+    }
 
-        result = execute("DESC data");
+    @Test
+    public void testDesc()
+    {
+        MaterializedResult result = execute("DESC data");
         MaterializedResult expectedColumns = MaterializedResult
                 .resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("time", "timestamp with time zone", "time", "")
-                .row("tag1", "varchar", "tag", "")
-                .row("tag2", "varchar", "tag", "")
-                .row("field1", "bigint", "field", "")
-                .row("field2", "double", "field", "")
+                .row("time", "timestamp with time zone", "", "")
+                .row("tag1", "varchar", "", "")
+                .row("tag2", "varchar", "", "")
+                .row("field1", "bigint", "", "")
+                .row("field2", "double", "", "")
                 .build();
         assertEquals(result, expectedColumns);
     }
@@ -148,9 +137,35 @@ public class TestInfluxSelect
         assertEquals(result, expect(0, 1));
     }
 
+    @Test
+    public void testTimeBetween()
+    {
+        MaterializedResult result = execute(String.format("SELECT * FROM data where time between timestamp '%s' and timestamp '%s'",
+                SQL_TIMESTAMP_FORMAT.format(TestData.T[0]), SQL_TIMESTAMP_FORMAT.format(TestData.T[2])));
+        assertEquals(result, expect(0, 1, 2));
+    }
+
+    @Test
+    public void testTimeRange()
+    {
+        MaterializedResult result = execute(String.format("SELECT * FROM data where time > timestamp '%s' and time < timestamp '%s'",
+                SQL_TIMESTAMP_FORMAT.format(TestData.T[0]), SQL_TIMESTAMP_FORMAT.format(TestData.T[2])));
+        assertEquals(result, expect(1));
+    }
+
+    @AfterClass
+    @Override
+    public void close()
+    {
+        if (queryRunner != null) {
+            queryRunner.close();
+            queryRunner = null;
+        }
+    }
+
     private synchronized MaterializedResult execute(String sql)
     {
-        return queryRunner.getClient().execute(session, sql)
+        return queryRunner.getQueryRunner().getClient().execute(session, sql)
                 .getResult()
                 .toTestTypes();
     }
@@ -165,15 +180,10 @@ public class TestInfluxSelect
         return expected.build();
     }
 
-    @AfterClass
-    public void afterClass()
-    {
-        queryRunner.close();
-        influxServer.close();
-    }
-
     private static class TestData
     {
+        private static final String RETENTION_POLICY = "Schema";
+        private static final String MEASUREMENT = "Data";
         private static final Instant[] T = new Instant[] {
                 Instant.parse("2019-12-10T21:00:04.446Z"),
                 Instant.parse("2019-12-10T21:00:20.446Z"),
@@ -184,11 +194,12 @@ public class TestInfluxSelect
         private static final long[] FIELD1 = new long[] {1, 3, 5};
         private static final double[] FIELD2 = new double[] {2, 4, 6};
 
-        private static void initServer(TestingInfluxServer server)
+        private static void init(InfluxQueryRunner queryRunner)
         {
+            queryRunner.createRetentionPolicy(RETENTION_POLICY);
             for (int row = 0; row < 3; row++) {
-                String line = String.format("%s,tag1=%s,tag2=%s field1=%di,field2=%f %d000000", TestingInfluxServer.MEASUREMENT, TAG1[row], TAG2[row], FIELD1[row], FIELD2[row], T[row].toEpochMilli());
-                server.getInfluxClient().write(TestingInfluxServer.RETENTION_POLICY, line);
+                String line = String.format("%s,tag1=%s,tag2=%s field1=%di,field2=%f %d000000", MEASUREMENT, TAG1[row], TAG2[row], FIELD1[row], FIELD2[row], T[row].toEpochMilli());
+                queryRunner.write(RETENTION_POLICY, line);
             }
         }
 
