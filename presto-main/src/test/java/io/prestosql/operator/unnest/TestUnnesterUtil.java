@@ -232,10 +232,6 @@ public final class TestUnnesterUtil
 
     static Slice[] toSlices(String... values)
     {
-        if (values == null) {
-            return null;
-        }
-
         Slice[] slices = new Slice[values.length];
         for (int i = 0; i < values.length; i++) {
             if (values[i] != null) {

@@ -47,7 +47,7 @@ public class TestArrayUnnester
                 array(toSlices("0.0.0"), toSlices("0.1.0")),
                 array(toSlices("1.0.0")),
                 null,
-                array(toSlices(null)),
+                array(toSlices((String) null)),
                 array());
 
         Block[] blocks = testArrayUnnester(requiredOutputCounts, unnestedLengths, elements);
