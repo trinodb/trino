@@ -252,7 +252,7 @@ public final class TupleDomain<T>
      * <ul>
      * <li>TupleDomain X: a => 1, b => 2
      * <li>TupleDomain Y: a => 2, b => 3
-     * <li>Column-wise unioned TupleDomain: a = > 1 OR 2, b => 2 OR 3
+     * <li>Column-wise unioned TupleDomain: a => 1 OR 2, b => 2 OR 3
      * </ul>
      * <p>
      * In the above resulting TupleDomain, tuple (a => 1, b => 3) would be considered valid but would
