@@ -26,9 +26,9 @@ import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-public final class TestUnnesterUtil
+public final class TestingUnnesterUtil
 {
-    private TestUnnesterUtil() {}
+    private TestingUnnesterUtil() {}
 
     public static Block createSimpleBlock(Slice[] values)
     {
