@@ -391,8 +391,6 @@ public class OrcRecordReader
         }
         nextRowInGroup += currentBatchSize;
 
-        validateWritePageChecksum();
-
         // create a lazy page
         blockFactory.nextPage();
         Arrays.fill(currentBytesPerCell, 0);
@@ -405,7 +403,10 @@ public class OrcRecordReader
                     false);
             listenForLoads(blocks[columnIndex], block -> blockLoaded(columnIndex, block));
         }
-        return new Page(currentBatchSize, blocks);
+
+        Page page = new Page(currentBatchSize, blocks);
+        validateWritePageChecksum(page);
+        return page;
     }
 
     private void blockLoaded(int columnIndex, Block block)
@@ -530,17 +531,10 @@ public class OrcRecordReader
         writeChecksumBuilder.ifPresent(builder -> builder.addStripe(rowCount));
     }
 
-    private void validateWritePageChecksum()
-            throws IOException
+    private void validateWritePageChecksum(Page page)
     {
         if (writeChecksumBuilder.isPresent()) {
-            Block[] blocks = new Block[columnReaders.length];
-            for (int columnIndex = 0; columnIndex < columnReaders.length; columnIndex++) {
-                Block block = columnReaders[columnIndex].readBlock();
-                blocks[columnIndex] = block;
-                blockLoaded(columnIndex, block);
-            }
-            Page page = new Page(currentBatchSize, blocks);
+            page = page.getLoadedPage();
             writeChecksumBuilder.get().addPage(page);
             rowGroupStatisticsValidation.get().addPage(page);
             stripeStatisticsValidation.get().addPage(page);
