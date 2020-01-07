@@ -17,9 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
-import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.LazyBlock;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.RecordSet;
@@ -127,20 +125,9 @@ class LazyRecordPageSource
         if ((closed && !pageBuilder.isEmpty()) || pageBuilder.isFull() || pageBuilder.getPositionCount() >= maxRowsPerPage) {
             Page page = pageBuilder.build();
             pageBuilder.reset();
-            return lazyWrapper(page);
+            return page.getLazyWrappedPage();
         }
 
         return null;
-    }
-
-    private Page lazyWrapper(Page page)
-    {
-        Block[] lazyBlocks = new Block[page.getChannelCount()];
-        for (int i = 0; i < page.getChannelCount(); ++i) {
-            Block block = page.getBlock(i);
-            lazyBlocks[i] = new LazyBlock(page.getPositionCount(), () -> block);
-        }
-
-        return new Page(page.getPositionCount(), lazyBlocks);
     }
 }

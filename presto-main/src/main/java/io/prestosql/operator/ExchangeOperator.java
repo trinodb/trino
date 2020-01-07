@@ -185,7 +185,7 @@ public class ExchangeOperator
         Page deserializedPage = serde.deserialize(page);
         operatorContext.recordProcessedInput(deserializedPage.getSizeInBytes(), page.getPositionCount());
 
-        return deserializedPage;
+        return deserializedPage.getLazyWrappedPage();
     }
 
     @Override

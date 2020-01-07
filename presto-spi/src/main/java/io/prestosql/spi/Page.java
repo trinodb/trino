@@ -16,6 +16,7 @@ package io.prestosql.spi;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.DictionaryBlock;
 import io.prestosql.spi.block.DictionaryId;
+import io.prestosql.spi.block.LazyBlock;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
@@ -312,6 +313,22 @@ public class Page
         System.arraycopy(blocks, 0, result, 1, blocks.length);
 
         return new Page(positionCount, result);
+    }
+
+    public Page getLazyWrappedPage()
+    {
+        Block[] lazyBlocks = new Block[blocks.length];
+        for (int i = 0; i < blocks.length; ++i) {
+            Block block = blocks[i];
+            if (!blocks[i].isLoaded()) {
+                lazyBlocks[i] = new LazyBlock(positionCount, () -> block);
+            }
+            else {
+                lazyBlocks[i] = block;
+            }
+        }
+
+        return new Page(positionCount, lazyBlocks);
     }
 
     private void updateRetainedSize()
