@@ -74,6 +74,15 @@ public class TestPhoenixIntegrationSmokeTest
     }
 
     @Test
+    public void testUnsupportedType()
+            throws Exception
+    {
+        executeInPhoenix("CREATE TABLE tpch.test_timestamp (pk bigint primary key, val1 timestamp)");
+        assertUpdate("INSERT INTO test_timestamp VALUES (1)", 1);
+        assertQuery("SELECT * FROM test_timestamp", "SELECT 1");
+    }
+
+    @Test
     public void testCreateTableWithProperties()
     {
         assertUpdate("CREATE TABLE test_create_table_with_properties (created_date date, a bigint, b double, c varchar(10), d varchar(10)) WITH(rowkeys = 'created_date row_timestamp,a,b,c', salt_buckets=10)");

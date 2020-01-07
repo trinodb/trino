@@ -26,6 +26,7 @@ import io.prestosql.plugin.jdbc.JdbcSplit;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
 import io.prestosql.plugin.jdbc.QueryBuilder;
+import io.prestosql.plugin.jdbc.UnsupportedTypeHandling;
 import io.prestosql.plugin.jdbc.WriteMapping;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -78,6 +79,7 @@ import static io.prestosql.plugin.jdbc.StandardColumnMappings.realColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.realWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.timeWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
+import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
 import static io.prestosql.plugin.phoenix.MetadataUtil.toPhoenixSchemaName;
 import static io.prestosql.plugin.phoenix.PhoenixClientModule.getConnectionProperties;
 import static io.prestosql.plugin.phoenix.PhoenixErrorCode.PHOENIX_METADATA_ERROR;
@@ -233,6 +235,12 @@ public class PhoenixClient
             throws SQLException
     {
         return firstNonNull(resultSet.getString("TABLE_SCHEM"), DEFAULT_SCHEMA);
+    }
+
+    @Override
+    public UnsupportedTypeHandling getUnsupportedTypeHandling(ConnectorSession session)
+    {
+        return IGNORE;
     }
 
     @Override
