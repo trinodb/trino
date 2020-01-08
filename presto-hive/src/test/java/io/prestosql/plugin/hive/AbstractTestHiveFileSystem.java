@@ -251,6 +251,7 @@ public abstract class AbstractTestHiveFileSystem
             List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, table).values());
             Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
+            metadata.beginQuery(session);
             ConnectorSplitSource splitSource = splitManager.getSplits(transaction.getTransactionHandle(), session, table, UNGROUPED_SCHEDULING);
 
             List<ConnectorSplit> splits = getAllSplits(splitSource);
@@ -269,6 +270,8 @@ public abstract class AbstractTestHiveFileSystem
             // The test table is made up of multiple S3 objects with same data and different compression codec
             // formats: uncompressed | .gz | .lz4 | .bz2
             assertEquals(sum, 78300 * 4);
+
+            metadata.cleanupQuery(session);
         }
     }
 
@@ -421,6 +424,7 @@ public abstract class AbstractTestHiveFileSystem
             assertEquals(filterNonHiddenColumnMetadata(tableMetadata.getColumns()), columns);
 
             // verify the data
+            metadata.beginQuery(session);
             ConnectorSplitSource splitSource = splitManager.getSplits(transaction.getTransactionHandle(), session, tableHandle, UNGROUPED_SCHEDULING);
             ConnectorSplit split = getOnlyElement(getAllSplits(splitSource));
 
@@ -428,6 +432,8 @@ public abstract class AbstractTestHiveFileSystem
                 MaterializedResult result = materializeSourceDataStream(session, pageSource, getTypes(columnHandles));
                 assertEqualsIgnoreOrder(result.getMaterializedRows(), data.getMaterializedRows());
             }
+
+            metadata.cleanupQuery(session);
         }
     }
 
