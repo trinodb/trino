@@ -1,0 +1,51 @@
+name: ci-checks
+
+on: [push, pull_request]
+
+env:
+  MAVEN_OPTS: "-Xmx512M -XX:+ExitOnOutOfMemoryError"
+  MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
+  MAVEN_FAST_INSTALL: "-B -V -T C1 -DskipTests -Dair.check.skip-all"
+
+jobs:
+  maven-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - uses: actions/setup-java@v1
+        with:
+          java-version: 8
+      - name: Maven Checks
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          ./mvnw install -B -V -T C1 -DskipTests -P ci -pl '!presto-server-rpm'
+      - name: Test Server RPM
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          ./mvnw install -B -P ci -pl presto-server-rpm
+      - name: Test Docker Image
+        run: docker/build-local.sh
+
+  error-prone-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - uses: actions/setup-java@v1
+        with:
+          java-version: 8
+      - name: Maven Install
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!presto-docs,!presto-server,!presto-server-rpm'
+      - name: Error Prone Checks
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          ./mvnw -B -T C1 clean test-compile -Dair.check.skip-all -P errorprone-compiler-presto \
+            -pl '!presto-docs,!presto-server,!presto-server-rpm'
+
+  web-ui-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: Web UI Checks
+        run: presto-main/bin/check_webui.sh
