@@ -73,7 +73,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
-import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -101,6 +100,7 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.testing.MaterializedResult.materializeSourceDataStream;
 import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static java.util.Locale.ENGLISH;
+import static java.util.UUID.randomUUID;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
@@ -155,7 +155,7 @@ public abstract class AbstractTestHiveFileSystem
         database = databaseName;
         table = new SchemaTableName(database, "presto_test_external_fs");
 
-        String random = UUID.randomUUID().toString().toLowerCase(ENGLISH).replace("-", "");
+        String random = randomUUID().toString().toLowerCase(ENGLISH).replace("-", "");
         temporaryCreateTable = new SchemaTableName(database, "tmp_presto_test_create_" + random);
 
         config = new HiveConfig().setS3SelectPushdownEnabled(s3SelectPushdownEnabled);
@@ -285,17 +285,19 @@ public abstract class AbstractTestHiveFileSystem
         Path filePath = new Path(tablePath, "test1.csv");
         FileSystem fs = hdfsEnvironment.getFileSystem(TESTING_CONTEXT, basePath);
 
-        assertTrue(fs.getFileStatus(basePath).isDirectory());
-        assertTrue(fs.getFileStatus(tablePath).isDirectory());
-        assertFalse(fs.getFileStatus(filePath).isDirectory());
-        assertFalse(fs.exists(new Path(basePath, "foo")));
+        assertTrue(fs.getFileStatus(basePath).isDirectory(), "basePath should be considered a directory");
+        assertTrue(fs.getFileStatus(tablePath).isDirectory(), "tablePath should be considered a directory");
+        assertTrue(fs.getFileStatus(filePath).isFile(), "filePath should be considered a file");
+        assertFalse(fs.getFileStatus(filePath).isDirectory(), "filePath should not be considered a directory");
+        assertFalse(fs.exists(new Path(basePath, "foo-" + randomUUID())), "foo-random path should be found not to exist");
+        assertFalse(fs.exists(new Path(basePath, "foo")), "foo path should be found not to exist");
     }
 
     @Test
     public void testRename()
             throws Exception
     {
-        Path basePath = new Path(getBasePath(), UUID.randomUUID().toString());
+        Path basePath = new Path(getBasePath(), randomUUID().toString());
         FileSystem fs = hdfsEnvironment.getFileSystem(TESTING_CONTEXT, basePath);
         assertFalse(fs.exists(basePath));
 
