@@ -33,7 +33,6 @@ public class BaseJdbcConfig
     private boolean caseInsensitiveNameMatching;
     private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
     private Set<String> jdbcTypesMappedToVarchar = ImmutableSet.of();
-    private UnsupportedTypeHandling unsupportedTypeHandling = UnsupportedTypeHandling.IGNORE;
     private Duration metadataCacheTtl = new Duration(0, MINUTES);
     private boolean cacheMissing;
 
@@ -85,20 +84,6 @@ public class BaseJdbcConfig
     public BaseJdbcConfig setJdbcTypesMappedToVarchar(String jdbcTypesMappedToVarchar)
     {
         this.jdbcTypesMappedToVarchar = ImmutableSet.copyOf(Splitter.on(",").omitEmptyStrings().trimResults().split(nullToEmpty(jdbcTypesMappedToVarchar)));
-        return this;
-    }
-
-    @NotNull
-    public UnsupportedTypeHandling getUnsupportedTypeHandling()
-    {
-        return unsupportedTypeHandling;
-    }
-
-    @Config("unsupported-type-handling")
-    @ConfigDescription("Unsupported type handling strategy")
-    public BaseJdbcConfig setUnsupportedTypeHandling(UnsupportedTypeHandling unsupportedTypeHandling)
-    {
-        this.unsupportedTypeHandling = unsupportedTypeHandling;
         return this;
     }
 

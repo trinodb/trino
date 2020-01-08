@@ -31,14 +31,14 @@ public class BaseJdbcPropertiesProvider
     private final List<PropertyMetadata<?>> properties;
 
     @Inject
-    public BaseJdbcPropertiesProvider(BaseJdbcConfig baseJdbcConfig)
+    public BaseJdbcPropertiesProvider(TypeHandlingJdbcConfig typeHandlingJdbcConfig)
     {
         properties = ImmutableList.of(
                 enumProperty(
                         UNSUPPORTED_TYPE_HANDLING,
                         "Unsupported type handling strategy",
                         UnsupportedTypeHandling.class,
-                        baseJdbcConfig.getUnsupportedTypeHandling(),
+                        typeHandlingJdbcConfig.getUnsupportedTypeHandling(),
                         false));
     }
 
