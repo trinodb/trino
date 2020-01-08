@@ -238,11 +238,11 @@ public class TestHivePageSink
                 false);
         ConnectorTableHandle table = new HiveTableHandle(SCHEMA_NAME, TABLE_NAME, ImmutableMap.of(), ImmutableList.of(), Optional.empty());
         HivePageSourceProvider provider = new HivePageSourceProvider(
+                TYPE_MANAGER,
                 config,
                 HDFS_ENVIRONMENT,
-                getDefaultHiveRecordCursorProvider(config, HDFS_ENVIRONMENT),
                 getDefaultHivePageSourceFactories(config, HDFS_ENVIRONMENT),
-                TYPE_MANAGER);
+                getDefaultHiveRecordCursorProvider(config, HDFS_ENVIRONMENT));
         return provider.createPageSource(transaction, getHiveSession(config), split, table, ImmutableList.copyOf(getColumnHandles()));
     }
 
