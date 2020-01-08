@@ -18,7 +18,6 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.security.SecureRandom;
-import java.sql.SQLException;
 import java.util.List;
 
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -64,7 +63,7 @@ public abstract class AbstractTestIntegrationSmokeTest
     }
 
     protected void cleanUpSchemas(List<String> schemaNames)
-            throws SQLException
+            throws Exception
     {
         if (!canDropSchema()) {
             throw new IllegalStateException("cleanUpSchemas() must be implemented if canDropSchema is false");
@@ -276,7 +275,7 @@ public abstract class AbstractTestIntegrationSmokeTest
 
     @Test
     public void testCreateSchema()
-            throws SQLException
+            throws Exception
     {
         skipTestUnless(canCreateSchema());
         String schemaName = "schema_" + randomNameSuffix();
