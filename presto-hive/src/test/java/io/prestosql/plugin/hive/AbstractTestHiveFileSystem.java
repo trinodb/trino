@@ -92,7 +92,7 @@ import static io.prestosql.plugin.hive.HiveTestUtils.PAGE_SORTER;
 import static io.prestosql.plugin.hive.HiveTestUtils.TYPE_MANAGER;
 import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHiveFileWriterFactories;
 import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHivePageSourceFactories;
-import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHiveRecordCursorProvider;
+import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHiveRecordCursorProviders;
 import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSessionProperties;
 import static io.prestosql.plugin.hive.HiveTestUtils.getTypes;
@@ -226,7 +226,8 @@ public abstract class AbstractTestHiveFileSystem
                 config,
                 hdfsEnvironment,
                 getDefaultHivePageSourceFactories(config, hdfsEnvironment),
-                getDefaultHiveRecordCursorProvider(config, hdfsEnvironment));
+                getDefaultHiveRecordCursorProviders(config, hdfsEnvironment),
+                new GenericHiveRecordCursorProvider(hdfsEnvironment, config));
     }
 
     protected ConnectorSession newSession()

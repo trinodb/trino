@@ -200,7 +200,7 @@ import static io.prestosql.plugin.hive.HiveTestUtils.TYPE_MANAGER;
 import static io.prestosql.plugin.hive.HiveTestUtils.arrayType;
 import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHiveFileWriterFactories;
 import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHivePageSourceFactories;
-import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHiveRecordCursorProvider;
+import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHiveRecordCursorProviders;
 import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSessionProperties;
 import static io.prestosql.plugin.hive.HiveTestUtils.getTypes;
@@ -787,7 +787,8 @@ public abstract class AbstractTestHive
                 hiveConfig,
                 hdfsEnvironment,
                 getDefaultHivePageSourceFactories(hiveConfig, hdfsEnvironment),
-                getDefaultHiveRecordCursorProvider(hiveConfig, hdfsEnvironment));
+                getDefaultHiveRecordCursorProviders(hiveConfig, hdfsEnvironment),
+                new GenericHiveRecordCursorProvider(hdfsEnvironment, hiveConfig));
     }
 
     /**
