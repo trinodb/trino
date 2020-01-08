@@ -24,6 +24,7 @@ import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.DriverConnectionFactory;
 import io.prestosql.plugin.jdbc.ForBaseJdbc;
 import io.prestosql.plugin.jdbc.JdbcClient;
+import io.prestosql.plugin.jdbc.TypeHandlingJdbcConfig;
 import io.prestosql.plugin.jdbc.credential.CredentialProvider;
 import org.postgresql.Driver;
 
@@ -38,6 +39,7 @@ public class RedshiftClientModule
         binder.bind(Key.get(JdbcClient.class, ForBaseJdbc.class))
                 .to(RedshiftClient.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(BaseJdbcConfig.class);
+        configBinder(binder).bindConfig(TypeHandlingJdbcConfig.class);
     }
 
     @Singleton
