@@ -55,6 +55,7 @@ public abstract class AbstractTestHiveFileSystemS3
     @Override
     protected Path getBasePath()
     {
-        return new Path(format("s3://%s/", writableBucket));
+        // HDP 3.1 does not understand s3:// out of the box.
+        return new Path(format("s3a://%s/", writableBucket));
     }
 }
