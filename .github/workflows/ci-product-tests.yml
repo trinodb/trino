@@ -8,7 +8,7 @@ env:
   MAVEN_FAST_INSTALL: "-B -V -T C1 -DskipTests -Dair.check.skip-all"
 
 jobs:
-  product-tests:
+  x:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false

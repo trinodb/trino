@@ -87,7 +87,7 @@ jobs:
             !presto-phoenix,!presto-iceberg,
             !presto-docs,!presto-server,!presto-server-rpm'
 
-  test-modules:
+  x:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
