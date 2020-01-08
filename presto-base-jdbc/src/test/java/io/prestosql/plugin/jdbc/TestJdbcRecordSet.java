@@ -34,7 +34,6 @@ import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
-@Test
 public class TestJdbcRecordSet
 {
     private TestingDatabase database;
