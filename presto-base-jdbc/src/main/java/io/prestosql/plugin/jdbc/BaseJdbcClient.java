@@ -272,7 +272,10 @@ public class BaseJdbcClient
                             .setComment(comment)
                             .build());
                 }
-                verify(columnMapping.isPresent() || getUnsupportedTypeHandling(session) == IGNORE, "Unsupported type handling is set to %s, but toPrestoType() returned empty");
+                if (!columnMapping.isPresent()) {
+                    UnsupportedTypeHandling unsupportedTypeHandling = getUnsupportedTypeHandling(session);
+                    verify(unsupportedTypeHandling == IGNORE, "Unsupported type handling is set to %s, but toPrestoType() returned empty", unsupportedTypeHandling);
+                }
             }
             if (columns.isEmpty()) {
                 // A table may have no supported columns. In rare cases (e.g. PostgreSQL) a table might have no columns at all.

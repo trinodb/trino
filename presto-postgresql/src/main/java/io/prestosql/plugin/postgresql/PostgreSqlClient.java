@@ -43,6 +43,7 @@ import io.prestosql.plugin.jdbc.LongWriteFunction;
 import io.prestosql.plugin.jdbc.ReadFunction;
 import io.prestosql.plugin.jdbc.SliceReadFunction;
 import io.prestosql.plugin.jdbc.SliceWriteFunction;
+import io.prestosql.plugin.jdbc.UnsupportedTypeHandling;
 import io.prestosql.plugin.jdbc.WriteMapping;
 import io.prestosql.plugin.postgresql.PostgreSqlConfig.ArrayMapping;
 import io.prestosql.spi.PrestoException;
@@ -262,7 +263,10 @@ public class PostgreSqlClient
                                 .setComment(comment)
                                 .build());
                     }
-                    verify(columnMapping.isPresent() || getUnsupportedTypeHandling(session) == IGNORE, "Unsupported type handling is set to %s, but toPrestoType() returned empty");
+                    if (!columnMapping.isPresent()) {
+                        UnsupportedTypeHandling unsupportedTypeHandling = getUnsupportedTypeHandling(session);
+                        verify(unsupportedTypeHandling == IGNORE, "Unsupported type handling is set to %s, but toPrestoType() returned empty", unsupportedTypeHandling);
+                    }
                 }
                 if (columns.isEmpty()) {
                     // In rare cases a table might have no columns.
