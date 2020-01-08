@@ -19,6 +19,8 @@ import io.prestosql.Session;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.QueryRunner;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -30,26 +32,20 @@ import static java.lang.String.format;
 public class TestCredentialPassthrough
 {
     private static final String TEST_SCHEMA = "test_database";
-    private final TestingMySqlServer mysqlServer;
-    private final QueryRunner mySqlQueryRunner;
-
-    public TestCredentialPassthrough()
-            throws Exception
-    {
-        mysqlServer = new TestingMySqlServer("testuser", "testpass", TEST_SCHEMA);
-        mySqlQueryRunner = createQueryRunner(mysqlServer);
-    }
+    private TestingMySqlServer mysqlServer;
+    private QueryRunner queryRunner;
 
     @Test
     public void testCredentialPassthrough()
     {
-        mySqlQueryRunner.execute(getSession(mysqlServer), "CREATE TABLE test_create (a bigint, b double, c varchar)");
+        queryRunner.execute(getSession(mysqlServer), "CREATE TABLE test_create (a bigint, b double, c varchar)");
     }
 
-    public static QueryRunner createQueryRunner(TestingMySqlServer mySqlServer)
+    @BeforeClass
+    public void createQueryRunner(TestingMySqlServer mySqlServer)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = null;
+        mysqlServer = new TestingMySqlServer("testuser", "testpass", TEST_SCHEMA);
         try {
             queryRunner = DistributedQueryRunner.builder(testSessionBuilder().build()).build();
             queryRunner.installPlugin(new MySqlPlugin());
@@ -59,13 +55,20 @@ public class TestCredentialPassthrough
                     .put("password-credential-name", "mysql.password")
                     .build();
             queryRunner.createCatalog("mysql", "mysql", properties);
-
-            return queryRunner;
         }
         catch (Exception e) {
             closeAllSuppress(e, queryRunner, mySqlServer);
             throw e;
         }
+    }
+
+    @AfterClass(alwaysRun = true)
+    public final void destroy()
+    {
+        queryRunner.close();
+        queryRunner = null;
+        mysqlServer.close();
+        mysqlServer = null;
     }
 
     private static Session getSession(TestingMySqlServer mySqlServer)
