@@ -31,6 +31,8 @@ import io.prestosql.spi.predicate.SortedRangeSet;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.Utils;
 import io.prestosql.spi.predicate.ValueSet;
+import io.prestosql.spi.type.DoubleType;
+import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.ExpressionUtils;
 import io.prestosql.sql.InterpretedFunctionInvoker;
@@ -203,6 +205,25 @@ public final class DomainTranslator
         List<Range> singleValueExclusionsList = complement.getOrderedRanges().stream().filter(Range::isSingleValue).collect(toList());
         List<Range> originalUnionSingleValues = SortedRangeSet.copyOf(type, singleValueExclusionsList).union(sortedRangeSet).getOrderedRanges();
         PeekingIterator<Range> singleValueExclusions = peekingIterator(singleValueExclusionsList.iterator());
+
+        /*
+        For types including NaN, it is incorrect to introduce range "all" while processing a set of ranges,
+        even if the component ranges cover the entire value set.
+        This is because partial ranges don't include NaN, while range "all" does.
+        Example: ranges (unbounded , 1.0) and (1.0, unbounded) should not be coalesced to (unbounded, unbounded) with excluded point 1.0.
+        That result would be further translated to expression "xxx <> 1.0", which is satisfied by NaN.
+        To avoid error, in such case the ranges are not optimised.
+         */
+        if (type instanceof RealType || type instanceof DoubleType) {
+            boolean originalRangeIsAll = orderedRanges.stream().anyMatch(Range::isAll);
+            boolean coalescedRangeIsAll = originalUnionSingleValues.stream().anyMatch(Range::isAll);
+            if (!originalRangeIsAll && coalescedRangeIsAll) {
+                for (Range range : orderedRanges) {
+                    disjuncts.add(processRange(type, range, reference));
+                }
+                return disjuncts;
+            }
+        }
 
         for (Range range : originalUnionSingleValues) {
             if (range.isSingleValue()) {
