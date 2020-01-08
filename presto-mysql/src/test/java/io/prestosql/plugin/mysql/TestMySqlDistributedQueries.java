@@ -14,7 +14,6 @@
 package io.prestosql.plugin.mysql;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.testing.mysql.TestingMySqlServer;
 import io.airlift.tpch.TpchTable;
 import io.prestosql.testing.AbstractTestDistributedQueries;
 import io.prestosql.testing.MaterializedResult;
@@ -35,7 +34,7 @@ public class TestMySqlDistributedQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.mysqlServer = new TestingMySqlServer("testuser", "testpass", "tpch");
+        this.mysqlServer = new TestingMySqlServer();
         return createMySqlQueryRunner(
                 mysqlServer,
                 ImmutableMap.<String, String>builder()

@@ -15,19 +15,19 @@ package io.prestosql.plugin.mysql;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.testing.mysql.TestingMySqlServer;
 import io.prestosql.Session;
 import io.prestosql.plugin.jdbc.UnsupportedTypeHandling;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.VarcharType;
 import io.prestosql.testing.AbstractTestQueryFramework;
+import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.datatype.CreateAndInsertDataSetup;
 import io.prestosql.testing.datatype.CreateAsSelectDataSetup;
 import io.prestosql.testing.datatype.DataSetup;
 import io.prestosql.testing.datatype.DataType;
 import io.prestosql.testing.datatype.DataTypeTest;
-import io.prestosql.testing.sql.JdbcSqlExecutor;
 import io.prestosql.testing.sql.PrestoSqlExecutor;
+import io.prestosql.testing.sql.SqlExecutor;
 import io.prestosql.testing.sql.TestTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.DataProvider;
@@ -78,18 +78,14 @@ public class TestMySqlTypeMapping
 {
     private static final String CHARACTER_SET_UTF8 = "CHARACTER SET utf8";
 
-    private final TestingMySqlServer mysqlServer;
+    private TestingMySqlServer mysqlServer;
 
-    public TestMySqlTypeMapping()
+    @Override
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this(new TestingMySqlServer("testuser", "testpass", "tpch"));
-    }
-
-    private TestMySqlTypeMapping(TestingMySqlServer mysqlServer)
-    {
-        super(() -> createMySqlQueryRunner(mysqlServer, ImmutableMap.of(), ImmutableList.of()));
-        this.mysqlServer = mysqlServer;
+        mysqlServer = new TestingMySqlServer();
+        return createMySqlQueryRunner(mysqlServer, ImmutableMap.of(), ImmutableList.of());
     }
 
     @AfterClass(alwaysRun = true)
@@ -235,10 +231,8 @@ public class TestMySqlTypeMapping
     @Test
     public void testDecimalExceedingPrecisionMaxWithExceedingIntegerValues()
     {
-        JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(mysqlServer.getJdbcUrl());
-
         try (TestTable testTable = new TestTable(
-                jdbcSqlExecutor,
+                mysqlServer::execute,
                 "tpch.test_exceeding_max_decimal",
                 "(d_col decimal(65,25))",
                 asList("1234567890123456789012345678901234567890.123456789", "-1234567890123456789012345678901234567890.123456789"))) {
@@ -268,10 +262,8 @@ public class TestMySqlTypeMapping
     @Test
     public void testDecimalExceedingPrecisionMaxWithNonExceedingIntegerValues()
     {
-        JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(mysqlServer.getJdbcUrl());
-
         try (TestTable testTable = new TestTable(
-                jdbcSqlExecutor,
+                mysqlServer::execute,
                 "tpch.test_exceeding_max_decimal",
                 "(d_col decimal(60,20))",
                 asList("123456789012345678901234567890.123456789012345", "-123456789012345678901234567890.123456789012345"))) {
@@ -325,10 +317,8 @@ public class TestMySqlTypeMapping
     @Test(dataProvider = "testDecimalExceedingPrecisionMaxProvider")
     public void testDecimalExceedingPrecisionMaxWithSupportedValues(int typePrecision, int typeScale)
     {
-        JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(mysqlServer.getJdbcUrl());
-
         try (TestTable testTable = new TestTable(
-                jdbcSqlExecutor,
+                mysqlServer::execute,
                 "tpch.test_exceeding_max_decimal",
                 format("(d_col decimal(%d,%d))", typePrecision, typeScale),
                 asList("12.01", "-12.01", "123", "-123", "1.12345678", "-1.12345678"))) {
@@ -476,7 +466,7 @@ public class TestMySqlTypeMapping
 
     private void testUnsupportedDataType(String databaseDataType)
     {
-        JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(mysqlServer.getJdbcUrl());
+        SqlExecutor jdbcSqlExecutor = mysqlServer::execute;
         jdbcSqlExecutor.execute(format("CREATE TABLE tpch.test_unsupported_data_type(supported_column varchar(5), unsupported_column %s)", databaseDataType));
         try {
             assertQuery(
@@ -495,8 +485,7 @@ public class TestMySqlTypeMapping
 
     private DataSetup mysqlCreateAndInsert(String tableNamePrefix)
     {
-        JdbcSqlExecutor mysqlUnicodeExecutor = new JdbcSqlExecutor(mysqlServer.getJdbcUrl() + "&useUnicode=true&characterEncoding=utf8");
-        return new CreateAndInsertDataSetup(mysqlUnicodeExecutor, tableNamePrefix);
+        return new CreateAndInsertDataSetup(mysqlServer::execute, tableNamePrefix);
     }
 
     private static DataType<String> jsonDataType(Function<String, String> toLiteral)

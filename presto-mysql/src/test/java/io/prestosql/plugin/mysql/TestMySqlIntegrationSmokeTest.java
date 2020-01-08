@@ -13,19 +13,15 @@
  */
 package io.prestosql.plugin.mysql;
 
-import io.airlift.testing.mysql.TestingMySqlServer;
 import io.prestosql.Session;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
+import io.prestosql.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.List;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -41,18 +37,14 @@ import static org.testng.Assert.assertTrue;
 public class TestMySqlIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private final TestingMySqlServer mysqlServer;
+    private TestingMySqlServer mysqlServer;
 
-    public TestMySqlIntegrationSmokeTest()
+    @Override
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this(new TestingMySqlServer("testuser", "testpass", "tpch", "test_database"));
-    }
-
-    public TestMySqlIntegrationSmokeTest(TestingMySqlServer mysqlServer)
-    {
-        super(() -> createMySqlQueryRunner(mysqlServer, ORDERS));
-        this.mysqlServer = mysqlServer;
+        mysqlServer = new TestingMySqlServer();
+        return createMySqlQueryRunner(mysqlServer, ORDERS);
     }
 
     @AfterClass(alwaysRun = true)
@@ -93,7 +85,6 @@ public class TestMySqlIntegrationSmokeTest
 
     @Test
     public void testViews()
-            throws SQLException
     {
         execute("CREATE OR REPLACE VIEW tpch.test_view AS SELECT * FROM tpch.orders");
         assertQuery("SELECT orderkey FROM test_view", "SELECT orderkey FROM orders");
@@ -102,7 +93,6 @@ public class TestMySqlIntegrationSmokeTest
 
     @Test
     public void testInsert()
-            throws Exception
     {
         execute("CREATE TABLE tpch.test_insert (x bigint, y varchar(100))");
         assertUpdate("INSERT INTO test_insert VALUES (123, 'test')", 1);
@@ -112,7 +102,6 @@ public class TestMySqlIntegrationSmokeTest
 
     @Test
     public void testInsertInPresenceOfNotSupportedColumn()
-            throws Exception
     {
         execute("CREATE TABLE tpch.test_insert_not_supported_column_present(x bigint, y decimal(50,0), z varchar(10))");
         // Check that column y is not supported.
@@ -127,7 +116,7 @@ public class TestMySqlIntegrationSmokeTest
     {
         Session session = testSessionBuilder()
                 .setCatalog("mysql")
-                .setSchema("test_database")
+                .setSchema(mysqlServer.getDatabaseName())
                 .build();
 
         assertFalse(getQueryRunner().tableExists(session, "test_table"));
@@ -143,7 +132,6 @@ public class TestMySqlIntegrationSmokeTest
 
     @Test
     public void testMySqlTinyint1()
-            throws Exception
     {
         execute("CREATE TABLE tpch.mysql_test_tinyint1 (c_tinyint tinyint(1))");
 
@@ -167,7 +155,6 @@ public class TestMySqlIntegrationSmokeTest
 
     @Test
     public void testCharTrailingSpace()
-            throws Exception
     {
         execute("CREATE TABLE tpch.char_trailing_space (x char(10))");
         assertUpdate("INSERT INTO char_trailing_space VALUES ('test')", 1);
@@ -227,7 +214,6 @@ public class TestMySqlIntegrationSmokeTest
 
     @Override
     protected void cleanUpSchemas(List<String> schemaNames)
-            throws SQLException
     {
         for (String schemaName : schemaNames) {
             execute("DROP SCHEMA " + schemaName);
@@ -236,7 +222,6 @@ public class TestMySqlIntegrationSmokeTest
 
     @Test
     public void testColumnComment()
-            throws Exception
     {
         execute("CREATE TABLE tpch.test_column_comment (col1 bigint COMMENT 'test comment', col2 bigint COMMENT '', col3 bigint)");
 
@@ -248,11 +233,7 @@ public class TestMySqlIntegrationSmokeTest
     }
 
     private void execute(String sql)
-            throws SQLException
     {
-        try (Connection connection = DriverManager.getConnection(mysqlServer.getJdbcUrl());
-                Statement statement = connection.createStatement()) {
-            statement.execute(sql);
-        }
+        mysqlServer.execute(sql, mysqlServer.getUsername(), mysqlServer.getPassword());
     }
 }
