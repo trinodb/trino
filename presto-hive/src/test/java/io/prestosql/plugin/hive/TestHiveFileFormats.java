@@ -559,8 +559,8 @@ public class TestHiveFileFormats
         Configuration configuration = new Configuration(false);
         configuration.set("io.compression.codecs", LzoCodec.class.getName() + "," + LzopCodec.class.getName());
         Optional<ConnectorPageSource> pageSource = HivePageSourceProvider.createHivePageSource(
-                ImmutableSet.of(cursorProvider),
                 ImmutableSet.of(),
+                ImmutableSet.of(cursorProvider),
                 configuration,
                 session,
                 split.getPath(),
@@ -617,8 +617,8 @@ public class TestHiveFileFormats
         List<HiveColumnHandle> columnHandles = getColumnHandles(testColumns);
 
         Optional<ConnectorPageSource> pageSource = HivePageSourceProvider.createHivePageSource(
-                ImmutableSet.of(),
                 ImmutableSet.of(sourceFactory),
+                ImmutableSet.of(),
                 new Configuration(false),
                 session,
                 split.getPath(),

@@ -476,8 +476,8 @@ public class TestOrcPageSourceMemoryTracking
         {
             OrcPageSourceFactory orcPageSourceFactory = new OrcPageSourceFactory(new OrcReaderOptions(), HDFS_ENVIRONMENT, stats);
             return HivePageSourceProvider.createHivePageSource(
-                    ImmutableSet.of(),
                     ImmutableSet.of(orcPageSourceFactory),
+                    ImmutableSet.of(),
                     new Configuration(false),
                     session,
                     fileSplit.getPath(),

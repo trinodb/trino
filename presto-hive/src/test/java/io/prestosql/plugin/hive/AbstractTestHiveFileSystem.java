@@ -222,11 +222,11 @@ public abstract class AbstractTestHiveFileSystem
                 getHiveSessionProperties(config),
                 new HiveWriterStats());
         pageSourceProvider = new HivePageSourceProvider(
+                TYPE_MANAGER,
                 config,
                 hdfsEnvironment,
-                getDefaultHiveRecordCursorProvider(config, hdfsEnvironment),
                 getDefaultHivePageSourceFactories(config, hdfsEnvironment),
-                TYPE_MANAGER);
+                getDefaultHiveRecordCursorProvider(config, hdfsEnvironment));
     }
 
     protected ConnectorSession newSession()

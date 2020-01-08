@@ -783,11 +783,11 @@ public abstract class AbstractTestHive
                 getHiveSessionProperties(hiveConfig),
                 new HiveWriterStats());
         pageSourceProvider = new HivePageSourceProvider(
+                TYPE_MANAGER,
                 hiveConfig,
                 hdfsEnvironment,
-                getDefaultHiveRecordCursorProvider(hiveConfig, hdfsEnvironment),
                 getDefaultHivePageSourceFactories(hiveConfig, hdfsEnvironment),
-                TYPE_MANAGER);
+                getDefaultHiveRecordCursorProvider(hiveConfig, hdfsEnvironment));
     }
 
     /**
