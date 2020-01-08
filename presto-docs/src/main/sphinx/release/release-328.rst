@@ -57,6 +57,13 @@ Elasticsearch Connector Changes
   does not have any fields. (:issue:`2217`)
 * Add support for querying index aliases. (:issue:`2324`)
 
+Phoenix Connector Changes
+-------------------------
+
+* Add support for mapping unsupported data types to ``VARCHAR``. This can be enabled by setting
+  the ``unsupported-type-handling`` configuration property or the ``unsupported_type_handling`` session
+  property to ``CONVERT_TO_VARCHAR``. (:issue:`2427`)
+
 Other Connector Changes
 -----------------------
 
