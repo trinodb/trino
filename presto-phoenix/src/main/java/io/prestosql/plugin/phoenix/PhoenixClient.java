@@ -246,7 +246,7 @@ public class PhoenixClient
                 if (typeHandle.getColumnSize() == 0) {
                     return Optional.of(varcharColumnMapping(createUnboundedVarcharType()));
                 }
-                return super.toPrestoType(session, connection, typeHandle);
+                break;
             // TODO add support for TIMESTAMP after Phoenix adds support for LocalDateTime
             case TIMESTAMP:
             case TIME_WITH_TIMEZONE:
