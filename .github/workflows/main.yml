@@ -80,7 +80,7 @@ jobs:
           S3_BUCKET: "presto-ci-test"
           S3_BUCKET_ENDPOINT: "s3.us-east-2.amazonaws.com"
         run: |
-          if [ "AWS_ACCESS_KEY_ID" != "" ]; then
+          if [ "${AWS_ACCESS_KEY_ID}" != "" ]; then
             source presto-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
               presto-hive-hadoop2/bin/run_hive_s3_tests.sh
           fi
