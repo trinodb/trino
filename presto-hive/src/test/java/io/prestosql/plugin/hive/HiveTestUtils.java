@@ -108,10 +108,10 @@ public final class HiveTestUtils
                 .build();
     }
 
-    public static Set<HiveRecordCursorProvider> getDefaultHiveRecordCursorProvider(HiveConfig hiveConfig, HdfsEnvironment hdfsEnvironment)
+    public static Set<HiveRecordCursorProvider> getDefaultHiveRecordCursorProviders(HiveConfig hiveConfig, HdfsEnvironment hdfsEnvironment)
     {
+        // TODO reconcile this with HiveModule
         return ImmutableSet.<HiveRecordCursorProvider>builder()
-                .add(new GenericHiveRecordCursorProvider(hdfsEnvironment, hiveConfig))
                 .build();
     }
 

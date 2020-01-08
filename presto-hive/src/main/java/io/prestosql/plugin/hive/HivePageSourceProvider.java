@@ -72,13 +72,17 @@ public class HivePageSourceProvider
             HiveConfig hiveConfig,
             HdfsEnvironment hdfsEnvironment,
             Set<HivePageSourceFactory> pageSourceFactories,
-            Set<HiveRecordCursorProvider> cursorProviders)
+            Set<HiveRecordCursorProvider> cursorProviders,
+            GenericHiveRecordCursorProvider genericCursorProvider)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.hiveStorageTimeZone = requireNonNull(hiveConfig, "hiveConfig is null").getDateTimeZone();
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.pageSourceFactories = ImmutableSet.copyOf(requireNonNull(pageSourceFactories, "pageSourceFactories is null"));
-        this.cursorProviders = ImmutableSet.copyOf(requireNonNull(cursorProviders, "cursorProviders is null"));
+        this.cursorProviders = ImmutableSet.<HiveRecordCursorProvider>builder()
+                .addAll(requireNonNull(cursorProviders, "cursorProviders is null"))
+                .add(genericCursorProvider) // generic should be last, as a fallback option
+                .build();
     }
 
     @Override

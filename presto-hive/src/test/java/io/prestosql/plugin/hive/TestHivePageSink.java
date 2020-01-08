@@ -65,7 +65,7 @@ import static io.prestosql.plugin.hive.HiveTestUtils.PAGE_SORTER;
 import static io.prestosql.plugin.hive.HiveTestUtils.TYPE_MANAGER;
 import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHiveFileWriterFactories;
 import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHivePageSourceFactories;
-import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHiveRecordCursorProvider;
+import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHiveRecordCursorProviders;
 import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSessionProperties;
 import static io.prestosql.plugin.hive.HiveType.HIVE_DATE;
@@ -242,7 +242,8 @@ public class TestHivePageSink
                 config,
                 HDFS_ENVIRONMENT,
                 getDefaultHivePageSourceFactories(config, HDFS_ENVIRONMENT),
-                getDefaultHiveRecordCursorProvider(config, HDFS_ENVIRONMENT));
+                getDefaultHiveRecordCursorProviders(config, HDFS_ENVIRONMENT),
+                new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT, config));
         return provider.createPageSource(transaction, getHiveSession(config), split, table, ImmutableList.copyOf(getColumnHandles()));
     }
 
