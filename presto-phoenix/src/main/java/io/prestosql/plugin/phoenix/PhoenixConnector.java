@@ -14,7 +14,6 @@
 package io.prestosql.plugin.phoenix;
 
 import io.airlift.bootstrap.LifeCycleManager;
-import io.airlift.log.Logger;
 import io.prestosql.plugin.jdbc.JdbcTransactionHandle;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorMetadata;
@@ -32,8 +31,6 @@ import static java.util.Objects.requireNonNull;
 public class PhoenixConnector
         implements Connector
 {
-    private static final Logger log = Logger.get(PhoenixConnector.class);
-
     private final LifeCycleManager lifeCycleManager;
     private final ConnectorMetadata metadata;
     private final ConnectorSplitManager splitManager;
