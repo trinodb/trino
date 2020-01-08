@@ -354,6 +354,67 @@ public class TestDomainTranslator
     }
 
     @Test
+    public void testToPredicateWithRangeOptimisation()
+    {
+        TupleDomain<Symbol> tupleDomain;
+
+        tupleDomain = withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.greaterThan(BIGINT, 1L), Range.lessThan(BIGINT, 1L)), false)));
+        assertEquals(toPredicate(tupleDomain), notEqual(C_BIGINT, bigintLiteral(1L)));
+
+        tupleDomain = withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(
+                ValueSet.ofRanges(
+                        Range.lessThan(BIGINT, 0L),
+                        Range.range(BIGINT, 0L, false, 1L, false),
+                        Range.greaterThan(BIGINT, 1L)),
+                false)));
+        assertEquals(toPredicate(tupleDomain), not(in(C_BIGINT, ImmutableList.of(0L, 1L))));
+
+        tupleDomain = withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(
+                ValueSet.ofRanges(
+                        Range.lessThan(BIGINT, 0L),
+                        Range.range(BIGINT, 0L, false, 1L, false),
+                        Range.greaterThan(BIGINT, 2L)),
+                false)));
+        assertEquals(toPredicate(tupleDomain), or(and(lessThan(C_BIGINT, bigintLiteral(1L)), notEqual(C_BIGINT, bigintLiteral(0L))), greaterThan(C_BIGINT, bigintLiteral(2L))));
+
+        // floating point types: do not coalesce ranges when range "all" would be introduced
+        tupleDomain = withColumnDomains(ImmutableMap.of(C_REAL, Domain.create(ValueSet.ofRanges(Range.greaterThan(REAL, 0L), Range.lessThan(REAL, 0L)), false)));
+        assertEquals(toPredicate(tupleDomain), or(lessThan(C_REAL, realLiteral("0.0")), greaterThan(C_REAL, realLiteral("0.0"))));
+
+        tupleDomain = withColumnDomains(ImmutableMap.of(C_REAL, Domain.create(
+                ValueSet.ofRanges(
+                        Range.lessThan(REAL, 0L),
+                        Range.range(REAL, 0L, false, (long) Float.floatToIntBits(1F), false),
+                        Range.greaterThan(REAL, (long) Float.floatToIntBits(1F))),
+                false)));
+        assertEquals(toPredicate(tupleDomain), or(
+                lessThan(C_REAL, realLiteral("0.0")),
+                and(greaterThan(C_REAL, realLiteral("0.0")), lessThan(C_REAL, realLiteral("1.0"))),
+                greaterThan(C_REAL, realLiteral("1.0"))));
+
+        tupleDomain = withColumnDomains(ImmutableMap.of(C_REAL, Domain.create(
+                ValueSet.ofRanges(
+                        Range.lessThan(REAL, 0L),
+                        Range.range(REAL, 0L, false, (long) Float.floatToIntBits(1F), false),
+                        Range.greaterThan(REAL, (long) Float.floatToIntBits(2F))),
+                false)));
+        assertEquals(toPredicate(tupleDomain), or(and(lessThan(C_REAL, realLiteral("1.0")), notEqual(C_REAL, realLiteral("0.0"))), greaterThan(C_REAL, realLiteral("2.0"))));
+
+        tupleDomain = withColumnDomains(ImmutableMap.of(C_DOUBLE, Domain.create(
+                ValueSet.ofRanges(
+                        Range.lessThan(DOUBLE, 0.0),
+                        Range.range(DOUBLE, 0.0, false, 1.0, false),
+                        Range.range(DOUBLE, 2.0, false, 3.0, false),
+                        Range.greaterThan(DOUBLE, 3.0)),
+                false)));
+        assertEquals(
+                toPredicate(tupleDomain),
+                or(
+                        and(lessThan(C_DOUBLE, doubleLiteral(1)), notEqual(C_DOUBLE, doubleLiteral(0))),
+                        and(greaterThan(C_DOUBLE, doubleLiteral(2)), notEqual(C_DOUBLE, doubleLiteral(3)))));
+    }
+
+    @Test
     public void testFromUnknownPredicate()
     {
         assertUnsupportedPredicate(unprocessableExpression1(C_BIGINT));
