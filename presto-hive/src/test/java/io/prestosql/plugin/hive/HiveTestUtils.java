@@ -100,7 +100,7 @@ public final class HiveTestUtils
                 new ParquetWriterConfig());
     }
 
-    public static Set<HivePageSourceFactory> getDefaultHivePageSourceFactories(HiveConfig hiveConfig, HdfsEnvironment hdfsEnvironment)
+    public static Set<HivePageSourceFactory> getDefaultHivePageSourceFactories(HdfsEnvironment hdfsEnvironment)
     {
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
         return ImmutableSet.<HivePageSourceFactory>builder()
