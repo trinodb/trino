@@ -18,10 +18,7 @@ exec_in_hadoop_master_container sed -i \
 # create test table
 table_path="s3a://${S3_BUCKET}/presto_test_external_fs/"
 exec_in_hadoop_master_container hadoop fs -mkdir -p "${table_path}"
-exec_in_hadoop_master_container hadoop fs -copyFromLocal -f /docker/files/test1.csv "${table_path}"
-exec_in_hadoop_master_container hadoop fs -copyFromLocal -f /docker/files/test1.csv.gz "${table_path}"
-exec_in_hadoop_master_container hadoop fs -copyFromLocal -f /docker/files/test1.csv.lz4 "${table_path}"
-exec_in_hadoop_master_container hadoop fs -copyFromLocal -f /docker/files/test1.csv.bz2 "${table_path}"
+exec_in_hadoop_master_container /docker/files/hadoop-put.sh /docker/files/test1.csv{,.gz,.bz2,.lz4} "${table_path}"
 exec_in_hadoop_master_container /usr/bin/hive -e "CREATE EXTERNAL TABLE presto_test_external_fs(t_bigint bigint) LOCATION '${table_path}'"
 
 stop_unnecessary_hadoop_services
