@@ -20,14 +20,12 @@ import io.prestosql.testing.AbstractTestDistributedQueries;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
 
 import static io.prestosql.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 
-@Test
 public class TestMySqlDistributedQueries
         extends AbstractTestDistributedQueries
 {

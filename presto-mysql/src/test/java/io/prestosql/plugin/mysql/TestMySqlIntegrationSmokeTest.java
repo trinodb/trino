@@ -38,7 +38,6 @@ import static java.lang.String.format;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-@Test
 public class TestMySqlIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
