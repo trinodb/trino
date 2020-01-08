@@ -1409,7 +1409,8 @@ public final class MetadataManager
                 functionMetadata.isHidden(),
                 functionMetadata.isDeterministic(),
                 functionMetadata.getDescription(),
-                functionMetadata.getKind());
+                functionMetadata.getKind(),
+                functionMetadata.isDeprecated());
     }
 
     @Override
