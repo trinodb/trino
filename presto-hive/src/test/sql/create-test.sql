@@ -120,7 +120,7 @@ AS SELECT * FROM presto_test_unpartitioned
 
 DROP TABLE IF EXISTS tmp_presto_test_load;
 CREATE TABLE tmp_presto_test_load (word STRING) STORED AS TEXTFILE;
-LOAD DATA LOCAL INPATH '/usr/share/dict/words'
+LOAD DATA LOCAL INPATH '/docker/files/words'
 INTO TABLE tmp_presto_test_load
 ;
 

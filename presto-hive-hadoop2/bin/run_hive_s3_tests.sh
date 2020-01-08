@@ -8,7 +8,7 @@ cleanup_docker_containers
 start_docker_containers
 
 # insert AWS credentials
-exec_in_hadoop_master_container cp /etc/hadoop/conf/core-site.xml.s3-template /etc/hadoop/conf/core-site.xml
+exec_in_hadoop_master_container cp /docker/files/core-site.xml.s3-template /etc/hadoop/conf/core-site.xml
 exec_in_hadoop_master_container sed -i \
   -e "s|%AWS_ACCESS_KEY%|${AWS_ACCESS_KEY_ID}|g" \
   -e "s|%AWS_SECRET_KEY%|${AWS_SECRET_ACCESS_KEY}|g" \
@@ -18,10 +18,10 @@ exec_in_hadoop_master_container sed -i \
 # create test table
 table_path="s3a://${S3_BUCKET}/presto_test_external_fs/"
 exec_in_hadoop_master_container hadoop fs -mkdir -p "${table_path}"
-exec_in_hadoop_master_container hadoop fs -copyFromLocal -f /tmp/test1.csv "${table_path}"
-exec_in_hadoop_master_container hadoop fs -copyFromLocal -f /tmp/test1.csv.gz "${table_path}"
-exec_in_hadoop_master_container hadoop fs -copyFromLocal -f /tmp/test1.csv.lz4 "${table_path}"
-exec_in_hadoop_master_container hadoop fs -copyFromLocal -f /tmp/test1.csv.bz2 "${table_path}"
+exec_in_hadoop_master_container hadoop fs -copyFromLocal -f /docker/files/test1.csv "${table_path}"
+exec_in_hadoop_master_container hadoop fs -copyFromLocal -f /docker/files/test1.csv.gz "${table_path}"
+exec_in_hadoop_master_container hadoop fs -copyFromLocal -f /docker/files/test1.csv.lz4 "${table_path}"
+exec_in_hadoop_master_container hadoop fs -copyFromLocal -f /docker/files/test1.csv.bz2 "${table_path}"
 exec_in_hadoop_master_container /usr/bin/hive -e "CREATE EXTERNAL TABLE presto_test_external_fs(t_bigint bigint) LOCATION '${table_path}'"
 
 stop_unnecessary_hadoop_services
