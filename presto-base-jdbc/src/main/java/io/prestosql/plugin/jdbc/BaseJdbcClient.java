@@ -325,7 +325,7 @@ public class BaseJdbcClient
         return Optional.empty();
     }
 
-    private static Optional<ColumnMapping> mapToUnboundedVarchar(JdbcTypeHandle typeHandle)
+    protected static Optional<ColumnMapping> mapToUnboundedVarchar(JdbcTypeHandle typeHandle)
     {
         return Optional.of(ColumnMapping.sliceMapping(
                 createUnboundedVarcharType(),
