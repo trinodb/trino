@@ -27,7 +27,6 @@ import static io.prestosql.plugin.phoenix.PhoenixQueryRunner.createPhoenixQueryR
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
-@Test
 public class TestPhoenixIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {

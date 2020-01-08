@@ -37,7 +37,6 @@ import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-@Test
 public class TestJdbcClient
 {
     private static final ConnectorSession session = testSessionBuilder().build().toConnectorSession();

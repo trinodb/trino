@@ -17,11 +17,9 @@ import io.prestosql.testing.AbstractTestDistributedQueries;
 import io.prestosql.testing.QueryRunner;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
 
 import static io.prestosql.plugin.phoenix.PhoenixQueryRunner.createPhoenixQueryRunner;
 
-@Test
 public class TestPhoenixDistributedQueries
         extends AbstractTestDistributedQueries
 {

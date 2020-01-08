@@ -65,7 +65,6 @@ import static java.util.Collections.singletonList;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 
-@Test
 public class TestPhoenixSqlTypeMapping
         extends AbstractTestQueryFramework
 {
