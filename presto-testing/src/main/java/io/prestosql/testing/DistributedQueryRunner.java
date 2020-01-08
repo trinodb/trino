@@ -32,6 +32,7 @@ import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.SessionPropertyManager;
+import io.prestosql.metadata.SqlFunction;
 import io.prestosql.server.BasicQueryInfo;
 import io.prestosql.server.testing.TestingPrestoServer;
 import io.prestosql.spi.Plugin;
@@ -276,6 +277,12 @@ public class DistributedQueryRunner
             server.installPlugin(plugin);
         }
         log.info("Installed plugin %s in %s", plugin.getClass().getSimpleName(), nanosSince(start).convertToMostSuccinctTimeUnit());
+    }
+
+    @Override
+    public void addFunctions(List<? extends SqlFunction> functions)
+    {
+        servers.forEach(server -> server.getMetadata().addFunctions(functions));
     }
 
     public void createCatalog(String catalogName, String connectorName)

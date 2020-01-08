@@ -2314,7 +2314,7 @@ class StatementAnalyzer
                     scope,
                     analysis,
                     expression,
-                    WarningCollector.NOOP);
+                    warningCollector);
         }
 
         private List<Expression> descriptorToFields(Scope scope)

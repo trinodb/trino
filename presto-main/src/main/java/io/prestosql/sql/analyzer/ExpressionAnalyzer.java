@@ -21,6 +21,7 @@ import io.airlift.slice.SliceUtf8;
 import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
 import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.OperatorNotFoundException;
 import io.prestosql.metadata.QualifiedObjectName;
@@ -31,6 +32,7 @@ import io.prestosql.security.AccessControl;
 import io.prestosql.security.DenyAllAccessControl;
 import io.prestosql.spi.ErrorCodeSupplier;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.PrestoWarning;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalParseResult;
@@ -129,6 +131,7 @@ import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.TOO_MANY_ARGUMENTS;
 import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.prestosql.spi.StandardErrorCode.TYPE_NOT_FOUND;
+import static io.prestosql.spi.connector.StandardWarningCode.DEPRECATED_FUNCTION;
 import static io.prestosql.spi.function.OperatorType.SUBSCRIPT;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -943,6 +946,14 @@ public class ExpressionAnalyzer
                 }
             }
             resolvedFunctions.put(NodeRef.of(node), function);
+
+            FunctionMetadata functionMetadata = metadata.getFunctionMetadata(function);
+            if (functionMetadata.isDeprecated()) {
+                warningCollector.add(new PrestoWarning(DEPRECATED_FUNCTION,
+                        String.format("Use of deprecated function: %s: %s",
+                                functionMetadata.getSignature().getName(),
+                                functionMetadata.getDescription())));
+            }
 
             Type type = metadata.getType(signature.getReturnType());
             return setExpressionType(node, type);
