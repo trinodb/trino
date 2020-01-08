@@ -73,7 +73,6 @@ import static java.math.RoundingMode.UNNECESSARY;
 import static java.util.Arrays.asList;
 import static java.util.function.Function.identity;
 
-@Test
 public class TestMySqlTypeMapping
         extends AbstractTestQueryFramework
 {
