@@ -90,6 +90,7 @@ public class HiveConfig
     private boolean assumeCanonicalPartitionKeys;
 
     private boolean rcfileWriterValidate;
+    private boolean rcfileValidateFileSizeOnRead;
 
     private boolean skipDeletionForAlter;
     private boolean skipTargetCleanupOnRollback;
@@ -510,6 +511,19 @@ public class HiveConfig
     public HiveConfig setRcfileWriterValidate(boolean rcfileWriterValidate)
     {
         this.rcfileWriterValidate = rcfileWriterValidate;
+        return this;
+    }
+
+    public boolean isRcfileValidateFileSizeOnRead()
+    {
+        return rcfileValidateFileSizeOnRead;
+    }
+
+    @Config("hive.rcfile.validate-file-size-on-read")
+    @ConfigDescription("Recheck RCFile file size on open to handle encrypted files")
+    public HiveConfig setRcfileValidateFileSizeOnRead(boolean rcfileValidateFileSizeOnRead)
+    {
+        this.rcfileValidateFileSizeOnRead = rcfileValidateFileSizeOnRead;
         return this;
     }
 

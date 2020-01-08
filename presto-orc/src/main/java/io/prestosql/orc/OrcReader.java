@@ -17,6 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.prestosql.memory.context.AggregatedMemoryContext;
 import io.prestosql.orc.metadata.ColumnMetadata;
@@ -83,12 +84,19 @@ public class OrcReader
     public OrcReader(OrcDataSource orcDataSource, OrcReaderOptions options)
             throws IOException
     {
-        this(orcDataSource, options, Optional.empty());
+        this(orcDataSource, options, Slices.EMPTY_SLICE, Optional.empty());
+    }
+
+    public OrcReader(OrcDataSource orcDataSource, OrcReaderOptions options, Slice tailSlice)
+            throws IOException
+    {
+        this(orcDataSource, options, tailSlice, Optional.empty());
     }
 
     private OrcReader(
             OrcDataSource orcDataSource,
             OrcReaderOptions options,
+            Slice tailSlice,
             Optional<OrcWriteValidation> writeValidation)
             throws IOException
     {
@@ -114,8 +122,7 @@ public class OrcReader
         }
 
         // Read the tail of the file
-        int expectedBufferSize = toIntExact(min(size, EXPECTED_FOOTER_SIZE));
-        Slice buffer = orcDataSource.readFully(size - expectedBufferSize, expectedBufferSize);
+        Slice buffer = ensureTailSliceSize(orcDataSource, tailSlice, initialFooterReadSize(size));
 
         // get length of PostScript - last byte of the file
         int postScriptSize = buffer.getUnsignedByte(buffer.length() - SIZE_OF_BYTE);
@@ -153,16 +160,9 @@ public class OrcReader
         int metadataSize = toIntExact(postScript.getMetadataLength());
 
         // check if extra bytes need to be read
-        Slice completeFooterSlice;
         int completeFooterSize = footerSize + metadataSize + postScriptSize + SIZE_OF_BYTE;
-        if (completeFooterSize > buffer.length()) {
-            // initial read was not large enough, so just read again with the correct size
-            completeFooterSlice = orcDataSource.readFully(size - completeFooterSize, completeFooterSize);
-        }
-        else {
-            // footer is already in the bytes in buffer, just adjust position, length
-            completeFooterSlice = buffer.slice(buffer.length() - completeFooterSize, completeFooterSize);
-        }
+        buffer = ensureTailSliceSize(orcDataSource, buffer, completeFooterSize);
+        Slice completeFooterSlice = buffer.slice(buffer.length() - completeFooterSize, completeFooterSize);
 
         // read metadata
         Slice metadataSlice = completeFooterSlice.slice(0, metadataSize);
@@ -279,6 +279,25 @@ public class OrcReader
                 exceptionTransform);
     }
 
+    private static Slice ensureTailSliceSize(OrcDataSource orcDataSource, Slice tailSlice, int newSize)
+            throws IOException
+    {
+        int bytesToRead = newSize - tailSlice.length();
+        if (bytesToRead <= 0) {
+            return tailSlice;
+        }
+        Slice prefix = orcDataSource.readFully(orcDataSource.getSize() - newSize, bytesToRead);
+        Slice result = Slices.allocate(newSize);
+        result.setBytes(0, prefix);
+        result.setBytes(bytesToRead, tailSlice);
+        return result;
+    }
+
+    public static int initialFooterReadSize(long fileSize)
+    {
+        return toIntExact(min(fileSize, EXPECTED_FOOTER_SIZE));
+    }
+
     private static OrcDataSource wrapWithCacheIfTiny(OrcDataSource dataSource, DataSize maxCacheSize)
     {
         if (dataSource instanceof CachingOrcDataSource) {
@@ -373,7 +392,7 @@ public class OrcReader
             throws OrcCorruptionException
     {
         try {
-            OrcReader orcReader = new OrcReader(input, new OrcReaderOptions(), Optional.of(writeValidation));
+            OrcReader orcReader = new OrcReader(input, new OrcReaderOptions(), Slices.EMPTY_SLICE, Optional.of(writeValidation));
             try (OrcRecordReader orcRecordReader = orcReader.createRecordReader(
                     orcReader.getRootColumn().getNestedColumns(),
                     readTypes,

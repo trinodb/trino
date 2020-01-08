@@ -15,6 +15,7 @@ package io.prestosql.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slice;
 import io.prestosql.memory.context.AggregatedMemoryContext;
 import io.prestosql.orc.OrcColumn;
 import io.prestosql.orc.OrcDataSource;
@@ -29,6 +30,7 @@ import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HivePageSourceFactory;
 import io.prestosql.plugin.hive.orc.OrcPageSource.ColumnAdaptation;
+import io.prestosql.plugin.hive.util.FSDataInputStreamTail;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -75,6 +77,7 @@ import static io.prestosql.plugin.hive.HiveSessionProperties.isOrcNestedLazy;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isUseOrcColumnNames;
 import static io.prestosql.plugin.hive.orc.OrcPageSource.handleException;
 import static io.prestosql.plugin.hive.util.HiveUtil.isDeserializerClass;
+import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -149,7 +152,8 @@ public class OrcPageSourceFactory
                 stats));
     }
 
-    private static OrcPageSource createOrcPageSource(
+    // Empty files may still return a FixedPageSource, return type can't be OrcPageSource
+    private static ConnectorPageSource createOrcPageSource(
             HdfsEnvironment hdfsEnvironment,
             String sessionUser,
             Configuration configuration,
@@ -170,9 +174,24 @@ public class OrcPageSourceFactory
         checkArgument(!effectivePredicate.isNone());
 
         OrcDataSource orcDataSource;
+        Slice tailSlice;
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(sessionUser, path, configuration);
             FSDataInputStream inputStream = hdfsEnvironment.doAs(sessionUser, () -> fileSystem.open(path));
+            //  Handle potentially imprecise file lengths by reading the footer
+            FSDataInputStreamTail fileTail = FSDataInputStreamTail.readTail(path, fileSize, inputStream, OrcReader.initialFooterReadSize(fileSize));
+            // Correct file size based on reading to the end of stream
+            fileSize = fileTail.getFileSize();
+            length = min(fileSize - start, length);
+            // Split may be empty now that the correct file size is known
+            if (length <= 0) {
+                inputStream.close();
+                return new FixedPageSource(ImmutableList.of());
+            }
+            //  Replace the input stream with the buffered result if it contains the complete file contents
+            inputStream = fileTail.replaceStreamWithContentsIfComplete(inputStream);
+            tailSlice = fileTail.getTailSlice();
+
             orcDataSource = new HdfsOrcDataSource(
                     new OrcDataSourceId(path.toString()),
                     fileSize,
@@ -190,7 +209,7 @@ public class OrcPageSourceFactory
 
         AggregatedMemoryContext systemMemoryUsage = newSimpleAggregatedMemoryContext();
         try {
-            OrcReader reader = new OrcReader(orcDataSource, options);
+            OrcReader reader = new OrcReader(orcDataSource, options, tailSlice);
 
             if (useOrcColumnNames) {
                 verifyFileHasColumnNames(reader.getColumnNames(), path);

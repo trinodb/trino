@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.hive.rcfile;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -32,6 +33,7 @@ import io.prestosql.rcfile.text.TextRcFileEncoding;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.FixedPageSource;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
@@ -57,9 +59,11 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_MISSING_DATA;
+import static io.prestosql.plugin.hive.HiveSessionProperties.isRcfileValidateFileSizeOnRead;
 import static io.prestosql.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static io.prestosql.rcfile.text.TextRcFileEncoding.DEFAULT_NULL_SEQUENCE;
 import static io.prestosql.rcfile.text.TextRcFileEncoding.DEFAULT_SEPARATORS;
+import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.serde.serdeConstants.COLLECTION_DELIM;
@@ -122,6 +126,15 @@ public class RcFilePageSourceFactory
         FSDataInputStream inputStream;
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getUser(), path, configuration);
+            // Check file size to allow support client side encrypted files that only report encrypted size during split generation
+            if (isRcfileValidateFileSizeOnRead(session)) {
+                fileSize = hdfsEnvironment.doAs(session.getUser(), () -> fileSystem.getFileStatus(path).getLen());
+                length = min(fileSize - start, length);
+                // Split may be empty now that the correct file size is known
+                if (length <= 0) {
+                    return Optional.of(new FixedPageSource(ImmutableList.of()));
+                }
+            }
             inputStream = hdfsEnvironment.doAs(session.getUser(), () -> fileSystem.open(path));
         }
         catch (Exception e) {

@@ -13,8 +13,10 @@
  */
 package io.prestosql.parquet.reader;
 
+import com.google.common.primitives.Ints;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.parquet.CorruptStatistics;
 import org.apache.parquet.column.statistics.BinaryStatistics;
@@ -42,7 +44,6 @@ import org.apache.parquet.schema.Type.Repetition;
 import org.apache.parquet.schema.Types;
 
 import java.io.ByteArrayInputStream;
-import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -57,7 +58,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.parquet.ParquetValidationUtils.validateParquet;
+import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static org.apache.parquet.format.Util.readFileMetaData;
 
@@ -66,20 +70,37 @@ public final class MetadataReader
     private static final int PARQUET_METADATA_LENGTH = 4;
     private static final byte[] MAGIC = "PAR1".getBytes(US_ASCII);
     private static final ParquetMetadataConverter PARQUET_METADATA_CONVERTER = new ParquetMetadataConverter();
+    //  Size of a no-data, no metadata empty parquet file
+    private static final int MINIMUM_VALID_PARQUET_FILE_SIZE = MAGIC.length + PARQUET_METADATA_LENGTH + MAGIC.length;
+    //  Prefetch at most this much data from the end of the file
+    private static final int PARQUET_FOOTER_INITIAL_PREFETCH_LENGTH = 8 * 1024;
 
     private MetadataReader() {}
 
-    public static ParquetMetadata readFooter(FileSystem fileSystem, Path file, long fileSize)
+    public static int footerInitialPrefetchLength(Path file, long fileSize)
             throws IOException
     {
-        try (FSDataInputStream inputStream = fileSystem.open(file)) {
-            return readFooter(inputStream, file, fileSize);
-        }
+        validateParquet(fileSize >= MINIMUM_VALID_PARQUET_FILE_SIZE, "%s is not a valid Parquet File", file);
+        return toIntExact(min(fileSize, PARQUET_FOOTER_INITIAL_PREFETCH_LENGTH));
     }
 
-    public static ParquetMetadata readFooter(FSDataInputStream inputStream, Path file, long fileSize)
+    private static Slice ensureTailSliceSize(FSDataInputStream inputStream, long fileSize, Slice tailSlice, int newSize)
             throws IOException
+    {
+        if (tailSlice.length() >= newSize) {
+            return tailSlice;
+        }
+        checkArgument(newSize <= fileSize, "newSize %s is larger than file size %s", newSize, fileSize);
+        byte[] buffer = new byte[newSize - tailSlice.length()];
+        inputStream.readFully(fileSize - newSize, buffer);
+        Slice result = Slices.allocate(newSize);
+        result.setBytes(0, buffer);
+        result.setBytes(buffer.length, tailSlice);
+        return result;
+    }
 
+    private static InputStream readFooterToMetadataStream(FSDataInputStream inputStream, Path file, long fileSize, Slice tailSlice)
+            throws IOException
     {
         // Parquet File Layout:
         //
@@ -89,23 +110,31 @@ public final class MetadataReader
         // 4 bytes: MetadataLength
         // MAGIC
 
-        validateParquet(fileSize >= MAGIC.length + PARQUET_METADATA_LENGTH + MAGIC.length, "%s is not a valid Parquet File", file);
-        long metadataLengthIndex = fileSize - PARQUET_METADATA_LENGTH - MAGIC.length;
+        validateParquet(fileSize >= MINIMUM_VALID_PARQUET_FILE_SIZE, "%s is not a valid Parquet File", file);
+        // Ensure the tail has enough data for length and magic section
+        tailSlice = ensureTailSliceSize(inputStream, fileSize, tailSlice, MAGIC.length + PARQUET_METADATA_LENGTH);
 
-        InputStream footerStream = readFully(inputStream, metadataLengthIndex, PARQUET_METADATA_LENGTH + MAGIC.length);
-        int metadataLength = readIntLittleEndian(footerStream);
-
-        byte[] magic = new byte[MAGIC.length];
-        footerStream.read(magic);
+        byte[] magic = tailSlice.getBytes(tailSlice.length() - MAGIC.length, MAGIC.length);
         validateParquet(Arrays.equals(MAGIC, magic), "Not valid Parquet file: %s expected magic number: %s got: %s", file, Arrays.toString(MAGIC), Arrays.toString(magic));
 
-        long metadataIndex = metadataLengthIndex - metadataLength;
-        validateParquet(
-                metadataIndex >= MAGIC.length && metadataIndex < metadataLengthIndex,
+        int metadataLength = bytesAsLittleEndianInt(tailSlice.getBytes(tailSlice.length() - (PARQUET_METADATA_LENGTH + MAGIC.length), PARQUET_METADATA_LENGTH));
+        int combinedTrailerSize = metadataLength + MAGIC.length + PARQUET_METADATA_LENGTH;
+        long metadataFileOffset = fileSize - combinedTrailerSize;
+        validateParquet(metadataFileOffset >= MAGIC.length && metadataFileOffset + MINIMUM_VALID_PARQUET_FILE_SIZE < fileSize,
                 "Corrupted Parquet file: %s metadata index: %s out of range",
                 file,
-                metadataIndex);
-        InputStream metadataStream = readFully(inputStream, metadataIndex, metadataLength);
+                metadataFileOffset);
+
+        // Read any metadata bytes not already in the slice buffer
+        tailSlice = ensureTailSliceSize(inputStream, fileSize, tailSlice, combinedTrailerSize);
+
+        return new ByteArrayInputStream(tailSlice.getBytes(tailSlice.length() - combinedTrailerSize, metadataLength));
+    }
+
+    public static ParquetMetadata readFooter(FSDataInputStream inputStream, Path file, long fileSize, Slice tailSlice)
+            throws IOException
+    {
+        InputStream metadataStream = readFooterToMetadataStream(inputStream, file, fileSize, tailSlice);
         FileMetaData fileMetaData = readFileMetaData(metadataStream);
         List<SchemaElement> schema = fileMetaData.getSchema();
         validateParquet(!schema.isEmpty(), "Empty Parquet schema in file: %s", file);
@@ -345,24 +374,9 @@ public final class MetadataReader
         }
     }
 
-    private static int readIntLittleEndian(InputStream in)
-            throws IOException
+    private static int bytesAsLittleEndianInt(byte[] buffer)
     {
-        int ch1 = in.read();
-        int ch2 = in.read();
-        int ch3 = in.read();
-        int ch4 = in.read();
-        if ((ch1 | ch2 | ch3 | ch4) < 0) {
-            throw new EOFException();
-        }
-        return ((ch4 << 24) + (ch3 << 16) + (ch2 << 8) + (ch1));
-    }
-
-    private static InputStream readFully(FSDataInputStream from, long position, int length)
-            throws IOException
-    {
-        byte[] buffer = new byte[length];
-        from.readFully(position, buffer);
-        return new ByteArrayInputStream(buffer);
+        checkArgument(buffer.length == 4, "buffer must be 4 bytes long");
+        return Ints.fromBytes(buffer[3], buffer[2], buffer[1], buffer[0]);
     }
 }

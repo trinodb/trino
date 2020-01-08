@@ -76,6 +76,7 @@ public final class HiveSessionProperties
     private static final String MAX_SPLIT_SIZE = "max_split_size";
     private static final String MAX_INITIAL_SPLIT_SIZE = "max_initial_split_size";
     private static final String RCFILE_OPTIMIZED_WRITER_VALIDATE = "rcfile_optimized_writer_validate";
+    private static final String RCFILE_VALIDATE_FILE_SIZE_ON_READ = "rcfile_validate_file_size_on_read";
     private static final String SORTED_WRITING_ENABLED = "sorted_writing_enabled";
     private static final String STATISTICS_ENABLED = "statistics_enabled";
     private static final String PARTITION_STATISTICS_SAMPLE_SIZE = "partition_statistics_sample_size";
@@ -293,6 +294,11 @@ public final class HiveSessionProperties
                         RCFILE_OPTIMIZED_WRITER_VALIDATE,
                         "RCFile: Validate writer files",
                         hiveConfig.isRcfileWriterValidate(),
+                        false),
+                booleanProperty(
+                        RCFILE_VALIDATE_FILE_SIZE_ON_READ,
+                        "RCFile: Validate PageSource reported file size to handle client side encrypted files",
+                        hiveConfig.isRcfileValidateFileSizeOnRead(),
                         false),
                 booleanProperty(
                         SORTED_WRITING_ENABLED,
@@ -516,6 +522,11 @@ public final class HiveSessionProperties
     public static boolean isRcfileOptimizedWriterValidate(ConnectorSession session)
     {
         return session.getProperty(RCFILE_OPTIMIZED_WRITER_VALIDATE, Boolean.class);
+    }
+
+    public static boolean isRcfileValidateFileSizeOnRead(ConnectorSession session)
+    {
+        return session.getProperty(RCFILE_VALIDATE_FILE_SIZE_ON_READ, Boolean.class);
     }
 
     public static boolean isSortedWritingEnabled(ConnectorSession session)

@@ -30,9 +30,11 @@ import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HivePageSourceFactory;
+import io.prestosql.plugin.hive.util.FSDataInputStreamTail;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.FixedPageSource;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
@@ -52,8 +54,8 @@ import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
+import java.io.Closeable;
 import java.io.FileNotFoundException;
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -81,6 +83,7 @@ import static io.prestosql.plugin.hive.HiveSessionProperties.isUseParquetColumnN
 import static io.prestosql.plugin.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
 import static io.prestosql.plugin.hive.parquet.ParquetColumnIOConverter.constructField;
 import static io.prestosql.plugin.hive.util.HiveUtil.getDeserializerClassName;
+import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category.PRIMITIVE;
@@ -143,7 +146,7 @@ public class ParquetPageSourceFactory
                 stats));
     }
 
-    private static ParquetPageSource createParquetPageSource(
+    private static ConnectorPageSource createParquetPageSource(
             HdfsEnvironment hdfsEnvironment,
             String user,
             Configuration configuration,
@@ -164,10 +167,24 @@ public class ParquetPageSourceFactory
         AggregatedMemoryContext systemMemoryContext = newSimpleAggregatedMemoryContext();
 
         ParquetDataSource dataSource = null;
+        FSDataInputStream inputStream = null;
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(user, path, configuration);
-            FSDataInputStream inputStream = hdfsEnvironment.doAs(user, () -> fileSystem.open(path));
-            ParquetMetadata parquetMetadata = MetadataReader.readFooter(inputStream, path, fileSize);
+            inputStream = hdfsEnvironment.doAs(user, () -> fileSystem.open(path));
+            //  Handle potentially imprecise file lengths by reading the footer
+            FSDataInputStreamTail fileTail = FSDataInputStreamTail.readTail(path, fileSize, inputStream, MetadataReader.footerInitialPrefetchLength(path, fileSize));
+            // Correct the known value of file size based on the read
+            fileSize = fileTail.getFileSize();
+            length = min(length, fileSize - start);
+            // Split may be empty now that the correct file size is known
+            if (length <= 0) {
+                inputStream.close();
+                return new FixedPageSource(ImmutableList.of());
+            }
+            //  Replace the input stream with the buffered result if it contains the complete file contents
+            inputStream = fileTail.replaceStreamWithContentsIfComplete(inputStream);
+
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(inputStream, path, fileSize, fileTail.getTailSlice());
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
             dataSource = buildHdfsParquetDataSource(inputStream, path, fileSize, stats, options);
@@ -227,13 +244,8 @@ public class ParquetPageSourceFactory
             return new ParquetPageSource(parquetReader, prestoTypes.build(), internalFields.build());
         }
         catch (Exception e) {
-            try {
-                if (dataSource != null) {
-                    dataSource.close();
-                }
-            }
-            catch (IOException ignored) {
-            }
+            closeWithSuppressionIfPresent(inputStream, e);
+            closeWithSuppressionIfPresent(dataSource, e);
             if (e instanceof PrestoException) {
                 throw (PrestoException) e;
             }
@@ -249,6 +261,21 @@ public class ParquetPageSourceFactory
                 throw new PrestoException(HIVE_MISSING_DATA, message, e);
             }
             throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, message, e);
+        }
+    }
+
+    private static void closeWithSuppressionIfPresent(Closeable closable, Exception e)
+    {
+        try {
+            if (closable != null) {
+                closable.close();
+            }
+        }
+        catch (Exception suppressed) {
+            // Self suppression not allowed
+            if (e != suppressed) {
+                e.addSuppressed(suppressed);
+            }
         }
     }
 

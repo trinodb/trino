@@ -29,6 +29,7 @@ import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.parquet.ParquetPageSource;
 import io.prestosql.plugin.hive.parquet.ParquetReaderConfig;
+import io.prestosql.plugin.hive.util.FSDataInputStreamTail;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSource;
@@ -43,7 +44,6 @@ import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.BlockMissingException;
@@ -157,11 +157,17 @@ public class IcebergPageSourceProvider
         ParquetDataSource dataSource = null;
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(user, path, configuration);
-            FileStatus fileStatus = fileSystem.getFileStatus(path);
-            long fileSize = fileStatus.getLen();
+            // TODO: include the file size from the metadata in the split
+            long fileSize = fileSystem.getFileStatus(path).getLen();
             FSDataInputStream inputStream = hdfsEnvironment.doAs(user, () -> fileSystem.open(path));
+
+            //  Handle potentially imprecise file lengths by reading the footer
+            FSDataInputStreamTail fileTail = FSDataInputStreamTail.readTail(path, fileSize, inputStream, MetadataReader.footerInitialPrefetchLength(path, fileSize));
+            fileSize = fileTail.getFileSize();
+            inputStream = fileTail.replaceStreamWithContentsIfComplete(inputStream);
+
             dataSource = buildHdfsParquetDataSource(inputStream, path, fileSize, fileFormatDataSourceStats, options);
-            ParquetMetadata parquetMetadata = MetadataReader.readFooter(fileSystem, path, fileSize);
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(inputStream, path, fileSize, fileTail.getTailSlice());
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
 
