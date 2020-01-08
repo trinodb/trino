@@ -22,6 +22,7 @@ exec_in_hadoop_master_container hadoop fs -mkdir -p "${table_path}"
 exec_in_hadoop_master_container /docker/files/hadoop-put.sh /docker/files/test1.csv{,.gz,.bz2,.lz4} "${table_path}"
 exec_in_hadoop_master_container sudo -Eu hive beeline -u jdbc:hive2://localhost:10000/default -n hive -e "
     CREATE EXTERNAL TABLE presto_test_external_fs(t_bigint bigint)
+    STORED AS TEXTFILE
     LOCATION '${table_path}'"
 
 stop_unnecessary_hadoop_services
