@@ -1283,6 +1283,29 @@ public class TestLogicalPlanner
                                                                                 node(TableScanNode.class))))))))));
     }
 
+    @Test
+    public void testRemoveRedundantCrossJoin()
+    {
+        assertPlan("SELECT regionkey from nation, (SELECT 1 as a) temp WHERE regionkey = temp.a",
+                output(
+                        filter("REGIONKEY = BIGINT '1'",
+                                tableScan("nation", ImmutableMap.of("REGIONKEY", "regionkey")))));
+
+        assertPlan("SELECT regionkey from (SELECT 1 as a) temp, nation WHERE regionkey > temp.a",
+                output(
+                        filter("REGIONKEY > BIGINT '1'",
+                                tableScan("nation", ImmutableMap.of("REGIONKEY", "regionkey")))));
+
+        //TODO (https://github.com/prestosql/presto/issues/2480) Inline constants
+        assertPlan("SELECT * from nation, (SELECT 1 as a) temp WHERE regionkey = a",
+                output(
+                        node(JoinNode.class,
+                                filter("REGIONKEY = BIGINT '1'",
+                                        tableScan("nation", ImmutableMap.of("REGIONKEY", "regionkey"))),
+                                node(ProjectNode.class,
+                                        values(ImmutableMap.of())))));
+    }
+
     private Session noJoinReordering()
     {
         return Session.builder(getQueryRunner().getDefaultSession())

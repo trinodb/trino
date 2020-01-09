@@ -104,6 +104,7 @@ import io.prestosql.sql.planner.iterative.rule.RemoveAggregationInSemiJoin;
 import io.prestosql.sql.planner.iterative.rule.RemoveDuplicateConditions;
 import io.prestosql.sql.planner.iterative.rule.RemoveEmptyDelete;
 import io.prestosql.sql.planner.iterative.rule.RemoveFullSample;
+import io.prestosql.sql.planner.iterative.rule.RemoveRedundantCrossJoin;
 import io.prestosql.sql.planner.iterative.rule.RemoveRedundantDistinctLimit;
 import io.prestosql.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import io.prestosql.sql.planner.iterative.rule.RemoveRedundantLimit;
@@ -326,6 +327,7 @@ public class PlanOptimizers
                                         new RemoveRedundantSort(),
                                         new RemoveRedundantTopN(),
                                         new RemoveRedundantDistinctLimit(),
+                                        new RemoveRedundantCrossJoin(),
                                         new ImplementFilteredAggregations(metadata),
                                         new SingleDistinctAggregationToGroupBy(),
                                         new MultipleDistinctAggregationToMarkDistinct(),
@@ -428,7 +430,8 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(
                                 new RemoveRedundantIdentityProjections(),
-                                new PushAggregationThroughOuterJoin())),
+                                new PushAggregationThroughOuterJoin(),
+                                new RemoveRedundantCrossJoin())), // Run this after PredicatePushDown optimizer as it inlines filter constants
                 inlineProjections,
                 simplifyOptimizer, // Re-run the SimplifyExpressions to simplify any recomposed expressions from other optimizations
                 projectionPushDown,
