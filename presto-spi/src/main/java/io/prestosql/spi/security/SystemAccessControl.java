@@ -37,6 +37,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyDropSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropView;
 import static io.prestosql.spi.security.AccessDeniedException.denyGrantTablePrivilege;
+import static io.prestosql.spi.security.AccessDeniedException.denyImpersonateUser;
 import static io.prestosql.spi.security.AccessDeniedException.denyInsertTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameSchema;
@@ -44,6 +45,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyRenameTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denySelectColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static io.prestosql.spi.security.AccessDeniedException.denySetUser;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowColumnsMetadata;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowRoles;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowSchemas;
@@ -52,11 +54,26 @@ import static io.prestosql.spi.security.AccessDeniedException.denyShowTablesMeta
 public interface SystemAccessControl
 {
     /**
-     * Check if the principal is allowed to be the specified user.
+     * Check if the identity is allowed impersonate the specified user.
      *
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanSetUser(Optional<Principal> principal, String userName);
+    default void canImpersonateUser(SystemSecurityContext context, String userName)
+    {
+        denyImpersonateUser(context.getIdentity().getUser(), userName);
+    }
+
+    /**
+     * Check if the principal is allowed to be the specified user.
+     *
+     * @throws AccessDeniedException if not allowed
+     * @deprecated use user extraction and {@link #canImpersonateUser} instead
+     */
+    @Deprecated
+    default void checkCanSetUser(Optional<Principal> principal, String userName)
+    {
+        denySetUser(principal, userName);
+    }
 
     /**
      * Check if identity is allowed to set the specified system property.

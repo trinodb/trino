@@ -58,6 +58,11 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void canImpersonateUser(SystemSecurityContext context, String userName)
+    {
+    }
+
+    @Override
     public void checkCanSetUser(Optional<Principal> principal, String userName)
     {
     }
