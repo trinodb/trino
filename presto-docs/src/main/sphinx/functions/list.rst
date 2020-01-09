@@ -294,9 +294,11 @@ R
 - :func:`rank`
 - :func:`reduce`
 - :func:`reduce_agg`
+- :func:`regexp_count`
 - :func:`regexp_extract`
 - :func:`regexp_extract_all`
 - :func:`regexp_like`
+- :func:`regexp_position`
 - :func:`regexp_replace`
 - :func:`regexp_split`
 - :func:`regr_intercept`

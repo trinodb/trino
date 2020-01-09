@@ -89,24 +89,28 @@ with a few notable exceptions:
         SELECT regexp_like('1a 2b 14m', '\d+b'); -- true
 
 .. function:: regexp_position(string, pattern) -> integer
+
     Returns the index of the first occurrence (counting from 1) of ``pattern`` in ``string``.
     Returns -1 if not found::
 
-        SELECT regexp_position('9102, say good bye', '\s*[a-z]+\s*'); -- 6
+        SELECT regexp_position('I have 23 apples, 5 pears and 13 oranges', '\b\d+\b'); -- 8
 
 .. function:: regexp_position(string, pattern, start) -> integer
 
     Returns the index of the first occurrence of ``pattern`` in ``string``,
     starting from ``start`` (include ``start``). Returns -1 if not found::
 
-        SELECT regexp_position('natasha, 9102, miss you', '\s*[a-z]+\s*', 10); -- 15
+        SELECT regexp_position('I have 23 apples, 5 pears and 13 oranges', '\b\d+\b', 5); -- 8
+        SELECT regexp_position('I have 23 apples, 5 pears and 13 oranges', '\b\d+\b', 12); -- 19
 
 .. function:: regexp_position(string, pattern, start, occurrence) -> integer
 
-    Returns the index of the ``occurrence``-th occurrence of ``pattern`` in ``string``,
+    Returns the index of the nth ``occurrence`` of ``pattern`` in ``string``,
     starting from ``start`` (include ``start``). Returns -1 if not found::
 
-        SELECT regexp_position('natasha, 9102, miss you', '\\s', 10, 2); -- 20
+        SELECT regexp_position('I have 23 apples, 5 pears and 13 oranges', '\b\d+\b', 12, 1); -- 19
+        SELECT regexp_position('I have 23 apples, 5 pears and 13 oranges', '\b\d+\b', 12, 2); -- 31
+        SELECT regexp_position('I have 23 apples, 5 pears and 13 oranges', '\b\d+\b', 12, 3); -- -1
 
 .. function:: regexp_replace(string, pattern) -> varchar
 
