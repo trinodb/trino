@@ -847,7 +847,7 @@ public abstract class AbstractTestParquetReader
         for (int precision = 1; precision <= MAX_PRECISION_INT32; precision++) {
             int scale = ThreadLocalRandom.current().nextInt(precision);
             MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT32 test (DECIMAL(%d, %d)); }", precision, scale));
-            ContiguousSet<Integer> intValues = intsBetween(1, 1_000);
+            ContiguousSet<Integer> intValues = intsBetween(-1_000, 1_000);
             ImmutableList.Builder<SqlDecimal> expectedValues = new ImmutableList.Builder<>();
             for (Integer value : intValues) {
                 expectedValues.add(SqlDecimal.of(value, precision, scale));
@@ -864,7 +864,7 @@ public abstract class AbstractTestParquetReader
         for (int precision = 1; precision <= MAX_PRECISION_INT64; precision++) {
             int scale = ThreadLocalRandom.current().nextInt(precision);
             MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT64 test (DECIMAL(%d, %d)); }", precision, scale));
-            ContiguousSet<Long> longValues = longsBetween(1, 1_000);
+            ContiguousSet<Long> longValues = longsBetween(-1_000, 1_000);
             ImmutableList.Builder<SqlDecimal> expectedValues = new ImmutableList.Builder<>();
             for (Long value : longValues) {
                 expectedValues.add(SqlDecimal.of(value, precision, scale));
@@ -890,7 +890,7 @@ public abstract class AbstractTestParquetReader
     {
         for (int precision = 1; precision < MAX_PRECISION; precision++) {
             int scale = ThreadLocalRandom.current().nextInt(precision);
-            ContiguousSet<BigInteger> values = bigIntegersBetween(BigDecimal.valueOf(Math.pow(10, precision - 1)).toBigInteger(), BigDecimal.valueOf(Math.pow(10, precision)).toBigInteger());
+            ContiguousSet<BigInteger> values = bigIntegersBetween(BigDecimal.valueOf(Math.pow(10, precision - 1)).negate().toBigInteger(), BigDecimal.valueOf(Math.pow(10, precision)).toBigInteger());
             ImmutableList.Builder<SqlDecimal> expectedValues = new ImmutableList.Builder<>();
             ImmutableList.Builder<HiveDecimal> writeValues = new ImmutableList.Builder<>();
             for (BigInteger value : limit(values, 1_000)) {
