@@ -47,4 +47,16 @@
         <version>1.1</version>
         <comment>Prefer new Configuration(false)</comment>
     </violation>
+
+    <violation>
+        <name>com/esri/core/geometry/ogc/OGCGeometry.equals:(Lcom/esri/core/geometry/ogc/OGCGeometry;)Z</name>
+        <version>1.6</version>
+        <comment>Prefer OGCGeometry.Equals(OGCGeometry)</comment>
+    </violation>
+
+    <violation>
+        <name>com/esri/core/geometry/ogc/OGCGeometry.equals:(Ljava/lang/Object;)Z</name>
+        <version>1.6</version>
+        <comment>Prefer OGCGeometry.Equals(OGCGeometry)</comment>
+    </violation>
 </modernizer>
