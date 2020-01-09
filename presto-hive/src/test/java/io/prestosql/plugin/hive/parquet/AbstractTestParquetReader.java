@@ -909,6 +909,19 @@ public abstract class AbstractTestParquetReader
     }
 
     @Test
+    public void testParquetLongDecimalWriteToPrestoDecimalWithNonMatchingScale()
+    {
+        assertThatThrownBy(() ->
+                tester.testRoundTrip(
+                        new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(38, 10)),
+                        ImmutableList.of(HiveDecimal.create(0)),
+                        ImmutableList.of(new SqlDecimal(BigInteger.ZERO, 38, 10)),
+                        createDecimalType(38, 9)))
+                .hasMessage("Presto decimal column type has different scale (9) than Parquet decimal column (10)")
+                .isInstanceOf(ParquetDecodingException.class);
+    }
+
+    @Test
     public void testParquetShortDecimalWriteToPrestoTinyintBlock()
             throws Exception
     {
