@@ -45,6 +45,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyDropColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropView;
+import static io.prestosql.spi.security.AccessDeniedException.denyImpersonateUser;
 import static io.prestosql.spi.security.AccessDeniedException.denyInsertTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameSchema;
@@ -66,6 +67,7 @@ import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeT
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_SCHEMA;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_TABLE;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_VIEW;
+import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.IMPERSONATE_USER;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.INSERT_TABLE;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.RENAME_COLUMN;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.RENAME_SCHEMA;
@@ -110,6 +112,18 @@ public class TestingAccessControlManager
     }
 
     @Override
+    public void canImpersonateUser(Identity identity, String userName)
+    {
+        if (shouldDenyPrivilege(userName, userName, IMPERSONATE_USER)) {
+            denyImpersonateUser(identity.getUser(), userName);
+        }
+        if (denyPrivileges.isEmpty()) {
+            super.canImpersonateUser(identity, userName);
+        }
+    }
+
+    @Override
+    @Deprecated
     public void checkCanSetUser(Optional<Principal> principal, String userName)
     {
         if (shouldDenyPrivilege(userName, userName, SET_USER)) {
@@ -352,7 +366,7 @@ public class TestingAccessControlManager
 
     public enum TestingPrivilegeType
     {
-        SET_USER,
+        SET_USER, IMPERSONATE_USER,
         CREATE_SCHEMA, DROP_SCHEMA, RENAME_SCHEMA,
         CREATE_TABLE, DROP_TABLE, RENAME_TABLE, COMMENT_TABLE, INSERT_TABLE, DELETE_TABLE, SHOW_COLUMNS,
         ADD_COLUMN, DROP_COLUMN, RENAME_COLUMN, SELECT_COLUMN,

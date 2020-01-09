@@ -31,6 +31,16 @@ public class AccessDeniedException
         super(PERMISSION_DENIED, "Access Denied: " + message);
     }
 
+    public static void denyImpersonateUser(String originalUser, String newUser)
+    {
+        denyImpersonateUser(originalUser, newUser, null);
+    }
+
+    public static void denyImpersonateUser(String originalUser, String newUser, String extraInfo)
+    {
+        throw new AccessDeniedException(format("User %s cannot impersonate user %s%s", originalUser, newUser, formatExtraInfo(extraInfo)));
+    }
+
     public static void denySetUser(Optional<Principal> principal, String userName)
     {
         denySetUser(principal, userName, null);
