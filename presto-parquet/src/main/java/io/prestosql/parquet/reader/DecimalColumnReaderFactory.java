@@ -26,7 +26,7 @@ public final class DecimalColumnReaderFactory
             return new ShortDecimalColumnReader(descriptor, parquetDecimalType);
         }
         else {
-            return new LongDecimalColumnReader(descriptor);
+            return new LongDecimalColumnReader(descriptor, parquetDecimalType);
         }
     }
 }
