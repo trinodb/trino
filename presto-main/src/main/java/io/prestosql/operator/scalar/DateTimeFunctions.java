@@ -24,6 +24,7 @@ import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.TimeZoneKey;
+import io.prestosql.type.TimestampOperators;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeField;
 import org.joda.time.DateTimeZone;
@@ -980,8 +981,8 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.DATE)
     public static long lastDayOfMonthFromTimestampWithTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
     {
-        long millis = unpackMillisUtc(timestampWithTimeZone - MILLISECONDS_IN_DAY);
-        millis = unpackChronology(timestampWithTimeZone).monthOfYear().roundCeiling(millis);
+        long millis = unpackMillisUtc(timestampWithTimeZone);
+        millis = unpackChronology(timestampWithTimeZone).monthOfYear().roundCeiling(millis + 1);
         return MILLISECONDS.toDays(millis);
     }
 
@@ -991,10 +992,10 @@ public final class DateTimeFunctions
     public static long lastDayOfMonthFromTimestamp(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
     {
         if (session.isLegacyTimestamp()) {
-            long millis = getChronology(session.getTimeZoneKey()).monthOfYear().roundCeiling(timestamp) - MILLISECONDS_IN_DAY;
-            return MILLISECONDS.toDays(millis);
+            long date = TimestampOperators.castToDate(session, timestamp);
+            return lastDayOfMonthFromDate(date);
         }
-        long millis = UTC_CHRONOLOGY.monthOfYear().roundCeiling(timestamp) - MILLISECONDS_IN_DAY;
+        long millis = UTC_CHRONOLOGY.monthOfYear().roundCeiling(timestamp + 1) - MILLISECONDS_IN_DAY;
         return MILLISECONDS.toDays(millis);
     }
 
@@ -1003,7 +1004,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.DATE)
     public static long lastDayOfMonthFromDate(@SqlType(StandardTypes.DATE) long date)
     {
-        long millis = UTC_CHRONOLOGY.monthOfYear().roundCeiling(DAYS.toMillis(date)) - MILLISECONDS_IN_DAY;
+        long millis = UTC_CHRONOLOGY.monthOfYear().roundCeiling(DAYS.toMillis(date) + 1) - MILLISECONDS_IN_DAY;
         return MILLISECONDS.toDays(millis);
     }
 
