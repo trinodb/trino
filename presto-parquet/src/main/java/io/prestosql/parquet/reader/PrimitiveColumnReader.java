@@ -112,8 +112,8 @@ public abstract class PrimitiveColumnReader
     {
         Optional<Type> type = createDecimalType(descriptor);
         if (type.isPresent()) {
-            DecimalType decimalType = (DecimalType) type.get();
-            return Optional.of(DecimalColumnReaderFactory.createReader(descriptor, decimalType.getPrecision(), decimalType.getScale()));
+            DecimalType parquetDecimalType = (DecimalType) type.get();
+            return Optional.of(DecimalColumnReaderFactory.createReader(descriptor, parquetDecimalType));
         }
         return Optional.empty();
     }
