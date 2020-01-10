@@ -61,6 +61,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<File> KERBEROS_CREDENTIAL_CACHE_PATH = new KerberosCredentialCachePath();
     public static final ConnectionProperty<String> ACCESS_TOKEN = new AccessToken();
     public static final ConnectionProperty<Map<String, String>> EXTRA_CREDENTIALS = new ExtraCredentials();
+    public static final ConnectionProperty<String> CLIENT_TAGS = new ClientTags();
     public static final ConnectionProperty<Map<String, String>> SESSION_PROPERTIES = new SessionProperties();
 
     private static final Set<ConnectionProperty<?>> ALL_PROPERTIES = ImmutableSet.<ConnectionProperty<?>>builder()
@@ -84,6 +85,7 @@ final class ConnectionProperties
             .add(KERBEROS_CREDENTIAL_CACHE_PATH)
             .add(ACCESS_TOKEN)
             .add(EXTRA_CREDENTIALS)
+            .add(CLIENT_TAGS)
             .add(SESSION_PROPERTIES)
             .build();
 
@@ -197,6 +199,15 @@ final class ConnectionProperties
         public ApplicationNamePrefix()
         {
             super("applicationNamePrefix", NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
+        }
+    }
+
+    private static class ClientTags
+            extends AbstractConnectionProperty<String>
+    {
+        public ClientTags()
+        {
+            super("clientTags", NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
         }
     }
 
