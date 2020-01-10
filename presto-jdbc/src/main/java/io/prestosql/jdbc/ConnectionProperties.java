@@ -41,6 +41,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<HostAndPort> SOCKS_PROXY = new SocksProxy();
     public static final ConnectionProperty<HostAndPort> HTTP_PROXY = new HttpProxy();
     public static final ConnectionProperty<String> APPLICATION_NAME_PREFIX = new ApplicationNamePrefix();
+    public static final ConnectionProperty<String> CLIENT_TAGS = new ClientTags();
     public static final ConnectionProperty<Boolean> SSL = new Ssl();
     public static final ConnectionProperty<String> SSL_KEY_STORE_PATH = new SslKeyStorePath();
     public static final ConnectionProperty<String> SSL_KEY_STORE_PASSWORD = new SslKeyStorePassword();
@@ -156,6 +157,15 @@ final class ConnectionProperties
         public ApplicationNamePrefix()
         {
             super("applicationNamePrefix", NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
+        }
+    }
+
+    private static class ClientTags
+            extends AbstractConnectionProperty<String>
+    {
+        public ClientTags()
+        {
+            super("clientTags", NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
         }
     }
 

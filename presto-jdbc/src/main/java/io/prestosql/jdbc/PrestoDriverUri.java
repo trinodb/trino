@@ -42,6 +42,7 @@ import static io.prestosql.client.OkHttpUtil.setupSsl;
 import static io.prestosql.client.OkHttpUtil.tokenAuth;
 import static io.prestosql.jdbc.ConnectionProperties.ACCESS_TOKEN;
 import static io.prestosql.jdbc.ConnectionProperties.APPLICATION_NAME_PREFIX;
+import static io.prestosql.jdbc.ConnectionProperties.CLIENT_TAGS;
 import static io.prestosql.jdbc.ConnectionProperties.EXTRA_CREDENTIALS;
 import static io.prestosql.jdbc.ConnectionProperties.HTTP_PROXY;
 import static io.prestosql.jdbc.ConnectionProperties.KERBEROS_CONFIG_PATH;
@@ -81,6 +82,7 @@ final class PrestoDriverUri
     private String schema;
 
     private final boolean useSecureConnection;
+    private final String clientTags;
 
     public PrestoDriverUri(String url, Properties driverProperties)
             throws SQLException
@@ -99,6 +101,7 @@ final class PrestoDriverUri
 
         // enable SSL by default for standard port
         useSecureConnection = SSL.getValue(properties).orElse(uri.getPort() == 443);
+        clientTags = CLIENT_TAGS.getValue(properties).orElse("");
 
         initCatalogAndSchema();
     }
@@ -133,6 +136,11 @@ final class PrestoDriverUri
             throws SQLException
     {
         return APPLICATION_NAME_PREFIX.getValue(properties);
+    }
+
+    public String getClientTags()
+    {
+        return clientTags;
     }
 
     public Properties getProperties()

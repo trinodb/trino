@@ -236,6 +236,17 @@ public class TestJdbcConnection
     }
 
     @Test
+    public void testClientTags()
+            throws SQLException
+    {
+        try (Connection connection = createConnection()) {
+            connection.setClientInfo("ApplicationName", "testing:");
+            connection.setClientInfo("ClientTags", "c2,c3");
+            assertConnectionSource(connection, "testing:c2,c3");
+        }
+    }
+
+    @Test
     public void testExtraCredentials()
             throws SQLException
     {
