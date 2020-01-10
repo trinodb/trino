@@ -16,6 +16,7 @@ package io.prestosql.type;
 import io.prestosql.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
+import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -183,6 +184,7 @@ public class TestRealOperators
         assertFunction("CAST(REAL'-754.2008' as BIGINT)", BIGINT, -754L);
         assertFunction("CAST(REAL'1.98' as BIGINT)", BIGINT, 2L);
         assertFunction("CAST(REAL'-0.0' as BIGINT)", BIGINT, 0L);
+        assertInvalidFunction("CAST(REAL 'NaN' as BIGINT)", INVALID_CAST_ARGUMENT);
     }
 
     @Test
@@ -192,6 +194,7 @@ public class TestRealOperators
         assertFunction("CAST(REAL'-754.1985' AS INTEGER)", INTEGER, -754);
         assertFunction("CAST(REAL'9.99' AS INTEGER)", INTEGER, 10);
         assertFunction("CAST(REAL'-0.0' AS INTEGER)", INTEGER, 0);
+        assertInvalidFunction("CAST(REAL 'NaN' AS INTEGER)", INVALID_CAST_ARGUMENT);
     }
 
     @Test
@@ -201,6 +204,7 @@ public class TestRealOperators
         assertFunction("CAST(REAL'-754.1985' AS SMALLINT)", SMALLINT, (short) -754);
         assertFunction("CAST(REAL'9.99' AS SMALLINT)", SMALLINT, (short) 10);
         assertFunction("CAST(REAL'-0.0' AS SMALLINT)", SMALLINT, (short) 0);
+        assertInvalidFunction("CAST(REAL 'NaN' AS SMALLINT)", INVALID_CAST_ARGUMENT);
     }
 
     @Test
@@ -210,6 +214,7 @@ public class TestRealOperators
         assertFunction("CAST(REAL'-128.234' AS TINYINT)", TINYINT, (byte) -128);
         assertFunction("CAST(REAL'9.99' AS TINYINT)", TINYINT, (byte) 10);
         assertFunction("CAST(REAL'-0.0' AS TINYINT)", TINYINT, (byte) 0);
+        assertInvalidFunction("CAST(REAL 'NaN' AS TINYINT)", INVALID_CAST_ARGUMENT);
     }
 
     @Test
@@ -220,6 +225,7 @@ public class TestRealOperators
         assertFunction("CAST(REAL'0.0' AS DOUBLE)", DOUBLE, (double) 0.0f);
         assertFunction("CAST(REAL'-0.0' AS DOUBLE)", DOUBLE, (double) -0.0f);
         assertFunction("CAST(CAST(REAL'754.1985' AS DOUBLE) AS REAL)", REAL, 754.1985f);
+        assertFunction("CAST(REAL 'NaN' AS DOUBLE)", DOUBLE, Double.NaN);
     }
 
     @Test
