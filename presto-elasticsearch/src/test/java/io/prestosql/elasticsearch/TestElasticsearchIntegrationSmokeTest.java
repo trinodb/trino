@@ -131,6 +131,142 @@ public class TestElasticsearchIntegrationSmokeTest
     }
 
     @Test
+    public void testArrayFields()
+    {
+        String indexName = "test_arrays";
+
+        embeddedElasticsearchNode.getClient()
+                .admin()
+                .indices()
+                .prepareCreate(indexName)
+                .addMapping("doc", "" +
+                                "{\n" +
+                                "  \"_meta\": {\n" +
+                                "    \"presto_meta\": {\n" +
+                                "      \"a\": {\n" +
+                                "        \"b\": {\n" +
+                                "          \"y\": {\n" +
+                                "            \"isArray\": true\n" +
+                                "          }\n" +
+                                "        }\n" +
+                                "      },\n" +
+                                "      \"c\": {\n" +
+                                "        \"f\": {\n" +
+                                "          \"g\": {\n" +
+                                "            \"isArray\": true\n" +
+                                "          },\n" +
+                                "          \"isArray\": true\n" +
+                                "        }\n" +
+                                "      },\n" +
+                                "      \"j\": {\n" +
+                                "        \"isArray\": true\n" +
+                                "      },\n" +
+                                "      \"k\": {\n" +
+                                "        \"isArray\": true\n" +
+                                "      }\n" +
+                                "    }\n" +
+                                "  },\n" +
+                                "  \"properties\":{\n" +
+                                "    \"a\": {\n" +
+                                "      \"type\": \"object\",\n" +
+                                "      \"properties\": {\n" +
+                                "        \"b\": {\n" +
+                                "          \"type\": \"object\",\n" +
+                                "          \"properties\": {\n" +
+                                "            \"x\": {\n" +
+                                "              \"type\": \"integer\"\n" +
+                                "            },\n" +
+                                "            \"y\": {\n" +
+                                "              \"type\": \"keyword\"\n" +
+                                "            }\n" +
+                                "          } \n" +
+                                "        }\n" +
+                                "      }\n" +
+                                "    },\n" +
+                                "    \"c\": {\n" +
+                                "      \"type\": \"object\",\n" +
+                                "      \"properties\": {\n" +
+                                "        \"d\": {\n" +
+                                "          \"type\": \"keyword\"\n" +
+                                "        },\n" +
+                                "        \"e\": {\n" +
+                                "          \"type\": \"keyword\"\n" +
+                                "        },\n" +
+                                "        \"f\": {\n" +
+                                "          \"type\": \"object\",\n" +
+                                "          \"properties\": {\n" +
+                                "            \"g\": {\n" +
+                                "              \"type\": \"integer\"\n" +
+                                "            },\n" +
+                                "            \"h\": {\n" +
+                                "              \"type\": \"integer\"\n" +
+                                "            }\n" +
+                                "          } \n" +
+                                "        }\n" +
+                                "      }\n" +
+                                "    },\n" +
+                                "    \"i\": {\n" +
+                                "      \"type\": \"long\"\n" +
+                                "    },\n" +
+                                "    \"j\": {\n" +
+                                "      \"type\": \"long\"\n" +
+                                "    },\n" +
+                                "    \"k\": {\n" +
+                                "      \"type\": \"long\"\n" +
+                                "    }\n" +
+                                "  }\n" +
+                                "}",
+                        XContentType.JSON)
+                .get();
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("a", ImmutableMap.<String, Object>builder()
+                        .put("b", ImmutableMap.<String, Object>builder()
+                                .put("x", 1)
+                                .put("y", ImmutableList.<String>builder()
+                                        .add("hello")
+                                        .add("world")
+                                        .build())
+                                .build())
+                        .build())
+                .put("c", ImmutableMap.<String, Object>builder()
+                        .put("d", "foo")
+                        .put("e", "bar")
+                        .put("f", ImmutableList.<Map<String, Object>>builder()
+                                .add(ImmutableMap.<String, Object>builder()
+                                        .put("g", ImmutableList.<Integer>builder()
+                                                .add(10)
+                                                .add(20)
+                                                .build())
+                                        .put("h", 100)
+                                        .build())
+                                .add(ImmutableMap.<String, Object>builder()
+                                        .put("g", ImmutableList.<Integer>builder()
+                                                .add(30)
+                                                .add(40)
+                                                .build())
+                                        .put("h", 200)
+                                        .build())
+                                .build())
+                        .build())
+                .put("j", ImmutableList.<Long>builder()
+                        .add(50L)
+                        .add(60L)
+                        .build())
+                .build());
+
+        embeddedElasticsearchNode.getClient()
+                .admin()
+                .indices()
+                .refresh(refreshRequest(indexName))
+                .actionGet();
+
+        assertQuery(
+                "SELECT a.b.y[1], c.f[1].g[2], c.f[2].g[1], j[2], k[1] FROM test_arrays",
+                "VALUES ('hello', 20, 30, 60, NULL)");
+    }
+
+    @Test
     public void testEmptyObjectFields()
     {
         String indexName = "emptyobject";

@@ -17,6 +17,7 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.prestosql.elasticsearch.client.ElasticsearchClient;
+import io.prestosql.elasticsearch.decoders.ArrayDecoder;
 import io.prestosql.elasticsearch.decoders.BigintDecoder;
 import io.prestosql.elasticsearch.decoders.BooleanDecoder;
 import io.prestosql.elasticsearch.decoders.Decoder;
@@ -38,6 +39,7 @@ import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.PageBuilderStatus;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
 import org.elasticsearch.action.search.SearchResponse;
@@ -315,6 +317,11 @@ public class ElasticsearchPageSource
                     .collect(toImmutableList());
 
             return new RowDecoder(fieldNames, decoders);
+        }
+        if (type instanceof ArrayType) {
+            Type elementType = ((ArrayType) type).getElementType();
+
+            return new ArrayDecoder(createDecoder(session, path, elementType));
         }
 
         throw new UnsupportedOperationException("Type not supported: " + type);
