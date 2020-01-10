@@ -210,6 +210,15 @@ public class TestDoubleOperators
     }
 
     @Test
+    public void testCastNaN()
+    {
+        assertInvalidFunction("cast(nan() as integer)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(nan() as smallint)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(nan() as tinyint)", INVALID_CAST_ARGUMENT);
+        assertFunction("cast(nan() as real)", REAL, Float.NaN);
+    }
+
+    @Test
     public void testCastToBoolean()
     {
         assertFunction("cast(37.7E0 as boolean)", BOOLEAN, true);
