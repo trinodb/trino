@@ -44,7 +44,7 @@
         <air.maven.version>3.3.9</air.maven.version>
 
         <dep.antlr.version>4.7.1</dep.antlr.version>
-        <dep.airlift.version>0.188</dep.airlift.version>
+        <dep.airlift.version>0.189</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.36</dep.slice.version>
         <dep.aws-sdk.version>1.11.602</dep.aws-sdk.version>
@@ -58,6 +58,8 @@
         <!-- TODO: remove after updating to Airbase 94 -->
         <dep.slf4j.version>1.7.29</dep.slf4j.version>
         <dep.jmxutils.version>1.21</dep.jmxutils.version>
+        <dep.cglib.version>3.3.0</dep.cglib.version>
+        <dep.javax-servlet.version>4.0.1</dep.javax-servlet.version>
         <dep.gcs.version>2.0.0</dep.gcs.version>
         <dep.errorprone.version>2.3.3</dep.errorprone.version>
 
