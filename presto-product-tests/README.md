@@ -244,7 +244,6 @@ export PRESTO_SERVER=/tmp/presto-server.tgz
 export PRESTO_CLI_JAR=/tmp/artifacts/presto-cli-executable.jar
 export PRODUCT_TESTS_JAR=/tmp/artifacts/presto-product-tests-executable.jar
 export PRESTO_JDBC_DRIVER_JAR=libs/PrestoJDBC42.jar
-export PRESTO_JDBC_DRIVER_CLASS=com.teradata.presto.jdbc42.Driver
 presto-product-tests/bin/run_on_docker.sh multinode -x quarantine,big_query,profile_specific_tests
 ```
 
