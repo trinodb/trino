@@ -530,8 +530,7 @@ public class PostgreSqlClient
             BlockBuilder builder = elementType.createBlockBuilder(null, 10);
             try (ResultSet arrayAsResultSet = array.getResultSet()) {
                 while (arrayAsResultSet.next()) {
-                    arrayAsResultSet.getObject(ARRAY_RESULT_SET_VALUE_COLUMN);
-                    if (arrayAsResultSet.wasNull()) {
+                    if (elementReadFunction.isNull(arrayAsResultSet, ARRAY_RESULT_SET_VALUE_COLUMN)) {
                         builder.appendNull();
                     }
                     else if (elementType.getJavaType() == boolean.class) {
