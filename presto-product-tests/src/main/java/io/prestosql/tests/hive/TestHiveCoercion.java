@@ -32,7 +32,6 @@ import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
-import java.sql.Connection;
 import java.sql.JDBCType;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -49,12 +48,9 @@ import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tempto.context.ThreadLocalTestContextHolder.testContext;
 import static io.prestosql.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
 import static io.prestosql.tempto.fulfillment.table.TableHandle.tableHandle;
-import static io.prestosql.tempto.query.QueryExecutor.defaultQueryExecutor;
 import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.HIVE_COERCION;
 import static io.prestosql.tests.TestGroups.JDBC;
-import static io.prestosql.tests.utils.JdbcDriverUtils.usingPrestoJdbcDriver;
-import static io.prestosql.tests.utils.JdbcDriverUtils.usingSimbaJdbcDriver;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static java.lang.String.format;
 import static java.sql.JDBCType.ARRAY;
@@ -343,117 +339,55 @@ public class TestHiveCoercion
 
         QueryResult queryResult = query("SELECT * FROM " + tableName);
         assertColumnTypes(queryResult, tableName);
-        List<Row> expectedRows;
-        Connection connection = defaultQueryExecutor().getConnection();
-        if (usingPrestoJdbcDriver(connection)) {
-            expectedRows = ImmutableList.of(
-                    row(
-                            asMap("keep", "as is", "ti2si", (short) -1, "si2int", 100, "int2bi", 2323L, "bi2vc", "12345"),
-                            ImmutableList.of(asMap("ti2int", 2, "si2bi", -101L, "bi2vc", "12345")),
-                            asMap(2, asMap("ti2bi", -3L, "int2bi", 2323L, "float2double", 0.5, "add", null)),
-                            -1,
-                            2,
-                            -3L,
-                            100,
-                            -101L,
-                            2323L,
-                            "12345",
-                            0.5,
-                            //0.5,
-                            new BigDecimal("12345678.1200"),
-                            new BigDecimal("12345678.1200"),
-                            new BigDecimal("12345678.12"),
-                            new BigDecimal("12345678.12345612345600"),
-                            //new BigDecimal(floatToDecimalVal),
-                            //new BigDecimal("12345.12345"),
-                            Float.parseFloat(decimalToFloatVal),
-                            12345.12345,
-                            1),
-                    row(
-                            asMap("keep", null, "ti2si", (short) 1, "si2int", -100, "int2bi", -2323L, "bi2vc", "-12345"),
-                            ImmutableList.of(asMap("ti2int", -2, "si2bi", 101L, "bi2vc", "-12345")),
-                            ImmutableMap.of(-2, asMap("ti2bi", null, "int2bi", -2323L, "float2double", -1.5, "add", null)),
-                            1,
-                            -2,
-                            null,
-                            -100,
-                            101L,
-                            -2323L,
-                            "-12345",
-                            -1.5,
-                            //-1.5,
-                            new BigDecimal("-12345678.1200"),
-                            new BigDecimal("-12345678.1200"),
-                            new BigDecimal("-12345678.12"),
-                            new BigDecimal("-12345678.12345612345600"),
-                            //new BigDecimal("-" + floatToDecimalVal),
-                            //new BigDecimal("-12345.12345"),
-                            -Float.parseFloat(decimalToFloatVal),
-                            -12345.12345,
-                            1));
-        }
-        else if (usingSimbaJdbcDriver(connection)) {
-            expectedRows = ImmutableList.of(
-                    row(
-                            "[\"as is\",-1,100,2323,\"12345\"]",
-                            "[[2,-101,\"12345\"]]",
-                            "{\"2\":[-3,2323,0.5,null]}",
-                            -1,
-                            2,
-                            -3L,
-                            100,
-                            -101L,
-                            2323L,
-                            "12345",
-                            0.5,
-                            //0.5,
-                            new BigDecimal("12345678.1200"),
-                            new BigDecimal("12345678.1200"),
-                            new BigDecimal("12345678.12"),
-                            new BigDecimal("12345678.12345612345600"),
-                            //new BigDecimal(floatToDecimalVal),
-                            //new BigDecimal("12345.12345"),
-                            Float.parseFloat(decimalToFloatVal),
-                            12345.12345,
-                            1),
-                    row(
-                            "[null,1,-100,-2323,\"-12345\"]",
-                            "[[-2,101,\"-12345\"]]",
-                            "{\"-2\":[null,-2323,-1.5,null]}",
-                            1,
-                            -2,
-                            null,
-                            -100,
-                            101L,
-                            -2323L,
-                            "-12345",
-                            -1.5,
-                            //-1.5,
-                            new BigDecimal("-12345678.1200"),
-                            new BigDecimal("-12345678.1200"),
-                            new BigDecimal("-12345678.12"),
-                            new BigDecimal("-12345678.12345612345600"),
-                            //new BigDecimal("-" + floatToDecimalVal),
-                            //new BigDecimal("-12345.12345"),
-                            -Float.parseFloat(decimalToFloatVal),
-                            -12345.12345,
-                            1));
-        }
-        else {
-            throw new IllegalStateException();
-        }
+        List<Row> expectedRows = ImmutableList.of(
+                row(
+                        asMap("keep", "as is", "ti2si", (short) -1, "si2int", 100, "int2bi", 2323L, "bi2vc", "12345"),
+                        ImmutableList.of(asMap("ti2int", 2, "si2bi", -101L, "bi2vc", "12345")),
+                        asMap(2, asMap("ti2bi", -3L, "int2bi", 2323L, "float2double", 0.5, "add", null)),
+                        -1,
+                        2,
+                        -3L,
+                        100,
+                        -101L,
+                        2323L,
+                        "12345",
+                        0.5,
+                        //0.5,
+                        new BigDecimal("12345678.1200"),
+                        new BigDecimal("12345678.1200"),
+                        new BigDecimal("12345678.12"),
+                        new BigDecimal("12345678.12345612345600"),
+                        //new BigDecimal(floatToDecimalVal),
+                        //new BigDecimal("12345.12345"),
+                        Float.parseFloat(decimalToFloatVal),
+                        12345.12345,
+                        1),
+                row(
+                        asMap("keep", null, "ti2si", (short) 1, "si2int", -100, "int2bi", -2323L, "bi2vc", "-12345"),
+                        ImmutableList.of(asMap("ti2int", -2, "si2bi", 101L, "bi2vc", "-12345")),
+                        ImmutableMap.of(-2, asMap("ti2bi", null, "int2bi", -2323L, "float2double", -1.5, "add", null)),
+                        1,
+                        -2,
+                        null,
+                        -100,
+                        101L,
+                        -2323L,
+                        "-12345",
+                        -1.5,
+                        //-1.5,
+                        new BigDecimal("-12345678.1200"),
+                        new BigDecimal("-12345678.1200"),
+                        new BigDecimal("-12345678.12"),
+                        new BigDecimal("-12345678.12345612345600"),
+                        //new BigDecimal("-" + floatToDecimalVal),
+                        //new BigDecimal("-12345.12345"),
+                        -Float.parseFloat(decimalToFloatVal),
+                        -12345.12345,
+                        1));
 
         // test structural values (tempto can't handle map and row)
         assertEqualsIgnoreOrder(queryResult.column(1), column(expectedRows, 1), "row_to_row field is not equal");
-        if (usingPrestoJdbcDriver(connection)) {
-            assertEqualsIgnoreOrder(extract(queryResult.column(2)), column(expectedRows, 2), "list_to_list field is not equal");
-        }
-        else if (usingSimbaJdbcDriver(connection)) {
-            assertEqualsIgnoreOrder(queryResult.column(2), column(expectedRows, 2), "list_to_list field is not equal");
-        }
-        else {
-            throw new IllegalStateException();
-        }
+        assertEqualsIgnoreOrder(extract(queryResult.column(2)), column(expectedRows, 2), "list_to_list field is not equal");
         assertEqualsIgnoreOrder(queryResult.column(3), column(expectedRows, 3), "map_to_map field is not equal");
 
         // test primitive values
@@ -493,58 +427,28 @@ public class TestHiveCoercion
     {
         JDBCType floatType = tableName.toLowerCase(Locale.ENGLISH).contains("parquet") ? DOUBLE : REAL;
 
-        Connection connection = defaultQueryExecutor().getConnection();
-        if (usingPrestoJdbcDriver(connection)) {
-            assertThat(queryResult).hasColumns(
-                    JAVA_OBJECT, // row
-                    ARRAY, // list
-                    JAVA_OBJECT, // map
-                    SMALLINT,
-                    INTEGER,
-                    BIGINT,
-                    INTEGER,
-                    BIGINT,
-                    BIGINT,
-                    VARCHAR,
-                    DOUBLE,
-                    //floatType,
-                    DECIMAL,
-                    DECIMAL,
-                    DECIMAL,
-                    DECIMAL,
-                    //DECIMAL,
-                    //DECIMAL,
-                    floatType,
-                    DOUBLE,
-                    BIGINT);
-        }
-        else if (usingSimbaJdbcDriver(connection)) {
-            assertThat(queryResult).hasColumns(
-                    VARCHAR, // row
-                    VARCHAR, // list
-                    VARCHAR, // map
-                    SMALLINT,
-                    INTEGER,
-                    BIGINT,
-                    INTEGER,
-                    BIGINT,
-                    BIGINT,
-                    VARCHAR,
-                    DOUBLE,
-                    //floatType,
-                    DECIMAL,
-                    DECIMAL,
-                    DECIMAL,
-                    DECIMAL,
-                    //DECIMAL,
-                    //DECIMAL,
-                    floatType,
-                    DOUBLE,
-                    BIGINT);
-        }
-        else {
-            throw new IllegalStateException();
-        }
+        assertThat(queryResult).hasColumns(
+                JAVA_OBJECT, // row
+                ARRAY, // list
+                JAVA_OBJECT, // map
+                SMALLINT,
+                INTEGER,
+                BIGINT,
+                INTEGER,
+                BIGINT,
+                BIGINT,
+                VARCHAR,
+                DOUBLE,
+                //floatType,
+                DECIMAL,
+                DECIMAL,
+                DECIMAL,
+                DECIMAL,
+                //DECIMAL,
+                //DECIMAL,
+                floatType,
+                DOUBLE,
+                BIGINT);
     }
 
     private static void alterTableColumnTypes(String tableName)

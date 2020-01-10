@@ -13,22 +13,15 @@
  */
 package io.prestosql.tests.utils;
 
-import io.airlift.log.Logger;
 import io.prestosql.jdbc.PrestoConnection;
 
-import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
-import static java.lang.String.format;
-
 public final class JdbcDriverUtils
 {
-    private static final Logger LOGGER = Logger.get(JdbcDriverUtils.class);
-    private static final String IS_NUMERIC_REGEX = "-?\\d*[\\.\\d]*";
-
     public static void setRole(Connection connection, String role)
             throws SQLException
     {
@@ -66,73 +59,15 @@ public final class JdbcDriverUtils
     public static void setSessionProperty(Connection connection, String key, String value)
             throws SQLException
     {
-        if (usingPrestoJdbcDriver(connection)) {
-            PrestoConnection prestoConnection = connection.unwrap(PrestoConnection.class);
-            prestoConnection.setSessionProperty(key, value);
-        }
-        else if (usingSimbaJdbcDriver(connection)) {
-            try (Statement statement = connection.createStatement()) {
-                if (shouldValueBeQuoted(value)) {
-                    value = "'" + value + "'";
-                }
-                statement.execute(format("set session %s=%s", key, value));
-            }
-        }
-        else {
-            throw new IllegalStateException();
-        }
-    }
-
-    private static boolean shouldValueBeQuoted(String value)
-    {
-        if (value.equalsIgnoreCase("true") || value.equalsIgnoreCase("false")) {
-            return false;
-        }
-
-        if (value.matches(IS_NUMERIC_REGEX)) {
-            return false;
-        }
-
-        try {
-            new BigDecimal(value);
-            return false;
-        }
-        catch (NumberFormatException e) {
-            LOGGER.info("'%s' is not a number", value, e);
-        }
-
-        return true;
+        @SuppressWarnings("resource")
+        PrestoConnection prestoConnection = connection.unwrap(PrestoConnection.class);
+        prestoConnection.setSessionProperty(key, value);
     }
 
     public static void resetSessionProperty(Connection connection, String key)
             throws SQLException
     {
-        if (usingPrestoJdbcDriver(connection)) {
-            setSessionProperty(connection, key, getSessionPropertyDefault(connection, key));
-        }
-        else if (usingSimbaJdbcDriver(connection)) {
-            try (Statement statement = connection.createStatement()) {
-                statement.execute("RESET SESSION " + key);
-            }
-        }
-        else {
-            throw new IllegalStateException();
-        }
-    }
-
-    public static boolean usingPrestoJdbcDriver(Connection connection)
-    {
-        return getClassNameForJdbcDriver(connection).equals("io.prestosql.jdbc.PrestoConnection");
-    }
-
-    public static boolean usingSimbaJdbcDriver(Connection connection)
-    {
-        return getClassNameForJdbcDriver(connection).startsWith("com.starburst.presto.") || getClassNameForJdbcDriver(connection).startsWith("com.simba.presto.");
-    }
-
-    private static String getClassNameForJdbcDriver(Connection connection)
-    {
-        return connection.getClass().getCanonicalName();
+        setSessionProperty(connection, key, getSessionPropertyDefault(connection, key));
     }
 
     private JdbcDriverUtils() {}

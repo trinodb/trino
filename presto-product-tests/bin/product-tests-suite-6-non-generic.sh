@@ -16,12 +16,11 @@ suite_exit_code=0
 presto-product-tests/bin/run_on_docker.sh \
     singlenode-ldap \
     -g ldap \
-    -x simba_jdbc \
     || suite_exit_code=1
 
 presto-product-tests/bin/run_on_docker.sh \
     singlenode-ldap-referrals \
-    -g ldap -x simba_jdbc \
+    -g ldap \
     || suite_exit_code=1
 
 # We have docker images with KMS on CDH only. TODO (https://github.com/prestosql/presto/issues/1652) create images with HDP and KMS

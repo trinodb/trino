@@ -57,7 +57,6 @@ services:
       - ../../../target/test-reports:/docker/test-reports
       - ${PRESTO_CLI_HISTORY_FILE}:/root/.presto_history
     environment:
-      - PRESTO_JDBC_DRIVER_CLASS
       - TESTS_HIVE_VERSION_MAJOR
       - TESTS_HIVE_VERSION_MINOR
       - TEMPTO_ENVIRONMENT_CONFIG_FILE

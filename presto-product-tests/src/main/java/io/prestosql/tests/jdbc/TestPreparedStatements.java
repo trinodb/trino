@@ -13,7 +13,6 @@
  */
 package io.prestosql.tests.jdbc;
 
-import io.airlift.log.Logger;
 import io.prestosql.tempto.ProductTest;
 import io.prestosql.tempto.Requirement;
 import io.prestosql.tempto.RequirementsProvider;
@@ -41,7 +40,6 @@ import static io.prestosql.tempto.query.QueryExecutor.param;
 import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.JDBC;
 import static io.prestosql.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
-import static io.prestosql.tests.utils.JdbcDriverUtils.usingPrestoJdbcDriver;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.sql.JDBCType.BIGINT;
@@ -63,7 +61,6 @@ import static java.sql.JDBCType.VARCHAR;
 public class TestPreparedStatements
         extends ProductTest
 {
-    private static final Logger LOGGER = Logger.get(TestPreparedStatements.class);
     private static final String TABLE_NAME = "textfile_all_types";
     private static final String TABLE_NAME_MUTABLE = "all_types_table_name";
     private static final String INSERT_SQL = "INSERT INTO %s VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
@@ -93,19 +90,14 @@ public class TestPreparedStatements
     @Requires(ImmutableAllTypesTable.class)
     public void preparedSelectApi()
     {
-        if (usingPrestoJdbcDriver(connection())) {
-            String selectSql = "SELECT c_int FROM " + TABLE_NAME + " WHERE c_int = ?";
-            final int testValue = 2147483647;
+        String selectSql = "SELECT c_int FROM " + TABLE_NAME + " WHERE c_int = ?";
+        final int testValue = 2147483647;
 
-            assertThat(query(selectSql, param(INTEGER, testValue))).containsOnly(row(testValue));
+        assertThat(query(selectSql, param(INTEGER, testValue))).containsOnly(row(testValue));
 
-            assertThat(query(selectSql, param(INTEGER, null))).hasNoRows();
+        assertThat(query(selectSql, param(INTEGER, null))).hasNoRows();
 
-            assertThat(query(selectSql, param(INTEGER, 2))).hasNoRows();
-        }
-        else {
-            LOGGER.warn("preparedSelectApi() only applies to EnterpriseJdbcDriver");
-        }
+        assertThat(query(selectSql, param(INTEGER, 2))).hasNoRows();
     }
 
     @Test(groups = JDBC)
@@ -113,12 +105,11 @@ public class TestPreparedStatements
     public void preparedSelectSql()
             throws SQLException
     {
-        if (usingPrestoJdbcDriver(connection())) {
-            String prepareSql = "PREPARE ps1 from SELECT c_int FROM " + TABLE_NAME + " WHERE c_int = ?";
-            final int testValue = 2147483647;
-            String executeSql = "EXECUTE ps1 using ";
+        String prepareSql = "PREPARE ps1 from SELECT c_int FROM " + TABLE_NAME + " WHERE c_int = ?";
+        final int testValue = 2147483647;
+        String executeSql = "EXECUTE ps1 using ";
 
-            Statement statement = connection().createStatement();
+        try (Statement statement = connection().createStatement()) {
             statement.execute(prepareSql);
 
             assertThat(QueryResult.forResultSet(statement.executeQuery(executeSql + testValue)))
@@ -128,152 +119,139 @@ public class TestPreparedStatements
             assertThat(QueryResult.forResultSet(statement.executeQuery(executeSql + 2)))
                     .hasNoRows();
         }
-        else {
-            LOGGER.warn("preparedSelectSql() only applies to EnterpriseJdbcDriver");
-        }
     }
 
     @Test(groups = JDBC)
     @Requires(MutableAllTypesTable.class)
     public void preparedInsertVarbinaryApi()
     {
-        if (usingPrestoJdbcDriver(connection())) {
-            String tableNameInDatabase = mutableTablesState().get(TABLE_NAME_MUTABLE).getNameInDatabase();
-            String insertSqlWithTable = format(INSERT_SQL, tableNameInDatabase);
-            String selectSqlWithTable = format(SELECT_STAR_SQL, tableNameInDatabase);
+        String tableNameInDatabase = mutableTablesState().get(TABLE_NAME_MUTABLE).getNameInDatabase();
+        String insertSqlWithTable = format(INSERT_SQL, tableNameInDatabase);
+        String selectSqlWithTable = format(SELECT_STAR_SQL, tableNameInDatabase);
 
-            defaultQueryExecutor().executeQuery(
-                    insertSqlWithTable,
-                    param(TINYINT, null),
-                    param(SMALLINT, null),
-                    param(INTEGER, null),
-                    param(BIGINT, null),
-                    param(FLOAT, null),
-                    param(DOUBLE, null),
-                    param(DECIMAL, null),
-                    param(DECIMAL, null),
-                    param(TIMESTAMP, null),
-                    param(DATE, null),
-                    param(VARCHAR, null),
-                    param(VARCHAR, null),
-                    param(CHAR, null),
-                    param(BOOLEAN, null),
-                    param(VARBINARY, new byte[] {0, 1, 2, 3, 0, 42, -7}));
+        defaultQueryExecutor().executeQuery(
+                insertSqlWithTable,
+                param(TINYINT, null),
+                param(SMALLINT, null),
+                param(INTEGER, null),
+                param(BIGINT, null),
+                param(FLOAT, null),
+                param(DOUBLE, null),
+                param(DECIMAL, null),
+                param(DECIMAL, null),
+                param(TIMESTAMP, null),
+                param(DATE, null),
+                param(VARCHAR, null),
+                param(VARCHAR, null),
+                param(CHAR, null),
+                param(BOOLEAN, null),
+                param(VARBINARY, new byte[] {0, 1, 2, 3, 0, 42, -7}));
 
-            QueryResult result = defaultQueryExecutor().executeQuery(selectSqlWithTable);
-            assertColumnTypes(result);
-            assertThat(result).containsOnly(
-                    row(null, null, null, null, null, null, null, null, null, null, null, null, null, null,
-                            new byte[] {0, 1, 2, 3, 0, 42, -7}));
-        }
-        else {
-            LOGGER.warn("preparedInsertVarbinaryApi() only applies to EnterpriseJdbcDriver");
-        }
+        QueryResult result = defaultQueryExecutor().executeQuery(selectSqlWithTable);
+        assertColumnTypes(result);
+        assertThat(result).containsOnly(
+                row(null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+                        new byte[] {0, 1, 2, 3, 0, 42, -7}));
     }
 
     @Test(groups = JDBC)
     @Requires(MutableAllTypesTable.class)
     public void preparedInsertApi()
     {
-        if (usingPrestoJdbcDriver(connection())) {
-            String tableNameInDatabase = mutableTablesState().get(TABLE_NAME_MUTABLE).getNameInDatabase();
-            String insertSqlWithTable = format(INSERT_SQL, tableNameInDatabase);
-            String selectSqlWithTable = format(SELECT_STAR_SQL, tableNameInDatabase);
+        String tableNameInDatabase = mutableTablesState().get(TABLE_NAME_MUTABLE).getNameInDatabase();
+        String insertSqlWithTable = format(INSERT_SQL, tableNameInDatabase);
+        String selectSqlWithTable = format(SELECT_STAR_SQL, tableNameInDatabase);
 
-            query(
-                    insertSqlWithTable,
-                    param(TINYINT, 127),
-                    param(SMALLINT, 32767),
-                    param(INTEGER, 2147483647),
-                    param(BIGINT, new BigInteger("9223372036854775807")),
-                    param(FLOAT, Float.valueOf("123.345")),
-                    param(DOUBLE, 234.567),
-                    param(DECIMAL, BigDecimal.valueOf(345)),
-                    param(DECIMAL, BigDecimal.valueOf(345.678)),
-                    param(TIMESTAMP, Timestamp.valueOf("2015-05-10 12:15:35")),
-                    param(DATE, Date.valueOf("2015-05-10")),
-                    param(VARCHAR, "ala ma kota"),
-                    param(VARCHAR, "ala ma kot"),
-                    param(CHAR, "    ala ma"),
-                    param(BOOLEAN, Boolean.TRUE),
-                    param(VARBINARY, new byte[] {0, 1, 2, 3, 0, 42, -7}));
+        query(
+                insertSqlWithTable,
+                param(TINYINT, 127),
+                param(SMALLINT, 32767),
+                param(INTEGER, 2147483647),
+                param(BIGINT, new BigInteger("9223372036854775807")),
+                param(FLOAT, Float.valueOf("123.345")),
+                param(DOUBLE, 234.567),
+                param(DECIMAL, BigDecimal.valueOf(345)),
+                param(DECIMAL, BigDecimal.valueOf(345.678)),
+                param(TIMESTAMP, Timestamp.valueOf("2015-05-10 12:15:35")),
+                param(DATE, Date.valueOf("2015-05-10")),
+                param(VARCHAR, "ala ma kota"),
+                param(VARCHAR, "ala ma kot"),
+                param(CHAR, "    ala ma"),
+                param(BOOLEAN, Boolean.TRUE),
+                param(VARBINARY, new byte[] {0, 1, 2, 3, 0, 42, -7}));
 
-            query(
-                    insertSqlWithTable,
-                    param(TINYINT, 1),
-                    param(SMALLINT, 2),
-                    param(INTEGER, 3),
-                    param(BIGINT, 4),
-                    param(FLOAT, Float.valueOf("5.6")),
-                    param(DOUBLE, 7.8),
-                    param(DECIMAL, BigDecimal.valueOf(91)),
-                    param(DECIMAL, BigDecimal.valueOf(2.3)),
-                    param(TIMESTAMP, Timestamp.valueOf("2012-05-10 1:35:15")),
-                    param(DATE, Date.valueOf("2014-03-10")),
-                    param(VARCHAR, "abc"),
-                    param(VARCHAR, "def"),
-                    param(CHAR, "       ghi"),
-                    param(BOOLEAN, Boolean.FALSE),
-                    param(VARBINARY, new byte[] {0, 1, 2, 3, 0, 42, -7}));
+        query(
+                insertSqlWithTable,
+                param(TINYINT, 1),
+                param(SMALLINT, 2),
+                param(INTEGER, 3),
+                param(BIGINT, 4),
+                param(FLOAT, Float.valueOf("5.6")),
+                param(DOUBLE, 7.8),
+                param(DECIMAL, BigDecimal.valueOf(91)),
+                param(DECIMAL, BigDecimal.valueOf(2.3)),
+                param(TIMESTAMP, Timestamp.valueOf("2012-05-10 1:35:15")),
+                param(DATE, Date.valueOf("2014-03-10")),
+                param(VARCHAR, "abc"),
+                param(VARCHAR, "def"),
+                param(CHAR, "       ghi"),
+                param(BOOLEAN, Boolean.FALSE),
+                param(VARBINARY, new byte[] {0, 1, 2, 3, 0, 42, -7}));
 
-            query(
-                    insertSqlWithTable,
-                    param(TINYINT, null),
-                    param(SMALLINT, null),
-                    param(INTEGER, null),
-                    param(BIGINT, null),
-                    param(FLOAT, null),
-                    param(DOUBLE, null),
-                    param(DECIMAL, null),
-                    param(DECIMAL, null),
-                    param(TIMESTAMP, null),
-                    param(DATE, null),
-                    param(VARCHAR, null),
-                    param(VARCHAR, null),
-                    param(CHAR, null),
-                    param(BOOLEAN, null),
-                    param(VARBINARY, null));
+        query(
+                insertSqlWithTable,
+                param(TINYINT, null),
+                param(SMALLINT, null),
+                param(INTEGER, null),
+                param(BIGINT, null),
+                param(FLOAT, null),
+                param(DOUBLE, null),
+                param(DECIMAL, null),
+                param(DECIMAL, null),
+                param(TIMESTAMP, null),
+                param(DATE, null),
+                param(VARCHAR, null),
+                param(VARCHAR, null),
+                param(CHAR, null),
+                param(BOOLEAN, null),
+                param(VARBINARY, null));
 
-            QueryResult result = query(selectSqlWithTable);
-            assertColumnTypes(result);
-            assertThat(result).containsOnly(
-                    row(
-                            127,
-                            32767,
-                            2147483647,
-                            new Long("9223372036854775807"),
-                            Float.valueOf("123.345"),
-                            234.567,
-                            BigDecimal.valueOf(345),
-                            new BigDecimal("345.67800"),
-                            Timestamp.valueOf("2015-05-10 12:15:35"),
-                            Date.valueOf("2015-05-10"),
-                            "ala ma kota",
-                            "ala ma kot",
-                            "    ala ma",
-                            Boolean.TRUE,
-                            new byte[] {0, 1, 2, 3, 0, 42, -7}),
-                    row(
-                            1,
-                            2,
-                            3,
-                            4L,
-                            Float.valueOf("5.6"),
-                            7.8,
-                            BigDecimal.valueOf(91),
-                            BigDecimal.valueOf(2.3),
-                            Timestamp.valueOf("2012-05-10 1:35:15"),
-                            Date.valueOf("2014-03-10"),
-                            "abc",
-                            "def",
-                            "       ghi",
-                            Boolean.FALSE,
-                            new byte[] {0, 1, 2, 3, 0, 42, -7}),
-                    row(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));
-        }
-        else {
-            LOGGER.warn("preparedInsertApi() only applies to EnterpriseJdbcDriver");
-        }
+        QueryResult result = query(selectSqlWithTable);
+        assertColumnTypes(result);
+        assertThat(result).containsOnly(
+                row(
+                        127,
+                        32767,
+                        2147483647,
+                        new Long("9223372036854775807"),
+                        Float.valueOf("123.345"),
+                        234.567,
+                        BigDecimal.valueOf(345),
+                        new BigDecimal("345.67800"),
+                        Timestamp.valueOf("2015-05-10 12:15:35"),
+                        Date.valueOf("2015-05-10"),
+                        "ala ma kota",
+                        "ala ma kot",
+                        "    ala ma",
+                        Boolean.TRUE,
+                        new byte[] {0, 1, 2, 3, 0, 42, -7}),
+                row(
+                        1,
+                        2,
+                        3,
+                        4L,
+                        Float.valueOf("5.6"),
+                        7.8,
+                        BigDecimal.valueOf(91),
+                        BigDecimal.valueOf(2.3),
+                        Timestamp.valueOf("2012-05-10 1:35:15"),
+                        Date.valueOf("2014-03-10"),
+                        "abc",
+                        "def",
+                        "       ghi",
+                        Boolean.FALSE,
+                        new byte[] {0, 1, 2, 3, 0, 42, -7}),
+                row(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));
     }
 
     @Test(groups = JDBC)
@@ -281,13 +259,12 @@ public class TestPreparedStatements
     public void preparedInsertSql()
             throws SQLException
     {
-        if (usingPrestoJdbcDriver(connection())) {
-            String tableNameInDatabase = mutableTablesState().get(TABLE_NAME_MUTABLE).getNameInDatabase();
-            String insertSqlWithTable = "PREPARE ps1 from " + format(INSERT_SQL, tableNameInDatabase);
-            String selectSqlWithTable = format(SELECT_STAR_SQL, tableNameInDatabase);
-            String executeSql = "EXECUTE ps1 using ";
+        String tableNameInDatabase = mutableTablesState().get(TABLE_NAME_MUTABLE).getNameInDatabase();
+        String insertSqlWithTable = "PREPARE ps1 from " + format(INSERT_SQL, tableNameInDatabase);
+        String selectSqlWithTable = format(SELECT_STAR_SQL, tableNameInDatabase);
+        String executeSql = "EXECUTE ps1 using ";
 
-            Statement statement = connection().createStatement();
+        try (Statement statement = connection().createStatement()) {
             statement.execute(insertSqlWithTable);
             statement.execute(executeSql +
                     "cast(127 as tinyint), " +
@@ -377,9 +354,6 @@ public class TestPreparedStatements
                             "jkl".getBytes(UTF_8)),
                     row(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));
         }
-        else {
-            LOGGER.warn("preparedInsertSql() only applies to EnterpriseJdbcDriver");
-        }
     }
 
     @Test(groups = JDBC)
@@ -387,13 +361,12 @@ public class TestPreparedStatements
     public void preparedInsertVarbinarySql()
             throws SQLException
     {
-        if (usingPrestoJdbcDriver(connection())) {
-            String tableNameInDatabase = mutableTablesState().get(TABLE_NAME_MUTABLE).getNameInDatabase();
-            String insertSqlWithTable = "PREPARE ps1 from " + format(INSERT_SQL, tableNameInDatabase);
-            String selectSqlWithTable = format(SELECT_STAR_SQL, tableNameInDatabase);
-            String executeSql = "EXECUTE ps1 using ";
+        String tableNameInDatabase = mutableTablesState().get(TABLE_NAME_MUTABLE).getNameInDatabase();
+        String insertSqlWithTable = "PREPARE ps1 from " + format(INSERT_SQL, tableNameInDatabase);
+        String selectSqlWithTable = format(SELECT_STAR_SQL, tableNameInDatabase);
+        String executeSql = "EXECUTE ps1 using ";
 
-            Statement statement = connection().createStatement();
+        try (Statement statement = connection().createStatement()) {
             statement.execute(insertSqlWithTable);
             statement.execute(executeSql +
                     "null, " +
@@ -417,9 +390,6 @@ public class TestPreparedStatements
             assertThat(result).containsOnly(
                     row(null, null, null, null, null, null, null, null, null, null, null, null, null, null,
                             new byte[] {0, 1, 2, 3, 0, 42, -7}));
-        }
-        else {
-            LOGGER.warn("preparedInsertVarbinarySql() only applies to EnterpriseJdbcDriver");
         }
     }
 
