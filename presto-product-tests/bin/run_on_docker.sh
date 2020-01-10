@@ -117,8 +117,10 @@ environment_compose up --no-color --abort-on-container-exit ${SERVICES} &
 # Otherwise docker-compose may created network twice and subsequently fail.
 retry check_any_container_is_up
 
-# wait until hadoop processes are started
-retry check_hadoop
+if [[ $SERVICES == *"hadoop-master"* ]]; then
+    # wait until hadoop processes are started
+    retry check_hadoop
+fi
 
 # wait until presto is started
 retry check_presto
