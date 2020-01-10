@@ -68,7 +68,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addTimeout;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
-import static io.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
+import static io.airlift.jaxrs.AsyncResponseHandler.bindAsyncResponse;
 import static io.prestosql.execution.QueryState.FAILED;
 import static io.prestosql.execution.QueryState.QUEUED;
 import static io.prestosql.server.protocol.Slug.Context.EXECUTING_QUERY;
