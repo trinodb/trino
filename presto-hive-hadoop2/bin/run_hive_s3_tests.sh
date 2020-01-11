@@ -7,6 +7,8 @@ set -euo pipefail -x
 cleanup_docker_containers
 start_docker_containers
 
+test_directory="$(date '+%Y%m%d-%H%M%S')-$(uuidgen | sha1sum | cut -b 1-6)"
+
 # insert AWS credentials
 # TODO replace core-site.xml.s3-template with apply-site-xml-override.sh
 exec_in_hadoop_master_container cp /docker/files/core-site.xml.s3-template /etc/hadoop/conf/core-site.xml
@@ -17,7 +19,7 @@ exec_in_hadoop_master_container sed -i \
  /etc/hadoop/conf/core-site.xml
 
 # create test table
-table_path="s3a://${S3_BUCKET}/presto_test_external_fs_v2/"
+table_path="s3a://${S3_BUCKET}/${test_directory}/presto_test_external_fs/"
 exec_in_hadoop_master_container hadoop fs -mkdir -p "${table_path}"
 exec_in_hadoop_master_container /docker/files/hadoop-put.sh /docker/files/test_table.csv{,.gz,.bz2,.lz4} "${table_path}"
 exec_in_hadoop_master_container sudo -Eu hive beeline -u jdbc:hive2://localhost:10000/default -n hive -e "
@@ -25,7 +27,7 @@ exec_in_hadoop_master_container sudo -Eu hive beeline -u jdbc:hive2://localhost:
     STORED AS TEXTFILE
     LOCATION '${table_path}'"
 
-table_path="s3a://${S3_BUCKET}/presto_test_external_fs_with_header/"
+table_path="s3a://${S3_BUCKET}/${test_directory}/presto_test_external_fs_with_header/"
 exec_in_hadoop_master_container hadoop fs -mkdir -p "${table_path}"
 exec_in_hadoop_master_container hadoop fs -put -f /docker/files/test_table_with_header.csv{,.gz,.bz2,.lz4} "${table_path}"
 exec_in_hadoop_master_container /usr/bin/hive -e "
@@ -34,7 +36,7 @@ exec_in_hadoop_master_container /usr/bin/hive -e "
     LOCATION '${table_path}'
     TBLPROPERTIES ('skip.header.line.count'='1')"
 
-table_path="s3a://${S3_BUCKET}/presto_test_external_fs_with_header_and_footer/"
+table_path="s3a://${S3_BUCKET}/${test_directory}/presto_test_external_fs_with_header_and_footer/"
 exec_in_hadoop_master_container hadoop fs -mkdir -p "${table_path}"
 exec_in_hadoop_master_container hadoop fs -put -f /docker/files/test_table_with_header_and_footer.csv{,.gz,.bz2,.lz4} "${table_path}"
 exec_in_hadoop_master_container /usr/bin/hive -e "
@@ -59,7 +61,8 @@ set +e
   -Dhive.hadoop2.databaseName=default \
   -Dhive.hadoop2.s3.awsAccessKey="${AWS_ACCESS_KEY_ID}" \
   -Dhive.hadoop2.s3.awsSecretKey="${AWS_SECRET_ACCESS_KEY}" \
-  -Dhive.hadoop2.s3.writableBucket="${S3_BUCKET}"
+  -Dhive.hadoop2.s3.writableBucket="${S3_BUCKET}" \
+  -Dhive.hadoop2.s3.testDirectory="${test_directory}"
 EXIT_CODE=$?
 set -e
 popd
