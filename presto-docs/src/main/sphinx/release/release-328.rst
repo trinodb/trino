@@ -1,6 +1,6 @@
-========================
-Release 328 (8 Jan 2020)
-========================
+=========================
+Release 328 (10 Jan 2020)
+=========================
 
 General Changes
 ---------------
@@ -15,7 +15,7 @@ General Changes
 * Allow inserting values of a larger type into as smaller type when the values fit. For example,
   ``BIGINT`` into ``SMALLINT``, or ``VARCHAR(10)`` into ``VARCHAR(3)``. Values that don't fit will
   cause an error at runtime. (:issue:`2061`)
-* Add :func:``regexp_count`` and :func:``regexp_position`` functions. (:issue:`2136`)
+* Add :func:`regexp_count` and :func:`regexp_position` functions. (:issue:`2136`)
 
 Security Changes
 ----------------
