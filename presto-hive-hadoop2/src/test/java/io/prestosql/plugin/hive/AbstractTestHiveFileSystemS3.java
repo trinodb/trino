@@ -28,17 +28,28 @@ public abstract class AbstractTestHiveFileSystemS3
     private String awsAccessKey;
     private String awsSecretKey;
     private String writableBucket;
+    private String testDirectory;
 
-    protected void setup(String host, int port, String databaseName, String awsAccessKey, String awsSecretKey, String writableBucket, boolean s3SelectPushdownEnabled)
+    protected void setup(
+            String host,
+            int port,
+            String databaseName,
+            String awsAccessKey,
+            String awsSecretKey,
+            String writableBucket,
+            String testDirectory,
+            boolean s3SelectPushdownEnabled)
     {
         checkArgument(!isNullOrEmpty(host), "Expected non empty host");
         checkArgument(!isNullOrEmpty(databaseName), "Expected non empty databaseName");
         checkArgument(!isNullOrEmpty(awsAccessKey), "Expected non empty awsAccessKey");
         checkArgument(!isNullOrEmpty(awsSecretKey), "Expected non empty awsSecretKey");
         checkArgument(!isNullOrEmpty(writableBucket), "Expected non empty writableBucket");
+        checkArgument(!isNullOrEmpty(testDirectory), "Expected non empty testDirectory");
         this.awsAccessKey = awsAccessKey;
         this.awsSecretKey = awsSecretKey;
         this.writableBucket = writableBucket;
+        this.testDirectory = testDirectory;
 
         setup(host, port, databaseName, s3SelectPushdownEnabled, createHdfsConfiguration());
     }
@@ -56,6 +67,6 @@ public abstract class AbstractTestHiveFileSystemS3
     protected Path getBasePath()
     {
         // HDP 3.1 does not understand s3:// out of the box.
-        return new Path(format("s3a://%s/", writableBucket));
+        return new Path(format("s3a://%s/%s/", writableBucket, testDirectory));
     }
 }

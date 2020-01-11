@@ -292,7 +292,7 @@ public abstract class AbstractTestHiveFileSystem
             throws Exception
     {
         Path basePath = getBasePath();
-        Path tablePath = new Path(basePath, "presto_test_external_fs_v2");
+        Path tablePath = new Path(basePath, "presto_test_external_fs");
         Path filePath = new Path(tablePath, "test_table.csv");
         FileSystem fs = hdfsEnvironment.getFileSystem(TESTING_CONTEXT, basePath);
 
