@@ -46,24 +46,24 @@ exec_in_hadoop_master_container /usr/bin/hive -e "
 stop_unnecessary_hadoop_services
 
 # restart hive-metastore to apply S3 changes in core-site.xml
-docker exec $(hadoop_master_container) supervisorctl restart hive-metastore
+docker exec "$(hadoop_master_container)" supervisorctl restart hive-metastore
 retry check_hadoop
 
 # run product tests
-pushd $PROJECT_ROOT
+pushd "${PROJECT_ROOT}"
 set +e
 ./mvnw -B -pl presto-hive-hadoop2 test -P test-hive-hadoop2-s3 \
   -DHADOOP_USER_NAME=hive \
   -Dhive.hadoop2.metastoreHost=localhost \
   -Dhive.hadoop2.metastorePort=9083 \
   -Dhive.hadoop2.databaseName=default \
-  -Dhive.hadoop2.s3.awsAccessKey=${AWS_ACCESS_KEY_ID} \
-  -Dhive.hadoop2.s3.awsSecretKey=${AWS_SECRET_ACCESS_KEY} \
-  -Dhive.hadoop2.s3.writableBucket=${S3_BUCKET}
+  -Dhive.hadoop2.s3.awsAccessKey="${AWS_ACCESS_KEY_ID}" \
+  -Dhive.hadoop2.s3.awsSecretKey="${AWS_SECRET_ACCESS_KEY}" \
+  -Dhive.hadoop2.s3.writableBucket="${S3_BUCKET}"
 EXIT_CODE=$?
 set -e
 popd
 
 cleanup_docker_containers
 
-exit ${EXIT_CODE}
+exit "${EXIT_CODE}"
