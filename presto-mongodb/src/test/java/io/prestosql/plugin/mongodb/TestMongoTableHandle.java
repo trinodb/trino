@@ -14,7 +14,7 @@
 package io.prestosql.plugin.mongodb;
 
 import io.airlift.json.JsonCodec;
-import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.predicate.TupleDomain;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;
@@ -26,11 +26,13 @@ public class TestMongoTableHandle
     @Test
     public void testRoundTrip()
     {
-        MongoTableHandle expected = new MongoTableHandle(new SchemaTableName("schema", "table"));
+        MongoTableHandle expected = new MongoTableHandle("Schema", "Table", TupleDomain.all());
 
         String json = codec.toJson(expected);
         MongoTableHandle actual = codec.fromJson(json);
 
         assertEquals(actual.getSchemaTableName(), expected.getSchemaTableName());
+        assertEquals(actual.getDatabaseName(), expected.getDatabaseName());
+        assertEquals(actual.getCollectionName(), expected.getCollectionName());
     }
 }

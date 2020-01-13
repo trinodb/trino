@@ -25,7 +25,6 @@ import io.prestosql.spi.StandardErrorCode;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorPageSink;
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.BooleanType;
 import io.prestosql.spi.type.DateType;
@@ -76,7 +75,7 @@ public class MongoPageSink
 {
     private final MongoSession mongoSession;
     private final ConnectorSession session;
-    private final SchemaTableName schemaTableName;
+    private final MongoTableHandle table;
     private final List<MongoColumnHandle> columns;
     private final String implicitPrefix;
 
@@ -84,12 +83,12 @@ public class MongoPageSink
             MongoClientConfig config,
             MongoSession mongoSession,
             ConnectorSession session,
-            SchemaTableName schemaTableName,
+            MongoTableHandle table,
             List<MongoColumnHandle> columns)
     {
         this.mongoSession = mongoSession;
         this.session = session;
-        this.schemaTableName = schemaTableName;
+        this.table = table;
         this.columns = columns;
         this.implicitPrefix = requireNonNull(config.getImplicitRowFieldPrefix(), "config.getImplicitRowFieldPrefix() is null");
     }
@@ -97,7 +96,7 @@ public class MongoPageSink
     @Override
     public CompletableFuture<?> appendPage(Page page)
     {
-        MongoCollection<Document> collection = mongoSession.getCollection(schemaTableName);
+        MongoCollection<Document> collection = mongoSession.getCollection(table);
         List<Document> batch = new ArrayList<>(page.getPositionCount());
 
         for (int position = 0; position < page.getPositionCount(); position++) {

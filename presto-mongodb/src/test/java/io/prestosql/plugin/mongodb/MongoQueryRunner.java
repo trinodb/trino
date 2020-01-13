@@ -16,12 +16,14 @@ package io.prestosql.plugin.mongodb;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.mongodb.MongoClient;
+import com.mongodb.client.MongoCollection;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.airlift.tpch.TpchTable;
 import io.prestosql.Session;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.testing.DistributedQueryRunner;
+import org.bson.Document;
 
 import java.util.Map;
 
@@ -60,12 +62,22 @@ public final class MongoQueryRunner
             queryRunner.createCatalog("mongodb", "mongodb", properties);
 
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
+            createNativeTables(server);
+
             return queryRunner;
         }
         catch (Throwable e) {
             closeAllSuppress(e, queryRunner);
             throw e;
         }
+    }
+
+    private static void createNativeTables(MongoServer server)
+    {
+        MongoClient client = new MongoClient(server.getAddress().getHost(), server.getAddress().getPort());
+        MongoCollection<Document> collection = client.getDatabase("CamelDB").getCollection("camelTable");
+
+        collection.insertOne(new Document(ImmutableMap.of("Name", "asdf", "Value", 1)));
     }
 
     public static Session createSession()

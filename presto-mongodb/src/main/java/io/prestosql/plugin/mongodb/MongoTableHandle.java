@@ -27,27 +27,42 @@ import static java.util.Objects.requireNonNull;
 public class MongoTableHandle
         implements ConnectorTableHandle
 {
-    private final SchemaTableName schemaTableName;
+    private final String databaseName; // case sensitive name
+    private final String collectionName; // case sensitive name
     private final TupleDomain<ColumnHandle> constraint;
 
-    public MongoTableHandle(SchemaTableName schemaTableName)
+    public MongoTableHandle(SchemaTableName table)
     {
-        this(schemaTableName, TupleDomain.all());
+        this(table.getSchemaName(), table.getTableName(), TupleDomain.all());
     }
 
     @JsonCreator
     public MongoTableHandle(
-            @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
+            @JsonProperty("databaseName") String databaseName,
+            @JsonProperty("collectionName") String collectionName,
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint)
     {
-        this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
+        this.databaseName = requireNonNull(databaseName, "databaseName is null");
+        this.collectionName = requireNonNull(collectionName, "collectionName is null");
         this.constraint = requireNonNull(constraint, "constraint is null");
     }
 
     @JsonProperty
     public SchemaTableName getSchemaTableName()
     {
-        return schemaTableName;
+        return new SchemaTableName(databaseName, collectionName);
+    }
+
+    @JsonProperty
+    public String getDatabaseName()
+    {
+        return databaseName;
+    }
+
+    @JsonProperty
+    public String getCollectionName()
+    {
+        return collectionName;
     }
 
     @JsonProperty
@@ -59,7 +74,7 @@ public class MongoTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaTableName);
+        return Objects.hash(databaseName, collectionName);
     }
 
     @Override
@@ -72,12 +87,13 @@ public class MongoTableHandle
             return false;
         }
         MongoTableHandle other = (MongoTableHandle) obj;
-        return Objects.equals(this.schemaTableName, other.schemaTableName);
+        return Objects.equals(this.databaseName, other.databaseName) &&
+                Objects.equals(this.collectionName, other.collectionName);
     }
 
     @Override
     public String toString()
     {
-        return schemaTableName.toString();
+        return String.format("%s.%s", databaseName, collectionName);
     }
 }
