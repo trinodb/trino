@@ -14,7 +14,6 @@
 package io.prestosql.plugin.sqlserver;
 
 import com.google.inject.Binder;
-import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
@@ -36,8 +35,7 @@ public class SqlServerClientModule
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(Key.get(JdbcClient.class, ForBaseJdbc.class))
-                .to(SqlServerClient.class).in(Scopes.SINGLETON);
+        binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(SqlServerClient.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(BaseJdbcConfig.class);
         configBinder(binder).bindConfig(TypeHandlingJdbcConfig.class);
     }
