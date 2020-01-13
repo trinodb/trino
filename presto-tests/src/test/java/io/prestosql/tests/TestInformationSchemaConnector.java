@@ -128,7 +128,7 @@ public class TestInformationSchemaConnector
                 "VALUES 30008",
                 new MetadataCallsCount()
                         .withListSchemasCount(1)
-                        .withListTablesCount(3));
+                        .withListTablesCount(2));
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.tables WHERE table_schema = 'test_schema1'",
                 "VALUES 10000",
