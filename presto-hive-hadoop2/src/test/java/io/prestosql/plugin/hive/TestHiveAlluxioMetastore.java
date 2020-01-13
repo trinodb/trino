@@ -24,6 +24,8 @@ import org.testng.annotations.Parameters;
 public class TestHiveAlluxioMetastore
         extends AbstractTestHive
 {
+    private String alluxioAddress;
+
     @Parameters({
             "hive.hadoop2.alluxio.host",
             "hive.hadoop2.alluxio.port"
@@ -31,18 +33,17 @@ public class TestHiveAlluxioMetastore
     @BeforeClass
     public void setup(String host, String port)
     {
-        // this.alluxioAddress = host + ":" + port;
+        this.alluxioAddress = host + ":" + port;
         HiveConfig hiveConfig = new HiveConfig()
                 .setTimeZone("America/Los_Angeles");
-        System.out.println(host);
-        System.out.println(port);
-        setup("test", hiveConfig, createMetastore());
+        System.out.println(createMetastore().getAllDatabases());
+        setup("default", hiveConfig, createMetastore());
     }
 
     protected HiveMetastore createMetastore()
     {
         AlluxioHiveMetastoreConfig alluxioConfig = new AlluxioHiveMetastoreConfig();
-        alluxioConfig.setMasterAddress("localhost:19999");
+        alluxioConfig.setMasterAddress(this.alluxioAddress);
         TableMasterClient client = AlluxioMetastoreModule.createCatalogMasterClient(alluxioConfig);
         return new AlluxioHiveMetastore(client);
     }
