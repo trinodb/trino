@@ -74,6 +74,7 @@ import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
+import static io.prestosql.sql.tree.ComparisonExpression.Operator.IS_DISTINCT_FROM;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.NOT_EQUAL;
@@ -391,6 +392,26 @@ public final class DomainTranslator
         {
             Optional<NormalizedSimpleComparison> optionalNormalized = toNormalizedSimpleComparison(node);
             if (!optionalNormalized.isPresent()) {
+                if (node.getOperator() != IS_DISTINCT_FROM && node.getLeft() instanceof SymbolReference && node.getRight() instanceof SymbolReference) {
+                    Symbol leftSymbol = Symbol.from(node.getLeft());
+                    Symbol rightSymbol = Symbol.from(node.getRight());
+                    if (!leftSymbol.equals(rightSymbol)) {
+                        return new ExtractionResult(
+                                TupleDomain.withColumnDomains(ImmutableMap.<Symbol, Domain>builder()
+                                        .put(leftSymbol, Domain.notNull(types.get(leftSymbol)))
+                                        .put(rightSymbol, Domain.notNull(types.get(leftSymbol)))
+                                        .build()),
+                                node);
+                    }
+                    else {
+                        return new ExtractionResult(
+                                TupleDomain.withColumnDomains(ImmutableMap.<Symbol, Domain>builder()
+                                        .put(leftSymbol, Domain.notNull(types.get(leftSymbol)))
+                                        .build()),
+                                node);
+                    }
+                }
+
                 return super.visitComparisonExpression(node, complement);
             }
             NormalizedSimpleComparison normalized = optionalNormalized.get();
