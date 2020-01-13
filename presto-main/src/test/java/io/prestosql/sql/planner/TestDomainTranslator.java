@@ -1012,9 +1012,9 @@ public class TestDomainTranslator
     public void testExpressionConstantFolding()
     {
         FunctionCall fromHex = new FunctionCallBuilder(metadata)
-                        .setName(QualifiedName.of("from_hex"))
-                        .addArgument(VARCHAR, stringLiteral("123456"))
-                        .build();
+                .setName(QualifiedName.of("from_hex"))
+                .addArgument(VARCHAR, stringLiteral("123456"))
+                .build();
         Expression originalExpression = comparison(GREATER_THAN, C_VARBINARY.toSymbolReference(), fromHex);
         ExtractionResult result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
