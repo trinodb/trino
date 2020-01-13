@@ -41,8 +41,6 @@ public class KinesisConnectorFactory
 {
     public KinesisConnectorFactory()
     {
-        //TODO: Remove this when once aws version is upgraded to latest
-        System.setProperty("com.amazonaws.sdk.disableCbor", "true");
     }
 
     @Override
