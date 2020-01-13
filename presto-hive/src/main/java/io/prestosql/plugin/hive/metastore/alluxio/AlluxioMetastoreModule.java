@@ -45,7 +45,12 @@ public class AlluxioMetastoreModule
     }
 
     @Provides
-    TableMasterClient provideCatalogMasterClient(AlluxioHiveMetastoreConfig config)
+    public TableMasterClient provideCatalogMasterClient(AlluxioHiveMetastoreConfig config)
+    {
+        return createCatalogMasterClient(config);
+    }
+
+    public static TableMasterClient createCatalogMasterClient(AlluxioHiveMetastoreConfig config)
     {
         InstancedConfiguration conf = new InstancedConfiguration(ConfigurationUtils.defaults());
         String addr = config.getMasterAddress();

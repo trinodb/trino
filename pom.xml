@@ -53,7 +53,7 @@
         <dep.tempto.version>171</dep.tempto.version>
         <dep.gcs.version>2.0.0</dep.gcs.version>
         <dep.errorprone.version>2.3.3</dep.errorprone.version>
-        <dep.alluxio.version>2.1.0</dep.alluxio.version>
+        <dep.alluxio.version>2.1.1</dep.alluxio.version>
 
         <!--
           America/Bahia_Banderas has:

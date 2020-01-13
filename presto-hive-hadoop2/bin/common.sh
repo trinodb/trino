@@ -52,7 +52,7 @@ function stop_unnecessary_hadoop_services() {
 
 function cleanup_docker_containers() {
   # stop containers started with "up"
-  docker-compose -f "${DOCKER_COMPOSE_LOCATION}" down
+  docker-compose -f "${DOCKER_COMPOSE_LOCATION}" down  --remove-orphans
 
   # docker logs processes are being terminated as soon as docker container are stopped
   # wait for docker logs termination

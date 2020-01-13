@@ -28,6 +28,7 @@ import io.prestosql.plugin.hive.metastore.Database;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.HivePrincipal;
 import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo;
+import io.prestosql.plugin.hive.metastore.MetastoreUtil;
 import io.prestosql.plugin.hive.metastore.Partition;
 import io.prestosql.plugin.hive.metastore.PartitionWithStatistics;
 import io.prestosql.plugin.hive.metastore.PrincipalPrivileges;
@@ -106,12 +107,9 @@ public class AlluxioHiveMetastore
     }
 
     @Override
-    public PartitionStatistics getTableStatistics(HiveIdentity identity, String databaseName, String tableName)
+    public PartitionStatistics getTableStatistics(HiveIdentity identity, Table table)
     {
         try {
-            Table table = getTable(identity, databaseName, tableName)
-                    .orElseThrow(() -> new PrestoException(HIVE_METASTORE_ERROR,
-                            String.format("Could not retrieve table %s.%s", databaseName, tableName)));
             HiveBasicStatistics basicStats =
                     ThriftMetastoreUtil.getHiveBasicStatistics(table.getParameters());
             // TODO implement logic to populate Map<string, HiveColumnStatistics>
@@ -123,12 +121,12 @@ public class AlluxioHiveMetastore
     }
 
     @Override
-    public Map<String, PartitionStatistics> getPartitionStatistics(HiveIdentity identity, String databaseName, String tableName, Set<String> partitionNames)
+    public Map<String, PartitionStatistics> getPartitionStatistics(HiveIdentity identity, Table table, List<Partition> partitions)
     {
         // TODO implement partition statistics
         // currently returns a map of partitionName to empty statistics to satisfy presto requirements
         return Collections.unmodifiableMap(
-                partitionNames.stream().collect(Collectors.toMap(identity(), (p) -> PartitionStatistics.empty())));
+                partitions.stream().map(p -> MetastoreUtil.makePartitionName(table, p)).collect(Collectors.toMap(identity(), (p) -> PartitionStatistics.empty())));
     }
 
     @Override
