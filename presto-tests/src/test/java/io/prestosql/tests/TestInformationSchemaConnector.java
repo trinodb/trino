@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.connector.MockConnectorFactory;
-import io.prestosql.connector.informationschema.InformationSchemaTable;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.ConnectorFactory;
@@ -26,7 +25,6 @@ import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.DistributedQueryRunner;
 import org.testng.annotations.Test;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
@@ -35,7 +33,6 @@ import java.util.stream.IntStream;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.connector.MockConnectorFactory.Builder.defaultGetColumns;
-import static io.prestosql.connector.informationschema.InformationSchemaTable.INFORMATION_SCHEMA;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
 
@@ -56,7 +53,7 @@ public class TestInformationSchemaConnector
         assertQuery("SELECT * FROM tpch.information_schema.schemata ORDER BY 1 DESC, 2 DESC LIMIT 1", "VALUES ('tpch', 'tiny')");
         assertQuery("SELECT * FROM tpch.information_schema.tables ORDER BY 1 DESC, 2 DESC, 3 DESC, 4 DESC LIMIT 1", "VALUES ('tpch', 'tiny', 'supplier', 'BASE TABLE')");
         assertQuery("SELECT * FROM tpch.information_schema.columns ORDER BY 1 DESC, 2 DESC, 3 DESC, 4 DESC LIMIT 1", "VALUES ('tpch', 'tiny', 'supplier', 'suppkey', 1, NULL, 'YES', 'bigint', NULL, NULL)");
-        assertQuery("SELECT count(*) FROM test_catalog.information_schema.columns", "VALUES 3000800");
+        assertQuery("SELECT count(*) FROM test_catalog.information_schema.columns", "VALUES 3000036");
     }
 
     @Test
@@ -131,7 +128,7 @@ public class TestInformationSchemaConnector
                 "VALUES 30008",
                 new MetadataCallsCount()
                         .withListSchemasCount(1)
-                        .withListTablesCount(2));
+                        .withListTablesCount(3));
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.tables WHERE table_schema = 'test_schema1'",
                 "VALUES 10000",
@@ -158,7 +155,7 @@ public class TestInformationSchemaConnector
                 "VALUES 2",
                 new MetadataCallsCount()
                         .withListSchemasCount(1)
-                        .withListTablesCount(2));
+                        .withListTablesCount(3));
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.tables WHERE table_name LIKE 'test_t_ble1' AND table_name IN ('test_table1', 'test_table2')",
                 "VALUES 2",
@@ -186,15 +183,15 @@ public class TestInformationSchemaConnector
                 "VALUES 1",
                 new MetadataCallsCount()
                         .withListSchemasCount(1)
-                        .withListTablesCount(0)
-                        .withGetColumnsCount(8));
+                        .withListTablesCount(1)
+                        .withGetColumnsCount(0));
         assertMetadataCalls(
                 "SELECT count(*) FROM (SELECT * from test_catalog.information_schema.columns LIMIT 10000)",
                 "VALUES 10000",
                 new MetadataCallsCount()
                         .withListSchemasCount(1)
-                        .withListTablesCount(1)
-                        .withGetColumnsCount(10008));
+                        .withListTablesCount(2)
+                        .withGetColumnsCount(10000));
     }
 
     @Override
@@ -220,18 +217,12 @@ public class TestInformationSchemaConnector
                     List<SchemaTableName> tablesTestSchema2 = IntStream.range(0, 20000)
                             .mapToObj(i -> new SchemaTableName("test_schema2", "test_table" + i))
                             .collect(toImmutableList());
-                    List<SchemaTableName> tablesInformationSchema = Arrays.stream(InformationSchemaTable.values())
-                            .map(InformationSchemaTable::getSchemaTableName)
-                            .collect(toImmutableList());
                     MockConnectorFactory mockConnectorFactory = MockConnectorFactory.builder()
                             .withListSchemaNames(connectorSession -> {
                                 LIST_SCHEMAS_CALLS_COUNTER.incrementAndGet();
                                 return ImmutableList.of("test_schema1", "test_schema2");
                             })
                             .withListTables((connectorSession, schemaName) -> {
-                                if (schemaName.equals(INFORMATION_SCHEMA)) {
-                                    return tablesInformationSchema;
-                                }
                                 LIST_TABLES_CALLS_COUNTER.incrementAndGet();
                                 if (schemaName.equals("test_schema1")) {
                                     return tablesTestSchema1;
