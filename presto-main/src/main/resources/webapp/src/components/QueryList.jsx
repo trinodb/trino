@@ -326,7 +326,7 @@ export class QueryList extends React.Component {
         clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
         clearTimeout(this.searchTimeoutId);
 
-        $.get('/v1/query', function (queryList) {
+        $.get('/ui/api/query', function (queryList) {
             const queryMap = queryList.reduce(function (map, query) {
                 map[query.queryId] = query;
                 return map;

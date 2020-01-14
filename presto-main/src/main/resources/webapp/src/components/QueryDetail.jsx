@@ -117,7 +117,7 @@ class TaskList extends React.Component {
             return (
                 <Tr key={task.taskStatus.taskId}>
                     <Td column="id" value={task.taskStatus.taskId}>
-                        <a href={"/v1/worker/" + task.taskStatus.nodeId + "/task/" + task.taskStatus.taskId + "?pretty"}>
+                        <a href={"/ui/api/worker/" + task.taskStatus.nodeId + "/task/" + task.taskStatus.taskId + "?pretty"}>
                             {getTaskIdSuffix(task.taskStatus.taskId)}
                         </a>
                     </Td>
@@ -721,7 +721,7 @@ export class QueryDetail extends React.Component {
     refreshLoop() {
         clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
         const queryId = getFirstParameter(window.location.search);
-        $.get('/v1/query/' + queryId, function (query) {
+        $.get('/ui/api/query/' + queryId, function (query) {
             let lastSnapshotStages = this.state.lastSnapshotStage;
             if (this.state.stageRefresh) {
                 lastSnapshotStages = query.outputStage;
