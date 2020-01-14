@@ -52,6 +52,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.cassandra.CassandraType.toCassandraType;
 import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.cqlNameToSqlName;
+import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.validColumnName;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.PERMISSION_DENIED;
 import static java.lang.String.format;
@@ -295,7 +296,7 @@ public class CassandraMetadata
             String name = columns.get(i);
             Type type = types.get(i);
             queryBuilder.append(", ")
-                    .append(name)
+                    .append(validColumnName(name))
                     .append(" ")
                     .append(toCassandraType(type, cassandraSession.getProtocolVersion()).name().toLowerCase(ENGLISH));
         }
