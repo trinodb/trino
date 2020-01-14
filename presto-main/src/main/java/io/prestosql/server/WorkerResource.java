@@ -29,9 +29,9 @@ import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Response;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.Set;
 
+import static com.google.common.io.ByteStreams.toByteArray;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareGet;
@@ -88,27 +88,27 @@ public class WorkerResource
                         .build())
                 .build();
 
-        InputStream responseStream = httpClient.execute(request, new StreamingJsonResponseHandler());
+        byte[] responseStream = httpClient.execute(request, new StreamingJsonResponseHandler());
         return Response.ok(responseStream, APPLICATION_JSON_TYPE).build();
     }
 
     private static class StreamingJsonResponseHandler
-            implements ResponseHandler<InputStream, RuntimeException>
+            implements ResponseHandler<byte[], RuntimeException>
     {
         @Override
-        public InputStream handleException(Request request, Exception exception)
+        public byte[] handleException(Request request, Exception exception)
         {
             throw new RuntimeException("Request to worker failed", exception);
         }
 
         @Override
-        public InputStream handle(Request request, io.airlift.http.client.Response response)
+        public byte[] handle(Request request, io.airlift.http.client.Response response)
         {
             try {
-                if (APPLICATION_JSON.equals(response.getHeader(CONTENT_TYPE))) {
-                    return response.getInputStream();
+                if (!APPLICATION_JSON.equals(response.getHeader(CONTENT_TYPE))) {
+                    throw new RuntimeException("Response received was not of type " + APPLICATION_JSON);
                 }
-                throw new RuntimeException("Response received was not of type " + APPLICATION_JSON);
+                return toByteArray(response.getInputStream());
             }
             catch (IOException e) {
                 throw new RuntimeException("Unable to read response from worker", e);
