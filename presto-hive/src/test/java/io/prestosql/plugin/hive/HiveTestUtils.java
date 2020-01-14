@@ -14,6 +14,7 @@
 package io.prestosql.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
@@ -54,9 +55,11 @@ import io.prestosql.type.InternalTypeManager;
 import java.lang.invoke.MethodHandle;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
@@ -74,6 +77,27 @@ public final class HiveTestUtils
     public static final HdfsEnvironment HDFS_ENVIRONMENT = createTestHdfsEnvironment();
 
     public static final PageSorter PAGE_SORTER = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
+
+    /**
+     * Allow subclass to change default configuration.
+     */
+    public static HiveConfig getHiveConfig()
+    {
+        return new HiveConfig()
+                .setMaxOpenSortFiles(10)
+                .setWriterSortBufferSize(new DataSize(100, KILOBYTE));
+    }
+
+    public static ConnectorSession newSession()
+    {
+        return newSession(ImmutableMap.of());
+    }
+
+    protected static ConnectorSession newSession(Map<String, Object> propertyValues)
+    {
+        HiveSessionProperties properties = getHiveSessionProperties(getHiveConfig());
+        return new TestingConnectorSession(properties.getSessionProperties(), propertyValues);
+    }
 
     public static ConnectorSession getHiveSession(HiveConfig hiveConfig)
     {

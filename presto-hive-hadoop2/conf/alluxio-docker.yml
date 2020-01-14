@@ -1,10 +1,8 @@
 version: '2'
 services:
   alluxio-master:
-#    networks:
-#      - alluxio-network
     hostname: alluxio-master
-    image: 'alluxio/alluxio:2.1.1'
+    image: '${ALLUXIO_BASE_IMAGE}:${ALLUXIO_IMAGE_TAG}'
     command: master
     environment:
       ALLUXIO_MASTER_JAVA_OPTS: '
@@ -21,10 +19,8 @@ services:
     volumes:
       - ./files:/docker/files:ro
   alluxio-worker:
-#    networks:
-#       - alluxio-network
     hostname: alluxio-worker
-    image: 'alluxio/alluxio:2.1.1'
+    image: '${ALLUXIO_BASE_IMAGE}:${ALLUXIO_IMAGE_TAG}'
     command: worker
     shm_size: '500mb'
     environment:
@@ -37,6 +33,3 @@ services:
       - '30001:30001' # Job Worker RPC
       - '30002:30002' # Job Worker Data
       - '30003:30003' # Job Worker HTTP
-
-#networks:
-#  alluxio-network:

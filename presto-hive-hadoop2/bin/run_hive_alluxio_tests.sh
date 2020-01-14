@@ -7,6 +7,9 @@ set -euo pipefail -x
 source presto-product-tests/conf/product-tests-config-hdp3.sh
 
 ALLUXIO_DOCKER_COMPOSE_LOCATION="${INTEGRATION_TESTS_ROOT}/conf/alluxio-docker.yml"
+export ALLUXIO_BASE_IMAGE="alluxio/alluxio"
+export ALLUXIO_IMAGE_TAG="2.1.1"
+
 
 function start_alluxio_containers() {
   # stop already running containers
@@ -47,29 +50,20 @@ function main () {
   cleanup_docker_containers
   start_docker_containers
 
+
   start_alluxio_containers
 
   # generate test data
   exec_in_hadoop_master_container sudo -Eu hdfs hdfs dfs -mkdir /alluxio
   exec_in_hadoop_master_container sudo -Eu hdfs hdfs dfs -chmod 777 /alluxio
-  exec_in_hadoop_master_container sudo -Eu hive beeline -u jdbc:hive2://localhost:10000/default -n hive -f /docker/sql/create-test.sql
-  exec_in_hadoop_master_container sudo -Eu hive beeline -u jdbc:hive2://localhost:10000/default -n hive -f "/docker/sql/create-test-hive-${TESTS_HIVE_VERSION_MAJOR}.sql"
+  exec_in_hadoop_master_container sudo -Eu hive beeline -u jdbc:hive2://localhost:10000/default -n hive -f /docker/sql/create-alluxio.sql
 
   stop_unnecessary_hadoop_services
 
   HADOOP_MASTER_IP=$(hadoop_master_ip)
 
-  run_in_alluxio alluxio table attachdb hive thrift://$(hadoop_master_ip):9083 default || true
-  run_in_alluxio alluxio table ls
-
-#    -Dhive.hadoop2.metastoreHost=localhost \
-#    -Dhive.hadoop2.metastorePort=9083 \
-#    -Dhive.hadoop2.databaseName=default \
-#    -Dhive.hadoop2.hiveVersionMajor="${TESTS_HIVE_VERSION_MAJOR}" \
-#    -Dhive.hadoop2.timeZone=Asia/Kathmandu \
-#    -Dhive.metastore.thrift.client.socks-proxy=${PROXY}:1180 \
-#    -Dhive.hdfs.socks-proxy=${PROXY}:1180 \
-#    -Dhadoop-master-ip=${HADOOP_MASTER_IP} \
+  run_in_alluxio alluxio table attachdb hive thrift://$(hadoop_master_ip):9083 default
+  run_in_alluxio alluxio table ls default
 
   # run product tests
   pushd ${PROJECT_ROOT}

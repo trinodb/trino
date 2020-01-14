@@ -22,7 +22,6 @@ import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.stats.CounterStat;
-import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.GroupByHashPageIndexerFactory;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
@@ -101,7 +100,6 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.sql.gen.JoinCompiler;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
-import io.prestosql.testing.TestingConnectorSession;
 import io.prestosql.testing.TestingNodeManager;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -159,7 +157,6 @@ import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.airlift.testing.Assertions.assertLessThanOrEqual;
-import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.plugin.hive.AbstractTestHive.TransactionDeleteInsertTestTag.COMMIT;
 import static io.prestosql.plugin.hive.AbstractTestHive.TransactionDeleteInsertTestTag.ROLLBACK_AFTER_APPEND_PAGE;
@@ -201,10 +198,12 @@ import static io.prestosql.plugin.hive.HiveTestUtils.arrayType;
 import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHiveFileWriterFactories;
 import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHivePageSourceFactories;
 import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHiveRecordCursorProviders;
+import static io.prestosql.plugin.hive.HiveTestUtils.getHiveConfig;
 import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSessionProperties;
 import static io.prestosql.plugin.hive.HiveTestUtils.getTypes;
 import static io.prestosql.plugin.hive.HiveTestUtils.mapType;
+import static io.prestosql.plugin.hive.HiveTestUtils.newSession;
 import static io.prestosql.plugin.hive.HiveTestUtils.rowType;
 import static io.prestosql.plugin.hive.HiveType.HIVE_INT;
 import static io.prestosql.plugin.hive.HiveType.HIVE_LONG;
@@ -790,27 +789,6 @@ public abstract class AbstractTestHive
                 getDefaultHivePageSourceFactories(hdfsEnvironment),
                 getDefaultHiveRecordCursorProviders(hiveConfig, hdfsEnvironment),
                 new GenericHiveRecordCursorProvider(hdfsEnvironment, hiveConfig));
-    }
-
-    /**
-     * Allow subclass to change default configuration.
-     */
-    protected HiveConfig getHiveConfig()
-    {
-        return new HiveConfig()
-                .setMaxOpenSortFiles(10)
-                .setWriterSortBufferSize(new DataSize(100, KILOBYTE));
-    }
-
-    protected ConnectorSession newSession()
-    {
-        return newSession(ImmutableMap.of());
-    }
-
-    protected ConnectorSession newSession(Map<String, Object> propertyValues)
-    {
-        HiveSessionProperties properties = getHiveSessionProperties(getHiveConfig());
-        return new TestingConnectorSession(properties.getSessionProperties(), propertyValues);
     }
 
     protected Transaction newTransaction()
