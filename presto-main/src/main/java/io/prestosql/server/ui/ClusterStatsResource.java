@@ -28,7 +28,6 @@ import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -108,24 +107,6 @@ public class ClusterStatsResource
                 totalInputRows,
                 totalInputBytes,
                 totalCpuTimeSecs);
-    }
-
-    @GET
-    @Path("memory")
-    public Response getClusterMemoryPoolInfo()
-    {
-        return Response.ok()
-                .entity(clusterMemoryManager.getMemoryPoolInfo())
-                .build();
-    }
-
-    @GET
-    @Path("workerMemory")
-    public Response getWorkerMemoryInfo()
-    {
-        return Response.ok()
-                .entity(clusterMemoryManager.getWorkerMemoryInfo())
-                .build();
     }
 
     public static class ClusterStats
