@@ -106,10 +106,6 @@ where profile is one of either:
  installation of kerberized Presto also running on a single Docker container.
  This profile has Kerberos impersonation. Presto impersonates the user who
  is running the query when accessing HDFS.
-- **singlenode-kerberos-hdfs-no-impersonation** - pseudo-distributed Hadoop
- installation running on a single Docker container and a single node
- installation of kerberized Presto also running on a single Docker container.
- This profile runs Kerberos without impersonation.
 - **singlenode-ldap** - Three single node Docker containers, one running an
  OpenLDAP server, one running with SSL/TLS certificates installed on top of a
  single node Presto installation, and one with a pseudo-distributed Hadoop
@@ -207,8 +203,7 @@ and also the entire test suite:
     ```
     presto-product-tests/bin/run_on_docker.sh <profile> -g hdfs_impersonation
     ```
-* Run **no HDFS impersonation** tests, where &lt;profile> is one of either
-``singlenode`` or ``singlenode-kerberos-hdfs-no-impersonation``:
+* Run **no HDFS impersonation** tests, where &lt;profile> is e.g. ``singlenode``:
 
     ```
     presto-product-tests/bin/run_on_docker.sh <profile> -g hdfs_no_impersonation
