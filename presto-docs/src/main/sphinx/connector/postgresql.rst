@@ -50,6 +50,20 @@ property, which can be set to ``UNNECESSARY`` (the default),
 ``UP``, ``DOWN``, ``CEILING``, ``FLOOR``, ``HALF_UP``, ``HALF_DOWN``, or ``HALF_EVEN``
 (see `RoundingMode <https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/math/RoundingMode.html#enum.constant.summary>`_).
 
+Array Type Handling
+-------------------
+
+The PostgreSQL array implementation does not support fixed dimensions whereas PrestoSql
+support only arrays with fixed dimensions.
+The way PostgreSQL connector handle array columns is set by using the ``postgresql.array-mapping`` configuration property
+or the ``array_mapping`` session property.
+
+The following values are accepted for this property:
+
+* ``DISABLED``(default): array columns are skipped.
+* ``AS_ARRAY``: array columns are interpreted as presto ``ARRAY`` type, for array columns with fixed dimensions.
+* ``AS_JSON``: array columns are interpreted as presto ``JSON`` type, with no constraint on dimensions.
+
 Querying PostgreSQL
 -------------------
 
