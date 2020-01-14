@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
-import io.prestosql.plugin.cassandra.util.CassandraCqlUtils;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -53,8 +52,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.cassandra.CassandraType.toCassandraType;
 import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.cqlNameToSqlName;
-import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.validSchemaName;
-import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.validTableName;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.PERMISSION_DENIED;
 import static java.lang.String.format;
@@ -333,12 +330,12 @@ public class CassandraMetadata
 
         SchemaTableName schemaTableName = new SchemaTableName(table.getSchemaName(), table.getTableName());
         List<CassandraColumnHandle> columns = cassandraSession.getTable(schemaTableName).getColumns();
-        List<String> columnNames = columns.stream().map(CassandraColumnHandle::getName).map(CassandraCqlUtils::validColumnName).collect(Collectors.toList());
+        List<String> columnNames = columns.stream().map(CassandraColumnHandle::getName).collect(Collectors.toList());
         List<Type> columnTypes = columns.stream().map(CassandraColumnHandle::getType).collect(Collectors.toList());
 
         return new CassandraInsertTableHandle(
-                validSchemaName(table.getSchemaName()),
-                validTableName(table.getTableName()),
+                table.getSchemaName(),
+                table.getTableName(),
                 columnNames,
                 columnTypes);
     }
