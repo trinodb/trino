@@ -18,6 +18,7 @@ import com.google.inject.Module;
 import com.google.inject.multibindings.MapBinder;
 import io.prestosql.tests.product.launcher.env.common.Hadoop;
 import io.prestosql.tests.product.launcher.env.common.Standard;
+import io.prestosql.tests.product.launcher.env.environment.Singlenode;
 
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static java.util.Objects.requireNonNull;
@@ -41,6 +42,7 @@ public final class EnvironmentModule
         binder.bind(Hadoop.class);
 
         MapBinder<String, EnvironmentProvider> environments = newMapBinder(binder, String.class, EnvironmentProvider.class);
+        environments.addBinding("singlenode").to(Singlenode.class);
         binder.install(additionalEnvironments);
     }
 }
