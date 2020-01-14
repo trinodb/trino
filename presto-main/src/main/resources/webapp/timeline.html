@@ -141,7 +141,7 @@
 <script type="text/javascript" src="dist/timeline.js"></script>
 
 <script>
-d3.json('/v1/query/' + window.location.search.substring(1), function (query) {
+d3.json('/ui/api/query/' + window.location.search.substring(1), function (query) {
     d3.select('#queryId').text(query.queryId);
     renderTimeline(query);
 });
