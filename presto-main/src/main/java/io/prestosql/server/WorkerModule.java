@@ -22,6 +22,8 @@ import io.prestosql.execution.resourcegroups.NoOpResourceGroupManager;
 import io.prestosql.execution.resourcegroups.ResourceGroupManager;
 import io.prestosql.failuredetector.FailureDetector;
 import io.prestosql.failuredetector.NoOpFailureDetector;
+import io.prestosql.server.ui.NoWebUiAuthenticationManager;
+import io.prestosql.server.ui.WebUiAuthenticationManager;
 import io.prestosql.transaction.NoOpTransactionManager;
 import io.prestosql.transaction.TransactionManager;
 
@@ -51,6 +53,8 @@ public class WorkerModule
         binder.bind(QueryManager.class).toInstance(newProxy(QueryManager.class, (proxy, method, args) -> {
             throw new UnsupportedOperationException();
         }));
+
+        binder.bind(WebUiAuthenticationManager.class).to(NoWebUiAuthenticationManager.class).in(Scopes.SINGLETON);
     }
 
     @Provides

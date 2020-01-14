@@ -108,6 +108,13 @@ pre {
     padding-bottom: 7px;
 }
 
+.btn-logout {
+    background-color: #19874E;
+    /*border-color: #8c7253;*/
+    padding-top: 7px;
+    padding-bottom: 7px;
+}
+
 .dropdown-menu > li > .selected {
     font-weight: 500;
     color: #fff;
