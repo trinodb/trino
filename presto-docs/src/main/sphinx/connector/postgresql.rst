@@ -60,7 +60,7 @@ or the ``array_mapping`` session property.
 
 The following values are accepted for this property:
 
-* ``DISABLED``(default): array columns are skipped.
+* ``DISABLED`` (default): array columns are skipped.
 * ``AS_ARRAY``: array columns are interpreted as presto ``ARRAY`` type, for array columns with fixed dimensions.
 * ``AS_JSON``: array columns are interpreted as presto ``JSON`` type, with no constraint on dimensions.
 
