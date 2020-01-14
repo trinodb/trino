@@ -112,6 +112,7 @@
         <module>presto-testing-docker</module>
         <module>presto-tests</module>
         <module>presto-product-tests</module>
+        <module>presto-product-tests-launcher</module>
         <module>presto-jdbc</module>
         <module>presto-cli</module>
         <module>presto-benchmark-driver</module>
