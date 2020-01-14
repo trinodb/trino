@@ -106,6 +106,7 @@ public class TestHiveAlluxioMetastore
                 partitionManager,
                 DateTimeZone.forTimeZone(TimeZone.getTimeZone(this.hiveConfig.getTimeZone())),
                 10,
+                10,
                 true,
                 false,
                 false,
