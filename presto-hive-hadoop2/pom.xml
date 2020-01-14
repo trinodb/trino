@@ -127,6 +127,7 @@
                         <configuration>
                             <excludes>
                                 <exclude>**/TestHive.java</exclude>
+                                <exclude>**/TestHiveAlluxioMetastore.java</exclude>
                                 <exclude>**/TestHiveFileSystemS3.java</exclude>
                                 <exclude>**/TestHiveFileSystemS3SelectPushdown.java</exclude>
                             </excludes>
