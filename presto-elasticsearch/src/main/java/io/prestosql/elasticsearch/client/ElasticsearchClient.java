@@ -452,7 +452,7 @@ public class ElasticsearchClient
 
                 JsonNode metaNode = nullSafeNode(mappings, "_meta");
 
-                return new IndexMetadata(parseType(mappings.get("properties"), nullSafeNode(metaNode, "presto_meta")));
+                return new IndexMetadata(parseType(mappings.get("properties"), nullSafeNode(metaNode, "presto")));
             }
             catch (IOException e) {
                 throw new PrestoException(ELASTICSEARCH_INVALID_RESPONSE, e);

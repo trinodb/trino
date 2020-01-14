@@ -41,12 +41,12 @@ public class ArrayDecoder
             output.appendNull();
         }
         else if (data instanceof List) {
-            final BlockBuilder array = output.beginBlockEntry();
+            BlockBuilder array = output.beginBlockEntry();
             ((List) data).forEach(element -> elementDecoder.decode(hit, () -> element, array));
             output.closeEntry();
         }
         else {
-            throw new PrestoException(TYPE_MISMATCH, "Expected list of primitives for ARRAY field");
+            throw new PrestoException(TYPE_MISMATCH, "Expected list of elements for ARRAY field");
         }
     }
 }

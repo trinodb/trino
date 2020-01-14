@@ -140,81 +140,81 @@ public class TestElasticsearchIntegrationSmokeTest
                 .indices()
                 .prepareCreate(indexName)
                 .addMapping("doc", "" +
-                                "{\n" +
-                                "  \"_meta\": {\n" +
-                                "    \"presto_meta\": {\n" +
-                                "      \"a\": {\n" +
-                                "        \"b\": {\n" +
-                                "          \"y\": {\n" +
-                                "            \"isArray\": true\n" +
-                                "          }\n" +
-                                "        }\n" +
-                                "      },\n" +
-                                "      \"c\": {\n" +
-                                "        \"f\": {\n" +
-                                "          \"g\": {\n" +
-                                "            \"isArray\": true\n" +
-                                "          },\n" +
-                                "          \"isArray\": true\n" +
-                                "        }\n" +
-                                "      },\n" +
-                                "      \"j\": {\n" +
-                                "        \"isArray\": true\n" +
-                                "      },\n" +
-                                "      \"k\": {\n" +
-                                "        \"isArray\": true\n" +
-                                "      }\n" +
-                                "    }\n" +
-                                "  },\n" +
-                                "  \"properties\":{\n" +
-                                "    \"a\": {\n" +
-                                "      \"type\": \"object\",\n" +
-                                "      \"properties\": {\n" +
-                                "        \"b\": {\n" +
-                                "          \"type\": \"object\",\n" +
-                                "          \"properties\": {\n" +
-                                "            \"x\": {\n" +
-                                "              \"type\": \"integer\"\n" +
-                                "            },\n" +
-                                "            \"y\": {\n" +
-                                "              \"type\": \"keyword\"\n" +
-                                "            }\n" +
-                                "          } \n" +
-                                "        }\n" +
-                                "      }\n" +
-                                "    },\n" +
-                                "    \"c\": {\n" +
-                                "      \"type\": \"object\",\n" +
-                                "      \"properties\": {\n" +
-                                "        \"d\": {\n" +
-                                "          \"type\": \"keyword\"\n" +
-                                "        },\n" +
-                                "        \"e\": {\n" +
-                                "          \"type\": \"keyword\"\n" +
-                                "        },\n" +
-                                "        \"f\": {\n" +
-                                "          \"type\": \"object\",\n" +
-                                "          \"properties\": {\n" +
-                                "            \"g\": {\n" +
-                                "              \"type\": \"integer\"\n" +
-                                "            },\n" +
-                                "            \"h\": {\n" +
-                                "              \"type\": \"integer\"\n" +
-                                "            }\n" +
-                                "          } \n" +
-                                "        }\n" +
-                                "      }\n" +
-                                "    },\n" +
-                                "    \"i\": {\n" +
-                                "      \"type\": \"long\"\n" +
-                                "    },\n" +
-                                "    \"j\": {\n" +
-                                "      \"type\": \"long\"\n" +
-                                "    },\n" +
-                                "    \"k\": {\n" +
-                                "      \"type\": \"long\"\n" +
-                                "    }\n" +
-                                "  }\n" +
+                                "{" +
+                                "  \"_meta\": {" +
+                                "    \"presto\": {" +
+                                "      \"a\": {" +
+                                "        \"b\": {" +
+                                "          \"y\": {" +
+                                "            \"isArray\": true" +
+                                "          }" +
+                                "        }" +
+                                "      }," +
+                                "      \"c\": {" +
+                                "        \"f\": {" +
+                                "          \"g\": {" +
+                                "            \"isArray\": true" +
+                                "          }," +
+                                "          \"isArray\": true" +
+                                "        }" +
+                                "      }," +
+                                "      \"j\": {" +
+                                "        \"isArray\": true" +
+                                "      }," +
+                                "      \"k\": {" +
+                                "        \"isArray\": true" +
+                                "      }" +
+                                "    }" +
+                                "  }," +
+                                "  \"properties\":{" +
+                                "    \"a\": {" +
+                                "      \"type\": \"object\"," +
+                                "      \"properties\": {" +
+                                "        \"b\": {" +
+                                "          \"type\": \"object\"," +
+                                "          \"properties\": {" +
+                                "            \"x\": {" +
+                                "              \"type\": \"integer\"" +
+                                "            }," +
+                                "            \"y\": {" +
+                                "              \"type\": \"keyword\"" +
+                                "            }" +
+                                "          } " +
+                                "        }" +
+                                "      }" +
+                                "    }," +
+                                "    \"c\": {" +
+                                "      \"type\": \"object\"," +
+                                "      \"properties\": {" +
+                                "        \"d\": {" +
+                                "          \"type\": \"keyword\"" +
+                                "        }," +
+                                "        \"e\": {" +
+                                "          \"type\": \"keyword\"" +
+                                "        }," +
+                                "        \"f\": {" +
+                                "          \"type\": \"object\"," +
+                                "          \"properties\": {" +
+                                "            \"g\": {" +
+                                "              \"type\": \"integer\"" +
+                                "            }," +
+                                "            \"h\": {" +
+                                "              \"type\": \"integer\"" +
+                                "            }" +
+                                "          } " +
+                                "        }" +
+                                "      }" +
+                                "    }," +
+                                "    \"i\": {" +
+                                "      \"type\": \"long\"" +
+                                "    }," +
+                                "    \"j\": {" +
+                                "      \"type\": \"long\"" +
+                                "    }," +
+                                "    \"k\": {" +
+                                "      \"type\": \"long\"" +
+                                "    }" +
+                                "  }" +
                                 "}",
                         XContentType.JSON)
                 .get();
