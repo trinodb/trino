@@ -735,6 +735,7 @@ public abstract class AbstractTestHive
                 partitionManager,
                 timeZone,
                 10,
+                10,
                 true,
                 false,
                 false,

@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>93</version>
+        <version>95</version>
     </parent>
 
     <groupId>io.prestosql</groupId>
@@ -46,20 +46,11 @@
         <dep.antlr.version>4.7.1</dep.antlr.version>
         <dep.airlift.version>0.189</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
-        <dep.slice.version>0.36</dep.slice.version>
         <dep.aws-sdk.version>1.11.602</dep.aws-sdk.version>
         <dep.okhttp.version>3.9.0</dep.okhttp.version>
         <dep.jdbi3.version>3.4.0</dep.jdbi3.version>
         <dep.drift.version>1.14</dep.drift.version>
-        <dep.joda.version>2.10.3</dep.joda.version>
-        <dep.tempto.version>170</dep.tempto.version>
-        <dep.testng.version>6.10</dep.testng.version>
-        <dep.assertj-core.version>3.8.0</dep.assertj-core.version>
-        <!-- TODO: remove after updating to Airbase 94 -->
-        <dep.slf4j.version>1.7.29</dep.slf4j.version>
-        <dep.jmxutils.version>1.21</dep.jmxutils.version>
-        <dep.cglib.version>3.3.0</dep.cglib.version>
-        <dep.javax-servlet.version>4.0.1</dep.javax-servlet.version>
+        <dep.tempto.version>171</dep.tempto.version>
         <dep.gcs.version>2.0.0</dep.gcs.version>
         <dep.errorprone.version>2.3.3</dep.errorprone.version>
 

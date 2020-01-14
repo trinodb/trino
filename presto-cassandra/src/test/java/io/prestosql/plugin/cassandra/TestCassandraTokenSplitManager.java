@@ -23,6 +23,7 @@ import java.util.Optional;
 
 import static io.prestosql.plugin.cassandra.CassandraTestingUtils.createKeyspace;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
 public class TestCassandraTokenSplitManager
@@ -81,7 +82,7 @@ public class TestCassandraTokenSplitManager
         server.refreshSizeEstimates(KEYSPACE, tableName);
         List<TokenSplit> splits = splitManager.getSplits(KEYSPACE, tableName, Optional.empty());
         // even for the empty table at least one split must be produced, in case the statistics are inaccurate
-        assertEquals(splits.size(), 1);
+        assertThat(splits).hasSize(1);
         session.execute(format("DROP TABLE %s.%s", KEYSPACE, tableName));
     }
 
@@ -96,7 +97,7 @@ public class TestCassandraTokenSplitManager
         }
         server.refreshSizeEstimates(KEYSPACE, tableName);
         List<TokenSplit> splits = splitManager.getSplits(KEYSPACE, tableName, Optional.empty());
-        assertEquals(splits.size(), PARTITION_COUNT / SPLIT_SIZE);
+        assertThat(splits).hasSize(PARTITION_COUNT / SPLIT_SIZE);
         session.execute(format("DROP TABLE %s.%s", KEYSPACE, tableName));
     }
 }

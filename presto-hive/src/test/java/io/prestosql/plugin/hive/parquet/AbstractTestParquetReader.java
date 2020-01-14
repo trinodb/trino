@@ -32,6 +32,7 @@ import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.JavaHiveDecimalObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
+import org.apache.parquet.io.ParquetDecodingException;
 import org.apache.parquet.schema.MessageType;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
@@ -76,7 +77,9 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.RowType.field;
+import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
@@ -104,6 +107,7 @@ import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveO
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaTimestampObjectInspector;
 import static org.apache.parquet.schema.MessageTypeParser.parseMessageType;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public abstract class AbstractTestParquetReader
@@ -843,7 +847,7 @@ public abstract class AbstractTestParquetReader
         for (int precision = 1; precision <= MAX_PRECISION_INT32; precision++) {
             int scale = ThreadLocalRandom.current().nextInt(precision);
             MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT32 test (DECIMAL(%d, %d)); }", precision, scale));
-            ContiguousSet<Integer> intValues = intsBetween(1, 1_000);
+            ContiguousSet<Integer> intValues = intsBetween(-1_000, 1_000);
             ImmutableList.Builder<SqlDecimal> expectedValues = new ImmutableList.Builder<>();
             for (Integer value : intValues) {
                 expectedValues.add(SqlDecimal.of(value, precision, scale));
@@ -860,7 +864,7 @@ public abstract class AbstractTestParquetReader
         for (int precision = 1; precision <= MAX_PRECISION_INT64; precision++) {
             int scale = ThreadLocalRandom.current().nextInt(precision);
             MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT64 test (DECIMAL(%d, %d)); }", precision, scale));
-            ContiguousSet<Long> longValues = longsBetween(1, 1_000);
+            ContiguousSet<Long> longValues = longsBetween(-1_000, 1_000);
             ImmutableList.Builder<SqlDecimal> expectedValues = new ImmutableList.Builder<>();
             for (Long value : longValues) {
                 expectedValues.add(SqlDecimal.of(value, precision, scale));
@@ -871,12 +875,22 @@ public abstract class AbstractTestParquetReader
     }
 
     @Test
+    public void testParquetShortDecimalWriteToPrestoDecimalWithNonMatchingScale()
+    {
+        assertThatThrownBy(() -> {
+            MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT64 test (DECIMAL(%d, %d)); }", 10, 1));
+            tester.testRoundTrip(javaLongObjectInspector, ImmutableList.of(1L), ImmutableList.of(1L), createDecimalType(10, 2), Optional.of(parquetSchema));
+        }).hasMessage("Presto decimal column type has different scale (2) than Parquet decimal column (1)")
+                .isInstanceOf(ParquetDecodingException.class);
+    }
+
+    @Test
     public void testDecimalBackedByFixedLenByteArray()
             throws Exception
     {
         for (int precision = 1; precision < MAX_PRECISION; precision++) {
             int scale = ThreadLocalRandom.current().nextInt(precision);
-            ContiguousSet<BigInteger> values = bigIntegersBetween(BigDecimal.valueOf(Math.pow(10, precision - 1)).toBigInteger(), BigDecimal.valueOf(Math.pow(10, precision)).toBigInteger());
+            ContiguousSet<BigInteger> values = bigIntegersBetween(BigDecimal.valueOf(Math.pow(10, precision - 1)).negate().toBigInteger(), BigDecimal.valueOf(Math.pow(10, precision)).toBigInteger());
             ImmutableList.Builder<SqlDecimal> expectedValues = new ImmutableList.Builder<>();
             ImmutableList.Builder<HiveDecimal> writeValues = new ImmutableList.Builder<>();
             for (BigInteger value : limit(values, 1_000)) {
@@ -892,6 +906,89 @@ public abstract class AbstractTestParquetReader
                     expectedValues.build(),
                     createDecimalType(MAX_PRECISION, scale));
         }
+    }
+
+    @Test
+    public void testParquetLongDecimalWriteToPrestoDecimalWithNonMatchingScale()
+    {
+        assertThatThrownBy(() ->
+                tester.testRoundTrip(
+                        new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(38, 10)),
+                        ImmutableList.of(HiveDecimal.create(0)),
+                        ImmutableList.of(new SqlDecimal(BigInteger.ZERO, 38, 10)),
+                        createDecimalType(38, 9)))
+                .hasMessage("Presto decimal column type has different scale (9) than Parquet decimal column (10)")
+                .isInstanceOf(ParquetDecodingException.class);
+    }
+
+    @Test
+    public void testParquetShortDecimalWriteToPrestoTinyintBlock()
+            throws Exception
+    {
+        for (int precision = 1; precision <= MAX_PRECISION_INT64; precision++) {
+            MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT64 test (DECIMAL(%d, %d)); }", precision, 0));
+            ContiguousSet<Long> longValues = longsBetween(Byte.MIN_VALUE, Byte.MAX_VALUE);
+            ImmutableList.Builder<Byte> expectedValues = new ImmutableList.Builder<>();
+            for (Long value : longValues) {
+                expectedValues.add(value.byteValue());
+            }
+            tester.testRoundTrip(javaLongObjectInspector, longValues, expectedValues.build(), TINYINT, Optional.of(parquetSchema));
+        }
+    }
+
+    @Test
+    public void testParquetShortDecimalWriteToPrestoSmallintBlock()
+            throws Exception
+    {
+        for (int precision = 1; precision <= MAX_PRECISION_INT64; precision++) {
+            MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT64 test (DECIMAL(%d, %d)); }", precision, 0));
+            ContiguousSet<Long> longValues = longsBetween(-1_000, 1_000);
+            ImmutableList.Builder<Short> expectedValues = new ImmutableList.Builder<>();
+            for (Long value : longValues) {
+                expectedValues.add(value.shortValue());
+            }
+            tester.testRoundTrip(javaLongObjectInspector, longValues, expectedValues.build(), SMALLINT, Optional.of(parquetSchema));
+        }
+    }
+
+    @Test
+    public void testParquetShortDecimalWriteToPrestoIntegerBlock()
+            throws Exception
+    {
+        for (int precision = 1; precision <= MAX_PRECISION_INT64; precision++) {
+            MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT64 test (DECIMAL(%d, %d)); }", precision, 0));
+            ContiguousSet<Long> longValues = longsBetween(-1_000, 1_000);
+            ImmutableList.Builder<Integer> expectedValues = new ImmutableList.Builder<>();
+            for (Long value : longValues) {
+                expectedValues.add(value.intValue());
+            }
+            tester.testRoundTrip(javaLongObjectInspector, longValues, expectedValues.build(), INTEGER, Optional.of(parquetSchema));
+        }
+    }
+
+    @Test
+    public void testParquetShortDecimalWriteToPrestoBigintBlock()
+            throws Exception
+    {
+        for (int precision = 1; precision <= MAX_PRECISION_INT64; precision++) {
+            MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT64 test (DECIMAL(%d, %d)); }", precision, 0));
+            ContiguousSet<Long> longValues = longsBetween(-1_000, 1_000);
+            ImmutableList.Builder<Long> expectedValues = new ImmutableList.Builder<>();
+            for (Long value : longValues) {
+                expectedValues.add(value);
+            }
+            tester.testRoundTrip(javaLongObjectInspector, longValues, expectedValues.build(), BIGINT, Optional.of(parquetSchema));
+        }
+    }
+
+    @Test
+    public void testParquetShortDecimalWriteToPrestoBigintBlockWithNonZeroScale()
+    {
+        assertThatThrownBy(() -> {
+            MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT64 test (DECIMAL(%d, %d)); }", 10, 1));
+            tester.testRoundTrip(javaLongObjectInspector, ImmutableList.of(1L), ImmutableList.of(1L), BIGINT, Optional.of(parquetSchema));
+        }).hasMessage("Parquet decimal column type with non-zero scale (1) cannot be converted to Presto bigint column type")
+                .isInstanceOf(ParquetDecodingException.class);
     }
 
     @Test

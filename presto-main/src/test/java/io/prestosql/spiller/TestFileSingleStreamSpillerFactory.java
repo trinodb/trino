@@ -14,6 +14,7 @@
 package io.prestosql.spiller;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Closer;
 import com.google.common.io.Files;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -28,6 +29,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermission;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
@@ -41,6 +43,7 @@ import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_PREFIX;
 import static io.prestosql.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_SUFFIX;
+import static java.nio.file.Files.setPosixFilePermissions;
 import static java.util.Collections.emptyList;
 import static org.testng.Assert.assertEquals;
 
@@ -105,6 +108,45 @@ public class TestFileSingleStreamSpillerFactory
         assertEquals(listFiles(spillPath2.toPath()).size(), 0);
     }
 
+    @Test
+    public void testDistributesSpillOverPathsBadDisk()
+            throws Exception
+    {
+        List<Type> types = ImmutableList.of(BIGINT);
+        List<Path> spillPaths = ImmutableList.of(spillPath1.toPath(), spillPath2.toPath());
+        FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
+                executor, // executor won't be closed, because we don't call destroy() on the spiller factory
+                blockEncodingSerde,
+                new SpillerStats(),
+                spillPaths,
+                1.0,
+                false,
+                false);
+
+        assertEquals(listFiles(spillPath1.toPath()).size(), 0);
+        assertEquals(listFiles(spillPath2.toPath()).size(), 0);
+
+        // Set first spiller path to read-only after initialization to emulate a disk failing during runtime
+        setPosixFilePermissions(spillPath1.toPath(), ImmutableSet.of(PosixFilePermission.OWNER_READ));
+
+        Page page = buildPage();
+        List<SingleStreamSpiller> spillers = new ArrayList<>();
+        int numberOfSpills = 10;
+        for (int i = 0; i < numberOfSpills; ++i) {
+            SingleStreamSpiller singleStreamSpiller = spillerFactory.create(types, bytes -> {}, newSimpleAggregatedMemoryContext().newLocalMemoryContext("test"));
+            getUnchecked(singleStreamSpiller.spill(page));
+            spillers.add(singleStreamSpiller);
+        }
+
+        // bad disk should receive no spills, with the good disk taking the remainder
+        assertEquals(listFiles(spillPath1.toPath()).size(), 0);
+        assertEquals(listFiles(spillPath2.toPath()).size(), numberOfSpills);
+
+        spillers.forEach(SingleStreamSpiller::close);
+        assertEquals(listFiles(spillPath1.toPath()).size(), 0);
+        assertEquals(listFiles(spillPath2.toPath()).size(), 0);
+    }
+
     private Page buildPage()
     {
         BlockBuilder col1 = BIGINT.createBlockBuilder(null, 1);
@@ -112,7 +154,7 @@ public class TestFileSingleStreamSpillerFactory
         return new Page(col1.build());
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "No free space available for spill")
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "No free or healthy space available for spill")
     public void throwsIfNoDiskSpace()
     {
         List<Type> types = ImmutableList.of(BIGINT);

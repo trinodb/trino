@@ -16,6 +16,7 @@ package io.prestosql.server;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.ResponseHandler;
+import io.prestosql.execution.TaskId;
 import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.InternalNodeManager;
 import io.prestosql.metadata.NodeState;
@@ -64,6 +65,13 @@ public class WorkerResource
     public Response getThreads(@PathParam("nodeId") String nodeId)
     {
         return proxyJsonResponse(nodeId, "v1/thread");
+    }
+
+    @GET
+    @Path("{nodeId}/task/{taskId}")
+    public Response getThreads(@PathParam("taskId") final TaskId task, @PathParam("nodeId") String nodeId)
+    {
+        return proxyJsonResponse(nodeId, "v1/task/" + task);
     }
 
     private Response proxyJsonResponse(String nodeId, String workerPath)
