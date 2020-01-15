@@ -188,26 +188,27 @@ Elasticsearch Presto
 Array Types
 ^^^^^^^^^^^
 
-Elasticsearch has `no dedicated array type <https://www.elastic.co/guide/en/elasticsearch/reference/current/array.html>`_ so the `_meta field <https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-meta-field.html>`_ of the index is used to store an property structure that contains
-the ``isArray`` property to specify which fields in the mapping are to be treated as array types.
+Fields in Elasticsearch can contain `zero or more values <https://www.elastic.co/guide/en/elasticsearch/reference/current/array.html>`_
+, but there is no dedicated array type. To indicate a field contains an array, it can be annotated in a presto-specific structure in
+the `_meta <https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-meta-field.html>`_ section of the index mapping.
 
-Example:
-If you have an index that contains documents that follow this structure:
+For example, if you can have an Elasticsearch index that contains documents with the following structure:
 
 .. code-block:: json
 
     {
-        "array_field": ["presto","is","the","besto"],
+        "array_string_field": ["presto","is","the","besto"],
         "long_field": 314159265359,
         "id_field": "564e6982-88ee-4498-aa98-df9e3f6b6109",
         "timestamp_field": "1987-09-17T06:22:48.000Z",
         "object_field": {
-            "array_field": [86,75,309],
+            "array_int_field": [86,75,309],
             "int_field": 2
         }
     }
 
-Then you would add the following field property definition to the target index mapping's ``_meta.presto`` property.
+The array fields of this structure can be defined by using the following command to add the field
+property definition to the ``_meta.presto`` property of the target index mapping.
 
 .. code-block:: shell
 
@@ -218,11 +219,11 @@ Then you would add the following field property definition to the target index m
     {
         "_meta": {
             "presto":{
-                "array_field":{
+                "array_string_field":{
                     "isArray":true
                 },
                 "object_field":{
-                    "array_field":{
+                    "array_int_field":{
                         "isArray":true
                     }
                 },
