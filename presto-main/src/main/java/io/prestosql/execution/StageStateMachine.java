@@ -161,7 +161,7 @@ public class StageStateMachine
 
     public boolean transitionToRunning()
     {
-        return stageState.setIf(RUNNING, currentState -> currentState != RUNNING && !currentState.isDone());
+        return stageState.setIf(RUNNING, currentState -> !currentState.isDone());
     }
 
     public boolean transitionToFinished()

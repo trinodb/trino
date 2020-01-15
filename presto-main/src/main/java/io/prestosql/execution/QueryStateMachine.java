@@ -758,7 +758,7 @@ public class QueryStateMachine
     {
         queryStateTimer.beginFinishing();
 
-        if (!queryState.setIf(FINISHING, currentState -> currentState != FINISHING && !currentState.isDone())) {
+        if (!queryState.setIf(FINISHING, currentState -> !currentState.isDone())) {
             return false;
         }
 
