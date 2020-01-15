@@ -189,10 +189,10 @@ Array Types
 ^^^^^^^^^^^
 
 Fields in Elasticsearch can contain `zero or more values <https://www.elastic.co/guide/en/elasticsearch/reference/current/array.html>`_
-, but there is no dedicated array type. To indicate a field contains an array, it can be annotated in a presto-specific structure in
+, but there is no dedicated array type. To indicate a field contains an array, it can be annotated in a Presto-specific structure in
 the `_meta <https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-meta-field.html>`_ section of the index mapping.
 
-For example, if you can have an Elasticsearch index that contains documents with the following structure:
+For example, you can have an Elasticsearch index that contains documents with the following structure:
 
 .. code-block:: json
 
