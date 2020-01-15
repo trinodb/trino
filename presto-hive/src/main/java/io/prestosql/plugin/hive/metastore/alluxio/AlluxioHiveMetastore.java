@@ -303,6 +303,12 @@ public class AlluxioHiveMetastore
     }
 
     @Override
+    public void commentColumn(HiveIdentity identity, String databaseName, String tableName, String columnName, Optional<String> comment)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "commentColumn");
+    }
+
+    @Override
     public void addColumn(HiveIdentity identity, String databaseName, String tableName, String columnName,
             HiveType columnType, String columnComment)
     {

@@ -1163,6 +1163,14 @@ public class HiveMetadata
     }
 
     @Override
+    public void setColumnComment(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, Optional<String> comment)
+    {
+        HiveTableHandle handle = (HiveTableHandle) tableHandle;
+        HiveColumnHandle columnHandle = (HiveColumnHandle) column;
+        metastore.commentColumn(new HiveIdentity(session), handle.getSchemaName(), handle.getTableName(), columnHandle.getName(), comment);
+    }
+
+    @Override
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         HiveTableHandle handle = (HiveTableHandle) tableHandle;

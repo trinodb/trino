@@ -47,6 +47,12 @@ public class TestHiveDistributedQueries
     }
 
     @Override
+    protected boolean supportsCommentOnColumn()
+    {
+        return true;
+    }
+
+    @Override
     public void testDelete()
     {
         // Hive connector currently does not support row-by-row delete

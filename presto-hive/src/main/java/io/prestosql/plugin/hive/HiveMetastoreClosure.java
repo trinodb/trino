@@ -159,6 +159,11 @@ public class HiveMetastoreClosure
         delegate.commentTable(identity, databaseName, tableName, comment);
     }
 
+    public void commentColumn(HiveIdentity identity, String databaseName, String tableName, String columnName, Optional<String> comment)
+    {
+        delegate.commentColumn(identity, databaseName, tableName, columnName, comment);
+    }
+
     public void addColumn(HiveIdentity identity, String databaseName, String tableName, String columnName, HiveType columnType, String columnComment)
     {
         delegate.addColumn(identity, databaseName, tableName, columnName, columnType, columnComment);
