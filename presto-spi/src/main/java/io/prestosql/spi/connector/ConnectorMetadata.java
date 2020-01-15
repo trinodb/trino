@@ -302,6 +302,14 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Comments to the specified column
+     */
+    default void setColumnComment(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, Optional<String> comment)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support setting column comments");
+    }
+
+    /**
      * Add the specified column
      */
     default void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)

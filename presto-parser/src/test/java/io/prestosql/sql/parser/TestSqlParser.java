@@ -1530,6 +1530,18 @@ public class TestSqlParser
     }
 
     @Test
+    public void testCommentColumn()
+    {
+        assertStatement("COMMENT ON COLUMN a.b IS 'test'", new Comment(Comment.Type.COLUMN, QualifiedName.of("a", "b"), Optional.of("test")));
+        assertStatement("COMMENT ON COLUMN a.b IS ''", new Comment(Comment.Type.COLUMN, QualifiedName.of("a", "b"), Optional.of("")));
+        assertStatement("COMMENT ON COLUMN a.b IS NULL", new Comment(Comment.Type.COLUMN, QualifiedName.of("a", "b"), Optional.empty()));
+
+        assertStatement("COMMENT ON COLUMN a IS 'test'", new Comment(Comment.Type.COLUMN, QualifiedName.of("a"), Optional.of("test")));
+        assertStatement("COMMENT ON COLUMN a.b.c IS 'test'", new Comment(Comment.Type.COLUMN, QualifiedName.of("a", "b", "c"), Optional.of("test")));
+        assertStatement("COMMENT ON COLUMN a.b.c.d IS 'test'", new Comment(Comment.Type.COLUMN, QualifiedName.of("a", "b", "c", "d"), Optional.of("test")));
+    }
+
+    @Test
     public void testRenameColumn()
     {
         assertStatement("ALTER TABLE foo.t RENAME COLUMN a TO b", new RenameColumn(QualifiedName.of("foo", "t"), identifier("a"), identifier("b")));

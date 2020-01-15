@@ -30,6 +30,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static io.prestosql.spi.security.AccessDeniedException.denyAddColumn;
+import static io.prestosql.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyCommentTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateRole;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateSchema;
@@ -191,6 +192,12 @@ public class DenyAllAccessControl
     public void checkCanSetTableComment(SecurityContext context, QualifiedObjectName tableName)
     {
         denyCommentTable(tableName.toString());
+    }
+
+    @Override
+    public void checkCanSetColumnComment(SecurityContext context, QualifiedObjectName tableName)
+    {
+        denyCommentColumn(tableName.toString());
     }
 
     @Override

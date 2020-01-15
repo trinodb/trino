@@ -228,6 +228,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public void setColumnComment(Session session, TableHandle tableHandle, ColumnHandle column, Optional<String> comment)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void renameColumn(Session session, TableHandle tableHandle, ColumnHandle source, String target)
     {
         throw new UnsupportedOperationException();

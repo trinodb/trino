@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Set;
 
 import static io.prestosql.spi.security.AccessDeniedException.denyAddColumn;
+import static io.prestosql.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyCommentTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateView;
@@ -101,6 +102,12 @@ public class ReadOnlyAccessControl
     @Override
     public void checkCanShowTables(ConnectorSecurityContext context, String schemaName)
     {
+    }
+
+    @Override
+    public void checkCanSetColumnComment(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        denyCommentColumn(tableName.toString());
     }
 
     @Override

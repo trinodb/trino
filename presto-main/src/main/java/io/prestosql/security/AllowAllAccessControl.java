@@ -139,6 +139,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanSetColumnComment(SecurityContext context, QualifiedObjectName tableName)
+    {
+    }
+
+    @Override
     public void checkCanShowTables(SecurityContext context, CatalogSchemaName schema)
     {
     }
