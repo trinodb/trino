@@ -185,6 +185,51 @@ Elasticsearch Presto
 (all others)  (unsupported)
 ============= =============
 
+Array Types
+^^^^^^^^^^^
+
+Elasticsearch has `no dedicated array type <https://www.elastic.co/guide/en/elasticsearch/reference/current/array.html>`_ so the `_meta field <https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-meta-field.html>`_ of the index is used to store an property structure that contains
+the ``isArray`` property to specify which fields in the mapping are to be treated as array types.
+
+Example:
+If you have an index that contains documents that follow this structure:
+
+.. code-block:: json
+
+    {
+        "array_field": ["presto","is","the","besto"],
+        "long_field": 314159265359,
+        "id_field": "564e6982-88ee-4498-aa98-df9e3f6b6109",
+        "timestamp_field": "1987-09-17T06:22:48.000Z",
+        "object_field": {
+            "array_field": [86,75,309],
+            "int_field": 2
+        }
+    }
+
+Then you would add the following field property definition to the target index mapping's ``_meta.presto`` property.
+
+.. code-block:: shell
+
+    curl --request PUT \
+        --url localhost:9200/doc/_mapping \
+        --header 'content-type: application/json' \
+        --data '
+    {
+        "_meta": {
+            "presto":{
+                "array_field":{
+                    "isArray":true
+                },
+                "object_field":{
+                    "array_field":{
+                        "isArray":true
+                    }
+                },
+            }
+        }
+    }'
+
 Special Columns
 ---------------
 
