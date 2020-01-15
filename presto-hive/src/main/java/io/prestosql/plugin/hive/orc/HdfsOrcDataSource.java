@@ -15,6 +15,7 @@ package io.prestosql.plugin.hive.orc;
 
 import io.prestosql.orc.AbstractOrcDataSource;
 import io.prestosql.orc.OrcDataSourceId;
+import io.prestosql.orc.OrcReader;
 import io.prestosql.orc.OrcReaderOptions;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.spi.PrestoException;
@@ -26,6 +27,7 @@ import java.io.IOException;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -76,5 +78,13 @@ public class HdfsOrcDataSource
             }
             throw new PrestoException(HIVE_UNKNOWN_ERROR, message, e);
         }
+    }
+
+    public static int sizeOfTailReadForFile(long fileSize, OrcReaderOptions options)
+    {
+        if (fileSize <= options.getTinyStripeThreshold().toBytes() && fileSize < Integer.MAX_VALUE) {
+            return toIntExact(fileSize);
+        }
+        return OrcReader.initialFooterReadSize(fileSize);
     }
 }

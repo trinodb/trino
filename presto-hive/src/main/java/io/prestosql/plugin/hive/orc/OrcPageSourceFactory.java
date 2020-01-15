@@ -179,7 +179,7 @@ public class OrcPageSourceFactory
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(sessionUser, path, configuration);
             FSDataInputStream inputStream = hdfsEnvironment.doAs(sessionUser, () -> fileSystem.open(path));
             //  Handle potentially imprecise file lengths by reading the footer
-            FSDataInputStreamTail fileTail = FSDataInputStreamTail.readTail(path, fileSize, inputStream, OrcReader.initialFooterReadSize(fileSize));
+            FSDataInputStreamTail fileTail = FSDataInputStreamTail.readTail(path, fileSize, inputStream, HdfsOrcDataSource.sizeOfTailReadForFile(fileSize, options));
             // Correct file size based on reading to the end of stream
             fileSize = fileTail.getFileSize();
             length = min(fileSize - start, length);
