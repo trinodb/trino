@@ -75,6 +75,8 @@ public interface HiveMetastore
 
     void commentTable(HiveIdentity identity, String databaseName, String tableName, Optional<String> comment);
 
+    void commentColumn(HiveIdentity identity, String databaseName, String tableName, String columnName, Optional<String> comment);
+
     void addColumn(HiveIdentity identity, String databaseName, String tableName, String columnName, HiveType columnType, String columnComment);
 
     void renameColumn(HiveIdentity identity, String databaseName, String tableName, String oldColumnName, String newColumnName);

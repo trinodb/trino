@@ -552,6 +552,18 @@ public class CachingHiveMetastore
     }
 
     @Override
+    public void commentColumn(HiveIdentity identity, String databaseName, String tableName, String columnName, Optional<String> comment)
+    {
+        identity = updateIdentity(identity);
+        try {
+            delegate.commentColumn(identity, databaseName, tableName, columnName, comment);
+        }
+        finally {
+            invalidateTable(databaseName, tableName);
+        }
+    }
+
+    @Override
     public void addColumn(HiveIdentity identity, String databaseName, String tableName, String columnName, HiveType columnType, String columnComment)
     {
         identity = updateIdentity(identity);
