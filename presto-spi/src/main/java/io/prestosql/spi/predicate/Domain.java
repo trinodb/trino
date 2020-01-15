@@ -24,6 +24,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static java.lang.String.format;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -168,6 +169,22 @@ public final class Domain
         return value == null ? nullAllowed : values.containsValue(value);
     }
 
+    boolean isNullableDiscreteSet()
+    {
+        return values.isNone() ? nullAllowed : values.isDiscreteSet();
+    }
+
+    DiscreteSet getNullableDiscreteSet()
+    {
+        if (!isNullableDiscreteSet()) {
+            throw new IllegalStateException("Domain is not a nullable discrete set");
+        }
+
+        return new DiscreteSet(
+                values.isNone() ? unmodifiableList(new ArrayList<>()) : values.getDiscreteSet(),
+                nullAllowed);
+    }
+
     public boolean overlaps(Domain other)
     {
         checkCompatibility(other);
@@ -280,5 +297,30 @@ public final class Domain
     public String toString(ConnectorSession session)
     {
         return "[ " + (nullAllowed ? "NULL, " : "") + values.toString(session) + " ]";
+    }
+
+    static class DiscreteSet
+    {
+        private final List<Object> nonNullValues;
+        private final boolean containsNull;
+
+        DiscreteSet(List<Object> values, boolean containsNull)
+        {
+            this.nonNullValues = requireNonNull(values, "values is null");
+            this.containsNull = containsNull;
+            if (!containsNull && values.isEmpty()) {
+                throw new IllegalArgumentException("Discrete set cannot be empty");
+            }
+        }
+
+        List<Object> getNonNullValues()
+        {
+            return nonNullValues;
+        }
+
+        boolean containsNull()
+        {
+            return containsNull;
+        }
     }
 }

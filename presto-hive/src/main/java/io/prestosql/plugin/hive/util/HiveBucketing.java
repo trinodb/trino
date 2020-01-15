@@ -39,13 +39,15 @@ import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Lists.cartesianProduct;
 import static io.prestosql.plugin.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
@@ -106,6 +108,9 @@ public final class HiveBucketing
         abstract int getBucketHashCode(List<TypeInfo> types, Page page, int position);
     }
 
+    private static final long BUCKETS_EXPLORATION_LIMIT_FACTOR = 4;
+    private static final long BUCKETS_EXPLORATION_GUARANTEED_LIMIT = 1000;
+
     private static final Set<HiveType> SUPPORTED_TYPES_FOR_BUCKET_FILTER = ImmutableSet.of(
             HiveType.HIVE_BYTE,
             HiveType.HIVE_SHORT,
@@ -124,6 +129,42 @@ public final class HiveBucketing
     public static int getHiveBucket(BucketingVersion bucketingVersion, int bucketCount, List<TypeInfo> types, Object[] values)
     {
         return getBucketNumber(bucketingVersion.getBucketHashCode(types, values), bucketCount);
+    }
+
+    @VisibleForTesting
+    static Optional<Set<Integer>> getHiveBuckets(BucketingVersion bucketingVersion, int bucketCount, List<TypeInfo> types, List<List<NullableValue>> values)
+    {
+        long explorationCount;
+        try {
+            // explorationCount is the number of combinations of discrete values allowed for bucketing columns.
+            // After computing the bucket for every combination, we get a complete set of buckets that need to be read.
+            explorationCount = values.stream()
+                    .mapToLong(List::size)
+                    .reduce(1, Math::multiplyExact);
+        }
+        catch (ArithmeticException e) {
+            return Optional.empty();
+        }
+        // explorationLimit is the maximum number of combinations for which the bucket numbers will be computed.
+        // If the number of combinations highly exceeds the bucket count, then probably all buckets would be hit.
+        // In such case, the bucket filter isn't created and all buckets will be read.
+        // The threshold is set to bucketCount * BUCKETS_EXPLORATION_LIMIT_FACTOR.
+        // The threshold doesn't apply if the number of combinations is low, that is
+        // within BUCKETS_EXPLORATION_GUARANTEED_LIMIT.
+        long explorationLimit = Math.max(bucketCount * BUCKETS_EXPLORATION_LIMIT_FACTOR, BUCKETS_EXPLORATION_GUARANTEED_LIMIT);
+        if (explorationCount > explorationLimit) {
+            return Optional.empty();
+        }
+
+        Set<Integer> buckets = new HashSet<>();
+        for (List<NullableValue> combination : cartesianProduct(values)) {
+            buckets.add(getBucketNumber(bucketingVersion.getBucketHashCode(types, combination.stream().map(NullableValue::getValue).toArray()), bucketCount));
+            if (buckets.size() >= bucketCount) {
+                return Optional.empty();
+            }
+        }
+
+        return Optional.of(ImmutableSet.copyOf(buckets));
     }
 
     @VisibleForTesting
@@ -169,22 +210,20 @@ public final class HiveBucketing
             return Optional.empty();
         }
 
-        Optional<Map<ColumnHandle, NullableValue>> bindings = TupleDomain.extractFixedValues(effectivePredicate);
+        Optional<Map<ColumnHandle, List<NullableValue>>> bindings = TupleDomain.extractDiscreteValues(effectivePredicate);
         if (!bindings.isPresent()) {
             return Optional.empty();
         }
-        OptionalInt singleBucket = getHiveBucket(table, bindings.get());
-        if (singleBucket.isPresent()) {
-            return Optional.of(new HiveBucketFilter(ImmutableSet.of(singleBucket.getAsInt())));
+        Optional<Set<Integer>> buckets = getHiveBuckets(table, bindings.get());
+        if (buckets.isPresent()) {
+            return Optional.of(new HiveBucketFilter(buckets.get()));
         }
 
-        if (!effectivePredicate.getDomains().isPresent()) {
-            return Optional.empty();
-        }
-        Optional<Domain> domain = effectivePredicate.getDomains().get().entrySet().stream()
-                .filter(entry -> ((HiveColumnHandle) entry.getKey()).getName().equals(BUCKET_COLUMN_NAME))
-                .findFirst()
-                .map(Entry::getValue);
+        Optional<Domain> domain = effectivePredicate.getDomains()
+                .flatMap(domains -> domains.entrySet().stream()
+                        .filter(entry -> ((HiveColumnHandle) entry.getKey()).getName().equals(BUCKET_COLUMN_NAME))
+                        .findFirst()
+                        .map(Entry::getValue));
         if (!domain.isPresent()) {
             return Optional.empty();
         }
@@ -199,55 +238,55 @@ public final class HiveBucketing
         return Optional.of(new HiveBucketFilter(builder.build()));
     }
 
-    private static OptionalInt getHiveBucket(Table table, Map<ColumnHandle, NullableValue> bindings)
+    private static Optional<Set<Integer>> getHiveBuckets(Table table, Map<ColumnHandle, List<NullableValue>> bindings)
     {
         if (bindings.isEmpty()) {
-            return OptionalInt.empty();
+            return Optional.empty();
         }
 
+        // Get bucket columns names
         List<String> bucketColumns = table.getStorage().getBucketProperty().get().getBucketedBy();
+
+        // Verify the bucket column types are supported
         Map<String, HiveType> hiveTypes = new HashMap<>();
         for (Column column : table.getDataColumns()) {
             hiveTypes.put(column.getName(), column.getType());
         }
-
-        // Verify the bucket column types are supported
         for (String column : bucketColumns) {
             if (!SUPPORTED_TYPES_FOR_BUCKET_FILTER.contains(hiveTypes.get(column))) {
-                return OptionalInt.empty();
+                return Optional.empty();
             }
         }
 
         // Get bindings for bucket columns
-        Map<String, Object> bucketBindings = new HashMap<>();
-        for (Entry<ColumnHandle, NullableValue> entry : bindings.entrySet()) {
+        Map<String, List<NullableValue>> bucketBindings = new HashMap<>();
+        for (Entry<ColumnHandle, List<NullableValue>> entry : bindings.entrySet()) {
             HiveColumnHandle columnHandle = (HiveColumnHandle) entry.getKey();
-            if (!entry.getValue().isNull() && bucketColumns.contains(columnHandle.getName())) {
-                bucketBindings.put(columnHandle.getName(), entry.getValue().getValue());
+            if (bucketColumns.contains(columnHandle.getName())) {
+                bucketBindings.put(columnHandle.getName(), entry.getValue());
             }
         }
 
         // Check that we have bindings for all bucket columns
         if (bucketBindings.size() != bucketColumns.size()) {
-            return OptionalInt.empty();
+            return Optional.empty();
         }
 
-        // Get bindings of bucket columns
-        ImmutableList.Builder<TypeInfo> typeInfos = ImmutableList.builder();
-        Object[] values = new Object[bucketColumns.size()];
-        for (int i = 0; i < bucketColumns.size(); i++) {
-            String column = bucketColumns.get(i);
-            typeInfos.add(hiveTypes.get(column).getTypeInfo());
-            values[i] = bucketBindings.get(column);
-        }
+        // Order bucket column bindings accordingly to bucket columns order
+        List<List<NullableValue>> orderedBindings = bucketColumns.stream()
+                .map(bucketBindings::get)
+                .collect(toImmutableList());
 
-        BucketingVersion bucketingVersion = getBucketingVersion(table);
-        return OptionalInt.of(getHiveBucket(bucketingVersion, table.getStorage().getBucketProperty().get().getBucketCount(), typeInfos.build(), values));
-    }
+        // Get TypeInfos for bucket columns
+        List<TypeInfo> typeInfos = bucketColumns.stream()
+                .map(name -> hiveTypes.get(name).getTypeInfo())
+                .collect(toImmutableList());
 
-    public static BucketingVersion getBucketingVersion(Table table)
-    {
-        return getBucketingVersion(table.getParameters());
+        return getHiveBuckets(
+                getBucketingVersion(table.getParameters()),
+                table.getStorage().getBucketProperty().get().getBucketCount(),
+                typeInfos,
+                orderedBindings);
     }
 
     public static BucketingVersion getBucketingVersion(Map<String, String> tableProperties)
