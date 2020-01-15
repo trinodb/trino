@@ -58,6 +58,7 @@ import static io.prestosql.plugin.base.util.JsonUtils.parseJson;
 import static io.prestosql.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static io.prestosql.spi.security.AccessDeniedException.denyAddColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyCatalogAccess;
+import static io.prestosql.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyCommentTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateTable;
@@ -494,6 +495,14 @@ public class FileBasedSystemAccessControl
 
         if (!checkTablePermission(context, table.getSchemaTableName(), OWNERSHIP)) {
             denyCommentTable(table.getSchemaTableName().getTableName());
+        }
+    }
+
+    @Override
+    public void checkCanSetColumnComment(SystemSecurityContext context, CatalogSchemaTableName table)
+    {
+        if (!canAccessCatalog(context.getIdentity(), table.getCatalogName(), ALL)) {
+            denyCommentColumn(table.toString());
         }
     }
 

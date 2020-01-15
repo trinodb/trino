@@ -211,6 +211,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot comment table to %s%s", tableName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyCommentColumn(String tableName)
+    {
+        denyCommentColumn(tableName, null);
+    }
+
+    public static void denyCommentColumn(String tableName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot comment column to %s%s", tableName, formatExtraInfo(extraInfo)));
+    }
+
     public static void denyShowTables(String schemaName)
     {
         denyShowTables(schemaName, null);

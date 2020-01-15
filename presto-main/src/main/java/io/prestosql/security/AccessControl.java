@@ -187,6 +187,12 @@ public interface AccessControl
     void checkCanSetTableComment(SecurityContext context, QualifiedObjectName tableName);
 
     /**
+     * Check if identity is allowed to comment the specified column.
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanSetColumnComment(SecurityContext context, QualifiedObjectName tableName);
+
+    /**
      * Check if identity is allowed to show tables by executing SHOW TABLES, SHOW GRANTS etc. in a catalog schema.
      * <p>
      * NOTE: This method is only present to give users an error message when listing is not allowed.

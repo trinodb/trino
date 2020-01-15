@@ -181,6 +181,11 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanSetColumnComment(SystemSecurityContext context, CatalogSchemaTableName table)
+    {
+    }
+
+    @Override
     public void checkCanShowTables(SystemSecurityContext context, CatalogSchemaName schema)
     {
     }

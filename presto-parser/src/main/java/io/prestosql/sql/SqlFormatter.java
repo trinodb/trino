@@ -1052,11 +1052,19 @@ public final class SqlFormatter
         {
             String comment = node.getComment().isPresent() ? formatStringLiteral(node.getComment().get()) : "NULL";
 
-            if (node.getType() == Comment.Type.TABLE) {
-                builder.append("COMMENT ON TABLE ")
-                        .append(node.getName())
-                        .append(" IS ")
-                        .append(comment);
+            switch (node.getType()) {
+                case TABLE:
+                    builder.append("COMMENT ON TABLE ")
+                            .append(node.getName())
+                            .append(" IS ")
+                            .append(comment);
+                    break;
+                case COLUMN:
+                    builder.append("COMMENT ON COLUMN ")
+                            .append(node.getName())
+                            .append(" IS ")
+                            .append(comment);
+                    break;
             }
 
             return null;
