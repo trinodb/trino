@@ -18,7 +18,7 @@ services:
       - '5005:5005'
     volumes:
       - ${PRESTO_SERVER}:/docker/presto-server.tar.gz
-      - ../../../src/main/resources/avro:/docker/avro
+      - ../../../../presto-product-tests-launcher/src/main/resources/docker/presto-product-tests/avro:/docker/presto-product-tests/avro
 
   application-runner:
     extends:
@@ -32,6 +32,7 @@ services:
       - ${PRESTO_JDBC_DRIVER_JAR}:/docker/presto-jdbc.jar
       - ../../../target/test-reports:/docker/test-reports
       - ${PRESTO_CLI_HISTORY_FILE}:/root/.presto_history
+      - ../../../../presto-product-tests-launcher/src/main/resources/docker/presto-product-tests/avro:/docker/presto-product-tests/avro
     environment:
       - TESTS_HIVE_VERSION_MAJOR
       - TESTS_HIVE_VERSION_MINOR

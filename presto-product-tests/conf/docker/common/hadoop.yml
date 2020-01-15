@@ -20,4 +20,4 @@ services:
       - '50070:50070' # NameNode Web UI prior to Hadoop 3
       - '50075:50075' # DataNode Web UI prior to Hadoop 3
     volumes:
-      - ../../../src/main/resources/avro:/docker/avro
+      - ../../../../presto-product-tests-launcher/src/main/resources/docker/presto-product-tests/avro:/docker/presto-product-tests/avro
