@@ -37,6 +37,7 @@ import io.prestosql.spi.connector.ConnectorNodePartitioningProvider;
 import io.prestosql.spi.connector.ConnectorPageSinkProvider;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
 import io.prestosql.spi.connector.ConnectorSplitManager;
+import io.prestosql.spi.connector.SystemTable;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeId;
 import io.prestosql.spi.type.TypeManager;
@@ -130,6 +131,8 @@ public class HiveModule
         configBinder(binder).bindConfig(ParquetWriterConfig.class);
 
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
+
+        newSetBinder(binder, SystemTable.class);
     }
 
     @ForHive
