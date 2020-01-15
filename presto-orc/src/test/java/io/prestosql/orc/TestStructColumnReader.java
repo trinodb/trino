@@ -23,7 +23,6 @@ import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.RowBlock;
-import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.NamedTypeSignature;
 import io.prestosql.spi.type.RowFieldName;
 import io.prestosql.spi.type.StandardTypes;
@@ -65,8 +64,6 @@ public class TestStructColumnReader
 
     private static final String STRUCT_COL_NAME = "struct_col";
 
-    private static final ConnectorSession SESSION = new TestingConnectorSession(ImmutableList.of());
-
     private TempFile tempFile;
 
     @BeforeMethod
@@ -97,7 +94,7 @@ public class TestStructColumnReader
 
         write(tempFile, writerType, writerData);
         RowBlock readBlock = read(tempFile, readerType);
-        List<?> actual = (List<?>) readerType.getObjectValue(SESSION, readBlock, 0);
+        List<?> actual = (List<?>) readerType.getObjectValue(TestingConnectorSession.SESSION, readBlock, 0);
 
         assertEquals(actual.size(), readerFields.size());
         assertEquals(actual.get(0), "field_a_value");
@@ -120,7 +117,7 @@ public class TestStructColumnReader
 
         write(tempFile, writerType, writerData);
         RowBlock readBlock = read(tempFile, readerType);
-        List<?> actual = (List<?>) readerType.getObjectValue(SESSION, readBlock, 0);
+        List<?> actual = (List<?>) readerType.getObjectValue(TestingConnectorSession.SESSION, readBlock, 0);
 
         assertEquals(actual.size(), readerFields.size());
         assertEquals(actual.get(0), "fieldAValue");
@@ -143,7 +140,7 @@ public class TestStructColumnReader
 
         write(tempFile, writerType, writerData);
         RowBlock readBlock = read(tempFile, readerType);
-        List<?> actual = (List<?>) readerType.getObjectValue(SESSION, readBlock, 0);
+        List<?> actual = (List<?>) readerType.getObjectValue(TestingConnectorSession.SESSION, readBlock, 0);
 
         assertEquals(actual.size(), readerFields.size());
         assertEquals(actual.get(0), "fieldAValue");
@@ -183,7 +180,7 @@ public class TestStructColumnReader
 
         write(tempFile, writerType, writerData);
         RowBlock readBlock = read(tempFile, readerType);
-        List<?> actual = (List<?>) readerType.getObjectValue(SESSION, readBlock, 0);
+        List<?> actual = (List<?>) readerType.getObjectValue(TestingConnectorSession.SESSION, readBlock, 0);
 
         assertEquals(actual.size(), readerFields.size());
         assertEquals(actual.get(0), "field_a_value");
@@ -207,7 +204,7 @@ public class TestStructColumnReader
 
         write(tempFile, writerType, writerData);
         RowBlock readBlock = read(tempFile, readerType);
-        List<?> actual = (List<?>) readerType.getObjectValue(SESSION, readBlock, 0);
+        List<?> actual = (List<?>) readerType.getObjectValue(TestingConnectorSession.SESSION, readBlock, 0);
 
         assertEquals(actual.size(), readerFields.size());
         assertEquals(actual.get(0), "field_a_value");
