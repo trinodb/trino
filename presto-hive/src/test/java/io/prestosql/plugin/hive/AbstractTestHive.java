@@ -809,8 +809,10 @@ public abstract class AbstractTestHive
 
     protected ConnectorSession newSession(Map<String, Object> propertyValues)
     {
-        HiveSessionProperties properties = getHiveSessionProperties(getHiveConfig());
-        return new TestingConnectorSession(properties.getSessionProperties(), propertyValues);
+        return TestingConnectorSession.builder()
+                .setPropertyMetadata(getHiveSessionProperties(getHiveConfig()).getSessionProperties())
+                .setPropertyValues(propertyValues)
+                .build();
     }
 
     protected Transaction newTransaction()

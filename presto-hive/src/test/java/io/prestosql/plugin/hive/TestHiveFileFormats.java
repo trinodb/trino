@@ -311,13 +311,16 @@ public class TestHiveFileFormats
     public void testOrcOptimizedWriter(int rowCount)
             throws Exception
     {
-        ConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(
+        HiveSessionProperties hiveSessionProperties = new HiveSessionProperties(
                 new HiveConfig(),
                 new OrcReaderConfig(),
                 new OrcWriterConfig()
                         .setValidationPercentage(100.0),
                 new ParquetReaderConfig(),
-                new ParquetWriterConfig()).getSessionProperties());
+                new ParquetWriterConfig());
+        ConnectorSession session = TestingConnectorSession.builder()
+                .setPropertyMetadata(hiveSessionProperties.getSessionProperties())
+                .build();
 
         // A Presto page cannot contain a map with null keys, so a page based writer cannot write null keys
         List<TestColumn> testColumns = TEST_COLUMNS.stream()
