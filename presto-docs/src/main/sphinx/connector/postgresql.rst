@@ -53,16 +53,15 @@ property, which can be set to ``UNNECESSARY`` (the default),
 Array Type Handling
 -------------------
 
-The PostgreSQL array implementation does not support fixed dimensions whereas PrestoSql
+The PostgreSQL array implementation does not support fixed dimensions whereas Presto
 support only arrays with fixed dimensions.
-The way PostgreSQL connector handle array columns is set by using the ``postgresql.array-mapping`` configuration property
+You can configure how the PostgreSQL connector handles arrays with the ``postgresql.array-mapping`` configuration property in your catalog file
 or the ``array_mapping`` session property.
-
 The following values are accepted for this property:
 
 * ``DISABLED`` (default): array columns are skipped.
-* ``AS_ARRAY``: array columns are interpreted as presto ``ARRAY`` type, for array columns with fixed dimensions.
-* ``AS_JSON``: array columns are interpreted as presto ``JSON`` type, with no constraint on dimensions.
+* ``AS_ARRAY``: array columns are interpreted as Presto ``ARRAY`` type, for array columns with fixed dimensions.
+* ``AS_JSON``: array columns are interpreted as Presto ``JSON`` type, with no constraint on dimensions.
 
 Querying PostgreSQL
 -------------------
