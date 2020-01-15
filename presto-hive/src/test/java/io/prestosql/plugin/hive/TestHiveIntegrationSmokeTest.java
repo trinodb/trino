@@ -3101,6 +3101,60 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testBucketFilteringByInPredicate()
+    {
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE test_bucket_filtering " +
+                "(bucket_key_1 BIGINT, bucket_key_2 VARCHAR, col3 BOOLEAN) " +
+                "WITH (" +
+                "bucketed_by = ARRAY[ 'bucket_key_1', 'bucket_key_2' ], " +
+                "bucket_count = 11" +
+                ") ";
+
+        assertUpdate(createTable);
+
+        assertUpdate(
+                "INSERT INTO test_bucket_filtering (bucket_key_1, bucket_key_2, col3) VALUES " +
+                        "(1, 'd', true), " +
+                        "(2, 'c', null), " +
+                        "(3, 'b', false), " +
+                        "(4, null, true), " +
+                        "(null, 'a', true)",
+                5);
+
+        try {
+            assertQuery(
+                    "SELECT * FROM test_bucket_filtering WHERE bucket_key_1 IN (1, 2) AND bucket_key_2 IN ('b', 'd')",
+                    "VALUES (1, 'd', true)");
+
+            assertQuery(
+                    "SELECT * FROM test_bucket_filtering WHERE bucket_key_1 IN (1, 2, 5, 6) AND bucket_key_2 IN ('b', 'd', 'x')",
+                    "VALUES (1, 'd', true)");
+
+            assertQuery(
+                    "SELECT * FROM test_bucket_filtering WHERE (bucket_key_1 IN (1, 2) OR bucket_key_1 IS NULL) AND (bucket_key_2 IN ('a', 'd') OR bucket_key_2 IS NULL)",
+                    "VALUES (1, 'd', true), (null, 'a', true)");
+
+            assertQueryReturnsEmptyResult("SELECT * FROM test_bucket_filtering WHERE bucket_key_1 IN (5, 6) AND bucket_key_2 IN ('x', 'y')");
+
+            assertQuery(
+                    "SELECT * FROM test_bucket_filtering WHERE bucket_key_1 IN (1, 2, 3) AND bucket_key_2 IN ('b', 'c', 'd') AND col3 = true",
+                    "VALUES (1, 'd', true)");
+
+            assertQuery(
+                    "SELECT * FROM test_bucket_filtering WHERE bucket_key_1 IN (1, 2) AND bucket_key_2 IN ('c', 'd') AND col3 IS NULL",
+                    "VALUES (2, 'c', null)");
+
+            assertQuery(
+                    "SELECT * FROM test_bucket_filtering WHERE bucket_key_1 IN (1, 2) AND bucket_key_2 IN ('b', 'c') OR col3 = false",
+                    "VALUES (2, 'c', null), (3, 'b', false)");
+        }
+        finally {
+            assertUpdate("DROP TABLE test_bucket_filtering");
+        }
+    }
+
+    @Test
     public void testMismatchedBucketing()
     {
         try {

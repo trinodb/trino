@@ -35,6 +35,7 @@ import java.util.function.Function;
 import java.util.stream.Collector;
 
 import static java.lang.String.format;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
@@ -100,6 +101,34 @@ public final class TupleDomain<T>
                 .entrySet().stream()
                 .filter(entry -> entry.getValue().isNullableSingleValue())
                 .collect(toLinkedMap(Map.Entry::getKey, entry -> new NullableValue(entry.getValue().getType(), entry.getValue().getNullableSingleValue()))));
+    }
+
+    /**
+     * Extract all column constraints that define a non-empty set of discrete values allowed for the columns in their respective Domains.
+     * Returns an empty Optional if the Domain is none.
+     */
+    public static <T> Optional<Map<T, List<NullableValue>>> extractDiscreteValues(TupleDomain<T> tupleDomain)
+    {
+        if (!tupleDomain.getDomains().isPresent()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(tupleDomain.getDomains().get()
+                .entrySet().stream()
+                .filter(entry -> entry.getValue().isNullableDiscreteSet())
+                .collect(toLinkedMap(
+                        Map.Entry::getKey,
+                        entry -> {
+                            Domain.DiscreteSet discreteValues = entry.getValue().getNullableDiscreteSet();
+                            List<NullableValue> nullableValues = new ArrayList<>();
+                            for (Object value : discreteValues.getNonNullValues()) {
+                                nullableValues.add(new NullableValue(entry.getValue().getType(), value));
+                            }
+                            if (discreteValues.containsNull()) {
+                                nullableValues.add(new NullableValue(entry.getValue().getType(), null));
+                            }
+                            return unmodifiableList(nullableValues);
+                        })));
     }
 
     /**

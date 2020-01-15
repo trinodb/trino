@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.Type;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -79,6 +80,18 @@ public class AllOrNoneValueSet
 
     @Override
     public Object getSingleValue()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean isDiscreteSet()
+    {
+        return false;
+    }
+
+    @Override
+    public List<Object> getDiscreteSet()
     {
         throw new UnsupportedOperationException();
     }
