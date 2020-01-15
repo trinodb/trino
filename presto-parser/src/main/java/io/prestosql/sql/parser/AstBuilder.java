@@ -408,6 +408,18 @@ class AstBuilder
     }
 
     @Override
+    public Node visitCommentColumn(SqlBaseParser.CommentColumnContext context)
+    {
+        Optional<String> comment = Optional.empty();
+
+        if (context.string() != null) {
+            comment = Optional.of(((StringLiteral) visit(context.string())).getValue());
+        }
+
+        return new Comment(getLocation(context), Comment.Type.COLUMN, getQualifiedName(context.qualifiedName()), comment);
+    }
+
+    @Override
     public Node visitRenameColumn(SqlBaseParser.RenameColumnContext context)
     {
         return new RenameColumn(

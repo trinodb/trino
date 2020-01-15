@@ -94,6 +94,11 @@ public abstract class AbstractTestDistributedQueries
         return true;
     }
 
+    protected boolean supportsCommentOnColumn()
+    {
+        return false;
+    }
+
     /**
      * Ensure the tests are run with {@link DistributedQueryRunner}. E.g. {@link LocalQueryRunner} takes some
      * shortcuts, not exercising certain aspects.
@@ -339,6 +344,28 @@ public abstract class AbstractTestDistributedQueries
         assertFalse(materializedRows.getMaterializedRows().get(0).getField(0).toString().contains("COMMENT"));
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testCommentColumn()
+    {
+        skipTestUnless(supportsCommentOnColumn());
+
+        assertUpdate("CREATE TABLE test_comment_column(id integer)");
+
+        assertUpdate("COMMENT ON COLUMN test_comment_column.id IS 'new comment'");
+        MaterializedResult materializedRows = computeActual("SHOW CREATE TABLE test_comment_column");
+        assertTrue(materializedRows.getMaterializedRows().get(0).getField(0).toString().contains("COMMENT 'new comment'"));
+
+        assertUpdate("COMMENT ON COLUMN test_comment_column.id IS ''");
+        materializedRows = computeActual("SHOW CREATE TABLE test_comment_column");
+        assertTrue(materializedRows.getMaterializedRows().get(0).getField(0).toString().contains("COMMENT ''"));
+
+        assertUpdate("COMMENT ON COLUMN test_comment_column.id IS NULL");
+        materializedRows = computeActual("SHOW CREATE TABLE test_comment_column");
+        assertFalse(materializedRows.getMaterializedRows().get(0).getField(0).toString().contains("COMMENT"));
+
+        assertUpdate("DROP TABLE test_comment_column");
     }
 
     @Test

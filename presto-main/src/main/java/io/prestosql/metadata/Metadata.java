@@ -181,6 +181,11 @@ public interface Metadata
     void setTableComment(Session session, TableHandle tableHandle, Optional<String> comment);
 
     /**
+     * Comments to the specified column.
+     */
+    void setColumnComment(Session session, TableHandle tableHandle, ColumnHandle column, Optional<String> comment);
+
+    /**
      * Rename the specified column.
      */
     void renameColumn(Session session, TableHandle tableHandle, ColumnHandle source, String target);
