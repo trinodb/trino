@@ -10,9 +10,9 @@ if [[ ! -d /usr/lib/presto/etc ]]; then
     fi
 fi
 
-NODE_ID=""
+node_id=()
 if ! grep -s -q 'node.id' /usr/lib/presto/etc/node.properties; then
-    NODE_ID="-Dnode.id=${HOSTNAME}"
+    node_id=("-Dnode.id=${HOSTNAME}")
 fi
 
-exec /usr/lib/presto/bin/launcher run ${NODE_ID} "$@"
+exec /usr/lib/presto/bin/launcher run "${node_id[@]}" "$@"
