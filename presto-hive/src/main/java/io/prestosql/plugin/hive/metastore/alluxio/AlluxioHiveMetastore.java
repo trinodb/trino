@@ -39,6 +39,7 @@ import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticType;
 import io.prestosql.spi.type.Type;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -148,6 +149,9 @@ public class AlluxioHiveMetastore
     {
         try {
             return client.getAllTables(databaseName);
+        }
+        catch (NotFoundException e) {
+            return new ArrayList<>(0);
         }
         catch (AlluxioStatusException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);

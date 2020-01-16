@@ -5,10 +5,11 @@ services:
     image: '${ALLUXIO_BASE_IMAGE}:${ALLUXIO_IMAGE_TAG}'
     command: master
     environment:
-      ALLUXIO_MASTER_JAVA_OPTS: '
-      -Dalluxio.master.hostname=alluxio-master
-      -Dalluxio.master.mount.table.root.ufs=hdfs://hadoop-master:9000/alluxio
-      -Dalluxio.master.security.impersonation.hdfs.users=*'
+      ALLUXIO_MASTER_JAVA_OPTS: >
+        -Dalluxio.master.hostname=localhost
+        -Dalluxio.master.mount.table.root.ufs=hdfs://hadoop-master:9000/alluxio
+        -Dalluxio.security.authorization.permission.enabled=false
+        -Dalluxio.master.security.impersonation.presto.users=*
     ports:
       - '19200:19200' # Master Embedded Journal
       - '19999:19999' # Master UI
@@ -24,9 +25,10 @@ services:
     command: worker
     shm_size: '500mb'
     environment:
-      ALLUXIO_WORKER_JAVA_OPTS: '
-      -Dalluxio.master.hostname=alluxio-master
-      -Dalluxio.worker.memory.size=500m '
+      ALLUXIO_WORKER_JAVA_OPTS: >
+        -Dalluxio.worker.hostname=localhost
+        -Dalluxio.master.hostname=alluxio-master
+        -Dalluxio.worker.memory.size=500m
     ports:
       - '29999:29999' # Worker RPC
       - '30000:30000' # Worker HTTP
