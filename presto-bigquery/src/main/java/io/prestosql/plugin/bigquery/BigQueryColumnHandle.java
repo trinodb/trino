@@ -57,6 +57,7 @@ public class BigQueryColumnHandle
         return name;
     }
 
+    @Override
     @JsonProperty
     public BigQueryType getBigQueryType()
     {
@@ -69,6 +70,7 @@ public class BigQueryColumnHandle
         return subColumns.stream().collect(ImmutableMap.toImmutableMap(c -> c.name, c -> c));
     }
 
+    @Override
     @JsonProperty
     public Field.Mode getMode()
     {
