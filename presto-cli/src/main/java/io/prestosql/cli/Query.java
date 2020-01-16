@@ -162,6 +162,9 @@ public class Query
         // if running or finished
         if (client.isRunning() || (client.isFinished() && client.finalStatusInfo().getError() == null)) {
             QueryStatusInfo results = client.isRunning() ? client.currentStatusInfo() : client.finalStatusInfo();
+
+            log.debug("Running query %s [nextUri: %s]", results.getId(), results.getNextUri());
+
             if (results.getUpdateType() != null) {
                 renderUpdate(errorChannel, results);
             }
