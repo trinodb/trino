@@ -16,8 +16,9 @@
     </properties>
 
     <dependencies>
+
         <dependency>
-            <groupId>com.teradata.tpcds</groupId>
+            <groupId>io.prestosql.tpcds</groupId>
             <artifactId>tpcds</artifactId>
         </dependency>
 
