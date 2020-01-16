@@ -666,15 +666,9 @@
             </dependency>
 
             <dependency>
-                <groupId>com.teradata.tpcds</groupId>
+                <groupId>io.prestosql.tpcds</groupId>
                 <artifactId>tpcds</artifactId>
-                <version>1.2</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>com.google.code.findbugs</groupId>
-                        <artifactId>annotations</artifactId>
-                    </exclusion>
-                </exclusions>
+                <version>1.3</version>
             </dependency>
 
             <dependency>
