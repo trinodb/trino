@@ -87,6 +87,7 @@ import static io.prestosql.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PRO
 import static io.prestosql.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
 import static io.prestosql.plugin.iceberg.IcebergTableProperties.getFileFormat;
 import static io.prestosql.plugin.iceberg.IcebergTableProperties.getPartitioning;
+import static io.prestosql.plugin.iceberg.IcebergTableProperties.getExternalLocation;
 import static io.prestosql.plugin.iceberg.IcebergUtil.getColumns;
 import static io.prestosql.plugin.iceberg.IcebergUtil.getDataPath;
 import static io.prestosql.plugin.iceberg.IcebergUtil.getFileFormat;
@@ -307,7 +308,10 @@ public class IcebergMetadata
 
         HdfsContext hdfsContext = new HdfsContext(session, schemaName, tableName);
         HiveIdentity identity = new HiveIdentity(session);
-        String targetPath = getTableDefaultLocation(database, hdfsContext, hdfsEnvironment, schemaName, tableName).toString();
+        String targetPath = getExternalLocation(tableMetadata.getProperties());
+        if (targetPath == null) {
+            targetPath = getTableDefaultLocation(database, hdfsContext, hdfsEnvironment, schemaName, tableName).toString();
+        }
 
         TableOperations operations = new HiveTableOperations(metastore, hdfsEnvironment, hdfsContext, identity, schemaName, tableName, session.getUser(), targetPath);
         if (operations.current() != null) {
