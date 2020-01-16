@@ -10,13 +10,8 @@ if [[ ! -d /usr/lib/presto/etc ]]; then
     fi
 fi
 
-set +e
-grep -s -q 'node.id' /usr/lib/presto/etc/node.properties
-NODE_ID_EXISTS=$?
-set -e
-
 NODE_ID=""
-if [[ ${NODE_ID_EXISTS} != 0 ]] ; then
+if ! grep -s -q 'node.id' /usr/lib/presto/etc/node.properties; then
     NODE_ID="-Dnode.id=${HOSTNAME}"
 fi
 
