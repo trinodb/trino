@@ -725,13 +725,13 @@ public abstract class TestDateTimeFunctionsBase
     @Test
     public void testParseDatetime()
     {
-        assertFunction("parse_datetime('1960/01/22 03:04', 'YYYY/MM/DD HH:mm')",
+        assertFunction("parse_datetime('1960/01/22 03:04', 'yyyy/MM/dd HH:mm')",
                 TIMESTAMP_WITH_TIME_ZONE,
                 toTimestampWithTimeZone(new DateTime(1960, 1, 22, 3, 4, 0, 0, DATE_TIME_ZONE)));
-        assertFunction("parse_datetime('1960/01/22 03:04 Asia/Oral', 'YYYY/MM/DD HH:mm ZZZZZ')",
+        assertFunction("parse_datetime('1960/01/22 03:04 Asia/Oral', 'yyyy/MM/dd HH:mm ZZZZZ')",
                 TIMESTAMP_WITH_TIME_ZONE,
                 toTimestampWithTimeZone(new DateTime(1960, 1, 22, 3, 4, 0, 0, DateTimeZone.forID("Asia/Oral"))));
-        assertFunction("parse_datetime('1960/01/22 03:04 +0500', 'YYYY/MM/DD HH:mm Z')",
+        assertFunction("parse_datetime('1960/01/22 03:04 +0500', 'yyyy/MM/dd HH:mm Z')",
                 TIMESTAMP_WITH_TIME_ZONE,
                 toTimestampWithTimeZone(new DateTime(1960, 1, 22, 3, 4, 0, 0, DateTimeZone.forOffsetHours(5))));
     }
