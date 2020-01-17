@@ -22,6 +22,7 @@ import io.prestosql.tests.product.launcher.env.common.Standard;
 import io.prestosql.tests.product.launcher.env.environment.Multinode;
 import io.prestosql.tests.product.launcher.env.environment.Singlenode;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeHdfsImpersonation;
+import io.prestosql.tests.product.launcher.env.environment.SinglenodeKerberosHdfsImpersonation;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeKerberosHdfsNoImpersonation;
 
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
@@ -49,6 +50,7 @@ public final class EnvironmentModule
         MapBinder<String, EnvironmentProvider> environments = newMapBinder(binder, String.class, EnvironmentProvider.class);
         environments.addBinding("singlenode").to(Singlenode.class);
         environments.addBinding("singlenode-hdfs-impersonation").to(SinglenodeHdfsImpersonation.class);
+        environments.addBinding("singlenode-kerberos-hdfs-impersonation").to(SinglenodeKerberosHdfsImpersonation.class);
         environments.addBinding("singlenode-kerberos-hdfs-no-impersonation").to(SinglenodeKerberosHdfsNoImpersonation.class);
         environments.addBinding("multinode").to(Multinode.class);
         binder.install(additionalEnvironments);
