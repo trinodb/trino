@@ -23,9 +23,9 @@ import org.testng.annotations.Test;
 
 import java.util.regex.Pattern;
 
-import static io.airlift.tpch.TpchTable.ORDERS;
 import static io.prestosql.plugin.kudu.KuduQueryRunnerFactory.createKuduQueryRunnerTpch;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static io.prestosql.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 import static org.testng.Assert.assertTrue;
 

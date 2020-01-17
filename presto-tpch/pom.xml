@@ -17,7 +17,7 @@
 
     <dependencies>
         <dependency>
-            <groupId>io.airlift.tpch</groupId>
+            <groupId>io.prestosql.tpch</groupId>
             <artifactId>tpch</artifactId>
         </dependency>
 

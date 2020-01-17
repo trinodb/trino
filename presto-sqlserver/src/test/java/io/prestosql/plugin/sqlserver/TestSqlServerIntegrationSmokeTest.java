@@ -20,8 +20,8 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static io.airlift.tpch.TpchTable.ORDERS;
 import static io.prestosql.plugin.sqlserver.SqlServerQueryRunner.createSqlServerQueryRunner;
+import static io.prestosql.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 import static org.testng.Assert.assertTrue;
 

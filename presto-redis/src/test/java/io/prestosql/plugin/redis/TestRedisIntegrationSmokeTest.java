@@ -19,9 +19,9 @@ import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import static io.airlift.tpch.TpchTable.ORDERS;
 import static io.prestosql.plugin.redis.RedisQueryRunner.createRedisQueryRunner;
 import static io.prestosql.plugin.redis.util.EmbeddedRedis.createEmbeddedRedis;
+import static io.prestosql.tpch.TpchTable.ORDERS;
 
 @Test
 public class TestRedisIntegrationSmokeTest

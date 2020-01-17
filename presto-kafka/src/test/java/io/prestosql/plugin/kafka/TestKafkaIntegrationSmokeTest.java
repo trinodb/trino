@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.kafka;
 
-import io.airlift.tpch.TpchTable;
 import io.prestosql.plugin.kafka.util.TestingKafka;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 
 import static io.prestosql.plugin.kafka.KafkaQueryRunner.createKafkaQueryRunner;

@@ -19,8 +19,8 @@ import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.tpch.TpchTable.getTables;
 import static io.prestosql.sql.tree.ExplainType.Type.LOGICAL;
+import static io.prestosql.tpch.TpchTable.getTables;
 import static org.testng.Assert.assertEquals;
 
 public class TestHiveDistributedQueries
