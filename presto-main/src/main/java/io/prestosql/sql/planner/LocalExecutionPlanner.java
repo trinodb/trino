@@ -1957,11 +1957,15 @@ public class LocalExecutionPlanner
 
             OperatorFactory operator = createLookupJoin(node, probeSource, probeSymbols, probeHashSymbol, lookupSourceFactory, context, spillEnabled);
 
+            // LookupJoinOperator returns probe data on the left and build data on the right.
+            // Need to map output symbols accordingly to the actual order of channels.
             ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
-            List<Symbol> outputSymbols = node.getOutputSymbols();
-            for (int i = 0; i < outputSymbols.size(); i++) {
-                Symbol symbol = outputSymbols.get(i);
-                outputMappings.put(symbol, i);
+            List<Symbol> symbolsInOrderOfOperatorOutput = ImmutableList.<Symbol>builder()
+                    .addAll(extractJoinOutputsFromSource(node, node.getLeft()))
+                    .addAll(extractJoinOutputsFromSource(node, node.getRight()))
+                    .build();
+            for (int i = 0; i < symbolsInOrderOfOperatorOutput.size(); i++) {
+                outputMappings.put(symbolsInOrderOfOperatorOutput.get(i), i);
             }
 
             return new PhysicalOperation(operator, outputMappings.build(), context, probeSource);
