@@ -820,7 +820,7 @@ public abstract class AbstractTestHive
     {
         return new HiveConfig()
                 .setMaxOpenSortFiles(10)
-                .setWriterSortBufferSize(new DataSize(100, KILOBYTE));
+                .setWriterSortBufferSize(DataSize.of(100, KILOBYTE));
     }
 
     protected ConnectorSession newSession()

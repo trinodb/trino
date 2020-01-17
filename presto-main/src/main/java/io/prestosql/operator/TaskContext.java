@@ -50,7 +50,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
@@ -237,17 +236,17 @@ public class TaskContext
 
     public DataSize getMemoryReservation()
     {
-        return new DataSize(taskMemoryContext.getUserMemory(), BYTE);
+        return DataSize.ofBytes(taskMemoryContext.getUserMemory());
     }
 
     public DataSize getSystemMemoryReservation()
     {
-        return new DataSize(taskMemoryContext.getSystemMemory(), BYTE);
+        return DataSize.ofBytes(taskMemoryContext.getSystemMemory());
     }
 
     public DataSize getRevocableMemoryReservation()
     {
-        return new DataSize(taskMemoryContext.getRevocableMemory(), BYTE);
+        return DataSize.ofBytes(taskMemoryContext.getRevocableMemory());
     }
 
     /**

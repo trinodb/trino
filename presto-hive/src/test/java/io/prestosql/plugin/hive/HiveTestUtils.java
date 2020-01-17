@@ -152,7 +152,7 @@ public final class HiveTestUtils
 
     public static HiveRecordCursorProvider createGenericHiveRecordCursorProvider(HdfsEnvironment hdfsEnvironment)
     {
-        return new GenericHiveRecordCursorProvider(hdfsEnvironment, new DataSize(100, MEGABYTE));
+        return new GenericHiveRecordCursorProvider(hdfsEnvironment, DataSize.of(100, MEGABYTE));
     }
 
     private static HdfsEnvironment createTestHdfsEnvironment()

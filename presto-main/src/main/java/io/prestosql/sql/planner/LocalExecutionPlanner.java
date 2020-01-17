@@ -225,7 +225,6 @@ import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Range.closedOpen;
 import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.prestosql.SystemSessionProperties.getAggregationOperatorUnspillMemoryLimit;
 import static io.prestosql.SystemSessionProperties.getDynamicFilteringMaxPerDriverRowCount;
 import static io.prestosql.SystemSessionProperties.getDynamicFilteringMaxPerDriverSize;
@@ -2271,7 +2270,7 @@ public class LocalExecutionPlanner
                         false,
                         false,
                         false,
-                        new DataSize(0, BYTE),
+                        DataSize.ofBytes(0),
                         context,
                         STATS_START_CHANNEL,
                         outputMapping,
@@ -2350,7 +2349,7 @@ public class LocalExecutionPlanner
                         false,
                         false,
                         false,
-                        new DataSize(0, BYTE),
+                        DataSize.ofBytes(0),
                         context,
                         0,
                         outputMapping,

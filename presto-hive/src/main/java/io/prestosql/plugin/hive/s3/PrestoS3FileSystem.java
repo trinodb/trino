@@ -171,8 +171,8 @@ public class PrestoS3FileSystem
     private static final PrestoS3FileSystemStats STATS = new PrestoS3FileSystemStats();
     private static final RequestMetricCollector METRIC_COLLECTOR = new PrestoS3FileSystemMetricCollector(STATS);
     private static final String DIRECTORY_SUFFIX = "_$folder$";
-    private static final DataSize BLOCK_SIZE = new DataSize(32, MEGABYTE);
-    private static final DataSize MAX_SKIP_SIZE = new DataSize(1, MEGABYTE);
+    private static final DataSize BLOCK_SIZE = DataSize.of(32, MEGABYTE);
+    private static final DataSize MAX_SKIP_SIZE = DataSize.of(1, MEGABYTE);
     private static final String PATH_SEPARATOR = "/";
     private static final Duration BACKOFF_MIN_SLEEP = new Duration(1, SECONDS);
     private static final int HTTP_RANGE_NOT_SATISFIABLE = 416;

@@ -72,11 +72,11 @@ public class TestOrcWriter
                     OrcType.createRootOrcType(columnNames, types),
                     NONE,
                     new OrcWriterOptions()
-                            .withStripeMinSize(new DataSize(0, MEGABYTE))
-                            .withStripeMaxSize(new DataSize(32, MEGABYTE))
+                            .withStripeMinSize(DataSize.of(0, MEGABYTE))
+                            .withStripeMaxSize(DataSize.of(32, MEGABYTE))
                             .withStripeMaxRowCount(ORC_STRIPE_SIZE)
                             .withRowGroupMaxRowCount(ORC_ROW_GROUP_SIZE)
-                            .withDictionaryMaxMemory(new DataSize(32, MEGABYTE)),
+                            .withDictionaryMaxMemory(DataSize.of(32, MEGABYTE)),
                     false,
                     ImmutableMap.of(),
                     HIVE_STORAGE_TIME_ZONE,
