@@ -21,6 +21,7 @@ import io.prestosql.plugin.hive.metastore.alluxio.AlluxioHiveMetastoreConfig;
 import io.prestosql.plugin.hive.metastore.alluxio.AlluxioMetastoreModule;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Parameters;
+import org.testng.annotations.Test;
 
 public class TestHiveAlluxioMetastore
         extends AbstractTestHive
@@ -39,7 +40,7 @@ public class TestHiveAlluxioMetastore
         this.alluxioAddress = host + ":" + port;
         System.out.println(this.alluxioAddress);
         System.setProperty(PropertyKey.Name.SECURITY_LOGIN_USERNAME, "presto");
-        System.setProperty(PropertyKey.Name.MASTER_HOSTNAME, "localhost");
+        System.setProperty(PropertyKey.Name.MASTER_HOSTNAME, host);
         setup(SCHEMA, new HiveConfig(), createMetastore());
     }
 
@@ -49,6 +50,12 @@ public class TestHiveAlluxioMetastore
         alluxioConfig.setMasterAddress(this.alluxioAddress);
         TableMasterClient client = AlluxioMetastoreModule.createCatalogMasterClient(alluxioConfig);
         return new AlluxioHiveMetastore(client);
+    }
+
+    @Override
+    public void testBucketSortedTables()
+    {
+        // Alluxio metastore does not support create operations
     }
 
     @Override
@@ -63,19 +70,25 @@ public class TestHiveAlluxioMetastore
         // Alluxio metastore does not support create operations
     }
 
+    // specifically disable so that expected exception on the superclass don't fail this test
     @Override
+    @Test(enabled = false)
     public void testEmptyRcBinaryFile()
     {
         // Alluxio metastore does not support create operations
     }
 
+    // specifically disable so that expected exception on the superclass don't fail this test
     @Override
+    @Test(enabled = false)
     public void testEmptyRcTextFile()
     {
         // Alluxio metastore does not support create operations
     }
 
+    // specifically disable so that expected exception on the superclass don't fail this test
     @Override
+    @Test(enabled = false)
     public void testEmptySequenceFile()
     {
         // Alluxio metastore does not support create operations
