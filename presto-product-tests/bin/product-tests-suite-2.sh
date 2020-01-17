@@ -19,9 +19,9 @@ presto-product-tests-launcher/target/presto-product-tests-launcher-*-executable.
     -- -g storage_formats,cli,hdfs_impersonation \
     || suite_exit_code=1
 
-presto-product-tests/bin/run_on_docker.sh \
-    singlenode-kerberos-hdfs-impersonation \
-    -g storage_formats,cli,hdfs_impersonation,authorization,hive_file_header \
+presto-product-tests-launcher/target/presto-product-tests-launcher-*-executable.jar test run \
+    --environment singlenode-kerberos-hdfs-impersonation \
+    -- -g storage_formats,cli,hdfs_impersonation,authorization,hive_file_header \
     || suite_exit_code=1
 
 echo "$0: exiting with ${suite_exit_code}"
