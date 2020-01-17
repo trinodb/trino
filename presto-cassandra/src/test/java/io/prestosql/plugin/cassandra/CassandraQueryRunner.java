@@ -15,10 +15,10 @@ package io.prestosql.plugin.cassandra;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.tpch.TpchTable;
 import io.prestosql.Session;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.testing.DistributedQueryRunner;
+import io.prestosql.tpch.TpchTable;
 
 import static io.prestosql.plugin.cassandra.CassandraTestingUtils.createKeyspace;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;

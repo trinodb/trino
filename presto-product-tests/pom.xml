@@ -99,10 +99,6 @@
             <artifactId>http-client</artifactId>
         </dependency>
         <dependency>
-            <groupId>io.airlift.tpch</groupId>
-            <artifactId>tpch</artifactId>
-        </dependency>
-        <dependency>
             <groupId>io.prestosql.hive</groupId>
             <artifactId>hive-apache-jdbc</artifactId>
             <scope>runtime</scope>

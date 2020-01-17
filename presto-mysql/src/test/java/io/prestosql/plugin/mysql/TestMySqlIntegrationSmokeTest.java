@@ -25,11 +25,11 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.tpch.TpchTable.ORDERS;
 import static io.prestosql.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static io.prestosql.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
