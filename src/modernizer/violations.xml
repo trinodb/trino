@@ -59,4 +59,46 @@
         <version>1.6</version>
         <comment>Prefer OGCGeometry.Equals(OGCGeometry)</comment>
     </violation>
+
+    <violation>
+        <name>io/airlift/units/DataSize."&lt;init&gt;":(DLio/airlift/units/DataSize$Unit;)V</name>
+        <version>1.8</version>
+        <comment>Use io.airlift.units.DataSize.of(long, DataSize.Unit)</comment>
+    </violation>
+
+    <violation>
+        <name>io/airlift/units/DataSize.succinctDataSize:(DLio/airlift/units/DataSize$Unit;)Lio/airlift/units/DataSize;</name>
+        <version>1.8</version>
+        <comment>Use io.airlift.units.DataSize.of(long, DataSize.Unit).succinct() -- Note that succinct conversion only affects toString() results</comment>
+    </violation>
+
+    <violation>
+        <name>io/airlift/units/DataSize.getValue:()D</name>
+        <version>1.8</version>
+        <comment>Use io.airlift.units.DataSize.toBytes() and Unit.inBytes() for conversion</comment>
+    </violation>
+
+    <violation>
+        <name>io/airlift/units/DataSize.getValue:(Lio/airlift/units/DataSize$Unit;)D</name>
+        <version>1.8</version>
+        <comment>Use io.airlift.units.DataSize.toBytes() and Unit.inBytes() for conversion</comment>
+    </violation>
+
+    <violation>
+        <name>io/airlift/units/DataSize.roundTo:(Lio/airlift/units/DataSize$Unit;)J</name>
+        <version>1.8</version>
+        <comment>Method is deprecated for removal</comment>
+    </violation>
+
+    <violation>
+        <name>io/airlift/units/DataSize.convertTo:(Lio/airlift/units/DataSize$Unit;)Lio/airlift/units/DataSize;</name>
+        <version>1.8</version>
+        <comment>Use io.airlift.units.DataSize.to(DataSize.Unit)</comment>
+    </violation>
+
+    <violation>
+        <name>io/airlift/units/DataSize.convertToMostSuccinctDataSize:()Lio/airlift/units/DataSize;</name>
+        <version>1.8</version>
+        <comment>Use io.airlift.units.DataSize.succinct()</comment>
+    </violation>
 </modernizer>

@@ -21,8 +21,6 @@ import io.airlift.units.DataSize;
 
 import javax.validation.constraints.NotNull;
 
-import static io.airlift.units.DataSize.Unit.BYTE;
-
 // This is separate from MemoryManagerConfig because it's difficult to test the default value of maxQueryMemoryPerNode
 @DefunctConfig("deprecated.legacy-system-pool-enabled")
 public class NodeMemoryConfig
@@ -33,11 +31,11 @@ public class NodeMemoryConfig
 
     private boolean isReservedPoolDisabled = true;
 
-    private DataSize maxQueryMemoryPerNode = new DataSize(AVAILABLE_HEAP_MEMORY * 0.1, BYTE);
+    private DataSize maxQueryMemoryPerNode = DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.1));
 
     // This is a per-query limit for the user plus system allocations.
-    private DataSize maxQueryTotalMemoryPerNode = new DataSize(AVAILABLE_HEAP_MEMORY * 0.3, BYTE);
-    private DataSize heapHeadroom = new DataSize(AVAILABLE_HEAP_MEMORY * 0.3, BYTE);
+    private DataSize maxQueryTotalMemoryPerNode = DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.3));
+    private DataSize heapHeadroom = DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.3));
 
     @NotNull
     public DataSize getMaxQueryMemoryPerNode()

@@ -48,7 +48,7 @@ public class TestOperatorStats
             511,
             new DataSize(52, BYTE),
             522,
-            new DataSize(5, BYTE),
+            DataSize.ofBytes(5),
             new DataSize(6, BYTE),
             7,
             8d,

@@ -259,7 +259,7 @@ public class TestOrcPageSourceMemoryTracking
         HiveSessionProperties hiveSessionProperties = new HiveSessionProperties(
                 new HiveConfig(),
                 new OrcReaderConfig()
-                        .setMaxBlockSize(new DataSize(maxReadBytes, BYTE)),
+                        .setMaxBlockSize(DataSize.ofBytes(maxReadBytes)),
                 new OrcWriterConfig(),
                 new ParquetReaderConfig(),
                 new ParquetWriterConfig());

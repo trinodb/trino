@@ -448,7 +448,7 @@ public class ShardRecoveryManager
         if (Double.isNaN(rate) || Double.isInfinite(rate)) {
             rate = 0;
         }
-        return succinctDataSize(rate, BYTE);
+        return succinctBytes(Math.round(rate));
     }
 
     private static File temporarySuffix(File file)
