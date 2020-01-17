@@ -140,7 +140,7 @@ public abstract class AbstractResourceConfigurationManager
             Map<ResourceGroup, DataSize> memoryLimits = new HashMap<>();
             synchronized (generalPoolMemoryFraction) {
                 for (Map.Entry<ResourceGroup, Double> entry : generalPoolMemoryFraction.entrySet()) {
-                    double bytes = poolInfo.getMaxBytes() * entry.getValue();
+                    long bytes = Math.round(poolInfo.getMaxBytes() * entry.getValue());
                     // setSoftMemoryLimit() acquires a lock on the root group of its tree, which could cause a deadlock if done while holding the "generalPoolMemoryFraction" lock
                     memoryLimits.put(entry.getKey(), new DataSize(bytes, BYTE));
                 }

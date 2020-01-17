@@ -114,8 +114,8 @@ final class FormatUtils
         if (Double.isNaN(rate) || Double.isInfinite(rate)) {
             rate = 0;
         }
-
-        String rateString = formatDataSize(new DataSize(rate, BYTE), false);
+        
+        String rateString = formatDataSize(DataSize.ofBytes(Math.round(rate)), false);
         if (longForm) {
             if (!rateString.endsWith("B")) {
                 rateString += "B";

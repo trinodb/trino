@@ -282,7 +282,7 @@ public class TextRenderer
             return "-\u221E";
         }
 
-        return DataSize.succinctDataSize(value, BYTE).toString();
+        return DataSize.succinctBytes(Math.round(value)).toString();
     }
 
     static String formatDouble(double value)
