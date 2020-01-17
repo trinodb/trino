@@ -49,6 +49,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
 /**
@@ -62,7 +64,7 @@ public class AlluxioHiveMetastore
     @Inject
     public AlluxioHiveMetastore(TableMasterClient client)
     {
-        this.client = client;
+        this.client = requireNonNull(client);
     }
 
     @Override
@@ -111,8 +113,7 @@ public class AlluxioHiveMetastore
     public PartitionStatistics getTableStatistics(HiveIdentity identity, Table table)
     {
         try {
-            HiveBasicStatistics basicStats =
-                    ThriftMetastoreUtil.getHiveBasicStatistics(table.getParameters());
+            HiveBasicStatistics basicStats = ThriftMetastoreUtil.getHiveBasicStatistics(table.getParameters());
             // TODO implement logic to populate Map<string, HiveColumnStatistics>
             return new PartitionStatistics(basicStats, Collections.emptyMap());
         }
@@ -127,21 +128,30 @@ public class AlluxioHiveMetastore
         // TODO implement partition statistics
         // currently returns a map of partitionName to empty statistics to satisfy presto requirements
         return Collections.unmodifiableMap(
-                partitions.stream().map(p -> MetastoreUtil.makePartitionName(table, p)).collect(Collectors.toMap(identity(), (p) -> PartitionStatistics.empty())));
+                partitions.stream()
+                        .map(partition -> MetastoreUtil.makePartitionName(table, partition))
+                        .collect(Collectors.toMap(identity(), partitionStats -> PartitionStatistics.empty())));
     }
 
     @Override
-    public void updateTableStatistics(HiveIdentity identity, String databaseName, String tableName,
+    public void updateTableStatistics(
+            HiveIdentity identity,
+            String databaseName,
+            String tableName,
             Function<PartitionStatistics, PartitionStatistics> update)
     {
-        throw new UnsupportedOperationException("updateTableStatistics");
+        throw new PrestoException(NOT_SUPPORTED, "updateTableStatistics");
     }
 
     @Override
-    public void updatePartitionStatistics(HiveIdentity identity, String databaseName, String tableName,
-            String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    public void updatePartitionStatistics(
+            HiveIdentity identity,
+            String databaseName,
+            String tableName,
+            String partitionName,
+            Function<PartitionStatistics, PartitionStatistics> update)
     {
-        throw new UnsupportedOperationException("updatePartitionStatistics");
+        throw new PrestoException(NOT_SUPPORTED, "updatePartitionStatistics");
     }
 
     @Override
@@ -159,24 +169,28 @@ public class AlluxioHiveMetastore
     }
 
     @Override
-    public List<String> getTablesWithParameter(String databaseName, String parameterKey,
+    public List<String> getTablesWithParameter(
+            String databaseName,
+            String parameterKey,
             String parameterValue)
     {
         try {
-            return client.getAllTables(databaseName).stream().filter(s -> {
+            return client.getAllTables(databaseName).stream()
+                    .filter(tableName -> {
                         // TODO Is there a way to do a bulk RPC?
-                try {
-                    TableInfo table = client.getTable(databaseName, s);
-                    if (table == null) {
-                        return false;
-                    }
-                    String value = table.getParametersMap().get(parameterKey);
-                    return value != null && value.equals(parameterValue);
-                }
-                catch (AlluxioStatusException e) {
-                    throw new RuntimeException("Failed to get info for table " + s, e);
-                }
-            }).collect(Collectors.toList());
+                        try {
+                            TableInfo table = client.getTable(databaseName, tableName);
+                            if (table == null) {
+                                return false;
+                            }
+                            String value = table.getParametersMap().get(parameterKey);
+                            return value != null && value.equals(parameterValue);
+                        }
+                        catch (AlluxioStatusException e) {
+                            throw new PrestoException(HIVE_METASTORE_ERROR, "Failed to get info for table: " + tableName, e);
+                        }
+                    })
+                    .collect(Collectors.toList());
         }
         catch (AlluxioStatusException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
@@ -193,83 +207,83 @@ public class AlluxioHiveMetastore
     @Override
     public void createDatabase(HiveIdentity identity, Database database)
     {
-        throw new UnsupportedOperationException("createDatabase");
+        throw new PrestoException(NOT_SUPPORTED, "createDatabase");
     }
 
     @Override
     public void dropDatabase(HiveIdentity identity, String databaseName)
     {
-        throw new UnsupportedOperationException("dropDatabase");
+        throw new PrestoException(NOT_SUPPORTED, "dropDatabase");
     }
 
     @Override
     public void renameDatabase(HiveIdentity identity, String databaseName, String newDatabaseName)
     {
-        throw new UnsupportedOperationException("renameDatabase");
+        throw new PrestoException(NOT_SUPPORTED, "renameDatabase");
     }
 
     @Override
     public void createTable(HiveIdentity identity, Table table, PrincipalPrivileges principalPrivileges)
     {
-        throw new UnsupportedOperationException("createTable");
+        throw new PrestoException(NOT_SUPPORTED, "createTable");
     }
 
     @Override
     public void dropTable(HiveIdentity identity, String databaseName, String tableName, boolean deleteData)
     {
-        throw new UnsupportedOperationException("dropTable");
+        throw new PrestoException(NOT_SUPPORTED, "dropTable");
     }
 
     @Override
     public void replaceTable(HiveIdentity identity, String databaseName, String tableName, Table newTable,
             PrincipalPrivileges principalPrivileges)
     {
-        throw new UnsupportedOperationException("replaceTable");
+        throw new PrestoException(NOT_SUPPORTED, "replaceTable");
     }
 
     @Override
     public void renameTable(HiveIdentity identity, String databaseName, String tableName, String newDatabaseName,
             String newTableName)
     {
-        throw new UnsupportedOperationException("renameTable");
+        throw new PrestoException(NOT_SUPPORTED, "renameTable");
     }
 
     @Override
     public void commentTable(HiveIdentity identity, String databaseName, String tableName, Optional<String> comment)
     {
-        throw new UnsupportedOperationException("commentTable");
+        throw new PrestoException(NOT_SUPPORTED, "commentTable");
     }
 
     @Override
     public void addColumn(HiveIdentity identity, String databaseName, String tableName, String columnName,
             HiveType columnType, String columnComment)
     {
-        throw new UnsupportedOperationException("addColumn");
+        throw new PrestoException(NOT_SUPPORTED, "addColumn");
     }
 
     @Override
     public void renameColumn(HiveIdentity identity, String databaseName, String tableName, String oldColumnName,
             String newColumnName)
     {
-        throw new UnsupportedOperationException("renameColumn");
+        throw new PrestoException(NOT_SUPPORTED, "renameColumn");
     }
 
     @Override
     public void dropColumn(HiveIdentity identity, String databaseName, String tableName, String columnName)
     {
-        throw new UnsupportedOperationException("dropColumn");
+        throw new PrestoException(NOT_SUPPORTED, "dropColumn");
     }
 
     @Override
     public Optional<Partition> getPartition(HiveIdentity identity, Table table, List<String> partitionValues)
     {
-        throw new UnsupportedOperationException("getPartition");
+        throw new PrestoException(NOT_SUPPORTED, "getPartition");
     }
 
     @Override
     public Optional<List<String>> getPartitionNames(HiveIdentity identity, String databaseName, String tableName)
     {
-        throw new UnsupportedOperationException("getPartitionNames");
+        throw new PrestoException(NOT_SUPPORTED, "getPartitionNames");
     }
 
     /**
@@ -288,7 +302,8 @@ public class AlluxioHiveMetastore
             List<PartitionInfo> partitionInfos = ProtoUtils.toPartitionInfoList(
                     client.readTable(databaseName, tableName, Constraint.getDefaultInstance()));
             // TODO also check for database name equality
-            partitionInfos = partitionInfos.stream().filter(p -> p.getTableName().equals(tableName))
+            partitionInfos = partitionInfos.stream()
+                    .filter(p -> p.getTableName().equals(tableName))
                     // Filter out any partitions which have values that don't match
                     .filter(partition -> {
                         List<String> values = partition.getValuesList();
@@ -304,7 +319,9 @@ public class AlluxioHiveMetastore
                         return true;
                     })
                     .collect(Collectors.toList());
-            List<String> partitionNames = partitionInfos.stream().map(PartitionInfo::getPartitionName).collect(Collectors.toList());
+            List<String> partitionNames = partitionInfos.stream()
+                    .map(PartitionInfo::getPartitionName)
+                    .collect(Collectors.toList());
             return Optional.of(partitionNames);
         }
         catch (AlluxioStatusException e) {
@@ -327,13 +344,15 @@ public class AlluxioHiveMetastore
                     client.readTable(databaseName, tableName, Constraint.getDefaultInstance()));
             // Check that table name is correct
             // TODO also check for database name equality
-            partitionInfos = partitionInfos.stream().filter(p -> p.getTableName().equals(tableName))
+            partitionInfos = partitionInfos.stream()
+                    .filter(partition -> partition.getTableName().equals(tableName))
                     .collect(Collectors.toList());
             Map<String, Optional<Partition>> result = partitionInfos.stream()
-                    .filter(p -> partitionNames.stream().anyMatch(p.getPartitionName()::equals))
+                    .filter(partitionName -> partitionNames.stream()
+                            .anyMatch(partitionName.getPartitionName()::equals))
                     .collect(Collectors.toMap(
                             PartitionInfo::getPartitionName,
-                            pi -> Optional.of(ProtoUtils.fromProto(pi))));
+                            partitionInfo -> Optional.of(ProtoUtils.fromProto(partitionInfo))));
             return Collections.unmodifiableMap(result);
         }
         catch (AlluxioStatusException e) {
@@ -345,79 +364,79 @@ public class AlluxioHiveMetastore
     public void addPartitions(HiveIdentity identity, String databaseName, String tableName,
             List<PartitionWithStatistics> partitions)
     {
-        throw new UnsupportedOperationException("addPartitions");
+        throw new PrestoException(NOT_SUPPORTED, "addPartitions");
     }
 
     @Override
     public void dropPartition(HiveIdentity identity, String databaseName, String tableName, List<String> parts,
             boolean deleteData)
     {
-        throw new UnsupportedOperationException("dropPartition");
+        throw new PrestoException(NOT_SUPPORTED, "dropPartition");
     }
 
     @Override
     public void alterPartition(HiveIdentity identity, String databaseName, String tableName,
             PartitionWithStatistics partition)
     {
-        throw new UnsupportedOperationException("alterPartition");
+        throw new PrestoException(NOT_SUPPORTED, "alterPartition");
     }
 
     @Override
     public void createRole(String role, String grantor)
     {
-        throw new UnsupportedOperationException("createRole");
+        throw new PrestoException(NOT_SUPPORTED, "createRole");
     }
 
     @Override
     public void dropRole(String role)
     {
-        throw new UnsupportedOperationException("dropRole");
+        throw new PrestoException(NOT_SUPPORTED, "dropRole");
     }
 
     @Override
     public Set<String> listRoles()
     {
-        throw new UnsupportedOperationException("listRoles");
+        throw new PrestoException(NOT_SUPPORTED, "listRoles");
     }
 
     @Override
     public void grantRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean withAdminOption,
             HivePrincipal grantor)
     {
-        throw new UnsupportedOperationException("grantRoles");
+        throw new PrestoException(NOT_SUPPORTED, "grantRoles");
     }
 
     @Override
     public void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOptionFor,
             HivePrincipal grantor)
     {
-        throw new UnsupportedOperationException("revokeRoles");
+        throw new PrestoException(NOT_SUPPORTED, "revokeRoles");
     }
 
     @Override
     public Set<RoleGrant> listRoleGrants(HivePrincipal principal)
     {
-        throw new UnsupportedOperationException("listRoleGrants");
+        throw new PrestoException(NOT_SUPPORTED, "listRoleGrants");
     }
 
     @Override
     public void grantTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee,
             Set<HivePrivilegeInfo> privileges)
     {
-        throw new UnsupportedOperationException("grantTablePrivileges");
+        throw new PrestoException(NOT_SUPPORTED, "grantTablePrivileges");
     }
 
     @Override
     public void revokeTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee,
             Set<HivePrivilegeInfo> privileges)
     {
-        throw new UnsupportedOperationException("revokeTablePrivileges");
+        throw new PrestoException(NOT_SUPPORTED, "revokeTablePrivileges");
     }
 
     @Override
     public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, String tableOwner, Optional<HivePrincipal> principal)
     {
-        throw new UnsupportedOperationException("listTablePrivileges");
+        throw new PrestoException(NOT_SUPPORTED, "listTablePrivileges");
     }
 
     @Override

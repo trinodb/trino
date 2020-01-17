@@ -28,11 +28,9 @@ import alluxio.grpc.table.layout.hive.Storage;
 import alluxio.grpc.table.layout.hive.StorageFormat;
 import alluxio.shaded.client.com.google.protobuf.ByteString;
 
-public class TestingAlluxioMetastoreObjects
+public final class TestingAlluxioMetastoreObjects
 {
-    private TestingAlluxioMetastoreObjects()
-    {
-    }
+    private TestingAlluxioMetastoreObjects() {}
 
     public static final String DATABASE_NAME = "test_db";
     public static final String OWNER_NAME = "test_owner";

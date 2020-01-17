@@ -27,14 +27,18 @@ import io.prestosql.plugin.hive.metastore.SortingColumn;
 import io.prestosql.plugin.hive.metastore.StorageFormat;
 import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.plugin.hive.util.HiveBucketing;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.security.PrincipalType;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
-public class ProtoUtils
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+
+public final class ProtoUtils
 {
     private ProtoUtils() {}
 
@@ -51,26 +55,34 @@ public class ProtoUtils
     public static Table fromProto(alluxio.grpc.table.TableInfo table)
     {
         if (!table.hasLayout()) {
-            throw new UnsupportedOperationException("Unsupported table metadata. missing layout.");
+            throw new PrestoException(NOT_SUPPORTED, "Unsupported table metadata. missing layout.: " + table.getTableName());
         }
         Layout layout = table.getLayout();
         if (!alluxio.table.ProtoUtils.isHiveLayout(layout)) {
-            throw new UnsupportedOperationException("Unsupported table layout: " + layout);
+            throw new PrestoException(NOT_SUPPORTED, "Unsupported table layout: " + layout + " for table: " + table.getTableName());
         }
         try {
             PartitionInfo partitionInfo = alluxio.table.ProtoUtils.toHiveLayout(layout);
 
             // compute the data columns
-            Set<String> partitionColumns = table.getPartitionColsList().stream().map(FieldSchema::getName).collect(Collectors.toSet());
-            List<FieldSchema> dataColumns = table.getSchema().getColsList().stream().filter((f) -> !partitionColumns.contains(f.getName())).collect(Collectors.toList());
+            Set<String> partitionColumns = table.getPartitionColsList().stream()
+                    .map(FieldSchema::getName)
+                    .collect(toImmutableSet());
+            List<FieldSchema> dataColumns = table.getSchema().getColsList().stream()
+                    .filter((f) -> !partitionColumns.contains(f.getName()))
+                    .collect(toImmutableList());
 
             Table.Builder builder = Table.builder()
                     .setDatabaseName(table.getDbName())
                     .setTableName(table.getTableName())
                     .setOwner(table.getOwner())
                     .setTableType(table.getType().toString())
-                    .setDataColumns(dataColumns.stream().map(ProtoUtils::fromProto).collect(Collectors.toList()))
-                    .setPartitionColumns(table.getPartitionColsList().stream().map(ProtoUtils::fromProto).collect(Collectors.toList()))
+                    .setDataColumns(dataColumns.stream()
+                            .map(ProtoUtils::fromProto)
+                            .collect(toImmutableList()))
+                    .setPartitionColumns(table.getPartitionColsList().stream()
+                            .map(ProtoUtils::fromProto)
+                            .collect(toImmutableList()))
                     .setParameters(table.getParametersMap())
                     .setViewOriginalText(Optional.empty())
                     .setViewExpandedText(Optional.empty());
@@ -105,7 +117,9 @@ public class ProtoUtils
         if (!property.hasBucketCount() || property.getBucketCount() <= 0) {
             return Optional.empty();
         }
-        List<SortingColumn> sortedBy = property.getSortedByList().stream().map(ProtoUtils::fromProto).collect(Collectors.toList());
+        List<SortingColumn> sortedBy = property.getSortedByList().stream()
+                .map(ProtoUtils::fromProto)
+                .collect(toImmutableList());
         return Optional.of(new HiveBucketProperty(property.getBucketedByList(), HiveBucketing.BucketingVersion.BUCKETING_V1,
             (int) property.getBucketCount(), sortedBy));
     }
@@ -124,7 +138,9 @@ public class ProtoUtils
     public static Partition fromProto(alluxio.grpc.table.layout.hive.PartitionInfo info)
     {
         Partition.Builder builder = Partition.builder()
-                .setColumns(info.getDataColsList().stream().map(ProtoUtils::fromProto).collect(Collectors.toList()))
+                .setColumns(info.getDataColsList().stream()
+                        .map(ProtoUtils::fromProto)
+                        .collect(toImmutableList()))
                 .setDatabaseName(info.getDbName())
                 .setParameters(info.getParametersMap())
                 .setValues(Lists.newArrayList(info.getValuesList()))
@@ -153,6 +169,8 @@ public class ProtoUtils
 
     public static List<alluxio.grpc.table.layout.hive.PartitionInfo> toPartitionInfoList(List<alluxio.grpc.table.Partition> parts)
     {
-        return parts.stream().map(ProtoUtils::toPartitionInfo).collect(Collectors.toList());
+        return parts.stream()
+                .map(ProtoUtils::toPartitionInfo)
+                .collect(toImmutableList());
     }
 }

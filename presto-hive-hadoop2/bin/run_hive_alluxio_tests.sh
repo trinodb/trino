@@ -4,30 +4,13 @@ set -euo pipefail -x
 
 . "${BASH_SOURCE%/*}/common.sh"
 
-source presto-product-tests/conf/product-tests-config-hdp3.sh
+export ALLUXIO_BASE_IMAGE="alluxio/alluxio"
+export ALLUXIO_IMAGE_TAG="2.1.1"
 
 ALLUXIO_DOCKER_COMPOSE_LOCATION="${INTEGRATION_TESTS_ROOT}/conf/alluxio-docker.yml"
 
-function start_alluxio_containers() {
-  # stop already running containers
-  docker-compose -f "${ALLUXIO_DOCKER_COMPOSE_LOCATION}" down || true
-
-  # catch terminate signals
-  trap termination_handler INT TERM
-
-  # pull docker images
-  if [[ "${CONTINUOUS_INTEGRATION:-false}" == 'true' ]]; then
-    docker-compose -f "${ALLUXIO_DOCKER_COMPOSE_LOCATION}" pull --quiet
-  fi
-
-  # start containers
-  docker-compose -f "${ALLUXIO_DOCKER_COMPOSE_LOCATION}" up -d
-
-  # start docker logs for hadoop container
-  docker-compose -f "${ALLUXIO_DOCKER_COMPOSE_LOCATION}" logs --no-color alluxio-master &
-
-  retry check_alluxio
-}
+# REMOVE THIS BEFORE COMMITTING
+source presto-product-tests/conf/product-tests-config-hdp3.sh
 
 function check_alluxio() {
   run_in_alluxio alluxio fsadmin report
@@ -49,24 +32,21 @@ function alluxio_master_container() {
 }
 
 function main () {
-  cleanup_docker_containers
-  start_docker_containers
-
-  export HADOOP_MASTER_IP=$(hadoop_master_ip)
-  export ALLUXIO_BASE_IMAGE="alluxio/alluxio"
-  export ALLUXIO_IMAGE_TAG="2.1.1"
-
-  start_alluxio_containers
+  cleanup_docker_containers "${DOCKER_COMPOSE_LOCATION}" "${ALLUXIO_DOCKER_COMPOSE_LOCATION}"
+  start_docker_containers "${DOCKER_COMPOSE_LOCATION}" "${ALLUXIO_DOCKER_COMPOSE_LOCATION}"
+  retry check_hadoop
+  retry check_alluxio & # data can be generated while we wait for alluxio to start
 
   # generate test data
   exec_in_hadoop_master_container sudo -Eu hdfs hdfs dfs -mkdir /alluxio
   exec_in_hadoop_master_container sudo -Eu hdfs hdfs dfs -chmod 777 /alluxio
   exec_in_hadoop_master_container sudo -Eu hive beeline -u jdbc:hive2://localhost:10000/default -n hive -f /docker/sql/create-test.sql
-
   # Alluxio currently doesn't support views
   exec_in_hadoop_master_container sudo -Eu hive beeline -u jdbc:hive2://localhost:10000/default -n hive -e 'DROP VIEW presto_test_view;'
 
   stop_unnecessary_hadoop_services
+
+  wait # make sure alluxio has started
 
   run_in_alluxio alluxio table attachdb hive thrift://hadoop-master:9083 default
   run_in_alluxio alluxio table ls default
@@ -82,7 +62,7 @@ function main () {
   set -e
   popd
 
-#  cleanup_docker_containers
+  cleanup_docker_containers "${DOCKER_COMPOSE_LOCATION}" "${ALLUXIO_DOCKER_COMPOSE_LOCATION}"
 
   exit ${EXIT_CODE}
 }

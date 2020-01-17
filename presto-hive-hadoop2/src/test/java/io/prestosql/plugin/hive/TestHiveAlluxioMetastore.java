@@ -15,7 +15,6 @@ package io.prestosql.plugin.hive;
 
 import alluxio.client.table.TableMasterClient;
 import alluxio.conf.PropertyKey;
-import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.alluxio.AlluxioHiveMetastore;
 import io.prestosql.plugin.hive.metastore.alluxio.AlluxioHiveMetastoreConfig;
 import io.prestosql.plugin.hive.metastore.alluxio.AlluxioMetastoreModule;
@@ -32,7 +31,7 @@ public class TestHiveAlluxioMetastore
 
     @Parameters({
             "hive.hadoop2.alluxio.host",
-            "hive.hadoop2.alluxio.port"
+            "hive.hadoop2.alluxio.port",
     })
     @BeforeClass
     public void setup(String host, String port)
@@ -41,15 +40,10 @@ public class TestHiveAlluxioMetastore
         System.out.println(this.alluxioAddress);
         System.setProperty(PropertyKey.Name.SECURITY_LOGIN_USERNAME, "presto");
         System.setProperty(PropertyKey.Name.MASTER_HOSTNAME, host);
-        setup(SCHEMA, new HiveConfig(), createMetastore());
-    }
-
-    HiveMetastore createMetastore()
-    {
         AlluxioHiveMetastoreConfig alluxioConfig = new AlluxioHiveMetastoreConfig();
         alluxioConfig.setMasterAddress(this.alluxioAddress);
         TableMasterClient client = AlluxioMetastoreModule.createCatalogMasterClient(alluxioConfig);
-        return new AlluxioHiveMetastore(client);
+        setup(SCHEMA, new HiveConfig(), new AlluxioHiveMetastore(client));
     }
 
     @Override
@@ -110,6 +104,12 @@ public class TestHiveAlluxioMetastore
     public void testHiveViewsAreNotSupported()
     {
         // Alluxio metastore does not support insert/update operations
+    }
+
+    @Override
+    public void testIllegalStorageFormatDuringTableScan()
+    {
+        // Alluxio metastore does not support create operations
     }
 
     @Override
