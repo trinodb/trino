@@ -1797,12 +1797,8 @@ public class LocalExecutionPlanner
                     buildSource.getPipelineExecutionStrategy());
 
             // Extract probe and build symbols required for output, in their required order
-            List<Symbol> probeSymbols = node.getOutputSymbols().stream()
-                    .filter(ImmutableSet.copyOf(node.getLeft().getOutputSymbols())::contains)
-                    .collect(toImmutableList());
-            List<Symbol> buildSymbols = node.getOutputSymbols().stream()
-                    .filter(ImmutableSet.copyOf(node.getRight().getOutputSymbols())::contains)
-                    .collect(toImmutableList());
+            List<Symbol> probeSymbols = extractJoinOutputsFromSource(node, node.getLeft());
+            List<Symbol> buildSymbols = extractJoinOutputsFromSource(node, node.getRight());
 
             // NestedLoopJoinOperator returns probe data on the left and build data on the right.
             // Need to map output symbols accordingly to the actual order of channels.
@@ -1867,9 +1863,7 @@ public class LocalExecutionPlanner
                 LocalExecutionPlanContext context)
         {
             List<Type> probeTypes = probeSource.getTypes();
-            List<Symbol> probeOutputSymbols = node.getOutputSymbols().stream()
-                    .filter(symbol -> probeNode.getOutputSymbols().contains(symbol))
-                    .collect(toImmutableList());
+            List<Symbol> probeOutputSymbols = extractJoinOutputsFromSource(node, probeNode);
             List<Integer> probeOutputChannels = ImmutableList.copyOf(getChannelsForSymbols(probeOutputSymbols, probeSource.getLayout()));
             Function<Symbol, Integer> probeChannelGetter = channelGetter(probeSource);
             int probeChannel = probeChannelGetter.apply(probeSymbol);
@@ -1899,9 +1893,7 @@ public class LocalExecutionPlanner
         {
             LocalExecutionPlanContext buildContext = context.createSubContext();
             PhysicalOperation buildSource = buildNode.accept(this, buildContext);
-            List<Symbol> buildOutputSymbols = node.getOutputSymbols().stream()
-                    .filter(symbol -> buildNode.getOutputSymbols().contains(symbol))
-                    .collect(toImmutableList());
+            List<Symbol> buildOutputSymbols = extractJoinOutputsFromSource(node, buildNode);
             Map<Symbol, Integer> buildLayout = buildSource.getLayout();
             List<Integer> buildOutputChannels = ImmutableList.copyOf(getChannelsForSymbols(buildOutputSymbols, buildLayout));
             Function<Symbol, Integer> buildChannelGetter = channelGetter(buildSource);
@@ -1993,9 +1985,7 @@ public class LocalExecutionPlanner
                         "Build execution is GROUPED_EXECUTION. Probe execution is expected be GROUPED_EXECUTION, but is UNGROUPED_EXECUTION.");
             }
 
-            List<Symbol> buildOutputSymbols = node.getOutputSymbols().stream()
-                    .filter(symbol -> node.getRight().getOutputSymbols().contains(symbol))
-                    .collect(toImmutableList());
+            List<Symbol> buildOutputSymbols = extractJoinOutputsFromSource(node, buildNode);
             List<Integer> buildOutputChannels = ImmutableList.copyOf(getChannelsForSymbols(buildOutputSymbols, buildSource.getLayout()));
             List<Integer> buildChannels = ImmutableList.copyOf(getChannelsForSymbols(buildSymbols, buildSource.getLayout()));
             OptionalInt buildHashChannel = buildHashSymbol.map(channelGetter(buildSource))
@@ -2148,9 +2138,7 @@ public class LocalExecutionPlanner
                 boolean spillEnabled)
         {
             List<Type> probeTypes = probeSource.getTypes();
-            List<Symbol> probeOutputSymbols = node.getOutputSymbols().stream()
-                    .filter(symbol -> node.getLeft().getOutputSymbols().contains(symbol))
-                    .collect(toImmutableList());
+            List<Symbol> probeOutputSymbols = extractJoinOutputsFromSource(node, node.getLeft());
             List<Integer> probeOutputChannels = ImmutableList.copyOf(getChannelsForSymbols(probeOutputSymbols, probeSource.getLayout()));
             List<Integer> probeJoinChannels = ImmutableList.copyOf(getChannelsForSymbols(probeSymbols, probeSource.getLayout()));
             OptionalInt probeHashChannel = probeHashSymbol.map(channelGetter(probeSource))
@@ -2180,6 +2168,13 @@ public class LocalExecutionPlanner
                 joinSourcesLayout.put(probeLayoutEntry.getKey(), probeLayoutEntry.getValue() + lookupSourceLayout.size());
             }
             return joinSourcesLayout.build();
+        }
+
+        private List<Symbol> extractJoinOutputsFromSource(PlanNode joinNode, PlanNode source)
+        {
+            return joinNode.getOutputSymbols().stream()
+                    .filter(ImmutableSet.copyOf(source.getOutputSymbols())::contains)
+                    .collect(toImmutableList());
         }
 
         @Override
