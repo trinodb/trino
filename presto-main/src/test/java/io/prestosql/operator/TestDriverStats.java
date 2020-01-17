@@ -22,7 +22,6 @@ import io.prestosql.execution.Lifespan;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.prestosql.operator.TestOperatorStats.assertExpectedOperatorStats;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.joda.time.DateTimeZone.UTC;
@@ -40,9 +39,9 @@ public class TestDriverStats
             new Duration(4, NANOSECONDS),
             new Duration(5, NANOSECONDS),
 
-            new DataSize(6, BYTE),
-            new DataSize(7, BYTE),
-            new DataSize(8, BYTE),
+            DataSize.ofBytes(6),
+            DataSize.ofBytes(7),
+            DataSize.ofBytes(8),
 
             new Duration(9, NANOSECONDS),
             new Duration(10, NANOSECONDS),
@@ -50,25 +49,25 @@ public class TestDriverStats
             false,
             ImmutableSet.of(),
 
-            new DataSize(131, BYTE),
+            DataSize.ofBytes(131),
             141,
             new Duration(151, NANOSECONDS),
 
-            new DataSize(132, BYTE),
+            DataSize.ofBytes(132),
             142,
             new Duration(152, NANOSECONDS),
 
-            new DataSize(13, BYTE),
+            DataSize.ofBytes(13),
             14,
             new Duration(15, NANOSECONDS),
 
-            new DataSize(16, BYTE),
+            DataSize.ofBytes(16),
             17,
 
-            new DataSize(18, BYTE),
+            DataSize.ofBytes(18),
             19,
 
-            new DataSize(20, BYTE),
+            DataSize.ofBytes(20),
 
             ImmutableList.of(TestOperatorStats.EXPECTED));
 
@@ -93,33 +92,33 @@ public class TestDriverStats
         assertEquals(actual.getQueuedTime(), new Duration(4, NANOSECONDS));
         assertEquals(actual.getElapsedTime(), new Duration(5, NANOSECONDS));
 
-        assertEquals(actual.getUserMemoryReservation(), new DataSize(6, BYTE));
-        assertEquals(actual.getRevocableMemoryReservation(), new DataSize(7, BYTE));
-        assertEquals(actual.getSystemMemoryReservation(), new DataSize(8, BYTE));
+        assertEquals(actual.getUserMemoryReservation(), DataSize.ofBytes(6));
+        assertEquals(actual.getRevocableMemoryReservation(), DataSize.ofBytes(7));
+        assertEquals(actual.getSystemMemoryReservation(), DataSize.ofBytes(8));
 
         assertEquals(actual.getTotalScheduledTime(), new Duration(9, NANOSECONDS));
         assertEquals(actual.getTotalCpuTime(), new Duration(10, NANOSECONDS));
         assertEquals(actual.getTotalBlockedTime(), new Duration(12, NANOSECONDS));
 
-        assertEquals(actual.getPhysicalInputDataSize(), new DataSize(131, BYTE));
+        assertEquals(actual.getPhysicalInputDataSize(), DataSize.ofBytes(131));
         assertEquals(actual.getPhysicalInputPositions(), 141);
         assertEquals(actual.getPhysicalInputReadTime(), new Duration(151, NANOSECONDS));
 
-        assertEquals(actual.getInternalNetworkInputDataSize(), new DataSize(132, BYTE));
+        assertEquals(actual.getInternalNetworkInputDataSize(), DataSize.ofBytes(132));
         assertEquals(actual.getInternalNetworkInputPositions(), 142);
         assertEquals(actual.getInternalNetworkInputReadTime(), new Duration(152, NANOSECONDS));
 
-        assertEquals(actual.getRawInputDataSize(), new DataSize(13, BYTE));
+        assertEquals(actual.getRawInputDataSize(), DataSize.ofBytes(13));
         assertEquals(actual.getRawInputPositions(), 14);
         assertEquals(actual.getRawInputReadTime(), new Duration(15, NANOSECONDS));
 
-        assertEquals(actual.getProcessedInputDataSize(), new DataSize(16, BYTE));
+        assertEquals(actual.getProcessedInputDataSize(), DataSize.ofBytes(16));
         assertEquals(actual.getProcessedInputPositions(), 17);
 
-        assertEquals(actual.getOutputDataSize(), new DataSize(18, BYTE));
+        assertEquals(actual.getOutputDataSize(), DataSize.ofBytes(18));
         assertEquals(actual.getOutputPositions(), 19);
 
-        assertEquals(actual.getPhysicalWrittenDataSize(), new DataSize(20, BYTE));
+        assertEquals(actual.getPhysicalWrittenDataSize(), DataSize.ofBytes(20));
 
         assertEquals(actual.getOperatorStats().size(), 1);
         assertExpectedOperatorStats(actual.getOperatorStats().get(0));

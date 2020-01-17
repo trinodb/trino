@@ -76,7 +76,7 @@ public class OrcMetadataReader
         implements MetadataReader
 {
     private static final int REPLACEMENT_CHARACTER_CODE_POINT = 0xFFFD;
-    private static final int PROTOBUF_MESSAGE_MAX_LIMIT = toIntExact(new DataSize(1, GIGABYTE).toBytes());
+    private static final int PROTOBUF_MESSAGE_MAX_LIMIT = toIntExact(DataSize.of(1, GIGABYTE).toBytes());
 
     @Override
     public PostScript readPostScript(InputStream inputStream)

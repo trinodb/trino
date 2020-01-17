@@ -34,7 +34,6 @@ import java.util.Optional;
 import java.util.OptionalDouble;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.prestosql.SystemSessionProperties.QUERY_PRIORITY;
 import static io.prestosql.execution.QueryState.FAILED;
 import static io.prestosql.execution.QueryState.FINISHED;
@@ -83,7 +82,7 @@ public class MockManagedQueryExecution
 
     public void complete()
     {
-        memoryUsage = new DataSize(0, BYTE);
+        memoryUsage = DataSize.ofBytes(0);
         state = FINISHED;
         fireStateChange();
     }
@@ -128,13 +127,13 @@ public class MockManagedQueryExecution
                         7,
                         8,
                         9,
-                        new DataSize(14, BYTE),
+                        DataSize.ofBytes(14),
                         15,
                         16.0,
                         memoryUsage,
                         memoryUsage,
-                        new DataSize(19, BYTE),
-                        new DataSize(20, BYTE),
+                        DataSize.ofBytes(19),
+                        DataSize.ofBytes(20),
                         cpuUsage,
                         new Duration(22, NANOSECONDS),
                         false,
@@ -183,15 +182,15 @@ public class MockManagedQueryExecution
                         16,
 
                         17.0,
-                        new DataSize(18, BYTE),
-                        new DataSize(19, BYTE),
-                        new DataSize(20, BYTE),
-                        new DataSize(21, BYTE),
-                        new DataSize(22, BYTE),
-                        new DataSize(23, BYTE),
-                        new DataSize(24, BYTE),
-                        new DataSize(25, BYTE),
-                        new DataSize(26, BYTE),
+                        DataSize.ofBytes(18),
+                        DataSize.ofBytes(19),
+                        DataSize.ofBytes(20),
+                        DataSize.ofBytes(21),
+                        DataSize.ofBytes(22),
+                        DataSize.ofBytes(23),
+                        DataSize.ofBytes(24),
+                        DataSize.ofBytes(25),
+                        DataSize.ofBytes(26),
 
                         true,
                         new Duration(20, NANOSECONDS),
@@ -200,22 +199,22 @@ public class MockManagedQueryExecution
                         false,
                         ImmutableSet.of(),
 
-                        new DataSize(241, BYTE),
+                        DataSize.ofBytes(241),
                         251,
 
-                        new DataSize(242, BYTE),
+                        DataSize.ofBytes(242),
                         252,
 
-                        new DataSize(24, BYTE),
+                        DataSize.ofBytes(24),
                         25,
 
-                        new DataSize(26, BYTE),
+                        DataSize.ofBytes(26),
                         27,
 
-                        new DataSize(28, BYTE),
+                        DataSize.ofBytes(28),
                         29,
 
-                        new DataSize(30, BYTE),
+                        DataSize.ofBytes(30),
 
                         ImmutableList.of(),
                         ImmutableList.of()),
@@ -273,7 +272,7 @@ public class MockManagedQueryExecution
     @Override
     public void fail(Throwable cause)
     {
-        memoryUsage = new DataSize(0, BYTE);
+        memoryUsage = DataSize.ofBytes(0);
         state = FAILED;
         failureCause = cause;
         fireStateChange();
@@ -300,7 +299,7 @@ public class MockManagedQueryExecution
 
     public static class MockManagedQueryExecutionBuilder
     {
-        private DataSize memoryUsage = new DataSize(0, BYTE);
+        private DataSize memoryUsage = DataSize.ofBytes(0);
         private Duration cpuUsage = new Duration(0, MILLISECONDS);
         private int priority = 1;
         private String queryId = "query_id";

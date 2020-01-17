@@ -164,11 +164,11 @@ import static org.testng.Assert.assertTrue;
 public class OrcTester
 {
     public static final OrcReaderOptions READER_OPTIONS = new OrcReaderOptions()
-            .withMaxReadBlockSize(new DataSize(1, MEGABYTE))
-            .withMaxMergeDistance(new DataSize(1, MEGABYTE))
-            .withMaxBufferSize(new DataSize(1, MEGABYTE))
-            .withStreamBufferSize(new DataSize(1, MEGABYTE))
-            .withTinyStripeThreshold(new DataSize(1, MEGABYTE));
+            .withMaxReadBlockSize(DataSize.of(1, MEGABYTE))
+            .withMaxMergeDistance(DataSize.of(1, MEGABYTE))
+            .withMaxBufferSize(DataSize.of(1, MEGABYTE))
+            .withStreamBufferSize(DataSize.of(1, MEGABYTE))
+            .withTinyStripeThreshold(DataSize.of(1, MEGABYTE));
     public static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
 
     private static final Metadata METADATA = createTestMetadataManager();

@@ -98,7 +98,6 @@ import java.util.stream.Collectors;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertBetweenInclusive;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.orc.OrcReader.MAX_BATCH_SIZE;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
@@ -535,7 +534,7 @@ public class TestOrcPageSourceMemoryTracking
                     columns.stream().map(columnHandle -> (ColumnHandle) columnHandle).collect(toList()),
                     TupleDomain::all,
                     types,
-                    new DataSize(0, BYTE),
+                    DataSize.ofBytes(0),
                     0);
             SourceOperator operator = sourceOperatorFactory.createOperator(driverContext);
             operator.addSplit(new Split(new CatalogName("test"), TestingSplit.createLocalSplit(), Lifespan.taskWide()));

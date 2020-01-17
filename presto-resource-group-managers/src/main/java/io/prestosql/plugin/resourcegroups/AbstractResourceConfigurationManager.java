@@ -38,7 +38,6 @@ import java.util.Queue;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verifyNotNull;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.prestosql.spi.StandardErrorCode.INVALID_RESOURCE_GROUP;
 import static java.lang.String.format;
 import static java.util.function.Predicate.isEqual;
@@ -142,7 +141,7 @@ public abstract class AbstractResourceConfigurationManager
                 for (Map.Entry<ResourceGroup, Double> entry : generalPoolMemoryFraction.entrySet()) {
                     long bytes = Math.round(poolInfo.getMaxBytes() * entry.getValue());
                     // setSoftMemoryLimit() acquires a lock on the root group of its tree, which could cause a deadlock if done while holding the "generalPoolMemoryFraction" lock
-                    memoryLimits.put(entry.getKey(), new DataSize(bytes, BYTE));
+                    memoryLimits.put(entry.getKey(), DataSize.ofBytes(bytes));
                 }
                 generalPoolBytes = poolInfo.getMaxBytes();
             }

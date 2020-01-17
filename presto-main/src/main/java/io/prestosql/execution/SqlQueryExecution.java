@@ -84,7 +84,6 @@ import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.prestosql.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
 import static io.prestosql.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
@@ -258,7 +257,7 @@ public class SqlQueryExecution
             return finalQueryInfo.get().getQueryStats().getUserMemoryReservation();
         }
         if (scheduler == null) {
-            return new DataSize(0, BYTE);
+            return DataSize.ofBytes(0);
         }
         return succinctBytes(scheduler.getUserMemoryReservation());
     }
@@ -275,7 +274,7 @@ public class SqlQueryExecution
             return finalQueryInfo.get().getQueryStats().getTotalMemoryReservation();
         }
         if (scheduler == null) {
-            return new DataSize(0, BYTE);
+            return DataSize.ofBytes(0);
         }
         return succinctBytes(scheduler.getTotalMemoryReservation());
     }

@@ -48,9 +48,9 @@ public class TestNodeMemoryConfig
                 .build();
 
         NodeMemoryConfig expected = new NodeMemoryConfig()
-                .setMaxQueryMemoryPerNode(new DataSize(1, GIGABYTE))
-                .setMaxQueryTotalMemoryPerNode(new DataSize(3, GIGABYTE))
-                .setHeapHeadroom(new DataSize(1, GIGABYTE))
+                .setMaxQueryMemoryPerNode(DataSize.of(1, GIGABYTE))
+                .setMaxQueryTotalMemoryPerNode(DataSize.of(3, GIGABYTE))
+                .setHeapHeadroom(DataSize.of(1, GIGABYTE))
                 .setReservedPoolDisabled(false);
 
         assertFullMapping(properties, expected);

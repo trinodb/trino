@@ -76,7 +76,6 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.stats.CpuTimer.CpuDuration;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.SystemSessionProperties.getFilterAndProjectMinOutputPageRowCount;
@@ -281,18 +280,18 @@ public abstract class AbstractOperatorBenchmark
         Session session = testSessionBuilder()
                 .setSystemProperty("optimizer.optimize-hash-generation", "true")
                 .build();
-        MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE));
-        SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(new DataSize(1, GIGABYTE));
+        MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), DataSize.of(1, GIGABYTE));
+        SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(DataSize.of(1, GIGABYTE));
 
         TaskContext taskContext = new QueryContext(
                 new QueryId("test"),
-                new DataSize(256, MEGABYTE),
-                new DataSize(512, MEGABYTE),
+                DataSize.of(256, MEGABYTE),
+                DataSize.of(512, MEGABYTE),
                 memoryPool,
                 new TestingGcMonitor(),
                 localQueryRunner.getExecutor(),
                 localQueryRunner.getScheduler(),
-                new DataSize(256, MEGABYTE),
+                DataSize.of(256, MEGABYTE),
                 spillSpaceTracker)
                 .addTaskContext(new TaskStateMachine(new TaskId("query", 0, 0), localQueryRunner.getExecutor()),
                         session,
@@ -310,7 +309,7 @@ public abstract class AbstractOperatorBenchmark
         long outputRows = taskStats.getOutputPositions();
         long outputBytes = taskStats.getOutputDataSize().toBytes();
 
-        double inputMegaBytes = new DataSize(inputBytes, BYTE).getValue(MEGABYTE);
+        double inputMegaBytes = ((double) inputBytes) / MEGABYTE.inBytes();
 
         return ImmutableMap.<String, Long>builder()
                 // legacy computed values

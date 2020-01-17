@@ -22,7 +22,6 @@ import java.text.DecimalFormat;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.repeat;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
@@ -119,7 +118,7 @@ public final class FormatUtils
             rate = 0;
         }
 
-        String rateString = formatDataSize(new DataSize(rate, BYTE), false);
+        String rateString = formatDataSize(DataSize.ofBytes(rate), false);
         if (longForm) {
             if (!rateString.endsWith("B")) {
                 rateString += "B";

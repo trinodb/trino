@@ -31,8 +31,8 @@ public class TestNodeSpillConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(NodeSpillConfig.class)
-                .setMaxSpillPerNode(new DataSize(100, GIGABYTE))
-                .setQueryMaxSpillPerNode(new DataSize(100, GIGABYTE))
+                .setMaxSpillPerNode(DataSize.of(100, GIGABYTE))
+                .setQueryMaxSpillPerNode(DataSize.of(100, GIGABYTE))
                 .setSpillCompressionEnabled(false)
                 .setSpillEncryptionEnabled(false));
     }
@@ -48,8 +48,8 @@ public class TestNodeSpillConfig
                 .build();
 
         NodeSpillConfig expected = new NodeSpillConfig()
-                .setMaxSpillPerNode(new DataSize(10, MEGABYTE))
-                .setQueryMaxSpillPerNode(new DataSize(15, MEGABYTE))
+                .setMaxSpillPerNode(DataSize.of(10, MEGABYTE))
+                .setQueryMaxSpillPerNode(DataSize.of(15, MEGABYTE))
                 .setSpillCompressionEnabled(true)
                 .setSpillEncryptionEnabled(true);
 

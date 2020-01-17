@@ -89,8 +89,8 @@ public class ExecutingStatementResource
     private static final Duration MAX_WAIT_TIME = new Duration(1, SECONDS);
     private static final Ordering<Comparable<Duration>> WAIT_ORDERING = Ordering.natural().nullsLast();
 
-    private static final DataSize DEFAULT_TARGET_RESULT_SIZE = new DataSize(1, MEGABYTE);
-    private static final DataSize MAX_TARGET_RESULT_SIZE = new DataSize(128, MEGABYTE);
+    private static final DataSize DEFAULT_TARGET_RESULT_SIZE = DataSize.of(1, MEGABYTE);
+    private static final DataSize MAX_TARGET_RESULT_SIZE = DataSize.of(128, MEGABYTE);
 
     private final QueryManager queryManager;
     private final ExchangeClientSupplier exchangeClientSupplier;
