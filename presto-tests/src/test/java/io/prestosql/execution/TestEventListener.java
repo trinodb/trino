@@ -37,13 +37,17 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.execution.TestQueues.createResourceGroupId;
+import static io.prestosql.plugin.tpch.TpchConnectorFactory.FAIL_PLANNING_PROPERTY;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static java.lang.String.format;
 import static java.util.stream.Collectors.toSet;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
 public class TestEventListener
@@ -94,8 +98,29 @@ public class TestEventListener
     private MaterializedResult runQueryAndWaitForEvents(@Language("SQL") String sql, int numEventsExpected, Session alternateSession)
             throws Exception
     {
+        return runQueryAndWaitForEvents(sql, numEventsExpected, alternateSession, Optional.empty());
+    }
+
+    private MaterializedResult runQueryAndWaitForEvents(@Language("SQL") String sql, int numEventsExpected, Session alternateSession, Optional<String> expectedExceptionRegEx)
+            throws Exception
+    {
         generatedEvents.initialize(numEventsExpected);
-        MaterializedResult result = queryRunner.execute(alternateSession, sql);
+        MaterializedResult result = null;
+        try {
+            result = queryRunner.execute(alternateSession, sql);
+        }
+        catch (RuntimeException exception) {
+            if (expectedExceptionRegEx.isPresent()) {
+                String regex = expectedExceptionRegEx.get();
+                if (!nullToEmpty(exception.getMessage()).matches(regex)) {
+                    fail(format("Expected exception message '%s' to match '%s' for query: %s", exception.getMessage(), regex, sql), exception);
+                }
+            }
+            else {
+                throw exception;
+            }
+        }
+
         generatedEvents.waitForEvents(10);
 
         return result;
@@ -127,6 +152,26 @@ public class TestEventListener
         List<SplitCompletedEvent> splitCompletedEvents = generatedEvents.getSplitCompletedEvents();
         assertEquals(splitCompletedEvents.get(0).getQueryId(), queryCompletedEvent.getMetadata().getQueryId());
         assertEquals(splitCompletedEvents.get(0).getStatistics().getCompletedPositions(), 1);
+    }
+
+    @Test
+    public void testPlanningFailure()
+            throws Exception
+    {
+        String catalogName = "tpch";
+        Session.SessionBuilder sessionBuilder = testSessionBuilder()
+                .setSystemProperty("task_concurrency", "1")
+                .setCatalog(catalogName)
+                .setSchema("tiny")
+                .setClientInfo("{\"clientVersion\":\"testVersion\"}")
+                .setCatalogSessionProperty(catalogName, FAIL_PLANNING_PROPERTY, Boolean.TRUE.toString());
+        Session alternateSession = sessionBuilder.build();
+        String query = "SELECT sum(linenumber) FROM lineitem";
+        Optional<String> expectedFailure = Optional.of("Test failure of planning");
+        runQueryAndWaitForEvents(query, 2, alternateSession, expectedFailure);
+        QueryCompletedEvent queryCompletedEvent = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+        assertEquals(query, queryCompletedEvent.getMetadata().getQuery());
+        assertEquals(expectedFailure, queryCompletedEvent.getFailureInfo().get().getFailureMessage());
     }
 
     @Test

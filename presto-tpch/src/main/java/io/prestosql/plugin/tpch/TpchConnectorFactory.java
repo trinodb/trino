@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.tpch;
 
+import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.NodeManager;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorContext;
@@ -24,11 +25,14 @@ import io.prestosql.spi.connector.ConnectorPageSourceProvider;
 import io.prestosql.spi.connector.ConnectorRecordSetProvider;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.session.PropertyMetadata;
 import io.prestosql.spi.transaction.IsolationLevel;
 
+import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
+import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
 import static java.lang.Boolean.FALSE;
 import static java.lang.String.format;
 
@@ -38,6 +42,8 @@ public class TpchConnectorFactory
     public static final String TPCH_COLUMN_NAMING_PROPERTY = "tpch.column-naming";
     public static final String TPCH_PRODUCE_PAGES = "tpch.produce-pages";
     public static final String TPCH_MAX_ROWS_PER_PAGE_PROPERTY = "tpch.max-rows-per-page";
+    public static final String FAIL_PLANNING_PROPERTY = "fail-planning";
+
     private static final int DEFAULT_MAX_ROWS_PER_PAGE = 1_000_000;
 
     private final int defaultSplitsPerNode;
@@ -79,6 +85,8 @@ public class TpchConnectorFactory
         int splitsPerNode = getSplitsPerNode(properties);
         ColumnNaming columnNaming = ColumnNaming.valueOf(properties.getOrDefault(TPCH_COLUMN_NAMING_PROPERTY, ColumnNaming.SIMPLIFIED.name()).toUpperCase());
         NodeManager nodeManager = context.getNodeManager();
+        List<PropertyMetadata<?>> sessionPropertyMetadata =
+                ImmutableList.of(booleanProperty(FAIL_PLANNING_PROPERTY, "When true causes exception to be thrown during getSplits()", false, false));
 
         return new Connector()
         {
@@ -124,6 +132,12 @@ public class TpchConnectorFactory
             public ConnectorNodePartitioningProvider getNodePartitioningProvider()
             {
                 return new TpchNodePartitioningProvider(nodeManager, splitsPerNode);
+            }
+
+            @Override
+            public List<PropertyMetadata<?>> getSessionProperties()
+            {
+                return sessionPropertyMetadata;
             }
         };
     }
