@@ -14,9 +14,9 @@ presto-product-tests-launcher/target/presto-product-tests-launcher-*-executable.
     -- -g hdfs_no_impersonation \
     || suite_exit_code=1
 
-presto-product-tests/bin/run_on_docker.sh \
-    singlenode-hdfs-impersonation \
-    -g storage_formats,cli,hdfs_impersonation \
+presto-product-tests-launcher/target/presto-product-tests-launcher-*-executable.jar test run \
+    --environment singlenode-hdfs-impersonation \
+    -- -g storage_formats,cli,hdfs_impersonation \
     || suite_exit_code=1
 
 presto-product-tests/bin/run_on_docker.sh \
