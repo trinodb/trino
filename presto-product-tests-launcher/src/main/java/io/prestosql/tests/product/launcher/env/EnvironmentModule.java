@@ -25,6 +25,7 @@ import io.prestosql.tests.product.launcher.env.environment.SinglenodeHdfsImperso
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeHiveImpersonation;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeKerberosHdfsImpersonation;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeKerberosHdfsNoImpersonation;
+import io.prestosql.tests.product.launcher.env.environment.SinglenodeKerberosHiveImpersonation;
 
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static java.util.Objects.requireNonNull;
@@ -49,12 +50,18 @@ public final class EnvironmentModule
         binder.bind(Kerberos.class);
 
         MapBinder<String, EnvironmentProvider> environments = newMapBinder(binder, String.class, EnvironmentProvider.class);
+
         environments.addBinding("singlenode").to(Singlenode.class);
+
         environments.addBinding("singlenode-hive-impersonation").to(SinglenodeHiveImpersonation.class);
+        environments.addBinding("singlenode-kerberos-hive-impersonation").to(SinglenodeKerberosHiveImpersonation.class);
+
         environments.addBinding("singlenode-hdfs-impersonation").to(SinglenodeHdfsImpersonation.class);
         environments.addBinding("singlenode-kerberos-hdfs-impersonation").to(SinglenodeKerberosHdfsImpersonation.class);
         environments.addBinding("singlenode-kerberos-hdfs-no-impersonation").to(SinglenodeKerberosHdfsNoImpersonation.class);
+
         environments.addBinding("multinode").to(Multinode.class);
+
         binder.install(additionalEnvironments);
     }
 }
