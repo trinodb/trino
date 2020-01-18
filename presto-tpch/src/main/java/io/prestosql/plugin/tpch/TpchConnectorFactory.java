@@ -105,7 +105,7 @@ public class TpchConnectorFactory
             @Override
             public ConnectorSplitManager getSplitManager()
             {
-                return new TpchSplitManager(nodeManager, splitsPerNode);
+                return new TpchFailableSplitManager(nodeManager, splitsPerNode);
             }
 
             @Override

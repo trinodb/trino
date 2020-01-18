@@ -522,8 +522,9 @@ public class SqlQueryExecution
     {
         requireNonNull(cause, "cause is null");
 
-        stateMachine.transitionToFailed(cause);
-        stateMachine.updateQueryInfo(Optional.empty());
+        if (stateMachine.transitionToFailed(cause)) {
+            stateMachine.updateQueryInfo(Optional.empty());
+        }
     }
 
     @Override

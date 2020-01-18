@@ -27,7 +27,6 @@ import io.prestosql.spi.connector.FixedSplitSource;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.plugin.tpch.TpchConnectorFactory.FAIL_PLANNING_PROPERTY;
 
 public class TpchSplitManager
         implements ConnectorSplitManager
@@ -45,10 +44,6 @@ public class TpchSplitManager
     @Override
     public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableHandle tableHandle, SplitSchedulingStrategy splitSchedulingStrategy)
     {
-        if (session.getProperty(FAIL_PLANNING_PROPERTY, Boolean.class)) {
-            throw new RuntimeException("Test failure of planning");
-        }
-
         Set<Node> nodes = nodeManager.getRequiredWorkerNodes();
 
         int totalParts = nodes.size() * splitsPerNode;
