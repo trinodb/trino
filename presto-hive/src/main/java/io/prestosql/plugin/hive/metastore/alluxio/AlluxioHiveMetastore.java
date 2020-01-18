@@ -16,19 +16,23 @@ package io.prestosql.plugin.hive.metastore.alluxio;
 import alluxio.client.table.TableMasterClient;
 import alluxio.exception.status.AlluxioStatusException;
 import alluxio.exception.status.NotFoundException;
+import alluxio.grpc.table.ColumnStatisticsInfo;
 import alluxio.grpc.table.Constraint;
 import alluxio.grpc.table.TableInfo;
 import alluxio.grpc.table.layout.hive.PartitionInfo;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.prestosql.plugin.hive.HiveBasicStatistics;
 import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.plugin.hive.PartitionStatistics;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
+import io.prestosql.plugin.hive.metastore.Column;
 import io.prestosql.plugin.hive.metastore.Database;
+import io.prestosql.plugin.hive.metastore.HiveColumnStatistics;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.HivePrincipal;
 import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo;
-import io.prestosql.plugin.hive.metastore.MetastoreUtil;
 import io.prestosql.plugin.hive.metastore.Partition;
 import io.prestosql.plugin.hive.metastore.PartitionWithStatistics;
 import io.prestosql.plugin.hive.metastore.PrincipalPrivileges;
@@ -37,6 +41,10 @@ import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticType;
+import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
 
 import java.util.ArrayList;
@@ -44,14 +52,37 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
+import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.statistics.ColumnStatisticType.MAX_VALUE;
+import static io.prestosql.spi.statistics.ColumnStatisticType.MAX_VALUE_SIZE_IN_BYTES;
+import static io.prestosql.spi.statistics.ColumnStatisticType.MIN_VALUE;
+import static io.prestosql.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
+import static io.prestosql.spi.statistics.ColumnStatisticType.NUMBER_OF_NON_NULL_VALUES;
+import static io.prestosql.spi.statistics.ColumnStatisticType.NUMBER_OF_TRUE_VALUES;
+import static io.prestosql.spi.statistics.ColumnStatisticType.TOTAL_SIZE_IN_BYTES;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.Chars.isCharType;
+import static io.prestosql.spi.type.DateType.DATE;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.RealType.REAL;
+import static io.prestosql.spi.type.SmallintType.SMALLINT;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TinyintType.TINYINT;
+import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
+import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.util.Objects.requireNonNull;
-import static java.util.function.Function.identity;
+import static org.apache.hadoop.hive.common.FileUtils.makePartName;
 
 /**
  * Implementation of the {@link HiveMetastore} interface through Alluxio.
@@ -106,7 +137,31 @@ public class AlluxioHiveMetastore
     @Override
     public Set<ColumnStatisticType> getSupportedColumnStatistics(Type type)
     {
-        throw new UnsupportedOperationException("getSupportedColumnStatistics");
+        if (type.equals(BOOLEAN)) {
+            return ImmutableSet.of(NUMBER_OF_NON_NULL_VALUES, NUMBER_OF_TRUE_VALUES);
+        }
+        if (isNumericType(type) || type.equals(DATE) || type.equals(TIMESTAMP)) {
+            // TODO https://github.com/prestosql/presto/issues/37 support non-legacy TIMESTAMP
+            return ImmutableSet.of(MIN_VALUE, MAX_VALUE, NUMBER_OF_DISTINCT_VALUES, NUMBER_OF_NON_NULL_VALUES);
+        }
+        if (isVarcharType(type) || isCharType(type)) {
+            // TODO Collect MIN,MAX once it is used by the optimizer
+            return ImmutableSet.of(NUMBER_OF_NON_NULL_VALUES, NUMBER_OF_DISTINCT_VALUES, TOTAL_SIZE_IN_BYTES, MAX_VALUE_SIZE_IN_BYTES);
+        }
+        if (type.equals(VARBINARY)) {
+            return ImmutableSet.of(NUMBER_OF_NON_NULL_VALUES, TOTAL_SIZE_IN_BYTES, MAX_VALUE_SIZE_IN_BYTES);
+        }
+        if (type instanceof ArrayType || type instanceof RowType || type instanceof MapType) {
+            return ImmutableSet.of();
+        }
+        // Throwing here to make sure this method is updated when a new type is added in Hive connector
+        throw new IllegalArgumentException("Unsupported type: " + type);
+    }
+
+    private Map<String, HiveColumnStatistics> groupStatisticsByColumn(List<ColumnStatisticsInfo> statistics, OptionalLong rowCount)
+    {
+        return statistics.stream()
+                .collect(toImmutableMap(ColumnStatisticsInfo::getColName, statisticsObj -> ProtoUtils.fromProto(statisticsObj.getData(), rowCount)));
     }
 
     @Override
@@ -114,8 +169,11 @@ public class AlluxioHiveMetastore
     {
         try {
             HiveBasicStatistics basicStats = ThriftMetastoreUtil.getHiveBasicStatistics(table.getParameters());
-            // TODO implement logic to populate Map<string, HiveColumnStatistics>
-            return new PartitionStatistics(basicStats, Collections.emptyMap());
+            List<Column> columns = new ArrayList<>(table.getPartitionColumns());
+            columns.addAll(table.getDataColumns());
+            List<String> columnNames = columns.stream().map(Column::getName).collect(Collectors.toList());
+            List<ColumnStatisticsInfo> colStatsList = client.getTableColumnStatistics(table.getDatabaseName(), table.getTableName(), columnNames);
+            return new PartitionStatistics(basicStats, groupStatisticsByColumn(colStatsList, basicStats.getRowCount()));
         }
         catch (Exception e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
@@ -125,12 +183,39 @@ public class AlluxioHiveMetastore
     @Override
     public Map<String, PartitionStatistics> getPartitionStatistics(HiveIdentity identity, Table table, List<Partition> partitions)
     {
-        // TODO implement partition statistics
-        // currently returns a map of partitionName to empty statistics to satisfy presto requirements
-        return Collections.unmodifiableMap(
-                partitions.stream()
-                        .map(partition -> MetastoreUtil.makePartitionName(table, partition))
-                        .collect(Collectors.toMap(identity(), partitionStats -> PartitionStatistics.empty())));
+        try {
+            List<String> dataColumns = table.getDataColumns().stream()
+                    .map(Column::getName)
+                    .collect(toImmutableList());
+            List<String> partitionColumns = table.getPartitionColumns().stream()
+                    .map(Column::getName)
+                    .collect(toImmutableList());
+
+            Map<String, HiveBasicStatistics> partitionBasicStatistics = partitions.stream()
+                    .collect(toImmutableMap(
+                            partition -> makePartName(partitionColumns, partition.getValues()),
+                            partition -> getHiveBasicStatistics(partition.getParameters())));
+            Map<String, OptionalLong> partitionRowCounts = partitionBasicStatistics.entrySet().stream()
+                    .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().getRowCount()));
+
+            Map<String, List<ColumnStatisticsInfo>> colStatsMap = client.getPartitionColumnStatistics(table.getDatabaseName(), table.getTableName(),
+                    partitionBasicStatistics.keySet().stream().collect(toImmutableList()), dataColumns);
+            Map<String, Map<String, HiveColumnStatistics>> partitionColumnStatistics = colStatsMap.entrySet().stream()
+                    .filter(entry -> !entry.getValue().isEmpty())
+                    .collect(toImmutableMap(
+                            Map.Entry::getKey,
+                            entry -> groupStatisticsByColumn(entry.getValue(), partitionRowCounts.getOrDefault(entry.getKey(), OptionalLong.empty()))));
+            ImmutableMap.Builder<String, PartitionStatistics> result = ImmutableMap.builder();
+            for (String partitionName : partitionBasicStatistics.keySet()) {
+                HiveBasicStatistics basicStatistics = partitionBasicStatistics.get(partitionName);
+                Map<String, HiveColumnStatistics> columnStatistics = partitionColumnStatistics.getOrDefault(partitionName, ImmutableMap.of());
+                result.put(partitionName, new PartitionStatistics(basicStatistics, columnStatistics));
+            }
+            return result.build();
+        }
+        catch (Exception e) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        }
     }
 
     @Override
@@ -443,5 +528,12 @@ public class AlluxioHiveMetastore
     public boolean isImpersonationEnabled()
     {
         return false;
+    }
+
+    private static boolean isNumericType(Type type)
+    {
+        return type.equals(BIGINT) || type.equals(INTEGER) || type.equals(SMALLINT) || type.equals(TINYINT) ||
+                type.equals(DOUBLE) || type.equals(REAL) ||
+                type instanceof DecimalType;
     }
 }

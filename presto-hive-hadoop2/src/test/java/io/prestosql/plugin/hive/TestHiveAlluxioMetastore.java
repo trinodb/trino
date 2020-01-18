@@ -38,9 +38,10 @@ public class TestHiveAlluxioMetastore
             "hive.hadoop2.alluxio.host",
             "hive.hadoop2.alluxio.port",
             "hive.hadoop2.hiveVersionMajor",
+            "hive.hadoop2.timeZone",
     })
     @BeforeClass
-    public void setup(String host, String port, int hiveVersionMajor)
+    public void setup(String host, String port, int hiveVersionMajor, String timeZone)
     {
         checkArgument(hiveVersionMajor > 0, "Invalid hiveVersionMajor: %s", hiveVersionMajor);
 
@@ -49,11 +50,13 @@ public class TestHiveAlluxioMetastore
 
         System.setProperty(PropertyKey.Name.SECURITY_LOGIN_USERNAME, "presto");
         System.setProperty(PropertyKey.Name.MASTER_HOSTNAME, host);
+        HiveConfig hiveConfig = new HiveConfig();
+        hiveConfig.setTimeZone(timeZone);
 
         AlluxioHiveMetastoreConfig alluxioConfig = new AlluxioHiveMetastoreConfig();
         alluxioConfig.setMasterAddress(this.alluxioAddress);
         TableMasterClient client = AlluxioMetastoreModule.createCatalogMasterClient(alluxioConfig);
-        setup(SCHEMA, getHiveConfig(), new AlluxioHiveMetastore(client));
+        setup(SCHEMA, hiveConfig, new AlluxioHiveMetastore(client));
     }
 
     private int getHiveVersionMajor()

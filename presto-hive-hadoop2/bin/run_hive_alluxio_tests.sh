@@ -57,6 +57,7 @@ function main () {
     -Dhive.hadoop2.alluxio.host=localhost \
     -Dhive.hadoop2.alluxio.port=19998 \
     -Dhive.hadoop2.hiveVersionMajor="${TESTS_HIVE_VERSION_MAJOR}" \
+    -Dhive.hadoop2.timeZone=Asia/Kathmandu \
     -DHADOOP_USER_NAME=hive
   EXIT_CODE=$?
   set -e

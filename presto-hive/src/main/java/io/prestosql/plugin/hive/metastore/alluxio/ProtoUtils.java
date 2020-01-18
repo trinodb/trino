@@ -13,8 +13,18 @@
  */
 package io.prestosql.plugin.hive.metastore.alluxio;
 
+import alluxio.grpc.table.BinaryColumnStatsData;
+import alluxio.grpc.table.BooleanColumnStatsData;
+import alluxio.grpc.table.ColumnStatisticsData;
+import alluxio.grpc.table.Date;
+import alluxio.grpc.table.DateColumnStatsData;
+import alluxio.grpc.table.Decimal;
+import alluxio.grpc.table.DecimalColumnStatsData;
+import alluxio.grpc.table.DoubleColumnStatsData;
 import alluxio.grpc.table.FieldSchema;
 import alluxio.grpc.table.Layout;
+import alluxio.grpc.table.LongColumnStatsData;
+import alluxio.grpc.table.StringColumnStatsData;
 import alluxio.grpc.table.layout.hive.PartitionInfo;
 import alluxio.shaded.client.com.google.protobuf.InvalidProtocolBufferException;
 import com.google.common.collect.Lists;
@@ -22,6 +32,7 @@ import io.prestosql.plugin.hive.HiveBucketProperty;
 import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.plugin.hive.metastore.Column;
 import io.prestosql.plugin.hive.metastore.Database;
+import io.prestosql.plugin.hive.metastore.HiveColumnStatistics;
 import io.prestosql.plugin.hive.metastore.Partition;
 import io.prestosql.plugin.hive.metastore.SortingColumn;
 import io.prestosql.plugin.hive.metastore.StorageFormat;
@@ -30,12 +41,30 @@ import io.prestosql.plugin.hive.util.HiveBucketing;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.security.PrincipalType;
 
+import javax.annotation.Nullable;
+
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalDouble;
+import java.util.OptionalLong;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
+import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createBinaryColumnStatistics;
+import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createBooleanColumnStatistics;
+import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createDateColumnStatistics;
+import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createDecimalColumnStatistics;
+import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createDoubleColumnStatistics;
+import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
+import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createStringColumnStatistics;
+import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreDistinctValuesCount;
+import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreNullsCount;
+import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getTotalSizeInBytes;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public final class ProtoUtils
@@ -127,6 +156,97 @@ public final class ProtoUtils
     static StorageFormat fromProto(alluxio.grpc.table.layout.hive.StorageFormat format)
     {
         return StorageFormat.create(format.getSerde(), format.getInputFormat(), format.getOutputFormat());
+    }
+
+    private static Optional<BigDecimal> fromMetastoreDecimal(@Nullable Decimal decimal)
+    {
+        if (decimal == null) {
+            return Optional.empty();
+        }
+        return Optional.of(new BigDecimal(new BigInteger(decimal.getUnscaled().toByteArray()), decimal.getScale()));
+    }
+
+    private static Optional<LocalDate> fromMetastoreDate(@Nullable Date date)
+    {
+        if (date == null) {
+            return Optional.empty();
+        }
+        return Optional.of(LocalDate.ofEpochDay(date.getDaysSinceEpoch()));
+    }
+
+    public static HiveColumnStatistics fromProto(ColumnStatisticsData columnStatistics, OptionalLong rowCount)
+    {
+        if (columnStatistics.hasLongStats()) {
+            LongColumnStatsData longStatsData = columnStatistics.getLongStats();
+            OptionalLong min = longStatsData.hasLowValue() ? OptionalLong.of(longStatsData.getLowValue()) : OptionalLong.empty();
+            OptionalLong max = longStatsData.hasHighValue() ? OptionalLong.of(longStatsData.getHighValue()) : OptionalLong.empty();
+            OptionalLong nullsCount = longStatsData.hasNumNulls() ? fromMetastoreNullsCount(longStatsData.getNumNulls()) : OptionalLong.empty();
+            OptionalLong distinctValuesCount = longStatsData.hasNumDistincts() ? OptionalLong.of(longStatsData.getNumDistincts()) : OptionalLong.empty();
+            return createIntegerColumnStatistics(min, max, nullsCount, fromMetastoreDistinctValuesCount(distinctValuesCount, nullsCount, rowCount));
+        }
+        if (columnStatistics.hasDoubleStats()) {
+            DoubleColumnStatsData doubleStatsData = columnStatistics.getDoubleStats();
+            OptionalDouble min = doubleStatsData.hasLowValue() ? OptionalDouble.of(doubleStatsData.getLowValue()) : OptionalDouble.empty();
+            OptionalDouble max = doubleStatsData.hasHighValue() ? OptionalDouble.of(doubleStatsData.getHighValue()) : OptionalDouble.empty();
+            OptionalLong nullsCount = doubleStatsData.hasNumNulls() ? fromMetastoreNullsCount(doubleStatsData.getNumNulls()) : OptionalLong.empty();
+            OptionalLong distinctValuesCount = doubleStatsData.hasNumDistincts() ? OptionalLong.of(doubleStatsData.getNumDistincts()) : OptionalLong.empty();
+            return createDoubleColumnStatistics(min, max, nullsCount, fromMetastoreDistinctValuesCount(distinctValuesCount, nullsCount, rowCount));
+        }
+        if (columnStatistics.hasDecimalStats()) {
+            DecimalColumnStatsData decimalStatsData = columnStatistics.getDecimalStats();
+            Optional<BigDecimal> min = decimalStatsData.hasLowValue() ? fromMetastoreDecimal(decimalStatsData.getLowValue()) : Optional.empty();
+            Optional<BigDecimal> max = decimalStatsData.hasHighValue() ? fromMetastoreDecimal(decimalStatsData.getHighValue()) : Optional.empty();
+            OptionalLong nullsCount = decimalStatsData.hasNumNulls() ? fromMetastoreNullsCount(decimalStatsData.getNumNulls()) : OptionalLong.empty();
+            OptionalLong distinctValuesCount = decimalStatsData.hasNumDistincts() ? OptionalLong.of(decimalStatsData.getNumDistincts()) : OptionalLong.empty();
+            return createDecimalColumnStatistics(min, max, nullsCount, fromMetastoreDistinctValuesCount(distinctValuesCount, nullsCount, rowCount));
+        }
+        if (columnStatistics.hasDateStats()) {
+            DateColumnStatsData dateStatsData = columnStatistics.getDateStats();
+            Optional<LocalDate> min = dateStatsData.hasLowValue() ? fromMetastoreDate(dateStatsData.getLowValue()) : Optional.empty();
+            Optional<LocalDate> max = dateStatsData.hasHighValue() ? fromMetastoreDate(dateStatsData.getHighValue()) : Optional.empty();
+            OptionalLong nullsCount = dateStatsData.hasNumNulls() ? fromMetastoreNullsCount(dateStatsData.getNumNulls()) : OptionalLong.empty();
+            OptionalLong distinctValuesCount = dateStatsData.hasNumDistincts() ? OptionalLong.of(dateStatsData.getNumDistincts()) : OptionalLong.empty();
+            return createDateColumnStatistics(min, max, nullsCount, fromMetastoreDistinctValuesCount(distinctValuesCount, nullsCount, rowCount));
+        }
+        if (columnStatistics.hasBooleanStats()) {
+            BooleanColumnStatsData booleanStatsData = columnStatistics.getBooleanStats();
+            OptionalLong trueCount = OptionalLong.empty();
+            OptionalLong falseCount = OptionalLong.empty();
+            // Impala 'COMPUTE STATS' writes 1 as the numTrue and -1 as the numFalse
+            if (booleanStatsData.hasNumTrues() && booleanStatsData.hasNumFalses() && (booleanStatsData.getNumFalses() != -1)) {
+                trueCount = OptionalLong.of(booleanStatsData.getNumTrues());
+                falseCount = OptionalLong.of(booleanStatsData.getNumFalses());
+            }
+            return createBooleanColumnStatistics(
+                    trueCount,
+                    falseCount,
+                    booleanStatsData.hasNumNulls() ? fromMetastoreNullsCount(booleanStatsData.getNumNulls()) : OptionalLong.empty());
+        }
+        if (columnStatistics.hasStringStats()) {
+            StringColumnStatsData stringStatsData = columnStatistics.getStringStats();
+            OptionalLong maxColumnLength = stringStatsData.hasMaxColLen() ? OptionalLong.of(stringStatsData.getMaxColLen()) : OptionalLong.empty();
+            OptionalDouble averageColumnLength = stringStatsData.hasAvgColLen() ? OptionalDouble.of(stringStatsData.getAvgColLen()) : OptionalDouble.empty();
+            OptionalLong nullsCount = stringStatsData.hasNumNulls() ? fromMetastoreNullsCount(stringStatsData.getNumNulls()) : OptionalLong.empty();
+            OptionalLong distinctValuesCount = stringStatsData.hasNumDistincts() ? OptionalLong.of(stringStatsData.getNumDistincts()) : OptionalLong.empty();
+            return createStringColumnStatistics(
+                    maxColumnLength,
+                    getTotalSizeInBytes(averageColumnLength, rowCount, nullsCount),
+                    nullsCount,
+                    fromMetastoreDistinctValuesCount(distinctValuesCount, nullsCount, rowCount));
+        }
+        if (columnStatistics.hasBinaryStats()) {
+            BinaryColumnStatsData binaryStatsData = columnStatistics.getBinaryStats();
+            OptionalLong maxColumnLength = binaryStatsData.hasMaxColLen() ? OptionalLong.of(binaryStatsData.getMaxColLen()) : OptionalLong.empty();
+            OptionalDouble averageColumnLength = binaryStatsData.hasAvgColLen() ? OptionalDouble.of(binaryStatsData.getAvgColLen()) : OptionalDouble.empty();
+            OptionalLong nullsCount = binaryStatsData.hasNumNulls() ? fromMetastoreNullsCount(binaryStatsData.getNumNulls()) : OptionalLong.empty();
+            return createBinaryColumnStatistics(
+                    maxColumnLength,
+                    getTotalSizeInBytes(averageColumnLength, rowCount, nullsCount),
+                    nullsCount);
+        }
+        else {
+            throw new PrestoException(HIVE_INVALID_METADATA, "Invalid column statistics data: " + columnStatistics);
+        }
     }
 
     static Column fromProto(alluxio.grpc.table.FieldSchema column)
