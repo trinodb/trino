@@ -239,6 +239,11 @@ public interface Metadata
     InsertTableHandle beginInsert(Session session, TableHandle tableHandle, List<ColumnHandle> columns);
 
     /**
+     * @return whether insert operation supports missing column during InsertOperation
+     */
+    boolean supportsMissingColumnsOnInsert(Session session, TableHandle tableHandle);
+
+    /**
      * Finish insert query
      */
     Optional<ConnectorOutputMetadata> finishInsert(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics);
@@ -480,6 +485,4 @@ public interface Metadata
     ColumnPropertyManager getColumnPropertyManager();
 
     AnalyzePropertyManager getAnalyzePropertyManager();
-
-    boolean supportsMissingColumnsOnInsert(Session session, TableHandle tableHandle);
 }

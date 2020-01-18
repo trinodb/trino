@@ -253,6 +253,12 @@ public class JdbcMetadata
     }
 
     @Override
+    public boolean supportsMissingColumnsOnInsert()
+    {
+        return true;
+    }
+
+    @Override
     public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         JdbcOutputTableHandle jdbcInsertHandle = (JdbcOutputTableHandle) tableHandle;
@@ -301,11 +307,5 @@ public class JdbcMetadata
     public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
     {
         jdbcClient.createSchema(JdbcIdentity.from(session), schemaName);
-    }
-
-    @Override
-    public boolean supportsMissingColumnsOnInsert()
-    {
-        return true;
     }
 }

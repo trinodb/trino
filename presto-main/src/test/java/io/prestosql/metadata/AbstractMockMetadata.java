@@ -304,6 +304,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public boolean supportsMissingColumnsOnInsert(Session session, TableHandle tableHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Optional<ConnectorOutputMetadata> finishInsert(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         throw new UnsupportedOperationException();
@@ -685,11 +691,5 @@ public abstract class AbstractMockMetadata
     public Optional<ProjectionApplicationResult<TableHandle>> applyProjection(Session session, TableHandle table, List<ConnectorExpression> projections, Map<String, ColumnHandle> assignments)
     {
         return Optional.empty();
-    }
-
-    @Override
-    public boolean supportsMissingColumnsOnInsert(Session session, TableHandle tableHandle)
-    {
-        return false;
     }
 }

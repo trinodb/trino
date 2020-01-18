@@ -783,6 +783,14 @@ public final class MetadataManager
     }
 
     @Override
+    public boolean supportsMissingColumnsOnInsert(Session session, TableHandle tableHandle)
+    {
+        CatalogName catalogName = tableHandle.getCatalogName();
+        CatalogMetadata catalogMetadata = getCatalogMetadata(session, catalogName);
+        return catalogMetadata.getMetadata().supportsMissingColumnsOnInsert();
+    }
+
+    @Override
     public Optional<ConnectorOutputMetadata> finishInsert(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         CatalogName catalogName = tableHandle.getCatalogName();
@@ -1499,14 +1507,6 @@ public final class MetadataManager
     public AnalyzePropertyManager getAnalyzePropertyManager()
     {
         return analyzePropertyManager;
-    }
-
-    @Override
-    public boolean supportsMissingColumnsOnInsert(Session session, TableHandle tableHandle)
-    {
-        CatalogName catalogName = tableHandle.getCatalogName();
-        CatalogMetadata catalogMetadata = getCatalogMetadata(session, catalogName);
-        return catalogMetadata.getMetadata().supportsMissingColumnsOnInsert();
     }
 
     //

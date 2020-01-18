@@ -20,6 +20,7 @@ import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.sql.JdbcSqlExecutor;
 import io.prestosql.testing.sql.TestTable;
+import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -42,6 +43,12 @@ public class TestJdbcIntegrationSmokeTest
             throws Exception
     {
         return createH2QueryRunner(ImmutableList.copyOf(TpchTable.getTables()), properties);
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        throw new SkipException("requirement not met");
     }
 
     @Test

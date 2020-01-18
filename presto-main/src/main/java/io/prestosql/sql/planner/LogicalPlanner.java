@@ -345,7 +345,7 @@ public class LogicalPlanner
         Map<String, ColumnHandle> columns = metadata.getColumnHandles(session, insert.getTarget());
         Assignments.Builder assignments = Assignments.builder();
         boolean supportsMissingColumnsOnInsert = metadata.supportsMissingColumnsOnInsert(session, insert.getTarget());
-        ImmutableList.Builder<ColumnMetadata> visibleColumnsBuilder = ImmutableList.builder();
+        ImmutableList.Builder<ColumnMetadata> insertedColumnsBuilder = ImmutableList.builder();
 
         for (ColumnMetadata column : tableMetadata.getColumns()) {
             if (column.isHidden()) {
@@ -359,7 +359,7 @@ public class LogicalPlanner
                 }
                 Expression cast = new Cast(new NullLiteral(), toSqlType(column.getType()));
                 assignments.put(output, cast);
-                visibleColumnsBuilder.add(column);
+                insertedColumnsBuilder.add(column);
             }
             else {
                 Symbol input = plan.getSymbol(index);
@@ -373,14 +373,14 @@ public class LogicalPlanner
                     Expression cast = noTruncationCast(input.toSymbolReference(), queryType, tableType);
                     assignments.put(output, cast);
                 }
-                visibleColumnsBuilder.add(column);
+                insertedColumnsBuilder.add(column);
             }
         }
 
         ProjectNode projectNode = new ProjectNode(idAllocator.getNextId(), plan.getRoot(), assignments.build());
 
-        List<ColumnMetadata> visibleTableColumns = visibleColumnsBuilder.build();
-        List<Field> fields = visibleTableColumns.stream()
+        List<ColumnMetadata> insertedColumns = insertedColumnsBuilder.build();
+        List<Field> fields = insertedColumns.stream()
                 .map(column -> Field.newUnqualified(column.getName(), column.getType()))
                 .collect(toImmutableList());
         Scope scope = Scope.builder().withRelationType(RelationId.anonymous(), new RelationType(fields)).build();
@@ -390,7 +390,7 @@ public class LogicalPlanner
         String catalogName = insert.getTarget().getCatalogName().getCatalogName();
         TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, catalogName, tableMetadata.getMetadata());
 
-        List<String> visibleTableColumnNames = visibleTableColumns.stream()
+        List<String> visibleTableColumnNames = insertedColumns.stream()
                 .map(ColumnMetadata::getName)
                 .collect(toImmutableList());
 

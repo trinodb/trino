@@ -310,7 +310,11 @@ public class TestPostgreSqlIntegrationSmokeTest
         return new TestTable(
                 new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl()),
                 "tpch.table",
-                "(a bigint, b bigint default 40)");
+                "(col_required BIGINT NOT NULL," +
+                        "col_nullable BIGINT," +
+                        "col_default BIGINT DEFAULT 43," +
+                        "col_nonnull_default BIGINT NOT NULL DEFAULT 42," +
+                        "col_required2 BIGINT NOT NULL)");
     }
 
     private AutoCloseable withSchema(String schema)
