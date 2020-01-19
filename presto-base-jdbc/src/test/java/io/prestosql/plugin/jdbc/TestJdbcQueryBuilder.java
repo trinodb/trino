@@ -37,6 +37,7 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -308,9 +309,9 @@ public class TestJdbcQueryBuilder
                         false),
                 columns.get(5), Domain.create(SortedRangeSet.copyOf(TIME,
                         ImmutableList.of(
-                                Range.range(TIME, toTime(2016, 6, 7, 6, 12, 23).getTime(), false, toTime(2016, 6, 7, 8, 23, 37).getTime(), true),
-                                Range.equal(TIME, toTime(2016, 6, 1, 2, 3, 4).getTime()),
-                                Range.equal(TIME, toTime(2016, 10, 21, 20, 23, 37).getTime()))),
+                                Range.range(TIME, toTime(6, 12, 23).getTime(), false, toTime(8, 23, 37).getTime(), true),
+                                Range.equal(TIME, toTime(2, 3, 4).getTime()),
+                                Range.equal(TIME, toTime(20, 23, 37).getTime()))),
                         false)));
 
         Connection connection = database.getConnection();
@@ -323,7 +324,7 @@ public class TestJdbcQueryBuilder
                 timeBuilder.add((Time) resultSet.getObject("col_5"));
             }
             assertEquals(dateBuilder.build(), ImmutableSet.of(toDate(2016, 6, 7), toDate(2016, 6, 13), toDate(2016, 10, 21)));
-            assertEquals(timeBuilder.build(), ImmutableSet.of(toTime(2016, 6, 7, 8, 23, 37), toTime(2016, 10, 21, 20, 23, 37)));
+            assertEquals(timeBuilder.build(), ImmutableSet.of(toTime(8, 23, 37), toTime(20, 23, 37)));
 
             assertContains(preparedStatement.toString(), "\"col_4\" >= ?");
             assertContains(preparedStatement.toString(), "\"col_4\" < ?");
@@ -420,8 +421,8 @@ public class TestJdbcQueryBuilder
         return Date.valueOf(format("%d-%d-%d", year, month, day));
     }
 
-    private static Time toTime(int year, int month, int day, int hour, int minute, int second)
+    private static Time toTime(int hour, int minute, int second)
     {
-        return Time.valueOf(LocalDateTime.of(year, month, day, hour, minute, second).toLocalTime());
+        return Time.valueOf(LocalTime.of(hour, minute, second));
     }
 }
