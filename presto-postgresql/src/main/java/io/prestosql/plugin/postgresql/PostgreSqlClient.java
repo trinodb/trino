@@ -106,6 +106,8 @@ import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.fromPrestoLegacyTimestamp;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.fromPrestoTimestamp;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.timeColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.timeWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.timestampReadFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
@@ -126,6 +128,7 @@ import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.StandardTypes.JSON;
+import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
@@ -332,6 +335,9 @@ public class PostgreSqlClient
             // This can be e.g. an ENUM
             return Optional.of(typedVarcharColumnMapping(jdbcTypeName));
         }
+        if (typeHandle.getJdbcType() == Types.TIME) {
+            return Optional.of(timeColumnMapping(session));
+        }
         if (typeHandle.getJdbcType() == Types.TIMESTAMP) {
             return Optional.of(ColumnMapping.longMapping(
                     TIMESTAMP,
@@ -398,6 +404,9 @@ public class PostgreSqlClient
     {
         if (VARBINARY.equals(type)) {
             return WriteMapping.sliceMapping("bytea", varbinaryWriteFunction());
+        }
+        if (TIME.equals(type)) {
+            return WriteMapping.longMapping("time", timeWriteFunction(session));
         }
         if (TIMESTAMP.equals(type)) {
             return WriteMapping.longMapping("timestamp", timestampWriteFunction(session));
