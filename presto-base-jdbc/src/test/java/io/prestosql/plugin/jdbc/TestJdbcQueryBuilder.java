@@ -17,11 +17,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.SortedRangeSet;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.CharType;
+import io.prestosql.spi.type.SqlTime;
 import io.prestosql.spi.type.SqlTimestamp;
 import io.prestosql.testing.DateTimeTestingUtils;
 import org.testng.annotations.AfterMethod;
@@ -69,6 +71,7 @@ import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.testing.DateTimeTestingUtils.sqlTimeOf;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.String.format;
@@ -309,9 +312,9 @@ public class TestJdbcQueryBuilder
                         false),
                 columns.get(5), Domain.create(SortedRangeSet.copyOf(TIME,
                         ImmutableList.of(
-                                Range.range(TIME, toTime(6, 12, 23).getTime(), false, toTime(8, 23, 37).getTime(), true),
-                                Range.equal(TIME, toTime(2, 3, 4).getTime()),
-                                Range.equal(TIME, toTime(20, 23, 37).getTime()))),
+                                Range.range(TIME, toTimeRepresentation(SESSION, 6, 12, 23), false, toTimeRepresentation(SESSION, 8, 23, 37), true),
+                                Range.equal(TIME, toTimeRepresentation(SESSION, 2, 3, 4)),
+                                Range.equal(TIME, toTimeRepresentation(SESSION, 20, 23, 37)))),
                         false)));
 
         Connection connection = database.getConnection();
@@ -424,5 +427,14 @@ public class TestJdbcQueryBuilder
     private static Time toTime(int hour, int minute, int second)
     {
         return Time.valueOf(LocalTime.of(hour, minute, second));
+    }
+
+    private static long toTimeRepresentation(ConnectorSession session, int hour, int minute, int second)
+    {
+        SqlTime time = sqlTimeOf(hour, minute, second, 0, session);
+        if (session.isLegacyTimestamp()) {
+            return time.getMillisUtc();
+        }
+        return time.getMillis();
     }
 }

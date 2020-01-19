@@ -42,6 +42,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
@@ -86,6 +87,7 @@ import static io.prestosql.testing.datatype.DataType.integerDataType;
 import static io.prestosql.testing.datatype.DataType.jsonDataType;
 import static io.prestosql.testing.datatype.DataType.realDataType;
 import static io.prestosql.testing.datatype.DataType.smallintDataType;
+import static io.prestosql.testing.datatype.DataType.timeDataType;
 import static io.prestosql.testing.datatype.DataType.timestampDataType;
 import static io.prestosql.testing.datatype.DataType.varbinaryDataType;
 import static io.prestosql.testing.datatype.DataType.varcharDataType;
@@ -107,6 +109,7 @@ import static java.util.stream.Collectors.toList;
 public class TestPostgreSqlTypeMapping
         extends AbstractTestQueryFramework
 {
+    private static final LocalDate EPOCH_DAY = LocalDate.ofEpochDay(0);
     private static final JsonCodec<List<Map<String, String>>> HSTORE_CODEC = listJsonCodec(mapJsonCodec(String.class, String.class));
 
     private TestingPostgreSqlServer postgreSqlServer;
@@ -938,6 +941,51 @@ public class TestPostgreSqlTypeMapping
             jdbcSqlExecutor.execute("DROP TABLE tpch.test_enum");
             jdbcSqlExecutor.execute("DROP TYPE enum_t");
         }
+    }
+
+    @Test(dataProvider = "testTimestampDataProvider")
+    public void testTime(boolean legacyTimestamp, boolean insertWithPresto, ZoneId sessionZone)
+    {
+        LocalTime timeGapInJvmZone = LocalTime.of(0, 12, 34, 567_000_000);
+        checkIsGap(jvmZone, timeGapInJvmZone.atDate(EPOCH_DAY));
+
+        DataTypeTest tests = DataTypeTest.create()
+                .addRoundTrip(timeDataType(), LocalTime.of(1, 12, 34, 0))
+                .addRoundTrip(timeDataType(), LocalTime.of(2, 12, 34, 0))
+                .addRoundTrip(timeDataType(), LocalTime.of(2, 12, 34, 1_000_000))
+                .addRoundTrip(timeDataType(), LocalTime.of(3, 12, 34, 0))
+                .addRoundTrip(timeDataType(), LocalTime.of(4, 12, 34, 0))
+                .addRoundTrip(timeDataType(), LocalTime.of(5, 12, 34, 0))
+                .addRoundTrip(timeDataType(), LocalTime.of(6, 12, 34, 0))
+                .addRoundTrip(timeDataType(), LocalTime.of(9, 12, 34, 0))
+                .addRoundTrip(timeDataType(), LocalTime.of(10, 12, 34, 0))
+                .addRoundTrip(timeDataType(), LocalTime.of(15, 12, 34, 567_000_000))
+                .addRoundTrip(timeDataType(), LocalTime.of(23, 59, 59, 999_000_000));
+
+        addTimeTestIfSupported(tests, legacyTimestamp, sessionZone, epoch.toLocalTime()); // epoch is also a gap in JVM zone
+        addTimeTestIfSupported(tests, legacyTimestamp, sessionZone, timeGapInJvmZone);
+
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                .setSystemProperty("legacy_timestamp", Boolean.toString(legacyTimestamp))
+                .build();
+
+        if (insertWithPresto) {
+            tests.execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_time"));
+        }
+        else {
+            tests.execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_time"));
+        }
+    }
+
+    private void addTimeTestIfSupported(DataTypeTest tests, boolean legacyTimestamp, ZoneId sessionZone, LocalTime time)
+    {
+        if (legacyTimestamp && isGap(sessionZone, time.atDate(EPOCH_DAY))) {
+            // in legacy timestamp semantics we cannot represent this time
+            return;
+        }
+
+        tests.addRoundTrip(timeDataType(), time);
     }
 
     @Test(dataProvider = "testTimestampDataProvider")
