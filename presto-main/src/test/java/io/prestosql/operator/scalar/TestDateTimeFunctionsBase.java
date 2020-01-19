@@ -1265,7 +1265,7 @@ public abstract class TestDateTimeFunctionsBase
 
     private SqlTime toTime(LocalTime time)
     {
-        return sqlTimeOf(time, session);
+        return sqlTimeOf(time, session.toConnectorSession());
     }
 
     private static SqlTimeWithTimeZone toTimeWithTimeZone(OffsetTime offsetTime)
