@@ -88,7 +88,14 @@ public final class ForceService
     {
         ConnectorConfig partnerConfig = new ConnectorConfig();
         partnerConfig.setUsername(info.getUserName());
-        partnerConfig.setPassword(info.getPassword());
+
+        if (info.getSecurityToken() != null) {
+            partnerConfig.setPassword(info.getPassword() + info.getSecurityToken());
+        }
+        else {
+            partnerConfig.setPassword(info.getPassword());
+        }
+
         if (info.getSandbox() != null) {
             partnerConfig.setAuthEndpoint(buildAuthEndpoint(info.getSandbox()));
             return Connector.newConnection(partnerConfig);

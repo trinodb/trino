@@ -19,6 +19,7 @@ public class ForceConnectionInfo
     private String password;
     private String sessionId;
     private Boolean sandbox;
+    private String securityToken;
 
     public String getUserName()
     {
@@ -58,5 +59,15 @@ public class ForceConnectionInfo
     public void setSandbox(Boolean sandbox)
     {
         this.sandbox = sandbox;
+    }
+
+    public void setSecurityToken(String securityToken)
+    {
+        this.securityToken = securityToken;
+    }
+
+    public String getSecurityToken()
+    {
+        return securityToken;
     }
 }

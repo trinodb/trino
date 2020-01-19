@@ -74,6 +74,7 @@ public class ForceDriver
             ForceConnectionInfo info = new ForceConnectionInfo();
             info.setUserName(properties.getProperty("user"));
             info.setPassword(properties.getProperty("password"));
+            info.setSecurityToken(properties.getProperty("securityToken"));
             info.setSessionId(properties.getProperty("sessionId"));
             info.setSandbox(resolveSandboxProperty(properties));
 

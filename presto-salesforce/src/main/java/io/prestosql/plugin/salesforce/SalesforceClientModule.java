@@ -25,9 +25,12 @@ import io.prestosql.plugin.jdbc.DriverConnectionFactory;
 import io.prestosql.plugin.jdbc.ForBaseJdbc;
 import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.jdbc.TypeHandlingJdbcConfig;
+import io.prestosql.plugin.jdbc.credential.CredentialConfig;
 import io.prestosql.plugin.jdbc.credential.CredentialProvider;
 import io.prestosql.plugin.salesforce.driver.ForceDriver;
 import io.prestosql.plugin.salesforce.driver.ForceModule;
+
+import java.util.Properties;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
@@ -44,13 +47,33 @@ public class SalesforceClientModule
 
         configBinder(binder).bindConfig(TypeHandlingJdbcConfig.class);
         configBinder(binder).bindConfig(BaseJdbcConfig.class);
+        configBinder(binder).bindConfig(CredentialConfig.class);
+        configBinder(binder).bindConfig(SalesforceConfig.class);
     }
 
     @Singleton
     @Provides
     @ForBaseJdbc
-    public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider)
+    public ConnectionFactory getConnectionFactory(
+            BaseJdbcConfig baseConfig,
+            CredentialConfig credentialConfig,
+            SalesforceConfig salesforceConfig,
+            CredentialProvider credentialProvider)
     {
-        return new DriverConnectionFactory(new ForceDriver(), config, credentialProvider);
+        Properties properties = new Properties();
+
+        if (credentialConfig.getConnectionUser().isPresent()) {
+            properties.setProperty("user", credentialConfig.getConnectionUser().get());
+        }
+
+        if (credentialConfig.getConnectionPassword().isPresent()) {
+            properties.setProperty("password", credentialConfig.getConnectionPassword().get());
+        }
+
+        if (salesforceConfig.getSecurityToken().isPresent()) {
+            properties.setProperty("securityToken", salesforceConfig.getSecurityToken().get());
+        }
+
+        return new DriverConnectionFactory(new ForceDriver(), baseConfig.getConnectionUrl(), properties, credentialProvider);
     }
 }

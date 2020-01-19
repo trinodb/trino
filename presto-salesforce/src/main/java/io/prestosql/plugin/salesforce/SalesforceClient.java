@@ -55,9 +55,9 @@ public class SalesforceClient
         extends BaseJdbcClient
 {
     @Inject
-    public SalesforceClient(BaseJdbcConfig config, ConnectionFactory connectionFactory)
+    public SalesforceClient(BaseJdbcConfig baseConfig, SalesforceConfig salesforceConfig, ConnectionFactory connectionFactory)
     {
-        super(config, "", connectionFactory);
+        super(baseConfig, "", connectionFactory);
     }
 
     @Override
