@@ -64,6 +64,7 @@ public class ForceResultSet
     private Deque<ColumnMap<String, Object>> rows = new LinkedList<>();
     private ColumnMap<String, Object> currentRecord;
     private QueryWrapper queryWrapper;
+    private int lastColumnIndex;
 
     public ForceResultSet(List<ColumnMap<String, Object>> columnMaps)
     {
@@ -86,6 +87,7 @@ public class ForceResultSet
     public Object getObject(int columnIndex)
             throws SQLException
     {
+        lastColumnIndex = columnIndex;
         return currentRecord.getByIndex(columnIndex);
     }
 
@@ -1067,7 +1069,7 @@ public class ForceResultSet
     public boolean wasNull()
             throws SQLException
     {
-        return false;
+        return getObject(lastColumnIndex) == null;
     }
 
     @Override
