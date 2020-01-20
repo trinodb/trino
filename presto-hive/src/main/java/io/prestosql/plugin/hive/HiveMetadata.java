@@ -1173,7 +1173,7 @@ public class HiveMetadata
     {
         verifyJvmTimeZone();
 
-        if (getExternalLocation(tableMetadata.getProperties()) != null) {
+        if (!writesToNonManagedTablesEnabled && getExternalLocation(tableMetadata.getProperties()) != null) {
             throw new PrestoException(NOT_SUPPORTED, "External tables cannot be created using CREATE TABLE AS");
         }
 
