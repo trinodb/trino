@@ -974,7 +974,7 @@ public final class ThriftMetastoreUtil
         throw new IllegalArgumentException("Unsupported type: " + type);
     }
 
-    private static boolean isNumericType(Type type)
+    public static boolean isNumericType(Type type)
     {
         return type.equals(BIGINT) || type.equals(INTEGER) || type.equals(SMALLINT) || type.equals(TINYINT) ||
                 type.equals(DOUBLE) || type.equals(REAL) ||

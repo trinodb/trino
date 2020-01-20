@@ -21,7 +21,6 @@ import alluxio.grpc.table.Constraint;
 import alluxio.grpc.table.TableInfo;
 import alluxio.grpc.table.layout.hive.PartitionInfo;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.prestosql.plugin.hive.HiveBasicStatistics;
 import io.prestosql.plugin.hive.HiveType;
@@ -41,10 +40,6 @@ import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticType;
-import io.prestosql.spi.type.ArrayType;
-import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.MapType;
-import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
 
 import java.util.ArrayList;
@@ -62,25 +57,6 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.prestosql.spi.statistics.ColumnStatisticType.MAX_VALUE;
-import static io.prestosql.spi.statistics.ColumnStatisticType.MAX_VALUE_SIZE_IN_BYTES;
-import static io.prestosql.spi.statistics.ColumnStatisticType.MIN_VALUE;
-import static io.prestosql.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
-import static io.prestosql.spi.statistics.ColumnStatisticType.NUMBER_OF_NON_NULL_VALUES;
-import static io.prestosql.spi.statistics.ColumnStatisticType.NUMBER_OF_TRUE_VALUES;
-import static io.prestosql.spi.statistics.ColumnStatisticType.TOTAL_SIZE_IN_BYTES;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.Chars.isCharType;
-import static io.prestosql.spi.type.DateType.DATE;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.RealType.REAL;
-import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
-import static io.prestosql.spi.type.TinyintType.TINYINT;
-import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.common.FileUtils.makePartName;
 
@@ -137,25 +113,7 @@ public class AlluxioHiveMetastore
     @Override
     public Set<ColumnStatisticType> getSupportedColumnStatistics(Type type)
     {
-        if (type.equals(BOOLEAN)) {
-            return ImmutableSet.of(NUMBER_OF_NON_NULL_VALUES, NUMBER_OF_TRUE_VALUES);
-        }
-        if (isNumericType(type) || type.equals(DATE) || type.equals(TIMESTAMP)) {
-            // TODO https://github.com/prestosql/presto/issues/37 support non-legacy TIMESTAMP
-            return ImmutableSet.of(MIN_VALUE, MAX_VALUE, NUMBER_OF_DISTINCT_VALUES, NUMBER_OF_NON_NULL_VALUES);
-        }
-        if (isVarcharType(type) || isCharType(type)) {
-            // TODO Collect MIN,MAX once it is used by the optimizer
-            return ImmutableSet.of(NUMBER_OF_NON_NULL_VALUES, NUMBER_OF_DISTINCT_VALUES, TOTAL_SIZE_IN_BYTES, MAX_VALUE_SIZE_IN_BYTES);
-        }
-        if (type.equals(VARBINARY)) {
-            return ImmutableSet.of(NUMBER_OF_NON_NULL_VALUES, TOTAL_SIZE_IN_BYTES, MAX_VALUE_SIZE_IN_BYTES);
-        }
-        if (type instanceof ArrayType || type instanceof RowType || type instanceof MapType) {
-            return ImmutableSet.of();
-        }
-        // Throwing here to make sure this method is updated when a new type is added in Hive connector
-        throw new IllegalArgumentException("Unsupported type: " + type);
+        return ThriftMetastoreUtil.getSupportedColumnStatistics(type);
     }
 
     private Map<String, HiveColumnStatistics> groupStatisticsByColumn(List<ColumnStatisticsInfo> statistics, OptionalLong rowCount)
@@ -528,12 +486,5 @@ public class AlluxioHiveMetastore
     public boolean isImpersonationEnabled()
     {
         return false;
-    }
-
-    private static boolean isNumericType(Type type)
-    {
-        return type.equals(BIGINT) || type.equals(INTEGER) || type.equals(SMALLINT) || type.equals(TINYINT) ||
-                type.equals(DOUBLE) || type.equals(REAL) ||
-                type instanceof DecimalType;
     }
 }
