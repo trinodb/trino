@@ -15,6 +15,7 @@ package io.prestosql.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
 import io.prestosql.matching.Capture;
 import io.prestosql.matching.Captures;
@@ -22,6 +23,7 @@ import io.prestosql.matching.Pattern;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.SymbolAllocator;
+import io.prestosql.sql.planner.SymbolsExtractor;
 import io.prestosql.sql.planner.iterative.Lookup;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.plan.AggregationNode;
@@ -120,7 +122,8 @@ public class PushAggregationThroughOuterJoin
         if (join.getFilter().isPresent()
                 || !(join.getType() == JoinNode.Type.LEFT || join.getType() == JoinNode.Type.RIGHT)
                 || !groupsOnAllColumns(aggregation, getOuterTable(join).getOutputSymbols())
-                || !isDistinct(context.getLookup().resolve(getOuterTable(join)), context.getLookup()::resolve)) {
+                || !isDistinct(context.getLookup().resolve(getOuterTable(join)), context.getLookup()::resolve)
+                || !isAggregationOnSymbols(aggregation, getInnerTable(join))) {
             return Result.empty();
         }
 
@@ -222,17 +225,11 @@ public class PushAggregationThroughOuterJoin
     private Optional<PlanNode> coalesceWithNullAggregation(AggregationNode aggregationNode, PlanNode outerJoin, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup)
     {
         // Create an aggregation node over a row of nulls.
-        Optional<MappedAggregationInfo> aggregationOverNullInfoResultNode = createAggregationOverNull(
+        MappedAggregationInfo aggregationOverNullInfo = createAggregationOverNull(
                 aggregationNode,
                 symbolAllocator,
                 idAllocator,
                 lookup);
-
-        if (!aggregationOverNullInfoResultNode.isPresent()) {
-            return Optional.empty();
-        }
-
-        MappedAggregationInfo aggregationOverNullInfo = aggregationOverNullInfoResultNode.get();
 
         AggregationNode aggregationOverNull = aggregationOverNullInfo.getAggregation();
         Map<Symbol, Symbol> sourceAggregationToOverNullMapping = aggregationOverNullInfo.getSymbolMapping();
@@ -268,7 +265,7 @@ public class PushAggregationThroughOuterJoin
         return Optional.of(new ProjectNode(idAllocator.getNextId(), crossJoin, assignmentsBuilder.build()));
     }
 
-    private Optional<MappedAggregationInfo> createAggregationOverNull(AggregationNode referenceAggregation, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup)
+    private MappedAggregationInfo createAggregationOverNull(AggregationNode referenceAggregation, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup)
     {
         // Create a values node that consists of a single row of nulls.
         // Map the output symbols from the referenceAggregation's source
@@ -298,10 +295,6 @@ public class PushAggregationThroughOuterJoin
             Symbol aggregationSymbol = entry.getKey();
             AggregationNode.Aggregation aggregation = entry.getValue();
 
-            if (!isUsingSymbols(aggregation, sourcesSymbolMapping.keySet())) {
-                return Optional.empty();
-            }
-
             Aggregation overNullAggregation = new Aggregation(
                     aggregation.getResolvedFunction(),
                     aggregation.getArguments().stream()
@@ -328,15 +321,14 @@ public class PushAggregationThroughOuterJoin
                 Optional.empty(),
                 Optional.empty());
 
-        return Optional.of(new MappedAggregationInfo(aggregationOverNullRow, aggregationsSymbolMapping));
+        return new MappedAggregationInfo(aggregationOverNullRow, aggregationsSymbolMapping);
     }
 
-    private static boolean isUsingSymbols(AggregationNode.Aggregation aggregation, Set<Symbol> sourceSymbols)
+    private static boolean isAggregationOnSymbols(AggregationNode aggregationNode, PlanNode source)
     {
-        List<Expression> functionArguments = aggregation.getArguments();
-        return sourceSymbols.stream()
-                .map(Symbol::toSymbolReference)
-                .anyMatch(functionArguments::contains);
+        Set<Symbol> sourceSymbols = ImmutableSet.copyOf(source.getOutputSymbols());
+        return aggregationNode.getAggregations().values().stream()
+                .allMatch(aggregation -> sourceSymbols.containsAll(SymbolsExtractor.extractUnique(aggregation)));
     }
 
     private static class MappedAggregationInfo
