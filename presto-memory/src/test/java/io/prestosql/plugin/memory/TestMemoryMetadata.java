@@ -345,6 +345,7 @@ public class TestMemoryMetadata
                 Optional.empty(),
                 ImmutableList.of(new ViewColumn("test", BIGINT.getTypeId())),
                 Optional.empty(),
+                Optional.empty(),
                 true);
     }
 }

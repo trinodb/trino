@@ -702,7 +702,14 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("CREATE VIEW test_view AS SELECT 123 x");
         assertUpdate("CREATE OR REPLACE VIEW test_view AS " + query);
 
+        assertUpdate("CREATE VIEW test_view_with_comment COMMENT 'orders' AS SELECT 123 x");
+        assertUpdate("CREATE OR REPLACE VIEW test_view_with_comment COMMENT 'orders' AS " + query);
+
+        MaterializedResult materializedRows = computeActual("SHOW CREATE VIEW test_view_with_comment");
+        assertTrue(materializedRows.getMaterializedRows().get(0).getField(0).toString().contains("COMMENT 'orders'"));
+
         assertQuery("SELECT * FROM test_view", query);
+        assertQuery("SELECT * FROM test_view_with_comment", query);
 
         assertQuery(
                 "SELECT * FROM test_view a JOIN test_view b on a.orderkey = b.orderkey",
@@ -714,6 +721,7 @@ public abstract class AbstractTestDistributedQueries
         assertQuery("SELECT * FROM " + name, query);
 
         assertUpdate("DROP VIEW test_view");
+        assertUpdate("DROP VIEW test_view_with_comment");
     }
 
     @Test

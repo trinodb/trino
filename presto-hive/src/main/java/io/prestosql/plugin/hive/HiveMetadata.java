@@ -1722,6 +1722,7 @@ public class HiveMetadata
                                 definition.getCatalog(),
                                 definition.getSchema(),
                                 definition.getColumns(),
+                                definition.getComment(),
                                 Optional.of(view.getOwner()),
                                 false);
                     }
