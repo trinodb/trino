@@ -3972,7 +3972,7 @@ public class TestHiveIntegrationSmokeTest
                         "('p_varchar', 0E0, 0E0, 0E0, null, null, null), " +
                         "(null, null, null, null, 0E0, null, null)");
 
-        assertUpdate(format("DROP TABLE %s", tableName));
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -4041,7 +4041,7 @@ public class TestHiveIntegrationSmokeTest
                         "('p_varchar', 0E0, 0E0, 0E0, null, null, null), " +
                         "(null, null, null, null, 0E0, null, null)");
 
-        assertUpdate(format("DROP TABLE %s", tableName));
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -4086,7 +4086,7 @@ public class TestHiveIntegrationSmokeTest
         assertQueryFails(format("ANALYZE %s WITH (partitions = ARRAY[ARRAY['p4', '10', 'error']])", tableName), "Partition value count does not match partition column count");
 
         // Drop the partitioned test table
-        assertUpdate(format("DROP TABLE %s", tableName));
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -4104,7 +4104,7 @@ public class TestHiveIntegrationSmokeTest
         assertQueryFails(format("ANALYZE %s WITH (partitions = ARRAY[ARRAY['p1']])", tableName), "Partition list provided but table is not partitioned");
 
         // Drop the partitioned test table
-        assertUpdate(format("DROP TABLE %s", tableName));
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -4284,7 +4284,7 @@ public class TestHiveIntegrationSmokeTest
                         "(null, null, null, null, 0.0, null, null)");
 
         // Drop the partitioned test table
-        assertUpdate(format("DROP TABLE %s", tableName));
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -4466,7 +4466,7 @@ public class TestHiveIntegrationSmokeTest
                         "('p_bigint', null, 0.0, 0.0, null, null, null), " +
                         "(null, null, null, null, 0.0, null, null)");
 
-        assertUpdate(format("DROP TABLE %s", tableName));
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -4504,7 +4504,7 @@ public class TestHiveIntegrationSmokeTest
                         "(null, null, null, null, 16.0, null, null)");
 
         // Drop the unpartitioned test table
-        assertUpdate(format("DROP TABLE %s", tableName));
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -4533,7 +4533,7 @@ public class TestHiveIntegrationSmokeTest
                 "ANALYZE " + tableName + " WITH (columns = ARRAY[42])",
                 "\\QInvalid value for analyze property 'columns': Cannot convert [ARRAY[42]] to array(varchar)\\E");
 
-        assertUpdate(format("DROP TABLE %s", tableName));
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -4572,7 +4572,7 @@ public class TestHiveIntegrationSmokeTest
                         "('p_bigint', null, null, null, null, null, null), " +
                         "(null, null, null, null, 16.0, null, null)");
 
-        assertUpdate(format("DROP TABLE %s", tableName));
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -4811,7 +4811,7 @@ public class TestHiveIntegrationSmokeTest
                         "('p_bigint', null, null, null, null, null, null), " +
                         "(null, null, null, null, null, null, null)");
 
-        assertUpdate(format("DROP TABLE %s", tableName));
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -4879,8 +4879,8 @@ public class TestHiveIntegrationSmokeTest
                 format("CALL system.drop_stats('%s', '%s', ARRAY[ARRAY['WRONG', 'KEY']])", TPCH_SCHEMA, partitionedTableName),
                 "Partition '.*' not found");
 
-        assertUpdate(format("DROP TABLE %s", unpartitionedTableName));
-        assertUpdate(format("DROP TABLE %s", partitionedTableName));
+        assertUpdate("DROP TABLE " + unpartitionedTableName);
+        assertUpdate("DROP TABLE " + partitionedTableName);
     }
 
     protected void createPartitionedTableForAnalyzeTest(String tableName)
@@ -4998,11 +4998,11 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(createTableSql);
 
         try {
-            MaterializedResult actual = computeActual(format("SHOW CREATE TABLE %s", tableName));
+            MaterializedResult actual = computeActual("SHOW CREATE TABLE " + tableName);
             assertEquals(actual.getOnlyValue(), expectedShowCreateTable);
         }
         finally {
-            assertUpdate(format("DROP TABLE %s", tableName));
+            assertUpdate("DROP TABLE " + tableName);
             verify(schemaFile.delete(), "cannot delete temporary file: %s", schemaFile);
         }
     }
@@ -5034,7 +5034,7 @@ public class TestHiveIntegrationSmokeTest
             }
         }
         finally {
-            assertUpdate(format("DROP TABLE %s", tableName));
+            assertUpdate("DROP TABLE " + tableName);
             verify(schemaFile.delete(), "cannot delete temporary file: %s", schemaFile);
         }
     }
