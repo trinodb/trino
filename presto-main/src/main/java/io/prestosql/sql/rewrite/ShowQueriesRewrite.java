@@ -443,7 +443,7 @@ final class ShowQueriesRewrite
 
                 accessControl.checkCanShowColumnsMetadata(session.toSecurityContext(), new CatalogSchemaTableName(catalogName.getValue(), new SchemaTableName(schemaName.getValue(), tableName.getValue())));
 
-                String sql = formatSql(new CreateView(QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName)), query, false, Optional.empty())).trim();
+                String sql = formatSql(new CreateView(QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName)), query, false, viewDefinition.get().getComment(), Optional.empty())).trim();
                 return singleValueQuery("Create View", sql);
             }
 

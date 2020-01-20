@@ -3021,6 +3021,7 @@ public abstract class AbstractTestHive
                 Optional.empty(),
                 ImmutableList.of(new ViewColumn("test", BIGINT.getTypeId())),
                 Optional.empty(),
+                Optional.empty(),
                 true);
 
         try (Transaction transaction = newTransaction()) {
