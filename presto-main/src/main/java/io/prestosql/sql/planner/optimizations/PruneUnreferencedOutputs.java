@@ -212,24 +212,14 @@ public class PruneUnreferencedOutputs
             PlanNode left = context.rewrite(node.getLeft(), leftInputs);
             PlanNode right = context.rewrite(node.getRight(), rightInputs);
 
-            List<Symbol> leftOutputSymbols;
-            List<Symbol> rightOutputSymbols;
-
-            // do not prune cross join output since it is not supported
-            if (node.isCrossJoin()) {
-                leftOutputSymbols = left.getOutputSymbols();
-                rightOutputSymbols = right.getOutputSymbols();
-            }
-            else {
-                leftOutputSymbols = node.getLeftOutputSymbols().stream()
-                        .filter(context.get()::contains)
-                        .distinct()
-                        .collect(toImmutableList());
-                rightOutputSymbols = node.getRightOutputSymbols().stream()
-                        .filter(context.get()::contains)
-                        .distinct()
-                        .collect(toImmutableList());
-            }
+            List<Symbol> leftOutputSymbols = node.getLeftOutputSymbols().stream()
+                    .filter(context.get()::contains)
+                    .distinct()
+                    .collect(toImmutableList());
+            List<Symbol> rightOutputSymbols = node.getRightOutputSymbols().stream()
+                    .filter(context.get()::contains)
+                    .distinct()
+                    .collect(toImmutableList());
 
             return new JoinNode(
                     node.getId(),
