@@ -409,7 +409,7 @@ public class TestElasticsearchIntegrationSmokeTest
                 .actionGet();
 
         // _score column
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE _score = 1.0", "VALUES 1");
+        assertQuery("SELECT count(*) FROM \"filter_pushdown: cool\" WHERE _score > 0", "VALUES 1");
 
         // boolean
         assertQuery("SELECT count(*) FROM filter_pushdown WHERE boolean_column = true", "VALUES 1");
