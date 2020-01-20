@@ -194,6 +194,7 @@ import io.prestosql.sql.tree.LambdaExpression;
 import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.SymbolReference;
 import io.prestosql.type.FunctionType;
+import org.objectweb.asm.MethodTooLargeException;
 
 import javax.inject.Inject;
 
@@ -201,6 +202,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -1304,6 +1306,13 @@ public class LocalExecutionPlanner
 
                     return new PhysicalOperation(operatorFactory, outputMappings, context, source);
                 }
+            }
+            catch (PrestoException e) {
+                if (e.getErrorCode() == COMPILER_ERROR.toErrorCode() && getExceptionRootCause(e) instanceof MethodTooLargeException) {
+                    throw new PrestoException(COMPILER_ERROR,
+                        "Query exceeded maximum columns or filters. Please reduce the number of columns and filters referenced and re-run the query.", e);
+                }
+                throw e;
             }
             catch (RuntimeException e) {
                 throw new PrestoException(COMPILER_ERROR, "Compiler failed", e);
@@ -2828,6 +2837,16 @@ public class LocalExecutionPlanner
                         useSystemMemory);
             }
         }
+    }
+
+    private static Throwable getExceptionRootCause(Throwable throwable)
+    {
+        Set<Throwable> seen = new HashSet<>();
+        while (throwable.getCause() != null && !seen.contains(throwable)) {
+            seen.add(throwable);
+            throwable = throwable.getCause();
+        }
+        return throwable;
     }
 
     private static List<Type> getTypes(List<Expression> expressions, Map<NodeRef<Expression>, Type> expressionTypes)
