@@ -21,6 +21,7 @@ import io.prestosql.tests.product.launcher.env.common.Kerberos;
 import io.prestosql.tests.product.launcher.env.common.Standard;
 import io.prestosql.tests.product.launcher.env.environment.Multinode;
 import io.prestosql.tests.product.launcher.env.environment.Singlenode;
+import io.prestosql.tests.product.launcher.env.environment.SinglenodeCassandra;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeHdfsImpersonation;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeHiveImpersonation;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeKerberosHdfsImpersonation;
@@ -61,6 +62,8 @@ public final class EnvironmentModule
         environments.addBinding("singlenode-kerberos-hdfs-no-impersonation").to(SinglenodeKerberosHdfsNoImpersonation.class);
 
         environments.addBinding("multinode").to(Multinode.class);
+
+        environments.addBinding("singlenode-cassandra").to(SinglenodeCassandra.class);
 
         binder.install(additionalEnvironments);
     }

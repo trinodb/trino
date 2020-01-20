@@ -35,10 +35,9 @@ presto-product-tests/bin/run_on_docker.sh \
     -g storage_formats \
     || suite_exit_code=1
 
-# Does not use hadoop
-presto-product-tests/bin/run_on_docker.sh \
-    singlenode-cassandra \
-    -g cassandra \
+presto-product-tests-launcher/target/presto-product-tests-launcher-*-executable.jar test run \
+    --environment singlenode-cassandra \
+    -- -g cassandra \
     || suite_exit_code=1
 
 # Does not use hadoop
