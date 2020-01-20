@@ -123,6 +123,46 @@ public class TestPushAggregationThroughOuterJoin
     }
 
     @Test
+    public void testPushCountAllAggregation()
+    {
+        tester().assertThat(new PushAggregationThroughOuterJoin())
+                .on(p -> p.aggregation(ab -> ab
+                        .source(
+                                p.join(
+                                        JoinNode.Type.LEFT,
+                                        p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(expressions("10"))),
+                                        p.values(p.symbol("COL2")),
+                                        ImmutableList.of(new JoinNode.EquiJoinClause(p.symbol("COL1"), p.symbol("COL2"))),
+                                        ImmutableList.of(p.symbol("COL1"), p.symbol("COL2")),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty()))
+                        .addAggregation(p.symbol("COUNT"), PlanBuilder.expression("count(*)"), ImmutableList.of())
+                        .singleGroupingSet(p.symbol("COL1"))))
+                .matches(
+                        project(ImmutableMap.of(
+                                "COL1", expression("COL1"),
+                                "COALESCE", expression("coalesce(COUNT, COUNT_NULL)")),
+                                join(JoinNode.Type.INNER, ImmutableList.of(),
+                                        join(JoinNode.Type.LEFT, ImmutableList.of(equiJoinClause("COL1", "COL2")),
+                                                values(ImmutableMap.of("COL1", 0)),
+                                                aggregation(
+                                                        singleGroupingSet("COL2"),
+                                                        ImmutableMap.of(Optional.of("COUNT"), functionCall("count", ImmutableList.of())),
+                                                        ImmutableMap.of(),
+                                                        Optional.empty(),
+                                                        SINGLE,
+                                                        values(ImmutableMap.of("COL2", 0)))),
+                                        aggregation(
+                                                globalAggregation(),
+                                                ImmutableMap.of(Optional.of("COUNT_NULL"), functionCall("count", ImmutableList.of())),
+                                                ImmutableMap.of(),
+                                                Optional.empty(),
+                                                SINGLE,
+                                                values(ImmutableMap.of("null_literal", 0))))));
+    }
+
+    @Test
     public void testDoesNotFireWhenNotDistinct()
     {
         tester().assertThat(new PushAggregationThroughOuterJoin())
@@ -199,6 +239,42 @@ public class TestPushAggregationThroughOuterJoin
                                 Optional.empty(),
                                 Optional.empty()))
                         .addAggregation(new Symbol("SUM"), PlanBuilder.expression("sum(COL1)"), ImmutableList.of(DOUBLE))
+                        .singleGroupingSet(new Symbol("COL1"))))
+                .doesNotFire();
+    }
+
+    @Test
+    public void testDoesNotFireWhenAggregationOnMultipleSymbolsDoesNotHaveSomeSymbols()
+    {
+        tester().assertThat(new PushAggregationThroughOuterJoin())
+                .on(p -> p.aggregation(ab -> ab
+                        .source(p.join(
+                                JoinNode.Type.LEFT,
+                                p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(expressions("10"))),
+                                p.values(ImmutableList.of(p.symbol("COL2"), p.symbol("COL3")), ImmutableList.of(expressions("20", "30"))),
+                                ImmutableList.of(new JoinNode.EquiJoinClause(new Symbol("COL1"), new Symbol("COL2"))),
+                                ImmutableList.of(new Symbol("COL1"), new Symbol("COL2")),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()))
+                        .addAggregation(new Symbol("MIN_BY"), PlanBuilder.expression("min_by(COL2, COL1)"), ImmutableList.of(DOUBLE, DOUBLE))
+                        .singleGroupingSet(new Symbol("COL1"))))
+                .doesNotFire();
+
+        tester().assertThat(new PushAggregationThroughOuterJoin())
+                .on(p -> p.aggregation(ab -> ab
+                        .source(p.join(
+                                JoinNode.Type.LEFT,
+                                p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(expressions("10"))),
+                                p.values(ImmutableList.of(p.symbol("COL2"), p.symbol("COL3")), ImmutableList.of(expressions("20", "30"))),
+                                ImmutableList.of(new JoinNode.EquiJoinClause(new Symbol("COL1"), new Symbol("COL2"))),
+                                ImmutableList.of(new Symbol("COL1"), new Symbol("COL2")),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()))
+                        .addAggregation(new Symbol("SUM"), PlanBuilder.expression("sum(COL2)"), ImmutableList.of(DOUBLE))
+                        .addAggregation(new Symbol("MIN_BY"), PlanBuilder.expression("min_by(COL2, COL3)"), ImmutableList.of(DOUBLE, DOUBLE))
+                        .addAggregation(new Symbol("MAX_BY"), PlanBuilder.expression("max_by(COL2, COL1)"), ImmutableList.of(DOUBLE, DOUBLE))
                         .singleGroupingSet(new Symbol("COL1"))))
                 .doesNotFire();
     }
