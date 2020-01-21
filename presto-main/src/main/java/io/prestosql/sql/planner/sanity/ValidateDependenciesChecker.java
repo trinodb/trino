@@ -69,14 +69,11 @@ import io.prestosql.sql.planner.plan.WindowNode;
 import io.prestosql.sql.tree.Expression;
 
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.sql.planner.optimizations.IndexJoinOptimizer.IndexKeyTracer;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -363,7 +360,6 @@ public final class ValidateDependenciesChecker
                         allInputs);
             });
 
-            checkLeftOutputSymbolsBeforeRight(node.getLeft().getOutputSymbols(), node.getOutputSymbols());
             return null;
         }
 
@@ -406,25 +402,7 @@ public final class ValidateDependenciesChecker
                     predicateSymbols,
                     allInputs);
 
-            checkLeftOutputSymbolsBeforeRight(node.getLeft().getOutputSymbols(), node.getOutputSymbols());
             return null;
-        }
-
-        private void checkLeftOutputSymbolsBeforeRight(List<Symbol> leftSymbols, List<Symbol> outputSymbols)
-        {
-            int leftMaxPosition = -1;
-            Optional<Integer> rightMinPosition = Optional.empty();
-            Set<Symbol> leftSymbolsSet = new HashSet<>(leftSymbols);
-            for (int i = 0; i < outputSymbols.size(); i++) {
-                Symbol symbol = outputSymbols.get(i);
-                if (leftSymbolsSet.contains(symbol)) {
-                    leftMaxPosition = i;
-                }
-                else if (!rightMinPosition.isPresent()) {
-                    rightMinPosition = Optional.of(i);
-                }
-            }
-            checkState(!rightMinPosition.isPresent() || rightMinPosition.get() > leftMaxPosition, "Not all left output symbols are before right output symbols");
         }
 
         @Override
