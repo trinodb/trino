@@ -15,16 +15,19 @@ package io.prestosql.server;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigSecuritySensitive;
+import io.airlift.configuration.DefunctConfig;
 
 import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.NotNull;
 
 import java.util.Optional;
 
+@DefunctConfig({
+        "internal-communication.kerberos.enabled",
+        "internal-communication.kerberos.use-canonical-hostname",
+})
 public class InternalCommunicationConfig
 {
-    public static final String INTERNAL_COMMUNICATION_KERBEROS_ENABLED = "internal-communication.kerberos.enabled";
-
     private String sharedSecret;
     private boolean internalJwtEnabled = true;
     private boolean httpsRequired;
@@ -32,8 +35,6 @@ public class InternalCommunicationConfig
     private String keyStorePassword;
     private String trustStorePath;
     private String trustStorePassword;
-    private boolean kerberosEnabled;
-    private boolean kerberosUseCanonicalHostname = true;
 
     @NotNull
     public Optional<String> getSharedSecret()
@@ -120,34 +121,6 @@ public class InternalCommunicationConfig
     public InternalCommunicationConfig setTrustStorePassword(String trustStorePassword)
     {
         this.trustStorePassword = trustStorePassword;
-        return this;
-    }
-
-    @Deprecated
-    public boolean isKerberosEnabled()
-    {
-        return kerberosEnabled;
-    }
-
-    @Deprecated
-    @Config(INTERNAL_COMMUNICATION_KERBEROS_ENABLED)
-    public InternalCommunicationConfig setKerberosEnabled(boolean kerberosEnabled)
-    {
-        this.kerberosEnabled = kerberosEnabled;
-        return this;
-    }
-
-    @Deprecated
-    public boolean isKerberosUseCanonicalHostname()
-    {
-        return kerberosUseCanonicalHostname;
-    }
-
-    @Deprecated
-    @Config("internal-communication.kerberos.use-canonical-hostname")
-    public InternalCommunicationConfig setKerberosUseCanonicalHostname(boolean kerberosUseCanonicalHostname)
-    {
-        this.kerberosUseCanonicalHostname = kerberosUseCanonicalHostname;
         return this;
     }
 
