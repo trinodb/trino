@@ -23,6 +23,8 @@ import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.RecordSet;
 
+import javax.inject.Inject;
+
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
@@ -33,7 +35,8 @@ public class ClassLoaderSafeConnectorRecordSetProvider
     private final ConnectorRecordSetProvider delegate;
     private final ClassLoader classLoader;
 
-    public ClassLoaderSafeConnectorRecordSetProvider(ConnectorRecordSetProvider delegate, ClassLoader classLoader)
+    @Inject
+    public ClassLoaderSafeConnectorRecordSetProvider(@ForClassLoaderSafe ConnectorRecordSetProvider delegate, ClassLoader classLoader)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.classLoader = requireNonNull(classLoader, "classLoader is null");

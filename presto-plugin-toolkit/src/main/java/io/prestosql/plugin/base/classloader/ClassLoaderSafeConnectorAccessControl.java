@@ -21,6 +21,8 @@ import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
 
+import javax.inject.Inject;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -33,7 +35,8 @@ public class ClassLoaderSafeConnectorAccessControl
     private final ConnectorAccessControl delegate;
     private final ClassLoader classLoader;
 
-    public ClassLoaderSafeConnectorAccessControl(ConnectorAccessControl delegate, ClassLoader classLoader)
+    @Inject
+    public ClassLoaderSafeConnectorAccessControl(@ForClassLoaderSafe ConnectorAccessControl delegate, ClassLoader classLoader)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.classLoader = requireNonNull(classLoader, "classLoader is null");

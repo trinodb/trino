@@ -21,6 +21,8 @@ import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
+import javax.inject.Inject;
+
 import static java.util.Objects.requireNonNull;
 
 public final class ClassLoaderSafeConnectorSplitManager
@@ -29,7 +31,8 @@ public final class ClassLoaderSafeConnectorSplitManager
     private final ConnectorSplitManager delegate;
     private final ClassLoader classLoader;
 
-    public ClassLoaderSafeConnectorSplitManager(ConnectorSplitManager delegate, ClassLoader classLoader)
+    @Inject
+    public ClassLoaderSafeConnectorSplitManager(@ForClassLoaderSafe ConnectorSplitManager delegate, ClassLoader classLoader)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.classLoader = requireNonNull(classLoader, "classLoader is null");

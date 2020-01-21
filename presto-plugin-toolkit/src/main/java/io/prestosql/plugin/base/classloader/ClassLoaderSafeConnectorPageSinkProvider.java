@@ -21,6 +21,8 @@ import io.prestosql.spi.connector.ConnectorPageSinkProvider;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
+import javax.inject.Inject;
+
 import static java.util.Objects.requireNonNull;
 
 public final class ClassLoaderSafeConnectorPageSinkProvider
@@ -29,7 +31,8 @@ public final class ClassLoaderSafeConnectorPageSinkProvider
     private final ConnectorPageSinkProvider delegate;
     private final ClassLoader classLoader;
 
-    public ClassLoaderSafeConnectorPageSinkProvider(ConnectorPageSinkProvider delegate, ClassLoader classLoader)
+    @Inject
+    public ClassLoaderSafeConnectorPageSinkProvider(@ForClassLoaderSafe ConnectorPageSinkProvider delegate, ClassLoader classLoader)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.classLoader = requireNonNull(classLoader, "classLoader is null");
