@@ -51,12 +51,15 @@ import io.prestosql.sql.planner.iterative.rule.ImplementIntersectAsUnion;
 import io.prestosql.sql.planner.iterative.rule.ImplementLimitWithTies;
 import io.prestosql.sql.planner.iterative.rule.ImplementOffset;
 import io.prestosql.sql.planner.iterative.rule.InlineProjections;
+import io.prestosql.sql.planner.iterative.rule.MergeExcept;
 import io.prestosql.sql.planner.iterative.rule.MergeFilters;
+import io.prestosql.sql.planner.iterative.rule.MergeIntersect;
 import io.prestosql.sql.planner.iterative.rule.MergeLimitOverProjectWithSort;
 import io.prestosql.sql.planner.iterative.rule.MergeLimitWithDistinct;
 import io.prestosql.sql.planner.iterative.rule.MergeLimitWithSort;
 import io.prestosql.sql.planner.iterative.rule.MergeLimitWithTopN;
 import io.prestosql.sql.planner.iterative.rule.MergeLimits;
+import io.prestosql.sql.planner.iterative.rule.MergeUnion;
 import io.prestosql.sql.planner.iterative.rule.MultipleDistinctAggregationToMarkDistinct;
 import io.prestosql.sql.planner.iterative.rule.PruneAggregationColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneAggregationSourceColumns;
@@ -66,6 +69,7 @@ import io.prestosql.sql.planner.iterative.rule.PruneAssignUniqueIdColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneCorrelatedJoinColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneCountAggregationOverScalar;
 import io.prestosql.sql.planner.iterative.rule.PruneDeleteSourceColumns;
+import io.prestosql.sql.planner.iterative.rule.PruneDistinctAggregation;
 import io.prestosql.sql.planner.iterative.rule.PruneDistinctLimitSourceColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneEnforceSingleRowColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneExceptSourceColumns;
@@ -396,7 +400,16 @@ public class PlanOptimizers
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new RemoveRedundantIdentityProjections())),
-                new SetFlatteningOptimizer(),
+                new IterativeOptimizer(
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableList.of(new SetFlatteningOptimizer()),
+                        ImmutableSet.of(
+                                new MergeUnion(),
+                                new MergeIntersect(),
+                                new MergeExcept(),
+                                new PruneDistinctAggregation())),
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
