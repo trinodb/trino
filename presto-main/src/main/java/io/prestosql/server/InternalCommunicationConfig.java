@@ -16,6 +16,7 @@ package io.prestosql.server;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigSecuritySensitive;
 
+import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.NotNull;
 
 import java.util.Optional;
@@ -148,5 +149,11 @@ public class InternalCommunicationConfig
     {
         this.kerberosUseCanonicalHostname = kerberosUseCanonicalHostname;
         return this;
+    }
+
+    @AssertTrue(message = "Internal shared secret is required when HTTPS is enabled for internal communications")
+    public boolean isRequiredSharedSecretSet()
+    {
+        return !isHttpsRequired() || getSharedSecret().isPresent();
     }
 }

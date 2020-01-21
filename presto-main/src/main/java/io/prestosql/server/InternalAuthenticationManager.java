@@ -49,11 +49,23 @@ public class InternalAuthenticationManager
     public InternalAuthenticationManager(InternalCommunicationConfig internalCommunicationConfig, NodeInfo nodeInfo)
     {
         this(
-                requireNonNull(internalCommunicationConfig, "internalCommunicationConfig is null")
-                        .getSharedSecret()
-                        .orElse(requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment()),
+                getSharedSecret(internalCommunicationConfig, nodeInfo),
                 nodeInfo.getNodeId(),
                 internalCommunicationConfig.isInternalJwtEnabled());
+    }
+
+    private static String getSharedSecret(InternalCommunicationConfig internalCommunicationConfig, NodeInfo nodeInfo)
+    {
+        requireNonNull(internalCommunicationConfig, "internalCommunicationConfig is null");
+        requireNonNull(nodeInfo, "nodeInfo is null");
+
+        // This check should not be required (as bean validation already checked it),
+        // but be extra careful to not use a known secret for authentication.
+        if (!internalCommunicationConfig.isRequiredSharedSecretSet()) {
+            throw new IllegalArgumentException("Shared secret is required when internal communications uses https");
+        }
+
+        return internalCommunicationConfig.getSharedSecret().orElseGet(nodeInfo::getEnvironment);
     }
 
     public InternalAuthenticationManager(String sharedSecret, String nodeId, boolean internalJwtEnabled)
