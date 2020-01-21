@@ -24,6 +24,8 @@ import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.type.Type;
 
+import javax.inject.Inject;
+
 import java.util.List;
 import java.util.function.ToIntFunction;
 
@@ -35,7 +37,8 @@ public final class ClassLoaderSafeNodePartitioningProvider
     private final ConnectorNodePartitioningProvider delegate;
     private final ClassLoader classLoader;
 
-    public ClassLoaderSafeNodePartitioningProvider(ConnectorNodePartitioningProvider delegate, ClassLoader classLoader)
+    @Inject
+    public ClassLoaderSafeNodePartitioningProvider(@ForClassLoaderSafe ConnectorNodePartitioningProvider delegate, ClassLoader classLoader)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.classLoader = requireNonNull(classLoader, "classLoader is null");

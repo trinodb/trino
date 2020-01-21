@@ -23,6 +23,8 @@ import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.predicate.TupleDomain;
 
+import javax.inject.Inject;
+
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
@@ -33,7 +35,8 @@ public class ClassLoaderSafeConnectorPageSourceProvider
     private final ConnectorPageSourceProvider delegate;
     private final ClassLoader classLoader;
 
-    public ClassLoaderSafeConnectorPageSourceProvider(ConnectorPageSourceProvider delegate, ClassLoader classLoader)
+    @Inject
+    public ClassLoaderSafeConnectorPageSourceProvider(@ForClassLoaderSafe ConnectorPageSourceProvider delegate, ClassLoader classLoader)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.classLoader = requireNonNull(classLoader, "classLoader is null");

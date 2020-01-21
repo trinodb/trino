@@ -17,6 +17,8 @@ import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import io.prestosql.spi.connector.ConnectorPartitionHandle;
 import io.prestosql.spi.connector.ConnectorSplitSource;
 
+import javax.inject.Inject;
+
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
@@ -28,7 +30,8 @@ public class ClassLoaderSafeConnectorSplitSource
     private final ConnectorSplitSource delegate;
     private final ClassLoader classLoader;
 
-    public ClassLoaderSafeConnectorSplitSource(ConnectorSplitSource delegate, ClassLoader classLoader)
+    @Inject
+    public ClassLoaderSafeConnectorSplitSource(@ForClassLoaderSafe ConnectorSplitSource delegate, ClassLoader classLoader)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.classLoader = requireNonNull(classLoader, "classLoader is null");

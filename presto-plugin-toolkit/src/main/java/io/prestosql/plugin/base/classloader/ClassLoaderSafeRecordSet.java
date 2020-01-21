@@ -19,6 +19,8 @@ import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.RecordSet;
 import io.prestosql.spi.type.Type;
 
+import javax.inject.Inject;
+
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
@@ -29,7 +31,8 @@ public class ClassLoaderSafeRecordSet
     private final RecordSet delegate;
     private final ClassLoader classLoader;
 
-    public ClassLoaderSafeRecordSet(RecordSet delegate, ClassLoader classLoader)
+    @Inject
+    public ClassLoaderSafeRecordSet(@ForClassLoaderSafe RecordSet delegate, ClassLoader classLoader)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.classLoader = requireNonNull(classLoader, "classLoader is null");

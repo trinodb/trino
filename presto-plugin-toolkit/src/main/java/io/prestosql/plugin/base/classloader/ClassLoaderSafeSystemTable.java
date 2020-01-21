@@ -22,6 +22,8 @@ import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.SystemTable;
 import io.prestosql.spi.predicate.TupleDomain;
 
+import javax.inject.Inject;
+
 import static java.util.Objects.requireNonNull;
 
 public class ClassLoaderSafeSystemTable
@@ -30,7 +32,8 @@ public class ClassLoaderSafeSystemTable
     private final SystemTable delegate;
     private final ClassLoader classLoader;
 
-    public ClassLoaderSafeSystemTable(SystemTable delegate, ClassLoader classLoader)
+    @Inject
+    public ClassLoaderSafeSystemTable(@ForClassLoaderSafe SystemTable delegate, ClassLoader classLoader)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.classLoader = requireNonNull(classLoader, "classLoader is null");
