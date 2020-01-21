@@ -11,75 +11,60 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.spi.connector.classloader;
+package io.prestosql.plugin.base.classloader;
 
-import io.airlift.slice.Slice;
-import io.prestosql.spi.Page;
 import io.prestosql.spi.classloader.ThreadContextClassLoader;
-import io.prestosql.spi.connector.ConnectorPageSink;
-
-import java.util.Collection;
-import java.util.concurrent.CompletableFuture;
+import io.prestosql.spi.connector.ConnectorPageSource;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.ConnectorTableMetadata;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.RecordCursor;
+import io.prestosql.spi.connector.SystemTable;
+import io.prestosql.spi.predicate.TupleDomain;
 
 import static java.util.Objects.requireNonNull;
 
-public class ClassLoaderSafeConnectorPageSink
-        implements ConnectorPageSink
+public class ClassLoaderSafeSystemTable
+        implements SystemTable
 {
-    private final ConnectorPageSink delegate;
+    private final SystemTable delegate;
     private final ClassLoader classLoader;
 
-    public ClassLoaderSafeConnectorPageSink(ConnectorPageSink delegate, ClassLoader classLoader)
+    public ClassLoaderSafeSystemTable(SystemTable delegate, ClassLoader classLoader)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.classLoader = requireNonNull(classLoader, "classLoader is null");
     }
 
     @Override
-    public long getCompletedBytes()
+    public Distribution getDistribution()
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getCompletedBytes();
+            return delegate.getDistribution();
         }
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public ConnectorTableMetadata getTableMetadata()
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getSystemMemoryUsage();
+            return delegate.getTableMetadata();
         }
     }
 
     @Override
-    public long getValidationCpuNanos()
+    public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getValidationCpuNanos();
+            return delegate.cursor(transactionHandle, session, constraint);
         }
     }
 
     @Override
-    public CompletableFuture<?> appendPage(Page page)
+    public ConnectorPageSource pageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.appendPage(page);
-        }
-    }
-
-    @Override
-    public CompletableFuture<Collection<Slice>> finish()
-    {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.finish();
-        }
-    }
-
-    @Override
-    public void abort()
-    {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            delegate.abort();
+            return delegate.pageSource(transactionHandle, session, constraint);
         }
     }
 }

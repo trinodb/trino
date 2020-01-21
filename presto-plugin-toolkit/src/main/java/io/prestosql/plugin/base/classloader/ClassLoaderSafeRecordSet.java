@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.spi.connector.classloader;
+package io.prestosql.plugin.base.classloader;
 
 import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import io.prestosql.spi.connector.RecordCursor;

@@ -25,8 +25,8 @@ import io.prestosql.spi.connector.ConnectorContext;
 import io.prestosql.spi.connector.ConnectorFactory;
 import io.prestosql.spi.connector.ConnectorHandleResolver;
 import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.connector.classloader.ClassLoaderSafeConnectorRecordSetProvider;
-import io.prestosql.spi.connector.classloader.ClassLoaderSafeConnectorSplitManager;
+import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorRecordSetProvider;
+import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
 import io.prestosql.spi.type.TypeManager;
 
 import java.util.Map;
