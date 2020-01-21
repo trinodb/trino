@@ -19,6 +19,12 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.prestosql.decoder.DecoderModule;
+import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorRecordSetProvider;
+import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
+import io.prestosql.plugin.base.classloader.ForClassLoaderSafe;
+import io.prestosql.spi.connector.ConnectorMetadata;
+import io.prestosql.spi.connector.ConnectorRecordSetProvider;
+import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeId;
 import io.prestosql.spi.type.TypeManager;
@@ -36,9 +42,12 @@ public class KafkaConnectorModule
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(KafkaMetadata.class).in(Scopes.SINGLETON);
-        binder.bind(KafkaSplitManager.class).in(Scopes.SINGLETON);
-        binder.bind(KafkaRecordSetProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorMetadata.class).to(KafkaMetadata.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorSplitManager.class).annotatedWith(ForClassLoaderSafe.class).to(KafkaSplitManager.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorSplitManager.class).to(ClassLoaderSafeConnectorSplitManager.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorRecordSetProvider.class).annotatedWith(ForClassLoaderSafe.class).to(KafkaRecordSetProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorRecordSetProvider.class).to(ClassLoaderSafeConnectorRecordSetProvider.class).in(Scopes.SINGLETON);
+        binder.bind(KafkaConnector.class).in(Scopes.SINGLETON);
 
         binder.bind(KafkaConsumerFactory.class).in(Scopes.SINGLETON);
 
