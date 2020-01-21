@@ -11,60 +11,47 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.spi.connector.classloader;
+package io.prestosql.plugin.base.classloader;
 
 import io.prestosql.spi.classloader.ThreadContextClassLoader;
+import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSource;
+import io.prestosql.spi.connector.ConnectorPageSourceProvider;
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorTableMetadata;
+import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.connector.RecordCursor;
-import io.prestosql.spi.connector.SystemTable;
 import io.prestosql.spi.predicate.TupleDomain;
+
+import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
-public class ClassLoaderSafeSystemTable
-        implements SystemTable
+public class ClassLoaderSafeConnectorPageSourceProvider
+        implements ConnectorPageSourceProvider
 {
-    private final SystemTable delegate;
+    private final ConnectorPageSourceProvider delegate;
     private final ClassLoader classLoader;
 
-    public ClassLoaderSafeSystemTable(SystemTable delegate, ClassLoader classLoader)
+    public ClassLoaderSafeConnectorPageSourceProvider(ConnectorPageSourceProvider delegate, ClassLoader classLoader)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.classLoader = requireNonNull(classLoader, "classLoader is null");
     }
 
     @Override
-    public Distribution getDistribution()
+    public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<ColumnHandle> columns)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getDistribution();
+            return delegate.createPageSource(transaction, session, split, table, columns);
         }
     }
 
     @Override
-    public ConnectorTableMetadata getTableMetadata()
+    public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<ColumnHandle> columns, TupleDomain<ColumnHandle> dynamicFilter)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getTableMetadata();
-        }
-    }
-
-    @Override
-    public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
-    {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.cursor(transactionHandle, session, constraint);
-        }
-    }
-
-    @Override
-    public ConnectorPageSource pageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
-    {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.pageSource(transactionHandle, session, constraint);
+            return delegate.createPageSource(transaction, session, split, table, columns, dynamicFilter);
         }
     }
 }

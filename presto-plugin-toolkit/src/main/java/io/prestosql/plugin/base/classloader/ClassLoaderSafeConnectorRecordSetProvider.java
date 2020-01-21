@@ -11,43 +11,47 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.spi.connector.classloader;
+
+package io.prestosql.plugin.base.classloader;
 
 import io.prestosql.spi.classloader.ThreadContextClassLoader;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorRecordSetProvider;
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorSplitManager;
-import io.prestosql.spi.connector.ConnectorSplitSource;
+import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.RecordSet;
+
+import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
-public final class ClassLoaderSafeConnectorSplitManager
-        implements ConnectorSplitManager
+public class ClassLoaderSafeConnectorRecordSetProvider
+        implements ConnectorRecordSetProvider
 {
-    private final ConnectorSplitManager delegate;
+    private final ConnectorRecordSetProvider delegate;
     private final ClassLoader classLoader;
 
-    public ClassLoaderSafeConnectorSplitManager(ConnectorSplitManager delegate, ClassLoader classLoader)
+    public ClassLoaderSafeConnectorRecordSetProvider(ConnectorRecordSetProvider delegate, ClassLoader classLoader)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.classLoader = requireNonNull(classLoader, "classLoader is null");
     }
 
     @Override
-    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layout, SplitSchedulingStrategy splitSchedulingStrategy)
+    public RecordSet getRecordSet(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<? extends ColumnHandle> columns)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getSplits(transactionHandle, session, layout, splitSchedulingStrategy);
+            return new ClassLoaderSafeRecordSet(delegate.getRecordSet(transaction, session, split, table, columns), classLoader);
         }
     }
 
     @Override
-    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableHandle table, SplitSchedulingStrategy splitSchedulingStrategy)
+    public RecordSet getRecordSet(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getSplits(transaction, session, table, splitSchedulingStrategy);
+            return new ClassLoaderSafeRecordSet(delegate.getRecordSet(transactionHandle, session, split, columns), classLoader);
         }
     }
 }
