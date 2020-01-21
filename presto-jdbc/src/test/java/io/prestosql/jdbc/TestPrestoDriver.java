@@ -63,6 +63,7 @@ import static io.prestosql.execution.QueryState.FAILED;
 import static io.prestosql.execution.QueryState.RUNNING;
 import static java.lang.Float.POSITIVE_INFINITY;
 import static java.lang.String.format;
+import static java.math.BigDecimal.ROUND_HALF_UP;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -213,8 +214,8 @@ public class TestPrestoDriver
 
                     assertEquals(rs.getObject(5), true);
                     assertEquals(rs.getObject("_boolean"), true);
-                    assertEquals(rs.getBoolean(5), true);
-                    assertEquals(rs.getBoolean("_boolean"), true);
+                    assertTrue(rs.getBoolean(5));
+                    assertTrue(rs.getBoolean("_boolean"));
                     assertEquals(rs.getByte("_boolean"), 1);
                     assertEquals(rs.getShort("_boolean"), 1);
                     assertEquals(rs.getInt("_boolean"), 1);
@@ -233,6 +234,8 @@ public class TestPrestoDriver
                     assertEquals(rs.getBigDecimal("_decimal_short"), new BigDecimal("1234567890.1234567"));
                     assertEquals(rs.getBigDecimal(7, 1), new BigDecimal("1234567890.1"));
                     assertEquals(rs.getBigDecimal("_decimal_short", 1), new BigDecimal("1234567890.1"));
+                    assertEquals(rs.getBigDecimal(7).setScale(1, ROUND_HALF_UP), new BigDecimal("1234567890.1"));
+                    assertEquals(rs.getBigDecimal("_decimal_short").setScale(1, ROUND_HALF_UP), new BigDecimal("1234567890.1"));
 
                     assertEquals(rs.getObject(8), new BigDecimal(".12345678901234567890123456789012345678"));
                     assertEquals(rs.getObject("_decimal_long"), new BigDecimal(".12345678901234567890123456789012345678"));
@@ -240,6 +243,8 @@ public class TestPrestoDriver
                     assertEquals(rs.getBigDecimal("_decimal_long"), new BigDecimal(".12345678901234567890123456789012345678"));
                     assertEquals(rs.getBigDecimal(8, 6), new BigDecimal(".123457"));
                     assertEquals(rs.getBigDecimal("_decimal_long", 6), new BigDecimal(".123457"));
+                    assertEquals(rs.getBigDecimal(8).setScale(6, ROUND_HALF_UP), new BigDecimal(".123457"));
+                    assertEquals(rs.getBigDecimal("_decimal_long").setScale(6, ROUND_HALF_UP), new BigDecimal(".123457"));
 
                     assertInstanceOf(rs.getObject(9), byte[].class);
                     assertInstanceOf(rs.getObject("_hll"), byte[].class);
