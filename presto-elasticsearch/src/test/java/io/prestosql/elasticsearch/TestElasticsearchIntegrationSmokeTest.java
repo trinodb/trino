@@ -64,7 +64,7 @@ public class TestElasticsearchIntegrationSmokeTest
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
-        throw new SkipException("requirement not met");
+        throw new SkipException("ElasticSearch connector does not support column default values");
     }
 
     @Test

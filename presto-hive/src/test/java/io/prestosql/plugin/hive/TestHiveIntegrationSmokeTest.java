@@ -162,7 +162,7 @@ public class TestHiveIntegrationSmokeTest
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
-        throw new SkipException("requirement not met");
+        throw new SkipException("Hive connector does not support column default values");
     }
 
     @Test

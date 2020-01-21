@@ -65,7 +65,7 @@ public class TestMongoIntegrationSmokeTest
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
-        throw new SkipException("requirement not met");
+        throw new SkipException("Mongo connector does not support column default values");
     }
 
     @Test

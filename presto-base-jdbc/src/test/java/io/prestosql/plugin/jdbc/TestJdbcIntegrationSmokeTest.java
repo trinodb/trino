@@ -20,7 +20,6 @@ import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.sql.JdbcSqlExecutor;
 import io.prestosql.testing.sql.TestTable;
-import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -48,7 +47,14 @@ public class TestJdbcIntegrationSmokeTest
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
-        throw new SkipException("requirement not met");
+        return new TestTable(
+                getSqlExecutor(),
+                "tpch.table",
+                "(col_required BIGINT NOT NULL," +
+                        "col_nullable BIGINT," +
+                        "col_default BIGINT DEFAULT 43," +
+                        "col_nonnull_default BIGINT NOT NULL DEFAULT 42," +
+                        "col_required2 BIGINT NOT NULL)");
     }
 
     @Test

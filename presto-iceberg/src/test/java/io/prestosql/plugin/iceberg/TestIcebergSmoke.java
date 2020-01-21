@@ -51,7 +51,7 @@ public class TestIcebergSmoke
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
-        throw new SkipException("requirement not met");
+        throw new SkipException("Iceberg connector does not support column default values");
     }
 
     @Test

@@ -60,6 +60,6 @@ public class TestRedisIntegrationSmokeTest
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
-        throw new SkipException("requirement not met");
+        throw new SkipException("Redis connector does not support column default values");
     }
 }

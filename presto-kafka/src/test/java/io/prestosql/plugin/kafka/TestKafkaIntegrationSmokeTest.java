@@ -51,7 +51,7 @@ public class TestKafkaIntegrationSmokeTest
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
-        throw new SkipException("requirement not met");
+        throw new SkipException("Kafka connector does not support column default values");
     }
 
     @AfterClass(alwaysRun = true)

@@ -390,7 +390,7 @@ public class LogicalPlanner
         String catalogName = insert.getTarget().getCatalogName().getCatalogName();
         TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, catalogName, tableMetadata.getMetadata());
 
-        List<String> visibleTableColumnNames = insertedColumns.stream()
+        List<String> insertedTableColumnNames = insertedColumns.stream()
                 .map(ColumnMetadata::getName)
                 .collect(toImmutableList());
 
@@ -399,10 +399,10 @@ public class LogicalPlanner
                 plan,
                 new InsertReference(
                         insert.getTarget(),
-                        visibleTableColumnNames.stream()
+                        insertedTableColumnNames.stream()
                                 .map(columns::get)
                                 .collect(toImmutableList())),
-                visibleTableColumnNames,
+                insertedTableColumnNames,
                 insert.getNewTableLayout(),
                 statisticsMetadata);
     }

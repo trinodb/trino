@@ -44,7 +44,7 @@ public class TestKuduIntegrationSmoke
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
-        throw new SkipException("requirement not met");
+        throw new SkipException("Kudu connector does not support column default values");
     }
 
     /**

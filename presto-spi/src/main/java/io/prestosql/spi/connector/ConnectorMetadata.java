@@ -400,18 +400,26 @@ public interface ConnectorMetadata
      */
     default void cleanupQuery(ConnectorSession session) {}
 
-    /**
-     * Begin insert query
-     */
     @Deprecated
     default ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support inserts");
     }
 
+    /**
+     * Begin insert query
+     */
     default ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns)
     {
         return beginInsert(session, tableHandle);
+    }
+
+    /**
+     * @return whether connector handles missing columns during insert
+     */
+    default boolean supportsMissingColumnsOnInsert()
+    {
+        return false;
     }
 
     /**
@@ -794,13 +802,5 @@ public interface ConnectorMetadata
     default Optional<ConnectorTableHandle> applySample(ConnectorSession session, ConnectorTableHandle handle, SampleType sampleType, double sampleRatio)
     {
         return Optional.empty();
-    }
-
-    /**
-     * @return whether connector handles missing column in it's PageSink during InsertOperation
-     */
-    default boolean supportsMissingColumnsOnInsert()
-    {
-        return false;
     }
 }

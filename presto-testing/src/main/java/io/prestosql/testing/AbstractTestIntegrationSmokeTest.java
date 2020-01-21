@@ -71,8 +71,6 @@ public abstract class AbstractTestIntegrationSmokeTest
         assertQuery("SELECT MAX(comment) FROM orders");
     }
 
-    protected abstract TestTable createTableWithDefaultColumns();
-
     @Test
     public void testColumnsInReverseOrder()
     {
@@ -310,6 +308,8 @@ public abstract class AbstractTestIntegrationSmokeTest
             assertQuery("SELECT * FROM " + testTable.getName(), "VALUES (1, null, 43, 42, 10), (2, 3, 4, 5, 6), (7, null, null, 8, 9), (13, null, 43, 42, 12)");
         }
     }
+
+    protected abstract TestTable createTableWithDefaultColumns();
 
     private static String randomNameSuffix()
     {
