@@ -7,7 +7,7 @@
     <parent>
         <artifactId>presto-root</artifactId>
         <groupId>io.prestosql</groupId>
-        <version>327-SNAPSHOT</version>
+        <version>329-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-influx</artifactId>
