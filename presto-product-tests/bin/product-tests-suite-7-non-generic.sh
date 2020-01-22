@@ -36,9 +36,9 @@ presto-product-tests/bin/run_on_docker.sh \
     -g storage_formats,cli,hdfs_impersonation \
     || suite_exit_code=1
 
-presto-product-tests/bin/run_on_docker.sh \
-    two-mixed-hives \
-    -g two_hives \
+presto-product-tests-launcher/target/presto-product-tests-launcher-*-executable.jar test run \
+    --environment two-mixed-hives \
+    -- -g two_hives \
     || suite_exit_code=1
 
 presto-product-tests/bin/run_on_docker.sh \
