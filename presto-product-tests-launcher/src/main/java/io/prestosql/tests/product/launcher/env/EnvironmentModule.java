@@ -27,6 +27,7 @@ import io.prestosql.tests.product.launcher.env.environment.SinglenodeHiveImperso
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeKerberosHdfsImpersonation;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeKerberosHdfsNoImpersonation;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeKerberosHiveImpersonation;
+import io.prestosql.tests.product.launcher.env.environment.TwoMixedHives;
 
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static java.util.Objects.requireNonNull;
@@ -62,6 +63,8 @@ public final class EnvironmentModule
         environments.addBinding("singlenode-kerberos-hdfs-no-impersonation").to(SinglenodeKerberosHdfsNoImpersonation.class);
 
         environments.addBinding("multinode").to(Multinode.class);
+
+        environments.addBinding("two-mixed-hives").to(TwoMixedHives.class);
 
         environments.addBinding("singlenode-cassandra").to(SinglenodeCassandra.class);
 
