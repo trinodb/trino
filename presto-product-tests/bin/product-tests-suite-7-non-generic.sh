@@ -41,9 +41,9 @@ presto-product-tests-launcher/target/presto-product-tests-launcher-*-executable.
     -- -g two_hives \
     || suite_exit_code=1
 
-presto-product-tests/bin/run_on_docker.sh \
-    two-kerberos-hives \
-    -g two_hives \
+presto-product-tests-launcher/target/presto-product-tests-launcher-*-executable.jar test run \
+    --environment two-kerberos-hives \
+    -- -g two_hives \
     || suite_exit_code=1
 
 env HADOOP_BASE_IMAGE="not-used" TESTS_HIVE_VERSION_MAJOR="3" TESTS_HIVE_VERSION_MINOR="1" \
