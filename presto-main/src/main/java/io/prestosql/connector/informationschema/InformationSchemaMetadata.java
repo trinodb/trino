@@ -220,7 +220,7 @@ public class InformationSchemaMetadata
         InformationSchemaTable informationSchemaTable = table.getTable();
         Set<QualifiedTablePrefix> prefixes = calculatePrefixesWithSchemaName(session, constraint.getSummary(), constraint.predicate());
         Set<QualifiedTablePrefix> tablePrefixes = calculatePrefixesWithTableName(informationSchemaTable, session, prefixes, constraint.getSummary(), constraint.predicate());
-        // in case of high number of prefixes it is better to populate all data and then filter
+
         if (tablePrefixes.size() <= MAX_PREFIXES_COUNT) {
             prefixes = tablePrefixes;
         }
