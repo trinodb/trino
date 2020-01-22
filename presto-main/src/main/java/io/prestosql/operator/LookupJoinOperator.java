@@ -542,7 +542,7 @@ public class LookupJoinOperator
         {
             verifyNotNull(probe);
 
-            while (!yieldSignal.isSet()) {
+            do {
                 if (probe.getPosition() >= 0) {
                     if (!joinCurrentPosition(lookupSource, yieldSignal)) {
                         break;
@@ -561,6 +561,7 @@ public class LookupJoinOperator
                 statisticsCounter.recordProbe(joinSourcePositions);
                 joinSourcePositions = 0;
             }
+            while (!yieldSignal.isSet());
         }
 
         private void restoreProbe(Page probePage, long joinPosition, boolean currentProbePositionProducedRow, int joinSourcePositions, SpillInfoSnapshot spillInfoSnapshot)
