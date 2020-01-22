@@ -214,11 +214,6 @@ public final class MetadataUtil
 
     public static class TableMetadataBuilder
     {
-        public static TableMetadataBuilder tableMetadataBuilder(String schemaName, String tableName)
-        {
-            return new TableMetadataBuilder(new SchemaTableName(schemaName, tableName));
-        }
-
         public static TableMetadataBuilder tableMetadataBuilder(SchemaTableName tableName)
         {
             return new TableMetadataBuilder(tableName);
