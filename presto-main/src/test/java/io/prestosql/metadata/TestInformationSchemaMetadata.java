@@ -57,6 +57,7 @@ import static io.prestosql.transaction.InMemoryTransactionManager.createTestTran
 import static java.util.Arrays.stream;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestInformationSchemaMetadata
 {
@@ -216,6 +217,35 @@ public class TestInformationSchemaMetadata
                 metadata.getTableHandle(session, new SchemaTableName("information_schema", "schemata"));
         Optional<ConstraintApplicationResult<ConnectorTableHandle>> result = metadata.applyFilter(session, tableHandle, constraint);
         assertFalse(result.isPresent());
+    }
+
+    @Test
+    public void testInformationSchemaPredicatePushdownForEmptyNames()
+    {
+        assertApplyFiterReturnsEmptyPrefixes(
+                new SchemaTableName("information_schema", "tables"),
+                ImmutableMap.of(
+                        new InformationSchemaColumnHandle("table_name"), new NullableValue(VARCHAR, Slices.utf8Slice(""))));
+
+        assertApplyFiterReturnsEmptyPrefixes(
+                new SchemaTableName("information_schema", "tables"),
+                ImmutableMap.of(
+                        new InformationSchemaColumnHandle("table_schema"), new NullableValue(VARCHAR, Slices.utf8Slice(""))));
+    }
+
+    private void assertApplyFiterReturnsEmptyPrefixes(SchemaTableName schemaTableName, Map<ColumnHandle, NullableValue> constraint)
+    {
+        TransactionId transactionId = transactionManager.beginTransaction(false);
+        ConnectorSession session = createNewSession(transactionId);
+        ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata);
+
+        InformationSchemaTableHandle tableHandle = (InformationSchemaTableHandle) metadata.getTableHandle(session, schemaTableName);
+
+        assertTrue(metadata.applyFilter(session, tableHandle, new Constraint(TupleDomain.fromFixedValues(constraint)))
+                .map(ConstraintApplicationResult::getHandle)
+                .map(InformationSchemaTableHandle.class::cast)
+                .orElseThrow(AssertionError::new)
+                .getPrefixes().isEmpty());
     }
 
     private static boolean testConstraint(Map<ColumnHandle, NullableValue> bindings)
