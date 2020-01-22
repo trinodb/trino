@@ -66,6 +66,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -73,20 +74,17 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.prestosql.execution.BasicStageStats.EMPTY_STAGE_STATS;
 import static io.prestosql.execution.QueryState.DISPATCHING;
-import static io.prestosql.execution.QueryState.FAILED;
 import static io.prestosql.execution.QueryState.FINISHED;
 import static io.prestosql.execution.QueryState.FINISHING;
 import static io.prestosql.execution.QueryState.PLANNING;
 import static io.prestosql.execution.QueryState.QUEUED;
 import static io.prestosql.execution.QueryState.RUNNING;
 import static io.prestosql.execution.QueryState.STARTING;
-import static io.prestosql.execution.QueryState.TERMINAL_QUERY_STATES;
 import static io.prestosql.execution.QueryState.WAITING_FOR_RESOURCES;
 import static io.prestosql.execution.StageInfo.getAllStages;
 import static io.prestosql.memory.LocalMemoryManager.GENERAL_POOL;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.USER_CANCELED;
-import static io.prestosql.util.Failures.toFailure;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -123,7 +121,7 @@ public class QueryStateMachine
 
     private final QueryStateTimer queryStateTimer;
 
-    private final StateMachine<QueryState> queryState;
+    private final StateMachine<QueryStateHolder> queryState;
     private final AtomicBoolean queryCleanedUp = new AtomicBoolean();
 
     private final AtomicReference<String> setCatalog = new AtomicReference<>();
@@ -142,8 +140,6 @@ public class QueryStateMachine
     private final AtomicBoolean clearTransactionId = new AtomicBoolean();
 
     private final AtomicReference<String> updateType = new AtomicReference<>();
-
-    private final AtomicReference<ExecutionFailureInfo> failureCause = new AtomicReference<>();
 
     private final AtomicReference<Set<Input>> inputs = new AtomicReference<>(ImmutableSet.of());
     private final AtomicReference<Optional<Output>> output = new AtomicReference<>(Optional.empty());
@@ -173,7 +169,7 @@ public class QueryStateMachine
         this.queryStateTimer = new QueryStateTimer(ticker);
         this.metadata = requireNonNull(metadata, "metadata is null");
 
-        this.queryState = new StateMachine<>("query " + query, executor, QUEUED, TERMINAL_QUERY_STATES);
+        this.queryState = new StateMachine<>("query " + query, executor, new QueryStateHolder(QUEUED), QueryStateHolder.terminalStates());
         this.finalQueryInfo = new StateMachine<>("finalQueryInfo-" + queryId, executor, Optional.empty());
         this.outputManager = new QueryOutputManager(executor);
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
@@ -242,6 +238,7 @@ public class QueryStateMachine
                 ticker,
                 metadata,
                 warningCollector);
+
         queryStateMachine.addStateChangeListener(newState -> QUERY_STATE_LOG.debug("Query %s is %s", queryStateMachine.getQueryId(), newState));
 
         return queryStateMachine;
@@ -317,15 +314,11 @@ public class QueryStateMachine
         // correct view of the query.  For example, building this
         // information, the query could finish, and the task states would
         // never be visible.
-        QueryState state = queryState.get();
+        QueryStateHolder state = queryState.get();
 
-        ErrorCode errorCode = null;
-        if (state == FAILED) {
-            ExecutionFailureInfo failureCause = this.failureCause.get();
-            if (failureCause != null) {
-                errorCode = failureCause.getErrorCode();
-            }
-        }
+        ErrorCode errorCode = state.getFailureInfo()
+                .map(ExecutionFailureInfo::getErrorCode)
+                .orElse(null);
 
         BasicStageStats stageStats = rootStage.orElse(EMPTY_STAGE_STATS);
         BasicQueryStats queryStats = new BasicQueryStats(
@@ -360,7 +353,7 @@ public class QueryStateMachine
                 queryId,
                 session.toSessionRepresentation(),
                 Optional.of(resourceGroup),
-                state,
+                state.getState(),
                 memoryPool.get().getId(),
                 stageStats.isScheduled(),
                 self,
@@ -378,16 +371,8 @@ public class QueryStateMachine
         // correct view of the query.  For example, building this
         // information, the query could finish, and the task states would
         // never be visible.
-        QueryState state = queryState.get();
-
-        ExecutionFailureInfo failureCause = null;
-        ErrorCode errorCode = null;
-        if (state == FAILED) {
-            failureCause = this.failureCause.get();
-            if (failureCause != null) {
-                errorCode = failureCause.getErrorCode();
-            }
-        }
+        QueryStateHolder state = queryState.get();
+        Optional<ExecutionFailureInfo> failureCause = state.getFailureInfo();
 
         boolean completeInfo = getAllStages(rootStage).stream().allMatch(StageInfo::isCompleteInfo);
         boolean isScheduled = isScheduled(rootStage);
@@ -395,7 +380,7 @@ public class QueryStateMachine
         return new QueryInfo(
                 queryId,
                 session.toSessionRepresentation(),
-                state,
+                state.getState(),
                 memoryPool.get().getId(),
                 isScheduled,
                 self,
@@ -415,8 +400,8 @@ public class QueryStateMachine
                 clearTransactionId.get(),
                 updateType.get(),
                 rootStage,
-                failureCause,
-                errorCode,
+                failureCause.orElse(null),
+                failureCause.map(ExecutionFailureInfo::getErrorCode).orElse(null),
                 warningCollector.getWarnings(),
                 inputs.get(),
                 output.get(),
@@ -716,7 +701,7 @@ public class QueryStateMachine
 
     public QueryState getQueryState()
     {
-        return queryState.get();
+        return queryState.get().getState();
     }
 
     public boolean isDone()
@@ -727,38 +712,38 @@ public class QueryStateMachine
     public boolean transitionToWaitingForResources()
     {
         queryStateTimer.beginWaitingForResources();
-        return queryState.setIf(WAITING_FOR_RESOURCES, currentState -> currentState.ordinal() < WAITING_FOR_RESOURCES.ordinal());
+        return setQueryStateIf(WAITING_FOR_RESOURCES, currentState -> currentState.ordinal() < WAITING_FOR_RESOURCES.ordinal());
     }
 
     public boolean transitionToDispatching()
     {
         queryStateTimer.beginDispatching();
-        return queryState.setIf(DISPATCHING, currentState -> currentState.ordinal() < DISPATCHING.ordinal());
+        return setQueryStateIf(DISPATCHING, currentState -> currentState.ordinal() < DISPATCHING.ordinal());
     }
 
     public boolean transitionToPlanning()
     {
         queryStateTimer.beginPlanning();
-        return queryState.setIf(PLANNING, currentState -> currentState.ordinal() < PLANNING.ordinal());
+        return setQueryStateIf(PLANNING, currentState -> currentState.ordinal() < PLANNING.ordinal());
     }
 
     public boolean transitionToStarting()
     {
         queryStateTimer.beginStarting();
-        return queryState.setIf(STARTING, currentState -> currentState.ordinal() < STARTING.ordinal());
+        return setQueryStateIf(STARTING, currentState -> currentState.ordinal() < STARTING.ordinal());
     }
 
     public boolean transitionToRunning()
     {
         queryStateTimer.beginRunning();
-        return queryState.setIf(RUNNING, currentState -> currentState.ordinal() < RUNNING.ordinal());
+        return setQueryStateIf(RUNNING, currentState -> currentState.ordinal() < RUNNING.ordinal());
     }
 
     public boolean transitionToFinishing()
     {
         queryStateTimer.beginFinishing();
 
-        if (!queryState.setIf(FINISHING, currentState -> currentState != FINISHING && !currentState.isDone())) {
+        if (!setQueryStateIf(FINISHING, currentState -> currentState != FINISHING && !currentState.isDone())) {
             return false;
         }
 
@@ -798,7 +783,7 @@ public class QueryStateMachine
     {
         queryStateTimer.endQuery();
 
-        queryState.setIf(FINISHED, currentState -> !currentState.isDone());
+        setQueryStateIf(FINISHED, currentState -> !currentState.isDone());
     }
 
     public boolean transitionToFailed(Throwable throwable)
@@ -806,15 +791,11 @@ public class QueryStateMachine
         cleanupQueryQuietly();
         queryStateTimer.endQuery();
 
-        // NOTE: The failure cause must be set before triggering the state change, so
-        // listeners can observe the exception. This is safe because the failure cause
-        // can only be observed if the transition to FAILED is successful.
-        requireNonNull(throwable, "throwable is null");
-        failureCause.compareAndSet(null, toFailure(throwable));
+        boolean failed = setQueryStateIf(QueryStateHolder.failedWithThrowable(throwable), currentState -> !currentState.isDone());
 
-        boolean failed = queryState.setIf(FAILED, currentState -> !currentState.isDone());
         if (failed) {
             QUERY_STATE_LOG.debug(throwable, "Query %s failed", queryId);
+
             session.getTransactionId().ifPresent(transactionId -> {
                 if (transactionManager.isAutoCommit(transactionId)) {
                     transactionManager.asyncAbort(transactionId);
@@ -839,9 +820,7 @@ public class QueryStateMachine
         // NOTE: The failure cause must be set before triggering the state change, so
         // listeners can observe the exception. This is safe because the failure cause
         // can only be observed if the transition to FAILED is successful.
-        failureCause.compareAndSet(null, toFailure(new PrestoException(USER_CANCELED, "Query was canceled")));
-
-        boolean canceled = queryState.setIf(FAILED, currentState -> !currentState.isDone());
+        boolean canceled = setQueryStateIf(QueryStateHolder.failedWithThrowable(new PrestoException(USER_CANCELED, "Query was canceled")), currentState -> !currentState.isDone());
         if (canceled) {
             session.getTransactionId().ifPresent(transactionId -> {
                 if (transactionManager.isAutoCommit(transactionId)) {
@@ -854,6 +833,16 @@ public class QueryStateMachine
         }
 
         return canceled;
+    }
+
+    private boolean setQueryStateIf(QueryState newState, Predicate<QueryState> predicate)
+    {
+        return queryState.setIf(new QueryStateHolder(newState), oldState -> predicate.test(oldState.getState()));
+    }
+
+    private boolean setQueryStateIf(QueryStateHolder newState, Predicate<QueryState> predicate)
+    {
+        return queryState.setIf(newState, oldState -> predicate.test(oldState.getState()));
     }
 
     private void cleanupQuery()
@@ -881,7 +870,7 @@ public class QueryStateMachine
      */
     public void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener)
     {
-        queryState.addStateChangeListener(stateChangeListener);
+        queryState.addStateChangeListener(state -> stateChangeListener.stateChanged(state.getState()));
     }
 
     /**
@@ -902,7 +891,7 @@ public class QueryStateMachine
 
     public ListenableFuture<QueryState> getStateChange(QueryState currentState)
     {
-        return queryState.getStateChange(currentState);
+        return Futures.transform(queryState.getStateChange(new QueryStateHolder(currentState)), QueryStateHolder::getState, directExecutor());
     }
 
     public void recordHeartbeat()
@@ -952,10 +941,7 @@ public class QueryStateMachine
 
     public Optional<ExecutionFailureInfo> getFailureInfo()
     {
-        if (queryState.get() != FAILED) {
-            return Optional.empty();
-        }
-        return Optional.ofNullable(this.failureCause.get());
+        return queryState.get().getFailureInfo();
     }
 
     public Optional<QueryInfo> getFinalQueryInfo()
