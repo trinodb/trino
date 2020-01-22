@@ -550,13 +550,11 @@ public class LookupJoinOperator
                             break;
                         }
                     }
+                    statisticsCounter.recordProbe(joinSourcePositions);
                 }
-                currentProbePositionProducedRow = false;
                 if (!advanceProbePosition(lookupSource)) {
                     break;
                 }
-                statisticsCounter.recordProbe(joinSourcePositions);
-                joinSourcePositions = 0;
             }
             while (!yieldSignal.isSet());
         }
@@ -640,6 +638,9 @@ public class LookupJoinOperator
 
             // update join position
             joinPosition = probe.getCurrentJoinPosition(lookupSource);
+            // reset row join state for next row
+            joinSourcePositions = 0;
+            currentProbePositionProducedRow = false;
             return true;
         }
 
