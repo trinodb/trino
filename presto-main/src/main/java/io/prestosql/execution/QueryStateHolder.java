@@ -37,9 +37,14 @@ public class QueryStateHolder
         this.failureInfo = Optional.of(failure);
     }
 
-    public QueryState getState()
+    public QueryState unwrap()
     {
         return state;
+    }
+
+    public boolean is(QueryState state)
+    {
+        return unwrap() == state;
     }
 
     public Optional<ExecutionFailureInfo> getFailureInfo()
@@ -74,8 +79,11 @@ public class QueryStateHolder
         return new QueryStateHolder(toFailure(throwable));
     }
 
-    public static Set<QueryStateHolder> terminalStates()
+    public static Set<QueryStateHolder> terminalStateHolders()
     {
-        return QueryState.TERMINAL_QUERY_STATES.stream().map(QueryStateHolder::new).collect(toImmutableSet());
+        return QueryState.TERMINAL_QUERY_STATES
+                .stream()
+                .map(QueryStateHolder::new)
+                .collect(toImmutableSet());
     }
 }

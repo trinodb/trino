@@ -66,6 +66,11 @@ public enum QueryState
         this.doneState = doneState;
     }
 
+    public QueryStateHolder wrap()
+    {
+        return new QueryStateHolder(this);
+    }
+
     /**
      * Is this a terminal state.
      */

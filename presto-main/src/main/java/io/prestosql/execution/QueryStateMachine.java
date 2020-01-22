@@ -169,7 +169,7 @@ public class QueryStateMachine
         this.queryStateTimer = new QueryStateTimer(ticker);
         this.metadata = requireNonNull(metadata, "metadata is null");
 
-        this.queryState = new StateMachine<>("query " + query, executor, new QueryStateHolder(QUEUED), QueryStateHolder.terminalStates());
+        this.queryState = new StateMachine<>("query " + query, executor, QUEUED.wrap(), QueryStateHolder.terminalStateHolders());
         this.finalQueryInfo = new StateMachine<>("finalQueryInfo-" + queryId, executor, Optional.empty());
         this.outputManager = new QueryOutputManager(executor);
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
@@ -353,7 +353,7 @@ public class QueryStateMachine
                 queryId,
                 session.toSessionRepresentation(),
                 Optional.of(resourceGroup),
-                state.getState(),
+                state.unwrap(),
                 memoryPool.get().getId(),
                 stageStats.isScheduled(),
                 self,
@@ -380,7 +380,7 @@ public class QueryStateMachine
         return new QueryInfo(
                 queryId,
                 session.toSessionRepresentation(),
-                state.getState(),
+                state.unwrap(),
                 memoryPool.get().getId(),
                 isScheduled,
                 self,
@@ -701,7 +701,7 @@ public class QueryStateMachine
 
     public QueryState getQueryState()
     {
-        return queryState.get().getState();
+        return queryState.get().unwrap();
     }
 
     public boolean isDone()
@@ -751,7 +751,7 @@ public class QueryStateMachine
             cleanupQuery();
         }
         catch (Exception e) {
-            transitionToFailed(e);
+            transitionToFailed(e, true);
             return true;
         }
 
@@ -769,7 +769,7 @@ public class QueryStateMachine
                 @Override
                 public void onFailure(Throwable throwable)
                 {
-                    transitionToFailed(throwable);
+                    transitionToFailed(throwable, true);
                 }
             }, directExecutor());
         }
@@ -788,61 +788,56 @@ public class QueryStateMachine
 
     public boolean transitionToFailed(Throwable throwable)
     {
+        return transitionToFailed(throwable, false);
+    }
+
+    private boolean transitionToFailed(Throwable throwable, boolean finishingFailed)
+    {
         cleanupQueryQuietly();
-        queryStateTimer.endQuery();
 
-        boolean failed = setQueryStateIf(QueryStateHolder.failedWithThrowable(throwable), currentState -> !currentState.isDone());
+        do {
+            QueryStateHolder observedState = queryState.get();
 
-        if (failed) {
-            QUERY_STATE_LOG.debug(throwable, "Query %s failed", queryId);
+            if (observedState.isDone()) {
+                QUERY_STATE_LOG.debug(throwable, "Query %s tried to fail while %s", queryId, observedState.unwrap());
+                return false;
+            }
 
-            session.getTransactionId().ifPresent(transactionId -> {
-                if (transactionManager.isAutoCommit(transactionId)) {
-                    transactionManager.asyncAbort(transactionId);
-                }
-                else {
-                    transactionManager.fail(transactionId);
-                }
-            });
-        }
-        else {
-            QUERY_STATE_LOG.debug(throwable, "Failure after query %s finished", queryId);
-        }
+            // When in FINISHING state allow to transition to FAILED state
+            // only when called from transitionToFinishing()
+            if (observedState.is(FINISHING) && !finishingFailed) {
+                QUERY_STATE_LOG.debug(throwable, "Query %s could not fail while FINISHING", queryId);
+                return false;
+            }
 
-        return failed;
+            if (queryState.compareAndSet(observedState, QueryStateHolder.failedWithThrowable(throwable))) {
+                // We will mark end of query when transitioned to FAILED
+                queryStateTimer.endQuery();
+
+                QUERY_STATE_LOG.debug(throwable, "Query %s failed", queryId);
+
+                session.getTransactionId().ifPresent(transactionId -> {
+                    if (transactionManager.isAutoCommit(transactionId)) {
+                        transactionManager.asyncAbort(transactionId);
+                    }
+                    else {
+                        transactionManager.fail(transactionId);
+                    }
+                });
+
+                return true;
+            }
+        } while (true);
     }
 
     public boolean transitionToCanceled()
     {
-        cleanupQueryQuietly();
-        queryStateTimer.endQuery();
-
-        // NOTE: The failure cause must be set before triggering the state change, so
-        // listeners can observe the exception. This is safe because the failure cause
-        // can only be observed if the transition to FAILED is successful.
-        boolean canceled = setQueryStateIf(QueryStateHolder.failedWithThrowable(new PrestoException(USER_CANCELED, "Query was canceled")), currentState -> !currentState.isDone());
-        if (canceled) {
-            session.getTransactionId().ifPresent(transactionId -> {
-                if (transactionManager.isAutoCommit(transactionId)) {
-                    transactionManager.asyncAbort(transactionId);
-                }
-                else {
-                    transactionManager.fail(transactionId);
-                }
-            });
-        }
-
-        return canceled;
+        return transitionToFailed(new PrestoException(USER_CANCELED, "Query was canceled"));
     }
 
     private boolean setQueryStateIf(QueryState newState, Predicate<QueryState> predicate)
     {
-        return queryState.setIf(new QueryStateHolder(newState), oldState -> predicate.test(oldState.getState()));
-    }
-
-    private boolean setQueryStateIf(QueryStateHolder newState, Predicate<QueryState> predicate)
-    {
-        return queryState.setIf(newState, oldState -> predicate.test(oldState.getState()));
+        return queryState.setIf(newState.wrap(), oldState -> predicate.test(oldState.unwrap()));
     }
 
     private void cleanupQuery()
@@ -870,7 +865,7 @@ public class QueryStateMachine
      */
     public void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener)
     {
-        queryState.addStateChangeListener(state -> stateChangeListener.stateChanged(state.getState()));
+        queryState.addStateChangeListener(state -> stateChangeListener.stateChanged(state.unwrap()));
     }
 
     /**
@@ -891,7 +886,7 @@ public class QueryStateMachine
 
     public ListenableFuture<QueryState> getStateChange(QueryState currentState)
     {
-        return Futures.transform(queryState.getStateChange(new QueryStateHolder(currentState)), QueryStateHolder::getState, directExecutor());
+        return Futures.transform(queryState.getStateChange(currentState.wrap()), QueryStateHolder::unwrap, directExecutor());
     }
 
     public void recordHeartbeat()
