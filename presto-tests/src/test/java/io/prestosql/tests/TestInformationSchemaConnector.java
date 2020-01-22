@@ -194,6 +194,13 @@ public class TestInformationSchemaConnector
                         .withGetColumnsCount(10000));
     }
 
+    @Test
+    public void testInformationForEmptyNames()
+    {
+        assertQuery("SELECT count(*) FROM test_catalog.information_schema.tables WHERE table_schema='tpch' AND table_name=''", "VALUES 0");
+        assertQuery("SELECT count(*) FROM test_catalog.information_schema.tables WHERE table_schema='' AND table_name='table'", "VALUES 0");
+    }
+
     @Override
     protected DistributedQueryRunner createQueryRunner()
             throws Exception

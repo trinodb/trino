@@ -212,7 +212,7 @@ public class InformationSchemaMetadata
             return ImmutableSet.of();
         }
 
-        Optional<Set<String>> catalogs = filterString(constraint.getSummary(), CATALOG_COLUMN_HANDLE);
+        Optional<Set<String>> catalogs = filterString(constraint.getSummary(), CATALOG_COLUMN_HANDLE).map(this::removeEmptyValues);
         if (catalogs.isPresent() && !catalogs.get().contains(table.getCatalogName())) {
             return ImmutableSet.of();
         }
@@ -242,7 +242,7 @@ public class InformationSchemaMetadata
             TupleDomain<ColumnHandle> constraint,
             Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate)
     {
-        Optional<Set<String>> schemas = filterString(constraint, SCHEMA_COLUMN_HANDLE);
+        Optional<Set<String>> schemas = filterString(constraint, SCHEMA_COLUMN_HANDLE).map(this::removeEmptyValues);
         if (schemas.isPresent()) {
             return schemas.get().stream()
                     .filter(this::isLowerCase)
@@ -270,7 +270,7 @@ public class InformationSchemaMetadata
     {
         Session session = ((FullConnectorSession) connectorSession).getSession();
 
-        Optional<Set<String>> tables = filterString(constraint, TABLE_NAME_COLUMN_HANDLE);
+        Optional<Set<String>> tables = filterString(constraint, TABLE_NAME_COLUMN_HANDLE).map(this::removeEmptyValues);
         if (tables.isPresent()) {
             return prefixes.stream()
                     .peek(prefix -> verify(!prefix.asQualifiedObjectName().isPresent()))
@@ -363,5 +363,12 @@ public class InformationSchemaMetadata
     private boolean isLowerCase(String value)
     {
         return value.toLowerCase(ENGLISH).equals(value);
+    }
+
+    private Set<String> removeEmptyValues(Set<String> values)
+    {
+        return values.stream()
+                .filter(value -> !value.isEmpty())
+                .collect(toImmutableSet());
     }
 }
