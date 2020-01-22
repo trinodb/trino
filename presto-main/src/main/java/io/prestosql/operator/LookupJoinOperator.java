@@ -299,9 +299,6 @@ public class LookupJoinOperator
             // create probe
             inputPageSpillEpoch = spillInfoSnapshot.getSpillEpoch();
             probe = joinProbeFactory.createJoinProbe(page);
-
-            // initialize to invalid join position to force output code to advance the cursors
-            joinPosition = -1;
         }
 
         private boolean tryFetchLookupSourceProvider()
