@@ -24,6 +24,7 @@ import javax.inject.Inject;
 
 import java.time.Duration;
 
+import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static io.prestosql.tests.product.launcher.testcontainers.TestcontainersUtil.exposePort;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
@@ -31,7 +32,7 @@ import static org.testcontainers.containers.BindMode.READ_ONLY;
 public final class Hadoop
         implements EnvironmentExtender
 {
-    public static final String CONTAINER_PRESTO_HIVE_PROPERTIES = "/docker/presto-product-tests/conf/presto/etc/catalog/hive.properties";
+    public static final String CONTAINER_PRESTO_HIVE_PROPERTIES = CONTAINER_PRESTO_ETC + "/catalog/hive.properties";
 
     private final DockerFiles dockerFiles;
 

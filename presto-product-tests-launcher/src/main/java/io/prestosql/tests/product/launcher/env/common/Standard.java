@@ -35,8 +35,9 @@ import static org.testcontainers.containers.BindMode.READ_ONLY;
 public final class Standard
         implements EnvironmentExtender
 {
-    public static final String CONTAINER_PRESTO_JVM_CONFIG = "/docker/presto-product-tests/conf/presto/etc/jvm.config";
-    public static final String CONTAINER_PRESTO_CONFIG_PROPERTIES = "/docker/presto-product-tests/conf/presto/etc/config.properties";
+    public static final String CONTAINER_PRESTO_ETC = "/docker/presto-product-tests/conf/presto/etc";
+    public static final String CONTAINER_PRESTO_JVM_CONFIG = CONTAINER_PRESTO_ETC + "/jvm.config";
+    public static final String CONTAINER_PRESTO_CONFIG_PROPERTIES = CONTAINER_PRESTO_ETC + "/config.properties";
     public static final String CONTAINER_TEMPTO_PROFILE_CONFIG = "/docker/presto-product-tests/conf/tempto/tempto-configuration-profile-config-file.yaml";
 
     private final PathResolver pathResolver;
