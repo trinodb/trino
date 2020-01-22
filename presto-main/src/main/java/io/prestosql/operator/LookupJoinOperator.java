@@ -524,7 +524,6 @@ public class LookupJoinOperator
                             (oldValue, newValue) -> {
                                 throw new IllegalStateException(format("Partition %s is already spilled", currentRowPartition));
                             });
-                    joinSourcePositions = 0;
                     Page unprocessed = pageTail(currentPage, currentPosition + 1);
                     addInput(unprocessed, spillInfoSnapshot);
                 }
