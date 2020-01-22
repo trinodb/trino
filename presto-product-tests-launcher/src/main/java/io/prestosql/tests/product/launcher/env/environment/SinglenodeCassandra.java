@@ -26,6 +26,7 @@ import javax.inject.Inject;
 
 import java.time.Duration;
 
+import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static io.prestosql.tests.product.launcher.testcontainers.TestcontainersUtil.exposePort;
 import static java.util.Objects.requireNonNull;
 
@@ -34,7 +35,7 @@ public class SinglenodeCassandra
 {
     private final DockerFiles dockerFiles;
 
-    public static final String CONTAINER_PRESTO_CASSANDRA_PROPERTIES = "/docker/presto-product-tests/conf/presto/etc/catalog/cassandra.properties";
+    public static final String CONTAINER_PRESTO_CASSANDRA_PROPERTIES = CONTAINER_PRESTO_ETC + "/catalog/cassandra.properties";
     public static final int CASSANDRA_PORT = 9042;
 
     @Inject
