@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import io.prestosql.client.NodeVersion;
 import io.prestosql.metadata.InternalNode;
-import io.prestosql.metadata.MetadataUtil.TableMetadataBuilder;
 import io.prestosql.plugin.raptor.legacy.NodeSupplier;
 import io.prestosql.plugin.raptor.legacy.RaptorColumnHandle;
 import io.prestosql.plugin.raptor.legacy.RaptorConnectorId;
@@ -33,6 +32,7 @@ import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.testing.TestingNodeManager;
 import io.prestosql.type.InternalTypeManager;
@@ -58,6 +58,7 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
+import static io.prestosql.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.prestosql.plugin.raptor.legacy.metadata.DatabaseShardManager.shardIndexTable;
 import static io.prestosql.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static io.prestosql.plugin.raptor.legacy.metadata.TestDatabaseShardManager.shardInfo;
@@ -73,7 +74,7 @@ import static org.testng.Assert.assertEquals;
 @Test(singleThreaded = true)
 public class TestRaptorSplitManager
 {
-    private static final ConnectorTableMetadata TEST_TABLE = TableMetadataBuilder.tableMetadataBuilder("demo", "test_table")
+    private static final ConnectorTableMetadata TEST_TABLE = tableMetadataBuilder(new SchemaTableName("demo", "test_table"))
             .column("ds", createVarcharType(10))
             .column("foo", createVarcharType(10))
             .column("bar", BigintType.BIGINT)
