@@ -25,9 +25,9 @@ presto-product-tests-launcher/target/presto-product-tests-launcher-*-executable.
     || suite_exit_code=1
 
 # Does not use hadoop
-presto-product-tests/bin/run_on_docker.sh \
-    singlenode-sqlserver \
-    -g sqlserver \
+presto-product-tests-launcher/target/presto-product-tests-launcher-*-executable.jar test run \
+    --environment singlenode-sqlserver \
+    -- -g sqlserver \
     || suite_exit_code=1
 
 # Environment not set up on CDH. (TODO run on HDP 2.6 and HDP 3.1)
