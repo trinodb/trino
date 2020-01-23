@@ -353,6 +353,7 @@ public class SqlQueryExecution
             }
             catch (Throwable e) {
                 fail(e);
+                stateMachine.updateQueryInfo(Optional.empty());
                 throwIfInstanceOf(e, Error.class);
             }
         }
@@ -522,9 +523,7 @@ public class SqlQueryExecution
     {
         requireNonNull(cause, "cause is null");
 
-        if (stateMachine.transitionToFailed(cause)) {
-            stateMachine.updateQueryInfo(Optional.empty());
-        }
+        stateMachine.transitionToFailed(cause);
     }
 
     @Override
