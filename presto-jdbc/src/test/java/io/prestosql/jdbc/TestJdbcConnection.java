@@ -346,10 +346,12 @@ public class TestJdbcConnection
     private static Map<String, String> listExtraCredentials(Connection connection)
             throws SQLException
     {
-        ResultSet rs = connection.createStatement().executeQuery("SELECT * FROM system.test.extra_credentials");
         ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-        while (rs.next()) {
-            builder.put(rs.getString("name"), rs.getString("value"));
+        try (Statement statement = connection.createStatement();
+                ResultSet rs = statement.executeQuery("SELECT * FROM system.test.extra_credentials")) {
+            while (rs.next()) {
+                builder.put(rs.getString("name"), rs.getString("value"));
+            }
         }
         return builder.build();
     }
@@ -379,7 +381,7 @@ public class TestJdbcConnection
     {
         private static final SchemaTableName NAME = new SchemaTableName("test", "extra_credentials");
 
-        public static final ConnectorTableMetadata METADATA = tableMetadataBuilder(NAME)
+        private static final ConnectorTableMetadata METADATA = tableMetadataBuilder(NAME)
                 .column("name", createUnboundedVarcharType())
                 .column("value", createUnboundedVarcharType())
                 .build();
