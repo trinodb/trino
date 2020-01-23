@@ -24,6 +24,7 @@ import io.prestosql.tests.product.launcher.env.environment.Singlenode;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeCassandra;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeHdfsImpersonation;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeHiveImpersonation;
+import io.prestosql.tests.product.launcher.env.environment.SinglenodeKafka;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeKerberosHdfsImpersonation;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeKerberosHdfsNoImpersonation;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeKerberosHiveImpersonation;
@@ -69,6 +70,7 @@ public final class EnvironmentModule
         environments.addBinding("two-mixed-hives").to(TwoMixedHives.class);
 
         environments.addBinding("singlenode-cassandra").to(SinglenodeCassandra.class);
+        environments.addBinding("singlenode-kafka").to(SinglenodeKafka.class);
 
         binder.install(additionalEnvironments);
     }
