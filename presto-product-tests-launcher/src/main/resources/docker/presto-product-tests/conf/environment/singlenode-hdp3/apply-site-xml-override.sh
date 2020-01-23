@@ -19,6 +19,6 @@ test -f "${site_xml}" || fail "${site_xml} does not exist or is not a file"
 test -f "${overrides}" || fail "${overrides} does not exist or is not a file"
 test ! -e "${site_xml_new}" || fail "${site_xml_new} already exists"
 
-xsltproc --param override-path "'${overrides}'" /docker/presto-product-tests/conf/docker/files/site-override.xslt "${site_xml}" > "${site_xml_new}"
+xsltproc --param override-path "'${overrides}'" "${BASH_SOURCE%/*}/site-override.xslt" "${site_xml}" > "${site_xml_new}"
 cat "${site_xml_new}" > "${site_xml}" # Preserve file owner & permissions
 rm "${site_xml_new}"
