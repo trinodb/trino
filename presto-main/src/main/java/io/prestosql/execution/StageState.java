@@ -13,11 +13,7 @@
  */
 package io.prestosql.execution;
 
-import java.util.Set;
-import java.util.stream.Stream;
-
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 public enum StageState
 {
@@ -60,8 +56,6 @@ public enum StageState
      * Stage execution failed.
      */
     FAILED(true, true);
-
-    public static final Set<StageState> TERMINAL_STAGE_STATES = Stream.of(StageState.values()).filter(StageState::isDone).collect(toImmutableSet());
 
     private final boolean doneState;
     private final boolean failureState;

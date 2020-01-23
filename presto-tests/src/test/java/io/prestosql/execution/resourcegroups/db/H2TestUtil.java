@@ -33,10 +33,11 @@ import io.prestosql.testing.DistributedQueryRunner;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
+import java.util.stream.Stream;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.json.JsonCodec.listJsonCodec;
 import static io.prestosql.execution.QueryState.RUNNING;
-import static io.prestosql.execution.QueryState.TERMINAL_QUERY_STATES;
 import static io.prestosql.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static io.prestosql.spi.resourcegroups.QueryType.EXPLAIN;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
@@ -81,7 +82,7 @@ final class H2TestUtil
     public static void waitForCompleteQueryCount(DistributedQueryRunner queryRunner, int expectedCount)
             throws InterruptedException
     {
-        waitForQueryCount(queryRunner, TERMINAL_QUERY_STATES, expectedCount);
+        waitForQueryCount(queryRunner, Stream.of(QueryState.values()).filter(QueryState::isDone).collect(toImmutableSet()), expectedCount);
     }
 
     public static void waitForRunningQueryCount(DistributedQueryRunner queryRunner, int expectedCount)

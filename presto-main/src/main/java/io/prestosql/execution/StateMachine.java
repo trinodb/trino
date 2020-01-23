@@ -48,7 +48,7 @@ public class StateMachine<T>
     private final Executor executor;
     private final Object lock = new Object();
 
-    private final Predicate<T> isTerminalState;
+    private final Predicate<T> terminalStatePredicate;
 
     @GuardedBy("lock")
     private volatile T state;
@@ -83,7 +83,7 @@ public class StateMachine<T>
         this.name = requireNonNull(name, "name is null");
         this.executor = requireNonNull(executor, "executor is null");
         this.state = requireNonNull(initialState, "initialState is null");
-        this.isTerminalState = state -> ImmutableSet.of(terminalStates).contains(state);
+        this.terminalStatePredicate = ImmutableSet.copyOf(terminalStates)::contains;
     }
 
     /**
@@ -92,14 +92,14 @@ public class StateMachine<T>
      * @param name name of this state machine to use in debug statements
      * @param executor executor for firing state change events; must not be a same thread executor
      * @param initialState the initial state
-     * @param isTerminalState predicate to test for terminal state
+     * @param terminalStatePredicate predicate to test for terminal state
      */
-    public StateMachine(String name, Executor executor, T initialState, Predicate<T> isTerminalState)
+    public StateMachine(String name, Executor executor, T initialState, Predicate<T> terminalStatePredicate)
     {
         this.name = requireNonNull(name, "name is null");
         this.executor = requireNonNull(executor, "executor is null");
         this.state = requireNonNull(initialState, "initialState is null");
-        this.isTerminalState = requireNonNull(isTerminalState, "isTerminalState is null");
+        this.terminalStatePredicate = requireNonNull(terminalStatePredicate, "terminalStatePredicate is null");
     }
 
     // state changes are atomic and state is volatile, so a direct read is safe here
@@ -128,7 +128,7 @@ public class StateMachine<T>
                 return state;
             }
 
-            checkState(!isTerminalState(state), "%s cannot transition from %s to %s", name, state, newState);
+            checkState(!terminalStatePredicate.test(state), "%s cannot transition from %s to %s", name, state, newState);
 
             oldState = state;
             state = newState;
@@ -137,7 +137,7 @@ public class StateMachine<T>
             stateChangeListeners = ImmutableList.copyOf(this.stateChangeListeners);
 
             // if we are now in a terminal state, free the listeners since this will be the last notification
-            if (isTerminalState(state)) {
+            if (terminalStatePredicate.test(state)) {
                 this.stateChangeListeners.clear();
             }
         }
@@ -202,7 +202,7 @@ public class StateMachine<T>
                 return false;
             }
 
-            checkState(!isTerminalState(state), "%s cannot transition from %s to %s", name, state, newState);
+            checkState(!terminalStatePredicate.test(state), "%s cannot transition from %s to %s", name, state, newState);
 
             state = newState;
 
@@ -210,7 +210,7 @@ public class StateMachine<T>
             stateChangeListeners = ImmutableList.copyOf(this.stateChangeListeners);
 
             // if we are now in a terminal state, free the listeners since this will be the last notification
-            if (isTerminalState(state)) {
+            if (terminalStatePredicate.test(state)) {
                 this.stateChangeListeners.clear();
             }
         }
@@ -259,7 +259,7 @@ public class StateMachine<T>
 
         synchronized (lock) {
             // return a completed future if the state has already changed, or we are in a terminal state
-            if (!state.equals(currentState) || isTerminalState(state)) {
+            if (!state.equals(currentState) || terminalStatePredicate.test(state)) {
                 return immediateFuture(state);
             }
 
@@ -282,7 +282,7 @@ public class StateMachine<T>
         T currentState;
         synchronized (lock) {
             currentState = state;
-            inTerminalState = isTerminalState(currentState);
+            inTerminalState = terminalStatePredicate.test(currentState);
             if (!inTerminalState) {
                 stateChangeListeners.add(stateChangeListener);
             }
@@ -296,7 +296,7 @@ public class StateMachine<T>
     @VisibleForTesting
     boolean isTerminalState(T state)
     {
-        return isTerminalState.test(state);
+        return terminalStatePredicate.test(state);
     }
 
     @VisibleForTesting
