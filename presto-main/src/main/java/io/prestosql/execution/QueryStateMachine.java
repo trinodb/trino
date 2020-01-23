@@ -70,10 +70,13 @@ import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.prestosql.execution.BasicStageStats.EMPTY_STAGE_STATS;
 import static io.prestosql.execution.QueryState.DISPATCHING;
+import static io.prestosql.execution.QueryState.FAILED;
 import static io.prestosql.execution.QueryState.FINISHED;
 import static io.prestosql.execution.QueryState.FINISHING;
 import static io.prestosql.execution.QueryState.PLANNING;
@@ -85,6 +88,7 @@ import static io.prestosql.execution.StageInfo.getAllStages;
 import static io.prestosql.memory.LocalMemoryManager.GENERAL_POOL;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.USER_CANCELED;
+import static io.prestosql.util.Failures.toFailure;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -121,7 +125,7 @@ public class QueryStateMachine
 
     private final QueryStateTimer queryStateTimer;
 
-    private final StateMachine<QueryStateHolder> queryState;
+    private final StateMachine<QueryStateWrapper> queryState;
     private final AtomicBoolean queryCleanedUp = new AtomicBoolean();
 
     private final AtomicReference<String> setCatalog = new AtomicReference<>();
@@ -169,7 +173,7 @@ public class QueryStateMachine
         this.queryStateTimer = new QueryStateTimer(ticker);
         this.metadata = requireNonNull(metadata, "metadata is null");
 
-        this.queryState = new StateMachine<>("query " + query, executor, QUEUED.wrap(), QueryStateHolder.terminalStateHolders());
+        this.queryState = new StateMachine<>("query " + query, executor, QueryStateWrapper.wrap(QUEUED), QueryStateWrapper::isDone);
         this.finalQueryInfo = new StateMachine<>("finalQueryInfo-" + queryId, executor, Optional.empty());
         this.outputManager = new QueryOutputManager(executor);
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
@@ -238,7 +242,6 @@ public class QueryStateMachine
                 ticker,
                 metadata,
                 warningCollector);
-
         queryStateMachine.addStateChangeListener(newState -> QUERY_STATE_LOG.debug("Query %s is %s", queryStateMachine.getQueryId(), newState));
 
         return queryStateMachine;
@@ -314,7 +317,7 @@ public class QueryStateMachine
         // correct view of the query.  For example, building this
         // information, the query could finish, and the task states would
         // never be visible.
-        QueryStateHolder state = queryState.get();
+        QueryStateWrapper state = queryState.get();
 
         ErrorCode errorCode = state.getFailureInfo()
                 .map(ExecutionFailureInfo::getErrorCode)
@@ -371,7 +374,7 @@ public class QueryStateMachine
         // correct view of the query.  For example, building this
         // information, the query could finish, and the task states would
         // never be visible.
-        QueryStateHolder state = queryState.get();
+        QueryStateWrapper state = queryState.get();
         Optional<ExecutionFailureInfo> failureCause = state.getFailureInfo();
 
         boolean completeInfo = getAllStages(rootStage).stream().allMatch(StageInfo::isCompleteInfo);
@@ -796,7 +799,7 @@ public class QueryStateMachine
         cleanupQueryQuietly();
 
         do {
-            QueryStateHolder observedState = queryState.get();
+            QueryStateWrapper observedState = queryState.get();
 
             if (observedState.isDone()) {
                 QUERY_STATE_LOG.debug(throwable, "Query %s tried to fail while %s", queryId, observedState.unwrap());
@@ -810,12 +813,10 @@ public class QueryStateMachine
                 return false;
             }
 
-            if (queryState.compareAndSet(observedState, QueryStateHolder.failedWithThrowable(throwable))) {
+            if (queryState.compareAndSet(observedState, QueryStateWrapper.failedWithThrowable(throwable))) {
                 // We will mark end of query when transitioned to FAILED
                 queryStateTimer.endQuery();
-
                 QUERY_STATE_LOG.debug(throwable, "Query %s failed", queryId);
-
                 session.getTransactionId().ifPresent(transactionId -> {
                     if (transactionManager.isAutoCommit(transactionId)) {
                         transactionManager.asyncAbort(transactionId);
@@ -837,7 +838,7 @@ public class QueryStateMachine
 
     private boolean setQueryStateIf(QueryState newState, Predicate<QueryState> predicate)
     {
-        return queryState.setIf(newState.wrap(), oldState -> predicate.test(oldState.unwrap()));
+        return queryState.setIf(QueryStateWrapper.wrap(newState), currentState -> predicate.test(currentState.unwrap()));
     }
 
     private void cleanupQuery()
@@ -886,7 +887,12 @@ public class QueryStateMachine
 
     public ListenableFuture<QueryState> getStateChange(QueryState currentState)
     {
-        return Futures.transform(queryState.getStateChange(currentState.wrap()), QueryStateHolder::unwrap, directExecutor());
+        if (currentState.isDone()) {
+            verify(queryState.get().state == currentState, "Invalid currentState");
+            return immediateFuture(queryState.get().state);
+        }
+
+        return Futures.transform(queryState.getStateChange(QueryStateWrapper.wrap(currentState)), QueryStateWrapper::unwrap, directExecutor());
     }
 
     public void recordHeartbeat()
@@ -1144,6 +1150,56 @@ public class QueryStateMachine
             for (Consumer<QueryOutputInfo> outputInfoListener : outputInfoListeners) {
                 executor.execute(() -> outputInfoListener.accept(queryOutputInfo));
             }
+        }
+    }
+
+    private static final class QueryStateWrapper
+    {
+        private final QueryState state;
+        private final Optional<ExecutionFailureInfo> failureInfo;
+
+        QueryStateWrapper(QueryState state)
+        {
+            checkArgument(state != FAILED, "state could not be FAILED");
+            this.state = requireNonNull(state, "state is null");
+            this.failureInfo = Optional.empty();
+        }
+
+        QueryStateWrapper(ExecutionFailureInfo failure)
+        {
+            this.state = QueryState.FAILED;
+            this.failureInfo = Optional.of(failure);
+        }
+
+        QueryState unwrap()
+        {
+            return state;
+        }
+
+        boolean is(QueryState state)
+        {
+            return unwrap() == state;
+        }
+
+        Optional<ExecutionFailureInfo> getFailureInfo()
+        {
+            return failureInfo;
+        }
+
+        boolean isDone()
+        {
+            return state.isDone();
+        }
+
+        static QueryStateWrapper failedWithThrowable(Throwable throwable)
+        {
+            requireNonNull(throwable, "throwable is null");
+            return new QueryStateWrapper(toFailure(throwable));
+        }
+
+        static QueryStateWrapper wrap(QueryState state)
+        {
+            return new QueryStateWrapper(state);
         }
     }
 }

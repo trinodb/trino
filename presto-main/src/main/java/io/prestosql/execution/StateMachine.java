@@ -25,7 +25,6 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
@@ -48,7 +47,8 @@ public class StateMachine<T>
     private final String name;
     private final Executor executor;
     private final Object lock = new Object();
-    private final Set<T> terminalStates;
+
+    private final Predicate<T> isTerminalState;
 
     @GuardedBy("lock")
     private volatile T state;
@@ -83,7 +83,23 @@ public class StateMachine<T>
         this.name = requireNonNull(name, "name is null");
         this.executor = requireNonNull(executor, "executor is null");
         this.state = requireNonNull(initialState, "initialState is null");
-        this.terminalStates = ImmutableSet.copyOf(requireNonNull(terminalStates, "terminalStates is null"));
+        this.isTerminalState = state -> ImmutableSet.of(terminalStates).contains(state);
+    }
+
+    /**
+     * Creates a state machine with the specified initial state and terminal state predicate.
+     *
+     * @param name name of this state machine to use in debug statements
+     * @param executor executor for firing state change events; must not be a same thread executor
+     * @param initialState the initial state
+     * @param isTerminalState predicate to test for terminal state
+     */
+    public StateMachine(String name, Executor executor, T initialState, Predicate<T> isTerminalState)
+    {
+        this.name = requireNonNull(name, "name is null");
+        this.executor = requireNonNull(executor, "executor is null");
+        this.state = requireNonNull(initialState, "initialState is null");
+        this.isTerminalState = requireNonNull(isTerminalState, "isTerminalState is null");
     }
 
     // state changes are atomic and state is volatile, so a direct read is safe here
@@ -280,7 +296,7 @@ public class StateMachine<T>
     @VisibleForTesting
     boolean isTerminalState(T state)
     {
-        return terminalStates.contains(state);
+        return isTerminalState.test(state);
     }
 
     @VisibleForTesting
