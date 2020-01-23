@@ -29,8 +29,10 @@ import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.Maps.immutableEntry;
 import static io.prestosql.jdbc.AbstractConnectionProperty.checkedPredicate;
 import static java.util.Collections.unmodifiableMap;
+import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
 
@@ -296,8 +298,6 @@ final class ConnectionProperties
     private static class ExtraCredentials
             extends AbstractConnectionProperty<Map<String, String>>
     {
-        private static final CharMatcher PRINTABLE_ASCII = CharMatcher.inRange((char) 0x21, (char) 0x7E);
-
         public ExtraCredentials()
         {
             super("extraCredentials", NOT_REQUIRED, ALLOWED, ExtraCredentials::parseExtraCredentials);
@@ -307,23 +307,46 @@ final class ConnectionProperties
         // E.g., `jdbc:presto://example.net:8080/?extraCredentials=abc:xyz;foo:bar` will create credentials `abc=xyz` and `foo=bar`
         public static Map<String, String> parseExtraCredentials(String extraCredentialString)
         {
-            return Splitter.on(';').splitToList(extraCredentialString).stream()
-                    .map(ExtraCredentials::parseSingleCredential)
-                    .collect(toImmutableMap(entry -> entry.get(0), entry -> entry.get(1)));
+            return new MapPropertyParser("extraCredentials").parse(extraCredentialString);
+        }
+    }
+
+    private static class MapPropertyParser
+    {
+        private static final CharMatcher PRINTABLE_ASCII = CharMatcher.inRange((char) 0x21, (char) 0x7E);
+        private static final Splitter MAP_ENTRIES_SPLITTER = Splitter.on(';');
+        private static final Splitter MAP_ENTRY_SPLITTER = Splitter.on(':');
+
+        private final String mapName;
+
+        private MapPropertyParser(String mapName)
+        {
+            this.mapName = requireNonNull(mapName, "mapName is null");
         }
 
-        public static List<String> parseSingleCredential(String credential)
+        /**
+         * Parses map in a form: key1:value1;key2:value2
+         */
+        public Map<String, String> parse(String map)
         {
-            List<String> nameValue = Splitter.on(':').limit(2).splitToList(credential);
-            checkArgument(nameValue.size() == 2, "Malformed credential: %s", credential);
-            String name = nameValue.get(0);
-            String value = nameValue.get(1);
-            checkArgument(!name.isEmpty(), "Credential name is empty");
-            checkArgument(!value.isEmpty(), "Credential value is empty");
+            return MAP_ENTRIES_SPLITTER.splitToList(map).stream()
+                    .map(this::parseEntry)
+                    .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+        }
 
-            checkArgument(PRINTABLE_ASCII.matchesAllOf(name), "Credential name contains spaces or is not printable ASCII: %s", name);
-            checkArgument(PRINTABLE_ASCII.matchesAllOf(value), "Credential value contains spaces or is not printable ASCII: %s", name);
-            return nameValue;
+        private Map.Entry<String, String> parseEntry(String credential)
+        {
+            List<String> keyValue = MAP_ENTRY_SPLITTER.limit(2).splitToList(credential);
+            checkArgument(keyValue.size() == 2, "Malformed %s: %s", mapName, credential);
+            String key = keyValue.get(0);
+            String value = keyValue.get(1);
+            checkArgument(!key.isEmpty(), "%s key is empty", mapName);
+            checkArgument(!value.isEmpty(), "%s key is empty", mapName);
+
+            checkArgument(PRINTABLE_ASCII.matchesAllOf(key), "%s key '%s' contains spaces or is not printable ASCII", mapName, key);
+            // do not log value as it may contain sensitive information
+            checkArgument(PRINTABLE_ASCII.matchesAllOf(value), "%s value for key '%s' contains spaces or is not printable ASCII", mapName, key);
+            return immutableEntry(key, value);
         }
     }
 }
