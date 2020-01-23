@@ -61,6 +61,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<File> KERBEROS_CREDENTIAL_CACHE_PATH = new KerberosCredentialCachePath();
     public static final ConnectionProperty<String> ACCESS_TOKEN = new AccessToken();
     public static final ConnectionProperty<Map<String, String>> EXTRA_CREDENTIALS = new ExtraCredentials();
+    public static final ConnectionProperty<Map<String, String>> SESSION_PROPERTIES = new SessionProperties();
 
     private static final Set<ConnectionProperty<?>> ALL_PROPERTIES = ImmutableSet.<ConnectionProperty<?>>builder()
             .add(USER)
@@ -83,6 +84,7 @@ final class ConnectionProperties
             .add(KERBEROS_CREDENTIAL_CACHE_PATH)
             .add(ACCESS_TOKEN)
             .add(EXTRA_CREDENTIALS)
+            .add(SESSION_PROPERTIES)
             .build();
 
     private static final Map<String, ConnectionProperty<?>> KEY_LOOKUP = unmodifiableMap(ALL_PROPERTIES.stream()
@@ -345,6 +347,28 @@ final class ConnectionProperties
         public static Map<String, String> parseExtraCredentials(String extraCredentialString)
         {
             return new MapPropertyParser("extraCredentials").parse(extraCredentialString);
+        }
+    }
+
+    private static class SessionProperties
+            extends AbstractConnectionProperty<Map<String, String>>
+    {
+        private static final Splitter NAME_PARTS_SPLITTER = Splitter.on('.');
+
+        public SessionProperties()
+        {
+            super("sessionProperties", NOT_REQUIRED, ALLOWED, SessionProperties::parseSessionProperties);
+        }
+
+        // Session properties consists of a list of session property name value pairs.
+        // E.g., `jdbc:presto://example.net:8080/?sessionProperties=abc:xyz;catalog.foo:bar` will create session properties `abc=xyz` and `catalog.foo=bar`
+        public static Map<String, String> parseSessionProperties(String sessionPropertiesString)
+        {
+            Map<String, String> sessionProperties = new MapPropertyParser("sessionProperties").parse(sessionPropertiesString);
+            for (String sessionPropertyName : sessionProperties.keySet()) {
+                checkArgument(NAME_PARTS_SPLITTER.splitToList(sessionPropertyName).size() <= 2, "Malformed session property name: %s", sessionPropertyName);
+            }
+            return sessionProperties;
         }
     }
 
