@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.airlift.log.Logging;
+import io.prestosql.client.ClientSelectedRole;
 import io.prestosql.plugin.hive.HiveHadoop2Plugin;
 import io.prestosql.server.testing.TestingPrestoServer;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -41,6 +42,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
@@ -301,6 +303,37 @@ public class TestJdbcConnection
         }
     }
 
+    @Test
+    public void testRole()
+            throws SQLException
+    {
+        testRole("admin", new ClientSelectedRole(ClientSelectedRole.Type.ROLE, Optional.of("admin")), ImmutableSet.of("public", "admin"));
+    }
+
+    @Test
+    public void testAllRole()
+            throws SQLException
+    {
+        testRole("all", new ClientSelectedRole(ClientSelectedRole.Type.ALL, Optional.empty()), ImmutableSet.of("public"));
+    }
+
+    @Test
+    public void testNoneRole()
+            throws SQLException
+    {
+        testRole("none", new ClientSelectedRole(ClientSelectedRole.Type.NONE, Optional.empty()), ImmutableSet.of("public"));
+    }
+
+    private void testRole(String roleParameterValue, ClientSelectedRole clientSelectedRole, ImmutableSet<String> currentRoles)
+            throws SQLException
+    {
+        try (Connection connection = createConnection("roles=hive:" + roleParameterValue)) {
+            PrestoConnection prestoConnection = connection.unwrap(PrestoConnection.class);
+            assertEquals(prestoConnection.getRoles(), ImmutableMap.of("hive", clientSelectedRole));
+            assertEquals(listCurrentRoles(connection), currentRoles);
+        }
+    }
+
     private Connection createConnection()
             throws SQLException
     {
@@ -351,6 +384,19 @@ public class TestJdbcConnection
                 ResultSet rs = statement.executeQuery("SELECT * FROM system.test.extra_credentials")) {
             while (rs.next()) {
                 builder.put(rs.getString("name"), rs.getString("value"));
+            }
+        }
+        return builder.build();
+    }
+
+    private static Set<String> listCurrentRoles(Connection connection)
+            throws SQLException
+    {
+        ImmutableSet.Builder<String> builder = ImmutableSet.builder();
+        try (Statement statement = connection.createStatement();
+                ResultSet rs = statement.executeQuery("SHOW CURRENT ROLES")) {
+            while (rs.next()) {
+                builder.add(rs.getString("role"));
             }
         }
         return builder.build();

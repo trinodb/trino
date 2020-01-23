@@ -107,6 +107,7 @@ public class PrestoConnection
         this.extraCredentials = uri.getExtraCredentials();
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
 
+        roles.putAll(uri.getRoles());
         timeZoneId.set(ZoneId.systemDefault());
         locale.set(Locale.getDefault());
     }
