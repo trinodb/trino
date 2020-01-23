@@ -14,11 +14,11 @@
 package io.prestosql.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorMetadata;
+import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.connector.classloader.ClassLoaderSafeConnectorMetadata;
-import io.prestosql.spi.connector.classloader.ClassLoaderSafeConnectorSplitManager;
 import io.prestosql.testing.TestingConnectorContext;
 import org.testng.annotations.Test;
 

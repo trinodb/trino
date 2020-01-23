@@ -34,6 +34,13 @@ public class GenericDataType
         this.arguments = requireNonNull(arguments, "arguments is null");
     }
 
+    public GenericDataType(Optional<NodeLocation> location, Identifier name, List<DataTypeParameter> arguments)
+    {
+        super(location);
+        this.name = requireNonNull(name, "name is null");
+        this.arguments = requireNonNull(arguments, "arguments is null");
+    }
+
     public Identifier getName()
     {
         return name;

@@ -320,7 +320,7 @@ public class OrcReader
                     createOrcColumn(path, "key", orcType.getFieldTypeIndex(0), types, orcDataSourceId),
                     createOrcColumn(path, "value", orcType.getFieldTypeIndex(1), types, orcDataSourceId));
         }
-        return new OrcColumn(path, columnId, fieldName, orcType.getOrcTypeKind(), orcDataSourceId, nestedColumns);
+        return new OrcColumn(path, columnId, fieldName, orcType.getOrcTypeKind(), orcDataSourceId, nestedColumns, orcType.getAttributes());
     }
 
     /**

@@ -1270,7 +1270,7 @@ public final class GeoFunctions
         OGCGeometry leftGeometry = deserialize(left);
         OGCGeometry rightGeometry = deserialize(right);
         verifySameSpatialReference(leftGeometry, rightGeometry);
-        return leftGeometry.equals(rightGeometry);
+        return leftGeometry.Equals(rightGeometry);
     }
 
     @SqlNullable

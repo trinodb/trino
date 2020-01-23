@@ -21,6 +21,8 @@ import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.sql.TestTable;
+import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -32,7 +34,6 @@ import java.util.List;
 
 import static com.datastax.driver.core.utils.Bytes.toRawHexString;
 import static com.google.common.primitives.Ints.toByteArray;
-import static io.airlift.tpch.TpchTable.ORDERS;
 import static io.prestosql.plugin.cassandra.CassandraQueryRunner.createCassandraQueryRunner;
 import static io.prestosql.plugin.cassandra.CassandraQueryRunner.createCassandraSession;
 import static io.prestosql.plugin.cassandra.CassandraTestingUtils.TABLE_ALL_TYPES;
@@ -56,6 +57,7 @@ import static io.prestosql.testing.MaterializedResult.DEFAULT_PRECISION;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.QueryAssertions.assertContains;
 import static io.prestosql.testing.QueryAssertions.assertContainsEventually;
+import static io.prestosql.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toList;
@@ -78,9 +80,8 @@ public class TestCassandraIntegrationSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        CassandraServer server = new CassandraServer();
-        this.server = server;
-        this.session = server.getSession();
+        server = new CassandraServer();
+        session = server.getSession();
         createTestTables(session, KEYSPACE, DATE_TIME_LOCAL);
         return createCassandraQueryRunner(server, ORDERS);
     }
@@ -113,6 +114,12 @@ public class TestCassandraIntegrationSmokeTest
     protected boolean canDropSchema()
     {
         return false;
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        throw new SkipException("Cassandra connector does not support column default values");
     }
 
     @Test

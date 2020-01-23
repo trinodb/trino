@@ -31,9 +31,9 @@ import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.ResultWithQueryId;
 import org.testng.annotations.Test;
 
-import static io.airlift.tpch.TpchTable.getTables;
 import static io.prestosql.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.prestosql.tpch.TpchTable.getTables;
 import static org.testng.Assert.assertEquals;
 
 public class TestHiveDistributedJoinQueriesWithDynamicFiltering

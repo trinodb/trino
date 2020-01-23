@@ -36,14 +36,6 @@ import static org.testng.Assert.assertTrue;
 public abstract class AbstractTestJoinQueries
         extends AbstractTestQueryFramework
 {
-    @Deprecated
-    protected AbstractTestJoinQueries(QueryRunnerSupplier supplier)
-    {
-        super(supplier);
-    }
-
-    protected AbstractTestJoinQueries() {}
-
     @Test
     public void testJoinWithMultiFieldGroupBy()
     {

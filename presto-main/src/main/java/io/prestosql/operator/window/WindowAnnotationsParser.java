@@ -61,6 +61,7 @@ public final class WindowAnnotationsParser
                 argumentTypes,
                 false);
 
-        return new SqlWindowFunction(new ReflectionWindowFunctionSupplier<>(signature, clazz));
+        boolean deprecated = clazz.getAnnotationsByType(Deprecated.class).length > 0;
+        return new SqlWindowFunction(new ReflectionWindowFunctionSupplier<>(signature, clazz), deprecated);
     }
 }

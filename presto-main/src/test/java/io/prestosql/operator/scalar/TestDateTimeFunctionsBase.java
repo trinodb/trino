@@ -13,8 +13,6 @@
  */
 package io.prestosql.operator.scalar;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.spi.StandardErrorCode;
 import io.prestosql.spi.type.BigintType;
@@ -47,7 +45,6 @@ import java.time.OffsetTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.Locale;
-import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static io.prestosql.SystemSessionProperties.isLegacyTimestamp;
@@ -71,7 +68,6 @@ import static io.prestosql.util.DateTimeZoneIndex.getDateTimeZone;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.time.temporal.ChronoField.MILLI_OF_SECOND;
-import static java.util.Locale.US;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
@@ -161,7 +157,12 @@ public abstract class TestDateTimeFunctionsBase
     private void assertCurrentDateAtInstant(TimeZoneKey timeZoneKey, long instant)
     {
         long expectedDays = epochDaysInZone(timeZoneKey, instant);
-        long dateTimeCalculation = currentDate(new TestingConnectorSession("test", Optional.empty(), Optional.empty(), timeZoneKey, US, instant, ImmutableList.of(), ImmutableMap.of(), isLegacyTimestamp(session)));
+        TestingConnectorSession connectorSession = TestingConnectorSession.builder()
+                .setStartTime(instant)
+                .setTimeZoneKey(timeZoneKey)
+                .setLegacyTimestamp(isLegacyTimestamp(session))
+                .build();
+        long dateTimeCalculation = currentDate(connectorSession);
         assertEquals(dateTimeCalculation, expectedDays);
     }
 
@@ -724,13 +725,13 @@ public abstract class TestDateTimeFunctionsBase
     @Test
     public void testParseDatetime()
     {
-        assertFunction("parse_datetime('1960/01/22 03:04', 'YYYY/MM/DD HH:mm')",
+        assertFunction("parse_datetime('1960/01/22 03:04', 'yyyy/MM/dd HH:mm')",
                 TIMESTAMP_WITH_TIME_ZONE,
                 toTimestampWithTimeZone(new DateTime(1960, 1, 22, 3, 4, 0, 0, DATE_TIME_ZONE)));
-        assertFunction("parse_datetime('1960/01/22 03:04 Asia/Oral', 'YYYY/MM/DD HH:mm ZZZZZ')",
+        assertFunction("parse_datetime('1960/01/22 03:04 Asia/Oral', 'yyyy/MM/dd HH:mm ZZZZZ')",
                 TIMESTAMP_WITH_TIME_ZONE,
                 toTimestampWithTimeZone(new DateTime(1960, 1, 22, 3, 4, 0, 0, DateTimeZone.forID("Asia/Oral"))));
-        assertFunction("parse_datetime('1960/01/22 03:04 +0500', 'YYYY/MM/DD HH:mm Z')",
+        assertFunction("parse_datetime('1960/01/22 03:04 +0500', 'yyyy/MM/dd HH:mm Z')",
                 TIMESTAMP_WITH_TIME_ZONE,
                 toTimestampWithTimeZone(new DateTime(1960, 1, 22, 3, 4, 0, 0, DateTimeZone.forOffsetHours(5))));
     }
@@ -1264,7 +1265,7 @@ public abstract class TestDateTimeFunctionsBase
 
     private SqlTime toTime(LocalTime time)
     {
-        return sqlTimeOf(time, session);
+        return sqlTimeOf(time, session.toConnectorSession());
     }
 
     private static SqlTimeWithTimeZone toTimeWithTimeZone(OffsetTime offsetTime)

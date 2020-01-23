@@ -33,6 +33,7 @@ import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
 
@@ -128,7 +129,7 @@ public class ElasticsearchMetadata
         result.add(BuiltinColumns.SCORE.getMetadata());
 
         for (IndexMetadata.Field field : metadata.getSchema().getFields()) {
-            Type type = toPrestoType(field.getType());
+            Type type = toPrestoType(field);
             if (type == null) {
                 continue;
             }
@@ -162,9 +163,19 @@ public class ElasticsearchMetadata
         return false;
     }
 
-    private Type toPrestoType(IndexMetadata.Type type)
+    private Type toPrestoType(IndexMetadata.Field metaDataField)
     {
-        if (type instanceof PrimitiveType) {
+        return toPrestoType(metaDataField, metaDataField.isArray());
+    }
+
+    private Type toPrestoType(IndexMetadata.Field metaDataField, boolean isArray)
+    {
+        IndexMetadata.Type type = metaDataField.getType();
+        if (isArray) {
+            Type elementType = toPrestoType(metaDataField, false);
+            return new ArrayType(elementType);
+        }
+        else if (type instanceof PrimitiveType) {
             switch (((PrimitiveType) type).getName()) {
                 case "float":
                     return REAL;
@@ -198,7 +209,7 @@ public class ElasticsearchMetadata
             ObjectType objectType = (ObjectType) type;
 
             List<RowType.Field> fields = objectType.getFields().stream()
-                    .map(field -> RowType.field(field.getName(), toPrestoType(field.getType())))
+                    .map(field -> RowType.field(field.getName(), toPrestoType(field)))
                     .collect(toImmutableList());
 
             return RowType.from(fields);

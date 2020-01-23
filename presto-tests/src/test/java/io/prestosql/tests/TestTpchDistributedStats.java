@@ -14,11 +14,11 @@
 package io.prestosql.tests;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.tpch.TpchTable;
 import io.prestosql.plugin.tpch.ColumnNaming;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.statistics.StatisticsAssertion;
 import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
+import io.prestosql.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;

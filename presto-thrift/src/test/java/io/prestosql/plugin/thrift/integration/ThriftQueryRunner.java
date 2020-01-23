@@ -29,6 +29,7 @@ import io.prestosql.Session;
 import io.prestosql.cost.StatsCalculator;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
+import io.prestosql.metadata.SqlFunction;
 import io.prestosql.plugin.thrift.ThriftPlugin;
 import io.prestosql.plugin.thrift.server.ThriftIndexedTpchService;
 import io.prestosql.plugin.thrift.server.ThriftTpchService;
@@ -260,6 +261,12 @@ public final class ThriftQueryRunner
         public void installPlugin(Plugin plugin)
         {
             source.installPlugin(plugin);
+        }
+
+        @Override
+        public void addFunctions(List<? extends SqlFunction> functions)
+        {
+            source.getMetadata().addFunctions(functions);
         }
 
         @Override

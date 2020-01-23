@@ -191,34 +191,8 @@ public final class MetadataUtil
         return metadata.getTableHandle(session, name).isPresent();
     }
 
-    public static class SchemaMetadataBuilder
-    {
-        public static SchemaMetadataBuilder schemaMetadataBuilder()
-        {
-            return new SchemaMetadataBuilder();
-        }
-
-        private final ImmutableMap.Builder<SchemaTableName, ConnectorTableMetadata> tables = ImmutableMap.builder();
-
-        public SchemaMetadataBuilder table(ConnectorTableMetadata tableMetadata)
-        {
-            tables.put(tableMetadata.getTable(), tableMetadata);
-            return this;
-        }
-
-        public ImmutableMap<SchemaTableName, ConnectorTableMetadata> build()
-        {
-            return tables.build();
-        }
-    }
-
     public static class TableMetadataBuilder
     {
-        public static TableMetadataBuilder tableMetadataBuilder(String schemaName, String tableName)
-        {
-            return new TableMetadataBuilder(new SchemaTableName(schemaName, tableName));
-        }
-
         public static TableMetadataBuilder tableMetadataBuilder(SchemaTableName tableName)
         {
             return new TableMetadataBuilder(tableName);

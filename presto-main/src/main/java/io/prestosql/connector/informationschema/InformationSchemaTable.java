@@ -56,8 +56,8 @@ public enum InformationSchemaTable
                     .column("column_default", createUnboundedVarcharType())
                     .column("is_nullable", createUnboundedVarcharType())
                     .column("data_type", createUnboundedVarcharType())
-                    .column("comment", createUnboundedVarcharType())
-                    .column("extra_info", createUnboundedVarcharType())
+                    .hiddenColumn("comment", createUnboundedVarcharType()) // non-standard
+                    .hiddenColumn("extra_info", createUnboundedVarcharType()) // non-standard
                     .hiddenColumn("column_comment", createUnboundedVarcharType()) // MySQL compatible
                     .build();
             return;

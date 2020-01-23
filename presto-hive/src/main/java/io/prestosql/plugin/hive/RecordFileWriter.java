@@ -53,7 +53,7 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
 
 public class RecordFileWriter
-        implements HiveFileWriter
+        implements FileWriter
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(RecordFileWriter.class).instanceSize();
 
@@ -69,6 +69,7 @@ public class RecordFileWriter
     private final long estimatedWriterSystemMemoryUsage;
 
     private boolean committed;
+    private long finalWrittenBytes = -1;
 
     public RecordFileWriter(
             Path path,
@@ -121,8 +122,13 @@ public class RecordFileWriter
         }
 
         if (committed) {
+            if (finalWrittenBytes != -1) {
+                return finalWrittenBytes;
+            }
+
             try {
-                return path.getFileSystem(conf).getFileStatus(path).getLen();
+                finalWrittenBytes = path.getFileSystem(conf).getFileStatus(path).getLen();
+                return finalWrittenBytes;
             }
             catch (IOException e) {
                 throw new UncheckedIOException(e);

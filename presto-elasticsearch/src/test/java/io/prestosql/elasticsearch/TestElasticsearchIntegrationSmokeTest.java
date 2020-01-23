@@ -15,16 +15,16 @@ package io.prestosql.elasticsearch;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.Closer;
-import io.airlift.tpch.TpchTable;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.sql.TestTable;
+import io.prestosql.tpch.TpchTable;
 import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest;
 import org.elasticsearch.common.xcontent.XContentType;
+import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -44,36 +44,27 @@ import static org.elasticsearch.client.Requests.refreshRequest;
 public class TestElasticsearchIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private final EmbeddedElasticsearchNode embeddedElasticsearchNode;
+    private EmbeddedElasticsearchNode embeddedElasticsearchNode;
 
-    private QueryRunner queryRunner;
-
-    public TestElasticsearchIntegrationSmokeTest()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        this(createEmbeddedElasticsearchNode());
-    }
-
-    public TestElasticsearchIntegrationSmokeTest(EmbeddedElasticsearchNode embeddedElasticsearchNode)
-    {
-        super(() -> createElasticsearchQueryRunner(embeddedElasticsearchNode, TpchTable.getTables()));
-        this.embeddedElasticsearchNode = embeddedElasticsearchNode;
-    }
-
-    @BeforeClass
-    public void setUp()
-    {
-        queryRunner = getQueryRunner();
+        embeddedElasticsearchNode = createEmbeddedElasticsearchNode();
+        return createElasticsearchQueryRunner(embeddedElasticsearchNode, TpchTable.getTables());
     }
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
             throws IOException
     {
-        try (Closer closer = Closer.create()) {
-            closer.register(queryRunner);
-            closer.register(embeddedElasticsearchNode);
-        }
-        queryRunner = null;
+        embeddedElasticsearchNode.close();
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        throw new SkipException("ElasticSearch connector does not support column default values");
     }
 
     @Test
@@ -128,6 +119,142 @@ public class TestElasticsearchIntegrationSmokeTest
         assertQuery(
                 "SELECT name, fields.fielda, fields.fieldb FROM data",
                 "VALUES ('nestfield', 32, 'valueb')");
+    }
+
+    @Test
+    public void testArrayFields()
+    {
+        String indexName = "test_arrays";
+
+        embeddedElasticsearchNode.getClient()
+                .admin()
+                .indices()
+                .prepareCreate(indexName)
+                .addMapping("doc", "" +
+                                "{" +
+                                "  \"_meta\": {" +
+                                "    \"presto\": {" +
+                                "      \"a\": {" +
+                                "        \"b\": {" +
+                                "          \"y\": {" +
+                                "            \"isArray\": true" +
+                                "          }" +
+                                "        }" +
+                                "      }," +
+                                "      \"c\": {" +
+                                "        \"f\": {" +
+                                "          \"g\": {" +
+                                "            \"isArray\": true" +
+                                "          }," +
+                                "          \"isArray\": true" +
+                                "        }" +
+                                "      }," +
+                                "      \"j\": {" +
+                                "        \"isArray\": true" +
+                                "      }," +
+                                "      \"k\": {" +
+                                "        \"isArray\": true" +
+                                "      }" +
+                                "    }" +
+                                "  }," +
+                                "  \"properties\":{" +
+                                "    \"a\": {" +
+                                "      \"type\": \"object\"," +
+                                "      \"properties\": {" +
+                                "        \"b\": {" +
+                                "          \"type\": \"object\"," +
+                                "          \"properties\": {" +
+                                "            \"x\": {" +
+                                "              \"type\": \"integer\"" +
+                                "            }," +
+                                "            \"y\": {" +
+                                "              \"type\": \"keyword\"" +
+                                "            }" +
+                                "          } " +
+                                "        }" +
+                                "      }" +
+                                "    }," +
+                                "    \"c\": {" +
+                                "      \"type\": \"object\"," +
+                                "      \"properties\": {" +
+                                "        \"d\": {" +
+                                "          \"type\": \"keyword\"" +
+                                "        }," +
+                                "        \"e\": {" +
+                                "          \"type\": \"keyword\"" +
+                                "        }," +
+                                "        \"f\": {" +
+                                "          \"type\": \"object\"," +
+                                "          \"properties\": {" +
+                                "            \"g\": {" +
+                                "              \"type\": \"integer\"" +
+                                "            }," +
+                                "            \"h\": {" +
+                                "              \"type\": \"integer\"" +
+                                "            }" +
+                                "          } " +
+                                "        }" +
+                                "      }" +
+                                "    }," +
+                                "    \"i\": {" +
+                                "      \"type\": \"long\"" +
+                                "    }," +
+                                "    \"j\": {" +
+                                "      \"type\": \"long\"" +
+                                "    }," +
+                                "    \"k\": {" +
+                                "      \"type\": \"long\"" +
+                                "    }" +
+                                "  }" +
+                                "}",
+                        XContentType.JSON)
+                .get();
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("a", ImmutableMap.<String, Object>builder()
+                        .put("b", ImmutableMap.<String, Object>builder()
+                                .put("x", 1)
+                                .put("y", ImmutableList.<String>builder()
+                                        .add("hello")
+                                        .add("world")
+                                        .build())
+                                .build())
+                        .build())
+                .put("c", ImmutableMap.<String, Object>builder()
+                        .put("d", "foo")
+                        .put("e", "bar")
+                        .put("f", ImmutableList.<Map<String, Object>>builder()
+                                .add(ImmutableMap.<String, Object>builder()
+                                        .put("g", ImmutableList.<Integer>builder()
+                                                .add(10)
+                                                .add(20)
+                                                .build())
+                                        .put("h", 100)
+                                        .build())
+                                .add(ImmutableMap.<String, Object>builder()
+                                        .put("g", ImmutableList.<Integer>builder()
+                                                .add(30)
+                                                .add(40)
+                                                .build())
+                                        .put("h", 200)
+                                        .build())
+                                .build())
+                        .build())
+                .put("j", ImmutableList.<Long>builder()
+                        .add(50L)
+                        .add(60L)
+                        .build())
+                .build());
+
+        embeddedElasticsearchNode.getClient()
+                .admin()
+                .indices()
+                .refresh(refreshRequest(indexName))
+                .actionGet();
+
+        assertQuery(
+                "SELECT a.b.y[1], c.f[1].g[2], c.f[2].g[1], j[2], k[1] FROM test_arrays",
+                "VALUES ('hello', 20, 30, 60, NULL)");
     }
 
     @Test
@@ -290,7 +417,7 @@ public class TestElasticsearchIntegrationSmokeTest
                 .actionGet();
 
         // _score column
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE _score = 1.0", "VALUES 1");
+        assertQuery("SELECT count(*) FROM \"filter_pushdown: cool\" WHERE _score > 0", "VALUES 1");
 
         // boolean
         assertQuery("SELECT count(*) FROM filter_pushdown WHERE boolean_column = true", "VALUES 1");

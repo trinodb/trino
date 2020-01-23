@@ -36,20 +36,25 @@ presto-product-tests/bin/run_on_docker.sh \
     -g storage_formats,cli,hdfs_impersonation \
     || suite_exit_code=1
 
-presto-product-tests/bin/run_on_docker.sh \
-    two-mixed-hives \
-    -g two_hives \
+presto-product-tests-launcher/target/presto-product-tests-launcher-*-executable.jar test run \
+    --environment two-mixed-hives \
+    -- -g two_hives \
     || suite_exit_code=1
 
-presto-product-tests/bin/run_on_docker.sh \
-    two-kerberos-hives \
-    -g two_hives \
+presto-product-tests-launcher/target/presto-product-tests-launcher-*-executable.jar test run \
+    --environment two-kerberos-hives \
+    -- -g two_hives \
     || suite_exit_code=1
 
 env HADOOP_BASE_IMAGE="not-used" TESTS_HIVE_VERSION_MAJOR="3" TESTS_HIVE_VERSION_MINOR="1" \
     presto-product-tests/bin/run_on_docker.sh \
     singlenode-hdp3 \
     -g hdp3_only,storage_formats,hive_transactional \
+    || suite_exit_code=1
+
+presto-product-tests/bin/run_on_docker.sh \
+    singlenode-ldap-bind-dn \
+    -g ldap \
     || suite_exit_code=1
 
 echo "$0: exiting with ${suite_exit_code}"

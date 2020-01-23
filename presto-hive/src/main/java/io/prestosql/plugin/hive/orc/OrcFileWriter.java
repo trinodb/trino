@@ -20,8 +20,10 @@ import io.prestosql.orc.OrcWriteValidation.OrcWriteValidationMode;
 import io.prestosql.orc.OrcWriter;
 import io.prestosql.orc.OrcWriterOptions;
 import io.prestosql.orc.OrcWriterStats;
+import io.prestosql.orc.metadata.ColumnMetadata;
 import io.prestosql.orc.metadata.CompressionKind;
-import io.prestosql.plugin.hive.HiveFileWriter;
+import io.prestosql.orc.metadata.OrcType;
+import io.prestosql.plugin.hive.FileWriter;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
@@ -48,7 +50,7 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILE
 import static java.util.Objects.requireNonNull;
 
 public class OrcFileWriter
-        implements HiveFileWriter
+        implements FileWriter
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcFileWriter.class).instanceSize();
     private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
@@ -66,6 +68,7 @@ public class OrcFileWriter
             Callable<Void> rollbackAction,
             List<String> columnNames,
             List<Type> fileColumnTypes,
+            ColumnMetadata<OrcType> fileColumnOrcTypes,
             CompressionKind compression,
             OrcWriterOptions options,
             boolean writeLegacyVersion,
@@ -82,6 +85,7 @@ public class OrcFileWriter
                 orcDataSink,
                 columnNames,
                 fileColumnTypes,
+                fileColumnOrcTypes,
                 compression,
                 options,
                 writeLegacyVersion,

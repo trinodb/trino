@@ -32,6 +32,12 @@ public class RowDataType
         this.fields = ImmutableList.copyOf(fields);
     }
 
+    public RowDataType(Optional<NodeLocation> location, List<Field> fields)
+    {
+        super(location);
+        this.fields = ImmutableList.copyOf(fields);
+    }
+
     public List<Field> getFields()
     {
         return fields;
@@ -77,6 +83,14 @@ public class RowDataType
         public Field(NodeLocation location, Optional<Identifier> name, DataType type)
         {
             super(Optional.of(location));
+
+            this.name = requireNonNull(name, "name is null");
+            this.type = requireNonNull(type, "type is null");
+        }
+
+        public Field(Optional<NodeLocation> location, Optional<Identifier> name, DataType type)
+        {
+            super(location);
 
             this.name = requireNonNull(name, "name is null");
             this.type = requireNonNull(type, "type is null");
