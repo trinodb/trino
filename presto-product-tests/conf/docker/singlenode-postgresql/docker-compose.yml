@@ -1,8 +1,8 @@
 version: '2'
 services:
 
-  postgres:
-    hostname: postgres
+  postgresql:
+    hostname: postgresql
     image: 'postgres:10.3'
     ports:
       - '15432:15432'
