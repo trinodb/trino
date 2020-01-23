@@ -30,6 +30,7 @@ import io.prestosql.tests.product.launcher.env.environment.SinglenodeKerberosHdf
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeKerberosHiveImpersonation;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeMySql;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodePostgreSql;
+import io.prestosql.tests.product.launcher.env.environment.SinglenodeSqlServer;
 import io.prestosql.tests.product.launcher.env.environment.TwoKerberosHives;
 import io.prestosql.tests.product.launcher.env.environment.TwoMixedHives;
 
@@ -75,6 +76,7 @@ public final class EnvironmentModule
         environments.addBinding("singlenode-kafka").to(SinglenodeKafka.class);
         environments.addBinding("singlenode-mysql").to(SinglenodeMySql.class);
         environments.addBinding("singlenode-postgresql").to(SinglenodePostgreSql.class);
+        environments.addBinding("singlenode-sqlserver").to(SinglenodeSqlServer.class);
 
         binder.install(additionalEnvironments);
     }
