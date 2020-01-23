@@ -110,6 +110,7 @@ public class PrestoConnection
         roles.putAll(uri.getRoles());
         timeZoneId.set(ZoneId.systemDefault());
         locale.set(Locale.getDefault());
+        sessionProperties.putAll(uri.getSessionProperties());
     }
 
     @Override
@@ -630,6 +631,12 @@ public class PrestoConnection
     Map<String, String> getExtraCredentials()
     {
         return ImmutableMap.copyOf(extraCredentials);
+    }
+
+    @VisibleForTesting
+    Map<String, String> getSessionProperties()
+    {
+        return ImmutableMap.copyOf(sessionProperties);
     }
 
     ServerInfo getServerInfo()

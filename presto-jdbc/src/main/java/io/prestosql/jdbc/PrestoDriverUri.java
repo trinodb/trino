@@ -54,6 +54,7 @@ import static io.prestosql.jdbc.ConnectionProperties.KERBEROS_SERVICE_PRINCIPAL_
 import static io.prestosql.jdbc.ConnectionProperties.KERBEROS_USE_CANONICAL_HOSTNAME;
 import static io.prestosql.jdbc.ConnectionProperties.PASSWORD;
 import static io.prestosql.jdbc.ConnectionProperties.ROLES;
+import static io.prestosql.jdbc.ConnectionProperties.SESSION_PROPERTIES;
 import static io.prestosql.jdbc.ConnectionProperties.SOCKS_PROXY;
 import static io.prestosql.jdbc.ConnectionProperties.SSL;
 import static io.prestosql.jdbc.ConnectionProperties.SSL_KEY_STORE_PASSWORD;
@@ -152,6 +153,12 @@ final class PrestoDriverUri
             throws SQLException
     {
         return EXTRA_CREDENTIALS.getValue(properties).orElse(ImmutableMap.of());
+    }
+
+    public Map<String, String> getSessionProperties()
+            throws SQLException
+    {
+        return SESSION_PROPERTIES.getValue(properties).orElse(ImmutableMap.of());
     }
 
     public void setupClient(OkHttpClient.Builder builder)

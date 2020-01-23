@@ -334,6 +334,21 @@ public class TestJdbcConnection
         }
     }
 
+    @Test
+    public void testSessionProperties()
+            throws SQLException
+    {
+        try (Connection connection = createConnection("roles=hive:admin&sessionProperties=hive.temporary_staging_directory_path:/tmp;execution_policy:phased")) {
+            PrestoConnection prestoConnection = connection.unwrap(PrestoConnection.class);
+            assertThat(prestoConnection.getSessionProperties())
+                    .extractingByKeys("hive.temporary_staging_directory_path", "execution_policy")
+                    .containsExactly("/tmp", "phased");
+            assertThat(listSession(connection)).containsAll(ImmutableSet.of(
+                    "execution_policy|phased|all-at-once",
+                    "hive.temporary_staging_directory_path|/tmp|/tmp/presto-${USER}"));
+        }
+    }
+
     private Connection createConnection()
             throws SQLException
     {
