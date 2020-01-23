@@ -17,8 +17,6 @@ import io.airlift.log.Logger;
 import io.prestosql.tempto.AfterTestWithContext;
 import io.prestosql.tempto.BeforeTestWithContext;
 import io.prestosql.tempto.ProductTest;
-import io.prestosql.tempto.Requires;
-import io.prestosql.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
 import io.prestosql.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
@@ -47,11 +45,10 @@ public class TestCreateTableAsSelect
         }
     }
 
-    @Requires(ImmutableNationTable.class)
     @Test(groups = {JDBC, MYSQL})
     public void testCreateTableAsSelect()
     {
-        QueryResult queryResult = query(format("CREATE TABLE mysql.%s AS SELECT * FROM nation", TABLE_NAME));
+        QueryResult queryResult = query(format("CREATE TABLE mysql.%s AS SELECT * FROM tpch.tiny.nation", TABLE_NAME));
         assertThat(queryResult).containsOnly(row(25));
     }
 }
