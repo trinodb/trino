@@ -13,9 +13,9 @@ fi
 suite_exit_code=0
 
 # Does not use hadoop
-presto-product-tests/bin/run_on_docker.sh \
-    singlenode-mysql \
-    -g mysql \
+presto-product-tests-launcher/target/presto-product-tests-launcher-*-executable.jar test run \
+    --environment singlenode-mysql \
+    -- -g mysql \
     || suite_exit_code=1
 
 # Does not use hadoop

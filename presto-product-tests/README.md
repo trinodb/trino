@@ -40,7 +40,7 @@ broken.
 * Install [Docker for Mac](https://docs.docker.com/docker-for-mac/)
 
 * Add entries in `/etc/hosts` for all services running in docker containers:
-`hadoop-master`, `mysql`, `postgres`, `cassandra`, `presto-master`.
+`hadoop-master`, `postgres`, `cassandra`, `presto-master`.
 They should point to your external IP address (shown by `ifconfig` on your Mac, not inside Docker).
 
 * The default memory setting of 2GB might not be sufficient for some profiles like `singlenode-ldap`.
@@ -114,8 +114,8 @@ where profile is one of either:
  a single Docker container, a single node installation of Presto
  also running on a single Docker container and one running SQL Server server.
  While running tests on ``singlenode-sqlserver`` make sure to exclude
- `mysql` and `postgresql` tests i.e.
- `-x mysql, postgresql`.
+ and `postgresql` tests i.e.
+ `-x postgresql`.
 - **two-kerberos-hives** - two pseudo-distributed Hadoop installations running on
  a single Docker containers. Both Hadoop (Hive) installations are kerberized.
  A single node installation of kerberized Presto also
