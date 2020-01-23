@@ -289,8 +289,12 @@ public class TestJdbcConnection
     public void testExtraCredentials()
             throws SQLException
     {
-        try (Connection connection = createConnection("extraCredentials=test.token.foo:bar;test.token.abc:xyz")) {
-            Map<String, String> expectedCredentials = ImmutableMap.of("test.token.foo", "bar", "test.token.abc", "xyz");
+        try (Connection connection = createConnection("extraCredentials=test.token.foo:bar;test.token.abc:xyz;colon:-::-")) {
+            Map<String, String> expectedCredentials = ImmutableMap.<String, String>builder()
+                    .put("test.token.foo", "bar")
+                    .put("test.token.abc", "xyz")
+                    .put("colon", "-::-")
+                    .build();
             PrestoConnection prestoConnection = connection.unwrap(PrestoConnection.class);
             assertEquals(prestoConnection.getExtraCredentials(), expectedCredentials);
             assertEquals(listExtraCredentials(connection), expectedCredentials);
