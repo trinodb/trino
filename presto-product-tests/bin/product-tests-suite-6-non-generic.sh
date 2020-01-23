@@ -41,9 +41,9 @@ presto-product-tests-launcher/target/presto-product-tests-launcher-*-executable.
     || suite_exit_code=1
 
 # Does not use hadoop
-presto-product-tests/bin/run_on_docker.sh \
-    singlenode-kafka \
-    -g kafka \
+presto-product-tests-launcher/target/presto-product-tests-launcher-*-executable.jar test run \
+    --environment singlenode-kafka \
+    -- -g kafka \
     || suite_exit_code=1
 
 echo "$0: exiting with ${suite_exit_code}"
