@@ -314,7 +314,7 @@ final class ConnectionProperties
 
         public static List<String> parseSingleCredential(String credential)
         {
-            List<String> nameValue = Splitter.on(':').splitToList(credential);
+            List<String> nameValue = Splitter.on(':').limit(2).splitToList(credential);
             checkArgument(nameValue.size() == 2, "Malformed credential: %s", credential);
             String name = nameValue.get(0);
             String value = nameValue.get(1);
