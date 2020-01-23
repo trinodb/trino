@@ -74,7 +74,15 @@ public class LocalDispatchQuery
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
         this.querySubmitter = requireNonNull(querySubmitter, "querySubmitter is null");
 
-        addExceptionCallback(queryExecutionFuture, stateMachine::transitionToFailed);
+        // Check in the exception callback if we are already in the terminal state
+        // so that throwable could be ignored (CancellationException will be thrown
+        // when we cancel queryExecutionFuture in addStateChangeListener).
+        addExceptionCallback(queryExecutionFuture, throwable -> {
+            if (!stateMachine.isDone()) {
+                stateMachine.transitionToFailed(throwable);
+            }
+        });
+
         stateMachine.addStateChangeListener(state -> {
             if (state.isDone()) {
                 submitted.set(null);
