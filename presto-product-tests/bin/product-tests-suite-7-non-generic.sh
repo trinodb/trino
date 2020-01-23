@@ -46,10 +46,9 @@ presto-product-tests-launcher/bin/run-launcher test run \
     -- -g two_hives \
     || suite_exit_code=1
 
-env HADOOP_BASE_IMAGE="not-used" TESTS_HIVE_VERSION_MAJOR="3" TESTS_HIVE_VERSION_MINOR="1" \
-    presto-product-tests/bin/run_on_docker.sh \
-    singlenode-hdp3 \
-    -g hdp3_only,storage_formats,hive_transactional \
+TESTS_HIVE_VERSION_MAJOR="3" TESTS_HIVE_VERSION_MINOR="1" presto-product-tests-launcher/bin/run-launcher test run \
+   --environment singlenode-hdp3 \
+    -- -g hdp3_only,storage_formats,hive_transactional \
     || suite_exit_code=1
 
 presto-product-tests-launcher/bin/run-launcher test run \
