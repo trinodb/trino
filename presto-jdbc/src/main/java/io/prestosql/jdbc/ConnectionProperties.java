@@ -18,6 +18,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
+import io.prestosql.client.ClientSelectedRole;
 
 import java.io.File;
 import java.util.List;
@@ -30,6 +31,8 @@ import java.util.function.Predicate;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Maps.immutableEntry;
+import static io.prestosql.client.ClientSelectedRole.Type.ALL;
+import static io.prestosql.client.ClientSelectedRole.Type.NONE;
 import static io.prestosql.jdbc.AbstractConnectionProperty.checkedPredicate;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
@@ -40,6 +43,7 @@ final class ConnectionProperties
 {
     public static final ConnectionProperty<String> USER = new User();
     public static final ConnectionProperty<String> PASSWORD = new Password();
+    public static final ConnectionProperty<Map<String, ClientSelectedRole>> ROLES = new Roles();
     public static final ConnectionProperty<HostAndPort> SOCKS_PROXY = new SocksProxy();
     public static final ConnectionProperty<HostAndPort> HTTP_PROXY = new HttpProxy();
     public static final ConnectionProperty<String> APPLICATION_NAME_PREFIX = new ApplicationNamePrefix();
@@ -61,6 +65,7 @@ final class ConnectionProperties
     private static final Set<ConnectionProperty<?>> ALL_PROPERTIES = ImmutableSet.<ConnectionProperty<?>>builder()
             .add(USER)
             .add(PASSWORD)
+            .add(ROLES)
             .add(SOCKS_PROXY)
             .add(HTTP_PROXY)
             .add(APPLICATION_NAME_PREFIX)
@@ -125,6 +130,38 @@ final class ConnectionProperties
         public Password()
         {
             super("password", NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
+        }
+    }
+
+    private static class Roles
+            extends AbstractConnectionProperty<Map<String, ClientSelectedRole>>
+    {
+        public Roles()
+        {
+            super("roles", NOT_REQUIRED, ALLOWED, Roles::parseRoles);
+        }
+
+        // Roles consists of a list of catalog role pairs.
+        // E.g., `jdbc:presto://example.net:8080/?roles=catalog1:none;catalog2:all;catalog3:role` will set following roles:
+        //  - `none` in `catalog1`
+        //  - `all` in `catalog2`
+        //  - `role` in `catalog3`
+        public static Map<String, ClientSelectedRole> parseRoles(String roles)
+        {
+            return new MapPropertyParser("roles").parse(roles).entrySet().stream()
+                    .collect(toImmutableMap(entry -> entry.getKey(), entry -> mapToClientSelectedRole(entry.getValue())));
+        }
+
+        private static ClientSelectedRole mapToClientSelectedRole(String role)
+        {
+            checkArgument(!role.contains("\""), "Role must not contain double quotes: %s", role);
+            if (ALL.name().equalsIgnoreCase(role)) {
+                return new ClientSelectedRole(ALL, Optional.empty());
+            }
+            if (NONE.name().equalsIgnoreCase(role)) {
+                return new ClientSelectedRole(NONE, Optional.empty());
+            }
+            return new ClientSelectedRole(ClientSelectedRole.Type.ROLE, Optional.of(role));
         }
     }
 
