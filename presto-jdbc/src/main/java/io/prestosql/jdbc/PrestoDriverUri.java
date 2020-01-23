@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.net.HostAndPort;
 import io.prestosql.client.ClientException;
+import io.prestosql.client.ClientSelectedRole;
 import okhttp3.OkHttpClient;
 
 import java.io.File;
@@ -52,6 +53,7 @@ import static io.prestosql.jdbc.ConnectionProperties.KERBEROS_REMOTE_SERVICE_NAM
 import static io.prestosql.jdbc.ConnectionProperties.KERBEROS_SERVICE_PRINCIPAL_PATTERN;
 import static io.prestosql.jdbc.ConnectionProperties.KERBEROS_USE_CANONICAL_HOSTNAME;
 import static io.prestosql.jdbc.ConnectionProperties.PASSWORD;
+import static io.prestosql.jdbc.ConnectionProperties.ROLES;
 import static io.prestosql.jdbc.ConnectionProperties.SOCKS_PROXY;
 import static io.prestosql.jdbc.ConnectionProperties.SSL;
 import static io.prestosql.jdbc.ConnectionProperties.SSL_KEY_STORE_PASSWORD;
@@ -127,6 +129,12 @@ final class PrestoDriverUri
             throws SQLException
     {
         return USER.getRequiredValue(properties);
+    }
+
+    public Map<String, ClientSelectedRole> getRoles()
+            throws SQLException
+    {
+        return ROLES.getValue(properties).orElse(ImmutableMap.of());
     }
 
     public Optional<String> getApplicationNamePrefix()
