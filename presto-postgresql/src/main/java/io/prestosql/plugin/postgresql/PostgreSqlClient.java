@@ -320,6 +320,8 @@ public class PostgreSqlClient
             return mapping;
         }
         switch (jdbcTypeName) {
+            case "money":
+                return Optional.of(moneyColumnMapping());
             case "uuid":
                 return Optional.of(uuidColumnMapping());
             case "jsonb":
@@ -659,6 +661,43 @@ public class PostgreSqlClient
             pgObject.setValue(value.toStringUtf8());
             statement.setObject(index, pgObject);
         };
+    }
+
+    private static ColumnMapping moneyColumnMapping()
+    {
+        /*
+         * PostgreSQL JDBC maps "money" to Types.DOUBLE, but fails to retrieve double value for amounts
+         * greater than or equal to 1000. Upon `ResultSet#getString`, the driver returns e.g. "$10.00" or "$10,000.00"
+         * (currency symbol depends on the server side configuration).
+         *
+         * The following mapping maps PostgreSQL "money" to Presto "varchar".
+         * Writing is disabled for simplicity.
+         *
+         * Money mapping can be improved when PostgreSQL JDBC gains explicit money type support.
+         * See https://github.com/pgjdbc/pgjdbc/issues/425 for more information.
+         */
+        return ColumnMapping.sliceMapping(
+                VARCHAR,
+                new SliceReadFunction()
+                {
+                    @Override
+                    public boolean isNull(ResultSet resultSet, int columnIndex)
+                            throws SQLException
+                    {
+                        // super calls ResultSet#getObject(), which for money type calls .getDouble and the call may fail to parse the money value.
+                        resultSet.getString(columnIndex);
+                        return resultSet.wasNull();
+                    }
+
+                    @Override
+                    public Slice readSlice(ResultSet resultSet, int columnIndex)
+                            throws SQLException
+                    {
+                        return utf8Slice(resultSet.getString(columnIndex));
+                    }
+                },
+                (statement, index, value) -> { throw new PrestoException(NOT_SUPPORTED, "Money type is not supported for INSERT"); },
+                DISABLE_PUSHDOWN);
     }
 
     private static SliceWriteFunction uuidWriteFunction()
