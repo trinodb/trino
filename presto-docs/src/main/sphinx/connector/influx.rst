@@ -32,7 +32,7 @@ Property Name                       Default         Comment
 ``influx.database=``                                The database name must be specified.  Each instance of the connector
                                                     can only connect to a single database on a server
 ``influx.username=``                                Optional
-``influx.password=``                                Option
+``influx.password=``                                Optional
 ``influx.cache-meta-data-millis=``  10000           How long to cache schema info e.g. measurement names before refreshing
 =================================== =============== ======================================================================
 
