@@ -35,6 +35,7 @@ import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyNot;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.exchange;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.join;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.node;
@@ -257,6 +258,34 @@ public class TestDynamicFilter
                                                                                 tableScan("orders", ImmutableMap.of("ORDERS_CK16", "clerk")))))),
                                                 anyTree(
                                                         tableScan("orders", ImmutableMap.of("ORDERS_CK27", "clerk"))))), metadata)));
+    }
+
+    @Test
+    public void testNonPushedDownJoinFilterRemoval()
+    {
+        assertPlan(
+                "SELECT 1 FROM part t0, part t1, part t2 " +
+                        "WHERE t0.partkey = t1.partkey AND t0.partkey = t2.partkey " +
+                        "AND t0.size + t1.size = t2.size",
+                noJoinReordering(),
+                anyTree(
+                        join(INNER,
+                                ImmutableList.of(equiJoinClause("K0", "K2"), equiJoinClause("S", "V2")),
+                                project(
+                                        project(ImmutableMap.of("S", expression("V0 + V1")),
+                                                join(
+                                                        INNER,
+                                                        ImmutableList.of(equiJoinClause("K0", "K1")),
+                                                        project(
+                                                                node(FilterNode.class,
+                                                                        tableScan("part", ImmutableMap.of("K0", "partkey", "V0", "size")))),
+                                                        exchange(
+                                                                project(
+                                                                        node(FilterNode.class,
+                                                                                tableScan("part", ImmutableMap.of("K1", "partkey", "V1", "size")))))))),
+                                exchange(
+                                        project(
+                                                tableScan("part", ImmutableMap.of("K2", "partkey", "V2", "size")))))));
     }
 
     private Session noJoinReordering()

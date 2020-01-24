@@ -13,6 +13,7 @@
  */
 package io.prestosql.sql.planner.sanity;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
@@ -72,12 +73,21 @@ public class DynamicFiltersChecker
             {
                 Set<String> currentJoinDynamicFilters = node.getDynamicFilters().keySet();
                 Set<String> consumedProbeSide = node.getLeft().accept(this, context);
-                verify(difference(currentJoinDynamicFilters, consumedProbeSide).isEmpty(),
-                        "Dynamic filters present in join were not fully consumed by it's probe side.");
+                Set<String> unconsumedByProbeSide = difference(currentJoinDynamicFilters, consumedProbeSide);
+                verify(unconsumedByProbeSide.isEmpty(),
+                        "Dynamic filters %s present in join were not fully consumed by it's probe side.", unconsumedByProbeSide);
 
                 Set<String> consumedBuildSide = node.getRight().accept(this, context);
-                verify(intersection(currentJoinDynamicFilters, consumedBuildSide).isEmpty(),
-                        "Dynamic filters present in join were consumed by it's build side.");
+                Set<String> unconsumedByBuildSide = intersection(currentJoinDynamicFilters, consumedBuildSide);
+                verify(unconsumedByBuildSide.isEmpty(),
+                        "Dynamic filters %s present in join were consumed by it's build side.", unconsumedByBuildSide);
+
+                List<DynamicFilters.Descriptor> nonPushedDownFilters = node
+                        .getFilter()
+                        .map(DynamicFilters::extractDynamicFilters)
+                        .map(DynamicFilters.ExtractResult::getDynamicConjuncts)
+                        .orElse(ImmutableList.of());
+                verify(nonPushedDownFilters.isEmpty(), "Dynamic filters %s present in join filter predicate were not pushed down.", nonPushedDownFilters);
 
                 Set<String> unmatched = new HashSet<>(consumedBuildSide);
                 unmatched.addAll(consumedProbeSide);
