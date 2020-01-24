@@ -15,6 +15,7 @@ package io.prestosql.plugin.hive;
 
 import alluxio.client.table.TableMasterClient;
 import alluxio.conf.PropertyKey;
+import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
 import io.prestosql.plugin.hive.metastore.alluxio.AlluxioHiveMetastore;
 import io.prestosql.plugin.hive.metastore.alluxio.AlluxioHiveMetastoreConfig;
 import io.prestosql.plugin.hive.metastore.alluxio.AlluxioMetastoreModule;
@@ -56,7 +57,8 @@ public class TestHiveAlluxioMetastore
         AlluxioHiveMetastoreConfig alluxioConfig = new AlluxioHiveMetastoreConfig();
         alluxioConfig.setMasterAddress(this.alluxioAddress);
         TableMasterClient client = AlluxioMetastoreModule.createCatalogMasterClient(alluxioConfig);
-        setup(SCHEMA, hiveConfig, new AlluxioHiveMetastore(client));
+        hdfsEnvironment = new HdfsEnvironment(createTestHdfsConfiguration(), new HdfsConfig(), new NoHdfsAuthentication());
+        setup(SCHEMA, hiveConfig, new AlluxioHiveMetastore(client), hdfsEnvironment);
     }
 
     private int getHiveVersionMajor()
