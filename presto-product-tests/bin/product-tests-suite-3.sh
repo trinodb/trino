@@ -9,9 +9,9 @@ presto-product-tests/bin/run_on_docker.sh \
     -g smoke,cli,group-by,join,tls \
     || suite_exit_code=1
 
-presto-product-tests/bin/run_on_docker.sh \
-    multinode-tls-kerberos \
-    -g cli,group-by,join,tls \
+presto-product-tests-launcher/bin/run-launcher test run \
+    --environment multinode-tls-kerberos \
+    -- -g cli,group-by,join,tls \
     || suite_exit_code=1
 
 presto-product-tests/bin/run_on_docker.sh \
