@@ -30,6 +30,7 @@ import io.prestosql.tests.product.launcher.env.environment.SinglenodeKafka;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeKerberosHdfsImpersonation;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeKerberosHdfsNoImpersonation;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeKerberosHiveImpersonation;
+import io.prestosql.tests.product.launcher.env.environment.SinglenodeKerberosKmsHdfsImpersonation;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeMySql;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodePostgreSql;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeSqlServer;
@@ -68,6 +69,7 @@ public final class EnvironmentModule
         environments.addBinding("singlenode-hdfs-impersonation").to(SinglenodeHdfsImpersonation.class);
         environments.addBinding("singlenode-kerberos-hdfs-impersonation").to(SinglenodeKerberosHdfsImpersonation.class);
         environments.addBinding("singlenode-kerberos-hdfs-no-impersonation").to(SinglenodeKerberosHdfsNoImpersonation.class);
+        environments.addBinding("singlenode-kerberos-kms-hdfs-impersonation").to(SinglenodeKerberosKmsHdfsImpersonation.class);
 
         environments.addBinding("multinode").to(Multinode.class);
         environments.addBinding("multinode-tls").to(MultinodeTls.class);
