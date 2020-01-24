@@ -24,6 +24,7 @@ import alluxio.grpc.table.DoubleColumnStatsData;
 import alluxio.grpc.table.FieldSchema;
 import alluxio.grpc.table.Layout;
 import alluxio.grpc.table.LongColumnStatsData;
+import alluxio.grpc.table.PrincipalType;
 import alluxio.grpc.table.StringColumnStatsData;
 import alluxio.grpc.table.layout.hive.PartitionInfo;
 import alluxio.shaded.client.com.google.protobuf.InvalidProtocolBufferException;
@@ -39,7 +40,6 @@ import io.prestosql.plugin.hive.metastore.StorageFormat;
 import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.plugin.hive.util.HiveBucketing;
 import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.security.PrincipalType;
 
 import javax.annotation.Nullable;
 
@@ -76,8 +76,10 @@ public final class ProtoUtils
         return Database.builder()
                 .setDatabaseName(db.getDbName())
                 .setLocation(db.hasLocation() ? Optional.of(db.getLocation()) : Optional.empty())
-                .setOwnerName("") // owner name not yet supported by alluxio
-                .setOwnerType(PrincipalType.USER) // owner type not yet supported by alluxio
+                .setOwnerName(db.getOwnerName())
+                .setOwnerType(db.getOwnerType() == PrincipalType.USER ? io.prestosql.spi.security.PrincipalType.USER : io.prestosql.spi.security.PrincipalType.ROLE)
+                .setComment(db.hasComment() ? Optional.of(db.getComment()) : Optional.empty())
+                .setParameters(db.getParameterMap())
                 .build();
     }
 
