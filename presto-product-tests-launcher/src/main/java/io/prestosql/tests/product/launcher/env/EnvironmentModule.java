@@ -20,6 +20,7 @@ import io.prestosql.tests.product.launcher.env.common.Hadoop;
 import io.prestosql.tests.product.launcher.env.common.Kerberos;
 import io.prestosql.tests.product.launcher.env.common.Standard;
 import io.prestosql.tests.product.launcher.env.environment.Multinode;
+import io.prestosql.tests.product.launcher.env.environment.MultinodeTls;
 import io.prestosql.tests.product.launcher.env.environment.MultinodeTlsKerberos;
 import io.prestosql.tests.product.launcher.env.environment.Singlenode;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeCassandra;
@@ -69,6 +70,7 @@ public final class EnvironmentModule
         environments.addBinding("singlenode-kerberos-hdfs-no-impersonation").to(SinglenodeKerberosHdfsNoImpersonation.class);
 
         environments.addBinding("multinode").to(Multinode.class);
+        environments.addBinding("multinode-tls").to(MultinodeTls.class);
         environments.addBinding("multinode-tls-kerberos").to(MultinodeTlsKerberos.class);
 
         environments.addBinding("two-kerberos-hives").to(TwoKerberosHives.class);
