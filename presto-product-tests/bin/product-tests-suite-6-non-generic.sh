@@ -35,13 +35,13 @@ presto-product-tests/bin/run_on_docker.sh \
     -g storage_formats \
     || suite_exit_code=1
 
-presto-product-tests-launcher/target/presto-product-tests-launcher-*-executable.jar test run \
+presto-product-tests-launcher/bin/run-launcher test run \
     --environment singlenode-cassandra \
     -- -g cassandra \
     || suite_exit_code=1
 
 # Does not use hadoop
-presto-product-tests-launcher/target/presto-product-tests-launcher-*-executable.jar test run \
+presto-product-tests-launcher/bin/run-launcher test run \
     --environment singlenode-kafka \
     -- -g kafka \
     || suite_exit_code=1
