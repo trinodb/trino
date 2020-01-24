@@ -14,10 +14,10 @@
 package io.prestosql.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.tpch.TpchTable;
 import io.prestosql.Session;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.testing.DistributedQueryRunner;
+import io.prestosql.tpch.TpchTable;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -54,7 +54,7 @@ public final class H2QueryRunner
     {
         DistributedQueryRunner queryRunner = null;
         try {
-            queryRunner = new DistributedQueryRunner(createSession(), 3);
+            queryRunner = DistributedQueryRunner.builder(createSession()).build();
 
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");

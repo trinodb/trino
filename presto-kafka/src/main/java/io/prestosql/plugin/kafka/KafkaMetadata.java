@@ -53,11 +53,11 @@ public class KafkaMetadata
 
     @Inject
     public KafkaMetadata(
-            KafkaConnectorConfig kafkaConnectorConfig,
+            KafkaConfig kafkaConfig,
             Supplier<Map<SchemaTableName, KafkaTopicDescription>> kafkaTableDescriptionSupplier)
     {
-        requireNonNull(kafkaConnectorConfig, "kafkaConfig is null");
-        this.hideInternalColumns = kafkaConnectorConfig.isHideInternalColumns();
+        requireNonNull(kafkaConfig, "kafkaConfig is null");
+        this.hideInternalColumns = kafkaConfig.isHideInternalColumns();
 
         requireNonNull(kafkaTableDescriptionSupplier, "kafkaTableDescriptionSupplier is null");
         this.tableDescriptions = kafkaTableDescriptionSupplier.get();

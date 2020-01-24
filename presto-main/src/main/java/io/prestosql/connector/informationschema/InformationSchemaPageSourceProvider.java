@@ -13,6 +13,7 @@
  */
 package io.prestosql.connector.informationschema;
 
+import io.airlift.log.Logger;
 import io.prestosql.FullConnectorSession;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AccessControl;
@@ -31,6 +32,8 @@ import static java.util.Objects.requireNonNull;
 public class InformationSchemaPageSourceProvider
         implements ConnectorPageSourceProvider
 {
+    private static final Logger log = Logger.get(InformationSchemaPageSourceProvider.class);
+
     private final Metadata metadata;
     private final AccessControl accessControl;
 
@@ -48,6 +51,12 @@ public class InformationSchemaPageSourceProvider
             ConnectorTableHandle tableHandle,
             List<ColumnHandle> columns)
     {
+        InformationSchemaTableHandle informationSchemaTableHandle = (InformationSchemaTableHandle) tableHandle;
+        log.debug(
+                "Building information schema table (queryId=%s; tableHandle=%s)",
+                session.getQueryId(),
+                informationSchemaTableHandle);
+
         return new InformationSchemaPageSource(
                 ((FullConnectorSession) session).getSession(),
                 metadata,

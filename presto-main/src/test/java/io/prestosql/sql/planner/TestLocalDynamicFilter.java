@@ -20,9 +20,10 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.prestosql.Session;
-import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType;
+import io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import io.prestosql.sql.planner.assertions.BasePlanTest;
 import io.prestosql.sql.planner.optimizations.PlanNodeSearcher;
 import io.prestosql.sql.planner.plan.JoinNode;
@@ -38,7 +39,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.prestosql.SystemSessionProperties.FORCE_SINGLE_NODE_OUTPUT;
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
+import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
@@ -48,13 +49,10 @@ import static org.testng.Assert.assertFalse;
 public class TestLocalDynamicFilter
         extends BasePlanTest
 {
-    private static final Metadata METADATA = createTestMetadataManager();
-
     public TestLocalDynamicFilter()
     {
         super(ImmutableMap.of(
                 FORCE_SINGLE_NODE_OUTPUT, "false",
-                JOIN_DISTRIBUTION_TYPE, "BROADCAST",
                 ENABLE_DYNAMIC_FILTERING, "true"));
     }
 
@@ -199,7 +197,7 @@ public class TestLocalDynamicFilter
                 OPTIMIZED_AND_VALIDATED,
                 false);
         JoinNode joinNode = searchJoins(subplan.getChildren().get(0).getFragment()).findOnlyElement();
-        LocalDynamicFilter filter = LocalDynamicFilter.create(METADATA, joinNode, 1).get();
+        LocalDynamicFilter filter = LocalDynamicFilter.create(joinNode, 1).get();
         String filterId = Iterables.getOnlyElement(filter.getBuildChannels().keySet());
         Symbol probeSymbol = Iterables.getOnlyElement(joinNode.getCriteria()).getLeft();
 
@@ -223,7 +221,7 @@ public class TestLocalDynamicFilter
                 session);
         JoinNode joinNode = searchJoins(subplan.getChildren().get(0).getFragment()).findOnlyElement();
         assertEquals(joinNode.getDynamicFilters().isEmpty(), false);
-        assertEquals(LocalDynamicFilter.create(METADATA, joinNode, 1), Optional.empty());
+        assertEquals(LocalDynamicFilter.create(joinNode, 1), Optional.empty());
     }
 
     @Test
@@ -235,9 +233,11 @@ public class TestLocalDynamicFilter
                         "WHERE lineitem.partkey = partsupp.partkey AND lineitem.suppkey = partsupp.suppkey " +
                         "AND partsupp.availqty < 10",
                 OPTIMIZED_AND_VALIDATED,
-                false);
+                false,
+                noJoinReordering());
+
         JoinNode joinNode = searchJoins(subplan.getChildren().get(0).getFragment()).findOnlyElement();
-        LocalDynamicFilter filter = LocalDynamicFilter.create(METADATA, joinNode, 1).get();
+        LocalDynamicFilter filter = LocalDynamicFilter.create(joinNode, 1).get();
         List<String> filterIds = filter
                 .getBuildChannels()
                 .entrySet()
@@ -264,11 +264,13 @@ public class TestLocalDynamicFilter
                         "WHERE lineitem.orderkey = orders.orderkey AND lineitem.partkey = part.partkey " +
                         "AND orders.custkey < 10 AND part.name = 'abc'",
                 OPTIMIZED_AND_VALIDATED,
-                false);
+                false,
+                noJoinReordering());
+
         List<JoinNode> joinNodes = searchJoins(subplan.getChildren().get(0).getFragment()).findAll();
         assertEquals(joinNodes.size(), 2);
         for (JoinNode joinNode : joinNodes) {
-            LocalDynamicFilter filter = LocalDynamicFilter.create(METADATA, joinNode, 1).get();
+            LocalDynamicFilter filter = LocalDynamicFilter.create(joinNode, 1).get();
             String filterId = Iterables.getOnlyElement(filter.getBuildChannels().keySet());
             Symbol probeSymbol = Iterables.getOnlyElement(joinNode.getCriteria()).getLeft();
 
@@ -289,9 +291,11 @@ public class TestLocalDynamicFilter
                         "SELECT count() FROM union_table, nation WHERE union_table.key = nation.nationkey " +
                         "AND nation.comment = 'abc'",
                 OPTIMIZED_AND_VALIDATED,
-                true);
+                true,
+                noJoinReordering());
+
         JoinNode joinNode = searchJoins(subplan.getFragment()).findOnlyElement();
-        LocalDynamicFilter filter = LocalDynamicFilter.create(METADATA, joinNode, 1).get();
+        LocalDynamicFilter filter = LocalDynamicFilter.create(joinNode, 1).get();
         String filterId = Iterables.getOnlyElement(filter.getBuildChannels().keySet());
 
         filter.getTupleDomainConsumer().accept(TupleDomain.withColumnDomains(ImmutableMap.of(
@@ -307,5 +311,13 @@ public class TestLocalDynamicFilter
         return PlanNodeSearcher
                 .searchFrom(fragment.getRoot())
                 .where(node -> node instanceof JoinNode);
+    }
+
+    private Session noJoinReordering()
+    {
+        return Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.NONE.name())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.BROADCAST.name())
+                .build();
     }
 }

@@ -482,7 +482,7 @@ public class AddLocalExchanges
         {
             StreamPreferredProperties requiredProperties;
             StreamPreferredProperties preferredProperties;
-            if (getTaskWriterCount(session) > 1) {
+            if (getTaskWriterCount(session) > 1 && !node.getPartitioningScheme().isPresent()) {
                 requiredProperties = fixedParallelism();
                 preferredProperties = fixedParallelism();
             }
@@ -500,7 +500,7 @@ public class AddLocalExchanges
         @Override
         public PlanWithProperties visitExchange(ExchangeNode node, StreamPreferredProperties parentPreferences)
         {
-            checkArgument(node.getScope() != LOCAL, "AddLocalExchanges can not process a plan containing a local exchange");
+            checkArgument(node.getScope() != LOCAL, "AddLocalExchanges cannot process a plan containing a local exchange");
             // this node changes the input organization completely, so we do not pass through parent preferences
             if (node.getOrderingScheme().isPresent()) {
                 return planAndEnforceChildren(

@@ -14,10 +14,10 @@
 package io.prestosql.plugin.geospatial;
 
 import io.prestosql.Session;
-import io.prestosql.plugin.hive.TestingHivePlugin;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.Database;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
+import io.prestosql.plugin.hive.testing.TestingHivePlugin;
 import io.prestosql.spi.security.PrincipalType;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.DistributedQueryRunner;
@@ -59,11 +59,12 @@ public class TestSpatialJoins
     protected DistributedQueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(testSessionBuilder()
+        Session session = testSessionBuilder()
                 .setSource(TestSpatialJoins.class.getSimpleName())
                 .setCatalog("hive")
                 .setSchema("default")
-                .build(), 4);
+                .build();
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
         queryRunner.installPlugin(new GeoPlugin());
 
         File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();

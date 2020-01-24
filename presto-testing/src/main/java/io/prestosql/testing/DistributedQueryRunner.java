@@ -32,6 +32,7 @@ import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.SessionPropertyManager;
+import io.prestosql.metadata.SqlFunction;
 import io.prestosql.server.BasicQueryInfo;
 import io.prestosql.server.testing.TestingPrestoServer;
 import io.prestosql.spi.Plugin;
@@ -86,20 +87,6 @@ public class DistributedQueryRunner
     private final TestingPrestoClient prestoClient;
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
-
-    @Deprecated
-    public DistributedQueryRunner(Session defaultSession, int nodeCount)
-            throws Exception
-    {
-        this(defaultSession, nodeCount, ImmutableMap.of());
-    }
-
-    @Deprecated
-    public DistributedQueryRunner(Session defaultSession, int nodeCount, Map<String, String> extraProperties)
-            throws Exception
-    {
-        this(defaultSession, nodeCount, extraProperties, ImmutableMap.of(), DEFAULT_SQL_PARSER_OPTIONS, ENVIRONMENT, Optional.empty());
-    }
 
     public static Builder builder(Session defaultSession)
     {
@@ -292,6 +279,12 @@ public class DistributedQueryRunner
         log.info("Installed plugin %s in %s", plugin.getClass().getSimpleName(), nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 
+    @Override
+    public void addFunctions(List<? extends SqlFunction> functions)
+    {
+        servers.forEach(server -> server.getMetadata().addFunctions(functions));
+    }
+
     public void createCatalog(String catalogName, String connectorName)
     {
         createCatalog(catalogName, connectorName, ImmutableMap.of());
@@ -457,7 +450,7 @@ public class DistributedQueryRunner
     public static class Builder
     {
         private Session defaultSession;
-        private int nodeCount = 4;
+        private int nodeCount = 3;
         private Map<String, String> extraProperties = ImmutableMap.of();
         private Map<String, String> coordinatorProperties = ImmutableMap.of();
         private SqlParserOptions parserOptions = DEFAULT_SQL_PARSER_OPTIONS;

@@ -2,12 +2,16 @@
 Array Functions and Operators
 =============================
 
+.. _subscript_operator:
+
 Subscript Operator: []
 ----------------------
 
 The ``[]`` operator is used to access an element of an array and is indexed starting from one::
 
     SELECT my_array[1] AS first_element
+
+.. _concatenation_operator:
 
 Concatenation Operator: ||
 --------------------------

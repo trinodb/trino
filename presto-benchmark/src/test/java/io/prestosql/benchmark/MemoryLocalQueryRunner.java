@@ -30,7 +30,6 @@ import io.prestosql.operator.TaskContext;
 import io.prestosql.plugin.memory.MemoryConnectorFactory;
 import io.prestosql.plugin.tpch.TpchConnectorFactory;
 import io.prestosql.spi.Page;
-import io.prestosql.spi.Plugin;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.memory.MemoryPoolId;
 import io.prestosql.spiller.SpillSpaceTracker;
@@ -65,11 +64,6 @@ public class MemoryLocalQueryRunner
         properties.forEach(sessionBuilder::setSystemProperty);
 
         localQueryRunner = createMemoryLocalQueryRunner(sessionBuilder.build());
-    }
-
-    public void installPlugin(Plugin plugin)
-    {
-        localQueryRunner.installPlugin(plugin);
     }
 
     public List<Page> execute(@Language("SQL") String query)
@@ -118,7 +112,9 @@ public class MemoryLocalQueryRunner
 
     private static LocalQueryRunner createMemoryLocalQueryRunner(Session session)
     {
-        LocalQueryRunner localQueryRunner = LocalQueryRunner.queryRunnerWithInitialTransaction(session);
+        LocalQueryRunner localQueryRunner = LocalQueryRunner.builder(session)
+                .withInitialTransaction()
+                .build();
 
         // add tpch
         localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());

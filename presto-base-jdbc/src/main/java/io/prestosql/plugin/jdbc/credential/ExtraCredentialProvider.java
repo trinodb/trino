@@ -33,7 +33,7 @@ public class ExtraCredentialProvider
     @Inject
     public ExtraCredentialProvider(BaseJdbcAuthenticationConfig config, @ForExtraCredentialProvider CredentialProvider delegate)
     {
-        this(Optional.ofNullable(config.getUserCredentialName()), Optional.ofNullable(config.getPasswordCredentialName()), delegate);
+        this(config.getUserCredentialName(), config.getPasswordCredentialName(), delegate);
     }
 
     public ExtraCredentialProvider(Optional<String> userCredentialName, Optional<String> passwordCredentialName, CredentialProvider delegate)

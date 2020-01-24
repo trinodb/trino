@@ -42,8 +42,8 @@ public class StatsCalculatorAssertion
 
     public StatsCalculatorAssertion(StatsCalculator statsCalculator, Session session, PlanNode planNode, TypeProvider types)
     {
-        this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator can not be null");
-        this.session = requireNonNull(session, "sesssion can not be null");
+        this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator cannot be null");
+        this.session = requireNonNull(session, "sesssion cannot be null");
         this.planNode = requireNonNull(planNode, "planNode is null");
         this.types = requireNonNull(types, "types is null");
 
@@ -92,6 +92,7 @@ public class StatsCalculatorAssertion
         return this;
     }
 
+    @SuppressWarnings("unchecked")
     private static <T extends PlanNode> Optional<PlanNodeStatsEstimate> calculatedStats(Rule<T> rule, PlanNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types)
     {
         return rule.calculate((T) node, sourceStats, lookup, session, types);

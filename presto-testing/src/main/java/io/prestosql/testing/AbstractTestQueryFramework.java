@@ -60,48 +60,26 @@ import static io.prestosql.sql.SqlFormatter.formatSql;
 import static io.prestosql.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
-import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
 public abstract class AbstractTestQueryFramework
 {
-    @Deprecated
-    private Optional<QueryRunnerSupplier> queryRunnerSupplier;
     private QueryRunner queryRunner;
     private H2QueryRunner h2QueryRunner;
     private SqlParser sqlParser;
-
-    @Deprecated
-    protected AbstractTestQueryFramework(QueryRunnerSupplier supplier)
-    {
-        this.queryRunnerSupplier = Optional.of(requireNonNull(supplier, "queryRunnerSupplier is null"));
-    }
-
-    protected AbstractTestQueryFramework()
-    {
-        this.queryRunnerSupplier = Optional.empty();
-    }
 
     @BeforeClass
     public void init()
             throws Exception
     {
-        if (queryRunnerSupplier.isPresent()) {
-            queryRunner = queryRunnerSupplier.get().get();
-        }
-        else {
-            queryRunner = createQueryRunner();
-        }
+        queryRunner = createQueryRunner();
         h2QueryRunner = new H2QueryRunner();
         sqlParser = new SqlParser();
     }
 
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        throw new UnsupportedOperationException("Must implement createQueryRunner() when QueryRunnerSupplier is not provided");
-    }
+    protected abstract QueryRunner createQueryRunner()
+            throws Exception;
 
     @AfterClass(alwaysRun = true)
     public void close()
@@ -110,7 +88,6 @@ public abstract class AbstractTestQueryFramework
         queryRunner = null;
         h2QueryRunner = null;
         sqlParser = null;
-        queryRunnerSupplier = null;
     }
 
     protected Session getSession()

@@ -15,6 +15,7 @@ package io.prestosql.plugin.hive.s3;
 
 import com.amazonaws.AbortedException;
 import com.amazonaws.AmazonClientException;
+import com.amazonaws.AmazonServiceException;
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.Protocol;
 import com.amazonaws.auth.AWSCredentials;
@@ -47,8 +48,8 @@ import com.amazonaws.services.s3.model.EncryptionMaterialsProvider;
 import com.amazonaws.services.s3.model.GetObjectMetadataRequest;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.KMSEncryptionMaterialsProvider;
-import com.amazonaws.services.s3.model.ListObjectsRequest;
-import com.amazonaws.services.s3.model.ObjectListing;
+import com.amazonaws.services.s3.model.ListObjectsV2Request;
+import com.amazonaws.services.s3.model.ListObjectsV2Result;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
@@ -514,29 +515,32 @@ public class PrestoS3FileSystem
             key += PATH_SEPARATOR;
         }
 
-        ListObjectsRequest request = new ListObjectsRequest()
+        ListObjectsV2Request request = new ListObjectsV2Request()
                 .withBucketName(getBucketName(uri))
                 .withPrefix(key)
                 .withDelimiter(PATH_SEPARATOR)
                 .withRequesterPays(requesterPaysEnabled);
 
         STATS.newListObjectsCall();
-        Iterator<ObjectListing> listings = new AbstractSequentialIterator<ObjectListing>(s3.listObjects(request))
+        Iterator<ListObjectsV2Result> listings = new AbstractSequentialIterator<ListObjectsV2Result>(s3.listObjectsV2(request))
         {
             @Override
-            protected ObjectListing computeNext(ObjectListing previous)
+            protected ListObjectsV2Result computeNext(ListObjectsV2Result previous)
             {
                 if (!previous.isTruncated()) {
                     return null;
                 }
-                return s3.listNextBatchOfObjects(previous);
+
+                request.setContinuationToken(previous.getNextContinuationToken());
+
+                return s3.listObjectsV2(request);
             }
         };
 
         return Iterators.concat(Iterators.transform(listings, this::statusFromListing));
     }
 
-    private Iterator<LocatedFileStatus> statusFromListing(ObjectListing listing)
+    private Iterator<LocatedFileStatus> statusFromListing(ListObjectsV2Result listing)
     {
         return Iterators.concat(
                 statusFromPrefixes(listing.getCommonPrefixes()),
@@ -623,14 +627,16 @@ public class PrestoS3FileSystem
                         }
                         catch (RuntimeException e) {
                             STATS.newGetMetadataError();
-                            if (e instanceof AmazonS3Exception) {
-                                switch (((AmazonS3Exception) e).getStatusCode()) {
-                                    case HTTP_NOT_FOUND:
-                                        return null;
+                            if (e instanceof AmazonServiceException) {
+                                switch (((AmazonServiceException) e).getStatusCode()) {
                                     case HTTP_FORBIDDEN:
                                     case HTTP_BAD_REQUEST:
                                         throw new UnrecoverableS3OperationException(path, e);
                                 }
+                            }
+                            if (e instanceof AmazonS3Exception &&
+                                    ((AmazonS3Exception) e).getStatusCode() == HTTP_NOT_FOUND) {
+                                return null;
                             }
                             throw e;
                         }
@@ -907,13 +913,18 @@ public class PrestoS3FileSystem
                             }
                             catch (RuntimeException e) {
                                 STATS.newGetObjectError();
+                                if (e instanceof AmazonServiceException) {
+                                    switch (((AmazonServiceException) e).getStatusCode()) {
+                                        case HTTP_FORBIDDEN:
+                                        case HTTP_BAD_REQUEST:
+                                            throw new UnrecoverableS3OperationException(path, e);
+                                    }
+                                }
                                 if (e instanceof AmazonS3Exception) {
                                     switch (((AmazonS3Exception) e).getStatusCode()) {
                                         case HTTP_RANGE_NOT_SATISFIABLE:
                                             throw new EOFException(CANNOT_SEEK_PAST_EOF);
-                                        case HTTP_FORBIDDEN:
                                         case HTTP_NOT_FOUND:
-                                        case HTTP_BAD_REQUEST:
                                             throw new UnrecoverableS3OperationException(path, e);
                                     }
                                 }
@@ -1076,14 +1087,19 @@ public class PrestoS3FileSystem
                             }
                             catch (RuntimeException e) {
                                 STATS.newGetObjectError();
+                                if (e instanceof AmazonServiceException) {
+                                    switch (((AmazonServiceException) e).getStatusCode()) {
+                                        case HTTP_FORBIDDEN:
+                                        case HTTP_BAD_REQUEST:
+                                            throw new UnrecoverableS3OperationException(path, e);
+                                    }
+                                }
                                 if (e instanceof AmazonS3Exception) {
                                     switch (((AmazonS3Exception) e).getStatusCode()) {
                                         case HTTP_RANGE_NOT_SATISFIABLE:
                                             // ignore request for start past end of object
                                             return new ByteArrayInputStream(new byte[0]);
-                                        case HTTP_FORBIDDEN:
                                         case HTTP_NOT_FOUND:
-                                        case HTTP_BAD_REQUEST:
                                             throw new UnrecoverableS3OperationException(path, e);
                                     }
                                 }
@@ -1308,7 +1324,7 @@ public class PrestoS3FileSystem
      *
      * @param uri The URI from which to extract a host value.
      * @return The host value where uri.getAuthority() is used when uri.getHost() returns null as long as no UserInfo is present.
-     * @throws IllegalArgumentException If the bucket can not be determined from the URI.
+     * @throws IllegalArgumentException If the bucket cannot be determined from the URI.
      */
     public static String getBucketName(URI uri)
     {

@@ -28,16 +28,25 @@ import static java.util.Objects.requireNonNull;
 public class ElasticsearchSplit
         implements ConnectorSplit
 {
+    private final String index;
     private final int shard;
     private final Optional<String> address;
 
     @JsonCreator
     public ElasticsearchSplit(
+            @JsonProperty("index") String index,
             @JsonProperty("shard") int shard,
             @JsonProperty("address") Optional<String> address)
     {
+        this.index = requireNonNull(index, "index is null");
         this.shard = shard;
         this.address = requireNonNull(address, "address is null");
+    }
+
+    @JsonProperty
+    public String getIndex()
+    {
+        return index;
     }
 
     @JsonProperty
@@ -75,7 +84,8 @@ public class ElasticsearchSplit
     public String toString()
     {
         return toStringHelper(this)
-                .addValue(shard)
+                .add("index", index)
+                .add("shard", shard)
                 .toString();
     }
 }

@@ -255,8 +255,8 @@ import static io.prestosql.operator.scalar.MapFilterFunction.MAP_FILTER_FUNCTION
 import static io.prestosql.operator.scalar.MapHashCodeOperator.MAP_HASH_CODE;
 import static io.prestosql.operator.scalar.MapToJsonCast.MAP_TO_JSON;
 import static io.prestosql.operator.scalar.MapToMapCast.MAP_TO_MAP_CAST;
-import static io.prestosql.operator.scalar.MapTransformKeyFunction.MAP_TRANSFORM_KEY_FUNCTION;
-import static io.prestosql.operator.scalar.MapTransformValueFunction.MAP_TRANSFORM_VALUE_FUNCTION;
+import static io.prestosql.operator.scalar.MapTransformKeysFunction.MAP_TRANSFORM_KEYS_FUNCTION;
+import static io.prestosql.operator.scalar.MapTransformValuesFunction.MAP_TRANSFORM_VALUES_FUNCTION;
 import static io.prestosql.operator.scalar.MapZipWithFunction.MAP_ZIP_WITH_FUNCTION;
 import static io.prestosql.operator.scalar.MathFunctions.DECIMAL_MOD_FUNCTION;
 import static io.prestosql.operator.scalar.Re2JCastToRegexpFunction.castCharToRe2JRegexp;
@@ -585,7 +585,7 @@ public class FunctionRegistry
                 .function(DECIMAL_SUM_AGGREGATION)
                 .function(DECIMAL_MOD_FUNCTION)
                 .functions(ARRAY_TRANSFORM_FUNCTION, ARRAY_REDUCE_FUNCTION)
-                .functions(MAP_FILTER_FUNCTION, MAP_TRANSFORM_KEY_FUNCTION, MAP_TRANSFORM_VALUE_FUNCTION)
+                .functions(MAP_FILTER_FUNCTION, MAP_TRANSFORM_KEYS_FUNCTION, MAP_TRANSFORM_VALUES_FUNCTION)
                 .function(FORMAT_FUNCTION)
                 .function(TRY_CAST)
                 .function(new LiteralFunction())
@@ -613,7 +613,7 @@ public class FunctionRegistry
     {
         for (SqlFunction function : functions) {
             FunctionMetadata functionMetadata = function.getFunctionMetadata();
-            checkArgument(!functionMetadata.getSignature().getName().contains("|"), "Function name can not contain '|' character: %s", functionMetadata.getSignature());
+            checkArgument(!functionMetadata.getSignature().getName().contains("|"), "Function name cannot contain '|' character: %s", functionMetadata.getSignature());
             for (FunctionMetadata existingFunction : this.functions.list()) {
                 checkArgument(!functionMetadata.getFunctionId().equals(existingFunction.getFunctionId()), "Function already registered: %s", functionMetadata.getFunctionId());
                 checkArgument(!functionMetadata.getSignature().equals(existingFunction.getSignature()), "Function already registered: %s", functionMetadata.getSignature());

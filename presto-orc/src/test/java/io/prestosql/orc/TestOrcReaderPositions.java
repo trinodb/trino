@@ -411,7 +411,7 @@ public class TestOrcReaderPositions
     private static void createFileWithOnlyUserMetadata(File file, Map<String, String> metadata)
             throws IOException
     {
-        Configuration conf = new Configuration();
+        Configuration conf = new Configuration(false);
         OrcFile.WriterOptions writerOptions = OrcFile.writerOptions(conf)
                 .memory(new NullMemoryManager())
                 .inspector(createSettableStructObjectInspector("test", BIGINT))

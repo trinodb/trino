@@ -27,6 +27,7 @@ import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.NewTableLayout;
 import io.prestosql.metadata.QualifiedObjectName;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.metadata.TableMetadata;
 import io.prestosql.spi.PrestoException;
@@ -34,7 +35,9 @@ import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.statistics.TableStatisticsMetadata;
+import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.analyzer.Analysis;
 import io.prestosql.sql.analyzer.Field;
 import io.prestosql.sql.analyzer.RelationId;
@@ -59,18 +62,26 @@ import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.planner.sanity.PlanSanityChecker;
 import io.prestosql.sql.tree.Analyze;
 import io.prestosql.sql.tree.Cast;
+import io.prestosql.sql.tree.CoalesceExpression;
+import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.CreateTableAsSelect;
 import io.prestosql.sql.tree.Delete;
 import io.prestosql.sql.tree.Explain;
 import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.FunctionCall;
+import io.prestosql.sql.tree.GenericLiteral;
+import io.prestosql.sql.tree.IfExpression;
 import io.prestosql.sql.tree.Insert;
 import io.prestosql.sql.tree.LambdaArgumentDeclaration;
 import io.prestosql.sql.tree.LongLiteral;
 import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.NullLiteral;
+import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.Query;
 import io.prestosql.sql.tree.Statement;
+import io.prestosql.sql.tree.StringLiteral;
 import io.prestosql.type.TypeCoercion;
+import io.prestosql.type.UnknownType;
 
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayList;
@@ -90,6 +101,8 @@ import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.statistics.TableStatisticType.ROW_COUNT;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.prestosql.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
 import static io.prestosql.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
@@ -98,6 +111,7 @@ import static io.prestosql.sql.planner.plan.TableWriterNode.CreateReference;
 import static io.prestosql.sql.planner.plan.TableWriterNode.InsertReference;
 import static io.prestosql.sql.planner.plan.TableWriterNode.WriterTarget;
 import static io.prestosql.sql.planner.sanity.PlanSanityChecker.DISTRIBUTED_PLAN_SANITY_CHECKER;
+import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -326,17 +340,13 @@ public class LogicalPlanner
 
         TableMetadata tableMetadata = metadata.getTableMetadata(session, insert.getTarget());
 
-        List<ColumnMetadata> visibleTableColumns = tableMetadata.getColumns().stream()
-                .filter(column -> !column.isHidden())
-                .collect(toImmutableList());
-        List<String> visibleTableColumnNames = visibleTableColumns.stream()
-                .map(ColumnMetadata::getName)
-                .collect(toImmutableList());
-
         RelationPlan plan = createRelationPlan(analysis, insertStatement.getQuery());
 
         Map<String, ColumnHandle> columns = metadata.getColumnHandles(session, insert.getTarget());
         Assignments.Builder assignments = Assignments.builder();
+        boolean supportsMissingColumnsOnInsert = metadata.supportsMissingColumnsOnInsert(session, insert.getTarget());
+        ImmutableList.Builder<ColumnMetadata> insertedColumnsBuilder = ImmutableList.builder();
+
         for (ColumnMetadata column : tableMetadata.getColumns()) {
             if (column.isHidden()) {
                 continue;
@@ -344,8 +354,12 @@ public class LogicalPlanner
             Symbol output = symbolAllocator.newSymbol(column.getName(), column.getType());
             int index = insert.getColumns().indexOf(columns.get(column.getName()));
             if (index < 0) {
+                if (supportsMissingColumnsOnInsert) {
+                    continue;
+                }
                 Expression cast = new Cast(new NullLiteral(), toSqlType(column.getType()));
                 assignments.put(output, cast);
+                insertedColumnsBuilder.add(column);
             }
             else {
                 Symbol input = plan.getSymbol(index);
@@ -356,14 +370,17 @@ public class LogicalPlanner
                     assignments.put(output, input.toSymbolReference());
                 }
                 else {
-                    Expression cast = new Cast(input.toSymbolReference(), toSqlType(tableType));
+                    Expression cast = noTruncationCast(input.toSymbolReference(), queryType, tableType);
                     assignments.put(output, cast);
                 }
+                insertedColumnsBuilder.add(column);
             }
         }
+
         ProjectNode projectNode = new ProjectNode(idAllocator.getNextId(), plan.getRoot(), assignments.build());
 
-        List<Field> fields = visibleTableColumns.stream()
+        List<ColumnMetadata> insertedColumns = insertedColumnsBuilder.build();
+        List<Field> fields = insertedColumns.stream()
                 .map(column -> Field.newUnqualified(column.getName(), column.getType()))
                 .collect(toImmutableList());
         Scope scope = Scope.builder().withRelationType(RelationId.anonymous(), new RelationType(fields)).build();
@@ -373,11 +390,19 @@ public class LogicalPlanner
         String catalogName = insert.getTarget().getCatalogName().getCatalogName();
         TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, catalogName, tableMetadata.getMetadata());
 
+        List<String> insertedTableColumnNames = insertedColumns.stream()
+                .map(ColumnMetadata::getName)
+                .collect(toImmutableList());
+
         return createTableWriterPlan(
                 analysis,
                 plan,
-                new InsertReference(insert.getTarget()),
-                visibleTableColumnNames,
+                new InsertReference(
+                        insert.getTarget(),
+                        insertedTableColumnNames.stream()
+                                .map(columns::get)
+                                .collect(toImmutableList())),
+                insertedTableColumnNames,
                 insert.getNewTableLayout(),
                 statisticsMetadata);
     }
@@ -464,6 +489,54 @@ public class LogicalPlanner
                 Optional.empty());
 
         return new RelationPlan(commitNode, analysis.getRootScope(), commitNode.getOutputSymbols());
+    }
+
+    /*
+    According to the standard, for the purpose of store assignment (INSERT),
+    no non-space characters of a character string, and no non-zero octets
+    of a binary string must be lost when the inserted value is truncated to
+    fit in the target column type.
+    The following method returns a cast from source type to target type
+    with a guarantee of no illegal truncation.
+    TODO Once BINARY and parametric VARBINARY types are supported, they should be handled here.
+    TODO This workaround is insufficient to handle structural types
+     */
+    private Expression noTruncationCast(Expression expression, Type fromType, Type toType)
+    {
+        if (fromType instanceof UnknownType || (!(toType instanceof VarcharType) && !(toType instanceof CharType))) {
+            return new Cast(expression, toSqlType(toType));
+        }
+        int targetLength;
+        if (toType instanceof VarcharType) {
+            if (((VarcharType) toType).isUnbounded()) {
+                return new Cast(expression, toSqlType(toType));
+            }
+            targetLength = ((VarcharType) toType).getBoundedLength();
+        }
+        else {
+            targetLength = ((CharType) toType).getLength();
+        }
+
+        checkState(fromType instanceof VarcharType || fromType instanceof CharType, "inserting non-character value to column of character type");
+        ResolvedFunction spaceTrimmedLength = metadata.resolveFunction(QualifiedName.of("$space_trimmed_length"), fromTypes(VARCHAR));
+        ResolvedFunction fail = metadata.resolveFunction(QualifiedName.of("fail"), fromTypes(VARCHAR));
+
+        return new IfExpression(
+                // check if the trimmed value fits in the target type
+                new ComparisonExpression(
+                        GREATER_THAN_OR_EQUAL,
+                        new GenericLiteral("BIGINT", Integer.toString(targetLength)),
+                        new CoalesceExpression(
+                                new FunctionCall(
+                                        spaceTrimmedLength.toQualifiedName(),
+                                        ImmutableList.of(new Cast(expression, toSqlType(VARCHAR)))),
+                                new GenericLiteral("BIGINT", "0"))),
+                new Cast(expression, toSqlType(toType)),
+                new Cast(
+                        new FunctionCall(
+                                fail.toQualifiedName(),
+                                ImmutableList.of(new Cast(new StringLiteral("Cannot truncate non-space characters on INSERT"), toSqlType(VARCHAR)))),
+                        toSqlType(toType)));
     }
 
     private RelationPlan createDeletePlan(Analysis analysis, Delete node)

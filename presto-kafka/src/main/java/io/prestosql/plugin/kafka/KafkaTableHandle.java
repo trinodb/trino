@@ -24,15 +24,12 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-/**
- * Kafka specific {@link ConnectorTableHandle}.
- */
 public final class KafkaTableHandle
         implements ConnectorTableHandle
 {
     /**
      * The schema name for this table. Is set through configuration and read
-     * using {@link KafkaConnectorConfig#getDefaultSchema()}. Usually 'default'.
+     * using {@link KafkaConfig#getDefaultSchema()}. Usually 'default'.
      */
     private final String schemaName;
 

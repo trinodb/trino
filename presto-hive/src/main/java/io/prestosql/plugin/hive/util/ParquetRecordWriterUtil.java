@@ -101,7 +101,7 @@ public final class ParquetRecordWriterUtil
             {
                 recordWriter.close(abort);
                 if (!abort) {
-                    length = target.getFileSystem(conf).getFileStatus(target).getLen();
+                    length = fileWriter.getPos();
                 }
             }
         };

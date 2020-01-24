@@ -15,15 +15,18 @@ package io.prestosql.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.testing.AbstractTestDistributedQueries;
+import io.prestosql.testing.QueryRunner;
 
 import static io.prestosql.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 
 public class TestIcebergDistributed
         extends AbstractTestDistributedQueries
 {
-    public TestIcebergDistributed()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createIcebergQueryRunner(ImmutableMap.of()));
+        return createIcebergQueryRunner(ImmutableMap.of());
     }
 
     @Override
@@ -61,5 +64,11 @@ public class TestIcebergDistributed
     public void testRenameTable()
     {
         assertQueryFails("ALTER TABLE orders RENAME TO rename_orders", "Rename not supported for Iceberg tables");
+    }
+
+    @Override
+    public void testInsertWithCoercion()
+    {
+        // Iceberg does not support parameterized varchar
     }
 }

@@ -51,7 +51,12 @@ public class TestStageStateMachine
     private static final StageId STAGE_ID = new StageId("query", 0);
     private static final URI LOCATION = URI.create("fake://fake-stage");
     private static final PlanFragment PLAN_FRAGMENT = createValuesPlan();
-    private static final SQLException FAILED_CAUSE = new SQLException("FAILED");
+    private static final SQLException FAILED_CAUSE;
+
+    static {
+        FAILED_CAUSE = new SQLException("FAILED");
+        FAILED_CAUSE.setStackTrace(new StackTraceElement[0]);
+    }
 
     private final ExecutorService executor = newCachedThreadPool();
 

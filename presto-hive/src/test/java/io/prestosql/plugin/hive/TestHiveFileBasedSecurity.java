@@ -24,9 +24,9 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.airlift.tpch.TpchTable.NATION;
 import static io.prestosql.plugin.hive.HiveQueryRunner.createQueryRunner;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.tpch.TpchTable.NATION;
 
 public class TestHiveFileBasedSecurity
 {

@@ -13,12 +13,13 @@
  */
 package io.prestosql.plugin.kafka;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
+import io.airlift.log.Level;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
-import io.airlift.tpch.TpchTable;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
@@ -29,12 +30,13 @@ import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.TestingPrestoClient;
+import io.prestosql.tpch.TpchTable;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.airlift.units.Duration.nanosSince;
-import static io.prestosql.plugin.kafka.util.TestUtils.installKafkaPlugin;
 import static io.prestosql.plugin.kafka.util.TestUtils.loadTpchTopicDescription;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
@@ -57,9 +59,28 @@ public final class KafkaQueryRunner
     static DistributedQueryRunner createKafkaQueryRunner(TestingKafka testingKafka, Iterable<TpchTable<?>> tables)
             throws Exception
     {
+        return createKafkaQueryRunner(testingKafka, tables, ImmutableMap.of());
+    }
+
+    static DistributedQueryRunner createKafkaQueryRunner(TestingKafka testingKafka, Iterable<TpchTable<?>> tables, Map<SchemaTableName, KafkaTopicDescription> topicDescription)
+            throws Exception
+    {
+        return createKafkaQueryRunner(testingKafka, ImmutableMap.of(), tables, topicDescription);
+    }
+
+    static DistributedQueryRunner createKafkaQueryRunner(
+            TestingKafka testingKafka,
+            Map<String, String> extraKafkaProperties,
+            Iterable<TpchTable<?>> tables,
+            Map<SchemaTableName, KafkaTopicDescription> extraTopicDescription)
+            throws Exception
+    {
+        Logging logging = Logging.initialize();
+        logging.setLevel("org.apache.kafka", Level.WARN);
+
         DistributedQueryRunner queryRunner = null;
         try {
-            queryRunner = new DistributedQueryRunner(createSession(), 2);
+            queryRunner = DistributedQueryRunner.builder(createSession()).build();
 
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
@@ -70,9 +91,23 @@ public final class KafkaQueryRunner
                 testingKafka.createTopics(kafkaTopicName(table));
             }
 
-            Map<SchemaTableName, KafkaTopicDescription> topicDescriptions = createTpchTopicDescriptions(queryRunner.getCoordinator().getMetadata(), tables);
+            Map<SchemaTableName, KafkaTopicDescription> tpchTopicDescriptions = createTpchTopicDescriptions(queryRunner.getCoordinator().getMetadata(), tables);
 
-            installKafkaPlugin(testingKafka, queryRunner, topicDescriptions);
+            Map<SchemaTableName, KafkaTopicDescription> topicDescriptions = ImmutableMap.<SchemaTableName, KafkaTopicDescription>builder()
+                    .putAll(extraTopicDescription)
+                    .putAll(tpchTopicDescriptions)
+                    .build();
+            KafkaPlugin kafkaPlugin = new KafkaPlugin();
+            kafkaPlugin.setTableDescriptionSupplier(() -> topicDescriptions);
+            queryRunner.installPlugin(kafkaPlugin);
+
+            Map<String, String> kafkaProperties = new HashMap<>(ImmutableMap.copyOf(extraKafkaProperties));
+            kafkaProperties.putIfAbsent("kafka.nodes", testingKafka.getConnectString());
+            kafkaProperties.putIfAbsent("kafka.table-names", Joiner.on(",").join(topicDescriptions.keySet()));
+            kafkaProperties.putIfAbsent("kafka.connect-timeout", "120s");
+            kafkaProperties.putIfAbsent("kafka.default-schema", "default");
+            kafkaProperties.putIfAbsent("kafka.messages-per-split", "1000");
+            queryRunner.createCatalog("kafka", "kafka", kafkaProperties);
 
             TestingPrestoClient prestoClient = queryRunner.getClient();
 

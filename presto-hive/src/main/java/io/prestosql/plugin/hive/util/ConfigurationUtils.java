@@ -29,7 +29,7 @@ public final class ConfigurationUtils
         // must not be transitively reloaded during the future loading of various Hadoop modules
         // all the required default resources must be declared above
         INITIAL_CONFIGURATION = new Configuration(false);
-        Configuration defaultConfiguration = new Configuration();
+        Configuration defaultConfiguration = new Configuration(true);
         copy(defaultConfiguration, INITIAL_CONFIGURATION);
     }
 

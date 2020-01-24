@@ -14,19 +14,20 @@
 package io.prestosql.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.tpch.TpchTable;
 import io.prestosql.Session;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.sql.JdbcSqlExecutor;
 import io.prestosql.testing.sql.TestTable;
+import io.prestosql.tpch.TpchTable;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
-import static io.prestosql.plugin.jdbc.BaseJdbcPropertiesProvider.UNSUPPORTED_TYPE_HANDLING;
 import static io.prestosql.plugin.jdbc.H2QueryRunner.createH2QueryRunner;
+import static io.prestosql.plugin.jdbc.TypeHandlingJdbcPropertiesProvider.UNSUPPORTED_TYPE_HANDLING;
 import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
 import static java.lang.String.format;
@@ -41,6 +42,19 @@ public class TestJdbcIntegrationSmokeTest
             throws Exception
     {
         return createH2QueryRunner(ImmutableList.copyOf(TpchTable.getTables()), properties);
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        return new TestTable(
+                getSqlExecutor(),
+                "tpch.table",
+                "(col_required BIGINT NOT NULL," +
+                        "col_nullable BIGINT," +
+                        "col_default BIGINT DEFAULT 43," +
+                        "col_nonnull_default BIGINT NOT NULL DEFAULT 42," +
+                        "col_required2 BIGINT NOT NULL)");
     }
 
     @Test
@@ -124,6 +138,20 @@ public class TestJdbcIntegrationSmokeTest
         return Session.builder(getSession())
                 .setCatalogSessionProperty("jdbc", UNSUPPORTED_TYPE_HANDLING, unsupportedTypeHandling.name())
                 .build();
+    }
+
+    @Override
+    protected boolean canDropSchema()
+    {
+        return false;
+    }
+
+    @Override
+    protected void cleanUpSchemas(List<String> schemaNames)
+    {
+        for (String schemaName : schemaNames) {
+            getSqlExecutor().execute(format("DROP SCHEMA \"%s\"", schemaName));
+        }
     }
 
     private JdbcSqlExecutor getSqlExecutor()

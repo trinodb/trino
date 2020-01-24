@@ -30,6 +30,7 @@ import java.util.function.Predicate;
 
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Streams.stream;
 import static java.util.Objects.requireNonNull;
 
 public final class ExpressionTreeUtils
@@ -74,7 +75,7 @@ public final class ExpressionTreeUtils
         requireNonNull(clazz, "clazz is null");
         requireNonNull(predicate, "predicate is null");
 
-        return ImmutableList.copyOf(nodes).stream()
+        return stream(nodes)
                 .flatMap(node -> linearizeNodes(node).stream())
                 .filter(clazz::isInstance)
                 .map(clazz::cast)

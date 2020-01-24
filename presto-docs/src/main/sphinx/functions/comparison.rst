@@ -2,6 +2,8 @@
 Comparison Functions and Operators
 ==================================
 
+.. _comparison_operators:
+
 Comparison Operators
 --------------------
 
@@ -16,6 +18,8 @@ Operator Description
 ``<>``   Not equal
 ``!=``   Not equal (non-standard but popular syntax)
 ======== ===========
+
+.. _range_operator:
 
 Range Operator: BETWEEN
 -----------------------
@@ -59,6 +63,8 @@ Not that the value, min, and max parameters to ``BETWEEN`` and ``NOT
 BETWEEN`` must be the same type.  For example, Presto will produce an
 error if you ask it if John is between 2.3 and 35.2.
 
+.. _is_null_operator:
+
 IS NULL and IS NOT NULL
 -----------------------
 The ``IS NULL`` and ``IS NOT NULL`` operators test whether a value
@@ -71,6 +77,8 @@ Using ``NULL`` with ``IS NULL`` evaluates to true::
 But any other constant does not::
 
     SELECT 3.0 IS NULL; -- false
+
+.. _is_distinct_operator:
 
 IS DISTINCT FROM and IS NOT DISTINCT FROM
 -----------------------------------------
@@ -125,6 +133,8 @@ The following types are supported:
 .. function:: least(value1, value2, ..., valueN) -> [same as input]
 
     Returns the smallest of the provided values.
+
+.. _quantified_comparison_predicates:
 
 Quantified Comparison Predicates: ALL, ANY and SOME
 ---------------------------------------------------

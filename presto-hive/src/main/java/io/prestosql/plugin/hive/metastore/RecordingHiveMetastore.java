@@ -221,23 +221,23 @@ public class RecordingHiveMetastore
     }
 
     @Override
-    public PartitionStatistics getTableStatistics(HiveIdentity identity, String databaseName, String tableName)
+    public PartitionStatistics getTableStatistics(HiveIdentity identity, Table table)
     {
         return loadValue(
                 tableStatisticsCache,
-                hiveTableName(databaseName, tableName),
-                () -> delegate.getTableStatistics(identity, databaseName, tableName));
+                hiveTableName(table.getDatabaseName(), table.getTableName()),
+                () -> delegate.getTableStatistics(identity, table));
     }
 
     @Override
-    public Map<String, PartitionStatistics> getPartitionStatistics(HiveIdentity identity, String databaseName, String tableName, Set<String> partitionNames)
+    public Map<String, PartitionStatistics> getPartitionStatistics(HiveIdentity identity, Table table, List<Partition> partitions)
     {
         return loadValue(
                 partitionStatisticsCache,
-                partitionNames.stream()
-                        .map(partitionName -> hivePartitionName(hiveTableName(databaseName, tableName), partitionName))
+                partitions.stream()
+                        .map(partition -> hivePartitionName(hiveTableName(table.getDatabaseName(), table.getTableName()), partition.getValues()))
                         .collect(toImmutableSet()),
-                () -> delegate.getPartitionStatistics(identity, databaseName, tableName, partitionNames));
+                () -> delegate.getPartitionStatistics(identity, table, partitions));
     }
 
     @Override

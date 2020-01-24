@@ -13,52 +13,45 @@
  */
 package io.prestosql.plugin.kafka;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session;
 import io.prestosql.metadata.QualifiedObjectName;
-import io.prestosql.metadata.TableHandle;
-import io.prestosql.plugin.kafka.util.TestUtils;
 import io.prestosql.plugin.kafka.util.TestingKafka;
-import io.prestosql.security.AllowAllAccessControl;
 import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.type.BigintType;
-import io.prestosql.testing.MaterializedResult;
-import io.prestosql.testing.StandaloneQueryRunner;
-import kafka.producer.KeyedMessage;
+import io.prestosql.testing.AbstractTestQueryFramework;
+import io.prestosql.testing.QueryRunner;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
-import java.util.Properties;
 import java.util.UUID;
 
+import static io.prestosql.plugin.kafka.KafkaQueryRunner.createKafkaQueryRunner;
 import static io.prestosql.plugin.kafka.util.TestUtils.createEmptyTopicDescription;
-import static io.prestosql.plugin.kafka.util.TestingKafka.CloseableProducer;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
-import static io.prestosql.testing.assertions.Assert.assertEquals;
-import static io.prestosql.transaction.TransactionBuilder.transaction;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestMinimalFunctionality
+        extends AbstractTestQueryFramework
 {
-    private static final Session SESSION = testSessionBuilder()
-            .setCatalog("kafka")
-            .setSchema("default")
-            .build();
-
     private TestingKafka testingKafka;
     private String topicName;
-    private StandaloneQueryRunner queryRunner;
 
-    @BeforeClass
-    public void startKafka()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
         testingKafka = new TestingKafka();
-        testingKafka.start();
+        topicName = "test_" + UUID.randomUUID().toString().replaceAll("-", "_");
+        QueryRunner queryRunner = createKafkaQueryRunner(
+                testingKafka,
+                ImmutableList.of(),
+                ImmutableMap.<SchemaTableName, KafkaTopicDescription>builder()
+                        .put(createEmptyTopicDescription(topicName, new SchemaTableName("default", topicName)))
+                        .build());
+        testingKafka.createTopics(topicName);
+        return queryRunner;
     }
 
     @AfterClass(alwaysRun = true)
@@ -68,72 +61,32 @@ public class TestMinimalFunctionality
         testingKafka = null;
     }
 
-    @BeforeMethod
-    public void spinUp()
-    {
-        this.topicName = "test_" + UUID.randomUUID().toString().replaceAll("-", "_");
-
-        Properties topicProperties = new Properties();
-        testingKafka.createTopics(2, 1, topicProperties, topicName);
-
-        this.queryRunner = new StandaloneQueryRunner(SESSION);
-
-        TestUtils.installKafkaPlugin(testingKafka, queryRunner,
-                ImmutableMap.<SchemaTableName, KafkaTopicDescription>builder()
-                        .put(createEmptyTopicDescription(topicName, new SchemaTableName("default", topicName)))
-                        .build());
-    }
-
-    @AfterMethod(alwaysRun = true)
-    public void tearDown()
-    {
-        queryRunner.close();
-        queryRunner = null;
-    }
-
-    private void createMessages(String topicName, int count)
-    {
-        try (CloseableProducer<Long, Object> producer = testingKafka.createProducer()) {
-            for (long i = 0; i < count; i++) {
-                Object message = ImmutableMap.of("id", Long.toString(i), "value", UUID.randomUUID().toString());
-                producer.send(new KeyedMessage<>(topicName, i, message));
-            }
-        }
-    }
-
     @Test
     public void testTopicExists()
     {
-        QualifiedObjectName name = new QualifiedObjectName("kafka", "default", topicName);
-
-        transaction(queryRunner.getTransactionManager(), new AllowAllAccessControl())
-                .singleStatement()
-                .execute(SESSION, session -> {
-                    Optional<TableHandle> handle = queryRunner.getServer().getMetadata().getTableHandle(session, name);
-                    assertTrue(handle.isPresent());
-                });
+        assertTrue(getQueryRunner().listTables(getSession(), "kafka", "default").contains(QualifiedObjectName.valueOf("kafka.default." + topicName)));
     }
 
     @Test
     public void testTopicHasData()
     {
-        MaterializedResult result = queryRunner.execute("SELECT count(1) from " + topicName);
+        assertQuery("SELECT count(*) FROM default." + topicName, "VALUES 0");
 
-        MaterializedResult expected = MaterializedResult.resultBuilder(SESSION, BigintType.BIGINT)
-                .row(0L)
-                .build();
+        createMessages(topicName);
 
-        assertEquals(result, expected);
+        assertQuery("SELECT count(*) FROM default." + topicName, "VALUES 100000L");
+    }
 
-        int count = 1000;
-        createMessages(topicName, count);
-
-        result = queryRunner.execute("SELECT count(1) from " + topicName);
-
-        expected = MaterializedResult.resultBuilder(SESSION, BigintType.BIGINT)
-                .row((long) count)
-                .build();
-
-        assertEquals(result, expected);
+    private void createMessages(String topicName)
+    {
+        try (KafkaProducer<Long, Object> producer = testingKafka.createProducer()) {
+            int jMax = 10_000;
+            int iMax = 100_000 / jMax;
+            for (long i = 0; i < iMax; i++) {
+                for (long j = 0; j < jMax; j++) {
+                    producer.send(new ProducerRecord<>(topicName, i, ImmutableMap.of("id", Long.toString(i * iMax + j), "value", UUID.randomUUID().toString())));
+                }
+            }
+        }
     }
 }

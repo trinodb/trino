@@ -2,6 +2,14 @@
 
 The presto-docs module contains the reference documentation for Presto.
 
+- [Tools](#tools)
+- [Default Build](#default-build)
+- [Faster Build for Authoring](#faster-build-for-authoring)
+- [Viewing Documentation](#viewing-documentation)
+- [Using sphinx-autobuild](#using-sphinx-autobuild)
+- [Versioning](#versioning)
+- [Known Issues](#known-issues)
+
 ## Tools
 
 The default build of the docs is performed with Apache Maven.
@@ -113,6 +121,30 @@ make clean livehtml
 
 From now on the docs are available at
 [http://localhost:8000](http://localhost:8000).
+
+## Versioning
+
+The version displayed in the resulting HTML is read from the top level Maven
+`pom.xml` file `version` field, by default.
+
+To deploy a specific documentation set (e.g. a SNAPSHOT version) as release
+version you have to override the pom version with the `PRESTO_VERSION`
+environment variable.
+
+```bash
+PRESTO_VERSION=327 make clean html
+```
+
+If you work on the docs for more than one invocation, you can export the
+variable and use it with sphinx as well as sphinx-autobuild.
+
+```bash
+export PRESTO_VERSION=327
+make clean html
+```
+
+This is especially useful when deploying doc patches for a release where the
+Maven pom has already moved to the next SNAPSHOT version.
 
 ## Known Issues
 

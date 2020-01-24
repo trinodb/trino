@@ -56,6 +56,7 @@ import static io.prestosql.spi.function.OperatorType.SUBTRACT;
 import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static java.lang.Double.doubleToLongBits;
+import static java.lang.Float.floatToIntBits;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -183,6 +184,9 @@ public final class DoubleOperators
     @SqlType(StandardTypes.INTEGER)
     public static long castToInteger(@SqlType(StandardTypes.DOUBLE) double value)
     {
+        if (Double.isNaN(value)) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, "Cannot cast double NaN to integer");
+        }
         try {
             return toIntExact((long) MathFunctions.round(value));
         }
@@ -195,6 +199,9 @@ public final class DoubleOperators
     @SqlType(StandardTypes.SMALLINT)
     public static long castToSmallint(@SqlType(StandardTypes.DOUBLE) double value)
     {
+        if (Double.isNaN(value)) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, "Cannot cast double NaN to smallint");
+        }
         try {
             return Shorts.checkedCast((long) MathFunctions.round(value));
         }
@@ -207,6 +214,9 @@ public final class DoubleOperators
     @SqlType(StandardTypes.TINYINT)
     public static long castToTinyint(@SqlType(StandardTypes.DOUBLE) double value)
     {
+        if (Double.isNaN(value)) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, "Cannot cast double NaN to tinyint");
+        }
         try {
             return SignedBytes.checkedCast((long) MathFunctions.round(value));
         }
@@ -260,6 +270,9 @@ public final class DoubleOperators
     @SqlType(StandardTypes.REAL)
     public static strictfp long saturatedFloorCastToFloat(@SqlType(StandardTypes.DOUBLE) double value)
     {
+        if (Double.isNaN(value)) {
+            return floatToIntBits(Float.NaN);
+        }
         float result;
         float minFloat = -1.0f * Float.MAX_VALUE;
         if (value <= minFloat) {
@@ -282,24 +295,24 @@ public final class DoubleOperators
     @SqlType(StandardTypes.INTEGER)
     public static long saturatedFloorCastToInteger(@SqlType(StandardTypes.DOUBLE) double value)
     {
-        return saturatedFloorCastToLong(value, Integer.MIN_VALUE, MIN_INTEGER_AS_DOUBLE, Integer.MAX_VALUE, MAX_INTEGER_PLUS_ONE_AS_DOUBLE);
+        return saturatedFloorCastToLong(value, Integer.MIN_VALUE, MIN_INTEGER_AS_DOUBLE, Integer.MAX_VALUE, MAX_INTEGER_PLUS_ONE_AS_DOUBLE, StandardTypes.INTEGER);
     }
 
     @ScalarOperator(SATURATED_FLOOR_CAST)
     @SqlType(StandardTypes.SMALLINT)
     public static long saturatedFloorCastToSmallint(@SqlType(StandardTypes.DOUBLE) double value)
     {
-        return saturatedFloorCastToLong(value, Short.MIN_VALUE, MIN_SHORT_AS_DOUBLE, Short.MAX_VALUE, MAX_SHORT_PLUS_ONE_AS_DOUBLE);
+        return saturatedFloorCastToLong(value, Short.MIN_VALUE, MIN_SHORT_AS_DOUBLE, Short.MAX_VALUE, MAX_SHORT_PLUS_ONE_AS_DOUBLE, StandardTypes.SMALLINT);
     }
 
     @ScalarOperator(SATURATED_FLOOR_CAST)
     @SqlType(StandardTypes.TINYINT)
     public static long saturatedFloorCastToTinyint(@SqlType(StandardTypes.DOUBLE) double value)
     {
-        return saturatedFloorCastToLong(value, Byte.MIN_VALUE, MIN_BYTE_AS_DOUBLE, Byte.MAX_VALUE, MAX_BYTE_PLUS_ONE_AS_DOUBLE);
+        return saturatedFloorCastToLong(value, Byte.MIN_VALUE, MIN_BYTE_AS_DOUBLE, Byte.MAX_VALUE, MAX_BYTE_PLUS_ONE_AS_DOUBLE, StandardTypes.TINYINT);
     }
 
-    private static long saturatedFloorCastToLong(double value, long minValue, double minValueAsDouble, long maxValue, double maxValuePlusOneAsDouble)
+    private static long saturatedFloorCastToLong(double value, long minValue, double minValueAsDouble, long maxValue, double maxValuePlusOneAsDouble, String targetType)
     {
         if (value <= minValueAsDouble) {
             return minValue;
@@ -307,7 +320,12 @@ public final class DoubleOperators
         if (value + 1 >= maxValuePlusOneAsDouble) {
             return maxValue;
         }
-        return DoubleMath.roundToLong(value, FLOOR);
+        try {
+            return DoubleMath.roundToLong(value, FLOOR);
+        }
+        catch (ArithmeticException e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Unable to cast double %s to %s", value, targetType), e);
+        }
     }
 
     @ScalarOperator(IS_DISTINCT_FROM)

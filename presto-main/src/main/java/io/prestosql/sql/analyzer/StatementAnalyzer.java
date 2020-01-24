@@ -47,10 +47,12 @@ import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeNotFoundException;
+import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.analyzer.Analysis.SelectExpression;
 import io.prestosql.sql.analyzer.Scope.AsteriskedIdentifierChainBasis;
 import io.prestosql.sql.parser.ParsingException;
@@ -220,6 +222,7 @@ import static io.prestosql.sql.analyzer.ScopeReferenceExtractor.hasReferencesToS
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.planner.ExpressionInterpreter.expressionOptimizer;
+import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.prestosql.sql.tree.ExplainType.Type.DISTRIBUTED;
 import static io.prestosql.sql.tree.FrameBound.Type.CURRENT_ROW;
 import static io.prestosql.sql.tree.FrameBound.Type.FOLLOWING;
@@ -399,13 +402,52 @@ class StatementAnalyzer
                 return false;
             }
 
+            /*
+            TODO enable coercions based on type compatibility for INSERT of structural types containing nested bounded character types.
+            It might require defining a new range of cast operators and changes in FunctionRegistry to ensure proper handling
+            of nested types.
+            Currently, INSERT for such structural types is only allowed in the case of strict type coercibility.
+            INSERT for other types is allowed in all cases described by the Standard. It is obtained
+            by emulating a "guarded cast" in LogicalPlanner, and without any changes to the actual operators.
+            */
             for (int i = 0; i < tableTypes.size(); i++) {
-                if (!typeCoercion.canCoerce(queryTypes.get(i), tableTypes.get(i))) {
+                if (hasNestedBoundedCharacterType(tableTypes.get(i))) {
+                    if (!typeCoercion.canCoerce(queryTypes.get(i), tableTypes.get(i))) {
+                        return false;
+                    }
+                }
+                else if (!typeCoercion.isCompatible(queryTypes.get(i), tableTypes.get(i))) {
                     return false;
                 }
             }
 
             return true;
+        }
+
+        private boolean hasNestedBoundedCharacterType(Type type)
+        {
+            if (type instanceof ArrayType) {
+                return hasBoundedCharacterType(((ArrayType) type).getElementType());
+            }
+
+            if (type instanceof MapType) {
+                return hasBoundedCharacterType(((MapType) type).getKeyType()) || hasBoundedCharacterType(((MapType) type).getValueType());
+            }
+
+            if (type instanceof RowType) {
+                for (Type fieldType : type.getTypeParameters()) {
+                    if (hasBoundedCharacterType(fieldType)) {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        private boolean hasBoundedCharacterType(Type type)
+        {
+            return type instanceof CharType || (type instanceof VarcharType && !((VarcharType) type).isUnbounded()) || hasNestedBoundedCharacterType(type);
         }
 
         @Override
@@ -1285,11 +1327,32 @@ class StatementAnalyzer
             Scope left = process(node.getLeft(), scope);
             Scope right = process(node.getRight(), isLateralRelation(node.getRight()) ? Optional.of(left) : scope);
 
-            if (isLateralRelation(node.getRight()) && (node.getType().equals(RIGHT) || node.getType().equals(FULL))) {
-                Stream<Expression> leftScopeReferences = getReferencesToScope(node.getRight(), analysis, left);
-                leftScopeReferences.findFirst().ifPresent(reference -> {
-                    throw semanticException(INVALID_COLUMN_REFERENCE, reference, "LATERAL reference not allowed in %s JOIN", node.getType().name());
-                });
+            if (isLateralRelation(node.getRight())) {
+                if (node.getType().equals(RIGHT) || node.getType().equals(FULL)) {
+                    Stream<Expression> leftScopeReferences = getReferencesToScope(node.getRight(), analysis, left);
+                    leftScopeReferences.findFirst().ifPresent(reference -> {
+                        throw semanticException(INVALID_COLUMN_REFERENCE, reference, "LATERAL reference not allowed in %s JOIN", node.getType().name());
+                    });
+                }
+                if (isUnnestRelation(node.getRight())) {
+                    if (criteria != null) {
+                        if (!(criteria instanceof JoinOn) || !((JoinOn) criteria).getExpression().equals(TRUE_LITERAL)) {
+                            throw semanticException(
+                                    NOT_SUPPORTED,
+                                    criteria instanceof JoinOn ? ((JoinOn) criteria).getExpression() : node,
+                                    "%s JOIN involving UNNEST is only supported with condition ON TRUE",
+                                    node.getType().name());
+                        }
+                    }
+                }
+                else if (node.getType() == FULL) {
+                    if (!(criteria instanceof JoinOn) || !((JoinOn) criteria).getExpression().equals(TRUE_LITERAL)) {
+                        throw semanticException(
+                                NOT_SUPPORTED,
+                                criteria instanceof JoinOn ? ((JoinOn) criteria).getExpression() : node,
+                                "FULL JOIN involving LATERAL relation is only supported with condition ON TRUE");
+                    }
+                }
             }
 
             if (criteria instanceof JoinUsing) {
@@ -1398,6 +1461,14 @@ class StatementAnalyzer
                 return isLateralRelation(((AliasedRelation) node).getRelation());
             }
             return node instanceof Unnest || node instanceof Lateral;
+        }
+
+        private boolean isUnnestRelation(Relation node)
+        {
+            if (node instanceof AliasedRelation) {
+                return isUnnestRelation(((AliasedRelation) node).getRelation());
+            }
+            return node instanceof Unnest;
         }
 
         @Override
@@ -2273,7 +2344,7 @@ class StatementAnalyzer
                     scope,
                     analysis,
                     expression,
-                    WarningCollector.NOOP);
+                    warningCollector);
         }
 
         private List<Expression> descriptorToFields(Scope scope)

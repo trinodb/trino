@@ -19,6 +19,7 @@ import org.testng.annotations.Test;
 
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.utf8Slice;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestStringStatistics
         extends AbstractRangeStatisticsTest<StringStatistics, Slice>
@@ -83,5 +84,13 @@ public class TestStringStatistics
         assertRetainedSize(null, HIGH_BOTTOM_VALUE, INSTANCE_SIZE + HIGH_BOTTOM_VALUE.getRetainedSize());
         assertRetainedSize(EMPTY_SLICE, null, INSTANCE_SIZE + EMPTY_SLICE.getRetainedSize());
         assertRetainedSize(null, null, INSTANCE_SIZE);
+    }
+
+    @Test
+    public void testValidateMinMax()
+    {
+        assertThatThrownBy(() -> new StringStatistics(utf8Slice("alice"), utf8Slice("Bob"), 10))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("minimum is not less than or equal to maximum: 'alice' [616C696365], 'Bob' [426F62]");
     }
 }

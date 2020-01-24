@@ -14,8 +14,9 @@
 package io.prestosql.plugin.sqlserver;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.tpch.TpchTable;
 import io.prestosql.testing.AbstractTestDistributedQueries;
+import io.prestosql.testing.QueryRunner;
+import io.prestosql.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -25,23 +26,29 @@ import static io.prestosql.plugin.sqlserver.SqlServerQueryRunner.createSqlServer
 public class TestSqlServerDistributedQueries
         extends AbstractTestDistributedQueries
 {
-    private final TestingSqlServer sqlServer;
+    private TestingSqlServer sqlServer;
 
-    public TestSqlServerDistributedQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        this(new TestingSqlServer());
-    }
-
-    public TestSqlServerDistributedQueries(TestingSqlServer testingSqlServer)
-    {
-        super(() -> createSqlServerQueryRunner(testingSqlServer, ImmutableMap.of(), TpchTable.getTables()));
-        this.sqlServer = testingSqlServer;
+        this.sqlServer = new TestingSqlServer();
+        sqlServer.start();
+        return createSqlServerQueryRunner(
+                sqlServer,
+                ImmutableMap.<String, String>builder()
+                        // caching here speeds up tests highly, caching is not used in smoke tests
+                        .put("metadata.cache-ttl", "10m")
+                        .put("metadata.cache-missing", "true")
+                        .build(),
+                TpchTable.getTables());
     }
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
     {
         sqlServer.close();
+        sqlServer = null;
     }
 
     @Override

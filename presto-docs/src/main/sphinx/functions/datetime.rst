@@ -22,6 +22,8 @@ Operator Example                                               Result
 ``-``    ``interval '3' year - interval '5' month``            ``2-7``
 ======== ===================================================== ===========================
 
+.. _at_time_zone_operator:
+
 Time Zone Conversion
 --------------------
 
@@ -36,17 +38,17 @@ The ``AT TIME ZONE`` operator sets the time zone of a timestamp::
 Date and Time Functions
 -----------------------
 
-.. function:: current_date -> date
+.. function:: current_date
 
     Returns the current date as of the start of the query.
 
-.. function:: current_time -> time with time zone
+.. function:: current_time
 
-    Returns the current time as of the start of the query.
+    Returns the current time with time zone as of the start of the query.
 
-.. function:: current_timestamp -> timestamp with time zone
+.. function:: current_timestamp
 
-    Returns the current timestamp as of the start of the query.
+    Returns the current timestamp with time zone as of the start of the query.
 
 .. function:: current_timezone() -> varchar
 
@@ -91,11 +93,11 @@ Date and Time Functions
     Returns the UNIX timestamp ``unixtime`` as a timestamp with time zone
     using ``hours`` and ``minutes`` for the time zone offset. ``unixtime`` is the number of seconds since ``1970-01-01 00:00:00``.
 
-.. function:: localtime -> time
+.. function:: localtime
 
     Returns the current time as of the start of the query.
 
-.. function:: localtimestamp -> timestamp
+.. function:: localtimestamp
 
     Returns the current timestamp as of the start of the query.
 

@@ -30,6 +30,7 @@ import java.io.IOException;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static io.prestosql.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static java.util.Objects.requireNonNull;
 
@@ -71,7 +72,7 @@ public abstract class AbstractTestHiveLocal
         HiveConfig hiveConfig = new HiveConfig()
                 .setTimeZone("America/Los_Angeles");
 
-        setup(testDbName, hiveConfig, metastore);
+        setup(testDbName, hiveConfig, metastore, HDFS_ENVIRONMENT);
     }
 
     @AfterClass(alwaysRun = true)

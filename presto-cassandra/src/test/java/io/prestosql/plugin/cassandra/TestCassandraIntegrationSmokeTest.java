@@ -20,7 +20,10 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
-import org.testng.annotations.BeforeClass;
+import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.sql.TestTable;
+import org.testng.SkipException;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.math.BigInteger;
@@ -31,6 +34,7 @@ import java.util.List;
 
 import static com.datastax.driver.core.utils.Bytes.toRawHexString;
 import static com.google.common.primitives.Ints.toByteArray;
+import static io.prestosql.plugin.cassandra.CassandraQueryRunner.createCassandraQueryRunner;
 import static io.prestosql.plugin.cassandra.CassandraQueryRunner.createCassandraSession;
 import static io.prestosql.plugin.cassandra.CassandraTestingUtils.TABLE_ALL_TYPES;
 import static io.prestosql.plugin.cassandra.CassandraTestingUtils.TABLE_ALL_TYPES_INSERT;
@@ -53,12 +57,12 @@ import static io.prestosql.testing.MaterializedResult.DEFAULT_PRECISION;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.QueryAssertions.assertContains;
 import static io.prestosql.testing.QueryAssertions.assertContainsEventually;
+import static io.prestosql.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
 
-@Test(singleThreaded = true)
 public class TestCassandraIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
@@ -69,18 +73,23 @@ public class TestCassandraIntegrationSmokeTest
     // TODO should match DATE_TIME_LOCAL after https://github.com/prestosql/presto/issues/37
     private static final LocalDateTime TIMESTAMP_LOCAL = LocalDateTime.of(1969, 12, 31, 23, 4, 5);
 
+    private CassandraServer server;
     private CassandraSession session;
 
-    public TestCassandraIntegrationSmokeTest()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(CassandraQueryRunner::createCassandraQueryRunner);
+        server = new CassandraServer();
+        session = server.getSession();
+        createTestTables(session, KEYSPACE, DATE_TIME_LOCAL);
+        return createCassandraQueryRunner(server, ORDERS);
     }
 
-    @BeforeClass
-    public void setUp()
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
     {
-        session = EmbeddedCassandra.getSession();
-        createTestTables(session, KEYSPACE, DATE_TIME_LOCAL);
+        server.close();
     }
 
     @Override
@@ -93,6 +102,24 @@ public class TestCassandraIntegrationSmokeTest
     protected boolean isParameterizedVarcharSupported()
     {
         return false;
+    }
+
+    @Override
+    protected boolean canCreateSchema()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean canDropSchema()
+    {
+        return false;
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        throw new SkipException("Cassandra connector does not support column default values");
     }
 
     @Test

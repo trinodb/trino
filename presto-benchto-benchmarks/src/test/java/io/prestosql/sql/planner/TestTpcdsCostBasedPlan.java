@@ -54,7 +54,9 @@ public class TestTpcdsCostBasedPlan
                     .setSystemProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.AUTOMATIC.name())
                     .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name());
 
-            LocalQueryRunner queryRunner = LocalQueryRunner.queryRunnerWithFakeNodeCountForStats(sessionBuilder.build(), 8);
+            LocalQueryRunner queryRunner = LocalQueryRunner.builder(sessionBuilder.build())
+                    .withNodeCountForStats(8)
+                    .build();
             queryRunner.createCatalog(
                     catalog,
                     new TpcdsConnectorFactory(1),

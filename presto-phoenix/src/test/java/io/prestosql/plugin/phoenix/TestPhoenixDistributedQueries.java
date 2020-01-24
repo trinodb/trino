@@ -14,24 +14,20 @@
 package io.prestosql.plugin.phoenix;
 
 import io.prestosql.testing.AbstractTestDistributedQueries;
+import io.prestosql.testing.QueryRunner;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
 
 import static io.prestosql.plugin.phoenix.PhoenixQueryRunner.createPhoenixQueryRunner;
 
-@Test
 public class TestPhoenixDistributedQueries
         extends AbstractTestDistributedQueries
 {
-    public TestPhoenixDistributedQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        this(TestingPhoenixServer.getInstance());
-    }
-
-    public TestPhoenixDistributedQueries(TestingPhoenixServer server)
-    {
-        super(() -> createPhoenixQueryRunner(server));
+        return createPhoenixQueryRunner(TestingPhoenixServer.getInstance());
     }
 
     @AfterClass(alwaysRun = true)

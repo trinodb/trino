@@ -13,23 +13,27 @@
  */
 package io.prestosql.testing;
 
+import com.google.common.collect.ImmutableList;
+import io.prestosql.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
+
+import java.security.SecureRandom;
+import java.util.List;
 
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.QueryAssertions.assertContains;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static java.lang.Character.MAX_RADIX;
+import static java.lang.Math.abs;
+import static java.lang.Math.min;
+import static java.lang.String.format;
 
 public abstract class AbstractTestIntegrationSmokeTest
         extends AbstractTestQueryFramework
 {
-    @Deprecated
-    protected AbstractTestIntegrationSmokeTest(QueryRunnerSupplier supplier)
-    {
-        super(supplier);
-    }
-
-    protected AbstractTestIntegrationSmokeTest() {}
+    private static final SecureRandom random = new SecureRandom();
+    private static final int RANDOM_SUFFIX_LENGTH = 12;
 
     protected boolean isDateTypeSupported()
     {
@@ -39,6 +43,24 @@ public abstract class AbstractTestIntegrationSmokeTest
     protected boolean isParameterizedVarcharSupported()
     {
         return true;
+    }
+
+    protected boolean canCreateSchema()
+    {
+        return true;
+    }
+
+    protected boolean canDropSchema()
+    {
+        return true;
+    }
+
+    protected void cleanUpSchemas(List<String> schemaNames)
+            throws Exception
+    {
+        if (!canDropSchema()) {
+            throw new IllegalStateException("cleanUpSchemas() must be implemented if canDropSchema is false");
+        }
     }
 
     @Test
@@ -242,5 +264,56 @@ public abstract class AbstractTestIntegrationSmokeTest
                     .row("comment", "varchar", "", "")
                     .build();
         }
+    }
+
+    @Test
+    public void testCreateSchema()
+            throws Exception
+    {
+        skipTestUnless(canCreateSchema());
+        String schemaName = "schema_" + randomNameSuffix();
+        assertEquals(computeActual(format("SHOW SCHEMAS LIKE '%s'", schemaName)).getRowCount(), 0);
+        assertUpdate("CREATE SCHEMA " + schemaName);
+        assertQuery(format("SHOW SCHEMAS LIKE '%s'", schemaName), format("VALUES '%s'", schemaName));
+        assertQueryFails("CREATE SCHEMA " + schemaName, format("line 1:1: Schema '.*.%s' already exists", schemaName));
+        if (canDropSchema()) {
+            assertUpdate("DROP SCHEMA " + schemaName);
+            assertQueryFails("DROP SCHEMA " + schemaName, format("line 1:1: Schema '.*.%s' does not exist", schemaName));
+        }
+        else {
+            cleanUpSchemas(ImmutableList.of(schemaName));
+        }
+    }
+
+    @Test
+    public void testDropSchema()
+    {
+        skipTestUnless(canCreateSchema() && canDropSchema());
+        String schemaName = "schema_" + randomNameSuffix();
+        assertUpdate("CREATE SCHEMA " + schemaName);
+        assertQuery(format("SHOW SCHEMAS LIKE '%s'", schemaName), format("VALUES '%s'", schemaName));
+        assertUpdate("DROP SCHEMA " + schemaName);
+        assertQueryFails("DROP SCHEMA " + schemaName, format("line 1:1: Schema '.*.%s' does not exist", schemaName));
+    }
+
+    @Test
+    public void testInsertForDefaultColumn()
+    {
+        try (TestTable testTable = createTableWithDefaultColumns()) {
+            assertUpdate(format("INSERT INTO %s (col_required, col_required2) VALUES (1, 10)", testTable.getName()), 1);
+            assertUpdate(format("INSERT INTO %s VALUES (2, 3, 4, 5, 6)", testTable.getName()), 1);
+            assertUpdate(format("INSERT INTO %s VALUES (7, null, null, 8, 9)", testTable.getName()), 1);
+            assertUpdate(format("INSERT INTO %s (col_required2, col_required) VALUES (12, 13)", testTable.getName()), 1);
+
+            assertQuery("SELECT * FROM " + testTable.getName(), "VALUES (1, null, 43, 42, 10), (2, 3, 4, 5, 6), (7, null, null, 8, 9), (13, null, 43, 42, 12)");
+        }
+    }
+
+    protected abstract TestTable createTableWithDefaultColumns();
+
+    private static String randomNameSuffix()
+    {
+        String randomSuffix = Long.toString(abs(random.nextLong()), MAX_RADIX);
+        return randomSuffix.substring(0, min(RANDOM_SUFFIX_LENGTH, randomSuffix.length()));
     }
 }

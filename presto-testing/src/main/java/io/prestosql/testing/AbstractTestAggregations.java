@@ -25,14 +25,6 @@ import static org.testng.Assert.assertTrue;
 public abstract class AbstractTestAggregations
         extends AbstractTestQueryFramework
 {
-    @Deprecated
-    protected AbstractTestAggregations(QueryRunnerSupplier supplier)
-    {
-        super(supplier);
-    }
-
-    protected AbstractTestAggregations() {}
-
     @Test
     public void testCountBoolean()
     {
@@ -321,6 +313,17 @@ public abstract class AbstractTestAggregations
         // filter out all rows
         assertQuery("SELECT sum(x) FILTER (WHERE y > 5) FROM (VALUES (1, 3), (2, 4), (2, 4), (4, 5)) t (x, y)", "SELECT null");
         assertQuery("SELECT count(*) FILTER (WHERE x > 4), sum(x) FILTER (WHERE y > 5) FROM (VALUES (1, 3), (2, 4), (2, 4), (4, 5)) t (x, y)", "SELECT 0, null");
+    }
+
+    @Test
+    public void testAggregationFilterWithSubquery()
+    {
+        assertQuery("" +
+                        "WITH company AS (SELECT * FROM (VALUES (1, 10), (2, 20)) t(dep_id, salary)), " +
+                        "department AS (SELECT 1 id) " +
+                        "SELECT dep_id, sum(salary), sum(salary) FILTER (WHERE EXISTS (SELECT 1 FROM department WHERE department.id = company.dep_id)) " +
+                        "FROM company GROUP BY dep_id",
+                "VALUES (1, 10, 10), (2, 20, NULL)");
     }
 
     @Test

@@ -35,6 +35,7 @@ import java.util.function.Function;
 import java.util.stream.Collector;
 
 import static java.lang.String.format;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
@@ -100,6 +101,34 @@ public final class TupleDomain<T>
                 .entrySet().stream()
                 .filter(entry -> entry.getValue().isNullableSingleValue())
                 .collect(toLinkedMap(Map.Entry::getKey, entry -> new NullableValue(entry.getValue().getType(), entry.getValue().getNullableSingleValue()))));
+    }
+
+    /**
+     * Extract all column constraints that define a non-empty set of discrete values allowed for the columns in their respective Domains.
+     * Returns an empty Optional if the Domain is none.
+     */
+    public static <T> Optional<Map<T, List<NullableValue>>> extractDiscreteValues(TupleDomain<T> tupleDomain)
+    {
+        if (!tupleDomain.getDomains().isPresent()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(tupleDomain.getDomains().get()
+                .entrySet().stream()
+                .filter(entry -> entry.getValue().isNullableDiscreteSet())
+                .collect(toLinkedMap(
+                        Map.Entry::getKey,
+                        entry -> {
+                            Domain.DiscreteSet discreteValues = entry.getValue().getNullableDiscreteSet();
+                            List<NullableValue> nullableValues = new ArrayList<>();
+                            for (Object value : discreteValues.getNonNullValues()) {
+                                nullableValues.add(new NullableValue(entry.getValue().getType(), value));
+                            }
+                            if (discreteValues.containsNull()) {
+                                nullableValues.add(new NullableValue(entry.getValue().getType(), null));
+                            }
+                            return unmodifiableList(nullableValues);
+                        })));
     }
 
     /**
@@ -218,15 +247,26 @@ public final class TupleDomain<T>
      * <p>
      * Note that this is NOT equivalent to a strict union as the final result may allow tuples
      * that do not exist in either TupleDomain.
-     * For example:
+     * Example 1:
      * <p>
      * <ul>
      * <li>TupleDomain X: a => 1, b => 2
      * <li>TupleDomain Y: a => 2, b => 3
-     * <li>Column-wise unioned TupleDomain: a = > 1 OR 2, b => 2 OR 3
+     * <li>Column-wise unioned TupleDomain: a => 1 OR 2, b => 2 OR 3
      * </ul>
      * <p>
      * In the above resulting TupleDomain, tuple (a => 1, b => 3) would be considered valid but would
+     * not be valid for either TupleDomain X or TupleDomain Y.
+     * Example 2:
+     * <p>
+     * Let a be of type DOUBLE
+     * <ul>
+     * <li>TupleDomain X: (a < 5)
+     * <li>TupleDomain Y: (a > 0)
+     * <li>Column-wise unioned TupleDomain: (a IS NOT NULL)
+     * </ul>
+     * </p>
+     * In the above resulting TupleDomain, tuple (a => NaN) would be considered valid but would
      * not be valid for either TupleDomain X or TupleDomain Y.
      * However, this result is guaranteed to be a superset of the strict union.
      */

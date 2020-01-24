@@ -15,15 +15,16 @@ package io.prestosql.elasticsearch;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.Closer;
-import io.airlift.tpch.TpchTable;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.sql.TestTable;
+import io.prestosql.tpch.TpchTable;
+import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest;
 import org.elasticsearch.common.xcontent.XContentType;
+import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -37,41 +38,33 @@ import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
+import static org.elasticsearch.client.Requests.indexAliasesRequest;
 import static org.elasticsearch.client.Requests.refreshRequest;
 
 public class TestElasticsearchIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private final EmbeddedElasticsearchNode embeddedElasticsearchNode;
+    private EmbeddedElasticsearchNode embeddedElasticsearchNode;
 
-    private QueryRunner queryRunner;
-
-    public TestElasticsearchIntegrationSmokeTest()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        this(createEmbeddedElasticsearchNode());
-    }
-
-    public TestElasticsearchIntegrationSmokeTest(EmbeddedElasticsearchNode embeddedElasticsearchNode)
-    {
-        super(() -> createElasticsearchQueryRunner(embeddedElasticsearchNode, TpchTable.getTables()));
-        this.embeddedElasticsearchNode = embeddedElasticsearchNode;
-    }
-
-    @BeforeClass
-    public void setUp()
-    {
-        queryRunner = getQueryRunner();
+        embeddedElasticsearchNode = createEmbeddedElasticsearchNode();
+        return createElasticsearchQueryRunner(embeddedElasticsearchNode, TpchTable.getTables());
     }
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
             throws IOException
     {
-        try (Closer closer = Closer.create()) {
-            closer.register(queryRunner);
-            closer.register(embeddedElasticsearchNode);
-        }
-        queryRunner = null;
+        embeddedElasticsearchNode.close();
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        throw new SkipException("ElasticSearch connector does not support column default values");
     }
 
     @Test
@@ -126,6 +119,164 @@ public class TestElasticsearchIntegrationSmokeTest
         assertQuery(
                 "SELECT name, fields.fielda, fields.fieldb FROM data",
                 "VALUES ('nestfield', 32, 'valueb')");
+    }
+
+    @Test
+    public void testArrayFields()
+    {
+        String indexName = "test_arrays";
+
+        embeddedElasticsearchNode.getClient()
+                .admin()
+                .indices()
+                .prepareCreate(indexName)
+                .addMapping("doc", "" +
+                                "{" +
+                                "  \"_meta\": {" +
+                                "    \"presto\": {" +
+                                "      \"a\": {" +
+                                "        \"b\": {" +
+                                "          \"y\": {" +
+                                "            \"isArray\": true" +
+                                "          }" +
+                                "        }" +
+                                "      }," +
+                                "      \"c\": {" +
+                                "        \"f\": {" +
+                                "          \"g\": {" +
+                                "            \"isArray\": true" +
+                                "          }," +
+                                "          \"isArray\": true" +
+                                "        }" +
+                                "      }," +
+                                "      \"j\": {" +
+                                "        \"isArray\": true" +
+                                "      }," +
+                                "      \"k\": {" +
+                                "        \"isArray\": true" +
+                                "      }" +
+                                "    }" +
+                                "  }," +
+                                "  \"properties\":{" +
+                                "    \"a\": {" +
+                                "      \"type\": \"object\"," +
+                                "      \"properties\": {" +
+                                "        \"b\": {" +
+                                "          \"type\": \"object\"," +
+                                "          \"properties\": {" +
+                                "            \"x\": {" +
+                                "              \"type\": \"integer\"" +
+                                "            }," +
+                                "            \"y\": {" +
+                                "              \"type\": \"keyword\"" +
+                                "            }" +
+                                "          } " +
+                                "        }" +
+                                "      }" +
+                                "    }," +
+                                "    \"c\": {" +
+                                "      \"type\": \"object\"," +
+                                "      \"properties\": {" +
+                                "        \"d\": {" +
+                                "          \"type\": \"keyword\"" +
+                                "        }," +
+                                "        \"e\": {" +
+                                "          \"type\": \"keyword\"" +
+                                "        }," +
+                                "        \"f\": {" +
+                                "          \"type\": \"object\"," +
+                                "          \"properties\": {" +
+                                "            \"g\": {" +
+                                "              \"type\": \"integer\"" +
+                                "            }," +
+                                "            \"h\": {" +
+                                "              \"type\": \"integer\"" +
+                                "            }" +
+                                "          } " +
+                                "        }" +
+                                "      }" +
+                                "    }," +
+                                "    \"i\": {" +
+                                "      \"type\": \"long\"" +
+                                "    }," +
+                                "    \"j\": {" +
+                                "      \"type\": \"long\"" +
+                                "    }," +
+                                "    \"k\": {" +
+                                "      \"type\": \"long\"" +
+                                "    }" +
+                                "  }" +
+                                "}",
+                        XContentType.JSON)
+                .get();
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("a", ImmutableMap.<String, Object>builder()
+                        .put("b", ImmutableMap.<String, Object>builder()
+                                .put("x", 1)
+                                .put("y", ImmutableList.<String>builder()
+                                        .add("hello")
+                                        .add("world")
+                                        .build())
+                                .build())
+                        .build())
+                .put("c", ImmutableMap.<String, Object>builder()
+                        .put("d", "foo")
+                        .put("e", "bar")
+                        .put("f", ImmutableList.<Map<String, Object>>builder()
+                                .add(ImmutableMap.<String, Object>builder()
+                                        .put("g", ImmutableList.<Integer>builder()
+                                                .add(10)
+                                                .add(20)
+                                                .build())
+                                        .put("h", 100)
+                                        .build())
+                                .add(ImmutableMap.<String, Object>builder()
+                                        .put("g", ImmutableList.<Integer>builder()
+                                                .add(30)
+                                                .add(40)
+                                                .build())
+                                        .put("h", 200)
+                                        .build())
+                                .build())
+                        .build())
+                .put("j", ImmutableList.<Long>builder()
+                        .add(50L)
+                        .add(60L)
+                        .build())
+                .build());
+
+        embeddedElasticsearchNode.getClient()
+                .admin()
+                .indices()
+                .refresh(refreshRequest(indexName))
+                .actionGet();
+
+        assertQuery(
+                "SELECT a.b.y[1], c.f[1].g[2], c.f[2].g[1], j[2], k[1] FROM test_arrays",
+                "VALUES ('hello', 20, 30, 60, NULL)");
+    }
+
+    @Test
+    public void testEmptyObjectFields()
+    {
+        String indexName = "emptyobject";
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("name", "stringfield")
+                .put("emptyobject", ImmutableMap.of())
+                .put("fields.fielda", 32)
+                .put("fields.fieldb", ImmutableMap.of())
+                .build());
+
+        embeddedElasticsearchNode.getClient()
+                .admin()
+                .indices()
+                .refresh(refreshRequest(indexName))
+                .actionGet();
+
+        assertQuery(
+                "SELECT name, fields.fielda FROM emptyobject",
+                "VALUES ('stringfield', 32)");
     }
 
     @Test
@@ -220,6 +371,123 @@ public class TestElasticsearchIntegrationSmokeTest
                 .build();
 
         assertEquals(rows.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testFilters()
+    {
+        String indexName = "filter_pushdown";
+
+        embeddedElasticsearchNode.getClient()
+                .admin()
+                .indices()
+                .prepareCreate(indexName)
+                .addMapping("doc",
+                        "boolean_column", "type=boolean",
+                        "byte_column", "type=byte",
+                        "short_column", "type=short",
+                        "integer_column", "type=integer",
+                        "long_column", "type=long",
+                        "float_column", "type=float",
+                        "double_column", "type=double",
+                        "keyword_column", "type=keyword",
+                        "text_column", "type=text",
+                        "binary_column", "type=binary",
+                        "timestamp_column", "type=date")
+                .get();
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("boolean_column", true)
+                .put("byte_column", 1)
+                .put("short_column", 2)
+                .put("integer_column", 3)
+                .put("long_column", 4L)
+                .put("float_column", 1.0f)
+                .put("double_column", 1.0d)
+                .put("keyword_column", "cool")
+                .put("text_column", "some text")
+                .put("binary_column", new byte[] {(byte) 0xCA, (byte) 0xFE})
+                .put("timestamp_column", 1569888000000L)
+                .build());
+
+        embeddedElasticsearchNode.getClient()
+                .admin()
+                .indices()
+                .refresh(refreshRequest(indexName))
+                .actionGet();
+
+        // _score column
+        assertQuery("SELECT count(*) FROM \"filter_pushdown: cool\" WHERE _score > 0", "VALUES 1");
+
+        // boolean
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE boolean_column = true", "VALUES 1");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE boolean_column = false", "VALUES 0");
+
+        // tinyint
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE byte_column = 1", "VALUES 1");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE byte_column = 0", "VALUES 0");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE byte_column > 1", "VALUES 0");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE byte_column < 1", "VALUES 0");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE byte_column > 0", "VALUES 1");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE byte_column < 10", "VALUES 1");
+
+        // smallint
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE short_column = 2", "VALUES 1");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE short_column > 2", "VALUES 0");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE short_column < 2", "VALUES 0");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE short_column = 0", "VALUES 0");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE short_column > 0", "VALUES 1");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE short_column < 10", "VALUES 1");
+
+        // integer
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE integer_column = 3", "VALUES 1");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE integer_column > 3", "VALUES 0");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE integer_column < 3", "VALUES 0");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE integer_column = 0", "VALUES 0");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE integer_column > 0", "VALUES 1");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE integer_column < 10", "VALUES 1");
+
+        // bigint
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE long_column = 4", "VALUES 1");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE long_column > 4", "VALUES 0");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE long_column < 4", "VALUES 0");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE long_column = 0", "VALUES 0");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE long_column > 0", "VALUES 1");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE long_column < 10", "VALUES 1");
+
+        // real
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE float_column = 1.0", "VALUES 1");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE float_column > 1.0", "VALUES 0");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE float_column < 1.0", "VALUES 0");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE float_column = 0.0", "VALUES 0");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE float_column > 0.0", "VALUES 1");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE float_column < 10.0", "VALUES 1");
+
+        // double
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE double_column = 1.0", "VALUES 1");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE double_column > 1.0", "VALUES 0");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE double_column < 1.0", "VALUES 0");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE double_column = 0.0", "VALUES 0");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE double_column > 0.0", "VALUES 1");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE double_column < 10.0", "VALUES 1");
+
+        // varchar
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE keyword_column = 'cool'", "VALUES 1");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE keyword_column = 'bar'", "VALUES 0");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE text_column = 'some text'", "VALUES 1");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE text_column = 'some'", "VALUES 0");
+
+        // binary
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE binary_column = x'CAFE'", "VALUES 1");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE binary_column = x'ABCD'", "VALUES 0");
+
+        // timestamp
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE timestamp_column = TIMESTAMP '2019-10-01 00:00:00'", "VALUES 1");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE timestamp_column > TIMESTAMP '2019-10-01 00:00:00'", "VALUES 0");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE timestamp_column < TIMESTAMP '2019-10-01 00:00:00'", "VALUES 0");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE timestamp_column = TIMESTAMP '2019-10-02 00:00:00'", "VALUES 0");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE timestamp_column > TIMESTAMP '2001-01-01 00:00:00'", "VALUES 1");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE timestamp_column < TIMESTAMP '2030-01-01 00:00:00'", "VALUES 1");
     }
 
     @Test
@@ -332,6 +600,73 @@ public class TestElasticsearchIntegrationSmokeTest
     public void testQueryStringError()
     {
         assertQueryFails("SELECT count(*) FROM \"orders: ++foo AND\"", "\\QFailed to parse query [ ++foo and]\\E");
+    }
+
+    @Test
+    public void testAlias()
+    {
+        embeddedElasticsearchNode.getClient()
+                .admin()
+                .indices()
+                .aliases(indexAliasesRequest()
+                        .addAliasAction(IndicesAliasesRequest.AliasActions.add()
+                                .index("orders")
+                                .alias("orders_alias")))
+                .actionGet();
+
+        embeddedElasticsearchNode.getClient()
+                .admin()
+                .indices()
+                .refresh(refreshRequest("orders_alias"))
+                .actionGet();
+
+        assertQuery(
+                "SELECT count(*) FROM orders_alias",
+                "SELECT count(*) FROM orders");
+    }
+
+    @Test
+    public void testMultiIndexAlias()
+    {
+        embeddedElasticsearchNode.getClient()
+                .admin()
+                .indices()
+                .aliases(indexAliasesRequest()
+                        .addAliasAction(IndicesAliasesRequest.AliasActions.add()
+                                .index("nation")
+                                .alias("multi_alias")))
+                .actionGet();
+
+        embeddedElasticsearchNode.getClient()
+                .admin()
+                .indices()
+                .aliases(indexAliasesRequest()
+                        .addAliasAction(IndicesAliasesRequest.AliasActions.add()
+                                .index("region")
+                                .alias("multi_alias")))
+                .actionGet();
+
+        embeddedElasticsearchNode.getClient()
+                .admin()
+                .indices()
+                .refresh(refreshRequest("multi_alias"))
+                .actionGet();
+
+        assertQuery(
+                "SELECT count(*) FROM multi_alias",
+                "SELECT (SELECT count(*) FROM region) + (SELECT count(*) FROM nation)");
+    }
+
+    @Override
+    protected boolean canCreateSchema()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean canDropSchema()
+    {
+        return false;
     }
 
     private void index(String indexName, Map<String, Object> document)

@@ -2,6 +2,8 @@
 Conditional Expressions
 =======================
 
+.. _case_expression:
+
 CASE
 ----
 
@@ -49,6 +51,9 @@ returned if it exists, otherwise null is returned. Example::
                ELSE 'ccc'
            END
 
+
+.. _if_function:
+
 IF
 --
 
@@ -72,13 +77,18 @@ that is equivalent to the following ``CASE`` expression:
     Evaluates and returns ``true_value`` if ``condition`` is true,
     otherwise evaluates and returns ``false_value``.
 
+.. _coalesce_function:
+
 COALESCE
 --------
+
 
 .. function:: coalesce(value1, value2[, ...])
 
     Returns the first non-null ``value`` in the argument list.
     Like a ``CASE`` expression, arguments are only evaluated if necessary.
+
+.. _nullif_function:
 
 NULLIF
 ------
@@ -86,6 +96,8 @@ NULLIF
 .. function:: nullif(value1, value2)
 
     Returns null if ``value1`` equals ``value2``, otherwise returns ``value1``.
+
+.. _try_function:
 
 TRY
 ---
@@ -133,7 +145,7 @@ Query failure without ``TRY``:
 
 .. code-block:: none
 
-    Query failed: Can not cast 'P332a' to BIGINT
+    Query failed: Cannot cast 'P332a' to BIGINT
 
 ``NULL`` values with ``TRY``:
 

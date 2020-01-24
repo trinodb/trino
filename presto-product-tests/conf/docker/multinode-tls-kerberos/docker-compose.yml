@@ -13,7 +13,7 @@ services:
         aliases:
           - presto-master.docker.cluster
     volumes:
-      - ../../../conf/presto/etc/environment-specific-catalogs/singlenode-kerberos-hdfs-no-impersonation/hive.properties:/docker/presto-product-tests/conf/presto/etc/catalog/hive.properties
+      - ../../../conf/presto/etc/environment-specific-catalogs/multinode-tls-kerberos/hive.properties:/docker/presto-product-tests/conf/presto/etc/catalog/hive.properties
 
   presto-worker-1:
     domainname: docker.cluster

@@ -99,15 +99,20 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public PartitionStatistics getTableStatistics(HiveIdentity identity, String databaseName, String tableName)
+    public PartitionStatistics getTableStatistics(HiveIdentity identity, Table table)
     {
-        return delegate.getTableStatistics(identity, databaseName, tableName);
+        return delegate.getTableStatistics(identity, toMetastoreApiTable(table));
     }
 
     @Override
-    public Map<String, PartitionStatistics> getPartitionStatistics(HiveIdentity identity, String databaseName, String tableName, Set<String> partitionNames)
+    public Map<String, PartitionStatistics> getPartitionStatistics(HiveIdentity identity, Table table, List<Partition> partitions)
     {
-        return delegate.getPartitionStatistics(identity, databaseName, tableName, partitionNames);
+        return delegate.getPartitionStatistics(
+                identity,
+                toMetastoreApiTable(table),
+                partitions.stream()
+                        .map(ThriftMetastoreUtil::toMetastoreApiPartition)
+                        .collect(toImmutableList()));
     }
 
     @Override

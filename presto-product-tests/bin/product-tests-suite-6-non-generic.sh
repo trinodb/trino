@@ -10,38 +10,41 @@ if test -v HADOOP_BASE_IMAGE; then
     exit 1
 fi
 
-exit_code=0
+suite_exit_code=0
 
 # Uses hadoop, but it irrelevant from these tests' perspective.
 presto-product-tests/bin/run_on_docker.sh \
     singlenode-ldap \
     -g ldap \
-    -x simba_jdbc \
-    || exit_code=1
+    || suite_exit_code=1
+
+presto-product-tests/bin/run_on_docker.sh \
+    singlenode-ldap-referrals \
+    -g ldap \
+    || suite_exit_code=1
 
 # We have docker images with KMS on CDH only. TODO (https://github.com/prestosql/presto/issues/1652) create images with HDP and KMS
 presto-product-tests/bin/run_on_docker.sh \
     singlenode-kerberos-kms-hdfs-no-impersonation \
     -g storage_formats \
-    || exit_code=1
+    || suite_exit_code=1
 
 # We have docker images with KMS on CDH only. TODO (https://github.com/prestosql/presto/issues/1652) create images with HDP and KMS
 presto-product-tests/bin/run_on_docker.sh \
     singlenode-kerberos-kms-hdfs-impersonation \
     -g storage_formats \
-    || exit_code=1
+    || suite_exit_code=1
 
-# Does not use hadoop
-presto-product-tests/bin/run_on_docker.sh \
-    singlenode-cassandra \
-    -g cassandra \
-    || exit_code=1
+presto-product-tests-launcher/target/presto-product-tests-launcher-*-executable.jar test run \
+    --environment singlenode-cassandra \
+    -- -g cassandra \
+    || suite_exit_code=1
 
 # Does not use hadoop
 presto-product-tests/bin/run_on_docker.sh \
     singlenode-kafka \
     -g kafka \
-    || exit_code=1
+    || suite_exit_code=1
 
-echo "$0: exiting with ${exit_code}"
-exit "${exit_code}"
+echo "$0: exiting with ${suite_exit_code}"
+exit "${suite_exit_code}"

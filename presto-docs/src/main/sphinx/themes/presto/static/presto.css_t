@@ -109,6 +109,20 @@ div.content ul > li {
     background-image: url(bullet.png);
 }
 
+div.toctree-wrapper ul > li.toctree-l1 {
+    list-style-type: none;
+    background-image: none;
+    background: none;
+    padding: 0 0 0 0
+}
+
+div.toctree-wrapper ul > li > ul > li.toctree-l2 {
+    list-style-type: none;
+    background-image: none;
+    background: none;
+    padding: 0 0 0 1em
+}
+
 div.topic {
     border: none;
 }
@@ -141,7 +155,7 @@ tt.docutils.literal, code.docutils.literal {
 }
 
 /* hide children of Release Notes */
-div.toctree-wrapper > ul > li:last-child > ul {
+#presto-documentation > div.toctree-wrapper > ul > li:last-child > ul {
     display: none;
 }
 

@@ -27,23 +27,20 @@ import static io.prestosql.spi.transaction.IsolationLevel.READ_COMMITTED;
 import static io.prestosql.spi.transaction.IsolationLevel.checkConnectorSupports;
 import static java.util.Objects.requireNonNull;
 
-/**
- * Kafka specific implementation of the Presto Connector SPI. This is a read only connector.
- */
 public class KafkaConnector
         implements Connector
 {
     private final LifeCycleManager lifeCycleManager;
-    private final KafkaMetadata metadata;
-    private final KafkaSplitManager splitManager;
-    private final KafkaRecordSetProvider recordSetProvider;
+    private final ConnectorMetadata metadata;
+    private final ConnectorSplitManager splitManager;
+    private final ConnectorRecordSetProvider recordSetProvider;
 
     @Inject
     public KafkaConnector(
             LifeCycleManager lifeCycleManager,
-            KafkaMetadata metadata,
-            KafkaSplitManager splitManager,
-            KafkaRecordSetProvider recordSetProvider)
+            ConnectorMetadata metadata,
+            ConnectorSplitManager splitManager,
+            ConnectorRecordSetProvider recordSetProvider)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");

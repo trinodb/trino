@@ -20,6 +20,8 @@ import io.airlift.units.Duration;
 import io.prestosql.operator.aggregation.arrayagg.ArrayAggGroupImplementation;
 import io.prestosql.operator.aggregation.histogram.HistogramGroupImplementation;
 import io.prestosql.operator.aggregation.multimapagg.MultimapAggGroupImplementation;
+import io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType;
+import io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -31,8 +33,6 @@ import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
-import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
-import static io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static io.prestosql.sql.analyzer.FeaturesConfig.SPILLER_SPILL_PATH;
 import static io.prestosql.sql.analyzer.FeaturesConfig.SPILL_ENABLED;
@@ -51,15 +51,15 @@ public class TestFeaturesConfig
                 .setMemoryCostWeight(10)
                 .setNetworkCostWeight(15)
                 .setDistributedIndexJoinsEnabled(false)
-                .setJoinDistributionType(PARTITIONED)
-                .setJoinMaxBroadcastTableSize(null)
+                .setJoinMaxBroadcastTableSize(new DataSize(100, MEGABYTE))
+                .setJoinDistributionType(JoinDistributionType.AUTOMATIC)
                 .setGroupedExecutionEnabled(false)
                 .setDynamicScheduleForGroupedExecutionEnabled(false)
                 .setConcurrentLifespansPerTask(0)
                 .setFastInequalityJoins(true)
                 .setColocatedJoinsEnabled(false)
                 .setSpatialJoinsEnabled(true)
-                .setJoinReorderingStrategy(ELIMINATE_CROSS_JOINS)
+                .setJoinReorderingStrategy(JoinReorderingStrategy.AUTOMATIC)
                 .setMaxReorderedJoins(9)
                 .setRedistributeWrites(true)
                 .setScaleWriters(false)
@@ -106,7 +106,7 @@ public class TestFeaturesConfig
                 .setMultimapAggGroupImplementation(MultimapAggGroupImplementation.NEW)
                 .setDistributedSortEnabled(true)
                 .setMaxGroupingSets(2048)
-                .setWorkProcessorPipelines(false)
+                .setLateMaterializationEnabled(false)
                 .setSkipRedundantSort(true)
                 .setPredicatePushdownUseTableProperties(true)
                 .setEnableDynamicFiltering(false)
@@ -178,7 +178,7 @@ public class TestFeaturesConfig
                 .put("optimizer.optimize-top-n-row-number", "false")
                 .put("distributed-sort", "false")
                 .put("analyzer.max-grouping-sets", "2047")
-                .put("experimental.work-processor-pipelines", "true")
+                .put("experimental.late-materialization.enabled", "true")
                 .put("optimizer.skip-redundant-sort", "false")
                 .put("optimizer.predicate-pushdown-use-table-properties", "false")
                 .put("experimental.enable-dynamic-filtering", "true")
@@ -247,7 +247,7 @@ public class TestFeaturesConfig
                 .setDistributedSortEnabled(false)
                 .setMaxGroupingSets(2047)
                 .setDefaultFilterFactorEnabled(true)
-                .setWorkProcessorPipelines(true)
+                .setLateMaterializationEnabled(true)
                 .setSkipRedundantSort(false)
                 .setPredicatePushdownUseTableProperties(false)
                 .setEnableDynamicFiltering(true)

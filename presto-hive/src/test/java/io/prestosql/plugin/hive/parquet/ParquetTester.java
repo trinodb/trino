@@ -337,7 +337,7 @@ public class ParquetTester
             throws Exception
     {
         CompressionCodecName compressionCodecName = UNCOMPRESSED;
-        ConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(
+        HiveSessionProperties hiveSessionProperties = new HiveSessionProperties(
                 new HiveConfig()
                         .setHiveStorageFormat(HiveStorageFormat.PARQUET)
                         .setUseParquetColumnNames(false),
@@ -345,8 +345,10 @@ public class ParquetTester
                 new OrcWriterConfig(),
                 new ParquetReaderConfig()
                         .setMaxReadBlockSize(maxReadBlockSize),
-                new ParquetWriterConfig())
-                .getSessionProperties());
+                new ParquetWriterConfig());
+        ConnectorSession session = TestingConnectorSession.builder()
+                .setPropertyMetadata(hiveSessionProperties.getSessionProperties())
+                .build();
 
         try (TempFile tempFile = new TempFile("test", "parquet")) {
             JobConf jobConf = new JobConf();

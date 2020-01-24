@@ -32,7 +32,7 @@ databases:
     host: localhost
     port: 8080
     server_address: http://${databases.presto.host}:${databases.presto.port}
-    jdbc_driver_class: ${PRESTO_JDBC_DRIVER_CLASS:-io.prestosql.jdbc.PrestoDriver}
+    jdbc_driver_class: io.prestosql.jdbc.PrestoDriver
     jdbc_url: jdbc:presto://${databases.presto.host}:${databases.presto.port}/hive/${databases.hive.schema}
     jdbc_user: hive
     jdbc_password: "***empty***"
@@ -130,7 +130,7 @@ databases:
       host: kafka
       port: 9092
     zookeeper:
-      host: kafka
+      host: zookeeper
       port: 2181
     presto_database_name: presto
     presto_kafka_catalog: kafka

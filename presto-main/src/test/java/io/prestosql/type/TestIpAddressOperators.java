@@ -18,16 +18,15 @@ import io.airlift.slice.Slices;
 import io.prestosql.operator.scalar.AbstractTestFunctions;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.SqlVarbinary;
 import org.testng.annotations.Test;
 
-import static com.google.common.io.BaseEncoding.base16;
 import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.testing.SqlVarbinaryTestingUtil.sqlVarbinaryFromHex;
 import static io.prestosql.type.IpAddressType.IPADDRESS;
 
 public class TestIpAddressOperators
@@ -80,9 +79,9 @@ public class TestIpAddressOperators
     @Test
     public void testIpAddressToVarbinaryCast()
     {
-        assertFunction("CAST(IPADDRESS '::ffff:1.2.3.4' AS VARBINARY)", VARBINARY, new SqlVarbinary(base16().decode("00000000000000000000FFFF01020304")));
-        assertFunction("CAST(IPADDRESS '2001:0db8:0000:0000:0000:ff00:0042:8329' AS VARBINARY)", VARBINARY, new SqlVarbinary(base16().decode("20010DB8000000000000FF0000428329")));
-        assertFunction("CAST(IPADDRESS '2001:db8::ff00:42:8329' AS VARBINARY)", VARBINARY, new SqlVarbinary(base16().decode("20010DB8000000000000FF0000428329")));
+        assertFunction("CAST(IPADDRESS '::ffff:1.2.3.4' AS VARBINARY)", VARBINARY, sqlVarbinaryFromHex("00000000000000000000FFFF01020304"));
+        assertFunction("CAST(IPADDRESS '2001:0db8:0000:0000:0000:ff00:0042:8329' AS VARBINARY)", VARBINARY, sqlVarbinaryFromHex("20010DB8000000000000FF0000428329"));
+        assertFunction("CAST(IPADDRESS '2001:db8::ff00:42:8329' AS VARBINARY)", VARBINARY, sqlVarbinaryFromHex("20010DB8000000000000FF0000428329"));
     }
 
     @Test

@@ -14,10 +14,6 @@
 package io.prestosql.plugin.tpch;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.tpch.TpchColumn;
-import io.airlift.tpch.TpchColumnType;
-import io.airlift.tpch.TpchEntity;
-import io.airlift.tpch.TpchTable;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorRecordSetProvider;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -26,11 +22,15 @@ import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.RecordSet;
 import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.tpch.TpchColumn;
+import io.prestosql.tpch.TpchColumnType;
+import io.prestosql.tpch.TpchEntity;
+import io.prestosql.tpch.TpchTable;
 
 import java.util.List;
 
-import static io.airlift.tpch.TpchColumnTypes.IDENTIFIER;
 import static io.prestosql.plugin.tpch.TpchRecordSet.createTpchRecordSet;
+import static io.prestosql.tpch.TpchColumnTypes.IDENTIFIER;
 
 public class TpchRecordSetProvider
         implements ConnectorRecordSetProvider

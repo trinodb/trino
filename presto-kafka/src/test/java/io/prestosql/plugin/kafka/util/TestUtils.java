@@ -13,16 +13,13 @@
  */
 package io.prestosql.plugin.kafka.util;
 
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
 import io.airlift.json.JsonCodec;
 import io.prestosql.metadata.QualifiedObjectName;
-import io.prestosql.plugin.kafka.KafkaPlugin;
 import io.prestosql.plugin.kafka.KafkaTopicDescription;
 import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.TestingPrestoClient;
+import org.apache.kafka.clients.producer.KafkaProducer;
 
 import java.io.IOException;
 import java.util.AbstractMap;
@@ -30,7 +27,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 
-import static io.prestosql.plugin.kafka.util.TestingKafka.CloseableProducer;
 import static java.lang.String.format;
 
 public final class TestUtils
@@ -46,23 +42,9 @@ public final class TestUtils
         return properties;
     }
 
-    public static void installKafkaPlugin(TestingKafka testingKafka, QueryRunner queryRunner, Map<SchemaTableName, KafkaTopicDescription> topicDescriptions)
-    {
-        KafkaPlugin kafkaPlugin = new KafkaPlugin();
-        kafkaPlugin.setTableDescriptionSupplier(() -> topicDescriptions);
-        queryRunner.installPlugin(kafkaPlugin);
-
-        Map<String, String> kafkaConfig = ImmutableMap.of(
-                "kafka.nodes", testingKafka.getConnectString(),
-                "kafka.table-names", Joiner.on(",").join(topicDescriptions.keySet()),
-                "kafka.connect-timeout", "120s",
-                "kafka.default-schema", "default");
-        queryRunner.createCatalog("kafka", "kafka", kafkaConfig);
-    }
-
     public static void loadTpchTopic(TestingKafka testingKafka, TestingPrestoClient prestoClient, String topicName, QualifiedObjectName tpchTableName)
     {
-        try (CloseableProducer<Long, Object> producer = testingKafka.createProducer();
+        try (KafkaProducer<Long, Object> producer = testingKafka.createProducer();
                 KafkaLoader tpchLoader = new KafkaLoader(producer, topicName, prestoClient.getServer(), prestoClient.getDefaultSession())) {
             tpchLoader.execute(format("SELECT * from %s", tpchTableName));
         }

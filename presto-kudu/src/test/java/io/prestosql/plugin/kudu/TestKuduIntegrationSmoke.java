@@ -17,22 +17,34 @@ import io.prestosql.spi.type.VarcharType;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
+import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.sql.TestTable;
+import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.util.regex.Pattern;
 
-import static io.airlift.tpch.TpchTable.ORDERS;
+import static io.prestosql.plugin.kudu.KuduQueryRunnerFactory.createKuduQueryRunnerTpch;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static io.prestosql.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 import static org.testng.Assert.assertTrue;
 
 public class TestKuduIntegrationSmoke
         extends AbstractTestIntegrationSmokeTest
 {
-    public TestKuduIntegrationSmoke()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> KuduQueryRunnerFactory.createKuduQueryRunnerTpch(ORDERS));
+        return createKuduQueryRunnerTpch(ORDERS);
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        throw new SkipException("Kudu connector does not support column default values");
     }
 
     /**
@@ -89,20 +101,24 @@ public class TestKuduIntegrationSmoke
     {
         assertUpdate("CREATE TABLE IF NOT EXISTS test_row_delete (" +
                 "id INT WITH (primary_key=true), " +
+                "second_id INT, " +
                 "user_name VARCHAR" +
                 ") WITH (" +
                 " partition_by_hash_columns = ARRAY['id'], " +
                 " partition_by_hash_buckets = 2" +
                 ")");
 
-        assertUpdate("INSERT INTO test_row_delete VALUES (0, 'user0'), (2, 'user2'), (1, 'user1')", 3);
+        assertUpdate("INSERT INTO test_row_delete VALUES (0, 1, 'user0'), (3, 4, 'user2'), (2, 3, 'user2'), (1, 2, 'user1')", 4);
+        assertQuery("SELECT count(*) FROM test_row_delete", "VALUES 4");
+
+        assertUpdate("DELETE FROM test_row_delete WHERE second_id = 4", 1);
         assertQuery("SELECT count(*) FROM test_row_delete", "VALUES 3");
 
         assertUpdate("DELETE FROM test_row_delete WHERE user_name = 'user1'", 1);
         assertQuery("SELECT count(*) FROM test_row_delete", "VALUES 2");
 
         assertUpdate("DELETE FROM test_row_delete WHERE id = 0", 1);
-        assertQuery("SELECT * FROM test_row_delete", "VALUES (2, 'user2')");
+        assertQuery("SELECT * FROM test_row_delete", "VALUES (2, 3, 'user2')");
 
         assertUpdate("DROP TABLE test_row_delete");
     }
@@ -129,6 +145,18 @@ public class TestKuduIntegrationSmoke
     {
         assertTrue(Pattern.compile(key + "\\s*=\\s*" + regexValue + ",?\\s+").matcher(tableProperties).find(),
                 "Not found: " + key + " = " + regexValue + " in " + tableProperties);
+    }
+
+    @Override
+    protected boolean canCreateSchema()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean canDropSchema()
+    {
+        return false;
     }
 
     @AfterClass(alwaysRun = true)

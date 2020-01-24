@@ -38,12 +38,12 @@ public class MemSqlConfig
         return this;
     }
 
+    @NotNull
     public Duration getConnectionTimeout()
     {
         return connectionTimeout;
     }
 
-    @NotNull
     @Config("memsql.connection-timeout")
     public MemSqlConfig setConnectionTimeout(Duration connectionTimeout)
     {

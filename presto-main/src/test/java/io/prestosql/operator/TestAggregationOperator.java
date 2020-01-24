@@ -14,10 +14,12 @@
 package io.prestosql.operator;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.block.BlockAssertions;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.AggregationOperator.AggregationOperatorFactory;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
 import io.prestosql.spi.Page;
+import io.prestosql.spi.block.ByteArrayBlock;
 import io.prestosql.sql.planner.plan.AggregationNode.Step;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.sql.tree.QualifiedName;
@@ -83,6 +85,39 @@ public class TestAggregationOperator
     {
         executor.shutdownNow();
         scheduledExecutor.shutdownNow();
+    }
+
+    @Test
+    public void testMaskWithDirtyNulls()
+    {
+        // Ensures that the operator properly tests for nulls in the mask channel before reading its value
+        InternalAggregationFunction countBooleanColumn = metadata.getAggregateFunctionImplementation(
+                metadata.resolveFunction(QualifiedName.of("count"), fromTypes(BIGINT)));
+
+        List<Page> input = ImmutableList.of(new Page(
+                        4,
+                        BlockAssertions.createLongsBlock(1, 2, 3, 4),
+                        new ByteArrayBlock(
+                                4,
+                                Optional.of(new boolean[] {true, true, false, false}),
+                                new byte[] {0, 27 /* dirty null */, 0, 75 /* non-zero value is true */})));
+
+        OperatorFactory operatorFactory = new AggregationOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                Step.SINGLE,
+                ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.of(1))),
+                false);
+
+        DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
+                .addPipelineContext(0, true, true, false)
+                .addDriverContext();
+
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
+                .row(1L)
+                .build();
+
+        assertOperatorEquals(operatorFactory, driverContext, input, expected);
     }
 
     @Test

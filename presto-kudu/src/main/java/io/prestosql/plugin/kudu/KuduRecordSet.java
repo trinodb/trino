@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.plugin.kudu.KuduColumnHandle.ROW_ID_POSITION;
 
 public class KuduRecordSet
         implements RecordSet
@@ -58,23 +59,14 @@ public class KuduRecordSet
             return new KuduRecordCursor(scanner, getColumnTypes());
         }
         else {
-            final int primaryKeyColumnCount = kuduSplit.getPrimaryKeyColumnCount();
-
             Map<Integer, Integer> fieldMapping = new HashMap<>();
-            int index = primaryKeyColumnCount;
             for (int i = 0; i < columns.size(); i++) {
                 KuduColumnHandle handle = (KuduColumnHandle) columns.get(i);
                 if (!handle.isVirtualRowId()) {
-                    if (handle.getOrdinalPosition() < primaryKeyColumnCount) {
-                        fieldMapping.put(i, handle.getOrdinalPosition());
-                    }
-                    else {
-                        fieldMapping.put(i, index);
-                        index++;
-                    }
+                    fieldMapping.put(i, handle.getOrdinalPosition());
                 }
                 else {
-                    fieldMapping.put(i, -1);
+                    fieldMapping.put(i, ROW_ID_POSITION);
                 }
             }
 

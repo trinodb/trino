@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -euo pipefail
 
@@ -31,8 +31,8 @@ function hadoop_master_container(){
 
 function check_hadoop() {
   HADOOP_MASTER_CONTAINER=$(hadoop_master_container)
-  docker exec ${HADOOP_MASTER_CONTAINER} supervisorctl status hive-server2 | grep -iq running && \
-    docker exec ${HADOOP_MASTER_CONTAINER} netstat -lpn | grep -iq 0.0.0.0:10000
+  docker exec ${HADOOP_MASTER_CONTAINER} supervisorctl status hive-server2 | grep -i running &> /dev/null && \
+    docker exec ${HADOOP_MASTER_CONTAINER} netstat -lpn | grep -i 0.0.0.0:10000 &> /dev/null
 }
 
 function check_any_container_is_up() {
@@ -48,12 +48,11 @@ function run_in_application_runner_container() {
 }
 
 function check_presto() {
-  run_in_application_runner_container /docker/presto-product-tests/conf/docker/files/presto-cli.sh --execute "SHOW CATALOGS" | grep -iq hive
+  run_in_application_runner_container /docker/presto-product-tests/conf/docker/files/presto-cli.sh --execute "SHOW CATALOGS" | grep -i hive &> /dev/null
 }
 
 function run_product_tests() {
   local REPORT_DIR="${PRODUCT_TESTS_ROOT}/target/test-reports"
-  rm -rf "${REPORT_DIR}"
   mkdir -p "${REPORT_DIR}"
   run_in_application_runner_container /docker/presto-product-tests/conf/docker/files/run-tempto.sh "$@" &
   PRODUCT_TESTS_PROCESS_ID=$!
@@ -118,8 +117,10 @@ environment_compose up --no-color --abort-on-container-exit ${SERVICES} &
 # Otherwise docker-compose may created network twice and subsequently fail.
 retry check_any_container_is_up
 
-# wait until hadoop processes are started
-retry check_hadoop
+if [[ $SERVICES == *"hadoop-master"* ]]; then
+    # wait until hadoop processes are started
+    retry check_hadoop
+fi
 
 # wait until presto is started
 retry check_presto

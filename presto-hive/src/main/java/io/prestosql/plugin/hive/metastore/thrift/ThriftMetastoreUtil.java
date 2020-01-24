@@ -169,6 +169,13 @@ public final class ThriftMetastoreUtil
 
     public static org.apache.hadoop.hive.metastore.api.Table toMetastoreApiTable(Table table, PrincipalPrivileges privileges)
     {
+        org.apache.hadoop.hive.metastore.api.Table result = toMetastoreApiTable(table);
+        result.setPrivileges(toMetastoreApiPrincipalPrivilegeSet(privileges));
+        return result;
+    }
+
+    static org.apache.hadoop.hive.metastore.api.Table toMetastoreApiTable(Table table)
+    {
         org.apache.hadoop.hive.metastore.api.Table result = new org.apache.hadoop.hive.metastore.api.Table();
         result.setDbName(table.getDatabaseName());
         result.setTableName(table.getTableName());
@@ -177,7 +184,6 @@ public final class ThriftMetastoreUtil
         result.setParameters(table.getParameters());
         result.setPartitionKeys(table.getPartitionColumns().stream().map(ThriftMetastoreUtil::toMetastoreApiFieldSchema).collect(toImmutableList()));
         result.setSd(makeStorageDescriptor(table.getTableName(), table.getDataColumns(), table.getStorage()));
-        result.setPrivileges(toMetastoreApiPrincipalPrivilegeSet(privileges));
         result.setViewOriginalText(table.getViewOriginalText().orElse(null));
         result.setViewExpandedText(table.getViewExpandedText().orElse(null));
         return result;

@@ -65,6 +65,9 @@ public final class CompilerOperations
     public static boolean testMask(@Nullable Block masks, int index)
     {
         if (masks != null) {
+            if (masks.isNull(index)) {
+                return false;
+            }
             return BOOLEAN.getBoolean(masks, index);
         }
         return true;
