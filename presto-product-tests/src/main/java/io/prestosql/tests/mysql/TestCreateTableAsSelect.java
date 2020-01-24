@@ -13,7 +13,6 @@
  */
 package io.prestosql.tests.mysql;
 
-import io.airlift.log.Logger;
 import io.prestosql.tempto.AfterTestWithContext;
 import io.prestosql.tempto.BeforeTestWithContext;
 import io.prestosql.tempto.ProductTest;
@@ -37,12 +36,7 @@ public class TestCreateTableAsSelect
     @AfterTestWithContext
     public void dropTestTable()
     {
-        try {
-            onMySql().executeQuery(format("DROP TABLE IF EXISTS %s", TABLE_NAME));
-        }
-        catch (Exception e) {
-            Logger.get(getClass()).warn(e, "failed to drop table");
-        }
+        onMySql().executeQuery(format("DROP TABLE IF EXISTS %s", TABLE_NAME));
     }
 
     @Test(groups = {JDBC, MYSQL})

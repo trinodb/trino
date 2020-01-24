@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.json.JsonCodec;
-import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
@@ -4211,9 +4210,6 @@ public abstract class AbstractTestHive
             }
 
             transaction.commit();
-        }
-        catch (Exception e) {
-            Logger.get(getClass()).warn(e, "failed to drop table");
         }
     }
 
