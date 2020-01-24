@@ -47,7 +47,7 @@ public final class KafkaQueryRunner
 {
     private KafkaQueryRunner() {}
 
-    private static final Logger log = Logger.get("TestQueries");
+    private static final Logger log = Logger.get(KafkaQueryRunner.class);
     private static final String TPCH_SCHEMA = "tpch";
 
     static DistributedQueryRunner createKafkaQueryRunner(TestingKafka testingKafka, TpchTable<?>... tables)
