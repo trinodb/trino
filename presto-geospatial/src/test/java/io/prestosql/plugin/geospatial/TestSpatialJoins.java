@@ -14,10 +14,10 @@
 package io.prestosql.plugin.geospatial;
 
 import io.prestosql.Session;
-import io.prestosql.plugin.hive.TestingHivePlugin;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.Database;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
+import io.prestosql.plugin.hive.testing.TestingHivePlugin;
 import io.prestosql.spi.security.PrincipalType;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.DistributedQueryRunner;
