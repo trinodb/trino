@@ -24,15 +24,16 @@ presto-product-tests/bin/run_on_docker.sh \
     || suite_exit_code=1
 
 # We have docker images with KMS on CDH only. TODO (https://github.com/prestosql/presto/issues/1652) create images with HDP and KMS
-presto-product-tests/bin/run_on_docker.sh \
-    singlenode-kerberos-kms-hdfs-no-impersonation \
-    -g storage_formats \
-    || suite_exit_code=1
+# TODO
+#presto-product-tests/bin/run_on_docker.sh \
+#    singlenode-kerberos-kms-hdfs-no-impersonation \
+#    -g storage_formats \
+#    || suite_exit_code=1
 
 # We have docker images with KMS on CDH only. TODO (https://github.com/prestosql/presto/issues/1652) create images with HDP and KMS
-presto-product-tests/bin/run_on_docker.sh \
-    singlenode-kerberos-kms-hdfs-impersonation \
-    -g storage_formats \
+presto-product-tests-launcher/bin/run-launcher test run \
+    --environment singlenode-kerberos-kms-hdfs-impersonation \
+    -- -g storage_formats \
     || suite_exit_code=1
 
 presto-product-tests-launcher/bin/run-launcher test run \
