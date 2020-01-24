@@ -28,6 +28,7 @@ import io.prestosql.tests.product.launcher.env.environment.SinglenodeHdfsImperso
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeHiveImpersonation;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeKafka;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeKerberosHdfsImpersonation;
+import io.prestosql.tests.product.launcher.env.environment.SinglenodeKerberosHdfsImpersonationCrossRealm;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeKerberosHdfsImpersonationWithWireEncryption;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeKerberosHdfsNoImpersonation;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeKerberosHiveImpersonation;
@@ -72,6 +73,7 @@ public final class EnvironmentModule
         environments.addBinding("singlenode-kerberos-hdfs-impersonation").to(SinglenodeKerberosHdfsImpersonation.class);
         environments.addBinding("singlenode-kerberos-hdfs-no-impersonation").to(SinglenodeKerberosHdfsNoImpersonation.class);
         environments.addBinding("singlenode-kerberos-hdfs-impersonation-with-wire-encryption").to(SinglenodeKerberosHdfsImpersonationWithWireEncryption.class);
+        environments.addBinding("singlenode-kerberos-hdfs-impersonation-cross-realm").to(SinglenodeKerberosHdfsImpersonationCrossRealm.class);
         environments.addBinding("singlenode-kerberos-kms-hdfs-impersonation").to(SinglenodeKerberosKmsHdfsImpersonation.class);
         environments.addBinding("singlenode-kerberos-kms-hdfs-no-impersonation").to(SinglenodeKerberosKmsHdfsNoImpersonation.class);
 
