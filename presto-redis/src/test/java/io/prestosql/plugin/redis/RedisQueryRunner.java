@@ -44,7 +44,7 @@ public final class RedisQueryRunner
 {
     private RedisQueryRunner() {}
 
-    private static final Logger log = Logger.get("TestQueries");
+    private static final Logger log = Logger.get(RedisQueryRunner.class);
     private static final String TPCH_SCHEMA = "tpch";
 
     public static DistributedQueryRunner createRedisQueryRunner(EmbeddedRedis embeddedRedis, String dataFormat, TpchTable<?>... tables)
