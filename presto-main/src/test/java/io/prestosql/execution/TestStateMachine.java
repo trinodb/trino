@@ -19,6 +19,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
@@ -108,7 +109,7 @@ public class TestStateMachine
     public void testSet()
             throws Exception
     {
-        StateMachine<State> stateMachine = new StateMachine<>("test", executor, State.BREAKFAST, ImmutableSet.of(State.DINNER));
+        StateMachine<State> stateMachine = new StateMachine<>("test", executor, State.BREAKFAST, State.DINNER::equals);
         assertEquals(stateMachine.get(), State.BREAKFAST);
 
         assertNoStateChange(stateMachine, () -> assertEquals(stateMachine.set(State.BREAKFAST), State.BREAKFAST));
@@ -133,10 +134,43 @@ public class TestStateMachine
     }
 
     @Test
+    public void testTerminalState()
+            throws Exception
+    {
+        StateMachine<Optional<Throwable>> stateMachine = new StateMachine<>("test", executor, Optional.empty(), Optional::isPresent);
+        assertEquals(stateMachine.get(), Optional.empty());
+
+        Optional<Throwable> value = Optional.of(new Throwable("This is terminal state value"));
+        Optional<Throwable> value2 = Optional.of(new Throwable("This is other terminal state value"));
+
+        assertNoStateChange(
+                stateMachine,
+                () -> stateMachine.compareAndSet(value2, value));
+
+        assertStateChange(stateMachine,
+                () -> stateMachine.compareAndSet(Optional.empty(), value),
+                value);
+
+        // attempt transition from a final state
+        assertNoStateChange(stateMachine, () -> {
+            try {
+                stateMachine.compareAndSet(value, value2);
+                fail("expected IllegalStateException");
+            }
+            catch (IllegalStateException expected) {
+            }
+        });
+
+        assertNoStateChange(
+                stateMachine,
+                () -> stateMachine.compareAndSet(value, value));
+    }
+
+    @Test
     public void testCompareAndSet()
             throws Exception
     {
-        StateMachine<State> stateMachine = new StateMachine<>("test", executor, State.BREAKFAST, ImmutableSet.of(State.DINNER));
+        StateMachine<State> stateMachine = new StateMachine<>("test", executor, State.BREAKFAST, State.DINNER::equals);
         assertEquals(stateMachine.get(), State.BREAKFAST);
 
         // no match with new state
@@ -172,7 +206,7 @@ public class TestStateMachine
     public void testSetIf()
             throws Exception
     {
-        StateMachine<State> stateMachine = new StateMachine<>("test", executor, State.BREAKFAST, ImmutableSet.of(State.DINNER));
+        StateMachine<State> stateMachine = new StateMachine<>("test", executor, State.BREAKFAST, State.DINNER::equals);
         assertEquals(stateMachine.get(), State.BREAKFAST);
 
         // false predicate with new state
@@ -220,13 +254,13 @@ public class TestStateMachine
         assertNoStateChange(stateMachine, () -> stateMachine.setIf(State.DINNER, currentState -> true));
     }
 
-    private static void assertStateChange(StateMachine<State> stateMachine, StateChanger stateChange, State expectedState)
+    private static <T> void assertStateChange(StateMachine<T> stateMachine, StateChanger stateChange, T expectedState)
             throws Exception
     {
-        State initialState = stateMachine.get();
-        ListenableFuture<State> futureChange = stateMachine.getStateChange(initialState);
+        T initialState = stateMachine.get();
+        ListenableFuture<T> futureChange = stateMachine.getStateChange(initialState);
 
-        SettableFuture<State> listenerChange = addTestListener(stateMachine);
+        SettableFuture<T> listenerChange = addTestListener(stateMachine);
 
         stateChange.run();
 
@@ -242,12 +276,12 @@ public class TestStateMachine
         }
     }
 
-    private static void assertNoStateChange(StateMachine<State> stateMachine, StateChanger stateChange)
+    private static <T> void assertNoStateChange(StateMachine<T> stateMachine, StateChanger stateChange)
     {
-        State initialState = stateMachine.get();
-        ListenableFuture<State> futureChange = stateMachine.getStateChange(initialState);
+        T initialState = stateMachine.get();
+        ListenableFuture<T> futureChange = stateMachine.getStateChange(initialState);
 
-        SettableFuture<State> listenerChange = addTestListener(stateMachine);
+        SettableFuture<T> listenerChange = addTestListener(stateMachine);
 
         // listeners should not be added if we are in a terminal state, but listener should fire
         boolean isTerminalState = stateMachine.isTerminalState(initialState);
@@ -269,11 +303,11 @@ public class TestStateMachine
         listenerChange.cancel(true);
     }
 
-    private static SettableFuture<State> addTestListener(StateMachine<State> stateMachine)
+    private static <T> SettableFuture<T> addTestListener(StateMachine<T> stateMachine)
     {
-        State initialState = stateMachine.get();
+        T initialState = stateMachine.get();
         SettableFuture<Boolean> initialStateNotified = SettableFuture.create();
-        SettableFuture<State> stateChanged = SettableFuture.create();
+        SettableFuture<T> stateChanged = SettableFuture.create();
         Thread addingThread = Thread.currentThread();
         stateMachine.addStateChangeListener(newState -> {
             Thread callbackThread = Thread.currentThread();

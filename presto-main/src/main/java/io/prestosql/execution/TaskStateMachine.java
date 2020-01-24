@@ -26,7 +26,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static io.prestosql.execution.TaskState.TERMINAL_TASK_STATES;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -43,7 +42,7 @@ public class TaskStateMachine
     public TaskStateMachine(TaskId taskId, Executor executor)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
-        taskState = new StateMachine<>("task " + taskId, executor, TaskState.RUNNING, TERMINAL_TASK_STATES);
+        taskState = new StateMachine<>("task " + taskId, executor, TaskState.RUNNING, TaskState::isDone);
         taskState.addStateChangeListener(new StateChangeListener<TaskState>()
         {
             @Override

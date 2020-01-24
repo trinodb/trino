@@ -16,6 +16,7 @@ package io.prestosql.operator;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.prestosql.execution.StateMachine;
+import io.prestosql.execution.buffer.BufferState;
 import io.prestosql.execution.buffer.OutputBuffers;
 import io.prestosql.execution.buffer.PagesSerdeFactory;
 import io.prestosql.execution.buffer.PartitionedOutputBuffer;
@@ -47,7 +48,6 @@ import static io.prestosql.block.BlockAssertions.createLongDictionaryBlock;
 import static io.prestosql.block.BlockAssertions.createLongSequenceBlock;
 import static io.prestosql.block.BlockAssertions.createRLEBlock;
 import static io.prestosql.execution.buffer.BufferState.OPEN;
-import static io.prestosql.execution.buffer.BufferState.TERMINAL_BUFFER_STATES;
 import static io.prestosql.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
@@ -195,7 +195,7 @@ public class TestPartitionedOutputOperator
         }
         PartitionedOutputBuffer buffer = new PartitionedOutputBuffer(
                 "task-instance-id",
-                new StateMachine<>("bufferState", scheduledExecutor, OPEN, TERMINAL_BUFFER_STATES),
+                new StateMachine<>("bufferState", scheduledExecutor, OPEN, BufferState::isTerminal),
                 buffers.withNoMoreBufferIds(),
                 new DataSize(Long.MAX_VALUE, BYTE),
                 () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),

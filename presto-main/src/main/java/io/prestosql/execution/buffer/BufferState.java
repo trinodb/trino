@@ -13,11 +13,6 @@
  */
 package io.prestosql.execution.buffer;
 
-import java.util.Set;
-import java.util.stream.Stream;
-
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
-
 public enum BufferState
 {
     /**
@@ -53,8 +48,6 @@ public enum BufferState
      * This is the terminal state.
      */
     FAILED(false, false, true);
-
-    public static final Set<BufferState> TERMINAL_BUFFER_STATES = Stream.of(BufferState.values()).filter(BufferState::isTerminal).collect(toImmutableSet());
 
     private final boolean newPagesAllowed;
     private final boolean newBuffersAllowed;

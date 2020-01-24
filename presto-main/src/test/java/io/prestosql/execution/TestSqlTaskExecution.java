@@ -91,7 +91,6 @@ import static io.prestosql.block.BlockAssertions.createStringsBlock;
 import static io.prestosql.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
 import static io.prestosql.execution.TaskTestUtils.createTestSplitMonitor;
 import static io.prestosql.execution.buffer.BufferState.OPEN;
-import static io.prestosql.execution.buffer.BufferState.TERMINAL_BUFFER_STATES;
 import static io.prestosql.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
 import static io.prestosql.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -609,7 +608,7 @@ public class TestSqlTaskExecution
     {
         return new PartitionedOutputBuffer(
                 TASK_ID.toString(),
-                new StateMachine<>("bufferState", taskNotificationExecutor, OPEN, TERMINAL_BUFFER_STATES),
+                new StateMachine<>("bufferState", taskNotificationExecutor, OPEN, BufferState::isTerminal),
                 createInitialEmptyOutputBuffers(PARTITIONED)
                         .withBuffer(OUTPUT_BUFFER_ID, 0)
                         .withNoMoreBufferIds(),

@@ -40,7 +40,6 @@ import static io.prestosql.execution.buffer.BufferResult.emptyResults;
 import static io.prestosql.execution.buffer.BufferState.FAILED;
 import static io.prestosql.execution.buffer.BufferState.FINISHED;
 import static io.prestosql.execution.buffer.BufferState.OPEN;
-import static io.prestosql.execution.buffer.BufferState.TERMINAL_BUFFER_STATES;
 import static java.util.Objects.requireNonNull;
 
 public class LazyOutputBuffer
@@ -71,7 +70,7 @@ public class LazyOutputBuffer
         requireNonNull(taskId, "taskId is null");
         this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
         this.executor = requireNonNull(executor, "executor is null");
-        state = new StateMachine<>(taskId + "-buffer", executor, OPEN, TERMINAL_BUFFER_STATES);
+        state = new StateMachine<>(taskId + "-buffer", executor, OPEN, BufferState::isTerminal);
         this.maxBufferSize = requireNonNull(maxBufferSize, "maxBufferSize is null");
         checkArgument(maxBufferSize.toBytes() > 0, "maxBufferSize must be at least 1");
         this.systemMemoryContextSupplier = requireNonNull(systemMemoryContextSupplier, "systemMemoryContextSupplier is null");

@@ -13,11 +13,6 @@
  */
 package io.prestosql.execution;
 
-import java.util.Set;
-import java.util.stream.Stream;
-
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
-
 public enum QueryState
 {
     /**
@@ -56,8 +51,6 @@ public enum QueryState
      * Query execution failed.
      */
     FAILED(true);
-
-    public static final Set<QueryState> TERMINAL_QUERY_STATES = Stream.of(QueryState.values()).filter(QueryState::isDone).collect(toImmutableSet());
 
     private final boolean doneState;
 

@@ -61,7 +61,6 @@ import static io.prestosql.execution.StageState.RUNNING;
 import static io.prestosql.execution.StageState.SCHEDULED;
 import static io.prestosql.execution.StageState.SCHEDULING;
 import static io.prestosql.execution.StageState.SCHEDULING_SPLITS;
-import static io.prestosql.execution.StageState.TERMINAL_STAGE_STATES;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
@@ -107,7 +106,7 @@ public class StageStateMachine
         this.tables = ImmutableMap.copyOf(requireNonNull(tables, "tables is null"));
         this.scheduledStats = requireNonNull(schedulerStats, "schedulerStats is null");
 
-        stageState = new StateMachine<>("stage " + stageId, executor, PLANNED, TERMINAL_STAGE_STATES);
+        stageState = new StateMachine<>("stage " + stageId, executor, PLANNED, StageState::isDone);
         stageState.addStateChangeListener(state -> log.debug("Stage %s is %s", stageId, state));
 
         finalStageInfo = new StateMachine<>("final stage " + stageId, executor, Optional.empty());

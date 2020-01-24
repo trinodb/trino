@@ -80,7 +80,6 @@ import static io.prestosql.execution.QueryState.PLANNING;
 import static io.prestosql.execution.QueryState.QUEUED;
 import static io.prestosql.execution.QueryState.RUNNING;
 import static io.prestosql.execution.QueryState.STARTING;
-import static io.prestosql.execution.QueryState.TERMINAL_QUERY_STATES;
 import static io.prestosql.execution.QueryState.WAITING_FOR_RESOURCES;
 import static io.prestosql.execution.StageInfo.getAllStages;
 import static io.prestosql.memory.LocalMemoryManager.GENERAL_POOL;
@@ -173,7 +172,7 @@ public class QueryStateMachine
         this.queryStateTimer = new QueryStateTimer(ticker);
         this.metadata = requireNonNull(metadata, "metadata is null");
 
-        this.queryState = new StateMachine<>("query " + query, executor, QUEUED, TERMINAL_QUERY_STATES);
+        this.queryState = new StateMachine<>("query " + query, executor, QUEUED, QueryState::isDone);
         this.finalQueryInfo = new StateMachine<>("finalQueryInfo-" + queryId, executor, Optional.empty());
         this.outputManager = new QueryOutputManager(executor);
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");

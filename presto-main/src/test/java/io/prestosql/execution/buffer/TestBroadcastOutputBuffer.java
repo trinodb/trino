@@ -38,7 +38,6 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.prestosql.execution.buffer.BufferResult.emptyResults;
 import static io.prestosql.execution.buffer.BufferState.OPEN;
-import static io.prestosql.execution.buffer.BufferState.TERMINAL_BUFFER_STATES;
 import static io.prestosql.execution.buffer.BufferTestUtils.MAX_WAIT;
 import static io.prestosql.execution.buffer.BufferTestUtils.NO_WAIT;
 import static io.prestosql.execution.buffer.BufferTestUtils.acknowledgeBufferResult;
@@ -1082,7 +1081,7 @@ public class TestBroadcastOutputBuffer
     {
         BroadcastOutputBuffer buffer = new BroadcastOutputBuffer(
                 TASK_INSTANCE_ID,
-                new StateMachine<>("bufferState", stateNotificationExecutor, OPEN, TERMINAL_BUFFER_STATES),
+                new StateMachine<>("bufferState", stateNotificationExecutor, OPEN, BufferState::isTerminal),
                 dataSize,
                 () -> memoryContext.newLocalMemoryContext("test"),
                 notificationExecutor);
@@ -1143,7 +1142,7 @@ public class TestBroadcastOutputBuffer
     {
         BroadcastOutputBuffer buffer = new BroadcastOutputBuffer(
                 TASK_INSTANCE_ID,
-                new StateMachine<>("bufferState", stateNotificationExecutor, OPEN, TERMINAL_BUFFER_STATES),
+                new StateMachine<>("bufferState", stateNotificationExecutor, OPEN, BufferState::isTerminal),
                 dataSize,
                 () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 stateNotificationExecutor);
