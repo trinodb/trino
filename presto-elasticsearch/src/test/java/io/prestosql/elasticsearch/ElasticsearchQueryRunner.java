@@ -46,7 +46,10 @@ public final class ElasticsearchQueryRunner
     private static final String TPCH_SCHEMA = "tpch";
     private static final int NODE_COUNT = 2;
 
-    public static DistributedQueryRunner createElasticsearchQueryRunner(HostAndPort address, Iterable<TpchTable<?>> tables)
+    public static DistributedQueryRunner createElasticsearchQueryRunner(
+            HostAndPort address,
+            Iterable<TpchTable<?>> tables,
+            Map<String, String> extraProperties)
             throws Exception
     {
         RestHighLevelClient client = null;
@@ -54,6 +57,7 @@ public final class ElasticsearchQueryRunner
         try {
             queryRunner = DistributedQueryRunner.builder(createSession())
                     .setNodeCount(NODE_COUNT)
+                    .setExtraProperties(extraProperties)
                     .build();
 
             queryRunner.installPlugin(new TpchPlugin());
@@ -118,8 +122,12 @@ public final class ElasticsearchQueryRunner
             throws Exception
     {
         Logging.initialize();
-        HostAndPort address = HostAndPort.fromParts("localhost", 9200);
-        DistributedQueryRunner queryRunner = createElasticsearchQueryRunner(address, TpchTable.getTables());
+
+        DistributedQueryRunner queryRunner = createElasticsearchQueryRunner(
+                HostAndPort.fromParts("localhost", 9200),
+                TpchTable.getTables(),
+                ImmutableMap.of("http-server.http.port", "8080"));
+
         Logger log = Logger.get(ElasticsearchQueryRunner.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
