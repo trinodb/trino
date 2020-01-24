@@ -245,7 +245,7 @@ public final class HiveQueryRunner
 
         DistributedQueryRunner queryRunner = createQueryRunner(TpchTable.getTables(), ImmutableMap.of("http-server.http.port", "8080"), baseDataDir);
         Thread.sleep(10);
-        Logger log = Logger.get(DistributedQueryRunner.class);
+        Logger log = Logger.get(HiveQueryRunner.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
