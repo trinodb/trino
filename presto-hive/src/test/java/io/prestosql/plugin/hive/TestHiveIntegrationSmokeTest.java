@@ -4476,6 +4476,52 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testParquetWithMissingNestedColumns()
+    {
+        Session sessionUsingColumnIndex = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "parquet_use_column_names", "false")
+                .build();
+
+        Session sessionUsingColumnName = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "parquet_use_column_names", "true")
+                .build();
+
+        String missingNestedFieldsTableName = "test_parquet_missing_nested_fields";
+
+        assertUpdate(format(
+                "CREATE TABLE %s(" +
+                        "  an_array ARRAY(ROW(a2 int))) " +
+                        "WITH (format='PARQUET')",
+                missingNestedFieldsTableName));
+        assertUpdate(sessionUsingColumnIndex, "INSERT INTO " + missingNestedFieldsTableName + " VALUES (ARRAY[ROW(2)])", 1);
+
+        String tableLocation = (String) computeActual("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM " + missingNestedFieldsTableName).getOnlyValue();
+        String missingNestedArrayTableName = "test_parquet_missing_nested_array";
+        assertUpdate(sessionUsingColumnIndex, format(
+                "CREATE TABLE %s(" +
+                        "  an_array ARRAY(ROW(nested_array ARRAY(varchar), a2 int))) " +
+                        "WITH (format='PARQUET', external_location='%s')",
+                missingNestedArrayTableName,
+                tableLocation));
+        /*
+         * Expected behavior is to read a null collection when a nested array is not define in the parquet footer.
+         * This query should not fail nor an empty collection.
+         */
+        assertQuery(
+                sessionUsingColumnIndex,
+                "SELECT an_array[1].nested_array FROM " + missingNestedArrayTableName,
+                "VALUES (null)");
+
+        assertQuery(
+                sessionUsingColumnName,
+                "SELECT an_array[1].nested_array FROM " + missingNestedArrayTableName,
+                "VALUES (null)");
+
+        assertUpdate(sessionUsingColumnIndex, "DROP TABLE " + missingNestedFieldsTableName);
+        assertUpdate(sessionUsingColumnIndex, "DROP TABLE " + missingNestedArrayTableName);
+    }
+
+    @Test
     public void testNestedColumnWithDuplicateName()
     {
         String tableName = "test_nested_column_with_duplicate_name";
