@@ -13,19 +13,19 @@ fi
 suite_exit_code=0
 
 # Does not use hadoop
-presto-product-tests-launcher/target/presto-product-tests-launcher-*-executable.jar test run \
+presto-product-tests-launcher/bin/run-launcher test run \
     --environment singlenode-mysql \
     -- -g mysql \
     || suite_exit_code=1
 
 # Does not use hadoop
-presto-product-tests-launcher/target/presto-product-tests-launcher-*-executable.jar test run \
+presto-product-tests-launcher/bin/run-launcher test run \
     --environment singlenode-postgresql \
     -- -g postgresql \
     || suite_exit_code=1
 
 # Does not use hadoop
-presto-product-tests-launcher/target/presto-product-tests-launcher-*-executable.jar test run \
+presto-product-tests-launcher/bin/run-launcher test run \
     --environment singlenode-sqlserver \
     -- -g sqlserver \
     || suite_exit_code=1
@@ -36,12 +36,12 @@ presto-product-tests/bin/run_on_docker.sh \
     -g storage_formats,cli,hdfs_impersonation \
     || suite_exit_code=1
 
-presto-product-tests-launcher/target/presto-product-tests-launcher-*-executable.jar test run \
+presto-product-tests-launcher/bin/run-launcher test run \
     --environment two-mixed-hives \
     -- -g two_hives \
     || suite_exit_code=1
 
-presto-product-tests-launcher/target/presto-product-tests-launcher-*-executable.jar test run \
+presto-product-tests-launcher/bin/run-launcher test run \
     --environment two-kerberos-hives \
     -- -g two_hives \
     || suite_exit_code=1
