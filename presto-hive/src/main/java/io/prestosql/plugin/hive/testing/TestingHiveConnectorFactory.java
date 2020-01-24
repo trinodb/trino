@@ -23,22 +23,18 @@ import io.prestosql.spi.connector.ConnectorHandleResolver;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.prestosql.plugin.hive.InternalHiveConnectorFactory.createConnector;
 import static java.util.Objects.requireNonNull;
 
 public class TestingHiveConnectorFactory
         implements ConnectorFactory
 {
-    private final Optional<HiveMetastore> metastore;
-
-    public TestingHiveConnectorFactory()
-    {
-        this.metastore = Optional.empty();
-    }
+    private final HiveMetastore metastore;
 
     public TestingHiveConnectorFactory(HiveMetastore metastore)
     {
-        this.metastore = Optional.of(requireNonNull(metastore, "metastore is null"));
+        this.metastore = requireNonNull(metastore, "metastore is null");
     }
 
     @Override
@@ -56,6 +52,6 @@ public class TestingHiveConnectorFactory
     @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        return createConnector(catalogName, config, context, metastore);
+        return createConnector(catalogName, config, context, EMPTY_MODULE, Optional.of(metastore));
     }
 }
