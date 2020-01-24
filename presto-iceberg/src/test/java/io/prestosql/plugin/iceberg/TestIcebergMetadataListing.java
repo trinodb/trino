@@ -43,7 +43,7 @@ import static org.testng.Assert.assertEquals;
 public class TestIcebergMetadataListing
         extends AbstractTestQueryFramework
 {
-    private static HiveMetastore metastore;
+    private HiveMetastore metastore;
 
     @Override
     protected DistributedQueryRunner createQueryRunner()
