@@ -13,14 +13,14 @@ fi
 suite_exit_code=0
 
 # Uses hadoop, but it irrelevant from these tests' perspective.
-presto-product-tests/bin/run_on_docker.sh \
-    singlenode-ldap \
-    -g ldap \
+presto-product-tests-launcher/bin/run-launcher test run \
+    --environment singlenode-ldap \
+    -- -g ldap \
     || suite_exit_code=1
 
-presto-product-tests/bin/run_on_docker.sh \
-    singlenode-ldap-referrals \
-    -g ldap \
+presto-product-tests-launcher/bin/run-launcher test run \
+    --environment singlenode-ldap-referrals \
+    -- -g ldap \
     || suite_exit_code=1
 
 # We have docker images with KMS on CDH only. TODO (https://github.com/prestosql/presto/issues/1652) create images with HDP and KMS

@@ -37,6 +37,9 @@ import io.prestosql.tests.product.launcher.env.environment.SinglenodeKerberosKms
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeMySql;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodePostgreSql;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeSqlServer;
+import io.prestosql.tests.product.launcher.env.environment.SinglenodeLdap;
+import io.prestosql.tests.product.launcher.env.environment.SinglenodeLdapBindDn;
+import io.prestosql.tests.product.launcher.env.environment.SinglenodeLdapReferrals;
 import io.prestosql.tests.product.launcher.env.environment.TwoKerberosHives;
 import io.prestosql.tests.product.launcher.env.environment.TwoMixedHives;
 
@@ -76,6 +79,10 @@ public final class EnvironmentModule
         environments.addBinding("singlenode-kerberos-hdfs-impersonation-cross-realm").to(SinglenodeKerberosHdfsImpersonationCrossRealm.class);
         environments.addBinding("singlenode-kerberos-kms-hdfs-impersonation").to(SinglenodeKerberosKmsHdfsImpersonation.class);
         environments.addBinding("singlenode-kerberos-kms-hdfs-no-impersonation").to(SinglenodeKerberosKmsHdfsNoImpersonation.class);
+
+        environments.addBinding("singlenode-ldap").to(SinglenodeLdap.class);
+        environments.addBinding("singlenode-ldap-bind-dn").to(SinglenodeLdapBindDn.class);
+        environments.addBinding("singlenode-ldap-referrals").to(SinglenodeLdapReferrals.class);
 
         environments.addBinding("multinode").to(Multinode.class);
         environments.addBinding("multinode-tls").to(MultinodeTls.class);
