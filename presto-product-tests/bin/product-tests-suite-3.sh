@@ -4,9 +4,9 @@ set -xeuo pipefail
 
 suite_exit_code=0
 
-presto-product-tests/bin/run_on_docker.sh \
-    multinode-tls \
-    -g smoke,cli,group-by,join,tls \
+presto-product-tests-launcher/bin/run-launcher test run \
+    --environment multinode-tls \
+    -- -g smoke,cli,group-by,join,tls \
     || suite_exit_code=1
 
 presto-product-tests-launcher/bin/run-launcher test run \
