@@ -65,23 +65,11 @@ public final class InterfaceTestUtils
                     }));
 
             try {
-                if (!defines(forwardingInstance, actualMethod)) {
-                    continue;
-                }
-
                 actualMethod.invoke(forwardingInstance, actualArguments);
             }
             catch (Exception e) {
                 throw new RuntimeException(format("Invocation of %s has failed", actualMethod), e);
             }
         }
-    }
-
-    private static boolean defines(Object forwardingInstance, Method actualMethod)
-            throws Exception
-    {
-        Class<?> forwardingClass = forwardingInstance.getClass();
-        Method forwardingMethod = forwardingClass.getMethod(actualMethod.getName(), actualMethod.getParameterTypes());
-        return forwardingClass == forwardingMethod.getDeclaringClass();
     }
 }
