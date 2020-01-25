@@ -30,7 +30,7 @@ import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_
 import static io.prestosql.tests.product.launcher.testcontainers.TestcontainersUtil.exposePort;
 import static java.util.Objects.requireNonNull;
 
-public class SinglenodeCassandra
+public final class SinglenodeCassandra
         extends AbstractEnvironmentProvider
 {
     private final DockerFiles dockerFiles;

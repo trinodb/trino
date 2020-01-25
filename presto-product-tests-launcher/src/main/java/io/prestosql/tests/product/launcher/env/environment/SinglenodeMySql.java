@@ -30,7 +30,7 @@ import static io.prestosql.tests.product.launcher.testcontainers.TestcontainersU
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
 
-public class SinglenodeMySql
+public final class SinglenodeMySql
         extends AbstractEnvironmentProvider
 {
     // Use non-default MySQL port to avoid conflicts with locally installed MySQL if any.
