@@ -93,7 +93,7 @@ public final class ThriftQueryRunner
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
 
-    private static List<DriftServer> startThriftServers(int thriftServers, boolean enableIndexJoin)
+    static List<DriftServer> startThriftServers(int thriftServers, boolean enableIndexJoin)
     {
         List<DriftServer> servers = new ArrayList<>(thriftServers);
         for (int i = 0; i < thriftServers; i++) {
@@ -138,7 +138,7 @@ public final class ThriftQueryRunner
         return queryRunner;
     }
 
-    private static int driftServerPort(DriftServer server)
+    static int driftServerPort(DriftServer server)
     {
         return ((DriftNettyServerTransport) server.getServerTransport()).getPort();
     }
