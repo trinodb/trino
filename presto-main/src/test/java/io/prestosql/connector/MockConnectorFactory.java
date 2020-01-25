@@ -36,12 +36,15 @@ import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.ConnectorViewDefinition;
+import io.prestosql.spi.connector.ProjectionApplicationResult;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
+import io.prestosql.spi.expression.ConnectorExpression;
 import io.prestosql.spi.transaction.IsolationLevel;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -59,17 +62,20 @@ public class MockConnectorFactory
     private final BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables;
     private final BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews;
     private final Function<SchemaTableName, List<ColumnMetadata>> getColumns;
+    private final ApplyProjection applyProjection;
 
     private MockConnectorFactory(
             Function<ConnectorSession, List<String>> listSchemaNames,
             BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables,
             BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews,
-            Function<SchemaTableName, List<ColumnMetadata>> getColumns)
+            Function<SchemaTableName, List<ColumnMetadata>> getColumns,
+            ApplyProjection applyProjection)
     {
         this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
         this.listTables = requireNonNull(listTables, "listTables is null");
         this.getViews = requireNonNull(getViews, "getViews is null");
         this.getColumns = getColumns;
+        this.applyProjection = applyProjection;
     }
 
     @Override
@@ -87,7 +93,7 @@ public class MockConnectorFactory
     @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        return new MockConnector(context, listSchemaNames, listTables, getViews, getColumns);
+        return new MockConnector(context, listSchemaNames, listTables, getViews, getColumns, applyProjection);
     }
 
     public static Builder builder()
@@ -95,7 +101,13 @@ public class MockConnectorFactory
         return new Builder();
     }
 
-    private static class MockConnector
+    @FunctionalInterface
+    public interface ApplyProjection
+    {
+        Optional<ProjectionApplicationResult<ConnectorTableHandle>> apply(ConnectorSession session, ConnectorTableHandle handle, List<ConnectorExpression> projections, Map<String, ColumnHandle> assignments);
+    }
+
+    public static class MockConnector
             implements Connector
     {
         private final ConnectorContext context;
@@ -103,19 +115,22 @@ public class MockConnectorFactory
         private final BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables;
         private final BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews;
         private final Function<SchemaTableName, List<ColumnMetadata>> getColumns;
+        private final ApplyProjection applyProjection;
 
         private MockConnector(
                 ConnectorContext context,
                 Function<ConnectorSession, List<String>> listSchemaNames,
                 BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables,
                 BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews,
-                Function<SchemaTableName, List<ColumnMetadata>> getColumns)
+                Function<SchemaTableName, List<ColumnMetadata>> getColumns,
+                ApplyProjection applyProjection)
         {
             this.context = requireNonNull(context, "context is null");
             this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
             this.listTables = requireNonNull(listTables, "listTables is null");
             this.getViews = requireNonNull(getViews, "getViews is null");
             this.getColumns = requireNonNull(getColumns, "getColumns is null");
+            this.applyProjection = requireNonNull(applyProjection, "applyProjection is null");
         }
 
         @Override
@@ -145,6 +160,12 @@ public class MockConnectorFactory
         private class MockConnectorMetadata
                 implements ConnectorMetadata
         {
+            @Override
+            public Optional<ProjectionApplicationResult<ConnectorTableHandle>> applyProjection(ConnectorSession session, ConnectorTableHandle handle, List<ConnectorExpression> projections, Map<String, ColumnHandle> assignments)
+            {
+                return applyProjection.apply(session, handle, projections, assignments);
+            }
+
             @Override
             public List<String> listSchemaNames(ConnectorSession session)
             {
@@ -223,23 +244,42 @@ public class MockConnectorFactory
             {
                 return new ConnectorTableProperties();
             }
+        }
 
-            private class MockConnectorTableHandle
-                    implements ConnectorTableHandle
+        public static class MockConnectorTableHandle
+                implements ConnectorTableHandle
+        {
+            private final SchemaTableName tableName;
+
+            @JsonCreator
+            public MockConnectorTableHandle(@JsonProperty SchemaTableName tableName)
             {
-                private final SchemaTableName tableName;
+                this.tableName = requireNonNull(tableName, "tableName is null");
+            }
 
-                @JsonCreator
-                public MockConnectorTableHandle(@JsonProperty SchemaTableName tableName)
-                {
-                    this.tableName = requireNonNull(tableName, "tableName is null");
-                }
+            @JsonProperty
+            public SchemaTableName getTableName()
+            {
+                return tableName;
+            }
 
-                @JsonProperty
-                public SchemaTableName getTableName()
-                {
-                    return tableName;
+            @Override
+            public boolean equals(Object o)
+            {
+                if (this == o) {
+                    return true;
                 }
+                if (o == null || getClass() != o.getClass()) {
+                    return false;
+                }
+                MockConnectorTableHandle other = (MockConnectorTableHandle) o;
+                return Objects.equals(tableName, other.tableName);
+            }
+
+            @Override
+            public int hashCode()
+            {
+                return Objects.hash(tableName);
             }
         }
     }
@@ -250,6 +290,7 @@ public class MockConnectorFactory
         private BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables = defaultListTables();
         private BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews = defaultGetViews();
         private Function<SchemaTableName, List<ColumnMetadata>> getColumns = defaultGetColumns();
+        private ApplyProjection applyProjection = (session, handle, projections, assignments) -> Optional.empty();
 
         public Builder withListSchemaNames(Function<ConnectorSession, List<String>> listSchemaNames)
         {
@@ -275,9 +316,15 @@ public class MockConnectorFactory
             return this;
         }
 
+        public Builder withApplyProjection(ApplyProjection applyProjection)
+        {
+            this.applyProjection = applyProjection;
+            return this;
+        }
+
         public MockConnectorFactory build()
         {
-            return new MockConnectorFactory(listSchemaNames, listTables, getViews, getColumns);
+            return new MockConnectorFactory(listSchemaNames, listTables, getViews, getColumns, applyProjection);
         }
 
         public static Function<ConnectorSession, List<String>> defaultListSchemaNames()

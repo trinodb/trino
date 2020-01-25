@@ -748,6 +748,11 @@ public final class PlanMatchPattern
         return new ExpressionMatcher(expression);
     }
 
+    public static ExpressionMatcher expression(Expression expression)
+    {
+        return new ExpressionMatcher(expression);
+    }
+
     public PlanMatchPattern withOutputs(String... aliases)
     {
         return withOutputs(ImmutableList.copyOf(aliases));
