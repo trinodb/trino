@@ -29,7 +29,7 @@ import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
 
-public class SinglenodeKafka
+public final class SinglenodeKafka
         extends AbstractEnvironmentProvider
 {
     private static final String CONFLUENT_VERSION = "5.2.1";

@@ -30,7 +30,7 @@ import static io.prestosql.tests.product.launcher.testcontainers.TestcontainersU
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
 
-public class SinglenodePostgreSql
+public final class SinglenodePostgreSql
         extends AbstractEnvironmentProvider
 {
     // Use non-default PostgreSQL port to avoid conflicts with locally installed PostgreSQL if any.

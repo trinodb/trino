@@ -30,7 +30,7 @@ import static io.prestosql.tests.product.launcher.testcontainers.TestcontainersU
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
 
-public class SinglenodeSqlServer
+public final class SinglenodeSqlServer
         extends AbstractEnvironmentProvider
 {
     public static final int SQLSERVER_PORT = 1433;
