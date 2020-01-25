@@ -48,8 +48,6 @@ public class SinglenodeMySql
     @Override
     protected void extendEnvironment(Environment.Builder builder)
     {
-        super.extendEnvironment(builder);
-
         builder.configureContainer("presto-master", container -> container
                 .withFileSystemBind(
                         dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-mysql/mysql.properties"),

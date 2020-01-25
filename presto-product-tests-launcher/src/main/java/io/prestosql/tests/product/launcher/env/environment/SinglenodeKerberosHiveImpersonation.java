@@ -42,8 +42,6 @@ public final class SinglenodeKerberosHiveImpersonation
     @Override
     protected void extendEnvironment(Environment.Builder builder)
     {
-        super.extendEnvironment(builder);
-
         builder.configureContainer("presto-master", container -> container
                 .withFileSystemBind(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kerberos-hive-impersonation/hive.properties"), CONTAINER_PRESTO_HIVE_PROPERTIES, READ_ONLY));
     }
