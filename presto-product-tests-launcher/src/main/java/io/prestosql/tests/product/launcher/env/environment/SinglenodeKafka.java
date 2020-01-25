@@ -46,8 +46,6 @@ public class SinglenodeKafka
     @Override
     protected void extendEnvironment(Environment.Builder builder)
     {
-        super.extendEnvironment(builder);
-
         builder.configureContainer("presto-master", container -> container
                 .withFileSystemBind(
                         dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kafka/kafka.properties"),

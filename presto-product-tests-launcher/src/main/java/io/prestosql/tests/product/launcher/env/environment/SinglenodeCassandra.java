@@ -48,8 +48,6 @@ public class SinglenodeCassandra
     @Override
     protected void extendEnvironment(Environment.Builder builder)
     {
-        super.extendEnvironment(builder);
-
         builder.addContainer("cassandra", createCassandra());
 
         builder.configureContainer("presto-master", container -> container

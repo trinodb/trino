@@ -62,8 +62,6 @@ public final class TwoMixedHives
     @Override
     protected void extendEnvironment(Environment.Builder builder)
     {
-        super.extendEnvironment(builder);
-
         builder.configureContainer("presto-master", container -> {
             container.withFileSystemBind(
                     dockerFiles.getDockerFilesHostPath("conf/environment/two-mixed-hives/hive1.properties"),
