@@ -188,7 +188,7 @@ public final class FormatFunction
         if (type.equals(TIME)) {
             return (session, block) -> toLocalTime(session, type.getLong(block, position));
         }
-        // TODO: support TIME WITH TIME ZONE by making SqlTimeWithTimeZone implement TemporalAccessor
+        // TODO: support TIME WITH TIME ZONE by https://github.com/prestosql/presto/issues/191 + mapping to java.time.OffsetTime
         if (type.equals(JSON)) {
             ResolvedFunction function = metadata.resolveFunction(QualifiedName.of("json_format"), fromTypes(JSON));
             MethodHandle handle = metadata.getScalarFunctionImplementation(function).getMethodHandle();
