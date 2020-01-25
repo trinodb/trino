@@ -54,6 +54,7 @@ import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.join;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
+import static io.prestosql.sql.planner.iterative.rule.test.RuleTester.defaultRuleTester;
 import static io.prestosql.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static io.prestosql.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
@@ -73,7 +74,7 @@ public class TestReorderJoins
     @BeforeClass
     public void setUp()
     {
-        tester = new RuleTester(
+        tester = defaultRuleTester(
                 ImmutableList.of(),
                 ImmutableMap.of(
                         JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name(),
