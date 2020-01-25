@@ -13,6 +13,7 @@
  */
 package io.prestosql.sql.planner.assertions;
 
+import com.google.common.base.Predicate;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -22,7 +23,10 @@ import io.prestosql.Session;
 import io.prestosql.cost.StatsProvider;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.predicate.Domain;
+import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.sql.parser.ParsingOptions;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.Symbol;
@@ -136,6 +140,16 @@ public final class PlanMatchPattern
     {
         PlanMatchPattern result = tableScan(expectedTableName);
         return result.addColumnReferences(expectedTableName, columnReferences);
+    }
+
+    public static PlanMatchPattern tableScan(
+            Predicate<ConnectorTableHandle> expectedTable,
+            TupleDomain<Predicate<ColumnHandle>> enforcedConstraints,
+            Map<String, Predicate<ColumnHandle>> expectedColumns)
+    {
+        PlanMatchPattern pattern = ConnectorAwareTableScanMatcher.create(expectedTable, enforcedConstraints);
+        expectedColumns.entrySet().forEach(column -> pattern.withAlias(column.getKey(), new ColumnHandleMatcher(column.getValue())));
+        return pattern;
     }
 
     public static PlanMatchPattern strictTableScan(String expectedTableName, Map<String, String> columnReferences)
