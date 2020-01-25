@@ -70,14 +70,9 @@ public final class Standard
     @SuppressWarnings("resource")
     private DockerContainer createPrestoMaster()
     {
-        DockerContainer container = new DockerContainer("prestodev/centos7-oj11:" + imagesVersion)
-                .withFileSystemBind(dockerFiles.getDockerFilesHostPath(), "/docker/presto-product-tests", READ_ONLY)
-                .withFileSystemBind(pathResolver.resolvePlaceholders(serverPackage).toString(), "/docker/presto-server.tar.gz", READ_ONLY)
-                .withFileSystemBind(dockerFiles.getDockerFilesHostPath("common/standard/config.properties"), CONTAINER_PRESTO_CONFIG_PROPERTIES, READ_ONLY)
-                .withCommand("/docker/presto-product-tests/run-presto.sh")
-                .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
-                .waitingFor(Wait.forLogMessage(".*======== SERVER STARTED ========.*", 1))
-                .withStartupTimeout(Duration.ofMinutes(5));
+        DockerContainer container =
+                createPrestoContainer(dockerFiles, pathResolver, serverPackage, "prestodev/centos7-oj11:" + imagesVersion)
+                .withFileSystemBind(dockerFiles.getDockerFilesHostPath("common/standard/config.properties"), CONTAINER_PRESTO_CONFIG_PROPERTIES, READ_ONLY);
 
         exposePort(container, 8080); // Presto default port
         exposePort(container, 5005); // debug port
@@ -97,5 +92,17 @@ public final class Standard
         exposePort(container, 5007); // debug port
 
         return container;
+    }
+
+    @SuppressWarnings("resource")
+    public static DockerContainer createPrestoContainer(DockerFiles dockerFiles, PathResolver pathResolver, File serverPackage, String dockerImageName)
+    {
+        return new DockerContainer(dockerImageName)
+                .withFileSystemBind(dockerFiles.getDockerFilesHostPath(), "/docker/presto-product-tests", READ_ONLY)
+                .withFileSystemBind(pathResolver.resolvePlaceholders(serverPackage).toString(), "/docker/presto-server.tar.gz", READ_ONLY)
+                .withCommand("/docker/presto-product-tests/run-presto.sh")
+                .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
+                .waitingFor(Wait.forLogMessage(".*======== SERVER STARTED ========.*", 1))
+                .withStartupTimeout(Duration.ofMinutes(5));
     }
 }
