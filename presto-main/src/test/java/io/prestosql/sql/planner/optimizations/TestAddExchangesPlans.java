@@ -61,12 +61,8 @@ import static io.prestosql.testing.TestingSession.testSessionBuilder;
 public class TestAddExchangesPlans
         extends BasePlanTest
 {
-    public TestAddExchangesPlans()
-    {
-        super(TestAddExchangesPlans::createQueryRunner);
-    }
-
-    private static LocalQueryRunner createQueryRunner()
+    @Override
+    protected LocalQueryRunner createLocalQueryRunner()
     {
         Session session = testSessionBuilder()
                 .setCatalog("tpch")
