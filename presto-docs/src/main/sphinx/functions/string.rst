@@ -7,6 +7,9 @@ String Operators
 
 The ``||`` operator performs concatenation.
 
+The ``LIKE`` statement can be used for pattern matching and is documented in
+:ref:`like_operator`.
+
 String Functions
 ----------------
 
