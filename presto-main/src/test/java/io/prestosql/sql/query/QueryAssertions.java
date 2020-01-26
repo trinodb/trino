@@ -162,4 +162,20 @@ class QueryAssertions
     {
         runner.close();
     }
+
+    public QueryRunner getQueryRunner()
+    {
+        return runner;
+    }
+
+    protected void executeExclusively(Runnable executionBlock)
+    {
+        runner.getExclusiveLock().lock();
+        try {
+            executionBlock.run();
+        }
+        finally {
+            runner.getExclusiveLock().unlock();
+        }
+    }
 }
