@@ -21,7 +21,7 @@ import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.plugin.redis.util.CodecSupplier;
-import io.prestosql.plugin.redis.util.EmbeddedRedis;
+import io.prestosql.plugin.redis.util.RedisServer;
 import io.prestosql.plugin.redis.util.RedisTestUtils;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.spi.connector.SchemaTableName;
@@ -47,13 +47,13 @@ public final class RedisQueryRunner
     private static final Logger log = Logger.get(RedisQueryRunner.class);
     private static final String TPCH_SCHEMA = "tpch";
 
-    public static DistributedQueryRunner createRedisQueryRunner(EmbeddedRedis embeddedRedis, String dataFormat, TpchTable<?>... tables)
+    public static DistributedQueryRunner createRedisQueryRunner(RedisServer redisServer, String dataFormat, TpchTable<?>... tables)
             throws Exception
     {
-        return createRedisQueryRunner(embeddedRedis, dataFormat, ImmutableList.copyOf(tables));
+        return createRedisQueryRunner(redisServer, dataFormat, ImmutableList.copyOf(tables));
     }
 
-    public static DistributedQueryRunner createRedisQueryRunner(EmbeddedRedis embeddedRedis, String dataFormat, Iterable<TpchTable<?>> tables)
+    public static DistributedQueryRunner createRedisQueryRunner(RedisServer redisServer, String dataFormat, Iterable<TpchTable<?>> tables)
             throws Exception
     {
         DistributedQueryRunner queryRunner = null;
@@ -63,35 +63,33 @@ public final class RedisQueryRunner
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
-            embeddedRedis.start();
-
             Map<SchemaTableName, RedisTableDescription> tableDescriptions = createTpchTableDescriptions(queryRunner.getCoordinator().getMetadata(), tables, dataFormat);
 
-            installRedisPlugin(embeddedRedis, queryRunner, tableDescriptions);
+            installRedisPlugin(redisServer, queryRunner, tableDescriptions);
 
             TestingPrestoClient prestoClient = queryRunner.getClient();
 
             log.info("Loading data...");
             long startTime = System.nanoTime();
             for (TpchTable<?> table : tables) {
-                loadTpchTable(embeddedRedis, prestoClient, table, dataFormat);
+                loadTpchTable(redisServer, prestoClient, table, dataFormat);
             }
             log.info("Loading complete in %s", nanosSince(startTime).toString(SECONDS));
-            embeddedRedis.destroyJedisPool();
+            redisServer.destroyJedisPool();
             return queryRunner;
         }
         catch (Throwable e) {
-            closeAllSuppress(e, queryRunner, embeddedRedis);
+            closeAllSuppress(e, queryRunner, redisServer);
             throw e;
         }
     }
 
-    private static void loadTpchTable(EmbeddedRedis embeddedRedis, TestingPrestoClient prestoClient, TpchTable<?> table, String dataFormat)
+    private static void loadTpchTable(RedisServer redisServer, TestingPrestoClient prestoClient, TpchTable<?> table, String dataFormat)
     {
         long start = System.nanoTime();
         log.info("Running import for %s", table.getTableName());
         RedisTestUtils.loadTpchTable(
-                embeddedRedis,
+                redisServer,
                 prestoClient,
                 redisTableName(table),
                 new QualifiedObjectName("tpch", TINY_SCHEMA_NAME, table.getTableName().toLowerCase(ENGLISH)),
