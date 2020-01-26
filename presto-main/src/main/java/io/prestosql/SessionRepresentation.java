@@ -304,6 +304,7 @@ public final class SessionRepresentation
                 catalogProperties,
                 unprocessedCatalogProperties,
                 sessionPropertyManager,
-                preparedStatements);
+                preparedStatements,
+                Optional.empty());
     }
 }

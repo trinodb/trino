@@ -84,7 +84,8 @@ public class QuerySessionSupplier
                 .setClientTags(context.getClientTags())
                 .setClientCapabilities(context.getClientCapabilities())
                 .setTraceToken(context.getTraceToken())
-                .setResourceEstimates(context.getResourceEstimates());
+                .setResourceEstimates(context.getResourceEstimates())
+                .setOriginalUser(context.getOriginalUser());
 
         defaultCatalog.ifPresent(sessionBuilder::setCatalog);
         defaultSchema.ifPresent(sessionBuilder::setSchema);

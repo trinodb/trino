@@ -20,6 +20,7 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AccessControl;
 import io.prestosql.security.SecurityContext;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.security.BasicPrincipal;
 import io.prestosql.spi.session.PropertyMetadata;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.tree.Expression;
@@ -27,9 +28,12 @@ import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.SetSession;
 import io.prestosql.transaction.TransactionManager;
 
+import java.security.Principal;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static io.prestosql.SystemSessionProperties.EXECUTION_USER;
 import static io.prestosql.metadata.SessionPropertyManager.evaluatePropertyValue;
 import static io.prestosql.metadata.SessionPropertyManager.serializeSessionProperty;
 import static io.prestosql.spi.StandardErrorCode.CATALOG_NOT_FOUND;
@@ -88,6 +92,16 @@ public class SetSessionTask
 
         // verify the SQL value can be decoded by the property
         propertyMetadata.decode(objectValue);
+
+        if (propertyName.toString().equals(EXECUTION_USER)) {
+            Optional<Principal> principal = session.getIdentity().getPrincipal();
+            String user = session.getOriginalUser().orElse(null);
+            String executionUser = value;
+
+            accessControl.checkCanSetUser(principal, user);
+            accessControl.checkCanSetUser(principal, executionUser);
+            accessControl.checkCanSetUser(Optional.of(new BasicPrincipal(user)), executionUser);
+        }
 
         stateMachine.addSetSessionProperties(propertyName.toString(), value);
 

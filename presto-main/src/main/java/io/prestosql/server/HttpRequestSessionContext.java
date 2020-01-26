@@ -53,6 +53,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_FOR;
+import static io.prestosql.SystemSessionProperties.EXECUTION_USER;
 import static io.prestosql.client.PrestoHeaders.PRESTO_CATALOG;
 import static io.prestosql.client.PrestoHeaders.PRESTO_CLIENT_CAPABILITIES;
 import static io.prestosql.client.PrestoHeaders.PRESTO_CLIENT_INFO;
@@ -106,6 +107,7 @@ public final class HttpRequestSessionContext
     private final Optional<TransactionId> transactionId;
     private final boolean clientTransactionSupport;
     private final String clientInfo;
+    private final String originalUser;
 
     public HttpRequestSessionContext(HeaderSupport forwardedHeaderSupport, HttpServletRequest servletRequest)
             throws WebApplicationException
@@ -114,14 +116,6 @@ public final class HttpRequestSessionContext
         schema = trimEmptyToNull(servletRequest.getHeader(PRESTO_SCHEMA));
         path = trimEmptyToNull(servletRequest.getHeader(PRESTO_PATH));
         assertRequest((catalog != null) || (schema == null), "Schema is set but catalog is not");
-
-        String user = trimEmptyToNull(servletRequest.getHeader(PRESTO_USER));
-        assertRequest(user != null, "User must be set");
-        identity = Identity.forUser(user)
-                .withPrincipal(Optional.ofNullable(servletRequest.getUserPrincipal()))
-                .withRoles(parseRoleHeaders(servletRequest))
-                .withExtraCredentials(parseExtraCredentials(servletRequest))
-                .build();
 
         source = servletRequest.getHeader(PRESTO_SOURCE);
         traceToken = Optional.ofNullable(trimEmptyToNull(servletRequest.getHeader(PRESTO_TRACE_TOKEN)));
@@ -133,6 +127,7 @@ public final class HttpRequestSessionContext
         clientTags = parseClientTags(servletRequest);
         clientCapabilities = parseClientCapabilities(servletRequest);
         resourceEstimates = parseResourceEstimate(servletRequest);
+        originalUser = servletRequest.getHeader(PRESTO_USER);
 
         // parse session properties
         ImmutableMap.Builder<String, String> systemProperties = ImmutableMap.builder();
@@ -164,6 +159,16 @@ public final class HttpRequestSessionContext
             }
         }
         this.systemProperties = systemProperties.build();
+
+        String executionUser = this.systemProperties.get(EXECUTION_USER);
+        String user = executionUser != null ? trimEmptyToNull(executionUser) : trimEmptyToNull(originalUser);
+        assertRequest(user != null, "User must be set");
+        identity = Identity.forUser(user)
+                .withPrincipal(Optional.ofNullable(servletRequest.getUserPrincipal()))
+                .withRoles(parseRoleHeaders(servletRequest))
+                .withExtraCredentials(parseExtraCredentials(servletRequest))
+                .build();
+
         this.catalogSessionProperties = catalogSessionProperties.entrySet().stream()
                 .collect(toImmutableMap(Entry::getKey, entry -> ImmutableMap.copyOf(entry.getValue())));
 
@@ -314,6 +319,12 @@ public final class HttpRequestSessionContext
     public Optional<String> getTraceToken()
     {
         return traceToken;
+    }
+
+    @Override
+    public String getOriginalUser()
+    {
+        return originalUser;
     }
 
     private static List<String> splitSessionHeader(Enumeration<String> headers)

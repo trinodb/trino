@@ -79,6 +79,7 @@ public final class Session
     private final Map<String, Map<String, String>> unprocessedCatalogProperties;
     private final SessionPropertyManager sessionPropertyManager;
     private final Map<String, String> preparedStatements;
+    private final Optional<String> originalUser;
 
     public Session(
             QueryId queryId,
@@ -103,7 +104,8 @@ public final class Session
             Map<CatalogName, Map<String, String>> connectorProperties,
             Map<String, Map<String, String>> unprocessedCatalogProperties,
             SessionPropertyManager sessionPropertyManager,
-            Map<String, String> preparedStatements)
+            Map<String, String> preparedStatements,
+            Optional<String> originalUser)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
@@ -126,6 +128,7 @@ public final class Session
         this.systemProperties = ImmutableMap.copyOf(requireNonNull(systemProperties, "systemProperties is null"));
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.preparedStatements = requireNonNull(preparedStatements, "preparedStatements is null");
+        this.originalUser = requireNonNull(originalUser, "originalUser is null");
 
         ImmutableMap.Builder<CatalogName, Map<String, String>> catalogPropertiesBuilder = ImmutableMap.builder();
         connectorProperties.entrySet().stream()
@@ -287,6 +290,11 @@ public final class Session
         return sql;
     }
 
+    public Optional<String> getOriginalUser()
+    {
+        return originalUser;
+    }
+
     public Session beginTransactionId(TransactionId transactionId, TransactionManager transactionManager, AccessControl accessControl)
     {
         requireNonNull(transactionId, "transactionId is null");
@@ -372,7 +380,8 @@ public final class Session
                 connectorProperties.build(),
                 ImmutableMap.of(),
                 sessionPropertyManager,
-                preparedStatements);
+                preparedStatements,
+                originalUser);
     }
 
     public Session withDefaultProperties(Map<String, String> systemPropertyDefaults, Map<String, Map<String, String>> catalogPropertyDefaults)
@@ -423,7 +432,8 @@ public final class Session
                 ImmutableMap.of(),
                 connectorProperties,
                 sessionPropertyManager,
-                preparedStatements);
+                preparedStatements,
+                originalUser);
     }
 
     public ConnectorSession toConnectorSession()
@@ -544,6 +554,7 @@ public final class Session
         private final Map<String, Map<String, String>> catalogSessionProperties = new HashMap<>();
         private final SessionPropertyManager sessionPropertyManager;
         private final Map<String, String> preparedStatements = new HashMap<>();
+        private String originalUser;
 
         private SessionBuilder(SessionPropertyManager sessionPropertyManager)
         {
@@ -706,6 +717,12 @@ public final class Session
             return this;
         }
 
+        public SessionBuilder setOriginalUser(String originalUser)
+        {
+            this.originalUser = originalUser;
+            return this;
+        }
+
         public SessionBuilder addPreparedStatement(String statementName, String query)
         {
             this.preparedStatements.put(statementName, query);
@@ -737,7 +754,8 @@ public final class Session
                     ImmutableMap.of(),
                     catalogSessionProperties,
                     sessionPropertyManager,
-                    preparedStatements);
+                    preparedStatements,
+                    Optional.ofNullable(originalUser));
         }
     }
 

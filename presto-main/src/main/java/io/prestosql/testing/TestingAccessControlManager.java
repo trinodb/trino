@@ -22,6 +22,7 @@ import io.prestosql.security.SecurityContext;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.security.Identity;
+import io.prestosql.spi.security.SystemAccessControl;
 import io.prestosql.transaction.TransactionManager;
 
 import javax.inject.Inject;
@@ -32,6 +33,7 @@ import java.util.HashSet;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.prestosql.spi.security.AccessDeniedException.denyAddColumn;
@@ -81,6 +83,7 @@ public class TestingAccessControlManager
         extends AccessControlManager
 {
     private final Set<TestingPrivilege> denyPrivileges = new HashSet<>();
+    private final AtomicReference<SystemAccessControl> systemAccessControl = new AtomicReference<>();
 
     @Inject
     public TestingAccessControlManager(TransactionManager transactionManager)
@@ -116,7 +119,12 @@ public class TestingAccessControlManager
             denySetUser(principal, userName);
         }
         if (denyPrivileges.isEmpty()) {
-            super.checkCanSetUser(principal, userName);
+            if (systemAccessControl.get() != null) {
+                systemAccessControl.get().checkCanSetUser(principal, userName);
+            }
+            else {
+                super.checkCanSetUser(principal, userName);
+            }
         }
     }
 
@@ -337,6 +345,11 @@ public class TestingAccessControlManager
         if (denyPrivileges.isEmpty()) {
             super.checkCanSelectFromColumns(context, tableName, columns);
         }
+    }
+
+    public void setTestingSystemAccessControl(SystemAccessControl testingSystemAccessControl)
+    {
+        systemAccessControl.set(testingSystemAccessControl);
     }
 
     private boolean shouldDenyPrivilege(String userName, String entityName, TestingPrivilegeType type)
