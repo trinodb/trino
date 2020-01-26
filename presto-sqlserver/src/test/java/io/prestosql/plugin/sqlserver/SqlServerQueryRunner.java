@@ -82,7 +82,7 @@ public final class SqlServerQueryRunner
     private static void provisionTables(Session session, QueryRunner queryRunner, Iterable<TpchTable<?>> tables)
     {
         Set<String> existingTables = queryRunner.listTables(session, CATALOG, TEST_SCHEMA).stream()
-                .map(QualifiedObjectName::getObjectName)
+                .map(QualifiedObjectName::getLegacyObjectName)
                 .collect(toImmutableSet());
 
         Streams.stream(tables)

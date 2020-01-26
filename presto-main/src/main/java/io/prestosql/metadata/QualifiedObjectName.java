@@ -59,37 +59,37 @@ public class QualifiedObjectName
         this.objectName = objectName;
     }
 
-    public String getCatalogName()
-    {
-        return catalogName.getLegacyName();
-    }
-
-    public String getSchemaName()
-    {
-        return schemaName.getLegacyName();
-    }
-
-    public String getObjectName()
-    {
-        return objectName.getLegacyName();
-    }
-
     @JsonProperty
-    public NamePart getCatalogNamePart()
+    public NamePart getCatalogName()
     {
         return catalogName;
     }
 
     @JsonProperty
-    public NamePart getSchemaNamePart()
+    public NamePart getSchemaName()
     {
         return schemaName;
     }
 
     @JsonProperty
-    public NamePart getObjectNamePart()
+    public NamePart getObjectName()
     {
         return objectName;
+    }
+
+    public String getLegacyCatalogName()
+    {
+        return catalogName.getLegacyName();
+    }
+
+    public String getLegacySchemaName()
+    {
+        return schemaName.getLegacyName();
+    }
+
+    public String getLegacyObjectName()
+    {
+        return objectName.getLegacyName();
     }
 
     public SchemaTableName asSchemaTableName()

@@ -104,7 +104,7 @@ public class TestBlackHoleSmoke
 
         List<QualifiedObjectName> tableNames = listBlackHoleTables();
         assertTrue(tableNames.size() == 1, "Expected only one table.");
-        assertTrue(tableNames.get(0).getObjectName().equals("nation"), "Expected 'nation' table.");
+        assertTrue(tableNames.get(0).getLegacyObjectName().equals("nation"), "Expected 'nation' table.");
 
         assertThatQueryReturnsValue("INSERT INTO nation SELECT * FROM tpch.tiny.nation", 25L);
 

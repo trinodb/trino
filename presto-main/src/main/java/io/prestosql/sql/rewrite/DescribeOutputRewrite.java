@@ -159,9 +159,9 @@ final class DescribeOutputRewrite
 
             return row(
                     new StringLiteral(columnName),
-                    new StringLiteral(originTable.map(QualifiedObjectName::getCatalogName).orElse("")),
-                    new StringLiteral(originTable.map(QualifiedObjectName::getSchemaName).orElse("")),
-                    new StringLiteral(originTable.map(QualifiedObjectName::getObjectName).orElse("")),
+                    new StringLiteral(originTable.map(QualifiedObjectName::getLegacyCatalogName).orElse("")),
+                    new StringLiteral(originTable.map(QualifiedObjectName::getLegacySchemaName).orElse("")),
+                    new StringLiteral(originTable.map(QualifiedObjectName::getLegacyObjectName).orElse("")),
                     new StringLiteral(field.getType().getDisplayName()),
                     typeSize,
                     new BooleanLiteral(String.valueOf(field.isAliased())));

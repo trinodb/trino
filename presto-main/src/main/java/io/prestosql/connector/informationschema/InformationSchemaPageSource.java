@@ -290,9 +290,9 @@ public class InformationSchemaPageSource
     {
         for (Map.Entry<QualifiedObjectName, ConnectorViewDefinition> entry : metadata.getViews(session, prefix).entrySet()) {
             addRecord(
-                    entry.getKey().getCatalogName(),
-                    entry.getKey().getSchemaName(),
-                    entry.getKey().getObjectName(),
+                    entry.getKey().getLegacyCatalogName(),
+                    entry.getKey().getLegacySchemaName(),
+                    entry.getKey().getLegacyObjectName(),
                     entry.getValue().getOriginalSql());
             if (isLimitExhausted()) {
                 return;

@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.metadata.NamePart.createDelimitedNamePart;
 import static io.prestosql.spi.StandardErrorCode.MISSING_CATALOG_NAME;
 import static io.prestosql.spi.StandardErrorCode.MISSING_SCHEMA_NAME;
 import static io.prestosql.spi.StandardErrorCode.SYNTAX_ERROR;
@@ -145,10 +146,28 @@ public final class MetadataUtil
 
         List<Identifier> parts = Lists.reverse(name.getOriginalParts());
         NamePart objectName = new NamePart(parts.get(0).getValue(), parts.get(0).isDelimited());
-        NamePart schemaName = (parts.size() > 1) ? new NamePart(parts.get(1).getValue(), parts.get(1).isDelimited()) : session.getSchema().map(NamePart::createDelimitedNamePart).orElseThrow(() ->
-                semanticException(MISSING_SCHEMA_NAME, node, "Schema must be specified when session schema is not set"));
-        NamePart catalogName = (parts.size() > 2) ? new NamePart(parts.get(2).getValue(), parts.get(2).isDelimited()) : session.getCatalog().map(NamePart::createDelimitedNamePart).orElseThrow(() ->
-                semanticException(MISSING_CATALOG_NAME, node, "Catalog must be specified when session catalog is not set"));
+
+        NamePart schemaName;
+        if (parts.size() > 1) {
+            schemaName = new NamePart(parts.get(1).getValue(), parts.get(1).isDelimited());
+        }
+        else if (session.getSchema().isPresent()) {
+            schemaName = createDelimitedNamePart(session.getSchema().get());
+        }
+        else {
+            throw semanticException(MISSING_SCHEMA_NAME, node, "Schema must be specified when session schema is not set");
+        }
+
+        NamePart catalogName;
+        if (parts.size() > 2) {
+            catalogName = new NamePart(parts.get(2).getValue(), parts.get(2).isDelimited());
+        }
+        else if (session.getCatalog().isPresent()) {
+            catalogName = createDelimitedNamePart(session.getCatalog().get());
+        }
+        else {
+            throw semanticException(MISSING_CATALOG_NAME, node, "Catalog must be specified when session catalog is not set");
+        }
 
         return new QualifiedObjectName(catalogName, schemaName, objectName);
     }

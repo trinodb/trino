@@ -229,16 +229,16 @@ final class ShowQueriesRewrite
                     throw semanticException(TABLE_NOT_FOUND, showGrants, "Table '%s' does not exist", tableName);
                 }
 
-                catalogName = qualifiedTableName.getCatalogName();
+                catalogName = qualifiedTableName.getLegacyCatalogName();
 
                 accessControl.checkCanShowTablesMetadata(
                         session.toSecurityContext(),
-                        new CatalogSchemaName(catalogName, qualifiedTableName.getSchemaName()));
+                        new CatalogSchemaName(catalogName, qualifiedTableName.getLegacySchemaName()));
 
                 predicate = Optional.of(combineConjuncts(
                         metadata,
-                        equal(identifier("table_schema"), new StringLiteral(qualifiedTableName.getSchemaName())),
-                        equal(identifier("table_name"), new StringLiteral(qualifiedTableName.getObjectName()))));
+                        equal(identifier("table_schema"), new StringLiteral(qualifiedTableName.getLegacySchemaName())),
+                        equal(identifier("table_name"), new StringLiteral(qualifiedTableName.getLegacyObjectName()))));
             }
             else {
                 if (catalogName == null) {
@@ -379,10 +379,10 @@ final class ShowQueriesRewrite
                             aliasedName("data_type", "Type"),
                             aliasedNullToEmpty("extra_info", "Extra"),
                             aliasedNullToEmpty("comment", "Comment")),
-                    from(tableName.getCatalogName(), COLUMNS.getSchemaTableName()),
+                    from(tableName.getLegacyCatalogName(), COLUMNS.getSchemaTableName()),
                     logicalAnd(
-                            equal(identifier("table_schema"), new StringLiteral(tableName.getSchemaName())),
-                            equal(identifier("table_name"), new StringLiteral(tableName.getObjectName()))),
+                            equal(identifier("table_schema"), new StringLiteral(tableName.getLegacySchemaName())),
+                            equal(identifier("table_name"), new StringLiteral(tableName.getLegacyObjectName()))),
                     ordering(ascending("ordinal_position")));
         }
 
@@ -438,8 +438,8 @@ final class ShowQueriesRewrite
                 Query query = parseView(viewDefinition.get().getOriginalSql(), objectName, node);
                 List<Identifier> parts = Lists.reverse(node.getName().getOriginalParts());
                 Identifier tableName = parts.get(0);
-                Identifier schemaName = (parts.size() > 1) ? parts.get(1) : new Identifier(objectName.getSchemaName());
-                Identifier catalogName = (parts.size() > 2) ? parts.get(2) : new Identifier(objectName.getCatalogName());
+                Identifier schemaName = (parts.size() > 1) ? parts.get(1) : new Identifier(objectName.getLegacySchemaName());
+                Identifier catalogName = (parts.size() > 2) ? parts.get(2) : new Identifier(objectName.getLegacyCatalogName());
 
                 accessControl.checkCanShowColumnsMetadata(session.toSecurityContext(), new CatalogSchemaTableName(catalogName.getValue(), new SchemaTableName(schemaName.getValue(), tableName.getValue())));
 
@@ -475,7 +475,7 @@ final class ShowQueriesRewrite
                 List<Property> propertyNodes = buildProperties(objectName, Optional.empty(), INVALID_TABLE_PROPERTY, properties, allTableProperties);
 
                 CreateTable createTable = new CreateTable(
-                        QualifiedName.of(objectName.getCatalogName(), objectName.getSchemaName(), objectName.getObjectName()),
+                        QualifiedName.of(objectName.getLegacyCatalogName(), objectName.getLegacySchemaName(), objectName.getLegacyObjectName()),
                         columns,
                         false,
                         propertyNodes,

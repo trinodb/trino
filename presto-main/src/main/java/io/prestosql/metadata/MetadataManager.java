@@ -301,7 +301,7 @@ public final class MetadataManager
     {
         requireNonNull(table, "table is null");
 
-        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, table.getCatalogName());
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, table.getLegacyCatalogName());
         if (catalog.isPresent()) {
             CatalogMetadata catalogMetadata = catalog.get();
             CatalogName catalogName = catalogMetadata.getConnectorId(session, table);
@@ -325,7 +325,7 @@ public final class MetadataManager
     {
         requireNonNull(table, "table is null");
 
-        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, table.getCatalogName());
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, table.getLegacyCatalogName());
         if (catalog.isPresent()) {
             CatalogMetadata catalogMetadata = catalog.get();
             CatalogName catalogName = catalogMetadata.getConnectorId(session, table);
@@ -349,7 +349,7 @@ public final class MetadataManager
         requireNonNull(session, "session is null");
         requireNonNull(tableName, "table is null");
 
-        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, tableName.getCatalogName());
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, tableName.getLegacyCatalogName());
         if (catalog.isPresent()) {
             CatalogMetadata catalogMetadata = catalog.get();
 
@@ -628,7 +628,7 @@ public final class MetadataManager
     @Override
     public void renameTable(Session session, TableHandle tableHandle, QualifiedObjectName newTableName)
     {
-        String catalogName = newTableName.getCatalogName();
+        String catalogName = newTableName.getLegacyCatalogName();
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
         CatalogName catalog = catalogMetadata.getCatalogName();
         if (!tableHandle.getCatalogName().equals(catalog)) {
@@ -953,7 +953,7 @@ public final class MetadataManager
     @Override
     public Optional<ConnectorViewDefinition> getView(Session session, QualifiedObjectName viewName)
     {
-        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, viewName.getCatalogName());
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, viewName.getLegacyCatalogName());
         if (catalog.isPresent()) {
             CatalogMetadata catalogMetadata = catalog.get();
             CatalogName catalogName = catalogMetadata.getConnectorId(session, viewName);
@@ -968,7 +968,7 @@ public final class MetadataManager
     @Override
     public void createView(Session session, QualifiedObjectName viewName, ConnectorViewDefinition definition, boolean replace)
     {
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.getCatalogName());
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.getLegacyCatalogName());
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
@@ -978,10 +978,10 @@ public final class MetadataManager
     @Override
     public void renameView(Session session, QualifiedObjectName source, QualifiedObjectName target)
     {
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, target.getCatalogName());
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, target.getLegacyCatalogName());
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
-        if (!source.getCatalogName().equals(catalogName.getCatalogName())) {
+        if (!source.getLegacyCatalogName().equals(catalogName.getCatalogName())) {
             throw new PrestoException(SYNTAX_ERROR, "Cannot rename views across catalogs");
         }
 
@@ -991,7 +991,7 @@ public final class MetadataManager
     @Override
     public void dropView(Session session, QualifiedObjectName viewName)
     {
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.getCatalogName());
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.getLegacyCatalogName());
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
@@ -1188,7 +1188,7 @@ public final class MetadataManager
     @Override
     public void grantTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
     {
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, tableName.getCatalogName());
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, tableName.getLegacyCatalogName());
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
@@ -1198,7 +1198,7 @@ public final class MetadataManager
     @Override
     public void revokeTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
     {
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, tableName.getCatalogName());
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, tableName.getLegacyCatalogName());
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 

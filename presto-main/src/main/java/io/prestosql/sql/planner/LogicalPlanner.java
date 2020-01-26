@@ -323,12 +323,12 @@ public class LogicalPlanner
                 .map(ColumnMetadata::getName)
                 .collect(toImmutableList());
 
-        TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, destination.getCatalogName(), tableMetadata);
+        TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, destination.getLegacyCatalogName(), tableMetadata);
 
         return createTableWriterPlan(
                 analysis,
                 plan,
-                new CreateReference(destination.getCatalogName(), tableMetadata, newTableLayout),
+                new CreateReference(destination.getLegacyCatalogName(), tableMetadata, newTableLayout),
                 columnNames,
                 newTableLayout,
                 statisticsMetadata);

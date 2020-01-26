@@ -335,10 +335,10 @@ public final class QueryAssertions
     public static void copyTable(QueryRunner queryRunner, QualifiedObjectName table, Session session)
     {
         long start = System.nanoTime();
-        log.info("Running import for %s", table.getObjectName());
-        @Language("SQL") String sql = format("CREATE TABLE %s AS SELECT * FROM %s", table.getObjectName(), table);
+        log.info("Running import for %s", table.getLegacyObjectName());
+        @Language("SQL") String sql = format("CREATE TABLE %s AS SELECT * FROM %s", table.getLegacyObjectName(), table);
         long rows = (Long) queryRunner.execute(session, sql).getMaterializedRows().get(0).getField(0);
-        log.info("Imported %s rows for %s in %s", rows, table.getObjectName(), nanosSince(start).convertToMostSuccinctTimeUnit());
+        log.info("Imported %s rows for %s in %s", rows, table.getLegacyObjectName(), nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 
     private static void assertEventually(Duration timeout, Runnable assertion)

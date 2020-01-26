@@ -355,9 +355,9 @@ public class InformationSchemaMetadata
     private Map<ColumnHandle, NullableValue> asFixedValues(QualifiedObjectName objectName)
     {
         return ImmutableMap.of(
-                CATALOG_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(objectName.getCatalogName())),
-                SCHEMA_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(objectName.getSchemaName())),
-                TABLE_NAME_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(objectName.getObjectName())));
+                CATALOG_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(objectName.getLegacyCatalogName())),
+                SCHEMA_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(objectName.getLegacySchemaName())),
+                TABLE_NAME_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(objectName.getLegacyObjectName())));
     }
 
     private boolean isLowerCase(String value)
