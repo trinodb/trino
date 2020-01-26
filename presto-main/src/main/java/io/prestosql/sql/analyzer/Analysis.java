@@ -27,6 +27,7 @@ import io.prestosql.security.AccessControl;
 import io.prestosql.security.SecurityContext;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
+import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.tree.AllColumns;
 import io.prestosql.sql.tree.ExistsPredicate;
@@ -50,7 +51,6 @@ import io.prestosql.sql.tree.SampledRelation;
 import io.prestosql.sql.tree.Statement;
 import io.prestosql.sql.tree.SubqueryExpression;
 import io.prestosql.sql.tree.Table;
-import io.prestosql.transaction.TransactionId;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
@@ -636,7 +636,7 @@ public class Analysis
 
     public void addTableColumnReferences(AccessControl accessControl, Session session, Multimap<QualifiedObjectName, String> tableColumnMap)
     {
-        AccessControlInfo accessControlInfo = new AccessControlInfo(accessControl, session);
+        AccessControlInfo accessControlInfo = new AccessControlInfo(accessControl, session.getIdentity());
         Map<QualifiedObjectName, Set<String>> references = tableColumnReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>());
         tableColumnMap.asMap()
                 .forEach((key, value) -> references.computeIfAbsent(key, k -> new HashSet<>()).addAll(value));
@@ -644,7 +644,7 @@ public class Analysis
 
     public void addEmptyColumnReferencesForTable(AccessControl accessControl, Session session, QualifiedObjectName table)
     {
-        AccessControlInfo accessControlInfo = new AccessControlInfo(accessControl, session);
+        AccessControlInfo accessControlInfo = new AccessControlInfo(accessControl, session.getIdentity());
         tableColumnReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>()).computeIfAbsent(table, k -> new HashSet<>());
     }
 
@@ -850,12 +850,12 @@ public class Analysis
     public static final class AccessControlInfo
     {
         private final AccessControl accessControl;
-        private final Session session;
+        private final Identity identity;
 
-        public AccessControlInfo(AccessControl accessControl, Session session)
+        public AccessControlInfo(AccessControl accessControl, Identity identity)
         {
             this.accessControl = requireNonNull(accessControl, "accessControl is null");
-            this.session = requireNonNull(session, "session is null");
+            this.identity = requireNonNull(identity, "identity is null");
         }
 
         public AccessControl getAccessControl()
@@ -863,9 +863,9 @@ public class Analysis
             return accessControl;
         }
 
-        public SecurityContext getSecurityContext(TransactionId transactionId)
+        public SecurityContext getSecurityContext(Session session)
         {
-            return new SecurityContext(transactionId, session.getIdentity(), session);
+            return new SecurityContext(session.getRequiredTransactionId(), identity, session);
         }
 
         @Override
@@ -880,19 +880,19 @@ public class Analysis
 
             AccessControlInfo that = (AccessControlInfo) o;
             return Objects.equals(accessControl, that.accessControl) &&
-                    Objects.equals(session.getIdentity(), that.session.getIdentity());
+                    Objects.equals(identity, that.identity);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(accessControl, session.getIdentity());
+            return Objects.hash(accessControl, identity);
         }
 
         @Override
         public String toString()
         {
-            return format("AccessControl: %s, Identity: %s", accessControl.getClass(), session.getIdentity());
+            return format("AccessControl: %s, Identity: %s", accessControl.getClass(), identity);
         }
     }
 }
