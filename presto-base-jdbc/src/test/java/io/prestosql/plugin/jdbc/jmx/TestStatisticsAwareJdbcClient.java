@@ -11,25 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.prestosql.plugin.jdbc.jmx;
 
-import io.prestosql.plugin.jdbc.ConnectionFactory;
+import io.prestosql.plugin.jdbc.JdbcClient;
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static io.prestosql.spi.testing.InterfaceTestUtils.assertProperForwardingMethodsAreCalled;
 
-public class TestStatisticsAwareConnectionFactory
+public class TestStatisticsAwareJdbcClient
 {
-    @Test
-    public void testEverythingImplemented()
-    {
-        assertAllMethodsOverridden(ConnectionFactory.class, StatisticsAwareConnectionFactory.class);
-    }
-
     @Test
     public void testProperForwardingMethodsAreCalled()
     {
-        assertProperForwardingMethodsAreCalled(ConnectionFactory.class, connectionFactory -> new StatisticsAwareConnectionFactory(connectionFactory));
+        assertProperForwardingMethodsAreCalled(JdbcClient.class, jdbcClient -> new StatisticsAwareJdbcClient(jdbcClient));
     }
 }
