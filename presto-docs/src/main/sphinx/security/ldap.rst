@@ -76,24 +76,29 @@ to the coordinator's ``config.properties`` file:
     http-server.https.keystore.path=/etc/presto_keystore.jks
     http-server.https.keystore.key=keystore_password
 
-======================================================= ======================================================
-Property                                                Description
-======================================================= ======================================================
-``http-server.authentication.type``                     Enable password authentication for the Presto
-                                                        coordinator. Must be set to ``PASSWORD``.
-``http-server.https.enabled``                           Enables HTTPS access for the Presto coordinator.
-                                                        Should be set to ``true``. Default value is
-                                                        ``false``.
-``http-server.https.port``                              HTTPS server port.
-``http-server.https.keystore.path``                     The location of the Java Keystore file that will be
-                                                        used to secure TLS.
-``http-server.https.keystore.key``                      The password for the keystore. This must match the
-                                                        password you specified when creating the keystore.
-``http-server.authentication.allow-forwarded-https``    Enable treating forwarded HTTPS requests over HTTP
-                                                        as secure.  Requires the ``X-Forwarded-Proto`` header
-                                                        to be set to ``https`` on forwarded requests.
-                                                        Default value is ``false``.
-======================================================= ======================================================
+============================================================= ======================================================
+Property                                                      Description
+============================================================= ======================================================
+``http-server.authentication.type``                           Enable password authentication for the Presto
+                                                              coordinator. Must be set to ``PASSWORD``.
+``http-server.https.enabled``                                 Enables HTTPS access for the Presto coordinator.
+                                                              Should be set to ``true``. Default value is
+                                                              ``false``.
+``http-server.https.port``                                    HTTPS server port.
+``http-server.https.keystore.path``                           The location of the Java Keystore file that will be
+                                                              used to secure TLS.
+``http-server.https.keystore.key``                            The password for the keystore. This must match the
+                                                              password you specified when creating the keystore.
+``http-server.authentication.allow-forwarded-https``          Enable treating forwarded HTTPS requests over HTTP
+                                                              as secure.  Requires the ``X-Forwarded-Proto`` header
+                                                              to be set to ``https`` on forwarded requests.
+                                                              Default value is ``false``.
+``http-server.authentication.password.user-mapping.pattern``  Regex to match against user.  If matched, user will be
+                                                              replaced with first regex group. If not matched,
+                                                              authentication is denied.  Default is ``(.*)``.
+``http-server.authentication.password.user-mapping.file``     File containing rules for mapping user.  See
+                                                              :doc:`/security/user-mapping` for more information.
+============================================================= ======================================================
 
 Password Authenticator Configuration
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
