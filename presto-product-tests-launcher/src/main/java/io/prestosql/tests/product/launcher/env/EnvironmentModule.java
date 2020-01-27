@@ -34,12 +34,12 @@ import io.prestosql.tests.product.launcher.env.environment.SinglenodeKerberosHdf
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeKerberosHiveImpersonation;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeKerberosKmsHdfsImpersonation;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeKerberosKmsHdfsNoImpersonation;
-import io.prestosql.tests.product.launcher.env.environment.SinglenodeMySql;
-import io.prestosql.tests.product.launcher.env.environment.SinglenodePostgreSql;
-import io.prestosql.tests.product.launcher.env.environment.SinglenodeSqlServer;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeLdap;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeLdapBindDn;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeLdapReferrals;
+import io.prestosql.tests.product.launcher.env.environment.SinglenodeMySql;
+import io.prestosql.tests.product.launcher.env.environment.SinglenodePostgreSql;
+import io.prestosql.tests.product.launcher.env.environment.SinglenodeSqlServer;
 import io.prestosql.tests.product.launcher.env.environment.TwoKerberosHives;
 import io.prestosql.tests.product.launcher.env.environment.TwoMixedHives;
 
