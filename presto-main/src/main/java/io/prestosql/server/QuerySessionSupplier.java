@@ -73,9 +73,9 @@ public class QuerySessionSupplier
         Identity identity = context.getIdentity();
         accessControl.checkCanSetUser(identity.getPrincipal(), identity.getUser());
 
-        // authenticated identity is not present for HTTP or authentication is not setup
+        // authenticated identity is not present for HTTP or if authentication is not setup
         context.getAuthenticatedIdentity().ifPresent(authenticatedIdentity -> {
-            // only check impersonation is authenticated user is not the same as the explicitly set user
+            // only check impersonation if authenticated user is not the same as the explicitly set user
             if (!authenticatedIdentity.getUser().equals(identity.getUser())) {
                 accessControl.canImpersonateUser(authenticatedIdentity, identity.getUser());
             }
