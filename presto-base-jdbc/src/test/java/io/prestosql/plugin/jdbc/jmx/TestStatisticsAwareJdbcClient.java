@@ -17,10 +17,17 @@ package io.prestosql.plugin.jdbc.jmx;
 import io.prestosql.plugin.jdbc.JdbcClient;
 import org.testng.annotations.Test;
 
+import static io.prestosql.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static io.prestosql.spi.testing.InterfaceTestUtils.assertProperForwardingMethodsAreCalled;
 
 public class TestStatisticsAwareJdbcClient
 {
+    @Test
+    public void testEverythingImplemented()
+    {
+        assertAllMethodsOverridden(JdbcClient.class, StatisticsAwareJdbcClient.class);
+    }
+
     @Test
     public void testProperForwardingMethodsAreCalled()
     {
