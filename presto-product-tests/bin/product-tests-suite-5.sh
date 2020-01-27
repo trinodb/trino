@@ -4,12 +4,12 @@ set -xeuo pipefail
 
 suite_exit_code=0
 
-presto-product-tests-launcher/target/presto-product-tests-launcher-*-executable.jar test run \
+presto-product-tests-launcher/bin/run-launcher test run \
     --environment singlenode-hive-impersonation \
     -- -g storage_formats,hdfs_impersonation \
     || suite_exit_code=1
 
-presto-product-tests-launcher/target/presto-product-tests-launcher-*-executable.jar test run \
+presto-product-tests-launcher/bin/run-launcher test run \
     --environment singlenode-kerberos-hive-impersonation \
     -- -g storage_formats,hdfs_impersonation,authorization \
     || suite_exit_code=1

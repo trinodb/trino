@@ -146,6 +146,10 @@ Property Name                                      Description                  
                                                    ignored. This is equivalent to the
                                                    ``hive.mapred.supports.subdirectories`` property in Hive.
 
+``hive.ignore-absent-partitions``                  Ignore partitions when the file system location does not     ``false``
+                                                   exist rather than failing the query. This skips data that
+                                                   may be expected to be part of the table.
+
 ``hive.storage-format``                            The default file format used when creating new tables.       ``ORC``
 
 ``hive.compression-codec``                         The compression codec to use when writing files.             ``GZIP``

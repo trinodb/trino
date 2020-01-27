@@ -1,5 +1,5 @@
 =========================
-Release 329 (Jan 23 2020)
+Release 329 (23 Jan 2020)
 =========================
 
 General Changes
@@ -7,11 +7,15 @@ General Changes
 
 * Fix incorrect result for :func:`last_day_of_month` function for first day of month. (:issue:`2452`)
 * Fix incorrect results when handling ``DOUBLE`` or ``REAL`` types with ``NaN`` values. (:issue:`2582`)
+* Fix query failure when coordinator hostname contains underscores. (:issue:`2571`)
+* Fix ``SHOW CREATE TABLE`` failure when row types contain a field named after a
+  reserved SQL keyword. (:issue:`2130`)
 * Handle common disk failures during spill. When one disk fails but multiple
   spill locations are configured, the healthy disks will be used for future queries.
   (:issue:`2444`)
 * Improve performance and reduce load on external systems when
   querying ``information_schema``. (:issue:`2488`)
+* Improve performance of queries containing redundant scalar subqueries. (:issue:`2456`)
 * Limit broadcasted table size to ``100MB`` by default when using the ``AUTOMATIC``
   join type selection strategy. This avoids query failures or excessive memory usage when joining two or
   more very large tables. (:issue:`2527`)
@@ -42,6 +46,7 @@ Hive Connector Changes
   properties is set to non-zero value. (:issue:`2399`)
 * Fix query failure for writes when one of the inserted ``REAL`` or ``DOUBLE`` values
   is infinite or ``NaN``. (:issue:`2471`)
+* Fix performance degradation reading from S3 when the Kinesis connector is installed. (:issue:`2496`)
 * Allow reading data from Parquet files when the column type is declared as ``INTEGER``
   in the table or partition, but is a ``DECIMAL`` type in the file. (:issue:`2451`)
 * Validate the scale of decimal types when reading Parquet files. This prevents

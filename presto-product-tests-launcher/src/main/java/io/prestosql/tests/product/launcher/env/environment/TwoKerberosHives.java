@@ -81,8 +81,6 @@ public final class TwoKerberosHives
     @Override
     protected void extendEnvironment(Environment.Builder builder)
     {
-        super.extendEnvironment(builder);
-
         String keytabsHostDirectory = createKeytabsHostDirectory().toString();
 
         builder.configureContainer("presto-master", container -> {

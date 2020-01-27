@@ -168,6 +168,23 @@ public class TestCassandraIntegrationSmokeTest
     }
 
     @Test
+    public void testIdentifiers()
+    {
+        session.execute("DROP KEYSPACE IF EXISTS \"_keyspace\"");
+        session.execute("CREATE KEYSPACE \"_keyspace\" WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
+        assertContainsEventually(() -> execute("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
+                .row("_keyspace")
+                .build(), new Duration(1, MINUTES));
+
+        execute("CREATE TABLE _keyspace._table AS SELECT 1 AS \"_col\", 2 AS \"2col\"");
+        assertQuery("SHOW TABLES FROM cassandra._keyspace", "VALUES ('_table')");
+        assertQuery("SELECT * FROM cassandra._keyspace._table", "VALUES (1, 2)");
+        assertUpdate("DROP TABLE cassandra._keyspace._table");
+
+        session.execute("DROP KEYSPACE \"_keyspace\"");
+    }
+
+    @Test
     public void testClusteringPredicates()
     {
         String sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS + " WHERE key='key_1' AND clust_one='clust_one'";

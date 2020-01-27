@@ -79,8 +79,6 @@ public final class StandardColumnMappings
 {
     private StandardColumnMappings() {}
 
-    private static final ISOChronology UTC_CHRONOLOGY = ISOChronology.getInstanceUTC();
-
     public static ColumnMapping booleanColumnMapping()
     {
         return ColumnMapping.booleanMapping(BOOLEAN, ResultSet::getBoolean, booleanWriteFunction());

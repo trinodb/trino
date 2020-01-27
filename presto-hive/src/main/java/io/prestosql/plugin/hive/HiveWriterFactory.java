@@ -473,9 +473,9 @@ public class HiveWriterFactory
         Consumer<HiveWriter> onCommit = hiveWriter -> {
             Optional<Long> size;
             try {
-                size = Optional.of(hdfsEnvironment.getFileSystem(session.getUser(), path, conf).getFileStatus(path).getLen());
+                size = Optional.of(hiveWriter.getWrittenBytes());
             }
-            catch (IOException | RuntimeException e) {
+            catch (RuntimeException e) {
                 // Do not fail the query if file system is not available
                 size = Optional.empty();
             }

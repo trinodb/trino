@@ -13,7 +13,7 @@
  */
 package io.prestosql.plugin.redis;
 
-import io.prestosql.plugin.redis.util.EmbeddedRedis;
+import io.prestosql.plugin.redis.util.RedisServer;
 import io.prestosql.testing.AbstractTestQueries;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.tpch.TpchTable;
@@ -21,25 +21,25 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import static io.prestosql.plugin.redis.RedisQueryRunner.createRedisQueryRunner;
-import static io.prestosql.plugin.redis.util.EmbeddedRedis.createEmbeddedRedis;
 
 @Test
 public class TestRedisDistributedHash
         extends AbstractTestQueries
 {
-    private EmbeddedRedis embeddedRedis;
+    private RedisServer redisServer;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        embeddedRedis = createEmbeddedRedis();
-        return createRedisQueryRunner(embeddedRedis, "hash", TpchTable.getTables());
+        redisServer = new RedisServer();
+        return createRedisQueryRunner(redisServer, "hash", TpchTable.getTables());
     }
 
     @AfterClass(alwaysRun = true)
     public void destroy()
+            throws Exception
     {
-        embeddedRedis.close();
+        redisServer.close();
     }
 }

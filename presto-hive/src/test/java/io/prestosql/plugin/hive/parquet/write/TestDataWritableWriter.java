@@ -17,7 +17,6 @@ import io.airlift.log.Logger;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
 import org.apache.hadoop.hive.ql.io.parquet.timestamp.NanoTimeUtils;
-import org.apache.hadoop.hive.ql.io.parquet.write.DataWritableWriter;
 import org.apache.hadoop.hive.serde2.io.DateWritable;
 import org.apache.hadoop.hive.serde2.io.ParquetHiveRecord;
 import org.apache.hadoop.hive.serde2.objectinspector.ListObjectInspector;
@@ -60,7 +59,7 @@ import java.util.Map;
  */
 public class TestDataWritableWriter
 {
-    private static final Logger log = Logger.get(DataWritableWriter.class);
+    private static final Logger log = Logger.get(TestDataWritableWriter.class);
     private final RecordConsumer recordConsumer;
     private final GroupType schema;
     private final boolean singleLevelArray;
