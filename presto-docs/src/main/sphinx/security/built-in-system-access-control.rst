@@ -71,9 +71,10 @@ contents:
 The config file is specified in JSON format.
 
 * It contains the rules defining which catalog can be accessed by which user (see Catalog Rules below).
+* The impersonation rules specify which user impersonations are allowed (see Impersonation Rules below).
 * The principal rules specifying what principals can identify as what users (see Principal Rules below).
 
-This plugin currently only supports catalog access control rules and principal
+This plugin currently only supports catalog access control rules, impersonation and principal
 rules. If you want to limit access on a system level in any other way, you
 must implement a custom SystemAccessControl plugin
 (see :doc:`/develop/system-access-control`).
@@ -143,8 +144,49 @@ and deny all other access, you can use the following rules:
       ]
     }
 
+.. _impersonation_rules:
+
+Impersonation Rules
+-------------------
+
+These rules control the ability of a user to impersonate another user.  In
+some environments it is desirable for an administrator (or managed system) to
+run queries on behalf of other users.  In these cases, the administrator
+authenticates using their credentials, and then submits a query as a different
+user.  When the user context is changed, Presto will verify the administrator
+is authorized to run queries as the target user.
+
+When these rules are present, the authorization is based on the first matching rule,
+processed from top to bottom. If no rules match, the authorization is denied.
+If impersonation rules are not present but the legacy principal rules are specified,
+it is assumed impersonation access control is being handled by the principal rules,
+so impersonation is allowed.  If neither impersonation nor principal rules are
+defined, impersonation is not allowed.
+
+Each impersonation rule is composed of the following fields:
+
+* ``originalUser`` (required): regex to match against the user requesting the impersonation.
+* ``newUser`` (required): regex to match against the user that will be impersonated.
+* ``allow`` (optional): boolean indicating if the authentication should be allowed.
+
+The following example allows the two admins, ``alice`` and ``bob``, to impersonate
+any user, except they may not impersonate each other.  It also allows any user to
+impersonate the ``test`` user:
+
+.. literalinclude:: user-impersonation.json
+    :language: json
+
+.. _principal_rules:
+
 Principal Rules
 ---------------
+
+.. note::
+
+    Principal rules are deprecated and will be removed in a future release.
+    These rules have been replaced with :doc:`/security/user-mapping`, which
+    specifies how a complex authentication user name is mapped to a simple
+    user name for Presto, and impersonation rules defined above.
 
 These rules serve to enforce a specific matching between a principal and a
 specified user name. The principal is granted authorization as a user, based
