@@ -28,7 +28,9 @@ import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HiveCompressionCodec;
 import io.prestosql.plugin.hive.HivePageSourceFactory;
+import io.prestosql.plugin.hive.HivePageSourceFactory.ReaderPageSourceWithProjections;
 import io.prestosql.plugin.hive.HiveRecordCursorProvider;
+import io.prestosql.plugin.hive.HiveRecordCursorProvider.ReaderRecordCursorWithProjections;
 import io.prestosql.plugin.hive.HiveStorageFormat;
 import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.plugin.hive.HiveTypeName;
@@ -49,7 +51,6 @@ import io.prestosql.rcfile.text.TextRcFileEncoding;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.RecordPageSource;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
@@ -66,8 +67,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 
+import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.orc.OrcWriteValidation.OrcWriteValidationMode.BOTH;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static io.prestosql.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.prestosql.plugin.hive.HiveTestUtils.TYPE_MANAGER;
 import static io.prestosql.plugin.hive.HiveTestUtils.createGenericHiveRecordCursorProvider;
 import static io.prestosql.plugin.hive.HiveType.toHiveType;
@@ -299,10 +302,10 @@ public enum FileFormat
         for (int i = 0; i < columnNames.size(); i++) {
             String columnName = columnNames.get(i);
             Type columnType = columnTypes.get(i);
-            columnHandles.add(new HiveColumnHandle(columnName, toHiveType(typeTranslator, columnType), columnType, i, REGULAR, Optional.empty()));
+            columnHandles.add(createBaseColumn(columnName, i, toHiveType(typeTranslator, columnType), columnType, REGULAR, Optional.empty()));
         }
 
-        RecordCursor recordCursor = cursorProvider
+        Optional<ReaderRecordCursorWithProjections> recordCursorWithProjections = cursorProvider
                 .createRecordCursor(
                         conf,
                         session,
@@ -315,9 +318,12 @@ public enum FileFormat
                         TupleDomain.all(),
                         DateTimeZone.forID(session.getTimeZoneKey().getId()),
                         TYPE_MANAGER,
-                        false)
-                .get();
-        return new RecordPageSource(columnTypes, recordCursor);
+                        false);
+
+        checkState(recordCursorWithProjections.isPresent(), "recordCursorWithProjections is not present");
+        checkState(!recordCursorWithProjections.get().getProjectedReaderColumns().isPresent(), "projections should not be required");
+
+        return new RecordPageSource(columnTypes, recordCursorWithProjections.get().getRecordCursor());
     }
 
     private static ConnectorPageSource createPageSource(
@@ -333,10 +339,10 @@ public enum FileFormat
         for (int i = 0; i < columnNames.size(); i++) {
             String columnName = columnNames.get(i);
             Type columnType = columnTypes.get(i);
-            columnHandles.add(new HiveColumnHandle(columnName, toHiveType(typeTranslator, columnType), columnType, i, REGULAR, Optional.empty()));
+            columnHandles.add(createBaseColumn(columnName, i, toHiveType(typeTranslator, columnType), columnType, REGULAR, Optional.empty()));
         }
 
-        return pageSourceFactory
+        Optional<ReaderPageSourceWithProjections> readerPageSourceWithProjections = pageSourceFactory
                 .createPageSource(
                         conf,
                         session,
@@ -348,8 +354,12 @@ public enum FileFormat
                         columnHandles,
                         TupleDomain.all(),
                         DateTimeZone.forID(session.getTimeZoneKey().getId()),
-                        Optional.empty())
-                .get();
+                        Optional.empty());
+
+        checkState(readerPageSourceWithProjections.isPresent(), "readerPageSourceWithProjections is not present");
+        checkState(!readerPageSourceWithProjections.get().getProjectedReaderColumns().isPresent(), "projection should not be required");
+
+        return readerPageSourceWithProjections.get().getConnectorPageSource();
     }
 
     private static class RecordFormatWriter

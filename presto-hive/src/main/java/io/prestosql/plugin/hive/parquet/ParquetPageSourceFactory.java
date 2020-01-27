@@ -31,6 +31,7 @@ import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HivePageSourceFactory;
+import io.prestosql.plugin.hive.ReaderProjections;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -78,6 +79,7 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getParquetMaxReadBlockSize;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isFailOnCorruptedParquetStatistics;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isUseParquetColumnNames;
+import static io.prestosql.plugin.hive.ReaderProjections.projectBaseColumns;
 import static io.prestosql.plugin.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
 import static io.prestosql.plugin.hive.parquet.ParquetColumnIOConverter.constructField;
 import static io.prestosql.plugin.hive.util.HiveUtil.getDeserializerClassName;
@@ -108,7 +110,7 @@ public class ParquetPageSourceFactory
     }
 
     @Override
-    public Optional<? extends ConnectorPageSource> createPageSource(
+    public Optional<ReaderPageSourceWithProjections> createPageSource(
             Configuration configuration,
             ConnectorSession session,
             Path path,
@@ -127,7 +129,12 @@ public class ParquetPageSourceFactory
 
         checkArgument(!deleteDeltaLocations.isPresent(), "Delete delta is not supported");
 
-        return Optional.of(createParquetPageSource(
+        // Ignore predicates on partial columns for now.
+        effectivePredicate = effectivePredicate.transform(column -> column.isBaseColumn() ? column : null);
+
+        Optional<ReaderProjections> projectedReaderColumns = projectBaseColumns(columns);
+
+        ConnectorPageSource parquetPageSource = createParquetPageSource(
                 hdfsEnvironment,
                 session.getUser(),
                 configuration,
@@ -135,13 +142,17 @@ public class ParquetPageSourceFactory
                 start,
                 length,
                 fileSize,
-                columns,
+                projectedReaderColumns
+                        .map(ReaderProjections::getReaderColumns)
+                        .orElse(columns),
                 isUseParquetColumnNames(session),
                 options
                         .withFailOnCorruptedStatistics(isFailOnCorruptedParquetStatistics(session))
                         .withMaxReadBlockSize(getParquetMaxReadBlockSize(session)),
                 effectivePredicate,
-                stats));
+                stats);
+
+        return Optional.of(new ReaderPageSourceWithProjections(parquetPageSource, projectedReaderColumns));
     }
 
     public static ParquetPageSource createParquetPageSource(
@@ -220,7 +231,7 @@ public class ParquetPageSourceFactory
                 prestoTypes.add(column.getType());
 
                 internalFields.add(parquetField.flatMap(field -> {
-                    String columnName = useParquetColumnNames ? column.getName() : fileSchema.getFields().get(column.getHiveColumnIndex()).getName();
+                    String columnName = useParquetColumnNames ? column.getName() : fileSchema.getFields().get(column.getBaseHiveColumnIndex()).getName();
                     return constructField(column.getType(), lookupColumnByName(messageColumnIO, columnName));
                 }));
             }
@@ -281,8 +292,8 @@ public class ParquetPageSourceFactory
             return getParquetTypeByName(column.getName(), messageType);
         }
 
-        if (column.getHiveColumnIndex() < messageType.getFieldCount()) {
-            return messageType.getType(column.getHiveColumnIndex());
+        if (column.getBaseHiveColumnIndex() < messageType.getFieldCount()) {
+            return messageType.getType(column.getBaseHiveColumnIndex());
         }
         return null;
     }

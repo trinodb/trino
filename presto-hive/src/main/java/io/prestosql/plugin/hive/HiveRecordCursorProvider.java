@@ -25,9 +25,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 
+import static java.util.Objects.requireNonNull;
+
 public interface HiveRecordCursorProvider
 {
-    Optional<RecordCursor> createRecordCursor(
+    Optional<ReaderRecordCursorWithProjections> createRecordCursor(
             Configuration configuration,
             ConnectorSession session,
             Path path,
@@ -40,4 +42,34 @@ public interface HiveRecordCursorProvider
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
             boolean s3SelectPushdownEnabled);
+
+    /**
+     * A wrapper class for
+     * - delegate reader record cursor and
+     * - projection information for columns to be returned by the delegate
+     *
+     * Empty {@param projectedReaderColumns} indicates that the delegate cursor reads the exact same columns provided to
+     * it in {@link HiveRecordCursorProvider#createRecordCursor}
+     */
+    class ReaderRecordCursorWithProjections
+    {
+        private final RecordCursor recordCursor;
+        private final Optional<ReaderProjections> projectedReaderColumns;
+
+        public ReaderRecordCursorWithProjections(RecordCursor recordCursor, Optional<ReaderProjections> projectedReaderColumns)
+        {
+            this.recordCursor = requireNonNull(recordCursor, "recordCursor is null");
+            this.projectedReaderColumns = requireNonNull(projectedReaderColumns, "projectedReaderColumns is null");
+        }
+
+        public RecordCursor getRecordCursor()
+        {
+            return recordCursor;
+        }
+
+        public Optional<ReaderProjections> getProjectedReaderColumns()
+        {
+            return projectedReaderColumns;
+        }
+    }
 }
