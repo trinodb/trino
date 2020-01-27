@@ -117,16 +117,12 @@ public final class HttpRequestSessionContext
         assertRequest((catalog != null) || (schema == null), "Schema is set but catalog is not");
 
         String authenticatedUser = (String) servletRequest.getAttribute(PRESTO_USER);
-        if (authenticatedUser != null) {
-            authenticatedIdentity = Optional.of(Identity.forUser(authenticatedUser)
+        authenticatedIdentity = Optional.ofNullable(authenticatedUser)
+                .map(user -> Identity.forUser(user)
                     .withPrincipal(Optional.ofNullable(servletRequest.getUserPrincipal()))
                     .withRoles(parseRoleHeaders(servletRequest))
                     .withExtraCredentials(parseExtraCredentials(servletRequest))
                     .build());
-        }
-        else {
-            authenticatedIdentity = Optional.empty();
-        }
 
         String user = trimEmptyToNull(servletRequest.getHeader(PRESTO_USER));
         if (user == null) {
