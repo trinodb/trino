@@ -274,7 +274,7 @@ public class TestOrcPageSourceMemoryTracking
                 .add(new TestColumn("p_empty_string", javaStringObjectInspector, () -> "", true));
         GrowingTestColumn[] dataColumns = new GrowingTestColumn[numColumns];
         for (int i = 0; i < numColumns; i++) {
-            dataColumns[i] = new GrowingTestColumn("p_string", javaStringObjectInspector, () -> Long.toHexString(random.nextLong()), false, step * (i + 1));
+            dataColumns[i] = new GrowingTestColumn("p_string" + "_" + i, javaStringObjectInspector, () -> Long.toHexString(random.nextLong()), false, step * (i + 1));
             columnBuilder.add(dataColumns[i]);
         }
         List<TestColumn> testColumns = columnBuilder.build();
