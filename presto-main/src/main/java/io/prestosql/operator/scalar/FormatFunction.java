@@ -27,6 +27,7 @@ import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
@@ -57,6 +58,7 @@ import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.Chars.isCharType;
+import static io.prestosql.spi.type.Chars.padSpaces;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.prestosql.spi.type.DateType.DATE;
@@ -202,8 +204,12 @@ public final class FormatFunction
             int scale = ((DecimalType) type).getScale();
             return (session, block) -> new BigDecimal(decodeUnscaledValue(type.getSlice(block, position)), scale);
         }
-        if (isVarcharType(type) || isCharType(type)) {
+        if (isVarcharType(type)) {
             return (session, block) -> type.getSlice(block, position).toStringUtf8();
+        }
+        if (isCharType(type)) {
+            CharType charType = (CharType) type;
+            return (session, block) -> padSpaces(type.getSlice(block, position), charType).toStringUtf8();
         }
 
         BiFunction<ConnectorSession, Block, Object> function;
