@@ -505,7 +505,7 @@ public class PlanOptimizers
                         ImmutableSet.of(new RemoveRedundantIdentityProjections())),
 
                 // Because ReorderJoins runs only once,
-                // PredicatePushDown, PruneUnreferenedOutputpus and RemoveRedundantIdentityProjections
+                // PredicatePushDown, PruneUnreferencedOutputs and RemoveRedundantIdentityProjections
                 // need to run beforehand in order to produce an optimal join order
                 // It also needs to run after EliminateCrossJoins so that its chosen order doesn't get undone.
                 new IterativeOptimizer(
