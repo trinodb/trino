@@ -97,4 +97,19 @@ public class TestUserMapping
         assertThrows(UserMappingException.class, () -> userMapping.mapUser("test@example.com"));
         assertThrows(UserMappingException.class, () -> userMapping.mapUser("apple@other.example.com"));
     }
+
+    @Test
+    public void testDocsExample()
+            throws Exception
+    {
+        // TODO: figure out a better way to validate documentation
+        File docExample = new File("../presto-docs/src/main/sphinx/security/user-mapping.json");
+        UserMapping userMapping = createUserMapping(Optional.empty(), Optional.of(docExample));
+
+        assertEquals(userMapping.mapUser("apple@example.com"), "apple");
+        assertEquals(userMapping.mapUser("apple@uk.example.com"), "apple_uk");
+        assertEquals(userMapping.mapUser("apple@de.example.com"), "apple_de");
+        assertThrows(UserMappingException.class, () -> userMapping.mapUser("apple@unknown.com"));
+        assertThrows(UserMappingException.class, () -> userMapping.mapUser("test@example.com"));
+    }
 }
