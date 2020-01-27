@@ -24,7 +24,6 @@ import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.procedure.Procedure;
 import io.prestosql.spi.procedure.Procedure.Argument;
@@ -87,36 +86,31 @@ public class CreateEmptyPartitionProcedure
                 CREATE_EMPTY_PARTITION.bindTo(this));
     }
 
-    public void createEmptyPartition(ConnectorSession session, String schema, String table, List<Object> partitionColumnNames, List<Object> partitionValues)
+    public void createEmptyPartition(ConnectorSession session, String schema, String table, List<String> partitionColumnNames, List<String> partitionValues)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
             doCreateEmptyPartition(session, schema, table, partitionColumnNames, partitionValues);
         }
     }
 
-    private void doCreateEmptyPartition(ConnectorSession session, String schemaName, String tableName, List<Object> partitionColumnNames, List<Object> partitionValues)
+    private void doCreateEmptyPartition(ConnectorSession session, String schemaName, String tableName, List<String> partitionColumnNames, List<String> partitionValues)
     {
         TransactionalMetadata hiveMetadata = hiveMetadataFactory.get();
+        HiveTableHandle tableHandle = (HiveTableHandle) hiveMetadata.getTableHandle(session, new SchemaTableName(schemaName, tableName));
 
-        ConnectorTableHandle tableHandle = hiveMetadata.getTableHandle(session, new SchemaTableName(schemaName, tableName));
-        HiveInsertTableHandle hiveInsertTableHandle = (HiveInsertTableHandle) hiveMetadata.beginInsert(session, tableHandle);
-
-        List<String> actualPartitionColumnNames = hiveInsertTableHandle.getInputColumns().stream()
-                .filter(HiveColumnHandle::isPartitionKey)
+        List<String> actualPartitionColumnNames = tableHandle.getPartitionColumns().stream()
                 .map(HiveColumnHandle::getName)
                 .collect(toImmutableList());
+
         if (!Objects.equals(partitionColumnNames, actualPartitionColumnNames)) {
-            throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, "input partition column names doesn't match actual partition column names");
+            throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, "Provided partition column names do not match actual partition column names: " + actualPartitionColumnNames);
         }
 
-        List<String> partitionStringValues = partitionValues.stream()
-                .map(String.class::cast)
-                .collect(toImmutableList());
-
-        if (metastore.getPartition(new HiveIdentity(session), schemaName, tableName, partitionStringValues).isPresent()) {
+        if (metastore.getPartition(new HiveIdentity(session), schemaName, tableName, partitionValues).isPresent()) {
             throw new PrestoException(ALREADY_EXISTS, "Partition already exists");
         }
-        String partitionName = FileUtils.makePartName(actualPartitionColumnNames, partitionStringValues);
+        HiveInsertTableHandle hiveInsertTableHandle = (HiveInsertTableHandle) hiveMetadata.beginInsert(session, tableHandle);
+        String partitionName = FileUtils.makePartName(actualPartitionColumnNames, partitionValues);
 
         WriteInfo writeInfo = locationService.getPartitionWriteInfo(hiveInsertTableHandle.getLocationHandle(), Optional.empty(), partitionName);
         Slice serializedPartitionUpdate = Slices.wrappedBuffer(
