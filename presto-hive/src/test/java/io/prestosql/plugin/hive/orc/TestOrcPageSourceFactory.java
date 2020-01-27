@@ -20,6 +20,7 @@ import io.prestosql.plugin.hive.DeleteDeltaLocations;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HivePageSourceFactory;
+import io.prestosql.plugin.hive.HivePageSourceFactory.ReaderPageSourceWithProjections;
 import io.prestosql.plugin.hive.HiveTypeTranslator;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.connector.ConnectorPageSource;
@@ -44,9 +45,11 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.function.LongPredicate;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.Resources.getResource;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static io.prestosql.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.prestosql.plugin.hive.HiveStorageFormat.ORC;
 import static io.prestosql.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.prestosql.plugin.hive.HiveTestUtils.SESSION;
@@ -156,7 +159,7 @@ public class TestOrcPageSourceFactory
         // This file has the contains the TPC-H nation table which each row repeated 1000 times
         File nationFileWithReplicatedRows = new File(getResource("nationFile25kRowsSortedOnNationKey/bucket_00000").toURI());
 
-        ConnectorPageSource pageSource = PAGE_SOURCE_FACTORY.createPageSource(
+        Optional<ReaderPageSourceWithProjections> pageSourceWithProjections = PAGE_SOURCE_FACTORY.createPageSource(
                 new JobConf(new Configuration(false)),
                 SESSION,
                 new Path(nationFileWithReplicatedRows.getAbsoluteFile().toURI()),
@@ -167,7 +170,13 @@ public class TestOrcPageSourceFactory
                 columnHandles,
                 tupleDomain,
                 DateTimeZone.UTC,
-                deleteDeltaLocations).get();
+                deleteDeltaLocations);
+
+        checkArgument(pageSourceWithProjections.isPresent());
+        checkArgument(!pageSourceWithProjections.get().getProjectedReaderColumns().isPresent(),
+                "projected columns not expected here");
+
+        ConnectorPageSource pageSource = pageSourceWithProjections.get().getConnectorPageSource();
 
         int nationKeyColumn = columnNames.indexOf("n_nationkey");
         int nameColumn = columnNames.indexOf("n_name");
@@ -223,11 +232,11 @@ public class TestOrcPageSourceFactory
                 throw new IllegalStateException("Unexpected value: " + nationColumn.getType().getBase());
         }
 
-        return new HiveColumnHandle(
+        return createBaseColumn(
                 nationColumn.getColumnName(),
+                0,
                 toHiveType(new HiveTypeTranslator(), prestoType),
                 prestoType,
-                0,
                 REGULAR,
                 Optional.empty());
     }

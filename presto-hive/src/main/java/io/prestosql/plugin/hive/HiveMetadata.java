@@ -135,6 +135,7 @@ import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
 import static io.prestosql.plugin.hive.HiveColumnHandle.FILE_MODIFIED_TIME_COLUMN_NAME;
 import static io.prestosql.plugin.hive.HiveColumnHandle.FILE_SIZE_COLUMN_NAME;
 import static io.prestosql.plugin.hive.HiveColumnHandle.PATH_COLUMN_NAME;
+import static io.prestosql.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.prestosql.plugin.hive.HiveColumnHandle.updateRowIdHandle;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_COLUMN_ORDER_MISMATCH;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CONCURRENT_MODIFICATION_DETECTED;
@@ -2336,11 +2337,11 @@ public class HiveMetadata
             else {
                 columnType = REGULAR;
             }
-            columnHandles.add(new HiveColumnHandle(
+            columnHandles.add(createBaseColumn(
                     column.getName(),
+                    ordinal,
                     toHiveType(typeTranslator, column.getType()),
                     column.getType(),
-                    ordinal,
                     columnType,
                     Optional.ofNullable(column.getComment())));
             ordinal++;
