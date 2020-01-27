@@ -78,6 +78,12 @@ public class CachingJdbcClient
     }
 
     @Override
+    public boolean schemaExists(JdbcIdentity identity, String schema)
+    {
+        return delegate.schemaExists(identity, schema);
+    }
+
+    @Override
     public Set<String> getSchemaNames(JdbcIdentity identity)
     {
         return get(schemaNamesCache, identity);

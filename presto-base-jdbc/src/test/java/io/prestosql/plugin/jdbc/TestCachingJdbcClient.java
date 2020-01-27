@@ -21,10 +21,17 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static io.prestosql.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static io.prestosql.spi.testing.InterfaceTestUtils.assertProperForwardingMethodsAreCalled;
 
 public class TestCachingJdbcClient
 {
+    @Test
+    public void testEverythingImplemented()
+    {
+        assertAllMethodsOverridden(JdbcClient.class, CachingJdbcClient.class);
+    }
+
     @Test
     public void testProperForwardingMethodsAreCalled()
     {
