@@ -25,8 +25,8 @@ public class JsonWebTokenConfig
     private String keyFile;
     private String requiredIssuer;
     private String requiredAudience;
-    private Optional<String> userExtractionPattern = Optional.empty();
-    private Optional<File> userExtractionFile = Optional.empty();
+    private Optional<String> userMappingPattern = Optional.empty();
+    private Optional<File> userMappingFile = Optional.empty();
 
     @NotNull
     public String getKeyFile()
@@ -65,27 +65,27 @@ public class JsonWebTokenConfig
         return this;
     }
 
-    public Optional<String> getUserExtractionPattern()
+    public Optional<String> getUserMappingPattern()
     {
-        return userExtractionPattern;
+        return userMappingPattern;
     }
 
-    @Config("http-server.authentication.jwt.user-extraction.pattern")
-    public JsonWebTokenConfig setUserExtractionPattern(String userExtractionPattern)
+    @Config("http-server.authentication.jwt.user-mapping.pattern")
+    public JsonWebTokenConfig setUserMappingPattern(String userMappingPattern)
     {
-        this.userExtractionPattern = Optional.ofNullable(userExtractionPattern);
+        this.userMappingPattern = Optional.ofNullable(userMappingPattern);
         return this;
     }
 
-    public Optional<File> getUserExtractionFile()
+    public Optional<File> getUserMappingFile()
     {
-        return userExtractionFile;
+        return userMappingFile;
     }
 
-    @Config("http-server.authentication.jwt.user-extraction.file")
-    public JsonWebTokenConfig setUserExtractionFile(File userExtractionFile)
+    @Config("http-server.authentication.jwt.user-mapping.file")
+    public JsonWebTokenConfig setUserMappingFile(File userMappingFile)
     {
-        this.userExtractionFile = Optional.ofNullable(userExtractionFile);
+        this.userMappingFile = Optional.ofNullable(userMappingFile);
         return this;
     }
 }

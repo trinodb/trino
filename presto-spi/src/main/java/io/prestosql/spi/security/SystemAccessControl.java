@@ -67,7 +67,7 @@ public interface SystemAccessControl
      * Check if the principal is allowed to be the specified user.
      *
      * @throws AccessDeniedException if not allowed
-     * @deprecated use user extraction and {@link #checkCanImpersonateUser} instead
+     * @deprecated use user mapping and {@link #checkCanImpersonateUser} instead
      */
     @Deprecated
     default void checkCanSetUser(Optional<Principal> principal, String userName)

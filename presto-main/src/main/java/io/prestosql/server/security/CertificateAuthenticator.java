@@ -22,7 +22,7 @@ import javax.servlet.http.HttpServletRequest;
 import java.security.Principal;
 import java.security.cert.X509Certificate;
 
-import static io.prestosql.server.security.UserExtraction.createUserExtraction;
+import static io.prestosql.server.security.UserMapping.createUserMapping;
 import static java.util.Objects.requireNonNull;
 
 public class CertificateAuthenticator
@@ -30,13 +30,13 @@ public class CertificateAuthenticator
 {
     private static final String X509_ATTRIBUTE = "javax.servlet.request.X509Certificate";
 
-    private final UserExtraction userExtraction;
+    private final UserMapping userMapping;
 
     @Inject
     public CertificateAuthenticator(CertificateConfig config)
     {
         requireNonNull(config, "config is null");
-        this.userExtraction = createUserExtraction(config.getUserExtractionPattern(), config.getUserExtractionFile());
+        this.userMapping = createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile());
     }
 
     @Override
@@ -49,12 +49,12 @@ public class CertificateAuthenticator
         }
         X500Principal principal = certs[0].getSubjectX500Principal();
         try {
-            String authenticatedUser = userExtraction.extractUser(((Principal) principal).toString());
+            String authenticatedUser = userMapping.mapUser(((Principal) principal).toString());
             return Identity.forUser(authenticatedUser)
                     .withPrincipal(principal)
                     .build();
         }
-        catch (UserExtractionException e) {
+        catch (UserMappingException e) {
             throw new AuthenticationException(e.getMessage());
         }
     }

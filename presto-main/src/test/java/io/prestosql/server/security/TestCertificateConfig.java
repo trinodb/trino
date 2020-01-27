@@ -29,21 +29,21 @@ public class TestCertificateConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(CertificateConfig.class)
-                .setUserExtractionPattern(null)
-                .setUserExtractionFile(null));
+                .setUserMappingPattern(null)
+                .setUserMappingFile(null));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("http-server.authentication.certificate.user-extraction.pattern", "(.*)@something")
-                .put("http-server.authentication.certificate.user-extraction.file", "some-file")
+                .put("http-server.authentication.certificate.user-mapping.pattern", "(.*)@something")
+                .put("http-server.authentication.certificate.user-mapping.file", "some-file")
                 .build();
 
         CertificateConfig expected = new CertificateConfig()
-                .setUserExtractionPattern("(.*)@something")
-                .setUserExtractionFile(new File("some-file"));
+                .setUserMappingPattern("(.*)@something")
+                .setUserMappingFile(new File("some-file"));
 
         assertFullMapping(properties, expected);
     }
