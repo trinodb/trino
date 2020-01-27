@@ -69,6 +69,7 @@ public final class Hadoop
                 .waitingFor(new SelectedPortWaitStrategy(10000)) // HiveServer2
                 .withStartupTimeout(Duration.ofMinutes(5));
 
+        exposePort(container, 1180); // socks proxy
         exposePort(container, 5006); // debug port
         exposePort(container, 8020);
         exposePort(container, 8042);
