@@ -4071,6 +4071,81 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void schemaMismatchesWithDereferenceProjections()
+    {
+        for (TestingHiveStorageFormat format : getAllTestingHiveStorageFormat()) {
+            schemaMismatchesWithDereferenceProjections(format.getFormat());
+        }
+    }
+
+    private void schemaMismatchesWithDereferenceProjections(HiveStorageFormat format)
+    {
+        // Verify reordering of subfields between a partition column and a table column is not supported
+        // eg. table column: a row(c varchar, b bigint), partition column: a row(b bigint, c varchar)
+        try {
+            assertUpdate("CREATE TABLE evolve_test (dummy bigint, a row(b bigint, c varchar), d bigint) with (format = '" + format + "', partitioned_by=array['d'])");
+            assertUpdate("INSERT INTO evolve_test values (1, row(1, 'abc'), 1)", 1);
+            assertUpdate("ALTER TABLE evolve_test DROP COLUMN a");
+            assertUpdate("ALTER TABLE evolve_test ADD COLUMN a row(c varchar, b bigint)");
+            assertUpdate("INSERT INTO evolve_test values (2, row('def', 2), 2)", 1);
+            assertQueryFails("SELECT a.b FROM evolve_test where d = 1", ".*There is a mismatch between the table and partition schemas.*");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS evolve_test");
+        }
+
+        // Subfield absent in partition schema is reported as null
+        // i.e. "a.c" produces null for rows that were inserted before type of "a" was changed
+        try {
+            assertUpdate("CREATE TABLE evolve_test (dummy bigint, a row(b bigint), d bigint) with (format = '" + format + "', partitioned_by=array['d'])");
+            assertUpdate("INSERT INTO evolve_test values (1, row(1), 1)", 1);
+            assertUpdate("ALTER TABLE evolve_test DROP COLUMN a");
+            assertUpdate("ALTER TABLE evolve_test ADD COLUMN a row(b bigint, c varchar)");
+            assertUpdate("INSERT INTO evolve_test values (2, row(2, 'def'), 2)", 1);
+            assertQuery("SELECT a.c FROM evolve_test", "SELECT 'def' UNION SELECT null");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS evolve_test");
+        }
+    }
+
+    @Test
+    public void testSubfieldReordering()
+    {
+        // Validate for formats for which subfield access is name based
+        List<HiveStorageFormat> formats = ImmutableList.of(HiveStorageFormat.ORC, HiveStorageFormat.PARQUET);
+
+        for (HiveStorageFormat format : formats) {
+            // Subfields reordered in the file are read correctly. e.g. if partition column type is row(b bigint, c varchar) but the file
+            // column type is row(c varchar, b bigint), "a.b" should read the correct field from the file.
+            try {
+                assertUpdate("CREATE TABLE evolve_test (dummy bigint, a row(b bigint, c varchar)) with (format = '" + format + "')");
+                assertUpdate("INSERT INTO evolve_test values (1, row(1, 'abc'))", 1);
+                assertUpdate("ALTER TABLE evolve_test DROP COLUMN a");
+                assertUpdate("ALTER TABLE evolve_test ADD COLUMN a row(c varchar, b bigint)");
+                assertQuery("SELECT a.b FROM evolve_test", "VALUES 1");
+            }
+            finally {
+                assertUpdate("DROP TABLE IF EXISTS evolve_test");
+            }
+
+            // Assert that reordered subfields are read correctly for a two-level nesting. This is useful for asserting correct adaptation
+            // of residue projections in HivePageSourceProvider
+            try {
+                assertUpdate("CREATE TABLE evolve_test (dummy bigint, a row(b bigint, c row(x bigint, y varchar))) with (format = '" + format + "')");
+                assertUpdate("INSERT INTO evolve_test values (1, row(1, row(3, 'abc')))", 1);
+                assertUpdate("ALTER TABLE evolve_test DROP COLUMN a");
+                assertUpdate("ALTER TABLE evolve_test ADD COLUMN a row(c row(y varchar, x bigint), b bigint)");
+                // TODO: replace the following assertion with assertQuery once h2QueryRunner starts supporting row types
+                assertQuerySucceeds("SELECT a.c.y, a.c FROM evolve_test");
+            }
+            finally {
+                assertUpdate("DROP TABLE IF EXISTS evolve_test");
+            }
+        }
+    }
+
+    @Test
     public void testMismatchedBucketing()
     {
         try {
