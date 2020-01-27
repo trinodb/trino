@@ -29,21 +29,21 @@ public class TestPasswordAuthenticatorConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(PasswordAuthenticatorConfig.class)
-                .setUserExtractionPattern(null)
-                .setUserExtractionFile(null));
+                .setUserMappingPattern(null)
+                .setUserMappingFile(null));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("http-server.authentication.password.user-extraction.pattern", "(.*)@something")
-                .put("http-server.authentication.password.user-extraction.file", "some-file")
+                .put("http-server.authentication.password.user-mapping.pattern", "(.*)@something")
+                .put("http-server.authentication.password.user-mapping.file", "some-file")
                 .build();
 
         PasswordAuthenticatorConfig expected = new PasswordAuthenticatorConfig()
-                .setUserExtractionPattern("(.*)@something")
-                .setUserExtractionFile(new File("some-file"));
+                .setUserMappingPattern("(.*)@something")
+                .setUserMappingFile(new File("some-file"));
 
         assertFullMapping(properties, expected);
     }

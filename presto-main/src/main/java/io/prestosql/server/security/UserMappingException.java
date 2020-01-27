@@ -13,10 +13,10 @@
  */
 package io.prestosql.server.security;
 
-public class UserExtractionException
+public class UserMappingException
         extends Exception
 {
-    public UserExtractionException(String message)
+    public UserMappingException(String message)
     {
         super(message);
     }
