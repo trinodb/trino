@@ -38,6 +38,9 @@ public final class EnvironmentOptions
     @Option(name = "--environment", title = "environment", description = "the name of the environment to start", required = true)
     public String environment;
 
+    @Option(name = "--without-presto", title = "without Presto", description = "do not start presto-master")
+    public boolean withoutPrestoMaster;
+
     public Module toModule()
     {
         return binder -> {
