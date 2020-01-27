@@ -2916,12 +2916,30 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
-    public void testRows()
+    public void testRowsWithAllFormats()
     {
-        assertUpdate("CREATE TABLE tmp_row1 AS SELECT cast(row(CAST(1 as BIGINT), CAST(NULL as BIGINT)) AS row(col0 bigint, col1 bigint)) AS a", 1);
-        assertQuery(
-                "SELECT a.col0, a.col1 FROM tmp_row1",
-                "SELECT 1, cast(null as bigint)");
+        testWithAllStorageFormats(this::testRows);
+    }
+
+    private void testRows(Session session, HiveStorageFormat format)
+    {
+        String tableName = "test_dereferences";
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE " + tableName +
+                " WITH (" +
+                "format = '" + format + "'" +
+                ") " +
+                "AS SELECT " +
+                "CAST(row(CAST(1 as BIGINT), CAST(NULL as BIGINT)) AS row(col0 bigint, col1 bigint)) AS a, " +
+                "CAST(row(row(CAST('abc' as VARCHAR), CAST(5 as BIGINT)), CAST(3.0 AS DOUBLE)) AS row(field0 row(col0 varchar, col1 bigint), field1 double)) AS b";
+
+        assertUpdate(session, createTable, 1);
+
+        assertQuery(session,
+                "SELECT a.col0, a.col1, b.field0.col0, b.field0.col1, b.field1 FROM " + tableName,
+                "SELECT 1, cast(null as bigint), CAST('abc' as VARCHAR), CAST(5 as BIGINT), CAST(3.0 AS DOUBLE)");
+
+        assertUpdate(session, "DROP TABLE " + tableName);
     }
 
     @Test
