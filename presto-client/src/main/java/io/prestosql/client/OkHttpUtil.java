@@ -14,6 +14,8 @@
 package io.prestosql.client;
 
 import com.google.common.base.CharMatcher;
+import com.google.common.base.Splitter;
+import com.google.common.base.StandardSystemProperty;
 import com.google.common.net.HostAndPort;
 import io.airlift.security.pem.PemReader;
 import okhttp3.Credentials;
@@ -235,6 +237,25 @@ public final class OkHttpUtil
         }
         catch (GeneralSecurityException | IOException e) {
             throw new ClientException("Error setting up SSL: " + e.getMessage(), e);
+        }
+    }
+
+    public static void setupChannelSocket(OkHttpClient.Builder clientBuilder)
+    {
+        // Enable socket factory only for pre JDK 11
+        if (!isAtLeastJava11()) {
+            clientBuilder.socketFactory(new SocketChannelSocketFactory());
+        }
+    }
+
+    private static boolean isAtLeastJava11()
+    {
+        String feature = Splitter.on(".").split(StandardSystemProperty.JAVA_VERSION.value()).iterator().next();
+        try {
+            return Integer.parseInt(feature) >= 11;
+        }
+        catch (NumberFormatException e) {
+            return false;
         }
     }
 
