@@ -25,6 +25,7 @@ import org.joda.time.DateTimeZone;
 
 import java.util.List;
 
+import static io.prestosql.plugin.hive.HivePageSourceProvider.ColumnMappingKind.EMPTY;
 import static io.prestosql.plugin.hive.HivePageSourceProvider.ColumnMappingKind.PREFILLED;
 import static io.prestosql.plugin.hive.HivePageSourceProvider.ColumnMappingKind.REGULAR;
 import static io.prestosql.plugin.hive.util.HiveUtil.bigintPartitionKey;
@@ -99,6 +100,9 @@ public class HiveRecordCursor
         for (int columnIndex = 0; columnIndex < size; columnIndex++) {
             ColumnMapping columnMapping = columnMappings.get(columnIndex);
 
+            if (columnMapping.getKind() == EMPTY) {
+                nulls[columnIndex] = true;
+            }
             if (columnMapping.getKind() == PREFILLED) {
                 String columnValue = columnMapping.getPrefilledValue();
                 byte[] bytes = columnValue.getBytes(UTF_8);

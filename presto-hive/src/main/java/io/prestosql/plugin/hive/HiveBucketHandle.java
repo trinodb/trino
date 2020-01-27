@@ -20,6 +20,8 @@ import io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion;
 
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -41,6 +43,7 @@ public class HiveBucketHandle
             @JsonProperty("readBucketCount") int readBucketCount)
     {
         this.columns = requireNonNull(columns, "columns is null");
+        columns.forEach(column -> checkArgument(column.isBaseColumn(), format("projected column %s is not allowed for bucketing", column)));
         this.bucketingVersion = requireNonNull(bucketingVersion, "bucketingVersion is null");
         this.tableBucketCount = tableBucketCount;
         this.readBucketCount = readBucketCount;

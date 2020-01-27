@@ -13,11 +13,13 @@
  */
 package io.prestosql.plugin.hive.s3select;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HiveRecordCursorProvider;
 import io.prestosql.plugin.hive.IonSqlQueryBuilder;
+import io.prestosql.plugin.hive.ReaderProjections;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.RecordCursor;
@@ -37,6 +39,7 @@ import java.util.Properties;
 import java.util.Set;
 
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
+import static io.prestosql.plugin.hive.ReaderProjections.projectBaseColumns;
 import static io.prestosql.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static java.util.Objects.requireNonNull;
 
@@ -55,7 +58,7 @@ public class S3SelectRecordCursorProvider
     }
 
     @Override
-    public Optional<RecordCursor> createRecordCursor(
+    public Optional<ReaderRecordCursorWithProjections> createRecordCursor(
             Configuration configuration,
             ConnectorSession session,
             Path path,
@@ -80,12 +83,22 @@ public class S3SelectRecordCursorProvider
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed getting FileSystem: " + path, e);
         }
 
+        Optional<ReaderProjections> projectedReaderColumns = projectBaseColumns(columns);
+        // Ignore predicates on partial columns for now.
+        effectivePredicate = effectivePredicate.transform(column -> column.isBaseColumn() ? column : null);
+
         String serdeName = getDeserializerClassName(schema);
         if (CSV_SERDES.contains(serdeName)) {
+            List<HiveColumnHandle> readerColumns = projectedReaderColumns
+                    .map(ReaderProjections::getReaderColumns)
+                    .orElse(ImmutableList.of());
+
             IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(typeManager);
-            String ionSqlQuery = queryBuilder.buildSql(columns, effectivePredicate);
+            String ionSqlQuery = queryBuilder.buildSql(readerColumns, effectivePredicate);
             S3SelectLineRecordReader recordReader = new S3SelectCsvRecordReader(configuration, path, start, length, schema, ionSqlQuery, s3ClientFactory);
-            return Optional.of(new S3SelectRecordCursor<>(configuration, path, recordReader, length, schema, columns, hiveStorageTimeZone));
+
+            RecordCursor cursor = new S3SelectRecordCursor<>(configuration, path, recordReader, length, schema, readerColumns, hiveStorageTimeZone);
+            return Optional.of(new ReaderRecordCursorWithProjections(cursor, projectedReaderColumns));
         }
 
         // unsupported serdes

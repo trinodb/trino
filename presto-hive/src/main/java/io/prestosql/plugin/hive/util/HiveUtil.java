@@ -111,6 +111,7 @@ import static com.google.common.collect.Lists.newArrayList;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.prestosql.plugin.hive.HiveColumnHandle.bucketColumnHandle;
+import static io.prestosql.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.prestosql.plugin.hive.HiveColumnHandle.fileModifiedTimeColumnHandle;
 import static io.prestosql.plugin.hive.HiveColumnHandle.fileSizeColumnHandle;
 import static io.prestosql.plugin.hive.HiveColumnHandle.isBucketColumnHandle;
@@ -222,8 +223,12 @@ public final class HiveUtil
         List<HiveColumnHandle> readColumns = columns.stream()
                 .filter(column -> column.getColumnType() == REGULAR)
                 .collect(toImmutableList());
+
+        // Projected columns are not supported here
+        readColumns.forEach(readColumn -> checkArgument(readColumn.isBaseColumn(), "column %s is not a base column", readColumn.getName()));
+
         List<Integer> readHiveColumnIndexes = readColumns.stream()
-                .map(HiveColumnHandle::getHiveColumnIndex)
+                .map(HiveColumnHandle::getBaseHiveColumnIndex)
                 .collect(toImmutableList());
 
         // Tell hive the columns we would like to read, this lets hive optimize reading column oriented files
@@ -908,7 +913,7 @@ public final class HiveUtil
             // ignore unsupported types rather than failing
             HiveType hiveType = field.getType();
             if (hiveType.isSupportedType()) {
-                columns.add(new HiveColumnHandle(field.getName(), hiveType, hiveType.getType(typeManager), hiveColumnIndex, REGULAR, field.getComment()));
+                columns.add(createBaseColumn(field.getName(), hiveColumnIndex, hiveType, hiveType.getType(typeManager), REGULAR, field.getComment()));
             }
             hiveColumnIndex++;
         }
@@ -926,7 +931,7 @@ public final class HiveUtil
             if (!hiveType.isSupportedType()) {
                 throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type %s found in partition keys of table %s.%s", hiveType, table.getDatabaseName(), table.getTableName()));
             }
-            columns.add(new HiveColumnHandle(field.getName(), hiveType, hiveType.getType(typeManager), -1, PARTITION_KEY, field.getComment()));
+            columns.add(createBaseColumn(field.getName(), -1, hiveType, hiveType.getType(typeManager), PARTITION_KEY, field.getComment()));
         }
 
         return columns.build();
