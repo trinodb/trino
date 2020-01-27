@@ -46,7 +46,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
-import static io.prestosql.server.security.UserExtraction.createUserExtraction;
+import static io.prestosql.server.security.UserMapping.createUserMapping;
 import static java.util.Objects.requireNonNull;
 import static javax.security.auth.login.AppConfigurationEntry.LoginModuleControlFlag.REQUIRED;
 import static org.ietf.jgss.GSSCredential.ACCEPT_ONLY;
@@ -62,13 +62,13 @@ public class KerberosAuthenticator
     private final GSSManager gssManager = GSSManager.getInstance();
     private final LoginContext loginContext;
     private final GSSCredential serverCredential;
-    private final UserExtraction userExtraction;
+    private final UserMapping userMapping;
 
     @Inject
     public KerberosAuthenticator(KerberosConfig config)
     {
         requireNonNull(config, "config is null");
-        this.userExtraction = createUserExtraction(config.getUserExtractionPattern(), config.getUserExtractionFile());
+        this.userMapping = createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile());
 
         String newValue = config.getKerberosConfig().getAbsolutePath();
         String currentValue = System.getProperty("java.security.krb5.conf");
@@ -165,12 +165,12 @@ public class KerberosAuthenticator
         }
 
         try {
-            String authenticatedUser = userExtraction.extractUser(principal.toString());
+            String authenticatedUser = userMapping.mapUser(principal.toString());
             return Identity.forUser(authenticatedUser)
                     .withPrincipal(principal)
                     .build();
         }
-        catch (UserExtractionException e) {
+        catch (UserMappingException e) {
             throw new AuthenticationException(e.getMessage(), NEGOTIATE_SCHEME);
         }
     }

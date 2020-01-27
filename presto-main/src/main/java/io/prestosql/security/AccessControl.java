@@ -34,7 +34,7 @@ public interface AccessControl
      * Check if the principal is allowed to be the specified user.
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
-     * @deprecated replaced with user extraction during authentication and {@link #checkCanImpersonateUser}
+     * @deprecated replaced with user mapping during authentication and {@link #checkCanImpersonateUser}
      */
     @Deprecated
     void checkCanSetUser(Optional<Principal> principal, String userName);

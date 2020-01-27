@@ -97,7 +97,7 @@ public class TestHttpRequestSessionContext
     }
 
     @Test
-    public void testExtractedUser()
+    public void testMappedUser()
     {
         MultivaluedMap<String, String> userHeaders = new GuavaMultivaluedMap<>(ImmutableListMultimap.of(PRESTO_USER, "testUser"));
         MultivaluedMap<String, String> emptyHeaders = new MultivaluedHashMap<>();
@@ -105,10 +105,10 @@ public class TestHttpRequestSessionContext
         HttpRequestSessionContext context = new HttpRequestSessionContext(WARN, userHeaders, "testRemote", Optional.empty());
         assertEquals(context.getIdentity(), Identity.ofUser("testUser"));
 
-        context = new HttpRequestSessionContext(WARN, emptyHeaders, "testRemote", Optional.of(Identity.ofUser("extractedUser")));
-        assertEquals(context.getIdentity(), Identity.ofUser("extractedUser"));
+        context = new HttpRequestSessionContext(WARN, emptyHeaders, "testRemote", Optional.of(Identity.ofUser("mappedUser")));
+        assertEquals(context.getIdentity(), Identity.ofUser("mappedUser"));
 
-        context = new HttpRequestSessionContext(WARN, userHeaders, "testRemote", Optional.of(Identity.ofUser("extractedUser")));
+        context = new HttpRequestSessionContext(WARN, userHeaders, "testRemote", Optional.of(Identity.ofUser("mappedUser")));
         assertEquals(context.getIdentity(), Identity.ofUser("testUser"));
 
         assertThatThrownBy(() -> new HttpRequestSessionContext(WARN, emptyHeaders, "testRemote", Optional.empty()))

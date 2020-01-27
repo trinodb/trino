@@ -29,52 +29,52 @@ import static io.prestosql.plugin.base.util.JsonUtils.parseJson;
 import static java.lang.Boolean.TRUE;
 import static java.util.Objects.requireNonNull;
 
-public final class UserExtraction
+public final class UserMapping
 {
     private final List<Rule> rules;
 
-    public static UserExtraction createUserExtraction(Optional<String> userExtractionPattern, Optional<File> userExtractionFile)
+    public static UserMapping createUserMapping(Optional<String> userMappingPattern, Optional<File> userMappingFile)
     {
-        if (userExtractionPattern.isPresent()) {
-            checkArgument(!userExtractionFile.isPresent(), "user extraction pattern and file can not both be set");
-            return new UserExtraction(ImmutableList.of(new Rule(userExtractionPattern.get())));
+        if (userMappingPattern.isPresent()) {
+            checkArgument(!userMappingFile.isPresent(), "user mapping pattern and file can not both be set");
+            return new UserMapping(ImmutableList.of(new Rule(userMappingPattern.get())));
         }
-        if (userExtractionFile.isPresent()) {
-            List<Rule> rules = parseJson(userExtractionFile.get().toPath(), UserExtractionRules.class).getRules();
-            return new UserExtraction(rules);
+        if (userMappingFile.isPresent()) {
+            List<Rule> rules = parseJson(userMappingFile.get().toPath(), UserMappingRules.class).getRules();
+            return new UserMapping(rules);
         }
-        return new UserExtraction(ImmutableList.of(new Rule("(.*)")));
+        return new UserMapping(ImmutableList.of(new Rule("(.*)")));
     }
 
     @VisibleForTesting
-    UserExtraction(List<Rule> rules)
+    UserMapping(List<Rule> rules)
     {
         this.rules = ImmutableList.copyOf(requireNonNull(rules, "rules is null"));
     }
 
-    public String extractUser(String principal)
-            throws UserExtractionException
+    public String mapUser(String principal)
+            throws UserMappingException
     {
         Optional<String> user = Optional.empty();
         for (Rule rule : rules) {
-            user = rule.extractUser(principal);
+            user = rule.mapUser(principal);
             if (user.isPresent()) {
                 break;
             }
         }
 
         if (!user.isPresent()) {
-            throw new UserExtractionException("No extraction patterns match the principal");
+            throw new UserMappingException("No user mapping patterns match the principal");
         }
         return user.get();
     }
 
-    public static final class UserExtractionRules
+    public static final class UserMappingRules
     {
         private final List<Rule> rules;
 
         @JsonCreator
-        public UserExtractionRules(
+        public UserMappingRules(
                 @JsonProperty("rules") List<Rule> rules)
         {
             this.rules = ImmutableList.copyOf(requireNonNull(rules, "rules is null"));
@@ -115,19 +115,19 @@ public final class UserExtraction
             this.allow = allow;
         }
 
-        public Optional<String> extractUser(String principal)
-                throws UserExtractionException
+        public Optional<String> mapUser(String principal)
+                throws UserMappingException
         {
             Matcher matcher = pattern.matcher(principal);
             if (!matcher.matches()) {
                 return Optional.empty();
             }
             if (!allow) {
-                throw new UserExtractionException("Principal is not allowed");
+                throw new UserMappingException("Principal is not allowed");
             }
             String result = matcher.replaceAll(user).trim();
             if (result.isEmpty()) {
-                throw new UserExtractionException("Principal matched, but extracted user is empty");
+                throw new UserMappingException("Principal matched, but mapped user is empty");
             }
             return Optional.of(result);
         }
