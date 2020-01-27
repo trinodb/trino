@@ -109,6 +109,24 @@ public class TestFileBasedSystemAccessControl
     }
 
     @Test
+    public void testDocsExample()
+    {
+        TransactionManager transactionManager = createTestTransactionManager();
+        AccessControlManager accessControlManager = new AccessControlManager(transactionManager, new AccessControlConfig());
+        accessControlManager.setSystemAccessControl(
+                FileBasedSystemAccessControl.NAME,
+                ImmutableMap.of("security.config-file", new File("../presto-docs/src/main/sphinx/security/user-impersonation.json").getAbsolutePath()));
+
+        accessControlManager.checkCanImpersonateUser(Identity.ofUser("alice"), "charlie");
+        accessControlManager.checkCanImpersonateUser(Identity.ofUser("bob"), "charlie");
+        assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanImpersonateUser(Identity.ofUser("alice"), "bob"));
+        assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanImpersonateUser(Identity.ofUser("bob"), "alice"));
+
+        assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanImpersonateUser(Identity.ofUser("charlie"), "doris"));
+        accessControlManager.checkCanImpersonateUser(Identity.ofUser("charlie"), "test");
+    }
+
+    @Test
     public void testCanSetUserOperations()
     {
         TransactionManager transactionManager = createTestTransactionManager();
