@@ -66,7 +66,7 @@ public class TestHiveReaderProjectionsUtil
         return hiveColumns.build();
     }
 
-    static HiveColumnHandle createProjectedColumnHandle(HiveColumnHandle column, List<Integer> indices)
+    public static HiveColumnHandle createProjectedColumnHandle(HiveColumnHandle column, List<Integer> indices)
     {
         checkArgument(column.isBaseColumn(), "base column is expected here");
 
