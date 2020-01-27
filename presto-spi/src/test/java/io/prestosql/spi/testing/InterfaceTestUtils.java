@@ -13,13 +13,22 @@
  */
 package io.prestosql.spi.testing;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.SchemaTableName;
 
 import java.lang.reflect.Method;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 
 import static com.google.common.base.Defaults.defaultValue;
 import static com.google.common.reflect.Reflection.newProxy;
+import static io.prestosql.spi.block.TestingSession.SESSION;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
@@ -46,22 +55,24 @@ public final class InterfaceTestUtils
 
     public static <I, C extends I> void assertProperForwardingMethodsAreCalled(Class<I> iface, Function<I, C> forwardingInstanceFactory)
     {
+        assertProperForwardingMethodsAreCalled(iface, forwardingInstanceFactory, clazz -> null);
+
+    }
+    public static <I, C extends I> void assertProperForwardingMethodsAreCalled(
+            Class<I> iface,
+            Function<I, C> forwardingInstanceFactory,
+            Function<Class<?>, Object> defaultValueSupplier)
+    {
         for (Method actualMethod : iface.getDeclaredMethods()) {
             Object[] actualArguments = new Object[actualMethod.getParameterCount()];
             for (int i = 0; i < actualArguments.length; i++) {
-                if (actualMethod.getParameterTypes()[i].isPrimitive()) {
-                    actualArguments[i] = defaultValue(actualMethod.getParameterTypes()[i]);
-                }
+                actualArguments[i] = getDefaultValue(defaultValueSupplier, actualMethod.getParameterTypes()[i]);
             }
             C forwardingInstance = forwardingInstanceFactory.apply(
                     newProxy(iface, (proxy, expectedMethod, expectedArguments) -> {
                         assertEquals(actualMethod.getName(), expectedMethod.getName());
                         // TODO assert arguments
-
-                        if (actualMethod.getReturnType().isPrimitive()) {
-                            return defaultValue(actualMethod.getReturnType());
-                        }
-                        return null;
+                        return getDefaultValue(defaultValueSupplier, actualMethod.getReturnType());
                     }));
 
             try {
@@ -84,4 +95,41 @@ public final class InterfaceTestUtils
         Method forwardingMethod = forwardingClass.getMethod(actualMethod.getName(), actualMethod.getParameterTypes());
         return forwardingClass == forwardingMethod.getDeclaringClass();
     }
+
+    private static Object getDefaultValue(Function<Class<?>, Object> defaultValueSupplier, Class<?> type)
+    {
+        if (type.isPrimitive()) {
+            return defaultValue(type);
+        }
+        Object value = DEFAULTS.apply(type);
+        if (value != null) {
+            return value;
+        }
+        return defaultValueSupplier.apply(type);
+    }
+
+    private static final Function<Class, Object> DEFAULTS = clazz -> {
+        if (clazz.equals(String.class)) {
+            return "string";
+        }
+        if (clazz.equals(Set.class)) {
+            return ImmutableSet.of();
+        }
+        if (clazz.equals(List.class)) {
+            return ImmutableList.of();
+        }
+        if (clazz.equals(Map.class)) {
+            return ImmutableMap.of();
+        }
+        if (clazz.equals(Optional.class)) {
+            return Optional.empty();
+        }
+        if (clazz.equals(SchemaTableName.class)) {
+            return new SchemaTableName("schema", "table");
+        }
+        if (clazz.equals(ConnectorSession.class)) {
+            return SESSION;
+        }
+        return null;
+    };
 }
