@@ -63,6 +63,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.orc.OrcReader.INITIAL_BATCH_SIZE;
@@ -155,7 +156,6 @@ public class OrcPageSourceFactory
         }
 
         Optional<ReaderProjections> projectedReaderColumns = projectBaseColumns(columns);
-        effectivePredicate = effectivePredicate.transform(column -> column.isBaseColumn() ? column : null);
 
         ConnectorPageSource orcPageSource = createOrcPageSource(
                 hdfsEnvironment,
@@ -291,18 +291,25 @@ public class OrcPageSourceFactory
             for (HiveColumnHandle column : columns) {
                 OrcColumn orcColumn = null;
                 OrcReader.ProjectedLayout projectedLayout = null;
+                Map<Optional<HiveColumnProjectionInfo>, Domain> columnDomains = null;
 
                 if (useOrcColumnNames || isFullAcid) {
                     String columnName = column.getName().toLowerCase(ENGLISH);
                     orcColumn = fileColumnsByName.get(columnName);
                     if (orcColumn != null) {
                         projectedLayout = createProjectedLayout(orcColumn, projectionsByColumnName.get(columnName));
+                        columnDomains = effectivePredicateDomains.entrySet().stream()
+                                .filter(columnDomain -> columnDomain.getKey().getBaseColumnName().toLowerCase(ENGLISH).equals(columnName))
+                                .collect(toImmutableMap(columnDomain -> columnDomain.getKey().getHiveColumnProjectionInfo(), Map.Entry::getValue));
                     }
                 }
                 else if (column.getBaseHiveColumnIndex() < fileColumns.size()) {
                     orcColumn = fileColumns.get(column.getBaseHiveColumnIndex());
                     if (orcColumn != null) {
                         projectedLayout = createProjectedLayout(orcColumn, projectionsByColumnIndex.get(column.getBaseHiveColumnIndex()));
+                        columnDomains = effectivePredicateDomains.entrySet().stream()
+                                .filter(columnDomain -> columnDomain.getKey().getBaseHiveColumnIndex() == column.getBaseHiveColumnIndex())
+                                .collect(toImmutableMap(columnDomain -> columnDomain.getKey().getHiveColumnProjectionInfo(), Map.Entry::getValue));
                     }
                 }
 
@@ -314,9 +321,12 @@ public class OrcPageSourceFactory
                     fileReadTypes.add(readType);
                     fileReadLayouts.add(projectedLayout);
 
-                    Domain domain = effectivePredicateDomains.get(column);
-                    if (domain != null) {
-                        predicateBuilder.addColumn(orcColumn.getColumnId(), domain);
+                    // Add predicates on top-level and nested columns
+                    for (Map.Entry<Optional<HiveColumnProjectionInfo>, Domain> columnDomain : columnDomains.entrySet()) {
+                        OrcColumn nestedColumn = getNestedColumn(orcColumn, columnDomain.getKey());
+                        if (nestedColumn != null) {
+                            predicateBuilder.addColumn(nestedColumn.getColumnId(), columnDomain.getValue());
+                        }
                     }
                 }
                 else {
@@ -407,5 +417,25 @@ public class OrcPageSourceFactory
         if (column.getColumnType() != columnType) {
             throw new PrestoException(HIVE_BAD_DATA, format("ORC ACID file %s column should be type %s: %s", columnName, columnType, path));
         }
+    }
+
+    private static OrcColumn getNestedColumn(OrcColumn baseColumn, Optional<HiveColumnProjectionInfo> projectionInfo)
+    {
+        if (!projectionInfo.isPresent()) {
+            return baseColumn;
+        }
+
+        OrcColumn current = baseColumn;
+        for (String field : projectionInfo.get().getDereferenceNames()) {
+            Optional<OrcColumn> orcColumn = current.getNestedColumns().stream()
+                    .filter(column -> column.getColumnName().toLowerCase(ENGLISH).equals(field))
+                    .findFirst();
+
+            if (!orcColumn.isPresent()) {
+                return null;
+            }
+            current = orcColumn.get();
+        }
+        return current;
     }
 }
