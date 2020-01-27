@@ -1192,7 +1192,7 @@ public class TestHiveFileFormats
             assertNotNull(writeColumns, "writeColumns must be specified");
             assertNotNull(readColumns, "readColumns must be specified");
             assertNotNull(session, "session must be specified");
-            assertTrue(rowsCount >= 0, "rowsCount must be greater than zero");
+            assertTrue(rowsCount >= 0, "rowsCount must be non-negative");
 
             String compressionSuffix = compressionCodec.getCodec()
                     .map(codec -> {
