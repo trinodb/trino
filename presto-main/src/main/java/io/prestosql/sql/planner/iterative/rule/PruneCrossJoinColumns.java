@@ -14,7 +14,6 @@
 package io.prestosql.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
@@ -37,10 +36,10 @@ public class PruneCrossJoinColumns
     }
 
     @Override
-    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, JoinNode joinNode, Set<Symbol> referencedOutputs)
+    protected Optional<PlanNode> pushDownProjectOff(Context context, JoinNode joinNode, Set<Symbol> referencedOutputs)
     {
-        Optional<PlanNode> newLeft = restrictOutputs(idAllocator, joinNode.getLeft(), referencedOutputs);
-        Optional<PlanNode> newRight = restrictOutputs(idAllocator, joinNode.getRight(), referencedOutputs);
+        Optional<PlanNode> newLeft = restrictOutputs(context.getIdAllocator(), joinNode.getLeft(), referencedOutputs);
+        Optional<PlanNode> newRight = restrictOutputs(context.getIdAllocator(), joinNode.getRight(), referencedOutputs);
 
         if (!newLeft.isPresent() && !newRight.isPresent()) {
             return Optional.empty();
@@ -51,7 +50,7 @@ public class PruneCrossJoinColumns
         outputSymbolBuilder.addAll(newRight.orElse(joinNode.getRight()).getOutputSymbols());
 
         return Optional.of(new JoinNode(
-                idAllocator.getNextId(),
+                context.getIdAllocator().getNextId(),
                 joinNode.getType(),
                 newLeft.orElse(joinNode.getLeft()),
                 newRight.orElse(joinNode.getRight()),
