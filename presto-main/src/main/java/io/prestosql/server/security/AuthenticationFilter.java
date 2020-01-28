@@ -37,6 +37,7 @@ import java.io.PrintWriter;
 import java.security.Principal;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.io.ByteStreams.copy;
@@ -44,7 +45,9 @@ import static com.google.common.io.ByteStreams.nullOutputStream;
 import static com.google.common.net.HttpHeaders.WWW_AUTHENTICATE;
 import static com.google.common.net.MediaType.PLAIN_TEXT_UTF_8;
 import static io.prestosql.client.PrestoHeaders.PRESTO_USER;
+import static io.prestosql.server.security.BasicAuthCredentials.extractBasicAuthCredentials;
 import static java.util.Objects.requireNonNull;
+import static javax.servlet.http.HttpServletResponse.SC_FORBIDDEN;
 import static javax.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
 
 public class AuthenticationFilter
@@ -90,7 +93,7 @@ public class AuthenticationFilter
 
         // skip authentication if non-secure or not configured
         if (!doesRequestSupportAuthentication(request)) {
-            nextFilter.doFilter(request, response);
+            handleInsecureRequest(nextFilter, request, response);
             return;
         }
 
@@ -131,15 +134,41 @@ public class AuthenticationFilter
         // The error string is used by clients for exception messages and
         // is presented to the end user, thus it should be a single line.
         String error = Joiner.on(" | ").join(messages);
+        sendErrorMessage(response, SC_UNAUTHORIZED, error);
+    }
 
+    private static void sendErrorMessage(HttpServletResponse response, int errorCode, String errorMessage)
+            throws IOException
+    {
         // Clients should use the response body rather than the HTTP status
         // message (which does not exist with HTTP/2), but the status message
         // still needs to be sent for compatibility with existing clients.
-        response.setStatus(SC_UNAUTHORIZED, error);
+        response.setStatus(errorCode, errorMessage);
         response.setContentType(PLAIN_TEXT_UTF_8.toString());
         try (PrintWriter writer = response.getWriter()) {
-            writer.write(error);
+            writer.write(errorMessage);
         }
+    }
+
+    private static void handleInsecureRequest(FilterChain nextFilter, HttpServletRequest request, HttpServletResponse response)
+            throws IOException, ServletException
+    {
+        Optional<BasicAuthCredentials> basicAuthCredentials;
+        try {
+            basicAuthCredentials = extractBasicAuthCredentials(request);
+        }
+        catch (AuthenticationException e) {
+            sendErrorMessage(response, SC_FORBIDDEN, e.getMessage());
+            return;
+        }
+        if (basicAuthCredentials.isPresent()) {
+            if (basicAuthCredentials.get().getPassword().isPresent()) {
+                sendErrorMessage(response, SC_FORBIDDEN, "Password not allowed for insecure request");
+                return;
+            }
+            request.setAttribute(PRESTO_USER, basicAuthCredentials.get().getUser());
+        }
+        nextFilter.doFilter(request, response);
     }
 
     private boolean doesRequestSupportAuthentication(HttpServletRequest request)
