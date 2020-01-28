@@ -61,6 +61,7 @@ import io.prestosql.sql.planner.iterative.rule.MultipleDistinctAggregationToMark
 import io.prestosql.sql.planner.iterative.rule.PruneAggregationColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneAggregationSourceColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneApplyColumns;
+import io.prestosql.sql.planner.iterative.rule.PruneApplySourceColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneCountAggregationOverScalar;
 import io.prestosql.sql.planner.iterative.rule.PruneCrossJoinColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneFilterColumns;
@@ -233,6 +234,7 @@ public class PlanOptimizers
                 new PruneAggregationColumns(),
                 new PruneAggregationSourceColumns(),
                 new PruneApplyColumns(),
+                new PruneApplySourceColumns(),
                 new PruneCrossJoinColumns(),
                 new PruneFilterColumns(),
                 new PruneIndexSourceColumns(),
