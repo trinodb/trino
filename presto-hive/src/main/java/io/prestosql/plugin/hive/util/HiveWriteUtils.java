@@ -21,6 +21,7 @@ import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.HiveReadOnlyException;
 import io.prestosql.plugin.hive.HiveType;
+import io.prestosql.plugin.hive.avro.AvroOutputFormatRecordWriter;
 import io.prestosql.plugin.hive.metastore.Database;
 import io.prestosql.plugin.hive.metastore.Partition;
 import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
@@ -66,6 +67,7 @@ import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat;
 import org.apache.hadoop.hive.ql.io.HiveOutputFormat;
 import org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat;
+import org.apache.hadoop.hive.ql.io.avro.AvroContainerOutputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.Serializer;
@@ -189,6 +191,9 @@ public final class HiveWriteUtils
             }
             if (outputFormatName.equals(HiveSequenceFileOutputFormat.class.getName())) {
                 return new SequenceFileFormatRecordWriter(target, conf, Text.class, compress);
+            }
+            if (outputFormatName.equals(AvroContainerOutputFormat.class.getName())) {
+                return new AvroOutputFormatRecordWriter(target, conf, compress, properties);
             }
             Object writer = Class.forName(outputFormatName).getConstructor().newInstance();
             return ((HiveOutputFormat<?, ?>) writer).getHiveRecordWriter(conf, target, Text.class, compress, properties, Reporter.NULL);
