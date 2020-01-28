@@ -14,7 +14,7 @@
 package io.prestosql.plugin.hive.util;
 
 import com.google.common.base.Splitter;
-import io.prestosql.plugin.hive.RecordFileWriter.ExtendedRecordWriter;
+import io.prestosql.plugin.hive.recordwriters.ExtendedRecordWriter;
 import io.prestosql.spi.connector.ConnectorSession;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;

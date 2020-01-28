@@ -16,6 +16,7 @@ package io.prestosql.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.prestosql.plugin.hive.metastore.StorageFormat;
+import io.prestosql.plugin.hive.recordwriters.ExtendedRecordWriter;
 import io.prestosql.plugin.hive.util.HiveWriteUtils.FieldSetter;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
@@ -215,11 +216,5 @@ public class RecordFileWriter
         return toStringHelper(this)
                 .add("path", path)
                 .toString();
-    }
-
-    public interface ExtendedRecordWriter
-            extends RecordWriter
-    {
-        long getWrittenBytes();
     }
 }
