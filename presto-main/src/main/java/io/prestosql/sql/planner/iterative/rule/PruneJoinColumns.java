@@ -13,7 +13,6 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
@@ -37,7 +36,7 @@ public class PruneJoinColumns
     }
 
     @Override
-    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, JoinNode joinNode, Set<Symbol> referencedOutputs)
+    protected Optional<PlanNode> pushDownProjectOff(Context context, JoinNode joinNode, Set<Symbol> referencedOutputs)
     {
         return Optional.of(
                 new JoinNode(
