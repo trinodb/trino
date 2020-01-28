@@ -16,9 +16,11 @@ package io.prestosql.server.security;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Resources;
 import io.prestosql.server.security.UserExtraction.Rule;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.net.URISyntaxException;
 import java.util.Optional;
 
 import static io.prestosql.server.security.UserExtraction.createUserExtraction;
@@ -27,7 +29,14 @@ import static org.testng.Assert.assertThrows;
 
 public class TestUserExtraction
 {
-    private static final File TEST_FILE = new File(Resources.getResource("user-extraction.json").getPath());
+    private File testFile;
+
+    @BeforeClass
+    public void setUp()
+            throws URISyntaxException
+    {
+        testFile = new File(Resources.getResource("user-extraction.json").toURI());
+    }
 
     @Test
     public void testStaticFactory()
@@ -39,12 +48,12 @@ public class TestUserExtraction
         UserExtraction singlePatternUserExtraction = createUserExtraction(Optional.of("(.*?)@.*"), Optional.empty());
         assertEquals(singlePatternUserExtraction.extractUser("test@example.com"), "test");
 
-        UserExtraction fileUserExtraction = createUserExtraction(Optional.empty(), Optional.of(TEST_FILE));
+        UserExtraction fileUserExtraction = createUserExtraction(Optional.empty(), Optional.of(testFile));
         assertEquals(fileUserExtraction.extractUser("test@example.com"), "test_file");
         assertEquals(fileUserExtraction.extractUser("user"), "user");
         assertThrows(UserExtractionException.class, () -> fileUserExtraction.extractUser("test"));
 
-        assertThrows(IllegalArgumentException.class, () -> createUserExtraction(Optional.of("(.*?)@.*"), Optional.of(TEST_FILE)));
+        assertThrows(IllegalArgumentException.class, () -> createUserExtraction(Optional.of("(.*?)@.*"), Optional.of(testFile)));
     }
 
     @Test
