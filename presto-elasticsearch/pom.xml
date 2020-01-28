@@ -14,8 +14,8 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.log4j.version>2.9.1</dep.log4j.version>
-        <dep.elasticsearch.version>6.0.0</dep.elasticsearch.version>
+        <dep.log4j.version>2.11.1</dep.log4j.version>
+        <dep.elasticsearch.version>6.8.6</dep.elasticsearch.version>
     </properties>
 
     <dependencies>
@@ -89,7 +89,7 @@
             <artifactId>aws-java-sdk-core</artifactId>
             <exclusions>
                 <exclusion>
-                    <!-- org.elasticsearch:elasticsearch brings in version 2.8.6 (vs 2.6.7) -->
+                    <!-- org.elasticsearch:elasticsearch brings in version 2.8.11 (vs 2.6.7) -->
                     <groupId>com.fasterxml.jackson.dataformat</groupId>
                     <artifactId>jackson-dataformat-cbor</artifactId>
                 </exclusion>
@@ -111,6 +111,18 @@
                     <artifactId>jna</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.elasticsearch</groupId>
+            <artifactId>elasticsearch-core</artifactId>
+            <version>${dep.elasticsearch.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.elasticsearch</groupId>
+            <artifactId>elasticsearch-x-content</artifactId>
+            <version>${dep.elasticsearch.version}</version>
         </dependency>
 
         <dependency>
