@@ -26,6 +26,7 @@ import io.prestosql.plugin.hive.metastore.Partition;
 import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.prestosql.plugin.hive.metastore.Storage;
 import io.prestosql.plugin.hive.metastore.Table;
+import io.prestosql.plugin.hive.recordwriters.TextOutputFormatRecordWriter;
 import io.prestosql.plugin.hive.s3.PrestoS3FileSystem;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
@@ -61,6 +62,7 @@ import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.ProtectMode;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
+import org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat;
 import org.apache.hadoop.hive.ql.io.HiveOutputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat;
 import org.apache.hadoop.hive.serde2.SerDeException;
@@ -179,6 +181,9 @@ public final class HiveWriteUtils
             boolean compress = HiveConf.getBoolVar(conf, COMPRESSRESULT);
             if (outputFormatName.equals(MapredParquetOutputFormat.class.getName())) {
                 return createParquetWriter(target, conf, properties, session);
+            }
+            if (outputFormatName.equals(HiveIgnoreKeyTextOutputFormat.class.getName())) {
+                return new TextOutputFormatRecordWriter(target, conf, properties, compress);
             }
             Object writer = Class.forName(outputFormatName).getConstructor().newInstance();
             return ((HiveOutputFormat<?, ?>) writer).getHiveRecordWriter(conf, target, Text.class, compress, properties, Reporter.NULL);
