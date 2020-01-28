@@ -16,6 +16,7 @@ package io.prestosql.plugin.geospatial;
 import com.esri.core.geometry.Envelope;
 import com.esri.core.geometry.GeometryCursor;
 import com.esri.core.geometry.GeometryEngine;
+import com.esri.core.geometry.GeometryException;
 import com.esri.core.geometry.ListeningGeometryCursor;
 import com.esri.core.geometry.MultiPath;
 import com.esri.core.geometry.MultiPoint;
@@ -1509,6 +1510,15 @@ public final class GeoFunctions
         catch (IllegalArgumentException e) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid WKT: " + input.toStringUtf8(), e);
         }
+
+        try {
+            // Test whether geometry is valid (can be serialized)
+            geometry.asBinary();
+        }
+        catch (GeometryException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid geometry: " + input.toStringUtf8(), e);
+        }
+
         geometry.setSpatialReference(null);
         return geometry;
     }

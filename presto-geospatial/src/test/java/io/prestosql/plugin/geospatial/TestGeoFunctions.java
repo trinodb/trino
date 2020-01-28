@@ -238,7 +238,7 @@ public class TestGeoFunctions
         assertConvexHull("LINESTRING (20 20, 30 30)", "LINESTRING (20 20, 30 30)");
         assertConvexHull("MULTILINESTRING ((0 0, 3 3), (1 1, 2 2), (2 2, 4 4), (5 5, 8 8))", "LINESTRING (0 0, 8 8)");
         assertConvexHull("MULTIPOINT (0 1, 1 2, 2 3, 3 4, 4 5, 5 6)", "LINESTRING (0 1, 5 6)");
-        assertConvexHull("GEOMETRYCOLLECTION (POINT (0 0), LINESTRING (1 1, 4 4, 2 2), POINT (10 10), POLYGON ((5 5, 7 7)), POINT (2 2), LINESTRING (6 6, 9 9), POLYGON ((1 1)))", "LINESTRING (0 0, 10 10)");
+        assertConvexHull("GEOMETRYCOLLECTION (POINT (0 0), LINESTRING (1 1, 4 4, 2 2), POINT (10 10), LINESTRING (5 5, 7 7), POINT (2 2), LINESTRING (6 6, 9 9), POINT (1 1))", "LINESTRING (0 0, 10 10)");
         assertConvexHull("GEOMETRYCOLLECTION (GEOMETRYCOLLECTION (POINT (2 2), POINT (1 1)), POINT (3 3))", "LINESTRING (3 3, 1 1)");
 
         // not all points are on the same line
@@ -364,10 +364,10 @@ public class TestGeoFunctions
         assertInvalidGeometry("MULTIPOINT ((0 0), (0 1), (1 1), (0 1))", "Repeated points at or near (0.0 1.0) and (0.0 1.0)");
         assertInvalidGeometry("LINESTRING (0 0, 0 1, 0 1, 1 1, 1 0, 0 0)", "Degenerate segments at or near (0.0 1.0)");
         assertInvalidGeometry("LINESTRING (0 0, -1 0.5, 0 1, 1 1, 1 0, 0 1, 0 0)", "Self-tangency at or near (0.0 1.0) and (0.0 1.0)");
-        assertInvalidGeometry("POLYGON ((0 0, 1 1, 0 1, 1 0, 0 0))", "Intersecting or overlapping segments at or near (1.0 0.0) and (1.0 1.0)");
+        assertInvalidGeometry("LINESTRING (0 0, 1 1, 0 1, 1 0, 0 0)", "Intersecting or overlapping segments at or near (0.0 0.0) and (0.0 1.0)");
         assertInvalidGeometry("POLYGON ((0 0, 0 1, 0 1, 1 1, 1 0, 0 0), (2 2, 2 3, 3 3, 3 2, 2 2))", "Degenerate segments at or near (0.0 1.0)");
         assertInvalidGeometry("POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0), (2 2, 2 3, 3 3, 3 2, 2 2))", "RingOrientation");
-        assertInvalidGeometry("POLYGON ((0 0, 0 1, 2 1, 1 1, 1 0, 0 0))", "Intersecting or overlapping segments at or near (0.0 1.0) and (2.0 1.0)");
+        assertInvalidGeometry("LINESTRING (0 0, 0 1, 2 1, 1 1, 1 0, 0 0))", "Intersecting or overlapping segments at or near (0.0 1.0) and (2.0 1.0)");
         assertInvalidGeometry("POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0), (0 1, 1 1, 0.5 0.5, 0 1))", "Self-intersection at or near (0.0 1.0) and (1.0 1.0)");
         assertInvalidGeometry("POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0), (0 0, 0.5 0.7, 1 1, 0.5 0.4, 0 0))", "Disconnected interior at or near (0.0 1.0)");
         assertInvalidGeometry("POLYGON ((0 0, -1 0.5, 0 1, 1 1, 1 0, 0 1, 0 0))", "Self-tangency at or near (0.0 1.0) and (0.0 1.0)");
@@ -495,7 +495,7 @@ public class TestGeoFunctions
 
         assertInvalidFunction("line_interpolate_point(ST_GeometryFromText('LINESTRING (0 0, 1 0, 1 9)'), -0.5)", INVALID_FUNCTION_ARGUMENT, "fraction must be between 0 and 1");
         assertInvalidFunction("line_interpolate_point(ST_GeometryFromText('LINESTRING (0 0, 1 0, 1 9)'), 2.0)", INVALID_FUNCTION_ARGUMENT, "fraction must be between 0 and 1");
-        assertInvalidFunction("line_interpolate_point(ST_GeometryFromText('POLYGON ((0 0, 1 1, 0 1, 1 0, 0 0))'), 0.2)", INVALID_FUNCTION_ARGUMENT, "line_interpolate_point only applies to LINE_STRING. Input type is: POLYGON");
+        assertInvalidFunction("line_interpolate_point(ST_GeometryFromText('POLYGON ((1 1, 1 3, 3 3, 3 1))'), 0.2)", INVALID_FUNCTION_ARGUMENT, "line_interpolate_point only applies to LINE_STRING. Input type is: POLYGON");
     }
 
     @Test
@@ -511,7 +511,7 @@ public class TestGeoFunctions
 
         assertInvalidFunction("line_interpolate_points(ST_GeometryFromText('LINESTRING (0 0, 1 0, 1 9)'), -0.5)", INVALID_FUNCTION_ARGUMENT, "fraction must be between 0 and 1");
         assertInvalidFunction("line_interpolate_points(ST_GeometryFromText('LINESTRING (0 0, 1 0, 1 9)'), 2.0)", INVALID_FUNCTION_ARGUMENT, "fraction must be between 0 and 1");
-        assertInvalidFunction("line_interpolate_points(ST_GeometryFromText('POLYGON ((0 0, 1 1, 0 1, 1 0, 0 0))'), 0.2)", INVALID_FUNCTION_ARGUMENT, "line_interpolate_point only applies to LINE_STRING. Input type is: POLYGON");
+        assertInvalidFunction("line_interpolate_points(ST_GeometryFromText('POLYGON ((1 1, 1 3, 3 3, 3 1))'), 0.2)", INVALID_FUNCTION_ARGUMENT, "line_interpolate_point only applies to LINE_STRING. Input type is: POLYGON");
     }
 
     private void assertLineInterpolatePoint(String wkt, double fraction, String expectedPoint)
@@ -757,7 +757,7 @@ public class TestGeoFunctions
         assertFunction("ST_Distance(ST_GeometryFromText('LINESTRING (50 100, 50 200)'), ST_GeometryFromText('LINESTRING (10 10, 20 20)'))", DOUBLE, 85.44003745317531);
         assertFunction("ST_Distance(ST_GeometryFromText('MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))'), ST_GeometryFromText('LINESTRING (10 20, 20 50)'))", DOUBLE, 17.08800749063506);
         assertFunction("ST_Distance(ST_GeometryFromText('POLYGON ((1 1, 1 3, 3 3, 3 1))'), ST_GeometryFromText('POLYGON ((4 4, 4 5, 5 5, 5 4))'))", DOUBLE, 1.4142135623730951);
-        assertFunction("ST_Distance(ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((0 0, 0 2, 2 2, 2 0)))'), ST_GeometryFromText('POLYGON ((10 100, 30 10))'))", DOUBLE, 27.892651361962706);
+        assertFunction("ST_Distance(ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((0 0, 0 2, 2 2, 2 0)))'), ST_GeometryFromText('MULTIPOINT (30 10, 10 100)'))", DOUBLE, 27.892651361962706);
 
         assertFunction("ST_Distance(ST_GeometryFromText('POINT EMPTY'), ST_Point(150, 150))", DOUBLE, null);
         assertFunction("ST_Distance(ST_Point(50, 100), ST_GeometryFromText('POINT EMPTY'))", DOUBLE, null);
@@ -766,7 +766,7 @@ public class TestGeoFunctions
         assertFunction("ST_Distance(ST_GeometryFromText('LINESTRING (50 100, 50 200)'), ST_GeometryFromText('LINESTRING EMPTY'))", DOUBLE, null);
         assertFunction("ST_Distance(ST_GeometryFromText('MULTILINESTRING EMPTY'), ST_GeometryFromText('LINESTRING (10 20, 20 50)'))", DOUBLE, null);
         assertFunction("ST_Distance(ST_GeometryFromText('POLYGON ((1 1, 1 3, 3 3, 3 1))'), ST_GeometryFromText('POLYGON EMPTY'))", DOUBLE, null);
-        assertFunction("ST_Distance(ST_GeometryFromText('MULTIPOLYGON EMPTY'), ST_GeometryFromText('POLYGON ((10 100, 30 10))'))", DOUBLE, null);
+        assertFunction("ST_Distance(ST_GeometryFromText('MULTIPOLYGON EMPTY'), ST_GeometryFromText('MULTIPOINT (10 100, 30 10)'))", DOUBLE, null);
     }
 
     @Test

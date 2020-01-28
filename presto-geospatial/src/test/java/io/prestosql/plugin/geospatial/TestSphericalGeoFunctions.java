@@ -152,17 +152,11 @@ public class TestSphericalGeoFunctions
         // Empty polygon
         assertFunction("ST_Area(to_spherical_geography(ST_GeometryFromText('POLYGON EMPTY')))", DOUBLE, null);
 
-        // Invalid polygon (too few vertices)
-        assertInvalidFunction("ST_Area(to_spherical_geography(ST_GeometryFromText('POLYGON((90 0, 0 0))')))", "Polygon is not valid: a loop contains less then 3 vertices.");
-
         // Invalid data type (point)
         assertInvalidFunction("ST_Area(to_spherical_geography(ST_GeometryFromText('POINT (0 1)')))", "When applied to SphericalGeography inputs, ST_Area only supports POLYGON or MULTI_POLYGON. Input type is: POINT");
 
         //Invalid Polygon (duplicated point)
         assertInvalidFunction("ST_Area(to_spherical_geography(ST_GeometryFromText('POLYGON((0 0, 0 1, 1 1, 1 1, 1 0, 0 0))')))", "Polygon is not valid: it has two identical consecutive vertices");
-
-        // A polygon around the North Pole
-        assertArea("POLYGON((-135 85, -45 85, 45 85, 135 85, -135 85))", 619.00E9);
 
         assertArea("POLYGON((0 0, 0 1, 1 1, 1 0))", 123.64E8);
 
