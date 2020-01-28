@@ -123,9 +123,12 @@ public class SqlQueryExecution
     private final NodeTaskMap nodeTaskMap;
     private final ExecutionPolicy executionPolicy;
     private final SplitSchedulerStats schedulerStats;
-    private final Analysis analysis;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
+    private final PreparedQuery preparedQuery;
+    private final AccessControl accessControl;
+    private final QueryExplainer queryExplainer;
+    private final WarningCollector warningCollector;
 
     private SqlQueryExecution(
             PreparedQuery preparedQuery,
@@ -171,14 +174,15 @@ public class SqlQueryExecution
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
             this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
+            this.preparedQuery = requireNonNull(preparedQuery, "preparedQuery is null");
+            this.accessControl = requireNonNull(accessControl, "accessControl is null");
+            this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
+            this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
 
             checkArgument(scheduleSplitBatchSize > 0, "scheduleSplitBatchSize must be greater than 0");
             this.scheduleSplitBatchSize = scheduleSplitBatchSize;
 
             this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
-
-            // analyze query
-            this.analysis = analyze(preparedQuery, stateMachine, metadata, accessControl, sqlParser, queryExplainer, warningCollector);
 
             // when the query finishes cache the final query info, and clear the reference to the output stage
             AtomicReference<SqlQueryScheduler> queryScheduler = this.queryScheduler;
@@ -394,6 +398,8 @@ public class SqlQueryExecution
         // plan query
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
         LogicalPlanner logicalPlanner = new LogicalPlanner(stateMachine.getSession(), planOptimizers, idAllocator, metadata, new TypeAnalyzer(sqlParser, metadata), statsCalculator, costCalculator, stateMachine.getWarningCollector());
+        // analyze query
+        Analysis analysis = analyze(preparedQuery, stateMachine, metadata, accessControl, sqlParser, queryExplainer, warningCollector);
         Plan plan = logicalPlanner.plan(analysis);
         queryPlan.set(plan);
 
