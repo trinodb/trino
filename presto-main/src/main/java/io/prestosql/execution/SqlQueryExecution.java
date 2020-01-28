@@ -73,7 +73,6 @@ import org.joda.time.DateTime;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -612,16 +611,14 @@ public class SqlQueryExecution
     @Override
     public boolean shouldWaitForMinWorkers()
     {
-        return shouldWaitForMinWorkers(analysis.getStatement());
+        return shouldWaitForMinWorkers(preparedQuery.getStatement());
     }
 
     private boolean shouldWaitForMinWorkers(Statement statement)
     {
         if (statement instanceof Query) {
             // Allow set session statements and queries on internal system connectors to run without waiting
-            Collection<TableHandle> tables = analysis.getTables();
-            return !tables.stream()
-                    .map(TableHandle::getCatalogName)
+            return !planQuery().getTableHandles().keys().stream()
                     .allMatch(CatalogName::isInternalSystemConnector);
         }
         return true;
