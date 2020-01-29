@@ -19,6 +19,7 @@ import io.prestosql.tests.product.launcher.env.Environment;
 import io.prestosql.tests.product.launcher.env.common.AbstractEnvironmentProvider;
 import io.prestosql.tests.product.launcher.env.common.Hadoop;
 import io.prestosql.tests.product.launcher.env.common.Standard;
+import io.prestosql.tests.product.launcher.env.common.TestsEnvironment;
 
 import javax.inject.Inject;
 
@@ -26,6 +27,7 @@ import static io.prestosql.tests.product.launcher.env.common.Hadoop.CONTAINER_PR
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
 
+@TestsEnvironment
 public final class SinglenodeHdfsImpersonation
         extends AbstractEnvironmentProvider
 {

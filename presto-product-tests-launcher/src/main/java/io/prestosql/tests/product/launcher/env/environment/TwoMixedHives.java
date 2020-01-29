@@ -22,6 +22,7 @@ import io.prestosql.tests.product.launcher.env.common.AbstractEnvironmentProvide
 import io.prestosql.tests.product.launcher.env.common.Hadoop;
 import io.prestosql.tests.product.launcher.env.common.Kerberos;
 import io.prestosql.tests.product.launcher.env.common.Standard;
+import io.prestosql.tests.product.launcher.env.common.TestsEnvironment;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 
 import javax.inject.Inject;
@@ -37,6 +38,7 @@ import static org.testcontainers.containers.BindMode.READ_ONLY;
  * each within single container (one kerberized and one not), with single-node,
  * kerberized Presto.
  */
+@TestsEnvironment
 public final class TwoMixedHives
         extends AbstractEnvironmentProvider
 {
