@@ -122,6 +122,11 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanSetSchemaAuthorization(SystemSecurityContext context, CatalogSchemaName schema, PrestoPrincipal principal)
+    {
+    }
+
+    @Override
     public void checkCanShowSchemas(SystemSecurityContext context, String catalogName)
     {
     }

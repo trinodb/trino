@@ -256,6 +256,14 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Sets the user/role on the specified schema.
+     */
+    default void setSchemaAuthorization(ConnectorSession session, String source, PrestoPrincipal principal)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support setting an owner on a schema");
+    }
+
+    /**
      * Creates a table using the specified table metadata.
      *
      * @throws PrestoException with {@code ALREADY_EXISTS} if the table already exists and {@param ignoreExisting} is not set

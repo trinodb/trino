@@ -114,6 +114,12 @@ class UnimplementedHiveMetastore
     }
 
     @Override
+    public void setDatabaseOwner(HiveIdentity identity, String databaseName, HivePrincipal principal)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void createTable(HiveIdentity identity, Table table, PrincipalPrivileges principalPrivileges)
     {
         throw new UnsupportedOperationException();

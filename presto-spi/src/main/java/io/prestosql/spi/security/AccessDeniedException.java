@@ -121,6 +121,11 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot rename schema from %s to %s%s", schemaName, newSchemaName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denySetSchemaAuthorization(String schemaName, PrestoPrincipal principal)
+    {
+        throw new AccessDeniedException(format("Cannot set authorization for schema %s to %s", schemaName, principal));
+    }
+
     public static void denyShowSchemas()
     {
         denyShowSchemas(null);

@@ -60,6 +60,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyRenameView;
 import static io.prestosql.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denySelectTable;
 import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static io.prestosql.spi.security.AccessDeniedException.denySetSchemaAuthorization;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
 
@@ -103,6 +104,14 @@ public class FileBasedAccessControl
     {
         if (!isSchemaOwner(context, schemaName) || !isSchemaOwner(context, newSchemaName)) {
             denyRenameSchema(schemaName, newSchemaName);
+        }
+    }
+
+    @Override
+    public void checkCanSetSchemaAuthorization(ConnectorSecurityContext context, String schemaName, PrestoPrincipal principal)
+    {
+        if (!isSchemaOwner(context, schemaName)) {
+            denySetSchemaAuthorization(schemaName, principal);
         }
     }
 

@@ -204,6 +204,10 @@ public class TestStatementBuilder
         printStatement("alter schema foo rename to bar");
         printStatement("alter schema foo.bar rename to baz");
 
+        printStatement("alter schema foo set authorization alice");
+        printStatement("alter schema foo.bar set authorization USER alice");
+        printStatement("alter schema foo.bar set authorization ROLE public");
+
         printStatement("create table test (a boolean, b bigint, c double, d varchar, e timestamp)");
         printStatement("create table test (a boolean, b bigint comment 'test')");
         printStatement("create table if not exists baz (a timestamp, b varchar)");
