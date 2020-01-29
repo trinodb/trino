@@ -226,7 +226,7 @@ public class PrestoS3FileSystem
         this.isPathStyleAccess = conf.getBoolean(S3_PATH_STYLE_ACCESS, defaults.isS3PathStyleAccess());
         this.useInstanceCredentials = conf.getBoolean(S3_USE_INSTANCE_CREDENTIALS, defaults.isS3UseInstanceCredentials());
         this.iamRole = conf.get(S3_IAM_ROLE, defaults.getS3IamRole());
-        verify(!(useInstanceCredentials && this.iamRole != null),
+        verify(!(useInstanceCredentials && !this.iamRole.isEmpty()),
                 "Invalid configuration: either use instance credentials or specify an iam role");
         this.pinS3ClientToCurrentRegion = conf.getBoolean(S3_PIN_CLIENT_TO_CURRENT_REGION, defaults.isPinS3ClientToCurrentRegion());
         verify(!pinS3ClientToCurrentRegion || conf.get(S3_ENDPOINT) == null,
@@ -798,7 +798,7 @@ public class PrestoS3FileSystem
             return InstanceProfileCredentialsProvider.getInstance();
         }
 
-        if (iamRole != null) {
+        if (!iamRole.isEmpty()) {
             return new STSAssumeRoleSessionCredentialsProvider.Builder(this.iamRole, "presto-session").build();
         }
 

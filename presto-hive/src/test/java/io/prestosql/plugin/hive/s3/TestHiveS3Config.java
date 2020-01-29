@@ -41,7 +41,7 @@ public class TestHiveS3Config
                 .setS3SignerClass(null)
                 .setS3PathStyleAccess(false)
                 .setS3UseInstanceCredentials(true)
-                .setS3IamRole(null)
+                .setS3IamRole("")
                 .setS3SslEnabled(true)
                 .setS3SseEnabled(false)
                 .setS3SseType(PrestoS3SseType.S3)
