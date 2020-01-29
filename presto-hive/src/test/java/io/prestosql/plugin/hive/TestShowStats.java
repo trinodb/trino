@@ -134,6 +134,49 @@ public class TestShowStats
                         "   ('name', 0.0, 0.0, 0.0, null, null, null), " +
                         "   ('comment', 0.0, 0.0, 0.0, null, null, null), " +
                         "   (null, null, null, null, 0.0, null, null))");
+
+        assertQuery("SHOW STATS FOR (SELECT *, * FROM nation_partitioned WHERE regionkey > 10 or regionkey < 0)",
+                "SELECT * FROM (VALUES " +
+                        "   ('regionkey', null, 0.0, 0.0, null, null, null), " +
+                        "   ('nationkey', null, 0.0, 0.0, null, null, null), " +
+                        "   ('name', 0.0, 0.0, 0.0, null, null, null), " +
+                        "   ('comment', 0.0, 0.0, 0.0, null, null, null), " +
+                        "   (null, null, null, null, 0.0, null, null))");
+
+        assertQuery("SHOW STATS FOR (SELECT *, *, regionkey FROM nation_partitioned WHERE regionkey > 10 or regionkey < 0)",
+                "SELECT * FROM (VALUES " +
+                        "   ('regionkey', null, 0.0, 0.0, null, null, null), " +
+                        "   ('nationkey', null, 0.0, 0.0, null, null, null), " +
+                        "   ('name', 0.0, 0.0, 0.0, null, null, null), " +
+                        "   ('comment', 0.0, 0.0, 0.0, null, null, null), " +
+                        "   (null, null, null, null, 0.0, null, null))");
+
+        assertQuery("SHOW STATS FOR (SELECT *, regionkey FROM nation_partitioned)",
+                "SELECT * FROM (VALUES " +
+                        "   ('regionkey', null, 5.0, 0.0, null, 0, 4), " +
+                        "   ('nationkey', null, 5.0, 0.0, null, 0, 24), " +
+                        "   ('name', 177.0, 5.0, 0.0, null, null, null), " +
+                        "   ('comment', 1857.0, 5.0, 0.0, null, null, null), " +
+                        "   (null, null, null, null, 25.0, null, null))");
+
+        assertQuery("SHOW STATS FOR (SELECT *, * FROM nation_partitioned)",
+                "SELECT * FROM (VALUES " +
+                        "   ('regionkey', null, 5.0, 0.0, null, 0, 4), " +
+                        "   ('nationkey', null, 5.0, 0.0, null, 0, 24), " +
+                        "   ('name', 177.0, 5.0, 0.0, null, null, null), " +
+                        "   ('comment', 1857.0, 5.0, 0.0, null, null, null), " +
+                        "   (null, null, null, null, 25.0, null, null))");
+
+        assertQuery("SHOW STATS FOR (SELECT regionkey FROM nation_partitioned WHERE regionkey BETWEEN 1 AND 1 + 2)",
+                "SELECT * FROM (VALUES " +
+                        "   ('regionkey', null, 3.0, 0.0, null, 1, 3), " +
+                        "   (null, null, null, null, 15.0, null, null))");
+
+        assertQuery("SHOW STATS FOR (SELECT regionkey, nationkey FROM nation_partitioned WHERE regionkey BETWEEN 1 AND 1 + 2)",
+                "SELECT * FROM (VALUES " +
+                        "   ('regionkey', null, 3.0, 0.0, null, 1, 3), " +
+                        "   ('nationkey', null, 5.0, 0.0, null, 1, 24), " +
+                        "   (null, null, null, null, 15.0, null, null))");
     }
 
     @Test
@@ -149,6 +192,36 @@ public class TestShowStats
     }
 
     @Test
+    public void testShowStatsForNonExistingColumnFails()
+    {
+        assertQueryFails("SHOW STATS FOR (SELECT column_does_not_exist FROM nation_partitioned)", ".*Column 'column_does_not_exist' cannot be resolved");
+    }
+
+    @Test
+    public void testShowStatsForNonColumnQueryFails()
+    {
+        assertQueryFails("SHOW STATS FOR (SELECT 1 FROM nation_partitioned)", ".*Only table columns names are supported in SHOW STATS SELECT clause");
+    }
+
+    @Test
+    public void testShowStatsForAliasedColumnQueryFails()
+    {
+        assertQueryFails("SHOW STATS FOR (SELECT nationkey, name, name AS name2 FROM nation_partitioned WHERE regionkey > 0 and regionkey < 4)", ".*Column aliasing is not supported in SHOW STATS SELECT clause");
+    }
+
+    @Test
+    public void testShowStatsForNonIdentifierColumnFails()
+    {
+        assertQueryFails("SHOW STATS FOR (SELECT CONCAT('some', 'value') FROM nation_partitioned)", ".*Only table columns names are supported in SHOW STATS SELECT clause");
+    }
+
+    @Test
+    public void testShowStatsForColumnExpressionFails()
+    {
+        assertQueryFails("SHOW STATS FOR (SELECT nationkey + 1 FROM nation_partitioned)", ".*Only table columns names are supported in SHOW STATS SELECT clause");
+    }
+
+    @Test
     public void testShowStatsWithGroupByFails()
     {
         assertQueryFails("SHOW STATS FOR (SELECT avg(totalprice) FROM orders GROUP BY orderkey)", ".*GROUP BY is not supported in SHOW STATS SELECT clause");
@@ -161,14 +234,6 @@ public class TestShowStats
     }
 
     @Test
-    public void testShowStatsSelectNonStarFails()
-    {
-        assertQueryFails("SHOW STATS FOR (SELECT orderkey FROM orders)", ".*Only SELECT \\* is supported in SHOW STATS SELECT clause");
-        assertQueryFails("SHOW STATS FOR (SELECT orderkey, custkey FROM orders)", ".*Only SELECT \\* is supported in SHOW STATS SELECT clause");
-        assertQueryFails("SHOW STATS FOR (SELECT *, * FROM orders)", ".*Only SELECT \\* is supported in SHOW STATS SELECT clause");
-    }
-
-    @Test
     public void testShowStatsWithSelectDistinctFails()
     {
         assertQueryFails("SHOW STATS FOR (SELECT DISTINCT * FROM orders)", ".*DISTINCT is not supported by SHOW STATS SELECT clause");
@@ -177,8 +242,8 @@ public class TestShowStats
     @Test
     public void testShowStatsWithSelectFunctionCallFails()
     {
-        assertQueryFails("SHOW STATS FOR (SELECT sin(orderkey) FROM orders)", ".*Only SELECT \\* is supported in SHOW STATS SELECT clause");
-        assertQueryFails("SHOW STATS FOR (SELECT count(*) FROM orders)", ".*Only SELECT \\* is supported in SHOW STATS SELECT clause");
+        assertQueryFails("SHOW STATS FOR (SELECT sin(orderkey) FROM orders)", ".*Only table columns names are supported in SHOW STATS SELECT clause");
+        assertQueryFails("SHOW STATS FOR (SELECT count(*) FROM orders)", ".*Only table columns names are supported in SHOW STATS SELECT clause");
     }
 
     @Test

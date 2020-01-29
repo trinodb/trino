@@ -14,6 +14,7 @@
 package io.prestosql.sql.rewrite;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
@@ -46,6 +47,7 @@ import io.prestosql.sql.tree.AstVisitor;
 import io.prestosql.sql.tree.Cast;
 import io.prestosql.sql.tree.DoubleLiteral;
 import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.Identifier;
 import io.prestosql.sql.tree.Node;
 import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.NullLiteral;
@@ -56,6 +58,7 @@ import io.prestosql.sql.tree.QuerySpecification;
 import io.prestosql.sql.tree.Row;
 import io.prestosql.sql.tree.SelectItem;
 import io.prestosql.sql.tree.ShowStats;
+import io.prestosql.sql.tree.SingleColumn;
 import io.prestosql.sql.tree.Statement;
 import io.prestosql.sql.tree.StringLiteral;
 import io.prestosql.sql.tree.Table;
@@ -66,6 +69,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -127,11 +131,11 @@ public class ShowStatsRewrite
                 validateShowStatsSubquery(node, query, specification, plan);
                 Table table = (Table) specification.getFrom().get();
                 Constraint constraint = getConstraint(plan);
-                return rewriteShowStats(node, table, constraint);
+                return rewriteShowStats(node, table, specification.getSelect().getSelectItems(), constraint);
             }
             if (node.getRelation() instanceof Table) {
                 Table table = (Table) node.getRelation();
-                return rewriteShowStats(node, table, Constraint.alwaysTrue());
+                return rewriteShowStats(node, table, ImmutableList.of(new AllColumns()), Constraint.alwaysTrue());
             }
             throw new IllegalArgumentException("Expected either TableSubquery or Table as relation");
         }
@@ -158,28 +162,53 @@ public class ShowStatsRewrite
             check(!querySpecification.getHaving().isPresent(), node, "HAVING is not supported in SHOW STATS SELECT clause");
             check(!querySpecification.getGroupBy().isPresent(), node, "GROUP BY is not supported in SHOW STATS SELECT clause");
             check(!querySpecification.getSelect().isDistinct(), node, "DISTINCT is not supported by SHOW STATS SELECT clause");
-
-            List<SelectItem> selectItems = querySpecification.getSelect().getSelectItems();
-            check(selectItems.size() == 1 && selectItems.get(0) instanceof AllColumns, node, "Only SELECT * is supported in SHOW STATS SELECT clause");
         }
 
-        private Node rewriteShowStats(ShowStats node, Table table, Constraint constraint)
+        private Node rewriteShowStats(ShowStats node, Table table, List<SelectItem> selectItems, Constraint constraint)
         {
             TableHandle tableHandle = getTableHandle(node, table.getName());
             TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, constraint);
             List<String> statsColumnNames = buildColumnsNames();
-            List<SelectItem> selectItems = buildSelectItems(statsColumnNames);
-            TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
+            TableMetadata tableMetadata = metadata.getTableMetadata(session, getTableHandle(node, table.getName()));
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
-            List<Expression> resultRows = buildStatisticsRows(tableMetadata, columnHandles, tableStatistics);
+            Set<String> extractNamedResultColumns = extractStatsColumns(tableMetadata, selectItems);
+            List<Expression> resultRows = buildStatisticsRows(tableMetadata, columnHandles, extractNamedResultColumns, tableStatistics);
 
-            return simpleQuery(selectAll(selectItems),
+            return simpleQuery(selectAll(buildSelectItems(buildColumnsNames())),
                     aliased(new Values(resultRows),
                             "table_stats_for_" + table.getName(),
                             statsColumnNames));
         }
 
-        private static void check(boolean condition, ShowStats node, String message)
+        private Set<String> extractStatsColumns(TableMetadata metadata, List<SelectItem> selectItems)
+        {
+            ImmutableSet.Builder<String> columns = ImmutableSet.builder();
+
+            for (SelectItem item : selectItems) {
+                if (item instanceof AllColumns) {
+                    for (ColumnMetadata column : metadata.getColumns()) {
+                        if (!column.isHidden()) {
+                            columns.add(column.getName());
+                        }
+                    }
+                }
+
+                if (item instanceof SingleColumn) {
+                    SingleColumn column = (SingleColumn) item;
+                    Expression expression = column.getExpression();
+
+                    check(expression instanceof Identifier, expression, "Only table columns names are supported in SHOW STATS SELECT clause");
+                    Identifier identifier = (Identifier) expression;
+                    check(!column.getAlias().isPresent(), column, "Column aliasing is not supported in SHOW STATS SELECT clause");
+
+                    columns.add(identifier.getValue());
+                }
+            }
+
+            return columns.build();
+        }
+
+        private static void check(boolean condition, Node node, String message)
         {
             if (!condition) {
                 throw semanticException(NOT_SUPPORTED, node, message);
@@ -205,7 +234,7 @@ public class ShowStatsRewrite
             return new Constraint(metadata.getTableProperties(session, scanNode.get().getTable()).getPredicate());
         }
 
-        private TableHandle getTableHandle(ShowStats node, QualifiedName table)
+        private TableHandle getTableHandle(Node node, QualifiedName table)
         {
             QualifiedObjectName qualifiedTableName = createQualifiedObjectName(session, node, table);
             return metadata.getTableHandle(session, qualifiedTableName)
@@ -232,7 +261,7 @@ public class ShowStatsRewrite
                     .collect(toImmutableList());
         }
 
-        private List<Expression> buildStatisticsRows(TableMetadata tableMetadata, Map<String, ColumnHandle> columnHandles, TableStatistics tableStatistics)
+        private List<Expression> buildStatisticsRows(TableMetadata tableMetadata, Map<String, ColumnHandle> columnHandles, Set<String> resultColumns, TableStatistics tableStatistics)
         {
             ImmutableList.Builder<Expression> rowsBuilder = ImmutableList.builder();
             for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
@@ -241,6 +270,9 @@ public class ShowStatsRewrite
                 }
                 String columnName = columnMetadata.getName();
                 Type columnType = columnMetadata.getType();
+                if (!resultColumns.contains(columnName)) {
+                    continue;
+                }
                 ColumnHandle columnHandle = columnHandles.get(columnName);
                 ColumnStatistics columnStatistics = tableStatistics.getColumnStatistics().get(columnHandle);
                 if (columnStatistics != null) {
