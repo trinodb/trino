@@ -58,6 +58,7 @@ import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -2282,6 +2283,22 @@ public class TestHiveIntegrationSmokeTest
         // file should still exist after drop
         assertFile(dataFile);
 
+        deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
+    }
+
+    @Test
+    public void testCreateExternalTableWithDataNotAllowed()
+            throws IOException
+    {
+        File tempDir = createTempDir();
+
+        @Language("SQL") String createTableSql = format("" +
+                        "CREATE TABLE test_create_external " +
+                        "WITH (external_location = '%s') AS " +
+                        "SELECT * FROM tpch.tiny.nation",
+                tempDir.toURI().toASCIIString());
+
+        assertQueryFails(createTableSql, "Cannot create a non-managed Hive table using CREATE TABLE AS");
         deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
     }
 
