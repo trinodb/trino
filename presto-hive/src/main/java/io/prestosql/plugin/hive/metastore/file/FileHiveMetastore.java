@@ -212,6 +212,19 @@ public class FileHiveMetastore
     }
 
     @Override
+    public synchronized void setDatabaseOwner(HiveIdentity identity, String databaseName, HivePrincipal principal)
+    {
+        Database database = getRequiredDatabase(databaseName);
+        Path databaseMetadataDirectory = getDatabaseMetadataDirectory(database.getDatabaseName());
+        Database newDatabase = Database.builder(database)
+                .setOwnerName(principal.getName())
+                .setOwnerType(principal.getType())
+                .build();
+
+        writeSchemaFile("database", databaseMetadataDirectory, databaseCodec, new DatabaseMetadata(newDatabase), true);
+    }
+
+    @Override
     public synchronized Optional<Database> getDatabase(String databaseName)
     {
         requireNonNull(databaseName, "databaseName is null");

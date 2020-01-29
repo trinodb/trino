@@ -338,6 +338,11 @@ public class SemiTransactionalHiveMetastore
         setExclusive((delegate, hdfsEnvironment) -> delegate.renameDatabase(identity, source, target));
     }
 
+    public synchronized void setDatabaseOwner(HiveIdentity identity, String source, HivePrincipal principal)
+    {
+        setExclusive((delegate, hdfsEnvironment) -> delegate.setDatabaseOwner(identity, source, principal));
+    }
+
     // TODO: Allow updating statistics for 2 tables in the same transaction
     public synchronized void setTableStatistics(HiveIdentity identity, Table table, PartitionStatistics tableStatistics)
     {

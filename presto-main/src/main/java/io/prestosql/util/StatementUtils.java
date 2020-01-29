@@ -50,6 +50,7 @@ import io.prestosql.sql.tree.RevokeRoles;
 import io.prestosql.sql.tree.Rollback;
 import io.prestosql.sql.tree.SetPath;
 import io.prestosql.sql.tree.SetRole;
+import io.prestosql.sql.tree.SetSchemaAuthorization;
 import io.prestosql.sql.tree.SetSession;
 import io.prestosql.sql.tree.ShowCatalogs;
 import io.prestosql.sql.tree.ShowColumns;
@@ -104,6 +105,7 @@ public final class StatementUtils
         builder.put(CreateSchema.class, QueryType.DATA_DEFINITION);
         builder.put(DropSchema.class, QueryType.DATA_DEFINITION);
         builder.put(RenameSchema.class, QueryType.DATA_DEFINITION);
+        builder.put(SetSchemaAuthorization.class, QueryType.DATA_DEFINITION);
         builder.put(AddColumn.class, QueryType.DATA_DEFINITION);
         builder.put(CreateTable.class, QueryType.DATA_DEFINITION);
         builder.put(RenameTable.class, QueryType.DATA_DEFINITION);

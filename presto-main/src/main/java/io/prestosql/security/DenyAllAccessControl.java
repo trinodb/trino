@@ -58,6 +58,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyRevokeTablePri
 import static io.prestosql.spi.security.AccessDeniedException.denySelectColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static io.prestosql.spi.security.AccessDeniedException.denySetRole;
+import static io.prestosql.spi.security.AccessDeniedException.denySetSchemaAuthorization;
 import static io.prestosql.spi.security.AccessDeniedException.denySetSystemSessionProperty;
 import static io.prestosql.spi.security.AccessDeniedException.denySetUser;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
@@ -136,6 +137,12 @@ public class DenyAllAccessControl
     public void checkCanShowCreateTable(SecurityContext context, QualifiedObjectName tableName)
     {
         denyShowCreateTable(tableName.toString());
+    }
+
+    @Override
+    public void checkCanSetSchemaAuthorization(SecurityContext context, CatalogSchemaName schemaName, PrestoPrincipal principal)
+    {
+        denySetSchemaAuthorization(schemaName.toString(), principal);
     }
 
     @Override

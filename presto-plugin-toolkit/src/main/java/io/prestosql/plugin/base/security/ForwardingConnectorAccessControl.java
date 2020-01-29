@@ -66,6 +66,12 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
+    public void checkCanSetSchemaAuthorization(ConnectorSecurityContext context, String schemaName, PrestoPrincipal principal)
+    {
+        delegate().checkCanSetSchemaAuthorization(context, schemaName, principal);
+    }
+
+    @Override
     public void checkCanShowSchemas(ConnectorSecurityContext context)
     {
         delegate().checkCanShowSchemas(context);

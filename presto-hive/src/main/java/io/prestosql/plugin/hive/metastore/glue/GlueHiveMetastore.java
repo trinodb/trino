@@ -504,6 +504,12 @@ public class GlueHiveMetastore
     }
 
     @Override
+    public void setDatabaseOwner(HiveIdentity identity, String databaseName, HivePrincipal principal)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "setting the database owner is not supported by Glue");
+    }
+
+    @Override
     public void createTable(HiveIdentity identity, Table table, PrincipalPrivileges principalPrivileges)
     {
         try {

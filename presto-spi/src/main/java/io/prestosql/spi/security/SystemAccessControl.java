@@ -49,6 +49,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyRenameTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denySelectColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static io.prestosql.spi.security.AccessDeniedException.denySetSchemaAuthorization;
 import static io.prestosql.spi.security.AccessDeniedException.denySetUser;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
@@ -175,6 +176,16 @@ public interface SystemAccessControl
     default void checkCanRenameSchema(SystemSecurityContext context, CatalogSchemaName schema, String newSchemaName)
     {
         denyRenameSchema(schema.toString(), newSchemaName);
+    }
+
+    /**
+     * Check if identity is allowed to change the specified schema's user/role.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanSetSchemaAuthorization(SystemSecurityContext context, CatalogSchemaName schema, PrestoPrincipal principal)
+    {
+        denySetSchemaAuthorization(schema.toString(), principal);
     }
 
     /**

@@ -155,6 +155,11 @@ public interface Metadata
     void renameSchema(Session session, CatalogSchemaName source, String target);
 
     /**
+     * Set the specified schema's user/role.
+     */
+    void setSchemaAuthorization(Session session, CatalogSchemaName source, PrestoPrincipal principal);
+
+    /**
      * Creates a table using the specified table metadata.
      *
      * @throws PrestoException with {@code ALREADY_EXISTS} if the table already exists and {@param ignoreExisting} is not set
