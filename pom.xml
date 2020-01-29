@@ -10,7 +10,7 @@
 
     <groupId>io.prestosql</groupId>
     <artifactId>presto-root</artifactId>
-    <version>328-SNAPSHOT</version>
+    <version>327</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -107,6 +107,7 @@
         <module>presto-postgresql</module>
         <module>presto-redshift</module>
         <module>presto-sqlserver</module>
+        <module>presto-sybase</module>
         <module>presto-mongodb</module>
         <module>presto-client</module>
         <module>presto-parser</module>
@@ -442,6 +443,12 @@
             </dependency>
 
             <dependency>
+                <groupId>io.prestosql</groupId>
+                <artifactId>presto-sybase</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
                 <groupId>io.prestosql.hadoop</groupId>
                 <artifactId>hadoop-apache</artifactId>
                 <version>3.2.0-4</version>
@@ -766,6 +773,12 @@
                 <artifactId>mssql-jdbc</artifactId>
                 <version>7.0.0.jre8</version>
             </dependency>
+
+          		<dependency>
+          			<groupId>jconn4</groupId>
+          			<artifactId>jconn4</artifactId>
+          			<version>7.00</version>
+          		</dependency>
 
             <dependency>
                 <groupId>org.jdbi</groupId>
