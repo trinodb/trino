@@ -119,6 +119,7 @@ public class SqlQueryExecution
 
     private final AtomicReference<SqlQueryScheduler> queryScheduler = new AtomicReference<>();
     private final AtomicReference<Plan> queryPlan = new AtomicReference<>();
+    private final AtomicReference<PlanRoot> planRoot = new AtomicReference<>();
     private final NodeTaskMap nodeTaskMap;
     private final ExecutionPolicy executionPolicy;
     private final SplitSchedulerStats schedulerStats;
@@ -385,7 +386,9 @@ public class SqlQueryExecution
     private PlanRoot planQuery()
     {
         try {
-            return doPlanQuery();
+            PlanRoot planRoot = doPlanQuery();
+            this.planRoot.set(planRoot);
+            return planRoot;
         }
         catch (StackOverflowError e) {
             throw new PrestoException(NOT_SUPPORTED, "statement is too large (stack overflow during analysis)", e);
@@ -616,9 +619,10 @@ public class SqlQueryExecution
 
     private boolean shouldWaitForMinWorkers(Statement statement)
     {
-        if (statement instanceof Query) {
+        PlanRoot planRoot = this.planRoot.get();
+        if (planRoot != null && statement instanceof Query) {
             // Allow set session statements and queries on internal system connectors to run without waiting
-            return !planQuery().getTableHandles().keys().stream()
+            return planRoot.getTableHandles().keys().stream()
                     .allMatch(CatalogName::isInternalSystemConnector);
         }
         return true;
