@@ -129,6 +129,11 @@ public class HiveMetastoreClosure
         delegate.renameDatabase(identity, databaseName, newDatabaseName);
     }
 
+    public void setDatabaseOwner(HiveIdentity identity, String databaseName, HivePrincipal principal)
+    {
+        delegate.setDatabaseOwner(identity, databaseName, principal);
+    }
+
     public void createTable(HiveIdentity identity, Table table, PrincipalPrivileges principalPrivileges)
     {
         delegate.createTable(identity, table, principalPrivileges);

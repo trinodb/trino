@@ -22,6 +22,8 @@ import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.security.ConnectorIdentity;
+import io.prestosql.spi.security.PrestoPrincipal;
+import io.prestosql.spi.security.PrincipalType;
 import io.prestosql.spi.type.VarcharType;
 import org.testng.Assert.ThrowingRunnable;
 import org.testng.annotations.Test;
@@ -106,6 +108,13 @@ public class TestFileBasedAccessControl
         assertDenied(() -> accessControl.checkCanCreateTable(CHARLIE, new SchemaTableName("test", "test")));
         accessControl.checkCanCreateTable(CHARLIE, new SchemaTableName("authenticated", "test"));
         assertDenied(() -> accessControl.checkCanCreateTable(CHARLIE, new SchemaTableName("secret", "test")));
+
+        accessControl.checkCanSetSchemaAuthorization(ADMIN, "test", new PrestoPrincipal(PrincipalType.ROLE, "some_role"));
+        accessControl.checkCanSetSchemaAuthorization(ADMIN, "test", new PrestoPrincipal(PrincipalType.USER, "some_user"));
+        accessControl.checkCanSetSchemaAuthorization(BOB, "bob", new PrestoPrincipal(PrincipalType.ROLE, "some_role"));
+        accessControl.checkCanSetSchemaAuthorization(BOB, "bob", new PrestoPrincipal(PrincipalType.USER, "some_user"));
+        assertDenied(() -> accessControl.checkCanSetSchemaAuthorization(BOB, "test", new PrestoPrincipal(PrincipalType.ROLE, "some_role")));
+        assertDenied(() -> accessControl.checkCanSetSchemaAuthorization(BOB, "test", new PrestoPrincipal(PrincipalType.USER, "some_user")));
     }
 
     @Test

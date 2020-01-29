@@ -5112,6 +5112,7 @@ public abstract class AbstractTestQueries
         assertDescribeOutputEmpty("REVOKE INSERT ON foo FROM bar");
         assertDescribeOutputEmpty("CREATE SCHEMA foo");
         assertDescribeOutputEmpty("ALTER SCHEMA foo RENAME TO bar");
+        assertDescribeOutputEmpty("ALTER SCHEMA foo SET AUTHORIZATION bar");
         assertDescribeOutputEmpty("DROP SCHEMA foo");
         assertDescribeOutputEmpty("CREATE TABLE foo (x bigint)");
         assertDescribeOutputEmpty("ALTER TABLE foo ADD COLUMN y bigint");

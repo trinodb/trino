@@ -86,6 +86,7 @@ import io.prestosql.sql.tree.Select;
 import io.prestosql.sql.tree.SelectItem;
 import io.prestosql.sql.tree.SetPath;
 import io.prestosql.sql.tree.SetRole;
+import io.prestosql.sql.tree.SetSchemaAuthorization;
 import io.prestosql.sql.tree.SetSession;
 import io.prestosql.sql.tree.ShowCatalogs;
 import io.prestosql.sql.tree.ShowColumns;
@@ -835,6 +836,17 @@ public final class SqlFormatter
                     .append(formatName(node.getSource()))
                     .append(" RENAME TO ")
                     .append(formatExpression(node.getTarget()));
+
+            return null;
+        }
+
+        @Override
+        protected Void visitSetSchemaAuthorization(SetSchemaAuthorization node, Integer context)
+        {
+            builder.append("ALTER SCHEMA ")
+                    .append(formatName(node.getSource()))
+                    .append(" SET AUTHORIZATION ")
+                    .append(formatPrincipal(node.getPrincipal()));
 
             return null;
         }

@@ -45,6 +45,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanSetSchemaAuthorization(ConnectorSecurityContext context, String schemaName, PrestoPrincipal principal)
+    {
+    }
+
+    @Override
     public void checkCanShowSchemas(ConnectorSecurityContext context)
     {
     }

@@ -58,6 +58,8 @@ public interface HiveMetastore
 
     void renameDatabase(HiveIdentity identity, String databaseName, String newDatabaseName);
 
+    void setDatabaseOwner(HiveIdentity identity, String databaseName, HivePrincipal principal);
+
     void createTable(HiveIdentity identity, Table table, PrincipalPrivileges principalPrivileges);
 
     void dropTable(HiveIdentity identity, String databaseName, String tableName, boolean deleteData);

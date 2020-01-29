@@ -295,6 +295,13 @@ public class RecordingHiveMetastore
     }
 
     @Override
+    public void setDatabaseOwner(HiveIdentity identity, String databaseName, HivePrincipal principal)
+    {
+        verifyRecordingMode();
+        delegate.setDatabaseOwner(identity, databaseName, principal);
+    }
+
+    @Override
     public void createTable(HiveIdentity identity, Table table, PrincipalPrivileges principalPrivileges)
     {
         verifyRecordingMode();

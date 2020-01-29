@@ -111,6 +111,12 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
+    public void checkCanSetSchemaAuthorization(SecurityContext context, CatalogSchemaName schemaName, PrestoPrincipal principal)
+    {
+        delegate().checkCanSetSchemaAuthorization(context, schemaName, principal);
+    }
+
+    @Override
     public void checkCanShowSchemas(SecurityContext context, String catalogName)
     {
         delegate().checkCanShowSchemas(context, catalogName);

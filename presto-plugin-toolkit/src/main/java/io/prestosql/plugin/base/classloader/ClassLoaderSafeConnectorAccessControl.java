@@ -69,6 +69,14 @@ public class ClassLoaderSafeConnectorAccessControl
     }
 
     @Override
+    public void checkCanSetSchemaAuthorization(ConnectorSecurityContext context, String schemaName, PrestoPrincipal principal)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.checkCanSetSchemaAuthorization(context, schemaName, principal);
+        }
+    }
+
+    @Override
     public void checkCanShowSchemas(ConnectorSecurityContext context)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
