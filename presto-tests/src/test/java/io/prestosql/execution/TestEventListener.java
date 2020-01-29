@@ -155,6 +155,18 @@ public class TestEventListener
     }
 
     @Test
+    public void testExplainFailure()
+            throws Exception
+    {
+        String query = "EXPLAIN (TYPE IO) SELECT sum(bogus) FROM lineitem";
+        Optional<String> expectedFailure = Optional.of("line 1:30: Column 'bogus' cannot be resolved");
+        runQueryAndWaitForEvents(query, 2, session, expectedFailure);
+        QueryCompletedEvent queryCompletedEvent = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+        assertEquals(query, queryCompletedEvent.getMetadata().getQuery());
+        assertEquals(expectedFailure, queryCompletedEvent.getFailureInfo().get().getFailureMessage());
+    }
+
+    @Test
     public void testPlanningFailure()
             throws Exception
     {

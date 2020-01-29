@@ -73,6 +73,7 @@ import org.joda.time.DateTime;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -119,16 +120,12 @@ public class SqlQueryExecution
 
     private final AtomicReference<SqlQueryScheduler> queryScheduler = new AtomicReference<>();
     private final AtomicReference<Plan> queryPlan = new AtomicReference<>();
-    private final AtomicReference<PlanRoot> planRoot = new AtomicReference<>();
     private final NodeTaskMap nodeTaskMap;
     private final ExecutionPolicy executionPolicy;
     private final SplitSchedulerStats schedulerStats;
+    private final Analysis analysis;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
-    private final PreparedQuery preparedQuery;
-    private final AccessControl accessControl;
-    private final QueryExplainer queryExplainer;
-    private final WarningCollector warningCollector;
 
     private SqlQueryExecution(
             PreparedQuery preparedQuery,
@@ -174,15 +171,14 @@ public class SqlQueryExecution
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
             this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
-            this.preparedQuery = requireNonNull(preparedQuery, "preparedQuery is null");
-            this.accessControl = requireNonNull(accessControl, "accessControl is null");
-            this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
-            this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
 
             checkArgument(scheduleSplitBatchSize > 0, "scheduleSplitBatchSize must be greater than 0");
             this.scheduleSplitBatchSize = scheduleSplitBatchSize;
 
             this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
+
+            // analyze query
+            this.analysis = analyze(preparedQuery, stateMachine, metadata, accessControl, sqlParser, queryExplainer, warningCollector);
 
             // when the query finishes cache the final query info, and clear the reference to the output stage
             AtomicReference<SqlQueryScheduler> queryScheduler = this.queryScheduler;
@@ -386,9 +382,7 @@ public class SqlQueryExecution
     private PlanRoot planQuery()
     {
         try {
-            PlanRoot planRoot = doPlanQuery();
-            this.planRoot.set(planRoot);
-            return planRoot;
+            return doPlanQuery();
         }
         catch (StackOverflowError e) {
             throw new PrestoException(NOT_SUPPORTED, "statement is too large (stack overflow during analysis)", e);
@@ -400,8 +394,6 @@ public class SqlQueryExecution
         // plan query
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
         LogicalPlanner logicalPlanner = new LogicalPlanner(stateMachine.getSession(), planOptimizers, idAllocator, metadata, new TypeAnalyzer(sqlParser, metadata), statsCalculator, costCalculator, stateMachine.getWarningCollector());
-        // analyze query
-        Analysis analysis = analyze(preparedQuery, stateMachine, metadata, accessControl, sqlParser, queryExplainer, warningCollector);
         Plan plan = logicalPlanner.plan(analysis);
         queryPlan.set(plan);
 
@@ -614,15 +606,16 @@ public class SqlQueryExecution
     @Override
     public boolean shouldWaitForMinWorkers()
     {
-        return shouldWaitForMinWorkers(preparedQuery.getStatement());
+        return shouldWaitForMinWorkers(analysis.getStatement());
     }
 
     private boolean shouldWaitForMinWorkers(Statement statement)
     {
-        PlanRoot planRoot = this.planRoot.get();
-        if (planRoot != null && statement instanceof Query) {
+        if (statement instanceof Query) {
             // Allow set session statements and queries on internal system connectors to run without waiting
-            return planRoot.getTableHandles().keys().stream()
+            Collection<TableHandle> tables = analysis.getTables();
+            return !tables.stream()
+                    .map(TableHandle::getCatalogName)
                     .allMatch(CatalogName::isInternalSystemConnector);
         }
         return true;

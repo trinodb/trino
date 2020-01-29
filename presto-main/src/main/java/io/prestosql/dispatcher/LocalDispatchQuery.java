@@ -114,6 +114,7 @@ public class LocalDispatchQuery
             ListenableFuture<?> minimumWorkerFuture = clusterSizeMonitor.waitForMinimumWorkers(executionMinCount, getRequiredWorkersMaxWait(session));
             // when worker requirement is met, start the execution
             addSuccessCallback(minimumWorkerFuture, () -> startExecution(queryExecution));
+            // make call to finalize query info here in failure?
             addExceptionCallback(minimumWorkerFuture, throwable -> queryExecutor.execute(() -> stateMachine.transitionToFailed(throwable)));
 
             // cancel minimumWorkerFuture if query fails for some reason or is cancelled by user
