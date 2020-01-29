@@ -19,7 +19,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 
@@ -30,20 +29,7 @@ public class Identity
     private final Map<String, SelectedRole> roles;
     private final Map<String, String> extraCredentials;
 
-    @Deprecated
-    public Identity(String user, Optional<Principal> principal)
-    {
-        this(user, principal, emptyMap());
-    }
-
-    @Deprecated
-    public Identity(String user, Optional<Principal> principal, Map<String, SelectedRole> roles)
-    {
-        this(user, principal, roles, emptyMap());
-    }
-
-    @Deprecated
-    public Identity(String user, Optional<Principal> principal, Map<String, SelectedRole> roles, Map<String, String> extraCredentials)
+    private Identity(String user, Optional<Principal> principal, Map<String, SelectedRole> roles, Map<String, String> extraCredentials)
     {
         this.user = requireNonNull(user, "user is null");
         this.principal = requireNonNull(principal, "principal is null");
