@@ -4703,6 +4703,15 @@ public abstract class AbstractTestQueries
         assertAccessAllowed("SHOW CREATE TABLE lineitem", privilege("orders", SHOW_CREATE_TABLE));
         assertAccessDenied("SELECT abs(1)", "Cannot execute function abs", privilege("abs", EXECUTE_FUNCTION));
         assertAccessAllowed("SELECT abs(1)", privilege("max", EXECUTE_FUNCTION));
+        assertAccessAllowed("SHOW STATS FOR lineitem");
+        assertAccessAllowed("SHOW STATS FOR lineitem", privilege("orders", SELECT_COLUMN));
+        assertAccessAllowed("SHOW STATS FOR (SELECT * FROM lineitem)");
+        assertAccessAllowed("SHOW STATS FOR (SELECT * FROM lineitem)", privilege("orders", SELECT_COLUMN));
+        assertAccessDenied("SHOW STATS FOR (SELECT * FROM nation)", "Cannot show stats for columns \\[nationkey, regionkey, name, comment\\] in table or view .*.nation", privilege("nation", SELECT_COLUMN));
+        assertAccessDenied("SHOW STATS FOR (SELECT nationkey FROM nation)", "Cannot show stats for columns \\[nationkey\\] in table or view .*.nation", privilege("nation", SELECT_COLUMN));
+        assertAccessDenied("SHOW STATS FOR (SELECT nationkey FROM nation)", "Cannot show stats for columns \\[nationkey\\] in table or view .*.nation", privilege("nationkey", SELECT_COLUMN));
+        assertAccessDenied("SHOW STATS FOR (SELECT *, nationkey FROM nation)", "Cannot show stats for columns \\[nationkey, regionkey, name, comment\\] in table or view .*.nation", privilege("nationkey", SELECT_COLUMN));
+        assertAccessDenied("SHOW STATS FOR (SELECT *, * FROM nation)", "Cannot show stats for columns \\[nationkey, regionkey, name, comment\\] in table or view .*.nation", privilege("nationkey", SELECT_COLUMN));
     }
 
     @Test
