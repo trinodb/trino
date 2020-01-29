@@ -39,7 +39,7 @@ public class HiveS3Config
     private String s3SignerClass;
     private boolean s3PathStyleAccess;
     private boolean s3UseInstanceCredentials = true;
-    private String s3IamRole;
+    private String s3IamRole = "";
     private boolean s3SslEnabled = true;
     private boolean s3SseEnabled;
     private PrestoS3SseType s3SseType = PrestoS3SseType.S3;

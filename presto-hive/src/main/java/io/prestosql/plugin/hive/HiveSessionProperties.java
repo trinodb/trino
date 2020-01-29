@@ -20,6 +20,7 @@ import io.prestosql.plugin.hive.orc.OrcReaderConfig;
 import io.prestosql.plugin.hive.orc.OrcWriterConfig;
 import io.prestosql.plugin.hive.parquet.ParquetReaderConfig;
 import io.prestosql.plugin.hive.parquet.ParquetWriterConfig;
+import io.prestosql.plugin.hive.s3.HiveS3Config;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.session.PropertyMetadata;
@@ -86,6 +87,7 @@ public final class HiveSessionProperties
     private static final String TEMPORARY_STAGING_DIRECTORY_ENABLED = "temporary_staging_directory_enabled";
     private static final String TEMPORARY_STAGING_DIRECTORY_PATH = "temporary_staging_directory_path";
     private static final String IGNORE_ABSENT_PARTITIONS = "ignore_absent_partitions";
+    private static final String S3_IAM_ROLE = "s3_iam_role";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -110,6 +112,7 @@ public final class HiveSessionProperties
     @Inject
     public HiveSessionProperties(
             HiveConfig hiveConfig,
+            HiveS3Config hiveS3Config,
             OrcReaderConfig orcReaderConfig,
             OrcWriterConfig orcWriterConfig,
             ParquetReaderConfig parquetReaderConfig,
@@ -344,6 +347,11 @@ public final class HiveSessionProperties
                         IGNORE_ABSENT_PARTITIONS,
                         "Ignore partitions when the file system location does not exist rather than failing the query.",
                         hiveConfig.isIgnoreAbsentPartitions(),
+                        false),
+                stringProperty(
+                        S3_IAM_ROLE,
+                        "S3 IAM role",
+                        hiveS3Config.getS3IamRole(),
                         false));
     }
 
@@ -576,6 +584,11 @@ public final class HiveSessionProperties
     public static boolean isIgnoreAbsentPartitions(ConnectorSession session)
     {
         return session.getProperty(IGNORE_ABSENT_PARTITIONS, Boolean.class);
+    }
+
+    public static String getS3IamRole(ConnectorSession session)
+    {
+        return session.getProperty(S3_IAM_ROLE, String.class);
     }
 
     private static PropertyMetadata<DataSize> dataSizeProperty(String name, String description, DataSize defaultValue, boolean hidden)

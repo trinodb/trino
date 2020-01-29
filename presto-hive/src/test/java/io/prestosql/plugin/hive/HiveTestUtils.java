@@ -98,6 +98,7 @@ public final class HiveTestUtils
     {
         return new HiveSessionProperties(
                 hiveConfig,
+                new HiveS3Config(),
                 orcReaderConfig,
                 new OrcWriterConfig(),
                 new ParquetReaderConfig(),

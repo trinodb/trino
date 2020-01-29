@@ -30,6 +30,7 @@ import io.prestosql.plugin.hive.parquet.write.MapKeyValuesSchemaConverter;
 import io.prestosql.plugin.hive.parquet.write.SingleLevelArrayMapKeyValuesSchemaConverter;
 import io.prestosql.plugin.hive.parquet.write.SingleLevelArraySchemaConverter;
 import io.prestosql.plugin.hive.parquet.write.TestMapredParquetOutputFormat;
+import io.prestosql.plugin.hive.s3.HiveS3Config;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorPageSource;
@@ -341,6 +342,7 @@ public class ParquetTester
                 new HiveConfig()
                         .setHiveStorageFormat(HiveStorageFormat.PARQUET)
                         .setUseParquetColumnNames(false),
+                new HiveS3Config(),
                 new OrcReaderConfig(),
                 new OrcWriterConfig(),
                 new ParquetReaderConfig()

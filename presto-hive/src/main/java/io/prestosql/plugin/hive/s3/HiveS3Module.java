@@ -17,6 +17,7 @@ import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.prestosql.plugin.hive.ConfigurationInitializer;
+import io.prestosql.plugin.hive.DynamicConfigurationProvider;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.common.JavaUtils;
 
@@ -40,6 +41,7 @@ public class HiveS3Module
             binder.bind(PrestoS3FileSystemStats.class).toInstance(PrestoS3FileSystem.getFileSystemStats());
             newExporter(binder).export(PrestoS3FileSystemStats.class)
                     .as(generator -> generator.generatedNameOf(PrestoS3FileSystem.class));
+            newSetBinder(binder, DynamicConfigurationProvider.class).addBinding().to(S3ConfigurationProvider.class).in(Scopes.SINGLETON);
         }
         else if (type == S3FileSystemType.EMRFS) {
             validateEmrFsClass();
