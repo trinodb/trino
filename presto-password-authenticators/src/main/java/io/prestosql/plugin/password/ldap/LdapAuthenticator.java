@@ -69,14 +69,14 @@ public class LdapAuthenticator
     private final LoadingCache<Credentials, Principal> authenticationCache;
 
     @Inject
-    public LdapAuthenticator(LdapConfig serverConfig)
+    public LdapAuthenticator(LdapConfig ldapConfig)
     {
-        String ldapUrl = requireNonNull(serverConfig.getLdapUrl(), "ldapUrl is null");
-        this.userBindSearchPattern = Optional.ofNullable(serverConfig.getUserBindSearchPattern());
-        this.groupAuthorizationSearchPattern = Optional.ofNullable(serverConfig.getGroupAuthorizationSearchPattern());
-        this.userBaseDistinguishedName = Optional.ofNullable(serverConfig.getUserBaseDistinguishedName());
-        this.bindDistinguishedName = Optional.ofNullable(serverConfig.getBindDistingushedName());
-        this.bindPassword = Optional.ofNullable(serverConfig.getBindPassword());
+        String ldapUrl = requireNonNull(ldapConfig.getLdapUrl(), "ldapUrl is null");
+        this.userBindSearchPattern = Optional.ofNullable(ldapConfig.getUserBindSearchPattern());
+        this.groupAuthorizationSearchPattern = Optional.ofNullable(ldapConfig.getGroupAuthorizationSearchPattern());
+        this.userBaseDistinguishedName = Optional.ofNullable(ldapConfig.getUserBaseDistinguishedName());
+        this.bindDistinguishedName = Optional.ofNullable(ldapConfig.getBindDistingushedName());
+        this.bindPassword = Optional.ofNullable(ldapConfig.getBindPassword());
 
         if (groupAuthorizationSearchPattern.isPresent()) {
             checkState(userBaseDistinguishedName.isPresent(), "Base distinguished name (DN) for user is null");
@@ -97,12 +97,12 @@ public class LdapAuthenticator
 
         if (this.bindDistinguishedName.isPresent()) {
             this.authenticationCache = CacheBuilder.newBuilder()
-                    .expireAfterWrite(serverConfig.getLdapCacheTtl().toMillis(), MILLISECONDS)
+                    .expireAfterWrite(ldapConfig.getLdapCacheTtl().toMillis(), MILLISECONDS)
                     .build(CacheLoader.from(this::authenticateWithBindDistinguishedName));
         }
         else {
             this.authenticationCache = CacheBuilder.newBuilder()
-                    .expireAfterWrite(serverConfig.getLdapCacheTtl().toMillis(), MILLISECONDS)
+                    .expireAfterWrite(ldapConfig.getLdapCacheTtl().toMillis(), MILLISECONDS)
                     .build(CacheLoader.from(this::authenticateWithUserBind));
         }
     }
