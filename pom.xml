@@ -53,6 +53,7 @@
         <dep.tempto.version>173</dep.tempto.version>
         <dep.gcs.version>2.0.0</dep.gcs.version>
         <dep.errorprone.version>2.3.3</dep.errorprone.version>
+        <rubix.version>0.3.6</rubix.version>
 
         <!--
           America/Bahia_Banderas has:
@@ -1214,6 +1215,12 @@
                 <version>1.12.4</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>com.qubole.rubix</groupId>
+                <artifactId>rubix-presto-shaded</artifactId>
+                <version>${rubix.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
