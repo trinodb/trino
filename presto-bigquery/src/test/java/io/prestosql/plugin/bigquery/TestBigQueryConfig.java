@@ -40,11 +40,11 @@ public class TestBigQueryConfig
         assertEquals(config.getCredentialsKey(), Optional.of("ckey"));
         assertEquals(config.getCredentialsFile(), Optional.of("cfile"));
         assertEquals(config.getProjectId(), Optional.of("pid"));
-        assertEquals(config.getParentProject(), Optional.of("ppid"));
+        assertEquals(config.getParentProject(), "ppid");
         assertEquals(config.getParallelism(), Optional.of(20));
         assertEquals(config.getViewMaterializationProject(), Optional.of("vmproject"));
         assertEquals(config.getViewMaterializationDataset(), Optional.of("vmdataset"));
-        assertEquals(config.getMaxReadRowsRetries(), Optional.of(10));
+        assertEquals(config.getMaxReadRowsRetries(), 10);
     }
 
     @Test
@@ -67,10 +67,10 @@ public class TestBigQueryConfig
         assertEquals(config.getCredentialsKey(), Optional.of("ckey"));
         assertEquals(config.getCredentialsFile(), Optional.of("cfile"));
         assertEquals(config.getProjectId(), Optional.of("pid"));
-        assertEquals(config.getParentProject(), Optional.of("ppid"));
+        assertEquals(config.getParentProject(), "ppid");
         assertEquals(config.getParallelism(), Optional.of(20));
         assertEquals(config.getViewMaterializationProject(), Optional.of("vmproject"));
         assertEquals(config.getViewMaterializationDataset(), Optional.of("vmdataset"));
-        assertEquals(config.getMaxReadRowsRetries(), Optional.of(10));
+        assertEquals(config.getMaxReadRowsRetries(), 10);
     }
 }
