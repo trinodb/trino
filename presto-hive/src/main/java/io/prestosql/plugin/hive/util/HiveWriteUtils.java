@@ -17,6 +17,7 @@ import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
+import com.qubole.rubix.prestosql.CachingPrestoS3FileSystem;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.HiveReadOnlyException;
@@ -489,7 +490,7 @@ public final class HiveWriteUtils
     {
         try {
             FileSystem fileSystem = getRawFileSystem(hdfsEnvironment.getFileSystem(context, path));
-            return fileSystem instanceof PrestoS3FileSystem || fileSystem.getClass().getName().equals(EMR_FS_CLASS_NAME);
+            return fileSystem instanceof PrestoS3FileSystem || fileSystem.getClass().getName().equals(EMR_FS_CLASS_NAME) || fileSystem instanceof CachingPrestoS3FileSystem;
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed checking path: " + path, e);
