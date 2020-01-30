@@ -48,8 +48,8 @@ public class BigQueryStorageClientFactory
                             BigQueryStorageSettings.defaultGrpcTransportProviderBuilder()
                                     .setHeaderProvider(headerProvider)
                                     .build());
-            config.createCredentials().ifPresent(creds ->
-                    clientSettings.setCredentialsProvider(FixedCredentialsProvider.create(creds)));
+            config.createCredentials().ifPresent(credentials ->
+                    clientSettings.setCredentialsProvider(FixedCredentialsProvider.create(credentials)));
             return BigQueryStorageClient.create(clientSettings.build());
         }
         catch (IOException e) {

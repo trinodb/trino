@@ -47,7 +47,7 @@ class MockResponsesBatch
         if (next instanceof ReadRowsResponse) {
             return (ReadRowsResponse) next;
         }
-        else if (next instanceof RuntimeException) {
+        if (next instanceof RuntimeException) {
             throw (RuntimeException) next;
         }
         return null;

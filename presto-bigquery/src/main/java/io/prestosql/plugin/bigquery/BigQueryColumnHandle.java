@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
@@ -67,7 +68,7 @@ public class BigQueryColumnHandle
     @Override
     public ImmutableMap<String, BigQueryType.Adaptor> getBigQuerySubTypes()
     {
-        return subColumns.stream().collect(ImmutableMap.toImmutableMap(c -> c.name, c -> c));
+        return subColumns.stream().collect(ImmutableMap.toImmutableMap(BigQueryColumnHandle::getName, column -> column));
     }
 
     @Override
@@ -109,10 +110,10 @@ public class BigQueryColumnHandle
             return false;
         }
         BigQueryColumnHandle that = (BigQueryColumnHandle) o;
-        return name.equals(that.name) &&
-                bigQueryType == that.bigQueryType &&
-                mode == that.mode &&
-                subColumns.equals(that.subColumns) &&
+        return Objects.equals(name, that.name) &&
+                Objects.equals(bigQueryType, that.bigQueryType) &&
+                Objects.equals(mode, that.mode) &&
+                Objects.equals(subColumns, that.subColumns) &&
                 Objects.equals(description, that.description);
     }
 
@@ -125,12 +126,12 @@ public class BigQueryColumnHandle
     @Override
     public String toString()
     {
-        return "BigQueryColumnHandle{" +
-                "name='" + name + '\'' +
-                ", type=" + bigQueryType +
-                ", mode=" + mode +
-                ", subColumns=" + subColumns +
-                ", description='" + description + '\'' +
-                '}';
+        return toStringHelper(this)
+                .add("name", name)
+                .add("type", bigQueryType)
+                .add("mode", mode)
+                .add("subColumns", subColumns)
+                .add("description", description)
+                .toString();
     }
 }

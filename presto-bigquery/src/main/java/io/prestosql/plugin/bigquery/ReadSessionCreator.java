@@ -43,6 +43,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static io.prestosql.plugin.bigquery.BigQueryErrorCode.VIEW_DESTINATION_TABLE_CREATION_FAILED;
+import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
 
 // A helper class, also handles view materialization
@@ -131,29 +132,29 @@ public class ReadSessionCreator
                 }
             }
             else {
-                throw new IllegalArgumentException(String.format(
+                throw new IllegalArgumentException(format(
                         "Views were not enabled. You can enable views by setting '%s' to true. Notice additional cost may occur.",
                         BigQueryConfig.VIEWS_ENABLED));
             }
         }
         else {
             // not regular table or a view
-            throw new IllegalArgumentException(String.format("Table type '%s' of table '%s.%s' is not supported",
+            throw new IllegalArgumentException(format("Table type '%s' of table '%s.%s' is not supported",
                     tableType, table.getTableId().getDataset(), table.getTableId().getTable()));
         }
     }
 
     String createSql(TableId table, ImmutableList<String> requiredColumns, String[] filters)
     {
-        String tableName = String.format("%s.%s.%s", table.getProject(), table.getDataset(), table.getTable());
+        String tableName = format("%s.%s.%s", table.getProject(), table.getDataset(), table.getTable());
         String columns = (requiredColumns.isEmpty()) ? "*" :
-                requiredColumns.stream().map(c -> String.format("`%s`", c)).collect(Collectors.joining(","));
+                requiredColumns.stream().map(column -> format("`%s`", column)).collect(Collectors.joining(","));
 
         String whereClause = createWhereClause(filters)
-                .map(c -> "WHERE " + c)
+                .map(clause -> "WHERE " + clause)
                 .orElse("");
 
-        return String.format("SELECT %s FROM `%s` %s", columns, tableName, whereClause);
+        return format("SELECT %s FROM `%s` %s", columns, tableName, whereClause);
     }
 
     // return empty if no filters are used
@@ -215,7 +216,7 @@ public class ReadSessionCreator
                 return job.waitFor();
             }
             catch (InterruptedException e) {
-                throw new BigQueryException(BaseServiceException.UNKNOWN_CODE, String.format("Job %s has been interrupted", job.getJobId()), e);
+                throw new BigQueryException(BaseServiceException.UNKNOWN_CODE, format("Job %s has been interrupted", job.getJobId()), e);
             }
         }
 
@@ -224,7 +225,7 @@ public class ReadSessionCreator
             String project = config.getViewMaterializationProject().orElse(table.getProject());
             String dataset = config.getViewMaterializationDataset().orElse(table.getDataset());
             UUID uuid = randomUUID();
-            String name = String.format("_sbc_%s%s", Long.toHexString(uuid.getMostSignificantBits()), Long.toHexString(uuid.getLeastSignificantBits()));
+            String name = format("_sbc_%s%s", Long.toHexString(uuid.getMostSignificantBits()), Long.toHexString(uuid.getLeastSignificantBits()));
             return TableId.of(project, dataset, name);
         }
     }

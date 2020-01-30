@@ -16,10 +16,12 @@ package io.prestosql.plugin.bigquery;
 import com.google.api.gax.paging.Page;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.DatasetId;
+import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.Table;
 import com.google.cloud.bigquery.TableId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import io.airlift.log.Logger;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -43,10 +45,11 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
+import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toMap;
 
 public class BigQueryMetadata
         implements ConnectorMetadata
@@ -78,11 +81,16 @@ public class BigQueryMetadata
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
         log.debug("listTables(session=%s, schemaName=%s)", session, schemaName);
-        Optional<List<SchemaTableName>> tables = schemaName.map(datasetId ->
-                Streams.stream(bigQuery.listTables(DatasetId.of(projectId, datasetId)).iterateAll())
-                        .map(table -> new SchemaTableName(datasetId, table.getTableId().getTable()))
-                        .collect(toImmutableList()));
-        return tables.orElse(ImmutableList.of(new SchemaTableName("hello", "world")));
+        Set<String> schemaNames = schemaName.map(ImmutableSet::of)
+                .orElseGet(() -> ImmutableSet.copyOf(listSchemaNames(session)));
+
+        ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
+        for (String datasetId : schemaNames) {
+            for (Table table : bigQuery.listTables(DatasetId.of(projectId, datasetId)).iterateAll()) {
+                tableNames.add(new SchemaTableName(datasetId, table.getTableId().getTable()));
+            }
+        }
+        return tableNames.build();
     }
 
     <T> ImmutableList<T> collectAll(Page<T> page)
@@ -128,7 +136,7 @@ public class BigQueryMetadata
         log.debug("getColumnHandles(session=%s, tableHandle=%s)", session, tableHandle);
         Table table = bigQuery.getTable(((BigQueryTableHandle) tableHandle).getTableId());
         return table.getDefinition().getSchema().getFields().stream()
-                .collect(Collectors.toMap(f -> f.getName(), Conversions::toColumnHandle));
+                .collect(toMap(Field::getName, Conversions::toColumnHandle));
     }
 
     @Override

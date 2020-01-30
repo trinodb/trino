@@ -23,6 +23,8 @@ import io.prestosql.spi.connector.ConnectorSplit;
 import java.util.List;
 import java.util.Objects;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
+
 public class BigQuerySplit
         implements ConnectorSplit
 {
@@ -87,9 +89,9 @@ public class BigQuerySplit
             return false;
         }
         BigQuerySplit that = (BigQuerySplit) o;
-        return streamName.equals(that.streamName) &&
-                avroSchema.equals(that.avroSchema) &&
-                columns.equals(that.columns);
+        return Objects.equals(streamName, that.streamName) &&
+                Objects.equals(avroSchema, that.avroSchema) &&
+                Objects.equals(columns, that.columns);
     }
 
     @Override
@@ -101,10 +103,10 @@ public class BigQuerySplit
     @Override
     public String toString()
     {
-        return "BigQuerySplit{" +
-                "streamName='" + streamName + '\'' +
-                ", avroSchema='" + avroSchema + '\'' +
-                ", columns=" + columns +
-                '}';
+        return toStringHelper(this)
+                .add("streamName", streamName)
+                .add("avroSchema", avroSchema)
+                .add("columns", columns)
+                .toString();
     }
 }

@@ -23,6 +23,11 @@ import static com.google.cloud.http.BaseHttpServiceException.UNKNOWN_CODE;
 
 class BigQueryUtil
 {
+    static final ImmutableSet<String> INTERNAL_ERROR_MESSAGES = ImmutableSet.of(
+            "HTTP/2 error code: INTERNAL_ERROR",
+            "Connection closed with unknown cause",
+            "Received unexpected EOS on DATA frame from server");
+
     private BigQueryUtil() {}
 
     static boolean isRetryable(Throwable cause)
@@ -38,22 +43,15 @@ class BigQueryUtil
         return false;
     }
 
-    static final ImmutableSet<String> INTERNAL_ERROR_MESSAGES = ImmutableSet.of(
-            "HTTP/2 error code: INTERNAL_ERROR",
-            "Connection closed with unknown cause",
-            "Received unexpected EOS on DATA frame from server");
-
     static boolean isRetryableInternalError(Throwable t)
     {
         if (t instanceof StatusRuntimeException) {
-            StatusRuntimeException sse = (StatusRuntimeException) t;
-            return sse.getStatus().getCode() == Status.Code.INTERNAL &&
+            StatusRuntimeException statusRuntimeException = (StatusRuntimeException) t;
+            return statusRuntimeException.getStatus().getCode() == Status.Code.INTERNAL &&
                     INTERNAL_ERROR_MESSAGES.stream()
-                            .anyMatch(errorMsg -> sse.getMessage().contains(errorMsg));
+                            .anyMatch(errorMsg -> statusRuntimeException.getMessage().contains(errorMsg));
         }
-        else {
-            return false;
-        }
+        return false;
     }
 
     static void convertAndThrow(BigQueryError error)

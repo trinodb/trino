@@ -65,6 +65,7 @@ import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static java.lang.String.format;
 
 public class BigQueryPageSource
         implements ConnectorPageSource
@@ -95,7 +96,7 @@ public class BigQueryPageSource
         this.table = table;
         this.columns = columns;
         this.readBytes = new AtomicLong();
-        this.columnTypes = columns.stream().map(c -> c.getPrestoType()).collect(toImmutableList());
+        this.columnTypes = columns.stream().map(BigQueryColumnHandle::getPrestoType).collect(toImmutableList());
         this.pageBuilder = new PageBuilder(columnTypes);
         initialize();
     }
@@ -327,7 +328,7 @@ public class BigQueryPageSource
     static class AvroDecimalConverter
     {
         private static final Conversions.DecimalConversion AVRO_DECIMAL_CONVERSION = new Conversions.DecimalConversion();
-        private static final Schema AVRO_DECIMAL_SCHEMA = new Schema.Parser().parse(String.format("{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":%d,\"scale\":%d}", NUMERIC_DATA_TYPE_PRECISION, NUMERIC_DATA_TYPE_SCALE));
+        private static final Schema AVRO_DECIMAL_SCHEMA = new Schema.Parser().parse(format("{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":%d,\"scale\":%d}", NUMERIC_DATA_TYPE_PRECISION, NUMERIC_DATA_TYPE_SCALE));
 
         BigDecimal convert(Object value)
         {

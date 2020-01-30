@@ -54,7 +54,7 @@ public class BigQueryPageSourceProvider
         log.debug("createPageSource(transaction=%s, session=%s, split=%s, table=%s, columns=%s)", transaction, session, split, table, columns);
         BigQuerySplit bigQuerySplit = (BigQuerySplit) split;
         BigQueryTableHandle bigQueryTableHandle = (BigQueryTableHandle) table;
-        ImmutableList<BigQueryColumnHandle> bigQueryColumnHandles = columns.stream().map(c -> (BigQueryColumnHandle) c).collect(toImmutableList());
+        ImmutableList<BigQueryColumnHandle> bigQueryColumnHandles = columns.stream().map(column -> (BigQueryColumnHandle) column).collect(toImmutableList());
 
         return new BigQueryPageSource(bigQueryStorageClientFactory, maxReadRowsRetries, bigQuerySplit, bigQueryTableHandle, bigQueryColumnHandles);
     }

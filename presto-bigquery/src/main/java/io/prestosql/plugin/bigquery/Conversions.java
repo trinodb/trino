@@ -73,7 +73,7 @@ class Conversions
                     return ImmutableMap.of();
                 }
                 else {
-                    return subFields.stream().collect(toImmutableMap(f -> f.getName(), f -> adapt(f)));
+                    return subFields.stream().collect(toImmutableMap(Field::getName, Conversions::adapt));
                 }
             }
 

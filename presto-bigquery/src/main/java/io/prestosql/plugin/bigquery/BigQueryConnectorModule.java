@@ -25,6 +25,7 @@ import com.google.inject.Singleton;
 import io.prestosql.spi.NodeManager;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static java.lang.String.format;
 
 public class BigQueryConnectorModule
         implements Module
@@ -79,6 +80,6 @@ public class BigQueryConnectorModule
             name = "prestodb";
         }
         // else leave it as is
-        return String.format("%s/%s", name, nodeManager.getCurrentNode().getVersion());
+        return format("%s/%s", name, nodeManager.getCurrentNode().getVersion());
     }
 }

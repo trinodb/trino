@@ -26,6 +26,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class BigQueryTableHandle
@@ -117,13 +118,13 @@ public class BigQueryTableHandle
             return false;
         }
         BigQueryTableHandle that = (BigQueryTableHandle) o;
-        return projectId.equals(that.projectId) &&
-                schemaName.equals(that.schemaName) &&
-                tableName.equals(that.tableName) &&
-                type.equals(that.tableName) &&
-                constraint.equals(that.constraint) &&
-                desiredColumns.equals(that.desiredColumns) &&
-                limit.equals(that.limit);
+        return Objects.equals(projectId, that.projectId) &&
+                Objects.equals(schemaName, that.schemaName) &&
+                Objects.equals(tableName, that.tableName) &&
+                Objects.equals(type, that.tableName) &&
+                Objects.equals(constraint, that.constraint) &&
+                Objects.equals(desiredColumns, that.desiredColumns) &&
+                Objects.equals(limit, that.limit);
     }
 
     @Override
@@ -135,15 +136,15 @@ public class BigQueryTableHandle
     @Override
     public String toString()
     {
-        return "BigQueryTableHandle{" +
-                "projectId='" + projectId + '\'' +
-                ", schemaName='" + schemaName + '\'' +
-                ", tableName='" + tableName + '\'' +
-                ", type='" + type + '\'' +
-                ", constraint=" + constraint +
-                ", desiredColumns=" + desiredColumns +
-                ", limit=" + limit +
-                '}';
+        return toStringHelper(this)
+                .add("projectId", projectId)
+                .add("schemaName", schemaName)
+                .add("tableName", tableName)
+                .add("type", type)
+                .add("constraint", constraint)
+                .add("desiredColumns", desiredColumns)
+                .add("limit", limit)
+                .toString();
     }
 
     public TableId getTableId()

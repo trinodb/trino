@@ -31,6 +31,7 @@ import io.prestosql.spi.type.VarcharType;
 import javax.annotation.Nonnull;
 
 import java.util.List;
+import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.plugin.bigquery.BigQueryMetadata.NUMERIC_DATA_TYPE_PRECISION;
@@ -61,6 +62,11 @@ public enum BigQueryType
         this.nativeType = nativeType;
     }
 
+    static RowType.Field toRawTypeField(Map.Entry<String, BigQueryType.Adaptor> entry)
+    {
+        return toRawTypeField(entry.getKey(), entry.getValue());
+    }
+
     static RowType.Field toRawTypeField(String name, BigQueryType.Adaptor typeAdaptor)
     {
         Type prestoType = typeAdaptor.getPrestoType();
@@ -75,7 +81,7 @@ public enum BigQueryType
                 requireNonNull(typeAdaptor, "A type BigQueryType.Adaptor is needed in order to convert a record or struct");
                 ImmutableMap<String, BigQueryType.Adaptor> subTypes = typeAdaptor.getBigQuerySubTypes();
                 checkArgument(!subTypes.isEmpty(), "a record or struct must have sub-fields");
-                List<RowType.Field> fields = subTypes.entrySet().stream().map(e -> toRawTypeField(e.getKey(), e.getValue())).collect(toList());
+                List<RowType.Field> fields = subTypes.entrySet().stream().map(BigQueryType::toRawTypeField).collect(toList());
                 return RowType.from(fields);
             default:
                 return nativeType;

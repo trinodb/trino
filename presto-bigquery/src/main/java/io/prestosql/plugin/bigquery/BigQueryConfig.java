@@ -90,7 +90,7 @@ public class BigQueryConfig
         return credentialsKey;
     }
 
-    @Config("credentials-key")
+    @Config("bigquery.credentials-key")
     @ConfigDescription("The base64 encoded credentials key")
     public BigQueryConfig setCredentialsKey(String credentialsKey)
     {
@@ -103,7 +103,7 @@ public class BigQueryConfig
         return credentialsFile;
     }
 
-    @Config("credentials-file")
+    @Config("bigquery.credentials-file")
     @ConfigDescription("The path to the JSON credentials file")
     public BigQueryConfig setCredentialsFile(String credentialsFile)
     {
@@ -116,7 +116,7 @@ public class BigQueryConfig
         return projectId;
     }
 
-    @Config("project-id")
+    @Config("bigquery.project-id")
     @ConfigDescription("The Google Cloud Project ID where the data reside")
     public BigQueryConfig setProjectId(String projectId)
     {
@@ -129,7 +129,7 @@ public class BigQueryConfig
         return parentProject.orElse(BigQueryOptions.getDefaultInstance().getProjectId());
     }
 
-    @Config("parent-project")
+    @Config("bigquery.parent-project")
     @ConfigDescription("The project ID Google Cloud Project to bill for the export")
     public BigQueryConfig setParentProject(String parentProject)
     {
@@ -142,7 +142,7 @@ public class BigQueryConfig
         return parallelism;
     }
 
-    @Config("parallelism")
+    @Config("bigquery.parallelism")
     @ConfigDescription("The number of partitions to split the data into.")
     public BigQueryConfig setParallelism(int parallelism)
     {
@@ -173,7 +173,7 @@ public class BigQueryConfig
         return viewMaterializationProject;
     }
 
-    @Config("view-materialization-project")
+    @Config("bigquery.view-materialization-project")
     @ConfigDescription("The project where the materialized view is going to be created")
     public BigQueryConfig setViewMaterializationProject(
             String viewMaterializationProject)
@@ -187,7 +187,7 @@ public class BigQueryConfig
         return viewMaterializationDataset;
     }
 
-    @Config("view-materialization-dataset")
+    @Config("bigquery.view-materialization-dataset")
     @ConfigDescription("The dataset where the materialized view is going to be created")
     public BigQueryConfig setViewMaterializationDataset(
             String viewMaterializationDataset)
@@ -202,7 +202,7 @@ public class BigQueryConfig
         return maxReadRowsRetries;
     }
 
-    @Config("max-read-rows-retries")
+    @Config("bigquery.max-read-rows-retries")
     @ConfigDescription("The number of retries in case of retryable server issues")
     public BigQueryConfig setMaxReadRowsRetries(
             int maxReadRowsRetries)
