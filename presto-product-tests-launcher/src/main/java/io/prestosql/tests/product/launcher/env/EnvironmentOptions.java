@@ -29,12 +29,6 @@ public final class EnvironmentOptions
     @Option(name = "--server-package", title = "server-package", description = "path to Presto server package")
     public File serverPackage = new File("presto-server/target/presto-server-${project.version}.tar.gz");
 
-    @Option(name = "--jdbc-jar", title = "JDBC jar", description = "path to Presto JDBC jar")
-    public File jdbcJar = new File("presto-jdbc/target/presto-jdbc-${project.version}.jar");
-
-    @Option(name = "--cli-jar", title = "CLI jar", description = "path to Presto CLI jar")
-    public File cliJar = new File("presto-cli/target/presto-cli-${project.version}-executable.jar");
-
     @Option(name = "--environment", title = "environment", description = "the name of the environment to start", required = true)
     public String environment;
 
