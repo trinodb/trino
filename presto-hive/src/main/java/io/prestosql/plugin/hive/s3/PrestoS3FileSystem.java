@@ -107,6 +107,8 @@ import static com.amazonaws.regions.Regions.US_EAST_1;
 import static com.amazonaws.services.s3.Headers.SERVER_SIDE_ENCRYPTION;
 import static com.amazonaws.services.s3.Headers.UNENCRYPTED_CONTENT_LENGTH;
 import static com.amazonaws.services.s3.model.StorageClass.Glacier;
+import static com.amazonaws.services.s3.model.StorageClass.IntelligentTiering;
+import static com.amazonaws.services.s3.model.StorageClass.Standard;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkPositionIndexes;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -165,6 +167,7 @@ public class PrestoS3FileSystem
     public static final String S3_ACL_TYPE = "presto.s3.upload-acl-type";
     public static final String S3_SKIP_GLACIER_OBJECTS = "presto.s3.skip-glacier-objects";
     public static final String S3_REQUESTER_PAYS_ENABLED = "presto.s3.requester-pays.enabled";
+    public static final String S3_STORAGE_CLASS = "presto.s3.storage-class";
 
     static final String S3_DIRECTORY_OBJECT_CONTENT_TYPE = "application/x-directory";
 
@@ -199,6 +202,7 @@ public class PrestoS3FileSystem
     private PrestoS3AclType s3AclType;
     private boolean skipGlacierObjects;
     private boolean requesterPaysEnabled;
+    private PrestoS3StorageClass s3StorageClass;
 
     @Override
     public void initialize(URI uri, Configuration conf)
@@ -244,6 +248,7 @@ public class PrestoS3FileSystem
         String userAgentPrefix = conf.get(S3_USER_AGENT_PREFIX, defaults.getS3UserAgentPrefix());
         this.skipGlacierObjects = conf.getBoolean(S3_SKIP_GLACIER_OBJECTS, defaults.isSkipGlacierObjects());
         this.requesterPaysEnabled = conf.getBoolean(S3_REQUESTER_PAYS_ENABLED, defaults.isRequesterPaysEnabled());
+        this.s3StorageClass = PrestoS3StorageClass.valueOf(conf.get(S3_STORAGE_CLASS, defaults.getS3StorageClass().name()));
 
         ClientConfiguration configuration = new ClientConfiguration()
                 .withMaxErrorRetry(maxErrorRetries)
@@ -402,10 +407,9 @@ public class PrestoS3FileSystem
             throw new IOException("Configured staging path is not a directory: " + stagingDirectory);
         }
         File tempFile = createTempFile(stagingDirectory.toPath(), "presto-s3-", ".tmp").toFile();
-
         String key = keyFromPath(qualifiedPath(path));
         return new FSDataOutputStream(
-                new PrestoS3OutputStream(s3, getBucketName(uri), key, tempFile, sseEnabled, sseType, sseKmsKeyId, multiPartUploadMinFileSize, multiPartUploadMinPartSize, s3AclType, requesterPaysEnabled),
+                new PrestoS3OutputStream(s3, getBucketName(uri), key, tempFile, sseEnabled, sseType, sseKmsKeyId, multiPartUploadMinFileSize, multiPartUploadMinPartSize, s3AclType, requesterPaysEnabled, s3StorageClass),
                 statistics);
     }
 
@@ -1175,6 +1179,7 @@ public class PrestoS3FileSystem
         private final String sseKmsKeyId;
         private final CannedAccessControlList aclType;
         private final boolean requesterPaysEnabled;
+        private final PrestoS3StorageClass s3StorageClass;
 
         private boolean closed;
 
@@ -1189,7 +1194,8 @@ public class PrestoS3FileSystem
                 long multiPartUploadMinFileSize,
                 long multiPartUploadMinPartSize,
                 PrestoS3AclType aclType,
-                boolean requesterPaysEnabled)
+                boolean requesterPaysEnabled,
+                PrestoS3StorageClass s3StorageClass)
                 throws IOException
         {
             super(new BufferedOutputStream(new FileOutputStream(requireNonNull(tempFile, "tempFile is null"))));
@@ -1208,6 +1214,7 @@ public class PrestoS3FileSystem
             this.sseType = requireNonNull(sseType, "sseType is null");
             this.sseKmsKeyId = sseKmsKeyId;
             this.requesterPaysEnabled = requesterPaysEnabled;
+            this.s3StorageClass = s3StorageClass;
 
             log.debug("OutputStream for key '%s' using file: %s", key, tempFile);
         }
@@ -1260,6 +1267,14 @@ public class PrestoS3FileSystem
                             request.setMetadata(metadata);
                             break;
                     }
+                }
+                switch (s3StorageClass) {
+                    case STANDARD:
+                        request.withStorageClass(Standard);
+                        break;
+                    case IntelligentTiering:
+                        request.withStorageClass(IntelligentTiering);
+                        break;
                 }
 
                 request.withCannedAcl(aclType);
