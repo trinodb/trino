@@ -205,7 +205,7 @@ Property Name                                      Description                  
                                                    tables in the schemas ``schema1`` and ``schema2``.
                                                    ``*`` to cache directory listing for all tables.
 
-``hive.file-status-cache-size``                    Maximum no. of file status entries cached for a path.        10,00,000
+``hive.file-status-cache-size``                    Maximum no. of file status entries cached for a path.        1,000,000
 
 ``hive.file-status-cache-expire-time``             Duration of time after a directory listing is cached that it ``1m``
                                                    should be automatically removed from cache.
