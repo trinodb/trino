@@ -35,6 +35,7 @@ public class HiveS3Config
     private String s3AwsAccessKey;
     private String s3AwsSecretKey;
     private String s3Endpoint;
+    private PrestoS3StorageClass s3StorageClass = PrestoS3StorageClass.STANDARD;
     private PrestoS3SignerType s3SignerType;
     private String s3SignerClass;
     private boolean s3PathStyleAccess;
@@ -96,6 +97,18 @@ public class HiveS3Config
     public HiveS3Config setS3Endpoint(String s3Endpoint)
     {
         this.s3Endpoint = s3Endpoint;
+        return this;
+    }
+
+    public PrestoS3StorageClass getS3StorageClass()
+    {
+        return s3StorageClass;
+    }
+
+    @Config("hive.s3.storage-class")
+    public HiveS3Config setS3StorageClass(PrestoS3StorageClass s3StorageClass)
+    {
+        this.s3StorageClass = s3StorageClass;
         return this;
     }
 
