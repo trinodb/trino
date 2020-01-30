@@ -1799,17 +1799,26 @@ public class LocalExecutionPlanner
                     buildContext.getDriverInstanceCount(),
                     buildSource.getPipelineExecutionStrategy());
 
-            ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
-            outputMappings.putAll(probeSource.getLayout());
+            // extract probe and build symbols in the order required for output
+            List<Symbol> probeSymbols = node.getOutputSymbols().stream()
+                    .filter(ImmutableSet.copyOf(node.getLeft().getOutputSymbols())::contains)
+                    .collect(toImmutableList());
+            List<Symbol> buildSymbols = node.getOutputSymbols().stream()
+                    .filter(ImmutableSet.copyOf(node.getRight().getOutputSymbols())::contains)
+                    .collect(toImmutableList());
 
-            // inputs from build side of the join are laid out following the input from the probe side,
-            // so adjust the channel ids but keep the field layouts intact
-            int offset = probeSource.getTypes().size();
-            for (Map.Entry<Symbol, Integer> entry : buildSource.getLayout().entrySet()) {
-                outputMappings.put(entry.getKey(), offset + entry.getValue());
+            // build output mapping
+            ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
+            List<Symbol> outputSymbols = node.getOutputSymbols();
+            for (int i = 0; i < outputSymbols.size(); i++) {
+                Symbol symbol = outputSymbols.get(i);
+                outputMappings.put(symbol, i);
             }
 
-            OperatorFactory operatorFactory = new NestedLoopJoinOperatorFactory(context.getNextOperatorId(), node.getId(), nestedLoopJoinBridgeManager);
+            List<Integer> probeChannels = getChannelsForSymbols(probeSymbols, probeSource.getLayout());
+            List<Integer> buildChannels = getChannelsForSymbols(buildSymbols, buildSource.getLayout());
+
+            OperatorFactory operatorFactory = new NestedLoopJoinOperatorFactory(context.getNextOperatorId(), node.getId(), nestedLoopJoinBridgeManager, probeChannels, buildChannels);
             return new PhysicalOperation(operatorFactory, outputMappings.build(), context, probeSource);
         }
 
