@@ -4898,6 +4898,19 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testExecuteUsingWithFunctionsAsParameters()
+    {
+        String query = "SELECT a + ? FROM (VALUES 1, 2, 3, 4) AS t(a)";
+
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query", query)
+                .build();
+        assertQuery(session,
+                "EXECUTE my_query USING abs(-2) ",
+                "VALUES 3, 4, 5, 6");
+    }
+
+    @Test
     public void testExecuteNoSuchQuery()
     {
         assertQueryFails("EXECUTE my_query", "Prepared statement not found: my_query");
