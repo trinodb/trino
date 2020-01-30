@@ -477,7 +477,22 @@ public class TestDomainTranslator
 
         // Domain union implicitly adds NaN as an accepted value
         // The original predicate is returned as the RemainingExpression
-        // (even though left and right unprocessableExpressions are the same)
+        // (even if left and right unprocessableExpressions are the same)
+        originalPredicate = or(
+                greaterThan(C_DOUBLE, doubleLiteral(2.0)),
+                lessThan(C_DOUBLE, doubleLiteral(5.0)));
+        result = fromPredicate(originalPredicate);
+        assertEquals(result.getRemainingExpression(), originalPredicate);
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_DOUBLE, Domain.notNull(DOUBLE))));
+
+        originalPredicate = or(
+                greaterThan(C_REAL, realLiteral("2.0")),
+                lessThan(C_REAL, realLiteral("5.0")),
+                isNull(C_REAL));
+        result = fromPredicate(originalPredicate);
+        assertEquals(result.getRemainingExpression(), originalPredicate);
+        assertEquals(result.getTupleDomain(), TupleDomain.all());
+
         originalPredicate = or(
                 and(greaterThan(C_DOUBLE, doubleLiteral(2.0)), unprocessableExpression1(C_DOUBLE)),
                 and(lessThan(C_DOUBLE, doubleLiteral(5.0)), unprocessableExpression1(C_DOUBLE)));
