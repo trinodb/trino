@@ -29,7 +29,7 @@ import static io.prestosql.plugin.base.util.JsonUtils.parseJson;
 import static java.lang.Boolean.TRUE;
 import static java.util.Objects.requireNonNull;
 
-final class UserExtraction
+public final class UserExtraction
 {
     private final List<Rule> rules;
 
@@ -112,7 +112,7 @@ final class UserExtraction
         {
             this.pattern = Pattern.compile(requireNonNull(pattern, "pattern is null"));
             this.user = requireNonNull(user, "user is null");
-            this.allow = requireNonNull(allow, "allow is null");
+            this.allow = allow;
         }
 
         public Optional<String> extractUser(String principal)
