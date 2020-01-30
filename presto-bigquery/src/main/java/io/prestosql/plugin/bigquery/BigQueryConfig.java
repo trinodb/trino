@@ -126,7 +126,7 @@ public class BigQueryConfig
 
     public String getParentProject()
     {
-        return parentProject.orElse(BigQueryOptions.getDefaultInstance().getProjectId());
+        return parentProject.orElseGet(() -> BigQueryOptions.getDefaultInstance().getProjectId());
     }
 
     @Config("bigquery.parent-project")
