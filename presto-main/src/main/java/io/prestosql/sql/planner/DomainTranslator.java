@@ -405,12 +405,23 @@ public final class DomainTranslator
                             // To guard against wrong results, the current node is returned as the remainingExpression.
                             Domain leftDomain = getOnlyElement(leftTupleDomain.getDomains().get().values());
                             Domain rightDomain = getOnlyElement(rightTupleDomain.getDomains().get().values());
-                            Domain unionedDomain = getOnlyElement(columnUnionedTupleDomain.getDomains().get().values());
                             Type type = leftDomain.getType();
+
+                            // A Domain of a floating point type contains NaN in the following cases:
+                            // 1. When it contains all the values of the type and null.
+                            //    In such case the domain is 'all', and if it is the only domain
+                            //    in the TupleDomain, the TupleDomain gets normalized to TupleDomain 'all'.
+                            // 2. When it contains all the values of the type and doesn't contain null.
+                            //    In such case no normalization on the level of TupleDomain takes place,
+                            //    and the check for NaN is done by inspecting the Domain's valueSet.
+                            //    NaN is included when the valueSet is 'all'.
+                            boolean unionedDomainContainsNaN = columnUnionedTupleDomain.isAll() ||
+                                    (columnUnionedTupleDomain.getDomains().isPresent() &&
+                                            getOnlyElement(columnUnionedTupleDomain.getDomains().get().values()).getValues().isAll());
                             boolean implicitlyAddedNaN = (type instanceof RealType || type instanceof DoubleType) &&
                                     !leftDomain.getValues().isAll() &&
                                     !rightDomain.getValues().isAll() &&
-                                    unionedDomain.getValues().isAll();
+                                    unionedDomainContainsNaN;
                             if (!implicitlyAddedNaN) {
                                 remainingExpression = leftResult.getRemainingExpression();
                             }
