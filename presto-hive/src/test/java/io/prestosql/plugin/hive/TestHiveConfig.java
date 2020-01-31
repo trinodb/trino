@@ -88,6 +88,7 @@ public class TestHiveConfig
                 .setFileStatusCacheExpireAfterWrite(new Duration(1, TimeUnit.MINUTES))
                 .setFileStatusCacheMaxSize(1000 * 1000)
                 .setFileStatusCacheTables("")
+                .setHiveViewsEnabled(false)
                 .setHiveTransactionHeartbeatInterval(null)
                 .setHiveTransactionHeartbeatThreads(5));
     }
@@ -150,6 +151,7 @@ public class TestHiveConfig
                 .put("hive.file-status-cache-tables", "foo.bar1, foo.bar2")
                 .put("hive.file-status-cache-size", "1000")
                 .put("hive.file-status-cache-expire-time", "30m")
+                .put("hive.views-execution.enabled", "true")
                 .put("hive.transaction-heartbeat-interval", "10s")
                 .put("hive.transaction-heartbeat-threads", "10")
                 .build();
@@ -209,6 +211,7 @@ public class TestHiveConfig
                 .setFileStatusCacheTables("foo.bar1,foo.bar2")
                 .setFileStatusCacheMaxSize(1000)
                 .setFileStatusCacheExpireAfterWrite(new Duration(30, TimeUnit.MINUTES))
+                .setHiveViewsEnabled(true)
                 .setHiveTransactionHeartbeatInterval(new Duration(10, TimeUnit.SECONDS))
                 .setHiveTransactionHeartbeatThreads(10);
 

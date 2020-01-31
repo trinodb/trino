@@ -119,6 +119,7 @@ public class HiveConfig
     private Duration fileStatusCacheExpireAfterWrite = new Duration(1, MINUTES);
     private long fileStatusCacheMaxSize = 1000 * 1000;
     private List<String> fileStatusCacheTables = ImmutableList.of();
+    private boolean hiveViewsEnabled;
 
     private Optional<Duration> hiveTransactionHeartbeatInterval = Optional.empty();
     private int hiveTransactionHeartbeatThreads = 5;
@@ -588,6 +589,19 @@ public class HiveConfig
     public HiveConfig setFileStatusCacheTables(String fileStatusCacheTables)
     {
         this.fileStatusCacheTables = SPLITTER.splitToList(fileStatusCacheTables);
+        return this;
+    }
+
+    public boolean isHiveViewsEnabled()
+    {
+        return hiveViewsEnabled;
+    }
+
+    @Config("hive.views-execution.enabled")
+    @ConfigDescription("Allow execution of Hive views")
+    public HiveConfig setHiveViewsEnabled(boolean hiveViewsEnabled)
+    {
+        this.hiveViewsEnabled = hiveViewsEnabled;
         return this;
     }
 
