@@ -628,6 +628,8 @@ public class TestElasticsearchIntegrationSmokeTest
     {
         client.getLowLevelClient()
                 .performRequest("PUT", format("/%s/_alias/%s", index, alias));
+
+        refreshIndex(alias);
     }
 
     private void createIndex(String indexName, @Language("JSON") String mapping)
@@ -635,5 +637,12 @@ public class TestElasticsearchIntegrationSmokeTest
     {
         client.getLowLevelClient()
                 .performRequest("PUT", "/" + indexName, ImmutableMap.of(), new NStringEntity(mapping, ContentType.APPLICATION_JSON));
+    }
+
+    private void refreshIndex(String index)
+            throws IOException
+    {
+        client.getLowLevelClient()
+                .performRequest("GET", format("/%s/_refresh", index));
     }
 }
