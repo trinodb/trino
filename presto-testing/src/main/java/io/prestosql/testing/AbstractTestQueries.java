@@ -2198,6 +2198,12 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testOrNormalization()
+    {
+        assertQuery("SELECT orderkey FROM orders WHERE orderkey = mod(1000, orderkey) OR orderkey = 7000");
+    }
+
+    @Test
     public void testNullOnLhsOfInPredicateAllowed()
     {
         assertQuery("SELECT NULL IN (1, 2, 3)", "SELECT NULL");
