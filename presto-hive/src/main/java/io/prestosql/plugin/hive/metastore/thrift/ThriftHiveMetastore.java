@@ -95,6 +95,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -312,6 +313,7 @@ public class ThriftHiveMetastore
     {
         return alternativeCall(
                 () -> createMetastoreClient(identity),
+                ThriftHiveMetastore::defaultIsValidExceptionalResponse,
                 chosenGetTableAlternative,
                 client -> client.getTableWithCapabilities(databaseName, tableName),
                 client -> client.getTable(databaseName, tableName));
@@ -883,6 +885,7 @@ public class ThriftHiveMetastore
 
         return alternativeCall(
                 this::createMetastoreClient,
+                ThriftHiveMetastore::defaultIsValidExceptionalResponse,
                 chosenTableParamAlternative,
                 client -> client.getTableNamesByFilter(databaseName, filterWithEquals),
                 client -> client.getTableNamesByFilter(databaseName, filterWithLike));
@@ -1675,6 +1678,7 @@ public class ThriftHiveMetastore
     @SafeVarargs
     private final <T> T alternativeCall(
             ClientSupplier clientSupplier,
+            Predicate<Exception> isValidExceptionalResponse,
             AtomicInteger chosenAlternative,
             Call<T>... alternatives)
             throws TException
@@ -1698,7 +1702,7 @@ public class ThriftHiveMetastore
                 return result;
             }
             catch (TException | RuntimeException exception) {
-                if (isValidExceptionalResponse(exception)) {
+                if (isValidExceptionalResponse.test(exception)) {
                     // This is likely a valid response. We are not settling on an alternative yet.
                     // We will do it later when we get a more obviously valid response.
                     throw exception;
@@ -1719,7 +1723,7 @@ public class ThriftHiveMetastore
 
     // TODO instead of whitelisting exceptions we propagate we should recognize exceptions which we suppress and try different alternative call
     // this requires product tests with HDP 3
-    private static boolean isValidExceptionalResponse(Exception exception)
+    private static boolean defaultIsValidExceptionalResponse(Exception exception)
     {
         if (exception instanceof NoSuchObjectException) {
             return true;
