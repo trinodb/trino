@@ -212,17 +212,20 @@ public class PruneUnreferencedOutputs
             PlanNode left = context.rewrite(node.getLeft(), leftInputs);
             PlanNode right = context.rewrite(node.getRight(), rightInputs);
 
-            List<Symbol> outputSymbols;
+            List<Symbol> leftOutputSymbols;
+            List<Symbol> rightOutputSymbols;
+
+            // do not prune cross join output since it is not supported
             if (node.isCrossJoin()) {
-                // do not prune nested joins output since it is not supported
-                // TODO: remove this "if" branch when output symbols selection is supported by nested loop join
-                outputSymbols = ImmutableList.<Symbol>builder()
-                        .addAll(left.getOutputSymbols())
-                        .addAll(right.getOutputSymbols())
-                        .build();
+                leftOutputSymbols = left.getOutputSymbols();
+                rightOutputSymbols = right.getOutputSymbols();
             }
             else {
-                outputSymbols = node.getOutputSymbols().stream()
+                leftOutputSymbols = node.getLeftOutputSymbols().stream()
+                        .filter(context.get()::contains)
+                        .distinct()
+                        .collect(toImmutableList());
+                rightOutputSymbols = node.getRightOutputSymbols().stream()
                         .filter(context.get()::contains)
                         .distinct()
                         .collect(toImmutableList());
@@ -234,7 +237,8 @@ public class PruneUnreferencedOutputs
                     left,
                     right,
                     node.getCriteria(),
-                    outputSymbols,
+                    leftOutputSymbols,
+                    rightOutputSymbols,
                     node.getFilter(),
                     node.getLeftHashSymbol(),
                     node.getRightHashSymbol(),

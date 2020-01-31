@@ -76,7 +76,8 @@ public class TestPruneJoinChildrenColumns
                             p.values(leftValue),
                             p.values(rightValue),
                             ImmutableList.of(),
-                            ImmutableList.of(leftValue, rightValue),
+                            ImmutableList.of(leftValue),
+                            ImmutableList.of(rightValue),
                             Optional.empty(),
                             Optional.empty(),
                             Optional.empty());
@@ -92,13 +93,17 @@ public class TestPruneJoinChildrenColumns
         Symbol rightKey = p.symbol("rightKey");
         Symbol rightKeyHash = p.symbol("rightKeyHash");
         Symbol rightValue = p.symbol("rightValue");
-        List<Symbol> outputs = ImmutableList.of(leftValue, rightValue);
+        List<Symbol> leftOutputs = ImmutableList.of(leftValue);
+        List<Symbol> rightOutputs = ImmutableList.of(rightValue);
         return p.join(
                 JoinNode.Type.INNER,
                 p.values(leftKey, leftKeyHash, leftValue),
                 p.values(rightKey, rightKeyHash, rightValue),
                 ImmutableList.of(new JoinNode.EquiJoinClause(leftKey, rightKey)),
-                outputs.stream()
+                leftOutputs.stream()
+                        .filter(joinOutputFilter)
+                        .collect(toImmutableList()),
+                rightOutputs.stream()
                         .filter(joinOutputFilter)
                         .collect(toImmutableList()),
                 Optional.of(expression("leftValue > 5")),
