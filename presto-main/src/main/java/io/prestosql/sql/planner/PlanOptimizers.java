@@ -58,6 +58,7 @@ import io.prestosql.sql.planner.iterative.rule.MergeLimitWithSort;
 import io.prestosql.sql.planner.iterative.rule.MergeLimitWithTopN;
 import io.prestosql.sql.planner.iterative.rule.MergeLimits;
 import io.prestosql.sql.planner.iterative.rule.MultipleDistinctAggregationToMarkDistinct;
+import io.prestosql.sql.planner.iterative.rule.NormalizeOrExpressions;
 import io.prestosql.sql.planner.iterative.rule.PruneAggregationColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneAggregationSourceColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneCountAggregationOverScalar;
@@ -293,6 +294,7 @@ public class PlanOptimizers
                                 .addAll(new DesugarCurrentPath(metadata).rules())
                                 .addAll(new DesugarTryExpression(metadata, typeAnalyzer).rules())
                                 .addAll(new DesugarRowSubscript(typeAnalyzer).rules())
+                                .addAll(new NormalizeOrExpressions(metadata).rules())
                                 .build()),
                 new IterativeOptimizer(
                         ruleStats,
