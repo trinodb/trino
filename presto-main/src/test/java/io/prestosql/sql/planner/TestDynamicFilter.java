@@ -15,7 +15,6 @@ package io.prestosql.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
@@ -54,7 +53,9 @@ public class TestDynamicFilter
     {
         // in order to test testUncorrelatedSubqueries with Dynamic Filtering, enable it
         super(ImmutableMap.of(
-                ENABLE_DYNAMIC_FILTERING, "true"));
+                ENABLE_DYNAMIC_FILTERING, "true",
+                JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.NONE.name(),
+                JOIN_DISTRIBUTION_TYPE, JoinDistributionType.BROADCAST.name()));
     }
 
     @Test
@@ -196,7 +197,6 @@ public class TestDynamicFilter
     {
         assertPlan(
                 "SELECT part.partkey from part JOIN (lineitem JOIN orders ON lineitem.orderkey = orders.orderkey) ON part.partkey = lineitem.orderkey",
-                noJoinReordering(),
                 anyTree(
                         join(INNER, ImmutableList.of(equiJoinClause("PART_PK", "LINEITEM_OK")),
                                 ImmutableMap.of("PART_PK", "LINEITEM_OK"),
@@ -216,7 +216,6 @@ public class TestDynamicFilter
     {
         assertPlan(
                 "SELECT part.partkey from (lineitem JOIN orders ON lineitem.orderkey = orders.orderkey) JOIN part ON lineitem.orderkey = part.partkey",
-                noJoinReordering(),
                 anyTree(
                         join(INNER, ImmutableList.of(equiJoinClause("LINEITEM_OK", "PART_PK")),
                                 join(INNER, ImmutableList.of(equiJoinClause("LINEITEM_OK", "ORDERS_OK")),
@@ -267,7 +266,6 @@ public class TestDynamicFilter
                 "SELECT 1 FROM part t0, part t1, part t2 " +
                         "WHERE t0.partkey = t1.partkey AND t0.partkey = t2.partkey " +
                         "AND t0.size + t1.size = t2.size",
-                noJoinReordering(),
                 anyTree(
                         join(INNER,
                                 ImmutableList.of(equiJoinClause("K0", "K2"), equiJoinClause("S", "V2")),
@@ -286,13 +284,5 @@ public class TestDynamicFilter
                                 exchange(
                                         project(
                                                 tableScan("part", ImmutableMap.of("K2", "partkey", "V2", "size")))))));
-    }
-
-    private Session noJoinReordering()
-    {
-        return Session.builder(getQueryRunner().getDefaultSession())
-                .setSystemProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.NONE.name())
-                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.PARTITIONED.name())
-                .build();
     }
 }
