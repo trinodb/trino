@@ -83,6 +83,10 @@ public final class Statistics
 
     public static PartitionStatistics merge(PartitionStatistics first, PartitionStatistics second)
     {
+        if (first.getBasicStatistics().getRowCount().orElse(0L) == 0) {
+            return second;
+        }
+
         return new PartitionStatistics(
                 reduce(first.getBasicStatistics(), second.getBasicStatistics(), ADD),
                 merge(first.getColumnStatistics(), second.getColumnStatistics()));

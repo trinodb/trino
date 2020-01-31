@@ -4135,6 +4135,60 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testCollectColumnStatisticsOnInsertToEmptyTable()
+    {
+        String tableName = "test_collect_column_statistics_empty_table";
+
+        assertUpdate(format("CREATE TABLE %s (col INT)", tableName));
+
+        assertQuery("SHOW STATS FOR " + tableName,
+                "SELECT * FROM VALUES " +
+                        "('col', null, null, null, null, null, null), " +
+                        "(null, null, null, null, 0E0, null, null)");
+
+        assertUpdate(format("INSERT INTO %s (col) VALUES 50, 100, 1, 200, 2", tableName), 5);
+
+        assertQuery(format("SHOW STATS FOR %s", tableName),
+                "SELECT * FROM VALUES " +
+                        "('col', null, 5.0, 0.0, null, 1, 200), " +
+                        "(null, null, null, null, 5.0, null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testCollectColumnStatisticsOnInsertToPartialyAnalyzedTable()
+    {
+        String tableName = "test_collect_column_statistics_partially_analyzed_table";
+
+        assertUpdate(format("CREATE TABLE %s (col INT, col2 INT)", tableName));
+
+        assertQuery("SHOW STATS FOR " + tableName,
+                "SELECT * FROM VALUES " +
+                        "('col', null, null, null, null, null, null), " +
+                        "('col2', null, null, null, null, null, null), " +
+                        "(null, null, null, null, 0E0, null, null)");
+
+        assertUpdate(format("ANALYZE %s WITH (columns = ARRAY['col2'])", tableName), 0);
+
+        assertQuery("SHOW STATS FOR " + tableName,
+                "SELECT * FROM VALUES " +
+                        "('col', null, null, null, null, null, null), " +
+                        "('col2', null, 0.0, 0.0, null, null, null), " +
+                        "(null, null, null, null, 0E0, null, null)");
+
+        assertUpdate(format("INSERT INTO %s (col, col2) VALUES (50, 49), (100, 99), (1, 0), (200, 199), (2, 1)", tableName), 5);
+
+        assertQuery(format("SHOW STATS FOR %s", tableName),
+                "SELECT * FROM VALUES " +
+                        "('col', null, 5.0, 0.0, null, 1, 200), " +
+                        "('col2', null, 5.0, 0.0, null, 0, 199), " +
+                        "(null, null, null, null, 5.0, null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testAnalyzePropertiesSystemTable()
     {
         assertQuery(

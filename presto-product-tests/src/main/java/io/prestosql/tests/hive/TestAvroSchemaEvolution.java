@@ -149,9 +149,14 @@ public class TestAvroSchemaEvolution
                 .containsExactly(row("string0", 0));
 
         executeHiveQuery(format("ALTER TABLE %s UNSET TBLPROPERTIES('avro.schema.url')", TABLE_NAME));
+
+        // Metastore requires that table column statistics must much columns from schema when updating table.
+        // This has a side-effect of schema being overriden by schema taken from avro.schema.url.
+        // When we drop avro.schema.url property we are not able to rollback to previous (dummy) schema.
         assertThat(query(COLUMNS_IN_TABLE))
                 .containsExactly(
-                        row("dummy_col", "varchar", "", ""));
+                        row("string_col", "varchar", "", ""),
+                        row("int_col", "integer", "", ""));
     }
 
     @Test

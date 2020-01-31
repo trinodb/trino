@@ -157,9 +157,67 @@ public class TestAvroSchemaUrl
         onPresto().executeQuery("DROP TABLE test_avro_schema_url_presto");
     }
 
+    @Test(dataProvider = "avroSchemaLocations", groups = STORAGE_FORMATS)
+    public void testPrestoCreatedTableStatistics(String schemaLocation)
+    {
+        onPresto().executeQuery("SET ROLE admin");
+        onPresto().executeQuery("SET SESSION hive.collect_column_statistics_on_write = TRUE");
+        onPresto().executeQuery("DROP TABLE IF EXISTS test_avro_schema_url_presto");
+        onPresto().executeQuery(format("CREATE TABLE test_avro_schema_url_presto (dummy_col VARCHAR) WITH (format='AVRO', avro_schema_url='%s')", schemaLocation));
+        onPresto().executeQuery("INSERT INTO test_avro_schema_url_presto VALUES ('some text', 123042)");
+
+        assertThat(onPresto().executeQuery("SHOW STATS FOR test_avro_schema_url_presto")).containsOnly(
+                row("string_col", 9.00000000000, 1.00000000000, 0.00000000000, null, null, null),
+                row("int_col", null, 1.00000000000, 0.00000000000, null, "123042", "123042"),
+                row(null, null, null, null, 1.00000000000, null, null));
+
+        onHive().executeQuery("ALTER TABLE test_avro_schema_url_presto UNSET TBLPROPERTIES('avro.schema.url')");
+
+        // when hive.collect-column-statistics-on-write is enabled table and columns statistics update has side-effect
+        // of overriding table schema in metastore from avro schema.
+        // When avro.schema.url is unset we are not able to restore previous schema.
+        assertThat(onPresto().executeQuery("SHOW STATS FOR test_avro_schema_url_presto")).hasRowsCount(3);
+
+        onPresto().executeQuery("DROP TABLE test_avro_schema_url_presto");
+    }
+
+    @Test(dataProvider = "avroSchemaLocations", groups = STORAGE_FORMATS)
+    public void testPrestoCreatedTableStatisticsWhenWriteCollectIsDisabled(String schemaLocation)
+    {
+        onPresto().executeQuery("SET ROLE admin");
+        onPresto().executeQuery("SET SESSION hive.collect_column_statistics_on_write = FALSE");
+        onPresto().executeQuery("DROP TABLE IF EXISTS test_avro_schema_url_presto2");
+        onPresto().executeQuery(format("CREATE TABLE test_avro_schema_url_presto2 (dummy_col VARCHAR) WITH (format='AVRO', avro_schema_url='%s')", schemaLocation));
+        onPresto().executeQuery("INSERT INTO test_avro_schema_url_presto2 VALUES ('some text', 123042)");
+
+        assertThat(onPresto().executeQuery("SHOW STATS FOR test_avro_schema_url_presto2")).contains(
+                row("string_col", null, null, null, null, null, null),
+                row("int_col", null, null, null, null, null, null)
+        ).hasRowsCount(3);
+
+        onHive().executeQuery("ALTER TABLE test_avro_schema_url_presto2 UNSET TBLPROPERTIES('avro.schema.url')");
+
+        // when hive.collect-column-statistics-on-write is disabled table and columns statistics update has side-effect
+        // of overriding table schema in metastore from avro schema.
+        // When avro.schema.url is unset we are not able to restore previous schema.
+        assertThat(onPresto().executeQuery("SHOW STATS FOR test_avro_schema_url_presto2")).contains(
+                row("string_col", null, null, null, null, null, null),
+                row("int_col", null, null, null, null, null, null)
+        ).hasRowsCount(3);
+
+        onPresto().executeQuery("DROP TABLE test_avro_schema_url_presto2");
+    }
+
     @Test(groups = STORAGE_FORMATS)
     public void testTableWithLongColumnType()
     {
+        if (isOnHdp()) {
+            // HDP 2.6 won't allow to define a partitioned table with schema having a column with type definition over 2000 characters.
+            // It is possible to create table with simpler schema and then alter the schema, but that results in different end state on CDH.
+            // To retain proper test coverage on CDH, this test needs to be disabled on HDP.
+            throw new SkipException("Skipping on HDP");
+        }
+
         onPresto().executeQuery("DROP TABLE IF EXISTS test_avro_schema_url_long_column");
         onPresto().executeQuery(
                 "CREATE TABLE test_avro_schema_url_long_column (dummy_col VARCHAR)" +

@@ -3744,8 +3744,8 @@ public abstract class AbstractTestHive
 
             for (String partitionName : partitionNames) {
                 HiveBasicStatistics statistics = getBasicStatisticsForPartition(session, transaction, tableName, partitionName);
-                assertThat(statistics.getRowCount()).isNotPresent();
-                assertThat(statistics.getInMemoryDataSizeInBytes()).isNotPresent();
+                assertThat(statistics.getRowCount()).isEqualTo(OptionalLong.of(1));
+                assertThat(statistics.getInMemoryDataSizeInBytes()).isPresent();
                 // fileCount and rawSize statistics are computed on the fly by the metastore, thus cannot be erased
             }
         }
