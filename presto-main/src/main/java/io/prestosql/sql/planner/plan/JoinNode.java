@@ -26,13 +26,11 @@ import io.prestosql.sql.tree.Join;
 
 import javax.annotation.concurrent.Immutable;
 
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -53,7 +51,8 @@ public class JoinNode
     private final PlanNode left;
     private final PlanNode right;
     private final List<EquiJoinClause> criteria;
-    private final List<Symbol> outputSymbols;
+    private final List<Symbol> leftOutputSymbols;
+    private final List<Symbol> rightOutputSymbols;
     private final Optional<Expression> filter;
     private final Optional<Symbol> leftHashSymbol;
     private final Optional<Symbol> rightHashSymbol;
@@ -71,7 +70,8 @@ public class JoinNode
             @JsonProperty("left") PlanNode left,
             @JsonProperty("right") PlanNode right,
             @JsonProperty("criteria") List<EquiJoinClause> criteria,
-            @JsonProperty("outputSymbols") List<Symbol> outputSymbols,
+            @JsonProperty("leftOutputSymbols") List<Symbol> leftOutputSymbols,
+            @JsonProperty("rightOutputSymbols") List<Symbol> rightOutputSymbols,
             @JsonProperty("filter") Optional<Expression> filter,
             @JsonProperty("leftHashSymbol") Optional<Symbol> leftHashSymbol,
             @JsonProperty("rightHashSymbol") Optional<Symbol> rightHashSymbol,
@@ -85,7 +85,8 @@ public class JoinNode
         requireNonNull(left, "left is null");
         requireNonNull(right, "right is null");
         requireNonNull(criteria, "criteria is null");
-        requireNonNull(outputSymbols, "outputSymbols is null");
+        requireNonNull(leftOutputSymbols, "leftOutputSymbols is null");
+        requireNonNull(rightOutputSymbols, "rightOutputSymbols is null");
         requireNonNull(filter, "filter is null");
         requireNonNull(leftHashSymbol, "leftHashSymbol is null");
         requireNonNull(rightHashSymbol, "rightHashSymbol is null");
@@ -96,7 +97,8 @@ public class JoinNode
         this.left = left;
         this.right = right;
         this.criteria = ImmutableList.copyOf(criteria);
-        this.outputSymbols = ImmutableList.copyOf(outputSymbols);
+        this.leftOutputSymbols = ImmutableList.copyOf(leftOutputSymbols);
+        this.rightOutputSymbols = ImmutableList.copyOf(rightOutputSymbols);
         this.filter = filter;
         this.leftHashSymbol = leftHashSymbol;
         this.rightHashSymbol = rightHashSymbol;
@@ -107,12 +109,16 @@ public class JoinNode
 
         Set<Symbol> leftSymbols = ImmutableSet.copyOf(left.getOutputSymbols());
         Set<Symbol> rightSymbols = ImmutableSet.copyOf(right.getOutputSymbols());
-        Set<Symbol> inputSymbols = ImmutableSet.<Symbol>builder()
-                .addAll(leftSymbols)
-                .addAll(rightSymbols)
-                .build();
-        checkArgument(new HashSet<>(inputSymbols).containsAll(outputSymbols), "Left and right join inputs do not contain all output symbols");
-        checkArgument(!isCrossJoin() || inputSymbols.size() == outputSymbols.size(), "Cross join does not support output symbols pruning or reordering");
+
+        checkArgument(leftSymbols.containsAll(leftOutputSymbols), "Left source inputs do not contain all left output symbols");
+        checkArgument(rightSymbols.containsAll(rightOutputSymbols), "Right source inputs do not contain all right output symbols");
+
+        if (isCrossJoin()) {
+            checkArgument(
+                    ImmutableSet.copyOf(leftOutputSymbols).containsAll(leftSymbols) &&
+                            ImmutableSet.copyOf(rightOutputSymbols).containsAll(rightSymbols),
+                    "Cross join does not support output symbols pruning");
+        }
 
         checkArgument(!(criteria.isEmpty() && leftHashSymbol.isPresent()), "Left hash symbol is only valid in an equijoin");
         checkArgument(!(criteria.isEmpty() && rightHashSymbol.isPresent()), "Right hash symbol is only valid in an equijoin");
@@ -151,7 +157,8 @@ public class JoinNode
                 right,
                 left,
                 flipJoinCriteria(criteria),
-                flipOutputSymbols(getOutputSymbols(), left, right),
+                rightOutputSymbols,
+                leftOutputSymbols,
                 filter,
                 rightHashSymbol,
                 leftHashSymbol,
@@ -182,20 +189,6 @@ public class JoinNode
         return joinCriteria.stream()
                 .map(EquiJoinClause::flip)
                 .collect(toImmutableList());
-    }
-
-    private static List<Symbol> flipOutputSymbols(List<Symbol> outputSymbols, PlanNode left, PlanNode right)
-    {
-        List<Symbol> leftSymbols = outputSymbols.stream()
-                .filter(symbol -> left.getOutputSymbols().contains(symbol))
-                .collect(Collectors.toList());
-        List<Symbol> rightSymbols = outputSymbols.stream()
-                .filter(symbol -> right.getOutputSymbols().contains(symbol))
-                .collect(Collectors.toList());
-        return ImmutableList.<Symbol>builder()
-                .addAll(rightSymbols)
-                .addAll(leftSymbols)
-                .build();
     }
 
     public enum DistributionType
@@ -266,6 +259,18 @@ public class JoinNode
         return criteria;
     }
 
+    @JsonProperty("leftOutputSymbols")
+    public List<Symbol> getLeftOutputSymbols()
+    {
+        return leftOutputSymbols;
+    }
+
+    @JsonProperty("rightOutputSymbols")
+    public List<Symbol> getRightOutputSymbols()
+    {
+        return rightOutputSymbols;
+    }
+
     @JsonProperty("filter")
     public Optional<Expression> getFilter()
     {
@@ -291,10 +296,12 @@ public class JoinNode
     }
 
     @Override
-    @JsonProperty("outputSymbols")
     public List<Symbol> getOutputSymbols()
     {
-        return outputSymbols;
+        return ImmutableList.<Symbol>builder()
+                .addAll(leftOutputSymbols)
+                .addAll(rightOutputSymbols)
+                .build();
     }
 
     @JsonProperty("distributionType")
@@ -331,22 +338,22 @@ public class JoinNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
-        return new JoinNode(getId(), type, newChildren.get(0), newChildren.get(1), criteria, outputSymbols, filter, leftHashSymbol, rightHashSymbol, distributionType, spillable, dynamicFilters, reorderJoinStatsAndCost);
+        return new JoinNode(getId(), type, newChildren.get(0), newChildren.get(1), criteria, leftOutputSymbols, rightOutputSymbols, filter, leftHashSymbol, rightHashSymbol, distributionType, spillable, dynamicFilters, reorderJoinStatsAndCost);
     }
 
     public JoinNode withDistributionType(DistributionType distributionType)
     {
-        return new JoinNode(getId(), type, left, right, criteria, outputSymbols, filter, leftHashSymbol, rightHashSymbol, Optional.of(distributionType), spillable, dynamicFilters, reorderJoinStatsAndCost);
+        return new JoinNode(getId(), type, left, right, criteria, leftOutputSymbols, rightOutputSymbols, filter, leftHashSymbol, rightHashSymbol, Optional.of(distributionType), spillable, dynamicFilters, reorderJoinStatsAndCost);
     }
 
     public JoinNode withSpillable(boolean spillable)
     {
-        return new JoinNode(getId(), type, left, right, criteria, outputSymbols, filter, leftHashSymbol, rightHashSymbol, distributionType, Optional.of(spillable), dynamicFilters, reorderJoinStatsAndCost);
+        return new JoinNode(getId(), type, left, right, criteria, leftOutputSymbols, rightOutputSymbols, filter, leftHashSymbol, rightHashSymbol, distributionType, Optional.of(spillable), dynamicFilters, reorderJoinStatsAndCost);
     }
 
     public JoinNode withReorderJoinStatsAndCost(PlanNodeStatsAndCostSummary statsAndCost)
     {
-        return new JoinNode(getId(), type, left, right, criteria, outputSymbols, filter, leftHashSymbol, rightHashSymbol, distributionType, spillable, dynamicFilters, Optional.of(statsAndCost));
+        return new JoinNode(getId(), type, left, right, criteria, leftOutputSymbols, rightOutputSymbols, filter, leftHashSymbol, rightHashSymbol, distributionType, spillable, dynamicFilters, Optional.of(statsAndCost));
     }
 
     public boolean isCrossJoin()

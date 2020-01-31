@@ -100,6 +100,7 @@ public class TestReorderJoins
                                 p.values(new PlanNodeId("valuesB"), ImmutableList.of(p.symbol("B1")), TWO_ROWS),
                                 ImmutableList.of(new EquiJoinClause(p.symbol("A1"), p.symbol("B1"))),
                                 ImmutableList.of(p.symbol("A2")),
+                                ImmutableList.of(),
                                 Optional.empty()))
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(5000)
@@ -135,7 +136,8 @@ public class TestReorderJoins
                             p.values(new PlanNodeId("valuesA"), ImmutableList.of(a1), TWO_ROWS),
                             p.values(new PlanNodeId("valuesB"), ImmutableList.of(b1), TWO_ROWS),
                             ImmutableList.of(new EquiJoinClause(a1, b1)),
-                            ImmutableList.of(a1, b1),
+                            ImmutableList.of(a1),
+                            ImmutableList.of(b1),
                             Optional.empty());
                 })
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
@@ -168,7 +170,8 @@ public class TestReorderJoins
                             p.values(new PlanNodeId("valuesA"), ImmutableList.of(a1), TWO_ROWS),
                             p.values(new PlanNodeId("valuesB"), ImmutableList.of(b1), TWO_ROWS),
                             ImmutableList.of(new EquiJoinClause(a1, b1)),
-                            ImmutableList.of(a1, b1),
+                            ImmutableList.of(a1),
+                            ImmutableList.of(b1),
                             Optional.empty());
                 })
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.PARTITIONED.name())
@@ -199,7 +202,8 @@ public class TestReorderJoins
                                 p.values(new PlanNodeId("valuesA"), ImmutableList.of(p.symbol("A1")), TWO_ROWS),
                                 p.values(new PlanNodeId("valuesB"), ImmutableList.of(p.symbol("B1")), TWO_ROWS),
                                 ImmutableList.of(new EquiJoinClause(p.symbol("A1"), p.symbol("B1"))),
-                                ImmutableList.of(p.symbol("A1"), p.symbol("B1")),
+                                ImmutableList.of(p.symbol("A1")),
+                                ImmutableList.of(p.symbol("B1")),
                                 Optional.empty()))
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10000)
@@ -228,7 +232,8 @@ public class TestReorderJoins
                                 p.values(new PlanNodeId("valuesA"), ImmutableList.of(p.symbol("A1")), TWO_ROWS),
                                 p.values(new PlanNodeId("valuesB"), ImmutableList.of(p.symbol("B1")), TWO_ROWS),
                                 ImmutableList.of(new EquiJoinClause(p.symbol("A1"), p.symbol("B1"))),
-                                ImmutableList.of(p.symbol("A1"), p.symbol("B1")),
+                                ImmutableList.of(p.symbol("A1")),
+                                ImmutableList.of(p.symbol("B1")),
                                 Optional.empty()))
                 .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "1kB")
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
@@ -277,7 +282,8 @@ public class TestReorderJoins
                                 p.values(new PlanNodeId("valuesA"), p.symbol("A1")), // matches isAtMostScalar
                                 p.values(new PlanNodeId("valuesB"), ImmutableList.of(p.symbol("B1")), TWO_ROWS),
                                 ImmutableList.of(new EquiJoinClause(p.symbol("A1"), p.symbol("B1"))),
-                                ImmutableList.of(p.symbol("A1"), p.symbol("B1")),
+                                ImmutableList.of(p.symbol("A1")),
+                                ImmutableList.of(p.symbol("B1")),
                                 Optional.empty()))
                 .overrideStats("valuesA", valuesA)
                 .overrideStats("valuesB", valuesB)
@@ -291,7 +297,8 @@ public class TestReorderJoins
                                 p.values(new PlanNodeId("valuesB"), ImmutableList.of(p.symbol("B1")), TWO_ROWS),
                                 p.values(new PlanNodeId("valuesA"), p.symbol("A1")), // matches isAtMostScalar
                                 ImmutableList.of(new EquiJoinClause(p.symbol("B1"), p.symbol("A1"))),
-                                ImmutableList.of(p.symbol("A1"), p.symbol("B1")),
+                                ImmutableList.of(p.symbol("B1")),
+                                ImmutableList.of(p.symbol("A1")),
                                 Optional.empty()))
                 .overrideStats("valuesA", valuesA)
                 .overrideStats("valuesB", valuesB)
@@ -308,7 +315,8 @@ public class TestReorderJoins
                                 p.values(new PlanNodeId("valuesA"), ImmutableList.of(p.symbol("A1")), TWO_ROWS),
                                 p.values(new PlanNodeId("valuesB"), ImmutableList.of(p.symbol("B1")), TWO_ROWS),
                                 ImmutableList.of(),
-                                ImmutableList.of(p.symbol("A1"), p.symbol("B1")),
+                                ImmutableList.of(p.symbol("A1")),
+                                ImmutableList.of(p.symbol("B1")),
                                 Optional.empty()))
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10000)
@@ -332,6 +340,7 @@ public class TestReorderJoins
                                 p.values(new PlanNodeId("valuesB"), p.symbol("B1")),
                                 ImmutableList.of(new EquiJoinClause(p.symbol("A1"), p.symbol("B1"))),
                                 ImmutableList.of(p.symbol("A1")),
+                                ImmutableList.of(),
                                 Optional.empty()))
                 .overrideStats("valuesA", PlanNodeStatsEstimate.unknown())
                 .doesNotFire();
@@ -347,7 +356,8 @@ public class TestReorderJoins
                                 p.values(new PlanNodeId("valuesA"), p.symbol("A1")),
                                 p.values(new PlanNodeId("valuesB"), p.symbol("B1")),
                                 ImmutableList.of(new EquiJoinClause(p.symbol("A1"), p.symbol("B1"))),
-                                ImmutableList.of(p.symbol("A1"), p.symbol("B1")),
+                                ImmutableList.of(p.symbol("A1")),
+                                ImmutableList.of(p.symbol("B1")),
                                 Optional.of(new ComparisonExpression(
                                         LESS_THAN,
                                         p.symbol("A1").toSymbolReference(),
@@ -367,12 +377,14 @@ public class TestReorderJoins
                                         p.values(new PlanNodeId("valuesA"), ImmutableList.of(p.symbol("A1")), TWO_ROWS),
                                         p.values(new PlanNodeId("valuesB"), ImmutableList.of(p.symbol("B1"), p.symbol("B2")), TWO_ROWS),
                                         ImmutableList.of(),
-                                        ImmutableList.of(p.symbol("A1"), p.symbol("B1"), p.symbol("B2")),
+                                        ImmutableList.of(p.symbol("A1")),
+                                        ImmutableList.of(p.symbol("B1"), p.symbol("B2")),
                                         Optional.empty()),
                                 p.values(new PlanNodeId("valuesC"), ImmutableList.of(p.symbol("C1")), TWO_ROWS),
                                 ImmutableList.of(
                                         new EquiJoinClause(p.symbol("B2"), p.symbol("C1"))),
                                 ImmutableList.of(p.symbol("A1")),
+                                ImmutableList.of(),
                                 Optional.of(new ComparisonExpression(EQUAL, p.symbol("A1").toSymbolReference(), p.symbol("B1").toSymbolReference()))))
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
@@ -416,11 +428,13 @@ public class TestReorderJoins
                                                 p.values(new PlanNodeId("valuesA"), ImmutableList.of(p.symbol("A1")), TWO_ROWS),
                                                 p.values(new PlanNodeId("valuesB"), ImmutableList.of(p.symbol("B1")), TWO_ROWS),
                                                 ImmutableList.of(),
-                                                ImmutableList.of(p.symbol("A1"), p.symbol("B1")),
+                                                ImmutableList.of(p.symbol("A1")),
+                                                ImmutableList.of(p.symbol("B1")),
                                                 Optional.empty())),
                                 p.values(new PlanNodeId("valuesC"), ImmutableList.of(p.symbol("C1")), TWO_ROWS),
                                 ImmutableList.of(new EquiJoinClause(p.symbol("P1"), p.symbol("C1"))),
                                 ImmutableList.of(p.symbol("P1")),
+                                ImmutableList.of(),
                                 Optional.of(new ComparisonExpression(EQUAL, p.symbol("P2").toSymbolReference(), p.symbol("C1").toSymbolReference()))))
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
@@ -466,11 +480,13 @@ public class TestReorderJoins
                                                 p.values(new PlanNodeId("valuesA"), ImmutableList.of(p.symbol("A1")), TWO_ROWS),
                                                 p.values(new PlanNodeId("valuesB"), ImmutableList.of(p.symbol("B1")), TWO_ROWS),
                                                 ImmutableList.of(new EquiJoinClause(p.symbol("A1"), p.symbol("B1"))),
-                                                ImmutableList.of(p.symbol("A1"), p.symbol("B1")),
+                                                ImmutableList.of(p.symbol("A1")),
+                                                ImmutableList.of(p.symbol("B1")),
                                                 Optional.empty())),
                                 p.values(new PlanNodeId("valuesC"), ImmutableList.of(p.symbol("C1")), TWO_ROWS),
                                 ImmutableList.of(new EquiJoinClause(p.symbol("P1"), p.symbol("C1"))),
                                 ImmutableList.of(p.symbol("P1")),
+                                ImmutableList.of(),
                                 Optional.empty()))
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
@@ -511,12 +527,14 @@ public class TestReorderJoins
                                         p.values(new PlanNodeId("valuesA"), ImmutableList.of(p.symbol("A1")), TWO_ROWS),
                                         p.values(new PlanNodeId("valuesB"), ImmutableList.of(p.symbol("B1"), p.symbol("B2")), TWO_ROWS),
                                         ImmutableList.of(new EquiJoinClause(p.symbol("A1"), p.symbol("B1"))),
-                                        ImmutableList.of(p.symbol("A1"), p.symbol("B1"), p.symbol("B2")),
+                                        ImmutableList.of(p.symbol("A1")),
+                                        ImmutableList.of(p.symbol("B1"), p.symbol("B2")),
                                         Optional.empty()),
                                 p.values(new PlanNodeId("valuesC"), ImmutableList.of(p.symbol("C1")), TWO_ROWS),
                                 ImmutableList.of(
                                         new EquiJoinClause(p.symbol("B2"), p.symbol("C1"))),
                                 ImmutableList.of(p.symbol("A1")),
+                                ImmutableList.of(),
                                 Optional.of(new ComparisonExpression(EQUAL, p.symbol("A1").toSymbolReference(), p.symbol("B1").toSymbolReference()))))
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(40)
@@ -572,7 +590,8 @@ public class TestReorderJoins
                             p.values(new PlanNodeId("valuesA"), aRows, a1),
                             p.values(new PlanNodeId("valuesB"), bRows, b1),
                             ImmutableList.of(new EquiJoinClause(a1, b1)),
-                            ImmutableList.of(a1, b1),
+                            ImmutableList.of(a1),
+                            ImmutableList.of(b1),
                             Optional.empty());
                 })
                 .overrideStats("valuesA", probeSideStatsEstimate)
@@ -606,7 +625,8 @@ public class TestReorderJoins
                             p.values(new PlanNodeId("valuesA"), aRows, a1),
                             p.values(new PlanNodeId("valuesB"), bRows, b1),
                             ImmutableList.of(new EquiJoinClause(a1, b1)),
-                            ImmutableList.of(a1, b1),
+                            ImmutableList.of(a1),
+                            ImmutableList.of(b1),
                             Optional.empty());
                 })
                 .overrideStats("valuesA", probeSideStatsEstimate)
@@ -649,7 +669,8 @@ public class TestReorderJoins
                             p.values(new PlanNodeId("valuesA"), aRows, a1),
                             p.values(new PlanNodeId("valuesB"), bRows, b1),
                             ImmutableList.of(new EquiJoinClause(a1, b1)),
-                            ImmutableList.of(a1, b1),
+                            ImmutableList.of(a1),
+                            ImmutableList.of(b1),
                             Optional.empty());
                 })
                 .overrideStats("valuesA", probeSideStatsEstimate)

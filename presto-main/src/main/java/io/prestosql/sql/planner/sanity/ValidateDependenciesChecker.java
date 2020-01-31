@@ -360,7 +360,6 @@ public final class ValidateDependenciesChecker
                         allInputs);
             });
 
-            checkLeftOutputSymbolsBeforeRight(node.getLeft().getOutputSymbols(), node.getOutputSymbols());
             return null;
         }
 

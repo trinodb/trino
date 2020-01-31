@@ -182,10 +182,8 @@ public class PushPartialAggregationThroughJoin
                 leftChild,
                 rightChild,
                 child.getCriteria(),
-                ImmutableList.<Symbol>builder()
-                        .addAll(leftChild.getOutputSymbols())
-                        .addAll(rightChild.getOutputSymbols())
-                        .build(),
+                leftChild.getOutputSymbols(),
+                rightChild.getOutputSymbols(),
                 child.getFilter(),
                 child.getLeftHashSymbol(),
                 child.getRightHashSymbol(),
