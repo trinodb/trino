@@ -122,6 +122,13 @@ public class ThriftHiveMetastoreClient
     }
 
     @Override
+    public List<String> getTableNamesByType(String databaseName, String tableType)
+            throws TException
+    {
+        return client.get_tables_by_type(databaseName, ".*", tableType);
+    }
+
+    @Override
     public void createDatabase(Database database)
             throws TException
     {
