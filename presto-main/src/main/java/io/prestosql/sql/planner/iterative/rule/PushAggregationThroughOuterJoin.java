@@ -152,10 +152,8 @@ public class PushAggregationThroughOuterJoin
                     join.getLeft(),
                     rewrittenAggregation,
                     join.getCriteria(),
-                    ImmutableList.<Symbol>builder()
-                            .addAll(join.getLeft().getOutputSymbols())
-                            .addAll(rewrittenAggregation.getAggregations().keySet())
-                            .build(),
+                    join.getLeft().getOutputSymbols(),
+                    ImmutableList.copyOf(rewrittenAggregation.getAggregations().keySet()),
                     join.getFilter(),
                     join.getLeftHashSymbol(),
                     join.getRightHashSymbol(),
@@ -171,10 +169,8 @@ public class PushAggregationThroughOuterJoin
                     rewrittenAggregation,
                     join.getRight(),
                     join.getCriteria(),
-                    ImmutableList.<Symbol>builder()
-                            .addAll(rewrittenAggregation.getAggregations().keySet())
-                            .addAll(join.getRight().getOutputSymbols())
-                            .build(),
+                    ImmutableList.copyOf(rewrittenAggregation.getAggregations().keySet()),
+                    join.getRight().getOutputSymbols(),
                     join.getFilter(),
                     join.getLeftHashSymbol(),
                     join.getRightHashSymbol(),
@@ -247,10 +243,8 @@ public class PushAggregationThroughOuterJoin
                 outerJoin,
                 aggregationOverNull,
                 ImmutableList.of(),
-                ImmutableList.<Symbol>builder()
-                        .addAll(outerJoin.getOutputSymbols())
-                        .addAll(aggregationOverNull.getOutputSymbols())
-                        .build(),
+                outerJoin.getOutputSymbols(),
+                aggregationOverNull.getOutputSymbols(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),

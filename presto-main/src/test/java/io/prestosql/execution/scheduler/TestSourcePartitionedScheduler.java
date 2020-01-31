@@ -465,10 +465,8 @@ public class TestSourcePartitionedScheduler
                         tableScan,
                         remote,
                         ImmutableList.of(),
-                        ImmutableList.<Symbol>builder()
-                                .addAll(tableScan.getOutputSymbols())
-                                .addAll(remote.getOutputSymbols())
-                                .build(),
+                        tableScan.getOutputSymbols(),
+                        remote.getOutputSymbols(),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),

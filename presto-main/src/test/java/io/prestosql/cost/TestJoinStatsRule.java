@@ -194,7 +194,8 @@ public class TestJoinStatsRule
                             pb.values(leftJoinColumnSymbol, leftJoinColumnSymbol2),
                             pb.values(rightJoinColumnSymbol, rightJoinColumnSymbol2),
                             ImmutableList.of(new EquiJoinClause(leftJoinColumnSymbol2, rightJoinColumnSymbol2), new EquiJoinClause(leftJoinColumnSymbol, rightJoinColumnSymbol)),
-                            ImmutableList.of(leftJoinColumnSymbol, leftJoinColumnSymbol2, rightJoinColumnSymbol, rightJoinColumnSymbol2),
+                            ImmutableList.of(leftJoinColumnSymbol, leftJoinColumnSymbol2),
+                            ImmutableList.of(rightJoinColumnSymbol, rightJoinColumnSymbol2),
                             Optional.of(leftJoinColumnLessThanTen));
         }).withSourceStats(0, planNodeStats(LEFT_ROWS_COUNT, LEFT_JOIN_COLUMN_STATS, LEFT_JOIN_COLUMN_2_STATS))
                 .withSourceStats(1, planNodeStats(RIGHT_ROWS_COUNT, RIGHT_JOIN_COLUMN_STATS, RIGHT_JOIN_COLUMN_2_STATS))
