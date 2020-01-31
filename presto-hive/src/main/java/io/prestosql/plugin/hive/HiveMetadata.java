@@ -195,11 +195,13 @@ import static io.prestosql.plugin.hive.util.ConfigurationUtils.toJobConf;
 import static io.prestosql.plugin.hive.util.HiveBucketing.containsTimestampBucketedV2;
 import static io.prestosql.plugin.hive.util.HiveBucketing.getHiveBucketHandle;
 import static io.prestosql.plugin.hive.util.HiveUtil.PRESTO_VIEW_FLAG;
+import static io.prestosql.plugin.hive.util.HiveUtil.buildHiveViewConnectorDefinition;
 import static io.prestosql.plugin.hive.util.HiveUtil.columnExtraInfo;
 import static io.prestosql.plugin.hive.util.HiveUtil.decodeViewData;
 import static io.prestosql.plugin.hive.util.HiveUtil.encodeViewData;
 import static io.prestosql.plugin.hive.util.HiveUtil.getPartitionKeyColumnHandles;
 import static io.prestosql.plugin.hive.util.HiveUtil.hiveColumnHandles;
+import static io.prestosql.plugin.hive.util.HiveUtil.isPrestoView;
 import static io.prestosql.plugin.hive.util.HiveUtil.toPartitionValues;
 import static io.prestosql.plugin.hive.util.HiveUtil.verifyPartitionTypeSupported;
 import static io.prestosql.plugin.hive.util.HiveWriteUtils.checkTableIsWritable;
@@ -258,6 +260,7 @@ public class HiveMetadata
     private static final String CSV_ESCAPE_KEY = OpenCSVSerde.ESCAPECHAR;
 
     private final boolean allowCorruptWritesForTesting;
+    private final HiveCatalogName catalogName;
     private final SemiTransactionalHiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
     private final HivePartitionManager partitionManager;
@@ -267,12 +270,14 @@ public class HiveMetadata
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
     private final boolean writesToNonManagedTablesEnabled;
     private final boolean createsOfNonManagedTablesEnabled;
+    private final boolean isHiveViewsEnabled;
     private final TypeTranslator typeTranslator;
     private final String prestoVersion;
     private final HiveStatisticsProvider hiveStatisticsProvider;
     private final AccessControlMetadata accessControlMetadata;
 
     public HiveMetadata(
+            HiveCatalogName catalogName,
             SemiTransactionalHiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             HivePartitionManager partitionManager,
@@ -280,6 +285,7 @@ public class HiveMetadata
             boolean allowCorruptWritesForTesting,
             boolean writesToNonManagedTablesEnabled,
             boolean createsOfNonManagedTablesEnabled,
+            boolean isHiveViewsEnabled,
             TypeManager typeManager,
             LocationService locationService,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
@@ -290,6 +296,7 @@ public class HiveMetadata
     {
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
 
+        this.catalogName = requireNonNull(catalogName, "hiveCatalogName is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
@@ -299,6 +306,7 @@ public class HiveMetadata
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
         this.writesToNonManagedTablesEnabled = writesToNonManagedTablesEnabled;
         this.createsOfNonManagedTablesEnabled = createsOfNonManagedTablesEnabled;
+        this.isHiveViewsEnabled = isHiveViewsEnabled;
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
         this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
         this.hiveStatisticsProvider = requireNonNull(hiveStatisticsProvider, "hiveStatisticsProvider is null");
@@ -1711,23 +1719,33 @@ public class HiveMetadata
     public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
     {
         return metastore.getTable(new HiveIdentity(session), viewName.getSchemaName(), viewName.getTableName())
-                .filter(HiveUtil::isPrestoView)
-                .map(view -> {
-                    ConnectorViewDefinition definition = decodeViewData(view.getViewOriginalText()
-                            .orElseThrow(() -> new PrestoException(HIVE_INVALID_METADATA, "No view original text: " + viewName)));
-                    // use owner from table metadata if it exists
-                    if (view.getOwner() != null && !definition.isRunAsInvoker()) {
-                        definition = new ConnectorViewDefinition(
-                                definition.getOriginalSql(),
-                                definition.getCatalog(),
-                                definition.getSchema(),
-                                definition.getColumns(),
-                                definition.getComment(),
-                                Optional.of(view.getOwner()),
-                                false);
+                .flatMap(view -> {
+                    if (isPrestoView(view)) {
+                        ConnectorViewDefinition definition = decodeViewData(view.getViewOriginalText()
+                                .orElseThrow(() -> new PrestoException(HIVE_INVALID_METADATA, "No view original text: " + viewName)));
+                        // use owner from table metadata if it exists
+                        if (view.getOwner() != null && !definition.isRunAsInvoker()) {
+                            definition = new ConnectorViewDefinition(
+                                    definition.getOriginalSql(),
+                                    definition.getCatalog(),
+                                    definition.getSchema(),
+                                    definition.getColumns(),
+                                    definition.getComment(),
+                                    Optional.of(view.getOwner()),
+                                    false);
+                        }
+                        return Optional.of(definition);
                     }
-                    return definition;
+                    else if (isHiveViewsEnabled && isHiveOrPrestoView(view)) {
+                        return Optional.of(buildHiveViewConnectorDefinition(catalogName, view));
+                    }
+                    return Optional.empty();
                 });
+    }
+
+    private boolean isHiveOrPrestoView(Table table)
+    {
+        return table.getTableType().equals(TableType.VIRTUAL_VIEW.name());
     }
 
     @Override

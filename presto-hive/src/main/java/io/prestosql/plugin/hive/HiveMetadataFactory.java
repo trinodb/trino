@@ -39,11 +39,13 @@ public class HiveMetadataFactory
 {
     private static final Logger log = Logger.get(HiveMetadataFactory.class);
 
+    private final HiveCatalogName catalogName;
     private final boolean allowCorruptWritesForTesting;
     private final boolean skipDeletionForAlter;
     private final boolean skipTargetCleanupOnRollback;
     private final boolean writesToNonManagedTablesEnabled;
     private final boolean createsOfNonManagedTablesEnabled;
+    private final boolean hiveViewsEnabled;
     private final long perTransactionCacheMaximumSize;
     private final HiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
@@ -63,6 +65,7 @@ public class HiveMetadataFactory
     @Inject
     @SuppressWarnings("deprecation")
     public HiveMetadataFactory(
+            HiveCatalogName catalogName,
             HiveConfig hiveConfig,
             HiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
@@ -77,6 +80,7 @@ public class HiveMetadataFactory
             AccessControlMetadataFactory accessControlMetadataFactory)
     {
         this(
+                catalogName,
                 metastore,
                 hdfsEnvironment,
                 partitionManager,
@@ -88,6 +92,7 @@ public class HiveMetadataFactory
                 hiveConfig.isSkipTargetCleanupOnRollback(),
                 hiveConfig.getWritesToNonManagedTablesEnabled(),
                 hiveConfig.getCreatesOfNonManagedTablesEnabled(),
+                hiveConfig.isHiveViewsEnabled(),
                 hiveConfig.getPerTransactionMetastoreCacheMaximumSize(),
                 hiveConfig.getHiveTransactionHeartbeatInterval(),
                 typeManager,
@@ -101,6 +106,7 @@ public class HiveMetadataFactory
     }
 
     public HiveMetadataFactory(
+            HiveCatalogName catalogName,
             HiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             HivePartitionManager partitionManager,
@@ -112,6 +118,7 @@ public class HiveMetadataFactory
             boolean skipTargetCleanupOnRollback,
             boolean writesToNonManagedTablesEnabled,
             boolean createsOfNonManagedTablesEnabled,
+            boolean hiveViewsEnabled,
             long perTransactionCacheMaximumSize,
             Optional<Duration> hiveTransactionHeartbeatInterval,
             TypeManager typeManager,
@@ -123,11 +130,13 @@ public class HiveMetadataFactory
             String prestoVersion,
             AccessControlMetadataFactory accessControlMetadataFactory)
     {
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
         this.skipDeletionForAlter = skipDeletionForAlter;
         this.skipTargetCleanupOnRollback = skipTargetCleanupOnRollback;
         this.writesToNonManagedTablesEnabled = writesToNonManagedTablesEnabled;
         this.createsOfNonManagedTablesEnabled = createsOfNonManagedTablesEnabled;
+        this.hiveViewsEnabled = hiveViewsEnabled;
         this.perTransactionCacheMaximumSize = perTransactionCacheMaximumSize;
 
         this.metastore = requireNonNull(metastore, "metastore is null");
@@ -168,6 +177,7 @@ public class HiveMetadataFactory
                 heartbeatService);
 
         return new HiveMetadata(
+                catalogName,
                 metastore,
                 hdfsEnvironment,
                 partitionManager,
@@ -175,6 +185,7 @@ public class HiveMetadataFactory
                 allowCorruptWritesForTesting,
                 writesToNonManagedTablesEnabled,
                 createsOfNonManagedTablesEnabled,
+                hiveViewsEnabled,
                 typeManager,
                 locationService,
                 partitionUpdateCodec,

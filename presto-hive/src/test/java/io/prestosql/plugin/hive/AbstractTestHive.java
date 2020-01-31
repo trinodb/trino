@@ -718,7 +718,7 @@ public abstract class AbstractTestHive
 
         hdfsEnvironment = new HdfsEnvironment(createTestHdfsConfiguration(), new HdfsConfig(), new NoHdfsAuthentication());
         HiveMetastore metastore = cachingHiveMetastore(
-                new BridgingHiveMetastore(new ThriftHiveMetastore(metastoreLocator, new ThriftMetastoreConfig(), new HiveAuthenticationConfig(), hdfsEnvironment)),
+                new BridgingHiveMetastore(new ThriftHiveMetastore(metastoreLocator, new HiveConfig(), new ThriftMetastoreConfig(), new HiveAuthenticationConfig(), hdfsEnvironment)),
                 executor,
                 Duration.valueOf("1m"),
                 Optional.of(Duration.valueOf("15s")),
@@ -737,6 +737,7 @@ public abstract class AbstractTestHive
         locationService = new HiveLocationService(hdfsEnvironment);
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
         metadataFactory = new HiveMetadataFactory(
+                new HiveCatalogName("hive"),
                 metastoreClient,
                 hdfsEnvironment,
                 partitionManager,
@@ -748,6 +749,7 @@ public abstract class AbstractTestHive
                 false,
                 false,
                 true,
+                false,
                 1000,
                 Optional.empty(),
                 TYPE_MANAGER,
