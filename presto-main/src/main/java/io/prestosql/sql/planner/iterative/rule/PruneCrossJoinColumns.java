@@ -13,7 +13,6 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.google.common.collect.ImmutableList;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
@@ -45,17 +44,17 @@ public class PruneCrossJoinColumns
             return Optional.empty();
         }
 
-        ImmutableList.Builder<Symbol> outputSymbolBuilder = ImmutableList.builder();
-        outputSymbolBuilder.addAll(newLeft.orElse(joinNode.getLeft()).getOutputSymbols());
-        outputSymbolBuilder.addAll(newRight.orElse(joinNode.getRight()).getOutputSymbols());
+        PlanNode left = newLeft.orElse(joinNode.getLeft());
+        PlanNode right = newRight.orElse(joinNode.getRight());
 
         return Optional.of(new JoinNode(
                 context.getIdAllocator().getNextId(),
                 joinNode.getType(),
-                newLeft.orElse(joinNode.getLeft()),
-                newRight.orElse(joinNode.getRight()),
+                left,
+                right,
                 joinNode.getCriteria(),
-                outputSymbolBuilder.build(),
+                left.getOutputSymbols(),
+                right.getOutputSymbols(),
                 joinNode.getFilter(),
                 joinNode.getLeftHashSymbol(),
                 joinNode.getRightHashSymbol(),

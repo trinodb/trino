@@ -547,10 +547,8 @@ public class PredicatePushDown
                         leftSource,
                         rightSource,
                         equiJoinClauses,
-                        ImmutableList.<Symbol>builder()
-                                .addAll(leftSource.getOutputSymbols())
-                                .addAll(rightSource.getOutputSymbols())
-                                .build(),
+                        leftSource.getOutputSymbols(),
+                        rightSource.getOutputSymbols(),
                         newJoinFilter,
                         node.getLeftHashSymbol(),
                         node.getRightHashSymbol(),
@@ -1029,11 +1027,38 @@ public class PredicatePushDown
                     return node;
                 }
                 if (canConvertToLeftJoin && canConvertToRightJoin) {
-                    return new JoinNode(node.getId(), INNER, node.getLeft(), node.getRight(), node.getCriteria(), node.getOutputSymbols(), node.getFilter(), node.getLeftHashSymbol(), node.getRightHashSymbol(), node.getDistributionType(), node.isSpillable(), node.getDynamicFilters(), node.getReorderJoinStatsAndCost());
+                    return new JoinNode(
+                            node.getId(),
+                            INNER,
+                            node.getLeft(),
+                            node.getRight(),
+                            node.getCriteria(),
+                            node.getLeftOutputSymbols(),
+                            node.getRightOutputSymbols(),
+                            node.getFilter(),
+                            node.getLeftHashSymbol(),
+                            node.getRightHashSymbol(),
+                            node.getDistributionType(),
+                            node.isSpillable(),
+                            node.getDynamicFilters(),
+                            node.getReorderJoinStatsAndCost());
                 }
                 else {
-                    return new JoinNode(node.getId(), canConvertToLeftJoin ? LEFT : RIGHT,
-                            node.getLeft(), node.getRight(), node.getCriteria(), node.getOutputSymbols(), node.getFilter(), node.getLeftHashSymbol(), node.getRightHashSymbol(), node.getDistributionType(), node.isSpillable(), node.getDynamicFilters(), node.getReorderJoinStatsAndCost());
+                    return new JoinNode(
+                            node.getId(),
+                            canConvertToLeftJoin ? LEFT : RIGHT,
+                            node.getLeft(),
+                            node.getRight(),
+                            node.getCriteria(),
+                            node.getLeftOutputSymbols(),
+                            node.getRightOutputSymbols(),
+                            node.getFilter(),
+                            node.getLeftHashSymbol(),
+                            node.getRightHashSymbol(),
+                            node.getDistributionType(),
+                            node.isSpillable(),
+                            node.getDynamicFilters(),
+                            node.getReorderJoinStatsAndCost());
                 }
             }
 
@@ -1041,7 +1066,21 @@ public class PredicatePushDown
                     node.getType() == JoinNode.Type.RIGHT && !canConvertOuterToInner(node.getLeft().getOutputSymbols(), inheritedPredicate)) {
                 return node;
             }
-            return new JoinNode(node.getId(), JoinNode.Type.INNER, node.getLeft(), node.getRight(), node.getCriteria(), node.getOutputSymbols(), node.getFilter(), node.getLeftHashSymbol(), node.getRightHashSymbol(), node.getDistributionType(), node.isSpillable(), node.getDynamicFilters(), node.getReorderJoinStatsAndCost());
+            return new JoinNode(
+                    node.getId(),
+                    JoinNode.Type.INNER,
+                    node.getLeft(),
+                    node.getRight(),
+                    node.getCriteria(),
+                    node.getLeftOutputSymbols(),
+                    node.getRightOutputSymbols(),
+                    node.getFilter(),
+                    node.getLeftHashSymbol(),
+                    node.getRightHashSymbol(),
+                    node.getDistributionType(),
+                    node.isSpillable(),
+                    node.getDynamicFilters(),
+                    node.getReorderJoinStatsAndCost());
         }
 
         private boolean canConvertOuterToInner(List<Symbol> innerSymbolsForOuterJoin, Expression inheritedPredicate)

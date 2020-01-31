@@ -527,13 +527,22 @@ public class UnaliasSymbolReferences
                         .forEach(clause -> map(clause.getRight(), clause.getLeft()));
             }
 
+            List<Symbol> canonicalOutputs = canonicalizeAndDistinct(node.getOutputSymbols());
+            List<Symbol> leftOutputSymbols = canonicalOutputs.stream()
+                    .filter(left.getOutputSymbols()::contains)
+                    .collect(toImmutableList());
+            List<Symbol> rightOutputSymbols = canonicalOutputs.stream()
+                    .filter(right.getOutputSymbols()::contains)
+                    .collect(toImmutableList());
+
             return new JoinNode(
                     node.getId(),
                     node.getType(),
                     left,
                     right,
                     canonicalCriteria,
-                    canonicalizeAndDistinct(node.getOutputSymbols()),
+                    leftOutputSymbols,
+                    rightOutputSymbols,
                     canonicalFilter,
                     canonicalLeftHashSymbol,
                     canonicalRightHashSymbol,

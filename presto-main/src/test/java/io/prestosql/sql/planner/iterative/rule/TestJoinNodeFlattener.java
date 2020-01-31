@@ -98,7 +98,8 @@ public class TestJoinNodeFlattener
                 p.values(a1),
                 p.values(b1),
                 ImmutableList.of(equiJoinClause(a1, b1)),
-                ImmutableList.of(a1, b1),
+                ImmutableList.of(a1),
+                ImmutableList.of(b1),
                 Optional.empty());
         toMultiJoinNode(queryRunner.getMetadata(), outerJoin, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false);
     }
@@ -116,7 +117,8 @@ public class TestJoinNodeFlattener
                 p.values(a1),
                 p.values(b1),
                 ImmutableList.of(equiJoinClause(a1, b1)),
-                ImmutableList.of(a1, b1),
+                ImmutableList.of(a1),
+                ImmutableList.of(b1),
                 Optional.empty());
         ValuesNode valuesC = p.values(c1);
         JoinNode joinNode = p.join(
@@ -124,7 +126,8 @@ public class TestJoinNodeFlattener
                 leftJoin,
                 valuesC,
                 ImmutableList.of(equiJoinClause(a1, c1)),
-                ImmutableList.of(a1, b1, c1),
+                ImmutableList.of(a1, b1),
+                ImmutableList.of(c1),
                 Optional.empty());
 
         MultiJoinNode expected = MultiJoinNode.builder()
@@ -242,14 +245,12 @@ public class TestJoinNodeFlattener
                         valuesB,
                         valuesC,
                         ImmutableList.of(equiJoinClause(b1, c1)),
-                        ImmutableList.of(
-                                b1,
-                                b2,
-                                c1,
-                                c2),
+                        ImmutableList.of(b1, b2),
+                        ImmutableList.of(c1, c2),
                         Optional.empty()),
                 ImmutableList.of(equiJoinClause(a1, b1)),
-                ImmutableList.of(a1, b1),
+                ImmutableList.of(a1),
+                ImmutableList.of(b1),
                 Optional.empty());
         MultiJoinNode expected = MultiJoinNode.builder()
                 .setSources(valuesA, valuesB, valuesC)
@@ -288,14 +289,12 @@ public class TestJoinNodeFlattener
                         valuesB,
                         valuesC,
                         ImmutableList.of(equiJoinClause(b1, c1)),
-                        ImmutableList.of(
-                                b1,
-                                b2,
-                                c1,
-                                c2),
+                        ImmutableList.of(b1, b2),
+                        ImmutableList.of(c1, c2),
                         Optional.of(bcFilter)),
                 ImmutableList.of(equiJoinClause(a1, b1)),
-                ImmutableList.of(a1, b1, b2, c1, c2),
+                ImmutableList.of(a1),
+                ImmutableList.of(b1, b2, c1, c2),
                 Optional.of(abcFilter));
         MultiJoinNode expected = new MultiJoinNode(
                 new LinkedHashSet<>(ImmutableList.of(valuesA, valuesB, valuesC)),
@@ -331,11 +330,13 @@ public class TestJoinNodeFlattener
                                 valuesA,
                                 valuesB,
                                 ImmutableList.of(equiJoinClause(a1, b1)),
-                                ImmutableList.of(a1, b1),
+                                ImmutableList.of(a1),
+                                ImmutableList.of(b1),
                                 Optional.empty()),
                         valuesC,
                         ImmutableList.of(equiJoinClause(a1, c1)),
-                        ImmutableList.of(a1, b1, c1),
+                        ImmutableList.of(a1, b1),
+                        ImmutableList.of(c1),
                         Optional.empty()),
                 p.join(
                         INNER,
@@ -344,21 +345,12 @@ public class TestJoinNodeFlattener
                         ImmutableList.of(
                                 equiJoinClause(d1, e1),
                                 equiJoinClause(d2, e2)),
-                        ImmutableList.of(
-                                d1,
-                                d2,
-                                e1,
-                                e2),
+                        ImmutableList.of(d1, d2),
+                        ImmutableList.of(e1, e2),
                         Optional.empty()),
                 ImmutableList.of(equiJoinClause(b1, e1)),
-                ImmutableList.of(
-                        a1,
-                        b1,
-                        c1,
-                        d1,
-                        d2,
-                        e1,
-                        e2),
+                ImmutableList.of(a1, b1, c1),
+                ImmutableList.of(d1, d2, e1, e2),
                 Optional.empty());
         MultiJoinNode expected = MultiJoinNode.builder()
                 .setSources(valuesA, valuesB, valuesC, valuesD, valuesE)
@@ -390,7 +382,8 @@ public class TestJoinNodeFlattener
                 valuesA,
                 valuesB,
                 ImmutableList.of(equiJoinClause(a1, b1)),
-                ImmutableList.of(a1, b1),
+                ImmutableList.of(a1),
+                ImmutableList.of(b1),
                 Optional.empty());
         JoinNode join2 = p.join(
                 INNER,
@@ -399,11 +392,8 @@ public class TestJoinNodeFlattener
                 ImmutableList.of(
                         equiJoinClause(d1, e1),
                         equiJoinClause(d2, e2)),
-                ImmutableList.of(
-                        d1,
-                        d2,
-                        e1,
-                        e2),
+                ImmutableList.of(d1, d2),
+                ImmutableList.of(e1, e2),
                 Optional.empty());
         JoinNode joinNode = p.join(
                 INNER,
@@ -412,18 +402,13 @@ public class TestJoinNodeFlattener
                         join1,
                         valuesC,
                         ImmutableList.of(equiJoinClause(a1, c1)),
-                        ImmutableList.of(a1, b1, c1),
+                        ImmutableList.of(a1, b1),
+                        ImmutableList.of(c1),
                         Optional.empty()),
                 join2,
                 ImmutableList.of(equiJoinClause(b1, e1)),
-                ImmutableList.of(
-                        a1,
-                        b1,
-                        c1,
-                        d1,
-                        d2,
-                        e1,
-                        e2),
+                ImmutableList.of(a1, b1, c1),
+                ImmutableList.of(d1, d2, e1, e2),
                 Optional.empty());
         MultiJoinNode expected = MultiJoinNode.builder()
                 .setSources(join1, join2, valuesC)

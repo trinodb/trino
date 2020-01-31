@@ -87,10 +87,11 @@ public class TestPruneCrossJoinColumns
     {
         Symbol leftValue = p.symbol("leftValue");
         Symbol rightValue = p.symbol("rightValue");
-        List<Symbol> outputs = ImmutableList.of(leftValue, rightValue);
+        List<Symbol> leftOutputs = ImmutableList.of(leftValue);
+        List<Symbol> rightOutputs = ImmutableList.of(rightValue);
         return p.project(
                 Assignments.identity(
-                        outputs.stream()
+                        ImmutableList.of(leftValue, rightValue).stream()
                                 .filter(projectionFilter)
                                 .collect(toImmutableList())),
                 p.join(
@@ -98,7 +99,8 @@ public class TestPruneCrossJoinColumns
                         p.values(leftValue),
                         p.values(rightValue),
                         ImmutableList.of(),
-                        outputs,
+                        leftOutputs,
+                        rightOutputs,
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty()));

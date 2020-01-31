@@ -699,10 +699,8 @@ public class TestEffectivePredicateExtractor
                 left,
                 right,
                 criteria,
-                ImmutableList.<Symbol>builder()
-                        .addAll(left.getOutputSymbols())
-                        .addAll(right.getOutputSymbols())
-                        .build(),
+                left.getOutputSymbols(),
+                right.getOutputSymbols(),
                 Optional.of(lessThanOrEqual(BE, EE)),
                 Optional.empty(),
                 Optional.empty(),
@@ -744,9 +742,8 @@ public class TestEffectivePredicateExtractor
                 left,
                 rightScan,
                 ImmutableList.of(new JoinNode.EquiJoinClause(A, D)),
-                ImmutableList.<Symbol>builder()
-                        .addAll(rightScan.getOutputSymbols())
-                        .build(),
+                ImmutableList.of(),
+                rightScan.getOutputSymbols(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
@@ -777,10 +774,8 @@ public class TestEffectivePredicateExtractor
                 leftScan,
                 rightScan,
                 ImmutableList.of(new JoinNode.EquiJoinClause(A, D)),
-                ImmutableList.<Symbol>builder()
-                        .addAll(leftScan.getOutputSymbols())
-                        .addAll(rightScan.getOutputSymbols())
-                        .build(),
+                leftScan.getOutputSymbols(),
+                rightScan.getOutputSymbols(),
                 Optional.of(FALSE_LITERAL),
                 Optional.empty(),
                 Optional.empty(),
@@ -825,10 +820,8 @@ public class TestEffectivePredicateExtractor
                 left,
                 right,
                 criteria,
-                ImmutableList.<Symbol>builder()
-                        .addAll(left.getOutputSymbols())
-                        .addAll(right.getOutputSymbols())
-                        .build(),
+                left.getOutputSymbols(),
+                right.getOutputSymbols(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
@@ -875,10 +868,8 @@ public class TestEffectivePredicateExtractor
                 left,
                 right,
                 criteria,
-                ImmutableList.<Symbol>builder()
-                        .addAll(left.getOutputSymbols())
-                        .addAll(right.getOutputSymbols())
-                        .build(),
+                left.getOutputSymbols(),
+                right.getOutputSymbols(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
@@ -929,10 +920,8 @@ public class TestEffectivePredicateExtractor
                 left,
                 right,
                 criteria,
-                ImmutableList.<Symbol>builder()
-                        .addAll(left.getOutputSymbols())
-                        .addAll(right.getOutputSymbols())
-                        .build(),
+                left.getOutputSymbols(),
+                right.getOutputSymbols(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
@@ -978,10 +967,8 @@ public class TestEffectivePredicateExtractor
                 left,
                 right,
                 criteria,
-                ImmutableList.<Symbol>builder()
-                        .addAll(left.getOutputSymbols())
-                        .addAll(right.getOutputSymbols())
-                        .build(),
+                left.getOutputSymbols(),
+                right.getOutputSymbols(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
