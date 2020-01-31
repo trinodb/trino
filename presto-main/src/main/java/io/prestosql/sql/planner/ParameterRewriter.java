@@ -48,7 +48,7 @@ public class ParameterRewriter
     }
 
     @Override
-    public Expression rewriteExpression(Expression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+    protected Expression rewriteExpression(Expression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
     {
         return treeRewriter.defaultRewrite(node, context);
     }
