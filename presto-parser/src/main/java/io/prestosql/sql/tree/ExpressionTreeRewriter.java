@@ -27,7 +27,7 @@ public final class ExpressionTreeRewriter<C>
     private final ExpressionRewriter<C> rewriter;
     private final AstVisitor<Expression, ExpressionTreeRewriter.Context<C>> visitor;
 
-    public static <C, T extends Expression> T rewriteWith(ExpressionRewriter<C> rewriter, T node)
+    public static <T extends Expression> T rewriteWith(ExpressionRewriter<Void> rewriter, T node)
     {
         return new ExpressionTreeRewriter<>(rewriter).rewrite(node, null);
     }
