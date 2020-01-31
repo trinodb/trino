@@ -53,7 +53,9 @@ public class TestLocalDynamicFilter
     {
         super(ImmutableMap.of(
                 FORCE_SINGLE_NODE_OUTPUT, "false",
-                ENABLE_DYNAMIC_FILTERING, "true"));
+                ENABLE_DYNAMIC_FILTERING, "true",
+                JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.NONE.name(),
+                JOIN_DISTRIBUTION_TYPE, JoinDistributionType.BROADCAST.name()));
     }
 
     @Test
@@ -233,8 +235,7 @@ public class TestLocalDynamicFilter
                         "WHERE lineitem.partkey = partsupp.partkey AND lineitem.suppkey = partsupp.suppkey " +
                         "AND partsupp.availqty < 10",
                 OPTIMIZED_AND_VALIDATED,
-                false,
-                noJoinReordering());
+                false);
 
         JoinNode joinNode = searchJoins(subplan.getChildren().get(0).getFragment()).findOnlyElement();
         LocalDynamicFilter filter = LocalDynamicFilter.create(joinNode, 1).get();
@@ -264,8 +265,7 @@ public class TestLocalDynamicFilter
                         "WHERE lineitem.orderkey = orders.orderkey AND lineitem.partkey = part.partkey " +
                         "AND orders.custkey < 10 AND part.name = 'abc'",
                 OPTIMIZED_AND_VALIDATED,
-                false,
-                noJoinReordering());
+                false);
 
         List<JoinNode> joinNodes = searchJoins(subplan.getChildren().get(0).getFragment()).findAll();
         assertEquals(joinNodes.size(), 2);
@@ -291,8 +291,7 @@ public class TestLocalDynamicFilter
                         "SELECT count() FROM union_table, nation WHERE union_table.key = nation.nationkey " +
                         "AND nation.comment = 'abc'",
                 OPTIMIZED_AND_VALIDATED,
-                true,
-                noJoinReordering());
+                true);
 
         JoinNode joinNode = searchJoins(subplan.getFragment()).findOnlyElement();
         LocalDynamicFilter filter = LocalDynamicFilter.create(joinNode, 1).get();
@@ -311,13 +310,5 @@ public class TestLocalDynamicFilter
         return PlanNodeSearcher
                 .searchFrom(fragment.getRoot())
                 .where(node -> node instanceof JoinNode);
-    }
-
-    private Session noJoinReordering()
-    {
-        return Session.builder(getQueryRunner().getDefaultSession())
-                .setSystemProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.NONE.name())
-                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.BROADCAST.name())
-                .build();
     }
 }
