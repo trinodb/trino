@@ -73,14 +73,9 @@ public final class ExpressionTreeRewriter<C>
         @Override
         protected Expression visitExpression(Expression node, Context<C> context)
         {
-            if (!context.isDefaultRewrite()) {
-                Expression result = rewriter.rewriteExpression(node, context.get(), ExpressionTreeRewriter.this);
-                if (result != null) {
-                    return result;
-                }
-            }
-
-            throw new UnsupportedOperationException("not yet implemented: " + getClass().getSimpleName() + " for " + node.getClass().getName());
+            // RewritingVisitor must have explicit support for each expression type, with a dedicated visit method,
+            // so visitExpression() should never be called.
+            throw new UnsupportedOperationException("visit() not implemented for " + node.getClass().getName());
         }
 
         @Override
