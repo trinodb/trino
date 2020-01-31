@@ -843,4 +843,6 @@ Drop a schema::
 Hive Connector Limitations
 --------------------------
 
-:doc:`/sql/delete` is only supported if the ``WHERE`` clause matches entire partitions.
+* :doc:`/sql/delete` is only supported if the ``WHERE`` clause matches entire partitions.
+* :doc:`/sql/alter-schema` usage fails, since the Hive metastore does not support renaming schemas.
+
