@@ -756,7 +756,8 @@ public class AddExchanges
 
         private PlanWithProperties buildJoin(JoinNode node, PlanWithProperties newLeft, PlanWithProperties newRight, JoinNode.DistributionType newDistributionType)
         {
-            JoinNode result = new JoinNode(node.getId(),
+            JoinNode result = new JoinNode(
+                    node.getId(),
                     node.getType(),
                     newLeft.getNode(),
                     newRight.getNode(),
