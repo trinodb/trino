@@ -20,6 +20,7 @@ import io.prestosql.server.testing.TestingPrestoServer;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.ProcedureTester;
+import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.TestingProcedures;
 import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
 import org.intellij.lang.annotations.Language;
@@ -45,9 +46,11 @@ public class TestProcedureCall
     private ProcedureTester tester;
     private Session session;
 
-    public TestProcedureCall()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> TpchQueryRunnerBuilder.builder().build());
+        return TpchQueryRunnerBuilder.builder().build();
     }
 
     @BeforeClass

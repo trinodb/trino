@@ -88,6 +88,7 @@ import io.prestosql.metadata.QualifiedTablePrefix;
 import io.prestosql.metadata.SchemaPropertyManager;
 import io.prestosql.metadata.SessionPropertyManager;
 import io.prestosql.metadata.Split;
+import io.prestosql.metadata.SqlFunction;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.metadata.TablePropertyManager;
 import io.prestosql.operator.Driver;
@@ -527,6 +528,12 @@ public class LocalQueryRunner
     public void installPlugin(Plugin plugin)
     {
         pluginManager.installPlugin(plugin, plugin.getClass()::getClassLoader);
+    }
+
+    @Override
+    public void addFunctions(List<? extends SqlFunction> functions)
+    {
+        metadata.addFunctions(functions);
     }
 
     @Override

@@ -86,6 +86,7 @@ public final class HttpRequestSessionContext
     private final String schema;
     private final String path;
 
+    private final Optional<Identity> authenticatedIdentity;
     private final Identity identity;
 
     private final String source;
@@ -115,7 +116,18 @@ public final class HttpRequestSessionContext
         path = trimEmptyToNull(servletRequest.getHeader(PRESTO_PATH));
         assertRequest((catalog != null) || (schema == null), "Schema is set but catalog is not");
 
+        String authenticatedUser = (String) servletRequest.getAttribute(PRESTO_USER);
+        authenticatedIdentity = Optional.ofNullable(authenticatedUser)
+                .map(user -> Identity.forUser(user)
+                    .withPrincipal(Optional.ofNullable(servletRequest.getUserPrincipal()))
+                    .withRoles(parseRoleHeaders(servletRequest))
+                    .withExtraCredentials(parseExtraCredentials(servletRequest))
+                    .build());
+
         String user = trimEmptyToNull(servletRequest.getHeader(PRESTO_USER));
+        if (user == null) {
+            user = authenticatedUser;
+        }
         assertRequest(user != null, "User must be set");
         identity = Identity.forUser(user)
                 .withPrincipal(Optional.ofNullable(servletRequest.getUserPrincipal()))
@@ -200,6 +212,12 @@ public final class HttpRequestSessionContext
             default:
                 throw new UnsupportedOperationException("Unexpected forwardedHeaderSupport: " + forwardedHeaderSupport);
         }
+    }
+
+    @Override
+    public Optional<Identity> getAuthenticatedIdentity()
+    {
+        return authenticatedIdentity;
     }
 
     @Override

@@ -16,6 +16,7 @@ package io.prestosql.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.bootstrap.LifeCycleManager;
+import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorMetadata;
 import io.prestosql.plugin.hive.HiveTransactionHandle;
 import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import io.prestosql.spi.connector.Connector;
@@ -29,7 +30,6 @@ import io.prestosql.spi.connector.ConnectorPageSourceProvider;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.SystemTable;
-import io.prestosql.spi.connector.classloader.ClassLoaderSafeConnectorMetadata;
 import io.prestosql.spi.session.PropertyMetadata;
 import io.prestosql.spi.transaction.IsolationLevel;
 

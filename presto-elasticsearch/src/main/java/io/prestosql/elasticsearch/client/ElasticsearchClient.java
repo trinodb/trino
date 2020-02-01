@@ -114,6 +114,7 @@ public class ElasticsearchClient
     private final AtomicBoolean started = new AtomicBoolean();
     private final Duration refreshInterval;
     private final boolean tlsEnabled;
+    private final boolean ignorePublishAddress;
 
     @Inject
     public ElasticsearchClient(ElasticsearchConfig config, Optional<AwsSecurityConfig> awsSecurityConfig)
@@ -122,6 +123,7 @@ public class ElasticsearchClient
 
         client = createClient(config, awsSecurityConfig);
 
+        this.ignorePublishAddress = config.isIgnorePublishAddress();
         this.scrollSize = config.getScrollSize();
         this.scrollTimeout = config.getScrollTimeout();
         this.refreshInterval = config.getNodeRefreshInterval();
@@ -160,7 +162,7 @@ public class ElasticsearchClient
                     .map(address -> HttpHost.create(format("%s://%s", tlsEnabled ? "https" : "http", address)))
                     .toArray(HttpHost[]::new);
 
-            if (hosts.length > 0) {
+            if (hosts.length > 0 && !ignorePublishAddress) {
                 client.getLowLevelClient().setHosts(hosts);
             }
 
@@ -513,11 +515,13 @@ public class ElasticsearchClient
         return jsonNode.get(name);
     }
 
-    public SearchResponse beginSearch(String index, int shard, QueryBuilder query, Optional<List<String>> fields, List<String> documentFields)
+    public SearchResponse beginSearch(String index, int shard, QueryBuilder query, Optional<List<String>> fields, List<String> documentFields, Optional<String> sort)
     {
         SearchSourceBuilder sourceBuilder = SearchSourceBuilder.searchSource()
                 .query(query)
                 .size(scrollSize);
+
+        sort.ifPresent(sourceBuilder::sort);
 
         fields.ifPresent(values -> {
             if (values.isEmpty()) {

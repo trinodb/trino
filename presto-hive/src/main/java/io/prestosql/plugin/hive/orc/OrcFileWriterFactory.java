@@ -22,10 +22,11 @@ import io.prestosql.orc.OrcWriterOptions;
 import io.prestosql.orc.OrcWriterStats;
 import io.prestosql.orc.OutputStreamOrcDataSink;
 import io.prestosql.orc.metadata.CompressionKind;
+import io.prestosql.orc.metadata.OrcType;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
+import io.prestosql.plugin.hive.FileWriter;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveConfig;
-import io.prestosql.plugin.hive.HiveFileWriter;
 import io.prestosql.plugin.hive.HiveFileWriterFactory;
 import io.prestosql.plugin.hive.HiveMetadata;
 import io.prestosql.plugin.hive.HiveSessionProperties;
@@ -126,7 +127,7 @@ public class OrcFileWriterFactory
     }
 
     @Override
-    public Optional<HiveFileWriter> createFileWriter(
+    public Optional<FileWriter> createFileWriter(
             Path path,
             List<String> inputColumnNames,
             StorageFormat storageFormat,
@@ -182,6 +183,7 @@ public class OrcFileWriterFactory
                     rollbackAction,
                     fileColumnNames,
                     fileColumnTypes,
+                    OrcType.createRootOrcType(fileColumnNames, fileColumnTypes),
                     compression,
                     orcWriterOptions
                             .withStripeMinSize(getOrcOptimizedWriterMinStripeSize(session))

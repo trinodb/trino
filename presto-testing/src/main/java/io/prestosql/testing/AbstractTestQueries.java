@@ -22,7 +22,6 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Ordering;
-import io.airlift.tpch.TpchTable;
 import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
 import io.prestosql.metadata.FunctionListBuilder;
@@ -30,6 +29,7 @@ import io.prestosql.metadata.SqlFunction;
 import io.prestosql.spi.session.PropertyMetadata;
 import io.prestosql.spi.type.SqlTimestampWithTimeZone;
 import io.prestosql.tests.QueryTemplate;
+import io.prestosql.tpch.TpchTable;
 import io.prestosql.type.SqlIntervalDayTime;
 import io.prestosql.type.SqlIntervalYearMonth;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
@@ -133,14 +133,6 @@ public abstract class AbstractTestQueries
     private static final DateTimeFormatter ZONED_DATE_TIME_FORMAT = DateTimeFormatter.ofPattern(SqlTimestampWithTimeZone.JSON_FORMAT);
 
     private static final String UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG = "line .*: Given correlated subquery is not supported";
-
-    @Deprecated
-    protected AbstractTestQueries(QueryRunnerSupplier supplier)
-    {
-        super(supplier);
-    }
-
-    protected AbstractTestQueries() {}
 
     @Test
     public void testParsingError()
@@ -4903,6 +4895,19 @@ public abstract class AbstractTestQueries
         assertQuery(session,
                 "EXECUTE my_query USING 6, 0, 10",
                 "VALUES (3, 6)");
+    }
+
+    @Test
+    public void testExecuteUsingWithFunctionsAsParameters()
+    {
+        String query = "SELECT a + ? FROM (VALUES 1, 2, 3, 4) AS t(a)";
+
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query", query)
+                .build();
+        assertQuery(session,
+                "EXECUTE my_query USING abs(-2) ",
+                "VALUES 3, 4, 5, 6");
     }
 
     @Test

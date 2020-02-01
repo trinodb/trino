@@ -429,6 +429,11 @@ class AstBuilder
     @Override
     public Node visitCreateView(SqlBaseParser.CreateViewContext context)
     {
+        Optional<String> comment = Optional.empty();
+        if (context.COMMENT() != null) {
+            comment = Optional.of(((StringLiteral) visit(context.string())).getValue());
+        }
+
         Optional<CreateView.Security> security = Optional.empty();
         if (context.DEFINER() != null) {
             security = Optional.of(CreateView.Security.DEFINER);
@@ -442,6 +447,7 @@ class AstBuilder
                 getQualifiedName(context.qualifiedName()),
                 (Query) visit(context.query()),
                 context.REPLACE() != null,
+                comment,
                 security);
     }
 

@@ -351,6 +351,7 @@ public class TestBackgroundHiveSplitLoader
                 EXECUTOR,
                 threads,
                 false,
+                false,
                 Optional.empty());
 
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
@@ -521,6 +522,7 @@ public class TestBackgroundHiveSplitLoader
                 EXECUTOR,
                 2,
                 false,
+                false,
                 validWriteIds);
     }
 
@@ -547,6 +549,7 @@ public class TestBackgroundHiveSplitLoader
                 EXECUTOR,
                 2,
                 false,
+                false,
                 Optional.empty());
     }
 
@@ -566,6 +569,7 @@ public class TestBackgroundHiveSplitLoader
                 new CachingDirectoryLister(new HiveConfig()),
                 directExecutor(),
                 2,
+                false,
                 false,
                 Optional.empty());
     }

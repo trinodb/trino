@@ -18,6 +18,7 @@ import io.prestosql.Session;
 import io.prestosql.plugin.tpch.TpchConnectorFactory;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.LocalQueryRunner;
+import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.Test;
 
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -26,26 +27,8 @@ import static io.prestosql.testing.TestingSession.testSessionBuilder;
 public class TestMLQueries
         extends AbstractTestQueryFramework
 {
-    public TestMLQueries()
-    {
-        super(TestMLQueries::createLocalQueryRunner);
-    }
-
-    @Test
-    public void testPrediction()
-    {
-        assertQuery("SELECT classify(features(1, 2), model) " +
-                "FROM (SELECT learn_classifier(labels, features) AS model FROM (VALUES (1, features(1, 2))) t(labels, features)) t2", "SELECT 1");
-    }
-
-    @Test
-    public void testVarcharPrediction()
-    {
-        assertQuery("SELECT classify(features(1, 2), model) " +
-                "FROM (SELECT learn_classifier(labels, features) AS model FROM (VALUES ('cat', features(1, 2))) t(labels, features)) t2", "SELECT 'cat'");
-    }
-
-    private static LocalQueryRunner createLocalQueryRunner()
+    @Override
+    protected QueryRunner createQueryRunner()
     {
         Session defaultSession = testSessionBuilder()
                 .setCatalog("local")
@@ -63,5 +46,19 @@ public class TestMLQueries
 
         localQueryRunner.installPlugin(new MLPlugin());
         return localQueryRunner;
+    }
+
+    @Test
+    public void testPrediction()
+    {
+        assertQuery("SELECT classify(features(1, 2), model) " +
+                "FROM (SELECT learn_classifier(labels, features) AS model FROM (VALUES (1, features(1, 2))) t(labels, features)) t2", "SELECT 1");
+    }
+
+    @Test
+    public void testVarcharPrediction()
+    {
+        assertQuery("SELECT classify(features(1, 2), model) " +
+                "FROM (SELECT learn_classifier(labels, features) AS model FROM (VALUES ('cat', features(1, 2))) t(labels, features)) t2", "SELECT 'cat'");
     }
 }

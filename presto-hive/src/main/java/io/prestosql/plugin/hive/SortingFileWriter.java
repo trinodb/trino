@@ -58,7 +58,7 @@ import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 
 public class SortingFileWriter
-        implements HiveFileWriter
+        implements FileWriter
 {
     private static final Logger log = Logger.get(SortingFileWriter.class);
 
@@ -70,7 +70,7 @@ public class SortingFileWriter
     private final List<Type> types;
     private final List<Integer> sortFields;
     private final List<SortOrder> sortOrders;
-    private final HiveFileWriter outputWriter;
+    private final FileWriter outputWriter;
     private final SortBuffer sortBuffer;
     private final TempFileSinkFactory tempFileSinkFactory;
     private final Queue<TempFile> tempFiles = new PriorityQueue<>(comparing(TempFile::getSize));
@@ -79,7 +79,7 @@ public class SortingFileWriter
     public SortingFileWriter(
             FileSystem fileSystem,
             Path tempFilePrefix,
-            HiveFileWriter outputWriter,
+            FileWriter outputWriter,
             DataSize maxMemory,
             int maxOpenTempFiles,
             List<Type> types,

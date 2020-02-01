@@ -69,7 +69,7 @@ import static java.util.Objects.requireNonNull;
 class HiveSplitSource
         implements ConnectorSplitSource
 {
-    private static final Logger log = Logger.get(HiveSplit.class);
+    private static final Logger log = Logger.get(HiveSplitSource.class);
 
     private final String queryId;
     private final String databaseName;
