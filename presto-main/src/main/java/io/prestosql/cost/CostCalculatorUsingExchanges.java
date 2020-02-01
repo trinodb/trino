@@ -76,7 +76,7 @@ public class CostCalculatorUsingExchanges
     @Override
     public PlanCostEstimate calculateCost(PlanNode node, StatsProvider stats, CostProvider sourcesCosts, Session session, TypeProvider types)
     {
-        CostEstimator costEstimator = new CostEstimator(stats, sourcesCosts, types, taskCountEstimator);
+        CostEstimator costEstimator = new CostEstimator(stats, sourcesCosts, types, taskCountEstimator, session);
         return node.accept(costEstimator, null);
     }
 
@@ -87,13 +87,15 @@ public class CostCalculatorUsingExchanges
         private final CostProvider sourcesCosts;
         private final TypeProvider types;
         private final TaskCountEstimator taskCountEstimator;
+        private final Session session;
 
-        CostEstimator(StatsProvider stats, CostProvider sourcesCosts, TypeProvider types, TaskCountEstimator taskCountEstimator)
+        CostEstimator(StatsProvider stats, CostProvider sourcesCosts, TypeProvider types, TaskCountEstimator taskCountEstimator, Session session)
         {
             this.stats = requireNonNull(stats, "stats is null");
             this.sourcesCosts = requireNonNull(sourcesCosts, "sourcesCosts is null");
             this.types = requireNonNull(types, "types is null");
             this.taskCountEstimator = requireNonNull(taskCountEstimator, "taskCountEstimator is null");
+            this.session = requireNonNull(session, "session is null");
         }
 
         @Override
@@ -196,7 +198,7 @@ public class CostCalculatorUsingExchanges
                     stats,
                     types,
                     replicated,
-                    taskCountEstimator.estimateSourceDistributedTaskCount());
+                    taskCountEstimator.estimateSourceDistributedTaskCount(session));
             LocalCostEstimate joinOutputCost = calculateJoinOutputCost(join);
             return addPartialComponents(joinInputCost, joinOutputCost);
         }
@@ -239,7 +241,7 @@ public class CostCalculatorUsingExchanges
                             // assuming that destination is always source distributed
                             // it is true as now replicated exchange is used for joins only
                             // for replicated join probe side is usually source distributed
-                            return calculateRemoteReplicateCost(inputSizeInBytes, taskCountEstimator.estimateSourceDistributedTaskCount());
+                            return calculateRemoteReplicateCost(inputSizeInBytes, taskCountEstimator.estimateSourceDistributedTaskCount(session));
                         default:
                             throw new IllegalArgumentException("Unexpected type: " + node.getType());
                     }
