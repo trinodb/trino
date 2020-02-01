@@ -22,10 +22,14 @@ import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.HiveWrittenPartitions;
 import io.prestosql.plugin.hive.TableAlreadyExistsException;
+import io.prestosql.plugin.hive.ViewAlreadyExistsException;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
+import io.prestosql.plugin.hive.metastore.Column;
 import io.prestosql.plugin.hive.metastore.Database;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
+import io.prestosql.plugin.hive.metastore.PrincipalPrivileges;
 import io.prestosql.plugin.hive.metastore.Table;
+import io.prestosql.plugin.hive.util.HiveUtil;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -38,6 +42,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorTableProperties;
+import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.SchemaNotFoundException;
@@ -45,6 +50,7 @@ import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.connector.SystemTable;
 import io.prestosql.spi.connector.TableNotFoundException;
+import io.prestosql.spi.connector.ViewNotFoundException;
 import io.prestosql.spi.connector.classloader.ClassLoaderSafeSystemTable;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.statistics.ComputedStatistics;
@@ -79,7 +85,17 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
+import static io.prestosql.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
+import static io.prestosql.plugin.hive.HiveMetadata.PRESTO_VERSION_NAME;
+import static io.prestosql.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.prestosql.plugin.hive.HiveSchemaProperties.getLocation;
+import static io.prestosql.plugin.hive.HiveType.HIVE_STRING;
+import static io.prestosql.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
+import static io.prestosql.plugin.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
+import static io.prestosql.plugin.hive.util.HiveUtil.PRESTO_VIEW_FLAG;
+import static io.prestosql.plugin.hive.util.HiveUtil.decodeViewData;
+import static io.prestosql.plugin.hive.util.HiveUtil.encodeViewData;
 import static io.prestosql.plugin.hive.util.HiveWriteUtils.getTableDefaultLocation;
 import static io.prestosql.plugin.iceberg.DomainConverter.convertTupleDomainTypes;
 import static io.prestosql.plugin.iceberg.ExpressionConverter.toIcebergExpression;
@@ -561,5 +577,91 @@ public class IcebergMetadata
                         table.getSnapshotId(),
                         table.getPredicate().intersect(newDomain)),
                 constraint.getSummary()));
+    }
+
+    @Override
+    public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, boolean replace)
+    {
+        HiveIdentity identity = new HiveIdentity(session);
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put(TABLE_COMMENT, "Presto View")
+                .put(PRESTO_VIEW_FLAG, "true")
+                .put(PRESTO_VERSION_NAME, "testversion")
+                .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
+                .build();
+
+        Column dummyColumn = new Column("dummy", HIVE_STRING, Optional.empty());
+
+        Table.Builder tableBuilder = Table.builder()
+                .setDatabaseName(viewName.getSchemaName())
+                .setTableName(viewName.getTableName())
+                .setOwner(session.getUser())
+                .setTableType(org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW.name())
+                .setDataColumns(ImmutableList.of(dummyColumn))
+                .setPartitionColumns(ImmutableList.of())
+                .setParameters(properties)
+                .setViewOriginalText(Optional.of(encodeViewData(definition)))
+                .setViewExpandedText(Optional.of("/* Presto View */"));
+
+        tableBuilder.getStorageBuilder()
+                .setStorageFormat(VIEW_STORAGE_FORMAT)
+                .setLocation("");
+        Table table = tableBuilder.build();
+        PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(session.getUser());
+
+        Optional<Table> existing = metastore.getTable(identity, viewName.getSchemaName(), viewName.getTableName());
+        if (existing.isPresent()) {
+            if (!replace || !HiveUtil.isPrestoView(existing.get())) {
+                throw new ViewAlreadyExistsException(viewName);
+            }
+
+            metastore.replaceTable(identity, viewName.getSchemaName(), viewName.getTableName(), table, principalPrivileges);
+            return;
+        }
+
+        try {
+            metastore.createTable(identity, table, principalPrivileges);
+        }
+        catch (TableAlreadyExistsException e) {
+            throw new ViewAlreadyExistsException(e.getTableName());
+        }
+    }
+
+    @Override
+    public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
+    {
+        return metastore.getTable(new HiveIdentity(session), viewName.getSchemaName(), viewName.getTableName())
+                .filter(HiveUtil::isPrestoView)
+                .map(view -> {
+                    ConnectorViewDefinition definition = decodeViewData(view.getViewOriginalText()
+                            .orElseThrow(() -> new PrestoException(HIVE_INVALID_METADATA, "No view original text: " + viewName)));
+                    // use owner from table metadata if it exists
+                    if (view.getOwner() != null && !definition.isRunAsInvoker()) {
+                        definition = new ConnectorViewDefinition(
+                                definition.getOriginalSql(),
+                                definition.getCatalog(),
+                                definition.getSchema(),
+                                definition.getColumns(),
+                                Optional.of(view.getOwner()),
+                                false);
+                    }
+                    return definition;
+                });
+    }
+
+    @Override
+    public void dropView(ConnectorSession session, SchemaTableName viewName)
+    {
+        if (!getView(session, viewName).isPresent()) {
+            throw new ViewNotFoundException(viewName);
+        }
+
+        try {
+            HiveIdentity identity = new HiveIdentity(session);
+            metastore.dropTable(identity, viewName.getSchemaName(), viewName.getTableName(), false);
+        }
+        catch (TableNotFoundException e) {
+            throw new ViewNotFoundException(e.getTableName());
+        }
     }
 }
