@@ -214,9 +214,9 @@ Property Name                                      Description                  
 Hive Thrift Metastore Configuration Properties
 ----------------------------------------------
 
-================================================== ============================================================
-Property Name                                      Description
-================================================== ============================================================
+================================================== ============================================================ ============
+Property Name                                      Description                                                  Default
+================================================== ============================================================ ============
 ``hive.metastore.uri``                             The URI(s) of the Hive metastore to connect to using the
                                                    Thrift protocol. If multiple URIs are provided, the first
                                                    URI is used by default, and the rest of the URIs are
@@ -238,7 +238,15 @@ Property Name                                      Description
                                                    to the Hive metastore service.
 
 ``hive.metastore.client.keytab``                   Hive metastore client keytab location.
-================================================== ============================================================
+
+``hive.metastore-cache-ttl``                       Time to live Hive metadata cache.                            ``0s``
+
+``hive.metastore-refresh-interval``                How often to refresh the Hive metastore cache.
+
+``hive.metastore-cache-maximum-size``              Hive metastore cache maximum size.                           10,000
+
+``hive.metastore-refresh-max-threads``             Maximum number of threads to refresh Hive metastore cache.   100
+================================================== ============================================================ ============
 
 AWS Glue Catalog Configuration Properties
 -----------------------------------------
