@@ -22,6 +22,7 @@ import io.prestosql.spi.type.TestingTypeManager;
 import io.prestosql.spi.type.Type;
 import org.testng.annotations.Test;
 
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -134,6 +135,13 @@ public class TestAllOrNoneValueSet
         assertTrue(all.contains(none));
         assertFalse(none.contains(all));
         assertTrue(none.contains(none));
+    }
+
+    @Test
+    public void testContainsValue()
+    {
+        assertTrue(AllOrNoneValueSet.all(BIGINT).containsValue(42L));
+        assertFalse(AllOrNoneValueSet.none(BIGINT).containsValue(42L));
     }
 
     @Test

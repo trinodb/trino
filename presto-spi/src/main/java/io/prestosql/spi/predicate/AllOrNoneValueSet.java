@@ -99,8 +99,10 @@ public class AllOrNoneValueSet
     @Override
     public boolean containsValue(Object value)
     {
-        if (!Primitives.wrap(type.getJavaType()).isInstance(value)) {
-            throw new IllegalArgumentException(format("Value class %s does not match required Type class %s", value.getClass().getName(), Primitives.wrap(type.getJavaType()).getClass().getName()));
+        requireNonNull(value, "value is null");
+        Class<?> expectedClass = Primitives.wrap(type.getJavaType());
+        if (!expectedClass.isInstance(value)) {
+            throw new IllegalArgumentException(format("Value class %s does not match required class %s", value.getClass().getName(), expectedClass.getName()));
         }
         return all;
     }
