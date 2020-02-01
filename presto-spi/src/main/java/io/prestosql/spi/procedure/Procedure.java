@@ -16,12 +16,15 @@ package io.prestosql.spi.procedure;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.Type;
 
+import javax.annotation.Nullable;
+
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -43,7 +46,13 @@ public class Procedure
 
         Set<String> names = new HashSet<>();
         for (Argument argument : arguments) {
-            checkArgument(names.add(argument.getName()), "Duplicate argument name: " + argument.getName());
+            checkArgument(names.add(argument.getName()), format("Duplicate argument name: '%s'", argument.getName()));
+        }
+
+        for (int index = 1; index < arguments.size(); index++) {
+            if (arguments.get(index - 1).isOptional() && arguments.get(index).isRequired()) {
+                throw new IllegalArgumentException("Optional arguments should follow required ones");
+            }
         }
 
         checkArgument(!methodHandle.isVarargsCollector(), "Method must have fixed arity");
@@ -52,6 +61,7 @@ public class Procedure
         long parameterCount = methodHandle.type().parameterList().stream()
                 .filter(type -> !ConnectorSession.class.isAssignableFrom(type))
                 .count();
+
         checkArgument(parameterCount == arguments.size(), "Method parameter count must match arguments");
     }
 
@@ -92,11 +102,20 @@ public class Procedure
     {
         private final String name;
         private final Type type;
+        private final boolean required;
+        private final Object defaultValue;
 
         public Argument(String name, Type type)
         {
+            this(name, type, true, null);
+        }
+
+        public Argument(String name, Type type, boolean required, @Nullable Object defaultValue)
+        {
             this.name = checkNotNullOrEmpty(name, "name");
             this.type = requireNonNull(type, "type is null");
+            this.required = required;
+            this.defaultValue = defaultValue;
         }
 
         public String getName()
@@ -107,6 +126,24 @@ public class Procedure
         public Type getType()
         {
             return type;
+        }
+
+        public boolean isRequired()
+        {
+            return required;
+        }
+
+        public boolean isOptional()
+        {
+            return !required;
+        }
+
+        /**
+         * Argument default value in type's stack representation.
+         */
+        public Object getDefaultValue()
+        {
+            return defaultValue;
         }
 
         @Override
