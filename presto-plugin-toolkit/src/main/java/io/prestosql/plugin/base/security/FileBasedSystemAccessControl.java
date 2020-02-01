@@ -59,6 +59,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyDropSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropView;
 import static io.prestosql.spi.security.AccessDeniedException.denyGrantTablePrivilege;
+import static io.prestosql.spi.security.AccessDeniedException.denyImpersonateUser;
 import static io.prestosql.spi.security.AccessDeniedException.denyInsertTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameSchema;
@@ -78,11 +79,16 @@ public class FileBasedSystemAccessControl
     public static final String NAME = "file";
 
     private final List<CatalogAccessControlRule> catalogRules;
+    private final Optional<List<ImpersonationRule>> impersonationRules;
     private final Optional<List<PrincipalUserMatchRule>> principalUserMatchRules;
 
-    private FileBasedSystemAccessControl(List<CatalogAccessControlRule> catalogRules, Optional<List<PrincipalUserMatchRule>> principalUserMatchRules)
+    private FileBasedSystemAccessControl(
+            List<CatalogAccessControlRule> catalogRules,
+            Optional<List<ImpersonationRule>> impersonationRules,
+            Optional<List<PrincipalUserMatchRule>> principalUserMatchRules)
     {
         this.catalogRules = catalogRules;
+        this.impersonationRules = impersonationRules;
         this.principalUserMatchRules = principalUserMatchRules;
     }
 
@@ -146,8 +152,33 @@ public class FileBasedSystemAccessControl
                     Optional.of(Pattern.compile(".*")),
                     Optional.of(Pattern.compile("system"))));
 
-            return new FileBasedSystemAccessControl(catalogRulesBuilder.build(), rules.getPrincipalUserMatchRules());
+            return new FileBasedSystemAccessControl(catalogRulesBuilder.build(), rules.getImpersonationRules(), rules.getPrincipalUserMatchRules());
         }
+    }
+
+    @Override
+    public void canImpersonateUser(SystemSecurityContext context, String userName)
+    {
+        if (!impersonationRules.isPresent()) {
+            // if there are principal user match rules, we assume that impersonation checks are
+            // handled there; otherwise, impersonation must be manually configured
+            if (!principalUserMatchRules.isPresent()) {
+                denyImpersonateUser(context.getIdentity().getUser(), userName);
+            }
+            return;
+        }
+
+        for (ImpersonationRule rule : impersonationRules.get()) {
+            Optional<Boolean> allowed = rule.match(context.getIdentity().getUser(), userName);
+            if (allowed.isPresent()) {
+                if (allowed.get()) {
+                    return;
+                }
+                denyImpersonateUser(context.getIdentity().getUser(), userName);
+            }
+        }
+
+        denyImpersonateUser(context.getIdentity().getUser(), userName);
     }
 
     @Override

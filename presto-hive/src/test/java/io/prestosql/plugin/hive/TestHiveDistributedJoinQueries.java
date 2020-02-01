@@ -16,7 +16,7 @@ package io.prestosql.plugin.hive;
 import io.prestosql.testing.AbstractTestJoinQueries;
 import io.prestosql.testing.QueryRunner;
 
-import static io.airlift.tpch.TpchTable.getTables;
+import static io.prestosql.tpch.TpchTable.getTables;
 
 public class TestHiveDistributedJoinQueries
         extends AbstractTestJoinQueries

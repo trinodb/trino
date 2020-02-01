@@ -17,11 +17,16 @@ import io.airlift.configuration.Config;
 
 import javax.validation.constraints.NotNull;
 
+import java.io.File;
+import java.util.Optional;
+
 public class JsonWebTokenConfig
 {
     private String keyFile;
     private String requiredIssuer;
     private String requiredAudience;
+    private Optional<String> userExtractionPattern = Optional.empty();
+    private Optional<File> userExtractionFile = Optional.empty();
 
     @NotNull
     public String getKeyFile()
@@ -57,6 +62,30 @@ public class JsonWebTokenConfig
     public JsonWebTokenConfig setRequiredAudience(String requiredAudience)
     {
         this.requiredAudience = requiredAudience;
+        return this;
+    }
+
+    public Optional<String> getUserExtractionPattern()
+    {
+        return userExtractionPattern;
+    }
+
+    @Config("http-server.authentication.jwt.user-extraction.pattern")
+    public JsonWebTokenConfig setUserExtractionPattern(String userExtractionPattern)
+    {
+        this.userExtractionPattern = Optional.ofNullable(userExtractionPattern);
+        return this;
+    }
+
+    public Optional<File> getUserExtractionFile()
+    {
+        return userExtractionFile;
+    }
+
+    @Config("http-server.authentication.jwt.user-extraction.file")
+    public JsonWebTokenConfig setUserExtractionFile(File userExtractionFile)
+    {
+        this.userExtractionFile = Optional.ofNullable(userExtractionFile);
         return this;
     }
 }

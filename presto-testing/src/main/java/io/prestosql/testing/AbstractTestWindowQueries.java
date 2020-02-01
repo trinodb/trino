@@ -29,14 +29,6 @@ import static io.prestosql.testing.assertions.Assert.assertEquals;
 public abstract class AbstractTestWindowQueries
         extends AbstractTestQueryFramework
 {
-    @Deprecated
-    protected AbstractTestWindowQueries(QueryRunnerSupplier supplier)
-    {
-        super(supplier);
-    }
-
-    protected AbstractTestWindowQueries() {}
-
     @Test
     public void testRowFieldAccessorInWindowFunction()
     {

@@ -29,6 +29,7 @@ import io.prestosql.Session;
 import io.prestosql.cost.StatsCalculator;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
+import io.prestosql.metadata.SqlFunction;
 import io.prestosql.plugin.thrift.ThriftPlugin;
 import io.prestosql.plugin.thrift.server.ThriftIndexedTpchService;
 import io.prestosql.plugin.thrift.server.ThriftTpchService;
@@ -93,7 +94,7 @@ public final class ThriftQueryRunner
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
 
-    private static List<DriftServer> startThriftServers(int thriftServers, boolean enableIndexJoin)
+    static List<DriftServer> startThriftServers(int thriftServers, boolean enableIndexJoin)
     {
         List<DriftServer> servers = new ArrayList<>(thriftServers);
         for (int i = 0; i < thriftServers; i++) {
@@ -138,7 +139,7 @@ public final class ThriftQueryRunner
         return queryRunner;
     }
 
-    private static int driftServerPort(DriftServer server)
+    static int driftServerPort(DriftServer server)
     {
         return ((DriftNettyServerTransport) server.getServerTransport()).getPort();
     }
@@ -260,6 +261,12 @@ public final class ThriftQueryRunner
         public void installPlugin(Plugin plugin)
         {
             source.installPlugin(plugin);
+        }
+
+        @Override
+        public void addFunctions(List<? extends SqlFunction> functions)
+        {
+            source.getMetadata().addFunctions(functions);
         }
 
         @Override

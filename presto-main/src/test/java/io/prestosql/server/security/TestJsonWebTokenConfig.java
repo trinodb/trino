@@ -16,6 +16,7 @@ package io.prestosql.server.security;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.io.File;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -30,7 +31,9 @@ public class TestJsonWebTokenConfig
         assertRecordedDefaults(recordDefaults(JsonWebTokenConfig.class)
                 .setKeyFile(null)
                 .setRequiredAudience(null)
-                .setRequiredIssuer(null));
+                .setRequiredIssuer(null)
+                .setUserExtractionPattern(null)
+                .setUserExtractionFile(null));
     }
 
     @Test
@@ -40,12 +43,16 @@ public class TestJsonWebTokenConfig
                 .put("http.authentication.jwt.key-file", "public.pem")
                 .put("http.authentication.jwt.required-audience", "some-audience")
                 .put("http.authentication.jwt.required-issuer", "some-issuer")
+                .put("http-server.authentication.jwt.user-extraction.pattern", "(.*)@something")
+                .put("http-server.authentication.jwt.user-extraction.file", "some-file")
                 .build();
 
         JsonWebTokenConfig expected = new JsonWebTokenConfig()
                 .setKeyFile("public.pem")
                 .setRequiredAudience("some-audience")
-                .setRequiredIssuer("some-issuer");
+                .setRequiredIssuer("some-issuer")
+                .setUserExtractionPattern("(.*)@something")
+                .setUserExtractionFile(new File("some-file"));
 
         assertFullMapping(properties, expected);
     }

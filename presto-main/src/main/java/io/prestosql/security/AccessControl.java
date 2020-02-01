@@ -18,6 +18,7 @@ import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
@@ -33,8 +34,17 @@ public interface AccessControl
      * Check if the principal is allowed to be the specified user.
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     * @deprecated replaced with user extraction during authentication and {@link #canImpersonateUser}
      */
+    @Deprecated
     void checkCanSetUser(Optional<Principal> principal, String userName);
+
+    /**
+     * Check if the identity is allowed impersonate the specified user.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void canImpersonateUser(Identity identity, String userName);
 
     /**
      * Filter the list of catalogs to those visible to the identity.

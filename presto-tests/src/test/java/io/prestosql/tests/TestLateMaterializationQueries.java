@@ -19,6 +19,7 @@ import io.prestosql.execution.QueryManager;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
+import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.ResultWithQueryId;
 import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
 import org.intellij.lang.annotations.Language;
@@ -33,9 +34,11 @@ import static org.testng.Assert.assertTrue;
 public class TestLateMaterializationQueries
         extends AbstractTestQueryFramework
 {
-    protected TestLateMaterializationQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> TpchQueryRunnerBuilder
+        return TpchQueryRunnerBuilder
                 .builder()
                 .amendSession(builder -> builder
                         .setSystemProperty(LATE_MATERIALIZATION, "true")
@@ -43,7 +46,7 @@ public class TestLateMaterializationQueries
                 // make TPCH connector produce multiple pages per split
                 .withProducePages(true)
                 .withMaxRowsPerPage(10)
-                .build());
+                .build();
     }
 
     @Test

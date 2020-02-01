@@ -15,7 +15,6 @@ package io.prestosql.tests.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.log.Logger;
 import io.prestosql.tempto.AfterTestWithContext;
 import io.prestosql.tempto.BeforeTestWithContext;
 import io.prestosql.tempto.ProductTest;
@@ -79,14 +78,9 @@ public class TestGrantRevoke
     @AfterTestWithContext
     public void cleanup()
     {
-        try {
-            aliceExecutor.executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
-            aliceExecutor.executeQuery(format("DROP VIEW IF EXISTS %s", viewName));
-            cleanupRoles();
-        }
-        catch (Exception e) {
-            Logger.get(getClass()).warn(e, "failed to drop table/view");
-        }
+        aliceExecutor.executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
+        aliceExecutor.executeQuery(format("DROP VIEW IF EXISTS %s", viewName));
+        cleanupRoles();
     }
 
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})

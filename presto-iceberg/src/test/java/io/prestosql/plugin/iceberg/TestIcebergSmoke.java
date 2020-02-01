@@ -17,8 +17,11 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
+import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.sql.TestTable;
 import org.apache.iceberg.FileFormat;
 import org.intellij.lang.annotations.Language;
+import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.util.function.BiConsumer;
@@ -32,15 +35,23 @@ import static org.testng.Assert.assertFalse;
 public class TestIcebergSmoke
         extends AbstractTestIntegrationSmokeTest
 {
-    public TestIcebergSmoke()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createIcebergQueryRunner(ImmutableMap.of()));
+        return createIcebergQueryRunner(ImmutableMap.of());
     }
 
     @Override
     protected boolean isParameterizedVarcharSupported()
     {
         return false;
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        throw new SkipException("Iceberg connector does not support column default values");
     }
 
     @Test
@@ -183,7 +194,7 @@ public class TestIcebergSmoke
                         "   order_status varchar\n" +
                         ")\n" +
                         "WITH (\n" +
-                        "   format = 'PARQUET',\n" +
+                        "   format = '" + fileFormat + "',\n" +
                         "   partitioning = ARRAY['order_status','ship_priority','bucket(order_key, 9)']\n" +
                         ")",
                 getSession().getCatalog().get(),
@@ -212,9 +223,40 @@ public class TestIcebergSmoke
         dropTable(session, "test_column_comments");
     }
 
+    @Test
+    public void testSchemaEvolution()
+    {
+        // Schema evolution should be id based
+        testWithAllFileFormats(this::testSchemaEvolution);
+    }
+
+    private void testSchemaEvolution(Session session, FileFormat fileFormat)
+    {
+        assertUpdate(session, "CREATE TABLE test_schema_evolution_drop_end (col0 INTEGER, col1 INTEGER, col2 INTEGER) WITH (format = '" + fileFormat + "')");
+        assertUpdate(session, "INSERT INTO test_schema_evolution_drop_end VALUES (0, 1, 2)", 1);
+        assertQuery(session, "SELECT * FROM test_schema_evolution_drop_end", "VALUES(0, 1, 2)");
+        assertUpdate(session, "ALTER TABLE test_schema_evolution_drop_end DROP COLUMN col2");
+        assertQuery(session, "SELECT * FROM test_schema_evolution_drop_end", "VALUES(0, 1)");
+        assertUpdate(session, "ALTER TABLE test_schema_evolution_drop_end ADD COLUMN col2 INTEGER");
+        assertUpdate(session, "INSERT INTO test_schema_evolution_drop_end VALUES (3, 4, 5)", 1);
+        assertQuery(session, "SELECT * FROM test_schema_evolution_drop_end", "VALUES(0, 1, NULL), (3, 4, 5)");
+        dropTable(session, "test_schema_evolution_drop_end");
+
+        assertUpdate(session, "CREATE TABLE test_schema_evolution_drop_middle (col0 INTEGER, col1 INTEGER, col2 INTEGER) WITH (format = '" + fileFormat + "')");
+        assertUpdate(session, "INSERT INTO test_schema_evolution_drop_middle VALUES (0, 1, 2)", 1);
+        assertQuery(session, "SELECT * FROM test_schema_evolution_drop_middle", "VALUES(0, 1, 2)");
+        assertUpdate(session, "ALTER TABLE test_schema_evolution_drop_middle DROP COLUMN col1");
+        assertQuery(session, "SELECT * FROM test_schema_evolution_drop_middle", "VALUES(0, 2)");
+        assertUpdate(session, "ALTER TABLE test_schema_evolution_drop_middle ADD COLUMN col1 INTEGER");
+        assertUpdate(session, "INSERT INTO test_schema_evolution_drop_middle VALUES (3, 4, 5)", 1);
+        assertQuery(session, "SELECT * FROM test_schema_evolution_drop_middle", "VALUES(0, 2, NULL), (3, 4, 5)");
+        dropTable(session, "test_schema_evolution_drop_middle");
+    }
+
     private void testWithAllFileFormats(BiConsumer<Session, FileFormat> test)
     {
         test.accept(getSession(), FileFormat.PARQUET);
+        test.accept(getSession(), FileFormat.ORC);
     }
 
     private void dropTable(Session session, String table)

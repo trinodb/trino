@@ -13,7 +13,6 @@
  */
 package io.prestosql.tests;
 
-import io.airlift.log.Logger;
 import io.prestosql.tempto.AfterTestWithContext;
 import io.prestosql.tempto.BeforeTestWithContext;
 import io.prestosql.tempto.ProductTest;
@@ -39,13 +38,8 @@ public class TestAlterTable
     @AfterTestWithContext
     public void dropTestTables()
     {
-        try {
-            query(format("DROP TABLE IF EXISTS %s", TABLE_NAME));
-            query(format("DROP TABLE IF EXISTS %s", RENAMED_TABLE_NAME));
-        }
-        catch (Exception e) {
-            Logger.get(getClass()).warn(e, "failed to drop table");
-        }
+        query(format("DROP TABLE IF EXISTS %s", TABLE_NAME));
+        query(format("DROP TABLE IF EXISTS %s", RENAMED_TABLE_NAME));
     }
 
     @Test(groups = {ALTER_TABLE, SMOKE})

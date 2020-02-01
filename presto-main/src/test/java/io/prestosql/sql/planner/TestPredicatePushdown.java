@@ -52,9 +52,10 @@ public class TestPredicatePushdown
 {
     private final Metadata metadata = createTestMetadataManager();
 
-    TestPredicatePushdown()
+    public TestPredicatePushdown()
     {
-        super(ImmutableMap.of(ENABLE_DYNAMIC_FILTERING, "true"));
+        super(ImmutableMap.of(
+                ENABLE_DYNAMIC_FILTERING, "true"));
     }
 
     @Test
@@ -105,16 +106,18 @@ public class TestPredicatePushdown
     @Test
     public void testNonStraddlingJoinExpression()
     {
-        assertPlan("SELECT * FROM orders JOIN lineitem ON orders.orderkey = lineitem.orderkey AND cast(lineitem.linenumber AS varchar) = '2'",
+        assertPlan(
+                "SELECT * FROM orders JOIN lineitem ON orders.orderkey = lineitem.orderkey AND cast(lineitem.linenumber AS varchar) = '2'",
+                disableDynamicFiltering(),
                 anyTree(
-                        join(INNER, ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
+                        join(INNER, ImmutableList.of(equiJoinClause("LINEITEM_OK", "ORDERS_OK")),
                                 anyTree(
-                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
+                                        filter("cast(LINEITEM_LINENUMBER as varchar) = cast('2' as varchar)",
+                                            tableScan("lineitem", ImmutableMap.of(
+                                            "LINEITEM_OK", "orderkey",
+                                            "LINEITEM_LINENUMBER", "linenumber")))),
                                 anyTree(
-                                        filter("cast('2' as varchar) = cast(LINEITEM_LINENUMBER as varchar)",
-                                                tableScan("lineitem", ImmutableMap.of(
-                                                        "LINEITEM_OK", "orderkey",
-                                                        "LINEITEM_LINENUMBER", "linenumber")))))));
+                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))));
     }
 
     @Test
@@ -513,16 +516,24 @@ public class TestPredicatePushdown
     {
         assertPlan(
                 "SELECT * FROM orders, nation WHERE orderstatus = CAST(nation.name AS varchar(1)) AND orderstatus BETWEEN 'A' AND 'O'",
+                disableDynamicFiltering(),
                 anyTree(
                         node(JoinNode.class,
-                                anyTree(
-                                        tableScan(
-                                                "orders",
-                                                ImmutableMap.of("ORDERSTATUS", "orderstatus"))),
                                 anyTree(
                                         filter("CAST(NAME AS varchar(1)) IN ('F', 'O')",
                                                 tableScan(
                                                         "nation",
-                                                        ImmutableMap.of("NAME", "name")))))));
+                                                        ImmutableMap.of("NAME", "name")))),
+                                anyTree(
+                                        tableScan(
+                                                "orders",
+                                                ImmutableMap.of("ORDERSTATUS", "orderstatus"))))));
+    }
+
+    private Session disableDynamicFiltering()
+    {
+        return Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "false")
+                .build();
     }
 }

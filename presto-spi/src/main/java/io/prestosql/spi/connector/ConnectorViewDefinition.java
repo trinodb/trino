@@ -31,6 +31,7 @@ public class ConnectorViewDefinition
     private final Optional<String> catalog;
     private final Optional<String> schema;
     private final List<ViewColumn> columns;
+    private final Optional<String> comment;
     private final Optional<String> owner;
     private final boolean runAsInvoker;
 
@@ -40,6 +41,7 @@ public class ConnectorViewDefinition
             @JsonProperty("catalog") Optional<String> catalog,
             @JsonProperty("schema") Optional<String> schema,
             @JsonProperty("columns") List<ViewColumn> columns,
+            @JsonProperty("comment") Optional<String> comment,
             @JsonProperty("owner") Optional<String> owner,
             @JsonProperty("runAsInvoker") boolean runAsInvoker)
     {
@@ -47,6 +49,7 @@ public class ConnectorViewDefinition
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.columns = unmodifiableList(new ArrayList<>(requireNonNull(columns, "columns is null")));
+        this.comment = requireNonNull(comment, "comment is null");
         this.owner = requireNonNull(owner, "owner is null");
         this.runAsInvoker = runAsInvoker;
         if (!catalog.isPresent() && schema.isPresent()) {
@@ -85,6 +88,12 @@ public class ConnectorViewDefinition
     }
 
     @JsonProperty
+    public Optional<String> getComment()
+    {
+        return comment;
+    }
+
+    @JsonProperty
     public Optional<String> getOwner()
     {
         return owner;
@@ -101,6 +110,7 @@ public class ConnectorViewDefinition
     {
         StringJoiner joiner = new StringJoiner(", ", "[", "]");
         owner.ifPresent(value -> joiner.add("owner=" + value));
+        comment.ifPresent(value -> joiner.add("comment=" + value));
         joiner.add("runAsInvoker=" + runAsInvoker);
         joiner.add("columns=" + columns);
         catalog.ifPresent(value -> joiner.add("catalog=" + value));

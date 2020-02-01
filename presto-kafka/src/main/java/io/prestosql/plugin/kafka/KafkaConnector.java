@@ -21,6 +21,8 @@ import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.transaction.IsolationLevel;
 
+import javax.inject.Inject;
+
 import static io.prestosql.spi.transaction.IsolationLevel.READ_COMMITTED;
 import static io.prestosql.spi.transaction.IsolationLevel.checkConnectorSupports;
 import static java.util.Objects.requireNonNull;
@@ -33,6 +35,7 @@ public class KafkaConnector
     private final ConnectorSplitManager splitManager;
     private final ConnectorRecordSetProvider recordSetProvider;
 
+    @Inject
     public KafkaConnector(
             LifeCycleManager lifeCycleManager,
             ConnectorMetadata metadata,

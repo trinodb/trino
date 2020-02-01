@@ -104,7 +104,7 @@ databases:
 
   postgres:
     jdbc_driver_class: org.postgresql.Driver
-    jdbc_url: jdbc:postgresql://postgres:15432/test
+    jdbc_url: jdbc:postgresql://postgresql:15432/test
     jdbc_user: test
     jdbc_password: test
     jdbc_pooling: true
