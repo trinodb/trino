@@ -23,6 +23,7 @@ import javax.inject.Inject;
 import java.util.Set;
 import java.util.function.IntSupplier;
 
+import static io.prestosql.SystemSessionProperties.getCostEstimationWorkerCount;
 import static io.prestosql.SystemSessionProperties.getHashPartitionCount;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
@@ -53,13 +54,17 @@ public class TaskCountEstimator
         this.numberOfNodes = requireNonNull(numberOfNodes, "numberOfNodes is null");
     }
 
-    public int estimateSourceDistributedTaskCount()
+    public int estimateSourceDistributedTaskCount(Session session)
     {
+        Integer costEstimationWorkerCount = getCostEstimationWorkerCount(session);
+        if (costEstimationWorkerCount != null) {
+            return costEstimationWorkerCount;
+        }
         return numberOfNodes.getAsInt();
     }
 
     public int estimateHashedTaskCount(Session session)
     {
-        return min(numberOfNodes.getAsInt(), getHashPartitionCount(session));
+        return min(estimateSourceDistributedTaskCount(session), getHashPartitionCount(session));
     }
 }

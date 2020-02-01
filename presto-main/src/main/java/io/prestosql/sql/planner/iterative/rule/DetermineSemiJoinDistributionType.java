@@ -147,7 +147,7 @@ public class DetermineSemiJoinDistributionType
          *   TODO Decision about the distribution should be based on LocalCostEstimate only when PlanCostEstimate cannot be calculated. Otherwise cost comparator cannot take query.max-memory into account.
          */
 
-        int estimatedSourceDistributedTaskCount = taskCountEstimator.estimateSourceDistributedTaskCount();
+        int estimatedSourceDistributedTaskCount = taskCountEstimator.estimateSourceDistributedTaskCount(context.getSession());
         LocalCostEstimate cost = calculateJoinCostWithoutOutput(
                 possibleJoinNode.getSource(),
                 possibleJoinNode.getFilteringSource(),

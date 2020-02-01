@@ -60,7 +60,7 @@ public class CostCalculatorWithEstimatedExchanges
     @Override
     public PlanCostEstimate calculateCost(PlanNode node, StatsProvider stats, CostProvider sourcesCosts, Session session, TypeProvider types)
     {
-        ExchangeCostEstimator exchangeCostEstimator = new ExchangeCostEstimator(stats, types, taskCountEstimator);
+        ExchangeCostEstimator exchangeCostEstimator = new ExchangeCostEstimator(stats, types, taskCountEstimator, session);
         PlanCostEstimate costEstimate = costCalculator.calculateCost(node, stats, sourcesCosts, session, types);
         LocalCostEstimate estimatedExchangeCost = node.accept(exchangeCostEstimator, null);
         return addExchangeCost(costEstimate, estimatedExchangeCost);
@@ -90,12 +90,14 @@ public class CostCalculatorWithEstimatedExchanges
         private final StatsProvider stats;
         private final TypeProvider types;
         private final TaskCountEstimator taskCountEstimator;
+        private final Session session;
 
-        ExchangeCostEstimator(StatsProvider stats, TypeProvider types, TaskCountEstimator taskCountEstimator)
+        ExchangeCostEstimator(StatsProvider stats, TypeProvider types, TaskCountEstimator taskCountEstimator, Session session)
         {
             this.stats = requireNonNull(stats, "stats is null");
             this.types = requireNonNull(types, "types is null");
             this.taskCountEstimator = requireNonNull(taskCountEstimator, "taskCountEstimator is null");
+            this.session = requireNonNull(session, "session is null");
         }
 
         @Override
@@ -133,7 +135,7 @@ public class CostCalculatorWithEstimatedExchanges
                     stats,
                     types,
                     Objects.equals(node.getDistributionType(), Optional.of(JoinNode.DistributionType.REPLICATED)),
-                    taskCountEstimator.estimateSourceDistributedTaskCount());
+                    taskCountEstimator.estimateSourceDistributedTaskCount(session));
         }
 
         @Override
@@ -145,7 +147,7 @@ public class CostCalculatorWithEstimatedExchanges
                     stats,
                     types,
                     Objects.equals(node.getDistributionType(), Optional.of(SemiJoinNode.DistributionType.REPLICATED)),
-                    taskCountEstimator.estimateSourceDistributedTaskCount());
+                    taskCountEstimator.estimateSourceDistributedTaskCount(session));
         }
 
         @Override
@@ -157,7 +159,7 @@ public class CostCalculatorWithEstimatedExchanges
                     stats,
                     types,
                     node.getDistributionType() == SpatialJoinNode.DistributionType.REPLICATED,
-                    taskCountEstimator.estimateSourceDistributedTaskCount());
+                    taskCountEstimator.estimateSourceDistributedTaskCount(session));
         }
 
         @Override
