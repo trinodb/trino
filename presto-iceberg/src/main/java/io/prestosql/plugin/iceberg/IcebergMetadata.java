@@ -85,9 +85,9 @@ import static io.prestosql.plugin.iceberg.DomainConverter.convertTupleDomainType
 import static io.prestosql.plugin.iceberg.ExpressionConverter.toIcebergExpression;
 import static io.prestosql.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static io.prestosql.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
+import static io.prestosql.plugin.iceberg.IcebergTableProperties.getExternalLocation;
 import static io.prestosql.plugin.iceberg.IcebergTableProperties.getFileFormat;
 import static io.prestosql.plugin.iceberg.IcebergTableProperties.getPartitioning;
-import static io.prestosql.plugin.iceberg.IcebergTableProperties.getExternalLocation;
 import static io.prestosql.plugin.iceberg.IcebergUtil.getColumns;
 import static io.prestosql.plugin.iceberg.IcebergUtil.getDataPath;
 import static io.prestosql.plugin.iceberg.IcebergUtil.getFileFormat;
