@@ -85,7 +85,7 @@ public class ArbitraryAggregationFunction
                         ImmutableList.of(new FunctionArgumentDefinition(false)),
                         false,
                         true,
-                        "return an arbitrary non-null input value",
+                        "Return an arbitrary non-null input value",
                         AGGREGATE),
                 true,
                 false);

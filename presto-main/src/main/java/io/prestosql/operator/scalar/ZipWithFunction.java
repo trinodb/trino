@@ -72,7 +72,7 @@ public final class ZipWithFunction
                                         new FunctionArgumentDefinition(false)),
                 false,
                 false,
-                "merge two arrays, element-wise, into a single array using the lambda function",
+                "Merge two arrays, element-wise, into a single array using the lambda function",
                 SCALAR));
     }
 

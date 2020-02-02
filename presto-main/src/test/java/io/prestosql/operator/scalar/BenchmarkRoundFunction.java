@@ -109,7 +109,7 @@ public class BenchmarkRoundFunction
         bh.consume(roundBaseline(floatOperand4, numberOfDecimals));
     }
 
-    @Description("round to given number of decimal places")
+    @Description("Round to given number of decimal places")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
     public static double roundBaseline(@SqlType(StandardTypes.DOUBLE) double num, @SqlType(StandardTypes.BIGINT) long decimals)
