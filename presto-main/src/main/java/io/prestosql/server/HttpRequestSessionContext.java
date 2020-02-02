@@ -81,6 +81,7 @@ public final class HttpRequestSessionContext
     private static final Logger log = Logger.get(HttpRequestSessionContext.class);
 
     private static final Splitter DOT_SPLITTER = Splitter.on('.');
+    public static final String AUTHENTICATED_IDENTITY = "presto.authenticated-identity";
 
     private final String catalog;
     private final String schema;
@@ -116,24 +117,8 @@ public final class HttpRequestSessionContext
         path = trimEmptyToNull(servletRequest.getHeader(PRESTO_PATH));
         assertRequest((catalog != null) || (schema == null), "Schema is set but catalog is not");
 
-        String authenticatedUser = (String) servletRequest.getAttribute(PRESTO_USER);
-        authenticatedIdentity = Optional.ofNullable(authenticatedUser)
-                .map(user -> Identity.forUser(user)
-                    .withPrincipal(Optional.ofNullable(servletRequest.getUserPrincipal()))
-                    .withRoles(parseRoleHeaders(servletRequest))
-                    .withExtraCredentials(parseExtraCredentials(servletRequest))
-                    .build());
-
-        String user = trimEmptyToNull(servletRequest.getHeader(PRESTO_USER));
-        if (user == null) {
-            user = authenticatedUser;
-        }
-        assertRequest(user != null, "User must be set");
-        identity = Identity.forUser(user)
-                .withPrincipal(Optional.ofNullable(servletRequest.getUserPrincipal()))
-                .withRoles(parseRoleHeaders(servletRequest))
-                .withExtraCredentials(parseExtraCredentials(servletRequest))
-                .build();
+        authenticatedIdentity = Optional.ofNullable((Identity) servletRequest.getAttribute(AUTHENTICATED_IDENTITY));
+        identity = buildSessionIdentity(authenticatedIdentity, servletRequest);
 
         source = servletRequest.getHeader(PRESTO_SOURCE);
         traceToken = Optional.ofNullable(trimEmptyToNull(servletRequest.getHeader(PRESTO_TRACE_TOKEN)));
@@ -184,6 +169,19 @@ public final class HttpRequestSessionContext
         String transactionIdHeader = servletRequest.getHeader(PRESTO_TRANSACTION_ID);
         clientTransactionSupport = transactionIdHeader != null;
         transactionId = parseTransactionId(transactionIdHeader);
+    }
+
+    private static Identity buildSessionIdentity(Optional<Identity> authenticatedIdentity, HttpServletRequest servletRequest)
+    {
+        String prestoUser = trimEmptyToNull(servletRequest.getHeader(PRESTO_USER));
+        String user = prestoUser != null ? prestoUser : authenticatedIdentity.map(Identity::getUser).orElse(null);
+        assertRequest(user != null, "User must be set");
+        return authenticatedIdentity
+                .map(identity -> Identity.from(identity).withUser(user))
+                .orElseGet(() -> Identity.forUser(user))
+                .withAdditionalRoles(parseRoleHeaders(servletRequest))
+                .withAdditionalExtraCredentials(parseExtraCredentials(servletRequest))
+                .build();
     }
 
     private static String getRemoteUserAddress(HeaderSupport forwardedHeaderSupport, String xForwarderForHeader, String remoteAddress)

@@ -18,7 +18,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.HttpHeaders;
 import io.prestosql.server.InternalAuthenticationManager;
-import io.prestosql.server.security.Authenticator.AuthenticatedPrincipal;
+import io.prestosql.spi.security.Identity;
 
 import javax.inject.Inject;
 import javax.servlet.Filter;
@@ -44,7 +44,7 @@ import static com.google.common.io.ByteStreams.copy;
 import static com.google.common.io.ByteStreams.nullOutputStream;
 import static com.google.common.net.HttpHeaders.WWW_AUTHENTICATE;
 import static com.google.common.net.MediaType.PLAIN_TEXT_UTF_8;
-import static io.prestosql.client.PrestoHeaders.PRESTO_USER;
+import static io.prestosql.server.HttpRequestSessionContext.AUTHENTICATED_IDENTITY;
 import static io.prestosql.server.security.BasicAuthCredentials.extractBasicAuthCredentials;
 import static java.util.Objects.requireNonNull;
 import static javax.servlet.http.HttpServletResponse.SC_FORBIDDEN;
@@ -87,7 +87,10 @@ public class AuthenticationFilter
                 response.setContentType(PLAIN_TEXT_UTF_8.toString());
                 return;
             }
-            nextFilter.doFilter(withPrincipal(request, principal), response);
+            Identity identity = Identity.forUser("<internal>")
+                    .withPrincipal(principal)
+                    .build();
+            withAuthenticatedIdentity(nextFilter, request, response, identity);
             return;
         }
 
@@ -102,9 +105,9 @@ public class AuthenticationFilter
         Set<String> authenticateHeaders = new LinkedHashSet<>();
 
         for (Authenticator authenticator : authenticators) {
-            AuthenticatedPrincipal authenticatedPrincipal;
+            Identity authenticatedIdentity;
             try {
-                authenticatedPrincipal = authenticator.authenticate(request);
+                authenticatedIdentity = authenticator.authenticate(request);
             }
             catch (AuthenticationException e) {
                 if (e.getMessage() != null) {
@@ -115,8 +118,7 @@ public class AuthenticationFilter
             }
 
             // authentication succeeded
-            request.setAttribute(PRESTO_USER, authenticatedPrincipal.getUser());
-            nextFilter.doFilter(withPrincipal(request, authenticatedPrincipal.getPrincipal()), response);
+            withAuthenticatedIdentity(nextFilter, request, response, authenticatedIdentity);
             return;
         }
 
@@ -161,14 +163,18 @@ public class AuthenticationFilter
             sendErrorMessage(response, SC_FORBIDDEN, e.getMessage());
             return;
         }
-        if (basicAuthCredentials.isPresent()) {
-            if (basicAuthCredentials.get().getPassword().isPresent()) {
-                sendErrorMessage(response, SC_FORBIDDEN, "Password not allowed for insecure request");
-                return;
-            }
-            request.setAttribute(PRESTO_USER, basicAuthCredentials.get().getUser());
+
+        if (!basicAuthCredentials.isPresent()) {
+            nextFilter.doFilter(request, response);
+            return;
         }
-        nextFilter.doFilter(request, response);
+
+        if (basicAuthCredentials.get().getPassword().isPresent()) {
+            sendErrorMessage(response, SC_FORBIDDEN, "Password not allowed for insecure request");
+            return;
+        }
+
+        withAuthenticatedIdentity(nextFilter, request, response, Identity.ofUser(basicAuthCredentials.get().getUser()));
     }
 
     private boolean doesRequestSupportAuthentication(HttpServletRequest request)
@@ -182,15 +188,25 @@ public class AuthenticationFilter
         return httpsForwardingEnabled && Strings.nullToEmpty(request.getHeader(HttpHeaders.X_FORWARDED_PROTO)).equalsIgnoreCase(HTTPS_PROTOCOL);
     }
 
-    private static ServletRequest withPrincipal(HttpServletRequest request, Principal principal)
+    private static void withAuthenticatedIdentity(FilterChain nextFilter, HttpServletRequest request, HttpServletResponse response, Identity authenticatedIdentity)
+            throws IOException, ServletException
+    {
+        request.setAttribute(AUTHENTICATED_IDENTITY, authenticatedIdentity);
+        nextFilter.doFilter(withPrincipal(request, authenticatedIdentity.getPrincipal()), response);
+    }
+
+    private static ServletRequest withPrincipal(HttpServletRequest request, Optional<Principal> principal)
     {
         requireNonNull(principal, "principal is null");
+        if (!principal.isPresent()) {
+            return request;
+        }
         return new HttpServletRequestWrapper(request)
         {
             @Override
             public Principal getUserPrincipal()
             {
-                return principal;
+                return principal.get();
             }
         };
     }

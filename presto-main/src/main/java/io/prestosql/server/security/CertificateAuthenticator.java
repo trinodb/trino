@@ -13,6 +13,8 @@
  */
 package io.prestosql.server.security;
 
+import io.prestosql.spi.security.Identity;
+
 import javax.inject.Inject;
 import javax.security.auth.x500.X500Principal;
 import javax.servlet.http.HttpServletRequest;
@@ -38,7 +40,7 @@ public class CertificateAuthenticator
     }
 
     @Override
-    public AuthenticatedPrincipal authenticate(HttpServletRequest request)
+    public Identity authenticate(HttpServletRequest request)
             throws AuthenticationException
     {
         X509Certificate[] certs = (X509Certificate[]) request.getAttribute(X509_ATTRIBUTE);
@@ -48,7 +50,9 @@ public class CertificateAuthenticator
         X500Principal principal = certs[0].getSubjectX500Principal();
         try {
             String authenticatedUser = userExtraction.extractUser(((Principal) principal).toString());
-            return new AuthenticatedPrincipal(authenticatedUser, principal);
+            return Identity.forUser(authenticatedUser)
+                    .withPrincipal(principal)
+                    .build();
         }
         catch (UserExtractionException e) {
             throw new AuthenticationException(e.getMessage());
