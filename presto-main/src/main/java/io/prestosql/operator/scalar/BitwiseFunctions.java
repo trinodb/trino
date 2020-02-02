@@ -25,7 +25,7 @@ public final class BitwiseFunctions
 {
     private BitwiseFunctions() {}
 
-    @Description("count number of set bits in 2's complement representation")
+    @Description("Count number of set bits in 2's complement representation")
     @ScalarFunction
     @SqlType(StandardTypes.BIGINT)
     public static long bitCount(@SqlType(StandardTypes.BIGINT) long num, @SqlType(StandardTypes.BIGINT) long bits)
@@ -44,7 +44,7 @@ public final class BitwiseFunctions
         return Long.bitCount(num & mask);
     }
 
-    @Description("bitwise NOT in 2's complement arithmetic")
+    @Description("Bitwise NOT in 2's complement arithmetic")
     @ScalarFunction
     @SqlType(StandardTypes.BIGINT)
     public static long bitwiseNot(@SqlType(StandardTypes.BIGINT) long num)
@@ -52,7 +52,7 @@ public final class BitwiseFunctions
         return ~num;
     }
 
-    @Description("bitwise AND in 2's complement arithmetic")
+    @Description("Bitwise AND in 2's complement arithmetic")
     @ScalarFunction
     @SqlType(StandardTypes.BIGINT)
     public static long bitwiseAnd(@SqlType(StandardTypes.BIGINT) long left, @SqlType(StandardTypes.BIGINT) long right)
@@ -60,7 +60,7 @@ public final class BitwiseFunctions
         return left & right;
     }
 
-    @Description("bitwise OR in 2's complement arithmetic")
+    @Description("Bitwise OR in 2's complement arithmetic")
     @ScalarFunction
     @SqlType(StandardTypes.BIGINT)
     public static long bitwiseOr(@SqlType(StandardTypes.BIGINT) long left, @SqlType(StandardTypes.BIGINT) long right)
@@ -68,7 +68,7 @@ public final class BitwiseFunctions
         return left | right;
     }
 
-    @Description("bitwise XOR in 2's complement arithmetic")
+    @Description("Bitwise XOR in 2's complement arithmetic")
     @ScalarFunction
     @SqlType(StandardTypes.BIGINT)
     public static long bitwiseXor(@SqlType(StandardTypes.BIGINT) long left, @SqlType(StandardTypes.BIGINT) long right)

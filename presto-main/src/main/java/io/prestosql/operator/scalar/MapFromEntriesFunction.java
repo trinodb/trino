@@ -33,7 +33,7 @@ import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static java.lang.String.format;
 
 @ScalarFunction("map_from_entries")
-@Description("construct a map from an array of entries")
+@Description("Construct a map from an array of entries")
 public final class MapFromEntriesFunction
 {
     private final PageBuilder pageBuilder;
