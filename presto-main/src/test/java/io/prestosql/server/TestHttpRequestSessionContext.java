@@ -43,6 +43,7 @@ import static io.prestosql.client.PrestoHeaders.PRESTO_USER;
 import static io.prestosql.dispatcher.DispatcherConfig.HeaderSupport.ACCEPT;
 import static io.prestosql.dispatcher.DispatcherConfig.HeaderSupport.IGNORE;
 import static io.prestosql.dispatcher.DispatcherConfig.HeaderSupport.WARN;
+import static io.prestosql.server.HttpRequestSessionContext.AUTHENTICATED_IDENTITY;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
@@ -105,14 +106,14 @@ public class TestHttpRequestSessionContext
         assertEquals(context.getIdentity(), Identity.ofUser("testUser"));
 
         servletRequest = new MockHttpServletRequest(ImmutableListMultimap.of(), "testRemote");
-        servletRequest.setAttribute(PRESTO_USER, "extractedUser");
+        servletRequest.setAttribute(AUTHENTICATED_IDENTITY, Identity.ofUser("extractedUser"));
         context = new HttpRequestSessionContext(WARN, servletRequest);
         assertEquals(context.getIdentity(), Identity.ofUser("extractedUser"));
 
         servletRequest = new MockHttpServletRequest(
                 ImmutableListMultimap.of(PRESTO_USER, "testUser"),
                 "testRemote");
-        servletRequest.setAttribute(PRESTO_USER, "extractedUser");
+        servletRequest.setAttribute(AUTHENTICATED_IDENTITY, Identity.ofUser("extractedUser"));
         context = new HttpRequestSessionContext(WARN, servletRequest);
         assertEquals(context.getIdentity(), Identity.ofUser("testUser"));
 

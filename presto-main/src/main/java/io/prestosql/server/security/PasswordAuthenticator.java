@@ -14,6 +14,7 @@
 package io.prestosql.server.security;
 
 import io.prestosql.spi.security.AccessDeniedException;
+import io.prestosql.spi.security.Identity;
 
 import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
@@ -41,7 +42,7 @@ public class PasswordAuthenticator
     }
 
     @Override
-    public AuthenticatedPrincipal authenticate(HttpServletRequest request)
+    public Identity authenticate(HttpServletRequest request)
             throws AuthenticationException
     {
         BasicAuthCredentials basicAuthCredentials = extractBasicAuthCredentials(request)
@@ -52,7 +53,9 @@ public class PasswordAuthenticator
                     basicAuthCredentials.getPassword()
                             .orElseThrow(() -> new AuthenticationException("Malformed credentials: password is empty")));
             String authenticatedUser = userExtraction.extractUser(principal.toString());
-            return new AuthenticatedPrincipal(authenticatedUser, principal);
+            return Identity.forUser(authenticatedUser)
+                    .withPrincipal(principal)
+                    .build();
         }
         catch (UserExtractionException | AccessDeniedException e) {
             throw needAuthentication(e.getMessage());

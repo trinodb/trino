@@ -15,6 +15,7 @@ package io.prestosql.server.security;
 
 import com.sun.security.auth.module.Krb5LoginModule;
 import io.airlift.log.Logger;
+import io.prestosql.spi.security.Identity;
 import org.ietf.jgss.GSSContext;
 import org.ietf.jgss.GSSCredential;
 import org.ietf.jgss.GSSException;
@@ -135,7 +136,7 @@ public class KerberosAuthenticator
     }
 
     @Override
-    public AuthenticatedPrincipal authenticate(HttpServletRequest request)
+    public Identity authenticate(HttpServletRequest request)
             throws AuthenticationException
     {
         String header = request.getHeader(AUTHORIZATION);
@@ -165,7 +166,9 @@ public class KerberosAuthenticator
 
         try {
             String authenticatedUser = userExtraction.extractUser(principal.toString());
-            return new AuthenticatedPrincipal(authenticatedUser, principal);
+            return Identity.forUser(authenticatedUser)
+                    .withPrincipal(principal)
+                    .build();
         }
         catch (UserExtractionException e) {
             throw new AuthenticationException(e.getMessage(), NEGOTIATE_SCHEME);
