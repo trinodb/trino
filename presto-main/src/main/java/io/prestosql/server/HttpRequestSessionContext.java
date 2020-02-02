@@ -186,7 +186,7 @@ public final class HttpRequestSessionContext
         transactionId = parseTransactionId(transactionIdHeader);
     }
 
-    private static String getRemoteUserAddress(HeaderSupport forwardedHeaderSupport, String xForwarderForHeader, String remoteAddess)
+    private static String getRemoteUserAddress(HeaderSupport forwardedHeaderSupport, String xForwarderForHeader, String remoteAddress)
     {
         // TODO support 'Forwarder' header (here & where other X-Forwarder-* are supported)
 
@@ -195,10 +195,10 @@ public final class HttpRequestSessionContext
                 if (xForwarderForHeader != null) {
                     log.warn("Unsupported HTTP header '%s'. Presto needs to be explicitly configured to %s or %s this header", X_FORWARDED_FOR, IGNORE, ACCEPT);
                 }
-                return remoteAddess;
+                return remoteAddress;
 
             case IGNORE:
-                return remoteAddess;
+                return remoteAddress;
 
             case ACCEPT:
                 if (xForwarderForHeader != null) {
@@ -207,7 +207,7 @@ public final class HttpRequestSessionContext
                         return addresses.get(0);
                     }
                 }
-                return remoteAddess;
+                return remoteAddress;
 
             default:
                 throw new UnsupportedOperationException("Unexpected forwardedHeaderSupport: " + forwardedHeaderSupport);
@@ -385,19 +385,19 @@ public final class HttpRequestSessionContext
         return properties;
     }
 
-    private Set<String> parseClientTags(HttpServletRequest servletRequest)
+    private static Set<String> parseClientTags(HttpServletRequest servletRequest)
     {
         Splitter splitter = Splitter.on(',').trimResults().omitEmptyStrings();
         return ImmutableSet.copyOf(splitter.split(nullToEmpty(servletRequest.getHeader(PRESTO_CLIENT_TAGS))));
     }
 
-    private Set<String> parseClientCapabilities(HttpServletRequest servletRequest)
+    private static Set<String> parseClientCapabilities(HttpServletRequest servletRequest)
     {
         Splitter splitter = Splitter.on(',').trimResults().omitEmptyStrings();
         return ImmutableSet.copyOf(splitter.split(nullToEmpty(servletRequest.getHeader(PRESTO_CLIENT_CAPABILITIES))));
     }
 
-    private ResourceEstimates parseResourceEstimate(HttpServletRequest servletRequest)
+    private static ResourceEstimates parseResourceEstimate(HttpServletRequest servletRequest)
     {
         ResourceEstimateBuilder builder = new ResourceEstimateBuilder();
         parseProperty(servletRequest, PRESTO_RESOURCE_ESTIMATE).forEach((name, value) -> {
