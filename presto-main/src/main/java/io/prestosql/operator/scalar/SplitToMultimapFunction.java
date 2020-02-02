@@ -36,7 +36,7 @@ import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.util.Failures.checkCondition;
 
-@Description("creates a multimap by splitting a string into key/value pairs")
+@Description("Creates a multimap by splitting a string into key/value pairs")
 @ScalarFunction("split_to_multimap")
 public class SplitToMultimapFunction
 {

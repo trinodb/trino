@@ -47,7 +47,7 @@ public final class ObjectIdFunctions
 {
     private ObjectIdFunctions() {}
 
-    @Description("mongodb ObjectId")
+    @Description("Mongodb ObjectId")
     @ScalarFunction("objectid")
     @SqlType("ObjectId")
     public static Slice ObjectId()
@@ -55,7 +55,7 @@ public final class ObjectIdFunctions
         return Slices.wrappedBuffer(new ObjectId().toByteArray());
     }
 
-    @Description("mongodb ObjectId from the given string")
+    @Description("Mongodb ObjectId from the given string")
     @ScalarFunction("objectid")
     @SqlType("ObjectId")
     public static Slice ObjectId(@SqlType(StandardTypes.VARCHAR) Slice value)

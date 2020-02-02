@@ -157,7 +157,7 @@ The ``lowercaser`` function takes a single ``VARCHAR`` argument and returns a
     public class ExampleStringFunction
     {
         @ScalarFunction("lowercaser")
-        @Description("converts the string to alternating case")
+        @Description("Converts the string to alternating case")
         @SqlType(StandardTypes.VARCHAR)
         public static Slice lowercaser(@SqlType(StandardTypes.VARCHAR) Slice slice)
         {
