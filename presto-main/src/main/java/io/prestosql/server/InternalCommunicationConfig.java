@@ -25,11 +25,11 @@ import java.util.Optional;
 @DefunctConfig({
         "internal-communication.kerberos.enabled",
         "internal-communication.kerberos.use-canonical-hostname",
+        "internal-communication.jwt.enabled",
 })
 public class InternalCommunicationConfig
 {
     private String sharedSecret;
-    private boolean internalJwtEnabled = true;
     private boolean httpsRequired;
     private String keyStorePath;
     private String keyStorePassword;
@@ -47,18 +47,6 @@ public class InternalCommunicationConfig
     public InternalCommunicationConfig setSharedSecret(String sharedSecret)
     {
         this.sharedSecret = sharedSecret;
-        return this;
-    }
-
-    public boolean isInternalJwtEnabled()
-    {
-        return internalJwtEnabled;
-    }
-
-    @Config("internal-communication.jwt.enabled")
-    public InternalCommunicationConfig setInternalJwtEnabled(boolean internalJwtEnabled)
-    {
-        this.internalJwtEnabled = internalJwtEnabled;
         return this;
     }
 
