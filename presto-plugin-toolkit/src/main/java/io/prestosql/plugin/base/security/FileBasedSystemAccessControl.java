@@ -157,7 +157,7 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void canImpersonateUser(SystemSecurityContext context, String userName)
+    public void checkCanImpersonateUser(SystemSecurityContext context, String userName)
     {
         if (!impersonationRules.isPresent()) {
             // if there are principal user match rules, we assume that impersonation checks are

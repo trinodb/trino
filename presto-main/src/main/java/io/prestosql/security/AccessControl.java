@@ -34,7 +34,7 @@ public interface AccessControl
      * Check if the principal is allowed to be the specified user.
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
-     * @deprecated replaced with user extraction during authentication and {@link #canImpersonateUser}
+     * @deprecated replaced with user extraction during authentication and {@link #checkCanImpersonateUser}
      */
     @Deprecated
     void checkCanSetUser(Optional<Principal> principal, String userName);
@@ -44,7 +44,7 @@ public interface AccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
-    void canImpersonateUser(Identity identity, String userName);
+    void checkCanImpersonateUser(Identity identity, String userName);
 
     /**
      * Filter the list of catalogs to those visible to the identity.

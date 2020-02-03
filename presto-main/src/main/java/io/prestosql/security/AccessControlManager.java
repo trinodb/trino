@@ -180,12 +180,12 @@ public class AccessControlManager
     }
 
     @Override
-    public void canImpersonateUser(Identity identity, String userName)
+    public void checkCanImpersonateUser(Identity identity, String userName)
     {
         requireNonNull(identity, "identity is null");
         requireNonNull(userName, "userName is null");
 
-        systemAuthorizationCheck(control -> control.canImpersonateUser(new SystemSecurityContext(identity), userName));
+        systemAuthorizationCheck(control -> control.checkCanImpersonateUser(new SystemSecurityContext(identity), userName));
     }
 
     @Override
@@ -802,7 +802,7 @@ public class AccessControlManager
         }
 
         @Override
-        public void canImpersonateUser(SystemSecurityContext context, String userName)
+        public void checkCanImpersonateUser(SystemSecurityContext context, String userName)
         {
             throw new PrestoException(SERVER_STARTING_UP, "Presto server is still initializing");
         }

@@ -77,7 +77,7 @@ public class QuerySessionSupplier
         context.getAuthenticatedIdentity().ifPresent(authenticatedIdentity -> {
             // only check impersonation if authenticated user is not the same as the explicitly set user
             if (!authenticatedIdentity.getUser().equals(identity.getUser())) {
-                accessControl.canImpersonateUser(authenticatedIdentity, identity.getUser());
+                accessControl.checkCanImpersonateUser(authenticatedIdentity, identity.getUser());
             }
         });
 
