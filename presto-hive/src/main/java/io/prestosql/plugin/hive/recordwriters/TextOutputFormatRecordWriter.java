@@ -32,18 +32,20 @@ public class TextOutputFormatRecordWriter
 {
     private final FSDataOutputStream fsDataOutputStream;
     private final OutputStream wrappedOutputStream;
-    private int rowSeparator;
+    private final int rowSeparator;
 
-    public TextOutputFormatRecordWriter(Path path, JobConf jobConf, Properties properties, boolean isCompressed) throws IOException
+    public TextOutputFormatRecordWriter(Path path, JobConf jobConf, Properties properties, boolean isCompressed)
+            throws IOException
     {
-        String rowSeparatorString = properties.getProperty(
-                serdeConstants.LINE_DELIM, "\n");
+        String rowSeparatorString = properties.getProperty(serdeConstants.LINE_DELIM, "\n");
+        int rowSeparatorByte;
         try {
-            rowSeparator = Byte.parseByte(rowSeparatorString);
+            rowSeparatorByte = Byte.parseByte(rowSeparatorString);
         }
         catch (NumberFormatException e) {
-            rowSeparator = rowSeparatorString.charAt(0);
+            rowSeparatorByte = rowSeparatorString.charAt(0);
         }
+        rowSeparator = rowSeparatorByte;
         fsDataOutputStream = path.getFileSystem(jobConf).create(path, Reporter.NULL);
         wrappedOutputStream = Utilities.createCompressedStream(jobConf, fsDataOutputStream, isCompressed);
     }
