@@ -51,21 +51,27 @@ public class AvroOutputFormatRecordWriter
         catch (AvroSerdeException e) {
             throw new IOException(e);
         }
-        GenericDatumWriter<GenericRecord> gdw = new GenericDatumWriter<>(schema);
-        DataFileWriter<GenericRecord> dfw = new DataFileWriter<>(gdw);
+        GenericDatumWriter<GenericRecord> genericDatumWriter = new GenericDatumWriter<>(schema);
+        DataFileWriter<GenericRecord> dataFileWriter = new DataFileWriter<>(genericDatumWriter);
 
-        if (isCompressed) {
-            int level = jobConf.getInt(DEFLATE_LEVEL_KEY, DEFAULT_DEFLATE_LEVEL);
-            String codecName = jobConf.get(OUTPUT_CODEC, DEFLATE_CODEC);
-            CodecFactory factory = codecName.equals(DEFLATE_CODEC)
-                    ? CodecFactory.deflateCodec(level)
-                    : CodecFactory.fromString(codecName);
-            dfw.setCodec(factory);
+        try {
+            if (isCompressed) {
+                int level = jobConf.getInt(DEFLATE_LEVEL_KEY, DEFAULT_DEFLATE_LEVEL);
+                String codecName = jobConf.get(OUTPUT_CODEC, DEFLATE_CODEC);
+                CodecFactory factory = codecName.equals(DEFLATE_CODEC)
+                        ? CodecFactory.deflateCodec(level)
+                        : CodecFactory.fromString(codecName);
+                dataFileWriter.setCodec(factory);
+            }
+
+            fsDataOutputStream = path.getFileSystem(jobConf).create(path);
+            dataFileWriter.create(schema, fsDataOutputStream);
+            delegate = new AvroGenericRecordWriter(dataFileWriter);
         }
-
-        fsDataOutputStream = path.getFileSystem(jobConf).create(path);
-        dfw.create(schema, fsDataOutputStream);
-        delegate = new AvroGenericRecordWriter(dfw);
+        catch (Exception e) {
+            dataFileWriter.close();
+            throw e;
+        }
     }
 
     @Override
