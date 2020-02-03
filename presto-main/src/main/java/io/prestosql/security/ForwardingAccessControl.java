@@ -49,9 +49,9 @@ public abstract class ForwardingAccessControl
     protected abstract AccessControl delegate();
 
     @Override
-    public void canImpersonateUser(Identity identity, String userName)
+    public void checkCanImpersonateUser(Identity identity, String userName)
     {
-        delegate().canImpersonateUser(identity, userName);
+        delegate().checkCanImpersonateUser(identity, userName);
     }
 
     @Override

@@ -58,7 +58,7 @@ public interface SystemAccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
-    default void canImpersonateUser(SystemSecurityContext context, String userName)
+    default void checkCanImpersonateUser(SystemSecurityContext context, String userName)
     {
         denyImpersonateUser(context.getIdentity().getUser(), userName);
     }
@@ -67,7 +67,7 @@ public interface SystemAccessControl
      * Check if the principal is allowed to be the specified user.
      *
      * @throws AccessDeniedException if not allowed
-     * @deprecated use user extraction and {@link #canImpersonateUser} instead
+     * @deprecated use user extraction and {@link #checkCanImpersonateUser} instead
      */
     @Deprecated
     default void checkCanSetUser(Optional<Principal> principal, String userName)

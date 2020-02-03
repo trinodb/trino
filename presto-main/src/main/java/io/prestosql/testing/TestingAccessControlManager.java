@@ -112,13 +112,13 @@ public class TestingAccessControlManager
     }
 
     @Override
-    public void canImpersonateUser(Identity identity, String userName)
+    public void checkCanImpersonateUser(Identity identity, String userName)
     {
         if (shouldDenyPrivilege(userName, userName, IMPERSONATE_USER)) {
             denyImpersonateUser(identity.getUser(), userName);
         }
         if (denyPrivileges.isEmpty()) {
-            super.canImpersonateUser(identity, userName);
+            super.checkCanImpersonateUser(identity, userName);
         }
     }
 

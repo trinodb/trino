@@ -31,7 +31,7 @@ public class AllowAllAccessControl
         implements AccessControl
 {
     @Override
-    public void canImpersonateUser(Identity identity, String userName)
+    public void checkCanImpersonateUser(Identity identity, String userName)
     {
     }
 
