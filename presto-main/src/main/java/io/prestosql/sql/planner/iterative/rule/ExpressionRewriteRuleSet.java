@@ -264,7 +264,8 @@ public class ExpressionRewriteRuleSet
                         joinNode.getRightHashSymbol(),
                         joinNode.getDistributionType(),
                         joinNode.isSpillable(),
-                        joinNode.getDynamicFilters()));
+                        joinNode.getDynamicFilters(),
+                        joinNode.getReorderJoinStatsAndCost()));
             }
             return Result.empty();
         }

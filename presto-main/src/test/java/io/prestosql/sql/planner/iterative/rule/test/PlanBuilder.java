@@ -718,7 +718,7 @@ public class PlanBuilder
             Optional<JoinNode.DistributionType> distributionType,
             Map<String, Symbol> dynamicFilters)
     {
-        return new JoinNode(idAllocator.getNextId(), type, left, right, criteria, outputSymbols, filter, leftHashSymbol, rightHashSymbol, distributionType, Optional.empty(), dynamicFilters);
+        return new JoinNode(idAllocator.getNextId(), type, left, right, criteria, outputSymbols, filter, leftHashSymbol, rightHashSymbol, distributionType, Optional.empty(), dynamicFilters, Optional.empty());
     }
 
     public PlanNode indexJoin(IndexJoinNode.Type type, TableScanNode probe, TableScanNode index)
