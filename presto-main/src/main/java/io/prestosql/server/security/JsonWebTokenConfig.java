@@ -14,6 +14,7 @@
 package io.prestosql.server.security;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.LegacyConfig;
 
 import javax.validation.constraints.NotNull;
 
@@ -34,7 +35,8 @@ public class JsonWebTokenConfig
         return keyFile;
     }
 
-    @Config("http.authentication.jwt.key-file")
+    @Config("http-server.authentication.jwt.key-file")
+    @LegacyConfig("http.authentication.jwt.key-file")
     public JsonWebTokenConfig setKeyFile(String keyFile)
     {
         this.keyFile = keyFile;
@@ -46,7 +48,8 @@ public class JsonWebTokenConfig
         return requiredIssuer;
     }
 
-    @Config("http.authentication.jwt.required-issuer")
+    @Config("http-server.authentication.jwt.required-issuer")
+    @LegacyConfig("http.authentication.jwt.required-issuer")
     public JsonWebTokenConfig setRequiredIssuer(String requiredIssuer)
     {
         this.requiredIssuer = requiredIssuer;
@@ -58,7 +61,8 @@ public class JsonWebTokenConfig
         return requiredAudience;
     }
 
-    @Config("http.authentication.jwt.required-audience")
+    @Config("http-server.authentication.jwt.required-audience")
+    @LegacyConfig("http.authentication.jwt.required-audience")
     public JsonWebTokenConfig setRequiredAudience(String requiredAudience)
     {
         this.requiredAudience = requiredAudience;
