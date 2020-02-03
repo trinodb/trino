@@ -116,7 +116,8 @@ public final class PushProjectionThroughJoin
                 joinNode.getRightHashSymbol(),
                 joinNode.getDistributionType(),
                 joinNode.isSpillable(),
-                joinNode.getDynamicFilters()));
+                joinNode.getDynamicFilters(),
+                joinNode.getReorderJoinStatsAndCost()));
     }
 
     private static PlanNode inlineProjections(ProjectNode parentProjection, Lookup lookup)

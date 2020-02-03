@@ -240,7 +240,8 @@ public class PruneUnreferencedOutputs
                     node.getRightHashSymbol(),
                     node.getDistributionType(),
                     node.isSpillable(),
-                    node.getDynamicFilters());
+                    node.getDynamicFilters(),
+                    node.getReorderJoinStatsAndCost());
         }
 
         @Override
