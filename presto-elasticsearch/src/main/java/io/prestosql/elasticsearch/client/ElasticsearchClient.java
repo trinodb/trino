@@ -75,6 +75,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -515,11 +516,18 @@ public class ElasticsearchClient
         return jsonNode.get(name);
     }
 
-    public SearchResponse beginSearch(String index, int shard, QueryBuilder query, Optional<List<String>> fields, List<String> documentFields, Optional<String> sort)
+    public SearchResponse beginSearch(String index, int shard, QueryBuilder query, Optional<List<String>> fields, List<String> documentFields, Optional<String> sort, OptionalLong limit)
     {
         SearchSourceBuilder sourceBuilder = SearchSourceBuilder.searchSource()
-                .query(query)
-                .size(scrollSize);
+                .query(query);
+
+        if (limit.isPresent() && limit.getAsLong() < scrollSize) {
+            // Safe to cast it to int because scrollSize is int.
+            sourceBuilder.size((int) limit.getAsLong());
+        }
+        else {
+            sourceBuilder.size(scrollSize);
+        }
 
         sort.ifPresent(sourceBuilder::sort);
 
