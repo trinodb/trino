@@ -1306,6 +1306,34 @@ public class TestLogicalPlanner
                                         values(ImmutableMap.of())))));
     }
 
+    @Test
+    public void testRemoveRedundantInnerJoin()
+    {
+        assertPlan("SELECT regionkey FROM nation INNER JOIN (SELECT nationkey FROM customer LIMIT 0) USING (nationkey)",
+                output(
+                        values(ImmutableList.of("regionkey"))));
+
+        assertPlan("SELECT regionkey FROM (SELECT * FROM nation LIMIT 0) INNER JOIN customer USING (nationkey)",
+                output(
+                        values(ImmutableList.of("regionkey"))));
+    }
+
+    @Test
+    public void testRemoveRedundantLeftJoin()
+    {
+        assertPlan("SELECT regionkey FROM (SELECT * FROM nation LIMIT 0) LEFT JOIN customer USING (nationkey)",
+                output(
+                        values(ImmutableList.of("regionkey"))));
+    }
+
+    @Test
+    public void testRemoveRedundantRightJoin()
+    {
+        assertPlan("SELECT regionkey FROM nation RIGHT JOIN (SELECT nationkey FROM customer LIMIT 0) USING (nationkey)",
+                output(
+                        values(ImmutableList.of("regionkey"))));
+    }
+
     private Session noJoinReordering()
     {
         return Session.builder(getQueryRunner().getDefaultSession())

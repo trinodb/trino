@@ -107,6 +107,7 @@ import io.prestosql.sql.planner.iterative.rule.RemoveFullSample;
 import io.prestosql.sql.planner.iterative.rule.RemoveRedundantCrossJoin;
 import io.prestosql.sql.planner.iterative.rule.RemoveRedundantDistinctLimit;
 import io.prestosql.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
+import io.prestosql.sql.planner.iterative.rule.RemoveRedundantJoin;
 import io.prestosql.sql.planner.iterative.rule.RemoveRedundantLimit;
 import io.prestosql.sql.planner.iterative.rule.RemoveRedundantSort;
 import io.prestosql.sql.planner.iterative.rule.RemoveRedundantTableScanPredicate;
@@ -328,6 +329,7 @@ public class PlanOptimizers
                                         new RemoveRedundantTopN(),
                                         new RemoveRedundantDistinctLimit(),
                                         new RemoveRedundantCrossJoin(),
+                                        new RemoveRedundantJoin(),
                                         new ImplementFilteredAggregations(metadata),
                                         new SingleDistinctAggregationToGroupBy(),
                                         new MultipleDistinctAggregationToMarkDistinct(),
