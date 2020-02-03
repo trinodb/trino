@@ -2161,25 +2161,48 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testScaleWriters()
     {
+        testWithAllStorageFormats(this::testSingleWriter);
+        testWithAllStorageFormats(this::testMultipleWriters);
+    }
+
+    private void testSingleWriter(Session session, HiveStorageFormat storageFormat)
+    {
         try {
             // small table that will only have one writer
+            @Language("SQL") String createTableSql = format("" +
+                            "CREATE TABLE scale_writers_small WITH (format = '%s') AS " +
+                            "SELECT * FROM tpch.tiny.orders",
+                    storageFormat);
             assertUpdate(
-                    Session.builder(getSession())
+                    Session.builder(session)
                             .setSystemProperty("scale_writers", "true")
                             .setSystemProperty("writer_min_size", "32MB")
                             .build(),
-                    "CREATE TABLE scale_writers_small AS SELECT * FROM tpch.tiny.orders",
+                    createTableSql,
                     (long) computeActual("SELECT count(*) FROM tpch.tiny.orders").getOnlyValue());
 
             assertEquals(computeActual("SELECT count(DISTINCT \"$path\") FROM scale_writers_small").getOnlyValue(), 1L);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS scale_writers_small");
+        }
+    }
 
+    private void testMultipleWriters(Session session, HiveStorageFormat storageFormat)
+    {
+        try {
             // large table that will scale writers to multiple machines
+            @Language("SQL") String createTableSql = format("" +
+                            "CREATE TABLE scale_writers_large WITH (format = '%s') AS " +
+                            "SELECT * FROM tpch.sf1.orders",
+                    storageFormat);
             assertUpdate(
-                    Session.builder(getSession())
+                    Session.builder(session)
                             .setSystemProperty("scale_writers", "true")
                             .setSystemProperty("writer_min_size", "1MB")
+                            .setCatalogSessionProperty(catalog, "parquet_writer_block_size", "4MB")
                             .build(),
-                    "CREATE TABLE scale_writers_large WITH (format = 'RCBINARY') AS SELECT * FROM tpch.sf1.orders",
+                    createTableSql,
                     (long) computeActual("SELECT count(*) FROM tpch.sf1.orders").getOnlyValue());
 
             long files = (long) computeScalar("SELECT count(DISTINCT \"$path\") FROM scale_writers_large");
@@ -2188,7 +2211,6 @@ public class TestHiveIntegrationSmokeTest
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS scale_writers_large");
-            assertUpdate("DROP TABLE IF EXISTS scale_writers_small");
         }
     }
 
