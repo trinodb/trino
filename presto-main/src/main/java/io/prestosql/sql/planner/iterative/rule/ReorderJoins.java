@@ -330,7 +330,8 @@ public class ReorderJoins
                     Optional.empty(),
                     Optional.empty(),
                     Optional.empty(),
-                    ImmutableMap.of()));
+                    ImmutableMap.of(),
+                    Optional.empty()));
         }
 
         private List<Expression> getJoinPredicates(Set<Symbol> leftSymbols, Set<Symbol> rightSymbols)
