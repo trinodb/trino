@@ -285,6 +285,20 @@ public class TestJdbcPreparedStatement
     }
 
     @Test
+    public void testPrepareLarge()
+            throws Exception
+    {
+        String sql = format("SELECT '%s' = '%s'", repeat("x", 100_000), repeat("y", 100_000));
+        try (Connection connection = createConnection();
+                PreparedStatement statement = connection.prepareStatement(sql);
+                ResultSet rs = statement.executeQuery()) {
+            assertTrue(rs.next());
+            assertFalse(rs.getBoolean(1));
+            assertFalse(rs.next());
+        }
+    }
+
+    @Test
     public void testSetNull()
             throws Exception
     {
