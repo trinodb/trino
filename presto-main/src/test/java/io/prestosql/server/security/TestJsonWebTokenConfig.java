@@ -40,9 +40,9 @@ public class TestJsonWebTokenConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("http.authentication.jwt.key-file", "public.pem")
-                .put("http.authentication.jwt.required-audience", "some-audience")
-                .put("http.authentication.jwt.required-issuer", "some-issuer")
+                .put("http-server.authentication.jwt.key-file", "public.pem")
+                .put("http-server.authentication.jwt.required-audience", "some-audience")
+                .put("http-server.authentication.jwt.required-issuer", "some-issuer")
                 .put("http-server.authentication.jwt.user-mapping.pattern", "(.*)@something")
                 .put("http-server.authentication.jwt.user-mapping.file", "some-file")
                 .build();
