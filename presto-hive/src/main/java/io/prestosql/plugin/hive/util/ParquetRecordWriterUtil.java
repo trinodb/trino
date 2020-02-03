@@ -35,6 +35,7 @@ import org.apache.parquet.schema.MessageType;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Properties;
 
@@ -47,16 +48,19 @@ public final class ParquetRecordWriterUtil
     private static final Field REAL_WRITER_FIELD;
     private static final Field INTERNAL_WRITER_FIELD;
     private static final Field FILE_WRITER_FIELD;
+    private static final Method GET_DATA_SIZE;
 
     static {
         try {
             REAL_WRITER_FIELD = ParquetRecordWriterWrapper.class.getDeclaredField("realWriter");
             INTERNAL_WRITER_FIELD = ParquetRecordWriter.class.getDeclaredField("internalWriter");
             FILE_WRITER_FIELD = INTERNAL_WRITER_FIELD.getType().getDeclaredField("parquetFileWriter");
+            GET_DATA_SIZE = INTERNAL_WRITER_FIELD.getType().getDeclaredMethod("getDataSize");
 
             REAL_WRITER_FIELD.setAccessible(true);
             INTERNAL_WRITER_FIELD.setAccessible(true);
             FILE_WRITER_FIELD.setAccessible(true);
+            GET_DATA_SIZE.setAccessible(true);
         }
         catch (ReflectiveOperationException e) {
             throw new AssertionError(e);
@@ -79,12 +83,17 @@ public final class ParquetRecordWriterUtil
 
         return new ExtendedRecordWriter()
         {
-            private long length;
+            private long fileLength;
 
             @Override
             public long getWrittenBytes()
             {
-                return length;
+                try {
+                    return (Long) GET_DATA_SIZE.invoke(internalWriter);
+                }
+                catch (Exception e) {
+                    return fileLength;
+                }
             }
 
             @Override
@@ -92,7 +101,7 @@ public final class ParquetRecordWriterUtil
                     throws IOException
             {
                 recordWriter.write(value);
-                length = fileWriter.getPos();
+                fileLength = fileWriter.getPos();
             }
 
             @Override
@@ -101,7 +110,7 @@ public final class ParquetRecordWriterUtil
             {
                 recordWriter.close(abort);
                 if (!abort) {
-                    length = fileWriter.getPos();
+                    fileLength = fileWriter.getPos();
                 }
             }
         };
