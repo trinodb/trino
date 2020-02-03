@@ -18,6 +18,7 @@ import io.airlift.concurrent.BoundedExecutor;
 import io.prestosql.plugin.hive.AbstractTestHiveLocal;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
+import org.testng.annotations.Test;
 
 import java.io.File;
 import java.util.List;
@@ -29,6 +30,7 @@ import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static java.util.Locale.ENGLISH;
 import static java.util.UUID.randomUUID;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 /*
@@ -36,6 +38,7 @@ import static org.testng.Assert.assertTrue;
  * See https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/credentials.html#credentials-default
  * on ways to set your AWS credentials which will be needed to run this test.
  */
+@Test(singleThreaded = true)
 public class TestHiveGlueMetastore
         extends AbstractTestHiveLocal
 {
@@ -112,5 +115,28 @@ public class TestHiveGlueMetastore
         finally {
             dropTable(tablePartitionFormat);
         }
+    }
+
+    @Test
+    public void testGetDatabasesLogsStats()
+    {
+        GlueHiveMetastore metastore = (GlueHiveMetastore) getMetastoreClient();
+        GlueMetastoreStats stats = metastore.getStats();
+        double initialCallCount = stats.getGetAllDatabases().getTime().getAllTime().getCount();
+        long initialFailureCount = stats.getGetAllDatabases().getTotalFailures().getTotalCount();
+        getMetastoreClient().getAllDatabases();
+        assertEquals(stats.getGetAllDatabases().getTime().getAllTime().getCount(), initialCallCount + 1.0);
+        assertTrue(stats.getGetAllDatabases().getTime().getAllTime().getAvg() > 0.0);
+        assertEquals(stats.getGetAllDatabases().getTotalFailures().getTotalCount(), initialFailureCount);
+    }
+
+    @Test
+    public void testGetDatabaseFailureLogsStats()
+    {
+        GlueHiveMetastore metastore = (GlueHiveMetastore) getMetastoreClient();
+        GlueMetastoreStats stats = metastore.getStats();
+        long initialFailureCount = stats.getGetDatabase().getTotalFailures().getTotalCount();
+        assertThrows(() -> getMetastoreClient().getDatabase(null));
+        assertEquals(stats.getGetDatabase().getTotalFailures().getTotalCount(), initialFailureCount + 1);
     }
 }
