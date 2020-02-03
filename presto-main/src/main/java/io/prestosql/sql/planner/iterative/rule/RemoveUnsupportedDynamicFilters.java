@@ -140,7 +140,8 @@ public class RemoveUnsupportedDynamicFilters
                         node.getRightHashSymbol(),
                         node.getDistributionType(),
                         node.isSpillable(),
-                        dynamicFilters),
+                        dynamicFilters,
+                        node.getReorderJoinStatsAndCost()),
                         ImmutableSet.copyOf(consumed));
             }
             return new PlanWithConsumedDynamicFilters(node, ImmutableSet.copyOf(consumed));
