@@ -123,6 +123,24 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     }
 
     @Test
+    public void doesNotFireOnSubqueryWithMultipleProjections()
+    {
+        tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata()))
+                .on(p -> p.correlatedJoin(
+                        ImmutableList.of(p.symbol("corr")),
+                        p.values(p.symbol("corr")),
+                        p.project(
+                                Assignments.of(p.symbol("projected_1"), p.expression("projected + 2")),
+                                p.project(
+                                        Assignments.of(p.symbol("projected"), p.expression("sum + 1")),
+                                        p.aggregation(ab -> ab
+                                                .source(p.values(p.symbol("a"), p.symbol("b")))
+                                                .addAggregation(p.symbol("sum"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
+                                                .globalGrouping())))))
+                .doesNotFire();
+    }
+
+    @Test
     public void testSubqueryWithCount()
     {
         tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata()))

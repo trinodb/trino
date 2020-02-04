@@ -382,6 +382,7 @@ public class PlanOptimizers
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(
+                                new InlineProjections(),
                                 new RemoveUnreferencedScalarSubqueries(),
                                 new TransformUncorrelatedSubqueryToJoin(),
                                 new TransformUncorrelatedInPredicateSubqueryToSemiJoin(),

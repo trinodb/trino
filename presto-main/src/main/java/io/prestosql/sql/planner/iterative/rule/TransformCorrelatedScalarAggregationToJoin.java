@@ -25,6 +25,7 @@ import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
 
+import java.util.List;
 import java.util.Optional;
 
 import static io.prestosql.matching.Pattern.nonEmpty;
@@ -91,6 +92,14 @@ public class TransformCorrelatedScalarAggregationToJoin
         PlanNode subquery = correlatedJoinNode.getSubquery();
 
         if (!isScalar(subquery, context.getLookup())) {
+            return Result.empty();
+        }
+
+        List<ProjectNode> subqueryProjections = searchFrom(correlatedJoinNode.getSubquery(), context.getLookup())
+                .where(ProjectNode.class::isInstance)
+                .recurseOnlyWhen(isInstanceOfAny(ProjectNode.class, EnforceSingleRowNode.class))
+                .findAll();
+        if (subqueryProjections.size() > 1) {
             return Result.empty();
         }
 
