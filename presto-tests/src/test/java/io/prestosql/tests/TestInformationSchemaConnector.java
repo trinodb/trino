@@ -17,10 +17,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.connector.MockConnectorFactory;
+import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.ConnectorFactory;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.DistributedQueryRunner;
 import org.testng.annotations.Test;
@@ -33,8 +35,10 @@ import java.util.stream.IntStream;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.connector.MockConnectorFactory.Builder.defaultGetColumns;
+import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 
 @Test(singleThreaded = true)
 public class TestInformationSchemaConnector
@@ -192,13 +196,14 @@ public class TestInformationSchemaConnector
                         .withListSchemasCount(1)
                         .withListTablesCount(2)
                         .withGetColumnsCount(10000));
+        assertNoMetadataCalls("SELECT count(*) from test_catalog.information_schema.tables WHERE table_schema = ''", "VALUES 0");
     }
 
     @Test
     public void testInformationForEmptyNames()
     {
-        assertQuery("SELECT count(*) FROM test_catalog.information_schema.tables WHERE table_schema='tpch' AND table_name=''", "VALUES 0");
-        assertQuery("SELECT count(*) FROM test_catalog.information_schema.tables WHERE table_schema='' AND table_name='table'", "VALUES 0");
+        assertNoTableScan("SELECT count(*) from test_catalog.information_schema.tables WHERE table_schema = ''");
+        assertNoTableScan("SELECT count(*) from test_catalog.information_schema.tables WHERE table_name = ''");
     }
 
     @Override
@@ -273,6 +278,15 @@ public class TestInformationSchemaConnector
                 .withGetColumnsCount(GET_COLUMNS_CALLS_COUNTER.get() - getColumnsCallsCountBefore);
 
         assertEquals(actualMetadataCallsCount, expectedMetadataCallsCount);
+    }
+
+    private void assertNoTableScan(String query)
+    {
+        assertFalse(searchFrom(getQueryRunner().createPlan(getSession(), query, WarningCollector.NOOP).getRoot())
+                        .where(TableScanNode.class::isInstance)
+                        .findFirst()
+                        .isPresent(),
+                "TableScanNode was not expected");
     }
 
     private static class MetadataCallsCount
