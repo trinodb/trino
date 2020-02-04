@@ -56,7 +56,7 @@ public class TestHiveGlueMetastore
         glueConfig.setDefaultWarehouseDir(tempDir.toURI().toString());
 
         Executor executor = new BoundedExecutor(this.executor, 10);
-        return new GlueHiveMetastore(HDFS_ENVIRONMENT, glueConfig, executor);
+        return new GlueHiveMetastore(HDFS_ENVIRONMENT, glueConfig, new DisabledGlueColumnStatisticsProvider(), executor);
     }
 
     @Override
@@ -104,7 +104,8 @@ public class TestHiveGlueMetastore
     }
 
     @Override
-    public void testGetPartitions() throws Exception
+    public void testGetPartitions()
+            throws Exception
     {
         try {
             createDummyPartitionedTable(tablePartitionFormat, CREATE_TABLE_COLUMNS_PARTITIONED);
