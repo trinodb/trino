@@ -54,6 +54,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -424,9 +425,7 @@ public class ReorderJoins
                 case AUTOMATIC:
                     ImmutableList.Builder<JoinEnumerationResult> result = ImmutableList.builder();
                     result.addAll(getPossibleJoinNodes(joinNode, PARTITIONED));
-                    if (canReplicate(joinNode, context)) {
-                        result.addAll(getPossibleJoinNodes(joinNode, REPLICATED));
-                    }
+                    result.addAll(getPossibleJoinNodes(joinNode, REPLICATED, node -> canReplicate(node, context)));
                     return result.build();
                 default:
                     throw new IllegalArgumentException("unexpected join distribution type: " + distributionType);
@@ -435,9 +434,15 @@ public class ReorderJoins
 
         private List<JoinEnumerationResult> getPossibleJoinNodes(JoinNode joinNode, DistributionType distributionType)
         {
-            return ImmutableList.of(
-                    createJoinEnumerationResult(joinNode.withDistributionType(distributionType)),
-                    createJoinEnumerationResult(joinNode.flipChildren().withDistributionType(distributionType)));
+            return getPossibleJoinNodes(joinNode, distributionType, (node) -> true);
+        }
+
+        private List<JoinEnumerationResult> getPossibleJoinNodes(JoinNode joinNode, DistributionType distributionType, Predicate<JoinNode> isAllowed)
+        {
+            List<JoinNode> nodes = ImmutableList.of(
+                    joinNode.withDistributionType(distributionType),
+                    joinNode.flipChildren().withDistributionType(distributionType));
+            return nodes.stream().filter(isAllowed).map(this::createJoinEnumerationResult).collect(toImmutableList());
         }
 
         private JoinEnumerationResult createJoinEnumerationResult(PlanNode planNode)
