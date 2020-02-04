@@ -21,6 +21,7 @@ import com.google.common.collect.Streams;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
 import io.prestosql.cost.PlanCostEstimate;
+import io.prestosql.cost.PlanNodeStatsAndCostSummary;
 import io.prestosql.cost.PlanNodeStatsEstimate;
 import io.prestosql.cost.StatsAndCosts;
 import io.prestosql.execution.StageInfo;
@@ -409,7 +410,8 @@ public class PlanPrinter
             else {
                 nodeOutput = addNode(node,
                         node.getType().getJoinLabel(),
-                        format("[%s]%s", Joiner.on(" AND ").join(joinExpressions), formatHash(node.getLeftHashSymbol(), node.getRightHashSymbol())));
+                        format("[%s]%s", Joiner.on(" AND ").join(joinExpressions), formatHash(node.getLeftHashSymbol(), node.getRightHashSymbol())),
+                        node.getReorderJoinStatsAndCost());
             }
 
             node.getDistributionType().ifPresent(distributionType -> nodeOutput.appendDetailsLine("Distribution: %s", distributionType));
@@ -790,7 +792,8 @@ public class PlanPrinter
                     format(formatString, arguments.toArray()),
                     allNodes,
                     ImmutableList.of(sourceNode),
-                    ImmutableList.of());
+                    ImmutableList.of(),
+                    Optional.empty());
 
             if (projectNode.isPresent()) {
                 printAssignments(nodeOutput, projectNode.get().getAssignments());
@@ -929,7 +932,8 @@ public class PlanPrinter
                     format("[%s]", Joiner.on(',').join(node.getSourceFragmentIds())),
                     ImmutableList.of(),
                     ImmutableList.of(),
-                    node.getSourceFragmentIds());
+                    node.getSourceFragmentIds(),
+                    Optional.empty());
 
             return null;
         }
@@ -1111,7 +1115,7 @@ public class PlanPrinter
         @Override
         public Void visitGroupReference(GroupReference node, Void context)
         {
-            addNode(node, "GroupReference", format("[%s]", node.getGroupId()), ImmutableList.of());
+            addNode(node, "GroupReference", format("[%s]", node.getGroupId()), ImmutableList.of(), Optional.empty());
 
             return null;
         }
@@ -1234,15 +1238,27 @@ public class PlanPrinter
 
         public NodeRepresentation addNode(PlanNode node, String name, String identifier)
         {
-            return addNode(node, name, identifier, node.getSources());
+            return addNode(node, name, identifier, node.getSources(), Optional.empty());
         }
 
-        public NodeRepresentation addNode(PlanNode node, String name, String identifier, List<PlanNode> children)
+        public NodeRepresentation addNode(PlanNode node, String name, String identifier, Optional<PlanNodeStatsAndCostSummary> reorderJoinStatsAndCost)
         {
-            return addNode(node, name, identifier, ImmutableList.of(node.getId()), children, ImmutableList.of());
+            return addNode(node, name, identifier, node.getSources(), reorderJoinStatsAndCost);
         }
 
-        public NodeRepresentation addNode(PlanNode rootNode, String name, String identifier, List<PlanNodeId> allNodes, List<PlanNode> children, List<PlanFragmentId> remoteSources)
+        public NodeRepresentation addNode(PlanNode node, String name, String identifier, List<PlanNode> children, Optional<PlanNodeStatsAndCostSummary> reorderJoinStatsAndCost)
+        {
+            return addNode(node, name, identifier, ImmutableList.of(node.getId()), children, ImmutableList.of(), reorderJoinStatsAndCost);
+        }
+
+        public NodeRepresentation addNode(
+                PlanNode rootNode,
+                String name,
+                String identifier,
+                List<PlanNodeId> allNodes,
+                List<PlanNode> children,
+                List<PlanFragmentId> remoteSources,
+                Optional<PlanNodeStatsAndCostSummary> reorderJoinStatsAndCost)
         {
             List<PlanNodeId> childrenIds = children.stream().map(PlanNode::getId).collect(toImmutableList());
             List<PlanNodeStatsEstimate> estimatedStats = allNodes.stream()
@@ -1263,6 +1279,7 @@ public class PlanPrinter
                     stats.map(s -> s.get(rootNode.getId())),
                     estimatedStats,
                     estimatedCosts,
+                    reorderJoinStatsAndCost,
                     childrenIds,
                     remoteSources);
 
