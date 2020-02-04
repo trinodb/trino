@@ -47,11 +47,7 @@ class MockResponsesBatch
         if (next instanceof ReadRowsResponse) {
             return (ReadRowsResponse) next;
         }
-<<<<<<< HEAD
         if (next instanceof RuntimeException) {
-=======
-        else if (next instanceof RuntimeException) {
->>>>>>> presto-bigquery initial commit
             throw (RuntimeException) next;
         }
         return null;
