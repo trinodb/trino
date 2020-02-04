@@ -1133,7 +1133,7 @@ public class PlanPrinter
         public Void visitCorrelatedJoin(CorrelatedJoinNode node, Void context)
         {
             addNode(node,
-                    "Lateral",
+                    "CorrelatedJoin",
                     format("[%s%s]",
                             node.getCorrelation(),
                             node.getFilter().equals(TRUE_LITERAL) ? "" : " " + node.getFilter()));
