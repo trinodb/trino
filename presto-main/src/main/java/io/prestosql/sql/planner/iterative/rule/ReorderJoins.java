@@ -26,6 +26,9 @@ import io.prestosql.Session;
 import io.prestosql.cost.CostComparator;
 import io.prestosql.cost.CostProvider;
 import io.prestosql.cost.PlanCostEstimate;
+import io.prestosql.cost.PlanNodeStatsAndCostSummary;
+import io.prestosql.cost.PlanNodeStatsEstimate;
+import io.prestosql.cost.StatsProvider;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
 import io.prestosql.metadata.Metadata;
@@ -164,6 +167,7 @@ public class ReorderJoins
     {
         private final Metadata metadata;
         private final Session session;
+        private final StatsProvider statsProvider;
         private final CostProvider costProvider;
         // Using Ordering to facilitate rule determinism
         private final Ordering<JoinEnumerationResult> resultComparator;
@@ -181,6 +185,7 @@ public class ReorderJoins
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.context = requireNonNull(context);
             this.session = requireNonNull(context.getSession(), "session is null");
+            this.statsProvider = requireNonNull(context.getStatsProvider(), "statsProvider is null");
             this.costProvider = requireNonNull(context.getCostProvider(), "costProvider is null");
             this.resultComparator = costComparator.forSession(session).onResultOf(result -> result.cost);
             this.idAllocator = requireNonNull(context.getIdAllocator(), "idAllocator is null");
@@ -444,6 +449,20 @@ public class ReorderJoins
                     joinNode.withDistributionType(distributionType),
                     joinNode.flipChildren().withDistributionType(distributionType));
             return nodes.stream().filter(isAllowed).map(this::createJoinEnumerationResult).collect(toImmutableList());
+        }
+
+        private JoinEnumerationResult createJoinEnumerationResult(JoinNode joinNode)
+        {
+            PlanCostEstimate costEstimate = costProvider.getCost(joinNode);
+            PlanNodeStatsEstimate statsEstimate = statsProvider.getStats(joinNode);
+            return JoinEnumerationResult.createJoinEnumerationResult(
+                    Optional.of(joinNode.withReorderJoinStatsAndCost(new PlanNodeStatsAndCostSummary(
+                            statsEstimate.getOutputRowCount(),
+                            statsEstimate.getOutputSizeInBytes(joinNode.getOutputSymbols(), context.getSymbolAllocator().getTypes()),
+                            costEstimate.getCpuCost(),
+                            costEstimate.getMaxMemory(),
+                            costEstimate.getNetworkCost()))),
+                    costEstimate);
         }
 
         private JoinEnumerationResult createJoinEnumerationResult(PlanNode planNode)
