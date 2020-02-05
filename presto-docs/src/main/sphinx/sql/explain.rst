@@ -142,58 +142,111 @@ IO:
 .. code-block:: none
 
 
-    presto:hive> EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_nation SELECT * FROM nation WHERE regionkey = 2;
+    presto:hive> EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_lineitem SELECT * FROM lineitem WHERE shipdate = '2020-02-01' AND quantity > 10;
                 Query Plan
     -----------------------------------
-     {
-       "inputTableColumnInfos" : [ {
-         "table" : {
-           "catalog" : "hive",
-           "schemaTable" : {
-             "schema" : "tpch",
-             "table" : "nation"
-           }
-         },
-         "columns" : [ {
-           "columnName" : "regionkey",
-           "type" : "bigint",
-           "domain" : {
-             "nullsAllowed" : false,
-             "ranges" : [ {
-               "low" : {
-                 "value" : "2",
-                 "bound" : "EXACTLY"
-               },
-               "high" : {
-                 "value" : "2",
-                 "bound" : "EXACTLY"
-               }
-             } ]
-           }
-         } ],
-         "estimate" : {
-           "outputRowCount" : 15000.0,
-           "outputSizeInBytes" : 1597294.0,
-           "cpuCost" : 1597294.0,
-           "maxMemory" : 0.0,
-           "networkCost" : 0.0
-         },
-       } ],
-       "outputTable" : {
-         "catalog" : "hive",
-         "schemaTable" : {
-           "schema" : "tpch",
-           "table" : "test_nation"
-         }
+    {
+       inputTableColumnInfos: [
+          {
+             table: {
+                catalog: "hive",
+                schemaTable: {
+                   schema: "tpch",
+                   table: "test_orders"
+                }
+             },
+             columnConstraints: [
+                {
+                   columnName: "orderkey",
+                   type: "bigint",
+                   domain: {
+                      nullsAllowed: false,
+                      ranges: [
+                         {
+                            low: {
+                               value: "1",
+                               bound: "EXACTLY"
+                            },
+                            high: {
+                               value: "1",
+                               bound: "EXACTLY"
+                            }
+                         },
+                         {
+                            low: {
+                               value: "2",
+                               bound: "EXACTLY"
+                            },
+                            high: {
+                               value: "2",
+                               bound: "EXACTLY"
+                            }
+                         }
+                      ]
+                   }
+                },
+                {
+                   columnName: "processing",
+                   type: "boolean",
+                   domain: {
+                      nullsAllowed: false,
+                      ranges: [
+                         {
+                            low: {
+                               value: "false",
+                               bound: "EXACTLY"
+                            },
+                            high: {
+                               value: "false",
+                               bound: "EXACTLY"
+                            }
+                         }
+                      ]
+                   }
+                },
+                {
+                   columnName: "custkey",
+                   type: "bigint",
+                   domain: {
+                      nullsAllowed: false,
+                      ranges: [
+                         {
+                            low: {
+                               bound: "ABOVE"
+                            },
+                            high: {
+                               value: "10",
+                               bound: "EXACTLY"
+                            }
+                         }
+                      ]
+                   }
+                }
+             ],
+             estimate: {
+                outputRowCount: 2,
+                outputSizeInBytes: 40,
+                cpuCost: 40,
+                maxMemory: 0,
+                networkCost: 0
+             }
+          }
+       ],
+       outputTable: {
+          catalog: "hive",
+          schemaTable: {
+             schema: "tpch",
+             table: "test_orders"
+          }
        },
-       "estimate" : {
-         "outputRowCount" : 15000.0,
-         "outputSizeInBytes" : 1597294.0,
-         "cpuCost" : 1597294.0,
-         "maxMemory" : 0.0,
-         "networkCost" : 1597294.0
+       estimate: {
+          outputRowCount: "NaN",
+          outputSizeInBytes: "NaN",
+          cpuCost: "NaN",
+          maxMemory: "NaN",
+          networkCost: "NaN"
        }
-     }
+    }
 
 
 See Also
