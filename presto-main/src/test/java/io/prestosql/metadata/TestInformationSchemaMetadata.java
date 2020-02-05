@@ -222,18 +222,18 @@ public class TestInformationSchemaMetadata
     @Test
     public void testInformationSchemaPredicatePushdownForEmptyNames()
     {
-        assertApplyFiterReturnsEmptyPrefixes(
+        assertApplyFilterReturnsEmptyPrefixes(
                 new SchemaTableName("information_schema", "tables"),
                 ImmutableMap.of(
                         new InformationSchemaColumnHandle("table_name"), new NullableValue(VARCHAR, Slices.utf8Slice(""))));
 
-        assertApplyFiterReturnsEmptyPrefixes(
+        assertApplyFilterReturnsEmptyPrefixes(
                 new SchemaTableName("information_schema", "tables"),
                 ImmutableMap.of(
                         new InformationSchemaColumnHandle("table_schema"), new NullableValue(VARCHAR, Slices.utf8Slice(""))));
     }
 
-    private void assertApplyFiterReturnsEmptyPrefixes(SchemaTableName schemaTableName, Map<ColumnHandle, NullableValue> constraint)
+    private void assertApplyFilterReturnsEmptyPrefixes(SchemaTableName schemaTableName, Map<ColumnHandle, NullableValue> constraint)
     {
         TransactionId transactionId = transactionManager.beginTransaction(false);
         ConnectorSession session = createNewSession(transactionId);
