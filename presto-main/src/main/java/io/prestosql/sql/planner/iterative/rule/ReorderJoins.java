@@ -609,7 +609,6 @@ public class ReorderJoins
             private List<PlanNode> sources;
             private Expression filter;
             private List<Symbol> outputSymbols;
-            private boolean pushProjectionsThroughJoin;
 
             public Builder setSources(PlanNode... sources)
             {
@@ -629,15 +628,9 @@ public class ReorderJoins
                 return this;
             }
 
-            public Builder setPushProjectionsThroughJoin(boolean pushProjectionsThroughJoin)
-            {
-                this.pushProjectionsThroughJoin = pushProjectionsThroughJoin;
-                return this;
-            }
-
             public MultiJoinNode build()
             {
-                return new MultiJoinNode(new LinkedHashSet<>(sources), filter, outputSymbols, pushProjectionsThroughJoin);
+                return new MultiJoinNode(new LinkedHashSet<>(sources), filter, outputSymbols, false);
             }
         }
     }
