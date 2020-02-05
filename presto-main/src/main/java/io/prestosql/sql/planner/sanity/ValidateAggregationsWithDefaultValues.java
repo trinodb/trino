@@ -18,7 +18,6 @@ import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
-import io.prestosql.sql.planner.optimizations.ActualProperties;
 import io.prestosql.sql.planner.optimizations.PropertyDerivations;
 import io.prestosql.sql.planner.optimizations.StreamPropertyDerivations;
 import io.prestosql.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
@@ -52,21 +51,14 @@ import static java.util.Objects.requireNonNull;
 public class ValidateAggregationsWithDefaultValues
         implements Checker
 {
-    private final boolean forceSingleNode;
-
-    public ValidateAggregationsWithDefaultValues(boolean forceSingleNode)
-    {
-        this.forceSingleNode = forceSingleNode;
-    }
-
     @Override
     public void validate(PlanNode planNode, Session session, Metadata metadata, TypeAnalyzer typeAnalyzer, TypeProvider types, WarningCollector warningCollector)
     {
-        planNode.accept(new Visitor(session, metadata, typeAnalyzer, types), null);
+        planNode.accept(new Visitor(session, metadata, typeAnalyzer, types), false);
     }
 
     private class Visitor
-            extends PlanVisitor<Optional<SeenExchanges>, Void>
+            extends PlanVisitor<Optional<SeenExchanges>, Boolean>
     {
         final Session session;
         final Metadata metadata;
@@ -82,15 +74,15 @@ public class ValidateAggregationsWithDefaultValues
         }
 
         @Override
-        protected Optional<SeenExchanges> visitPlan(PlanNode node, Void context)
+        protected Optional<SeenExchanges> visitPlan(PlanNode node, Boolean isSingleNode)
         {
-            return aggregatedSeenExchanges(node.getSources());
+            return aggregatedSeenExchanges(node.getSources(), isSingleNode);
         }
 
         @Override
-        public Optional<SeenExchanges> visitAggregation(AggregationNode node, Void context)
+        public Optional<SeenExchanges> visitAggregation(AggregationNode node, Boolean isSingleNode)
         {
-            Optional<SeenExchanges> seenExchangesOptional = aggregatedSeenExchanges(node.getSources());
+            Optional<SeenExchanges> seenExchangesOptional = aggregatedSeenExchanges(node.getSources(), isSingleNode);
 
             if (node.getStep().equals(PARTIAL)) {
                 return Optional.of(new SeenExchanges(false, false));
@@ -115,8 +107,7 @@ public class ValidateAggregationsWithDefaultValues
 
             // No remote repartition exchange between final and partial aggregation.
             // Make sure that final aggregation operators are executed on a single node.
-            ActualProperties globalProperties = PropertyDerivations.derivePropertiesRecursively(node, metadata, session, types, typeAnalyzer);
-            checkArgument(forceSingleNode || globalProperties.isSingleNode(),
+            checkArgument(isSingleNode,
                     "Final aggregation with default value not separated from partial aggregation by remote hash exchange");
 
             if (!seenExchanges.localRepartitionExchange) {
@@ -131,9 +122,11 @@ public class ValidateAggregationsWithDefaultValues
         }
 
         @Override
-        public Optional<SeenExchanges> visitExchange(ExchangeNode node, Void context)
+        public Optional<SeenExchanges> visitExchange(ExchangeNode node, Boolean isSingleNode)
         {
-            Optional<SeenExchanges> seenExchangesOptional = aggregatedSeenExchanges(node.getSources());
+            Optional<SeenExchanges> seenExchangesOptional = aggregatedSeenExchanges(
+                    node.getSources(),
+                    PropertyDerivations.derivePropertiesRecursively(node, metadata, session, types, typeAnalyzer).isSingleNode());
             if (!seenExchangesOptional.isPresent()) {
                 // No partial aggregation below
                 return Optional.empty();
@@ -151,10 +144,10 @@ public class ValidateAggregationsWithDefaultValues
             return Optional.of(new SeenExchanges(true, seenExchanges.remoteRepartitionExchange));
         }
 
-        private Optional<SeenExchanges> aggregatedSeenExchanges(List<PlanNode> nodes)
+        private Optional<SeenExchanges> aggregatedSeenExchanges(List<PlanNode> nodes, Boolean context)
         {
             return nodes.stream()
-                    .map(source -> source.accept(this, null))
+                    .map(source -> source.accept(this, context))
                     .reduce((accumulatorOptional, seenExchangesOptional) -> combine(accumulatorOptional, seenExchangesOptional,
                             (accumulator, seenExchanges) -> new SeenExchanges(
                                     accumulator.localRepartitionExchange && seenExchanges.localRepartitionExchange,

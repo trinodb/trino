@@ -43,6 +43,7 @@ import static io.prestosql.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.prestosql.sql.planner.plan.AggregationNode.groupingSets;
 import static io.prestosql.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.prestosql.sql.planner.plan.ExchangeNode.Scope.REMOTE;
+import static io.prestosql.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static io.prestosql.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
 
@@ -80,33 +81,39 @@ public class TestValidateAggregationsWithDefaultValues
                                 .step(PARTIAL)
                                 .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
                                 .source(tableScanNode))));
-        validatePlan(root, false);
+        validatePlan(root);
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Final aggregation with default value not separated from partial aggregation by local hash exchange")
     public void testSingleNodeFinalAggregationInTheSameStageAsPartialAggregation()
     {
-        PlanNode root = builder.aggregation(
-                af -> af.step(FINAL)
-                        .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
-                        .source(builder.aggregation(ap -> ap
-                                .step(PARTIAL)
+        PlanNode root = builder.exchange(oe -> oe.type(GATHER)
+                .singleDistributionPartitioningScheme(symbol)
+                .addInputsSet(symbol)
+                .addSource(builder.aggregation(
+                        af -> af.step(FINAL)
                                 .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
-                                .source(tableScanNode))));
-        validatePlan(root, true);
+                                .source(builder.aggregation(ap -> ap
+                                        .step(PARTIAL)
+                                        .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
+                                        .source(tableScanNode))))));
+        validatePlan(root);
     }
 
     @Test
     public void testSingleThreadFinalAggregationInTheSameStageAsPartialAggregation()
     {
-        PlanNode root = builder.aggregation(
-                af -> af.step(FINAL)
-                        .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
-                        .source(builder.aggregation(ap -> ap
-                                .step(PARTIAL)
+        PlanNode root = builder.exchange(oe -> oe.type(GATHER)
+                .singleDistributionPartitioningScheme(symbol)
+                .addInputsSet(symbol)
+                .addSource(builder.aggregation(
+                        af -> af.step(FINAL)
                                 .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
-                                .source(builder.values()))));
-        validatePlan(root, true);
+                                .source(builder.aggregation(ap -> ap
+                                        .step(PARTIAL)
+                                        .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
+                                        .source(builder.values()))))));
+        validatePlan(root);
     }
 
     @Test
@@ -125,38 +132,20 @@ public class TestValidateAggregationsWithDefaultValues
                                         .step(PARTIAL)
                                         .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
                                         .source(tableScanNode))))));
-        validatePlan(root, false);
+        validatePlan(root);
     }
 
     @Test
     public void testSingleNodeFinalAggregationSeparatedFromPartialAggregationByLocalHashExchange()
     {
         Symbol symbol = new Symbol("symbol");
-        PlanNode root = builder.aggregation(
-                af -> af.step(FINAL)
-                        .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
-                        .source(builder.exchange(e -> e
-                                .type(REPARTITION)
-                                .scope(LOCAL)
-                                .fixedHashDistributionParitioningScheme(ImmutableList.of(symbol), ImmutableList.of(symbol))
-                                .addInputsSet(symbol)
-                                .addSource(builder.aggregation(ap -> ap
-                                        .step(PARTIAL)
-                                        .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
-                                        .source(tableScanNode))))));
-        validatePlan(root, true);
-    }
-
-    @Test
-    public void testWithPartialAggregationBelowJoin()
-    {
-        Symbol symbol = new Symbol("symbol");
-        PlanNode root = builder.aggregation(
-                af -> af.step(FINAL)
-                        .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
-                        .source(builder.join(
-                                INNER,
-                                builder.exchange(e -> e
+        PlanNode root = builder.exchange(oe -> oe.type(GATHER)
+                .singleDistributionPartitioningScheme(symbol)
+                .addInputsSet(symbol)
+                .addSource(builder.aggregation(
+                        af -> af.step(FINAL)
+                                .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
+                                .source(builder.exchange(e -> e
                                         .type(REPARTITION)
                                         .scope(LOCAL)
                                         .fixedHashDistributionParitioningScheme(ImmutableList.of(symbol), ImmutableList.of(symbol))
@@ -164,34 +153,61 @@ public class TestValidateAggregationsWithDefaultValues
                                         .addSource(builder.aggregation(ap -> ap
                                                 .step(PARTIAL)
                                                 .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
-                                                .source(tableScanNode)))),
-                                builder.values())));
-        validatePlan(root, true);
+                                                .source(tableScanNode))))))));
+        validatePlan(root);
+    }
+
+    @Test
+    public void testWithPartialAggregationBelowJoin()
+    {
+        Symbol symbol = new Symbol("symbol");
+        PlanNode root = builder.exchange(oe -> oe.type(GATHER)
+                .singleDistributionPartitioningScheme(symbol)
+                .addInputsSet(symbol)
+                .addSource(builder.aggregation(
+                        af -> af.step(FINAL)
+                                .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
+                                .source(builder.join(
+                                        INNER,
+                                        builder.exchange(e -> e
+                                                .type(REPARTITION)
+                                                .scope(LOCAL)
+                                                .fixedHashDistributionParitioningScheme(ImmutableList.of(symbol), ImmutableList.of(symbol))
+                                                .addInputsSet(symbol)
+                                                .addSource(builder.aggregation(ap -> ap
+                                                        .step(PARTIAL)
+                                                        .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
+                                                        .source(tableScanNode)))),
+                                        builder.values())))));
+        validatePlan(root);
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Final aggregation with default value not separated from partial aggregation by local hash exchange")
     public void testWithPartialAggregationBelowJoinWithoutSeparatingExchange()
     {
         Symbol symbol = new Symbol("symbol");
-        PlanNode root = builder.aggregation(
-                af -> af.step(FINAL)
-                        .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
-                        .source(builder.join(
-                                INNER,
-                                builder.aggregation(ap -> ap
-                                        .step(PARTIAL)
-                                        .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
-                                        .source(tableScanNode)),
-                                builder.values())));
-        validatePlan(root, true);
+        PlanNode root = builder.exchange(oe -> oe.type(GATHER)
+                .singleDistributionPartitioningScheme(symbol)
+                .addInputsSet(symbol)
+                .addSource(builder.aggregation(
+                        af -> af.step(FINAL)
+                                .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
+                                .source(builder.join(
+                                        INNER,
+                                        builder.aggregation(ap -> ap
+                                                .step(PARTIAL)
+                                                .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
+                                                .source(tableScanNode)),
+                                        builder.values())))));
+        validatePlan(root);
     }
 
-    private void validatePlan(PlanNode root, boolean forceSingleNode)
+    private void validatePlan(PlanNode root)
     {
         getQueryRunner().inTransaction(session -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction
             session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
-            new ValidateAggregationsWithDefaultValues(forceSingleNode).validate(root, session, metadata, new TypeAnalyzer(new SqlParser(), metadata), TypeProvider.empty(), WarningCollector.NOOP);
+            new ValidateAggregationsWithDefaultValues().validate(root, session, metadata, new TypeAnalyzer(new SqlParser(), metadata), TypeProvider.empty(), WarningCollector.NOOP);
             return null;
         });
     }
