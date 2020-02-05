@@ -31,7 +31,9 @@ import io.prestosql.spi.predicate.Marker;
 import io.prestosql.spi.predicate.Marker.Bound;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
+import io.prestosql.sql.planner.DomainTranslator;
 import io.prestosql.sql.planner.Plan;
+import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanVisitor;
 import io.prestosql.sql.planner.plan.TableFinishNode;
@@ -600,19 +602,29 @@ public class IoPlanPrinter
         }
 
         @Override
+        public Void visitFilter(FilterNode node, IoPlanBuilder context)
+        {
+            PlanNode source = node.getSource();
+            if (source instanceof TableScanNode) {
+                TableScanNode tableScanNode = (TableScanNode) source;
+                DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.fromPredicate(
+                        metadata,
+                        session,
+                        node.getPredicate(),
+                        plan.getTypes());
+                TupleDomain<ColumnHandle> filterDomain = decomposedPredicate.getTupleDomain()
+                        .transform(tableScanNode.getAssignments()::get);
+                addInputTableConstraints(filterDomain, tableScanNode, context);
+                return null;
+            }
+
+            return processChildren(node, context);
+        }
+
+        @Override
         public Void visitTableScan(TableScanNode node, IoPlanBuilder context)
         {
-            TableMetadata tableMetadata = metadata.getTableMetadata(session, node.getTable());
-            TupleDomain<ColumnHandle> predicate = metadata.getTableProperties(session, node.getTable()).getPredicate();
-            EstimatedStatsAndCost estimatedStatsAndCost = getEstimatedStatsAndCost(node);
-            context.addInputTableColumnInfo(
-                    new IoPlan.TableColumnInfo(
-                        new CatalogSchemaTableName(
-                                tableMetadata.getCatalogName().getCatalogName(),
-                                tableMetadata.getTable().getSchemaName(),
-                                tableMetadata.getTable().getTableName()),
-                        parseConstraints(node.getTable(), predicate),
-                        estimatedStatsAndCost));
+            addInputTableConstraints(TupleDomain.all(), node, context);
             return null;
         }
 
@@ -648,6 +660,22 @@ public class IoPlanPrinter
                 throw new IllegalStateException(format("Unknown WriterTarget subclass %s", writerTarget.getClass().getSimpleName()));
             }
             return processChildren(node, context);
+        }
+
+        private void addInputTableConstraints(TupleDomain<ColumnHandle> filterDomain, TableScanNode tableScan, IoPlanBuilder context)
+        {
+            TableHandle table = tableScan.getTable();
+            TableMetadata tableMetadata = metadata.getTableMetadata(session, table);
+            TupleDomain<ColumnHandle> predicateDomain = metadata.getTableProperties(session, table).getPredicate();
+            EstimatedStatsAndCost estimatedStatsAndCost = getEstimatedStatsAndCost(tableScan);
+            context.addInputTableColumnInfo(
+                    new IoPlan.TableColumnInfo(
+                            new CatalogSchemaTableName(
+                                    tableMetadata.getCatalogName().getCatalogName(),
+                                    tableMetadata.getTable().getSchemaName(),
+                                    tableMetadata.getTable().getTableName()),
+                            parseConstraints(table, predicateDomain.intersect(filterDomain)),
+                            estimatedStatsAndCost));
         }
 
         private EstimatedStatsAndCost getEstimatedStatsAndCost(TableScanNode node)
