@@ -1555,7 +1555,7 @@ public class HiveMetadata
                     throw new PrestoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Partition format changed during insert");
                 }
                 if (partitionUpdate.getUpdateMode() == OVERWRITE) {
-                    metastore.dropPartition(session, handle.getSchemaName(), handle.getTableName(), partition.getValues());
+                    metastore.dropPartition(session, handle.getSchemaName(), handle.getTableName(), partition.getValues(), true);
                 }
                 PartitionStatistics partitionStatistics = createPartitionStatistics(
                         session,
@@ -1781,7 +1781,7 @@ public class HiveMetadata
         }
         else {
             for (HivePartition hivePartition : partitionManager.getOrLoadPartitions(metastore, new HiveIdentity(session), handle)) {
-                metastore.dropPartition(session, handle.getSchemaName(), handle.getTableName(), toPartitionValues(hivePartition.getPartitionId()));
+                metastore.dropPartition(session, handle.getSchemaName(), handle.getTableName(), toPartitionValues(hivePartition.getPartitionId()), true);
             }
         }
         // it is too expensive to determine the exact number of deleted rows

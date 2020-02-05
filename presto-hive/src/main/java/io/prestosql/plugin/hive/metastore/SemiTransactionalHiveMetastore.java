@@ -613,6 +613,7 @@ public class SemiTransactionalHiveMetastore
                 case ADD:
                     throw new PrestoException(TRANSACTION_CONFLICT, format("Another transaction created partition %s in table %s.%s", partitionValues, databaseName, tableName));
                 case DROP:
+                case DROP_PRESERVE_DATA:
                     // do nothing
                     break;
                 case ALTER:
@@ -701,6 +702,7 @@ public class SemiTransactionalHiveMetastore
             case INSERT_EXISTING:
                 return Optional.of(partitionAction.getData().getAugmentedPartitionForInTransactionRead());
             case DROP:
+            case DROP_PRESERVE_DATA:
                 return Optional.empty();
             default:
                 throw new IllegalStateException("Unknown action type");
@@ -729,6 +731,7 @@ public class SemiTransactionalHiveMetastore
         }
         switch (oldPartitionAction.getType()) {
             case DROP:
+            case DROP_PRESERVE_DATA:
                 if (!oldPartitionAction.getHdfsContext().getIdentity().getUser().equals(session.getUser())) {
                     throw new PrestoException(TRANSACTION_CONFLICT, "Operation on the same partition with different user in the same transaction is not supported");
                 }
@@ -745,7 +748,7 @@ public class SemiTransactionalHiveMetastore
         }
     }
 
-    public synchronized void dropPartition(ConnectorSession session, String databaseName, String tableName, List<String> partitionValues)
+    public synchronized void dropPartition(ConnectorSession session, String databaseName, String tableName, List<String> partitionValues, boolean deleteData)
     {
         setShared();
         Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.computeIfAbsent(new SchemaTableName(databaseName, tableName), k -> new HashMap<>());
@@ -753,11 +756,17 @@ public class SemiTransactionalHiveMetastore
         if (oldPartitionAction == null) {
             HdfsContext hdfsContext = new HdfsContext(session, databaseName, tableName);
             HiveIdentity identity = new HiveIdentity(session);
-            partitionActionsOfTable.put(partitionValues, new Action<>(ActionType.DROP, null, hdfsContext, identity));
+            if (deleteData) {
+                partitionActionsOfTable.put(partitionValues, new Action<>(ActionType.DROP, null, hdfsContext, identity));
+            }
+            else {
+                partitionActionsOfTable.put(partitionValues, new Action<>(ActionType.DROP_PRESERVE_DATA, null, hdfsContext, identity));
+            }
             return;
         }
         switch (oldPartitionAction.getType()) {
             case DROP:
+            case DROP_PRESERVE_DATA:
                 throw new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), partitionValues);
             case ADD:
             case ALTER:
@@ -811,6 +820,7 @@ public class SemiTransactionalHiveMetastore
 
         switch (oldPartitionAction.getType()) {
             case DROP:
+            case DROP_PRESERVE_DATA:
                 throw new PartitionNotFoundException(schemaTableName, partitionValues);
             case ADD:
             case ALTER:
@@ -1092,7 +1102,10 @@ public class SemiTransactionalHiveMetastore
                     Action<PartitionAndMore> action = partitionEntry.getValue();
                     switch (action.getType()) {
                         case DROP:
-                            committer.prepareDropPartition(action.getIdentity(), schemaTableName, partitionValues);
+                            committer.prepareDropPartition(action.getIdentity(), schemaTableName, partitionValues, true);
+                            break;
+                        case DROP_PRESERVE_DATA:
+                            committer.prepareDropPartition(action.getIdentity(), schemaTableName, partitionValues, false);
                             break;
                         case ALTER:
                             committer.prepareAlterPartition(action.getHdfsContext(), action.getIdentity(), action.getData());
@@ -1338,11 +1351,11 @@ public class SemiTransactionalHiveMetastore
                     true));
         }
 
-        private void prepareDropPartition(HiveIdentity identity, SchemaTableName schemaTableName, List<String> partitionValues)
+        private void prepareDropPartition(HiveIdentity identity, SchemaTableName schemaTableName, List<String> partitionValues, boolean deleteData)
         {
             metastoreDeleteOperations.add(new IrreversibleMetastoreOperation(
                     format("drop partition %s.%s %s", schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionValues),
-                    () -> delegate.dropPartition(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionValues, true)));
+                    () -> delegate.dropPartition(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionValues, deleteData)));
         }
 
         private void prepareAlterPartition(HdfsContext hdfsContext, HiveIdentity identity, PartitionAndMore partitionAndMore)
@@ -2129,6 +2142,7 @@ public class SemiTransactionalHiveMetastore
     private enum ActionType
     {
         DROP,
+        DROP_PRESERVE_DATA,
         ADD,
         ALTER,
         INSERT_EXISTING
@@ -2151,7 +2165,7 @@ public class SemiTransactionalHiveMetastore
         public Action(ActionType type, T data, HdfsContext hdfsContext, HiveIdentity identity)
         {
             this.type = requireNonNull(type, "type is null");
-            if (type == ActionType.DROP) {
+            if (type == ActionType.DROP || type == ActionType.DROP_PRESERVE_DATA) {
                 checkArgument(data == null, "data is not null");
             }
             else {
