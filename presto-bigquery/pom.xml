@@ -108,7 +108,7 @@
         <dependency>
             <groupId>com.google.code.findbugs</groupId>
             <artifactId>jsr305</artifactId>
-            <version>3.0.2</version>
+            <optional>true</optional>
         </dependency>
 
         <dependency>
@@ -243,17 +243,9 @@
 
         <dependency>
             <groupId>io.prestosql</groupId>
-            <artifactId>presto-tpch</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.prestosql</groupId>
             <artifactId>presto-tests</artifactId>
             <scope>test</scope>
         </dependency>
-
-        <!-- RequireUpperBoundDeps -->
 
         <dependency>
             <groupId>io.prestosql</groupId>
