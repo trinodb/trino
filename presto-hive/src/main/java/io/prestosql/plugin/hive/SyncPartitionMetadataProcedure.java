@@ -216,7 +216,8 @@ public class SyncPartitionMetadataProcedure
                     session,
                     table.getDatabaseName(),
                     table.getTableName(),
-                    extractPartitionValues(name));
+                    extractPartitionValues(name),
+                    false);
         }
     }
 
