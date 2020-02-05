@@ -472,10 +472,9 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public void updateTableStatistics(HiveIdentity identity, String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update)
+    public void updateTableStatistics(HiveIdentity identity, Table originalTable, Function<PartitionStatistics, PartitionStatistics> update)
     {
-        Table originalTable = getTable(identity, databaseName, tableName)
-                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
+        io.prestosql.plugin.hive.metastore.Table table = fromMetastoreApiTable(originalTable);
 
         PartitionStatistics currentStatistics = getTableStatistics(identity, originalTable);
         PartitionStatistics updatedStatistics = update.apply(currentStatistics);
@@ -483,18 +482,18 @@ public class ThriftHiveMetastore
         Table modifiedTable = originalTable.deepCopy();
         HiveBasicStatistics basicStatistics = updatedStatistics.getBasicStatistics();
         modifiedTable.setParameters(updateStatisticsParameters(modifiedTable.getParameters(), basicStatistics));
-        alterTable(identity, databaseName, tableName, modifiedTable);
+        alterTable(identity, table.getDatabaseName(), table.getTableName(), modifiedTable);
 
-        io.prestosql.plugin.hive.metastore.Table table = fromMetastoreApiTable(modifiedTable);
         OptionalLong rowCount = basicStatistics.getRowCount();
         List<ColumnStatisticsObj> metastoreColumnStatistics = updatedStatistics.getColumnStatistics().entrySet().stream()
+                .filter(column -> table.getColumn(column.getKey()).isPresent())
                 .map(entry -> createMetastoreColumnStatistics(entry.getKey(), table.getColumn(entry.getKey()).get().getType(), entry.getValue(), rowCount))
                 .collect(toImmutableList());
         if (!metastoreColumnStatistics.isEmpty()) {
-            setTableColumnStatistics(identity, databaseName, tableName, metastoreColumnStatistics);
+            setTableColumnStatistics(identity, table.getDatabaseName(), table.getTableName(), metastoreColumnStatistics);
         }
         Set<String> removedColumnStatistics = difference(currentStatistics.getColumnStatistics().keySet(), updatedStatistics.getColumnStatistics().keySet());
-        removedColumnStatistics.forEach(column -> deleteTableColumnStatistics(identity, databaseName, tableName, column));
+        removedColumnStatistics.forEach(column -> deleteTableColumnStatistics(identity, table.getDatabaseName(), table.getTableName(), column));
     }
 
     private void setTableColumnStatistics(HiveIdentity identity, String databaseName, String tableName, List<ColumnStatisticsObj> statistics)

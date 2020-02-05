@@ -241,10 +241,10 @@ public class RecordingHiveMetastore
     }
 
     @Override
-    public void updateTableStatistics(HiveIdentity identity, String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update)
+    public void updateTableStatistics(HiveIdentity identity, Table table, Function<PartitionStatistics, PartitionStatistics> update)
     {
         verifyRecordingMode();
-        delegate.updateTableStatistics(identity, databaseName, tableName, update);
+        delegate.updateTableStatistics(identity, table, update);
     }
 
     @Override

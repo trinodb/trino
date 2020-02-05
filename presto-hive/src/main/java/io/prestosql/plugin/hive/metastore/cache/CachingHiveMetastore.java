@@ -367,14 +367,14 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void updateTableStatistics(HiveIdentity identity, String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update)
+    public void updateTableStatistics(HiveIdentity identity, Table table, Function<PartitionStatistics, PartitionStatistics> update)
     {
         identity = updateIdentity(identity);
         try {
-            delegate.updateTableStatistics(identity, databaseName, tableName, update);
+            delegate.updateTableStatistics(identity, table, update);
         }
         finally {
-            HiveTableName hiveTableName = hiveTableName(databaseName, tableName);
+            HiveTableName hiveTableName = hiveTableName(table.getDatabaseName(), table.getTableName());
             tableStatisticsCache.invalidate(new WithIdentity<>(identity, hiveTableName));
             // basic stats are stored as table properties
             tableCache.invalidate(new WithIdentity<>(identity, hiveTableName));

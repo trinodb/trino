@@ -470,9 +470,9 @@ public class InMemoryThriftMetastore
     }
 
     @Override
-    public synchronized void updateTableStatistics(HiveIdentity identity, String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update)
+    public synchronized void updateTableStatistics(HiveIdentity identity, Table table, Function<PartitionStatistics, PartitionStatistics> update)
     {
-        columnStatistics.put(new SchemaTableName(databaseName, tableName), update.apply(getTableStatistics(databaseName, tableName)));
+        columnStatistics.put(new SchemaTableName(table.getDbName(), table.getTableName()), update.apply(getTableStatistics(identity, table)));
     }
 
     @Override

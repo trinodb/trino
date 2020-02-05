@@ -356,14 +356,14 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized void updateTableStatistics(HiveIdentity identity, String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update)
+    public synchronized void updateTableStatistics(HiveIdentity identity, Table table, Function<PartitionStatistics, PartitionStatistics> update)
     {
-        PartitionStatistics originalStatistics = getTableStatistics(databaseName, tableName);
+        PartitionStatistics originalStatistics = getTableStatistics(table.getDatabaseName(), table.getTableName());
         PartitionStatistics updatedStatistics = update.apply(originalStatistics);
 
-        Path tableMetadataDirectory = getTableMetadataDirectory(databaseName, tableName);
+        Path tableMetadataDirectory = getTableMetadataDirectory(table.getDatabaseName(), table.getTableName());
         TableMetadata tableMetadata = readSchemaFile("table", tableMetadataDirectory, tableCodec)
-                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
+                .orElseThrow(() -> new TableNotFoundException(table.getSchemaTableName()));
 
         TableMetadata updatedMetadata = tableMetadata
                 .withParameters(updateStatisticsParameters(tableMetadata.getParameters(), updatedStatistics.getBasicStatistics()))
