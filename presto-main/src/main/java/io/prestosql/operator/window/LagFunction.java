@@ -26,6 +26,7 @@ import static java.lang.Math.toIntExact;
 @WindowFunctionSignature(name = "lag", typeVariable = "T", returnType = "T", argumentTypes = "T")
 @WindowFunctionSignature(name = "lag", typeVariable = "T", returnType = "T", argumentTypes = {"T", "bigint"})
 @WindowFunctionSignature(name = "lag", typeVariable = "T", returnType = "T", argumentTypes = {"T", "bigint", "T"})
+@WindowFunctionSignature(name = "lag", typeVariable = "T", returnType = "T", argumentTypes = {"bigint", "T", "boolean"})
 public class LagFunction
         extends ValueWindowFunction
 {
@@ -33,6 +34,13 @@ public class LagFunction
     private final int offsetChannel;
     private final int defaultChannel;
     private final boolean ignoreNulls;
+    private long lastNonNull;
+
+    @Override
+    public void reset()
+    {
+        lastNonNull = 0;
+    }
 
     public LagFunction(List<Integer> argumentChannels, boolean ignoreNulls)
     {
@@ -40,6 +48,9 @@ public class LagFunction
         this.offsetChannel = (argumentChannels.size() > 1) ? argumentChannels.get(1) : -1;
         this.defaultChannel = (argumentChannels.size() > 2) ? argumentChannels.get(2) : -1;
         this.ignoreNulls = ignoreNulls;
+        if (this.ignoreNulls) {
+            this.lastNonNull = 0;
+        }
     }
 
     @Override
@@ -52,23 +63,15 @@ public class LagFunction
             long offset = (offsetChannel < 0) ? 1 : windowIndex.getLong(offsetChannel, currentPosition);
             checkCondition(offset >= 0, INVALID_FUNCTION_ARGUMENT, "Offset must be at least 0");
 
-            long valuePosition;
+            long valuePosition = currentPosition - offset;
 
-            if (ignoreNulls && (offset > 0)) {
-                long count = 0;
-                valuePosition = currentPosition - 1;
-                while (withinPartition(valuePosition, currentPosition)) {
-                    if (!windowIndex.isNull(valueChannel, toIntExact(valuePosition))) {
-                        count++;
-                        if (count == offset) {
-                            break;
-                        }
-                    }
-                    valuePosition--;
+            if (ignoreNulls && withinPartition(valuePosition, currentPosition) && offset > 0) {
+                if (windowIndex.isNull(valueChannel, toIntExact(valuePosition))) {
+                    valuePosition = lastNonNull;
                 }
-            }
-            else {
-                valuePosition = currentPosition - offset;
+                else {
+                    lastNonNull = valuePosition;
+                }
             }
 
             if (withinPartition(valuePosition, currentPosition)) {

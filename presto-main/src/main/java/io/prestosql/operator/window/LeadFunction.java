@@ -33,6 +33,13 @@ public class LeadFunction
     private final int offsetChannel;
     private final int defaultChannel;
     private final boolean ignoreNulls;
+    private long lastNonNull = -1;
+
+    @Override
+    public void reset()
+    {
+        lastNonNull = -1;
+    }
 
     public LeadFunction(List<Integer> argumentChannels, boolean ignoreNulls)
     {
@@ -55,8 +62,11 @@ public class LeadFunction
             long valuePosition;
 
             if (ignoreNulls && (offset > 0)) {
-                long count = 0;
-                valuePosition = currentPosition + 1;
+                if (lastNonNull <= currentPosition) {
+                    lastNonNull = currentPosition + 1;
+                }
+                long count = lastNonNull - currentPosition - 1;
+                valuePosition = lastNonNull;
                 while (withinPartition(valuePosition)) {
                     if (!windowIndex.isNull(valueChannel, toIntExact(valuePosition))) {
                         count++;
@@ -66,6 +76,7 @@ public class LeadFunction
                     }
                     valuePosition++;
                 }
+                lastNonNull = valuePosition;
             }
             else {
                 valuePosition = currentPosition + offset;

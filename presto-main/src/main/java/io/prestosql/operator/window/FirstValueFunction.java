@@ -27,11 +27,21 @@ public class FirstValueFunction
 {
     private final int argumentChannel;
     private final boolean ignoreNulls;
+    private int lastNonNull;
+
+    @Override
+    public void reset()
+    {
+        lastNonNull = -1;
+    }
 
     public FirstValueFunction(List<Integer> argumentChannels, boolean ignoreNulls)
     {
         this.argumentChannel = getOnlyElement(argumentChannels);
         this.ignoreNulls = ignoreNulls;
+        if (this.ignoreNulls) {
+            this.lastNonNull = -1;
+        }
     }
 
     @Override
@@ -41,24 +51,26 @@ public class FirstValueFunction
             output.appendNull();
             return;
         }
-
-        int valuePosition = frameStart;
+        int returnInd;
 
         if (ignoreNulls) {
-            while (valuePosition >= 0 && valuePosition <= frameEnd) {
-                if (!windowIndex.isNull(argumentChannel, valuePosition)) {
-                    break;
-                }
-
-                valuePosition++;
-            }
-
-            if (valuePosition > frameEnd) {
-                output.appendNull();
-                return;
-            }
+            returnInd = searchWindowAndUpdateIndices(frameStart, frameEnd);
         }
+        else {
+            returnInd = frameStart;
+        }
+        windowIndex.appendTo(argumentChannel, returnInd, output);
+    }
 
-        windowIndex.appendTo(argumentChannel, valuePosition, output);
+    private int searchWindowAndUpdateIndices(int frameStart, int frameEnd)
+    {
+        //This assumes that frameStart never decreases.
+        if (lastNonNull < frameStart) {
+            lastNonNull = frameStart;
+        }
+        while (windowIndex.isNull(argumentChannel, lastNonNull) && lastNonNull < frameEnd) {
+            lastNonNull++;
+        }
+        return lastNonNull;
     }
 }

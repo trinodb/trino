@@ -27,11 +27,23 @@ public class LastValueFunction
 {
     private final int argumentChannel;
     private final boolean ignoreNulls;
+    private int lastNonNull;
+    private int previousFrameEnd;
+
+    @Override
+    public void reset()
+    {
+        lastNonNull = -1;
+        previousFrameEnd = 0;
+    }
 
     public LastValueFunction(List<Integer> argumentChannels, boolean ignoreNulls)
     {
         this.argumentChannel = getOnlyElement(argumentChannels);
         this.ignoreNulls = ignoreNulls;
+        if (this.ignoreNulls) {
+            this.lastNonNull = -1;
+        }
     }
 
     @Override
@@ -42,23 +54,33 @@ public class LastValueFunction
             return;
         }
 
-        int valuePosition = frameEnd;
-
+        int returnInd;
         if (ignoreNulls) {
-            while (valuePosition >= frameStart) {
-                if (!windowIndex.isNull(argumentChannel, valuePosition)) {
-                    break;
-                }
+            returnInd = searchWindowAndUpdateIndices(frameStart, frameEnd);
+        }
+        else {
+            returnInd = frameEnd;
+        }
+        windowIndex.appendTo(argumentChannel, returnInd, output);
+    }
 
-                valuePosition--;
-            }
-
-            if (valuePosition < frameStart) {
-                output.appendNull();
-                return;
+    private int searchWindowAndUpdateIndices(int frameStart, int frameEnd)
+    {
+        if (previousFrameEnd < frameStart) {
+            previousFrameEnd = frameStart;
+        }
+        //This search assumes frameEnd is monotonically increasing.
+        for (int i = frameEnd; i >= previousFrameEnd; i--) {
+            if (!windowIndex.isNull(argumentChannel, i)) {
+                previousFrameEnd = frameEnd;
+                lastNonNull = i;
+                return i;
             }
         }
-
-        windowIndex.appendTo(argumentChannel, valuePosition, output);
+        if (lastNonNull < frameStart) {
+            lastNonNull = frameStart;
+        }
+        previousFrameEnd = frameEnd;
+        return lastNonNull;
     }
 }
