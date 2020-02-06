@@ -82,6 +82,7 @@
         <module>presto-cassandra</module>
         <module>presto-blackhole</module>
         <module>presto-memory</module>
+        <module>presto-noop</module>
         <module>presto-orc</module>
         <module>presto-parquet</module>
         <module>presto-rcfile</module>
@@ -285,6 +286,12 @@
             <dependency>
                 <groupId>io.prestosql</groupId>
                 <artifactId>presto-memory</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql</groupId>
+                <artifactId>presto-noop</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
