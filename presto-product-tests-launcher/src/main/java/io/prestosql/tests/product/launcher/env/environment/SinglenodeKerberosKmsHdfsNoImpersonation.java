@@ -26,6 +26,7 @@ import io.prestosql.tests.product.launcher.env.common.TestsEnvironment;
 import javax.inject.Inject;
 
 import static io.prestosql.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_HIVE_PROPERTIES;
+import static io.prestosql.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_ICEBERG_PROPERTIES;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
 
@@ -51,6 +52,10 @@ public final class SinglenodeKerberosKmsHdfsNoImpersonation
                     .withFileSystemBind(
                             dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kerberos-kms-hdfs-no-impersonation/hive.properties"),
                             CONTAINER_PRESTO_HIVE_PROPERTIES,
+                            READ_ONLY)
+                    .withFileSystemBind(
+                            dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kerberos-kms-hdfs-no-impersonation/iceberg.properties"),
+                            CONTAINER_PRESTO_ICEBERG_PROPERTIES,
                             READ_ONLY);
         });
     }
