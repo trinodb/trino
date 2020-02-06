@@ -16,6 +16,7 @@ package io.prestosql.plugin.memory;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorOperationContext;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -53,9 +54,10 @@ public final class MemoryPageSourceProvider
             ConnectorSession session,
             ConnectorSplit split,
             ConnectorTableHandle table,
-            List<ColumnHandle> columns)
+            List<ColumnHandle> columns,
+            ConnectorOperationContext connectorOperationContext)
     {
-        return createPageSource(transaction, session, split, table, columns, TupleDomain.all());
+        return createPageSource(transaction, session, split, table, columns, TupleDomain.all(), connectorOperationContext);
     }
 
     @Override
@@ -65,7 +67,8 @@ public final class MemoryPageSourceProvider
             ConnectorSplit split,
             ConnectorTableHandle table,
             List<ColumnHandle> columns,
-            TupleDomain<ColumnHandle> dynamicFilter)
+            TupleDomain<ColumnHandle> dynamicFilter,
+            ConnectorOperationContext connectorOperationContext)
     {
         MemorySplit memorySplit = (MemorySplit) split;
         long tableId = memorySplit.getTable();

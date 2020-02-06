@@ -54,6 +54,7 @@ import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.testing.TestingTaskContext.createTaskContext;
+import static io.prestosql.tracer.NoOpTracerFactory.createNoOpTracer;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -111,7 +112,7 @@ public class TestTableFinishOperator
         DriverContext driverContext = createTaskContext(scheduledExecutor, scheduledExecutor, session)
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
-        TableFinishOperator operator = (TableFinishOperator) operatorFactory.createOperator(driverContext);
+        TableFinishOperator operator = (TableFinishOperator) operatorFactory.createOperator(driverContext, createNoOpTracer());
 
         List<Type> inputTypes = ImmutableList.of(BIGINT, VARBINARY, BIGINT);
 

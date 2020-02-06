@@ -13,26 +13,33 @@
  */
 package io.prestosql.orc;
 
+import com.google.common.collect.ImmutableMap;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.LazyBlock;
 import io.prestosql.spi.block.LazyBlockLoader;
+import io.prestosql.spi.tracer.ConnectorTracer;
 
 import java.io.IOException;
+import java.util.Optional;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.orc.OrcTracerEventType.READ_BLOCK_END;
+import static io.prestosql.orc.OrcTracerEventType.READ_BLOCK_START;
 import static java.util.Objects.requireNonNull;
 
 public class OrcBlockFactory
 {
     private final Function<Exception, RuntimeException> exceptionTransform;
     private final boolean nestedLazy;
+    private final Optional<ConnectorTracer> tracer;
     private int currentPageId;
 
-    public OrcBlockFactory(Function<Exception, RuntimeException> exceptionTransform, boolean nestedLazy)
+    public OrcBlockFactory(Function<Exception, RuntimeException> exceptionTransform, boolean nestedLazy, Optional<ConnectorTracer> tracer)
     {
         this.exceptionTransform = requireNonNull(exceptionTransform, "exceptionTransform is null");
         this.nestedLazy = nestedLazy;
+        this.tracer = requireNonNull(tracer, "tracer is null");
     }
 
     public void nextPage()
@@ -73,10 +80,13 @@ public class OrcBlockFactory
 
             loaded = true;
             try {
+                tracer.ifPresent(tracer -> tracer.emitEvent(READ_BLOCK_START, null));
                 Block block = blockReader.readBlock();
                 if (loadFully) {
                     block = block.getLoadedBlock();
                 }
+                String blockInfo = block.toString();
+                tracer.ifPresent(tracer -> tracer.emitEvent(READ_BLOCK_END, blockInfo == null ? null : () -> ImmutableMap.of("block", blockInfo)));
                 return block;
             }
             catch (IOException | RuntimeException e) {

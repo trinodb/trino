@@ -287,10 +287,12 @@ public class TaskExecutor
             splits = taskHandle.destroy();
 
             // stop tracking splits (especially blocked splits which may never unblock)
-            allSplits.removeAll(splits);
-            intermediateSplits.removeAll(splits);
-            blockedSplits.keySet().removeAll(splits);
-            waitingSplits.removeAll(splits);
+            for (PrioritizedSplitRunner split : splits) {
+                intermediateSplits.remove(split);
+                removeFromWaiting(split);
+                removeFromBlocked(split);
+                remove(split);
+            }
         }
 
         // call destroy outside of synchronized block as it is expensive and doesn't need a lock on the task executor
@@ -319,6 +321,7 @@ public class TaskExecutor
                         globalScheduledTimeMicros,
                         blockedQuantaWallTime,
                         unblockedQuantaWallTime);
+                prioritizedSplitRunner.splitDriverCreated();
 
                 if (taskHandle.isDestroyed()) {
                     // If the handle is destroyed, we destroy the task splits to complete the future
@@ -352,7 +355,7 @@ public class TaskExecutor
     {
         completedSplitsPerLevel.incrementAndGet(split.getPriority().getLevel());
         synchronized (this) {
-            allSplits.remove(split);
+            remove(split);
 
             long wallNanos = System.nanoTime() - split.getCreatedNanos();
             splitWallTime.add(Duration.succinctNanos(wallNanos));
@@ -424,8 +427,8 @@ public class TaskExecutor
 
     private synchronized void startSplit(PrioritizedSplitRunner split)
     {
-        allSplits.add(split);
-        waitingSplits.offer(split);
+        add(split);
+        addToWaiting(split);
     }
 
     private synchronized PrioritizedSplitRunner pollNextSplitWorker()
@@ -466,7 +469,7 @@ public class TaskExecutor
                     // select next worker
                     final PrioritizedSplitRunner split;
                     try {
-                        split = waitingSplits.take();
+                        split = takeFromWaiting();
                     }
                     catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
@@ -477,7 +480,7 @@ public class TaskExecutor
                     try (SetThreadName splitName = new SetThreadName(threadId)) {
                         RunningSplitInfo splitInfo = new RunningSplitInfo(ticker.read(), threadId, Thread.currentThread());
                         runningSplitInfos.add(splitInfo);
-                        runningSplits.add(split);
+                        addToRunning(split);
 
                         ListenableFuture<?> blocked;
                         try {
@@ -485,7 +488,7 @@ public class TaskExecutor
                         }
                         finally {
                             runningSplitInfos.remove(splitInfo);
-                            runningSplits.remove(split);
+                            removeFromRunning(split);
                         }
 
                         if (split.isFinished()) {
@@ -494,15 +497,15 @@ public class TaskExecutor
                         }
                         else {
                             if (blocked.isDone()) {
-                                waitingSplits.offer(split);
+                                addToWaiting(split);
                             }
                             else {
-                                blockedSplits.put(split, blocked);
+                                addToBlocked(split, blocked);
                                 blocked.addListener(() -> {
-                                    blockedSplits.remove(split);
+                                    removeFromBlocked(split);
                                     // reset the level priority to prevent previously-blocked splits from starving existing splits
                                     split.resetLevelPriority();
-                                    waitingSplits.offer(split);
+                                    addToWaiting(split);
                                 }, executor);
                             }
                         }
@@ -529,6 +532,61 @@ public class TaskExecutor
                 }
             }
         }
+    }
+
+    private void add(PrioritizedSplitRunner split)
+    {
+        allSplits.add(split);
+        split.added();
+    }
+
+    private void addToRunning(PrioritizedSplitRunner split)
+    {
+        runningSplits.add(split);
+        split.addedToRunning();
+    }
+
+    private void addToWaiting(PrioritizedSplitRunner split)
+    {
+        waitingSplits.offer(split);
+        split.addedToWaiting();
+    }
+
+    private void addToBlocked(PrioritizedSplitRunner split, ListenableFuture<?> blocked)
+    {
+        blockedSplits.put(split, blocked);
+        split.addedToBlocked();
+    }
+
+    private void removeFromRunning(PrioritizedSplitRunner split)
+    {
+        runningSplits.remove(split);
+        split.removedFromRunning();
+    }
+
+    private void removeFromWaiting(PrioritizedSplitRunner split)
+    {
+        waitingSplits.remove(split);
+        split.removedFromWaiting();
+    }
+
+    private PrioritizedSplitRunner takeFromWaiting() throws InterruptedException
+    {
+        PrioritizedSplitRunner split = waitingSplits.take();
+        split.removedFromWaiting();
+        return split;
+    }
+
+    private void removeFromBlocked(PrioritizedSplitRunner split)
+    {
+        blockedSplits.remove(split);
+        split.removedFromBlocked();
+    }
+
+    private void remove(PrioritizedSplitRunner split)
+    {
+        allSplits.remove(split);
+        split.removed();
     }
 
     //

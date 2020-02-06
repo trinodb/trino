@@ -21,6 +21,7 @@ import io.prestosql.execution.buffer.SerializedPage;
 import io.prestosql.metadata.Split;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.connector.UpdatablePageSource;
+import io.prestosql.spi.tracer.Tracer;
 import io.prestosql.split.RemoteSplit;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
@@ -67,7 +68,7 @@ public class ExchangeOperator
         }
 
         @Override
-        public SourceOperator createOperator(DriverContext driverContext)
+        public SourceOperator createOperator(DriverContext driverContext, Tracer pipelineTracer)
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, sourceId, ExchangeOperator.class.getSimpleName());

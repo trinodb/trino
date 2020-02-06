@@ -53,6 +53,7 @@ import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.testing.TestingMetadata.TestingColumnHandle;
 import io.prestosql.testing.TestingSplit;
+import io.prestosql.tracer.TracerManager;
 import io.prestosql.util.FinalizerService;
 
 import java.util.List;
@@ -102,7 +103,7 @@ public final class TaskTestUtils
     {
         Metadata metadata = createTestMetadataManager();
 
-        PageSourceManager pageSourceManager = new PageSourceManager();
+        PageSourceManager pageSourceManager = new PageSourceManager(new TracerManager());
         pageSourceManager.addConnectorPageSourceProvider(CONNECTOR_ID, new TestingPageSourceProvider());
 
         // we don't start the finalizer so nothing will be collected, which is ok for a test

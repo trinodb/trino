@@ -71,6 +71,7 @@ import static io.prestosql.sql.relational.Expressions.field;
 import static io.prestosql.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.prestosql.testing.TestingTaskContext.createTaskContext;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static io.prestosql.tracer.NoOpTracerFactory.createNoOpTracer;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -105,8 +106,7 @@ public class TestScanFilterAndProjectOperator
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                 0,
                 new PlanNodeId("test"),
-                new PlanNodeId("0"),
-                (session, split, table, columns, dynamicFilter) -> new FixedPageSource(ImmutableList.of(input)),
+                new PlanNodeId("0"), (session, split, table, columns, dynamicFilter, engineTracer) -> new FixedPageSource(ImmutableList.of(input)),
                 cursorProcessor,
                 pageProcessor,
                 TEST_TABLE_HANDLE,
@@ -116,7 +116,7 @@ public class TestScanFilterAndProjectOperator
                 new DataSize(0, BYTE),
                 0);
 
-        SourceOperator operator = factory.createOperator(driverContext);
+        SourceOperator operator = factory.createOperator(driverContext, createNoOpTracer());
         operator.addSplit(new Split(new CatalogName("test"), TestingSplit.createLocalSplit(), Lifespan.taskWide()));
         operator.noMoreSplits();
 
@@ -149,8 +149,7 @@ public class TestScanFilterAndProjectOperator
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                 0,
                 new PlanNodeId("test"),
-                new PlanNodeId("0"),
-                (session, split, table, columns, dynamicFilter) -> new FixedPageSource(input),
+                new PlanNodeId("0"), (session, split, table, columns, dynamicFilter, engineTracer) -> new FixedPageSource(input),
                 cursorProcessor,
                 pageProcessor,
                 TEST_TABLE_HANDLE,
@@ -160,7 +159,7 @@ public class TestScanFilterAndProjectOperator
                 new DataSize(64, KILOBYTE),
                 2);
 
-        SourceOperator operator = factory.createOperator(newDriverContext());
+        SourceOperator operator = factory.createOperator(newDriverContext(), createNoOpTracer());
         operator.addSplit(new Split(new CatalogName("test"), TestingSplit.createLocalSplit(), Lifespan.taskWide()));
         operator.noMoreSplits();
 
@@ -194,8 +193,7 @@ public class TestScanFilterAndProjectOperator
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                 0,
                 new PlanNodeId("test"),
-                new PlanNodeId("0"),
-                (session, split, table, columns, dynamicFilter) -> new SinglePagePageSource(input),
+                new PlanNodeId("0"), (session, split, table, columns, dynamicFilter, engineTracer) -> new SinglePagePageSource(input),
                 cursorProcessor,
                 () -> pageProcessor,
                 TEST_TABLE_HANDLE,
@@ -205,7 +203,7 @@ public class TestScanFilterAndProjectOperator
                 new DataSize(0, BYTE),
                 0);
 
-        SourceOperator operator = factory.createOperator(driverContext);
+        SourceOperator operator = factory.createOperator(driverContext, createNoOpTracer());
         operator.addSplit(new Split(new CatalogName("test"), TestingSplit.createLocalSplit(), Lifespan.taskWide()));
         operator.noMoreSplits();
 
@@ -229,8 +227,7 @@ public class TestScanFilterAndProjectOperator
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                 0,
                 new PlanNodeId("test"),
-                new PlanNodeId("0"),
-                (session, split, table, columns, dynamicFilter) -> new RecordPageSource(new PageRecordSet(ImmutableList.of(VARCHAR), input)),
+                new PlanNodeId("0"), (session, split, table, columns, dynamicFilter, engineTracer) -> new RecordPageSource(new PageRecordSet(ImmutableList.of(VARCHAR), input)),
                 cursorProcessor,
                 pageProcessor,
                 TEST_TABLE_HANDLE,
@@ -240,7 +237,7 @@ public class TestScanFilterAndProjectOperator
                 new DataSize(0, BYTE),
                 0);
 
-        SourceOperator operator = factory.createOperator(driverContext);
+        SourceOperator operator = factory.createOperator(driverContext, createNoOpTracer());
         operator.addSplit(new Split(new CatalogName("test"), TestingSplit.createLocalSplit(), Lifespan.taskWide()));
         operator.noMoreSplits();
 
@@ -282,8 +279,7 @@ public class TestScanFilterAndProjectOperator
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                 0,
                 new PlanNodeId("test"),
-                new PlanNodeId("0"),
-                (session, split, table, columns, dynamicFilter) -> new FixedPageSource(ImmutableList.of(input)),
+                new PlanNodeId("0"), (session, split, table, columns, dynamicFilter, engineTracer) -> new FixedPageSource(ImmutableList.of(input)),
                 cursorProcessor,
                 pageProcessor,
                 TEST_TABLE_HANDLE,
@@ -293,7 +289,7 @@ public class TestScanFilterAndProjectOperator
                 new DataSize(0, BYTE),
                 0);
 
-        SourceOperator operator = factory.createOperator(driverContext);
+        SourceOperator operator = factory.createOperator(driverContext, createNoOpTracer());
         operator.addSplit(new Split(new CatalogName("test"), TestingSplit.createLocalSplit(), Lifespan.taskWide()));
         operator.noMoreSplits();
 
@@ -348,8 +344,7 @@ public class TestScanFilterAndProjectOperator
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                 0,
                 new PlanNodeId("test"),
-                new PlanNodeId("0"),
-                (session, split, table, columns, dynamicFilter) -> new RecordPageSource(new PageRecordSet(ImmutableList.of(BIGINT), input)),
+                new PlanNodeId("0"), (session, split, table, columns, dynamicFilter, engineTracer) -> new RecordPageSource(new PageRecordSet(ImmutableList.of(BIGINT), input)),
                 cursorProcessor,
                 pageProcessor,
                 TEST_TABLE_HANDLE,
@@ -359,7 +354,7 @@ public class TestScanFilterAndProjectOperator
                 new DataSize(0, BYTE),
                 0);
 
-        SourceOperator operator = factory.createOperator(driverContext);
+        SourceOperator operator = factory.createOperator(driverContext, createNoOpTracer());
         operator.addSplit(new Split(new CatalogName("test"), TestingSplit.createLocalSplit(), Lifespan.taskWide()));
         operator.noMoreSplits();
 

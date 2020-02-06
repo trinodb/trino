@@ -81,6 +81,7 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.prestosql.testing.TestingSplit.createLocalSplit;
+import static io.prestosql.tracer.NoOpTracerFactory.createNoOpTracer;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -169,7 +170,7 @@ public class BenchmarkScanFilterAndProjectOperator
                     0,
                     new PlanNodeId("test"),
                     new PlanNodeId("test_source"),
-                    (session, split, table, columns, dynamicFilter) -> new FixedPageSource(inputPages),
+                    (session, split, table, columns, dynamicFilter, engineTracer) -> new FixedPageSource(inputPages),
                     () -> cursorProcessor,
                     () -> pageProcessor,
                     TEST_TABLE_HANDLE,
@@ -256,7 +257,7 @@ public class BenchmarkScanFilterAndProjectOperator
     public List<Page> benchmarkColumnOriented(Context context)
     {
         DriverContext driverContext = context.createTaskContext().addPipelineContext(0, true, true, false).addDriverContext();
-        SourceOperator operator = (SourceOperator) context.getOperatorFactory().createOperator(driverContext);
+        SourceOperator operator = (SourceOperator) context.getOperatorFactory().createOperator(driverContext, createNoOpTracer());
 
         ImmutableList.Builder<Page> outputPages = ImmutableList.builder();
         operator.addSplit(new Split(new CatalogName("test"), createLocalSplit(), Lifespan.taskWide()));

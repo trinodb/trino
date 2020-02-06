@@ -45,6 +45,7 @@ import io.prestosql.security.AccessControlModule;
 import io.prestosql.server.security.PasswordAuthenticatorManager;
 import io.prestosql.server.security.ServerSecurityModule;
 import io.prestosql.sql.parser.SqlParserOptions;
+import io.prestosql.tracer.TracerModule;
 import io.prestosql.version.EmbedVersion;
 import org.weakref.jmx.guice.MBeanModule;
 
@@ -112,7 +113,8 @@ public class PrestoServer
                 new EventListenerModule(),
                 new ServerMainModule(sqlParserOptions),
                 new GracefulShutdownModule(),
-                new WarningCollectorModule());
+                new WarningCollectorModule(),
+                new TracerModule());
 
         modules.addAll(getAdditionalModules());
 

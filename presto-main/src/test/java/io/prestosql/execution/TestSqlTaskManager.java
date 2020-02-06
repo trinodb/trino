@@ -35,6 +35,7 @@ import io.prestosql.operator.ExchangeClientSupplier;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spiller.LocalSpillManager;
 import io.prestosql.spiller.NodeSpillConfig;
+import io.prestosql.tracer.NoOpTracerFactory;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -245,7 +246,8 @@ public class TestSqlTaskManager
                 new NodeMemoryConfig(),
                 localSpillManager,
                 new NodeSpillConfig(),
-                new TestingGcMonitor());
+                new TestingGcMonitor(),
+                new NoOpTracerFactory());
     }
 
     private TaskInfo createTask(SqlTaskManager sqlTaskManager, TaskId taskId, ImmutableSet<ScheduledSplit> splits, OutputBuffers outputBuffers)

@@ -29,7 +29,8 @@ public interface ConnectorSplitManager
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorTableHandle table,
-            SplitSchedulingStrategy splitSchedulingStrategy)
+            SplitSchedulingStrategy splitSchedulingStrategy,
+            ConnectorOperationContext connectorOperationContext)
     {
         throw new UnsupportedOperationException();
     }

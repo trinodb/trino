@@ -30,6 +30,7 @@ import java.util.OptionalInt;
 
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
+import static io.prestosql.tracer.NoOpTracerFactory.createNoOpTracer;
 
 public abstract class AbstractSimpleOperatorBenchmark
         extends AbstractOperatorBenchmark
@@ -61,7 +62,7 @@ public abstract class AbstractSimpleOperatorBenchmark
     {
         DriverFactory driverFactory = createDriverFactory();
         DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
-        Driver driver = driverFactory.createDriver(driverContext);
+        Driver driver = driverFactory.createDriver(driverContext, createNoOpTracer());
         return ImmutableList.of(driver);
     }
 }

@@ -18,12 +18,17 @@ import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.QueryManagerConfig;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.TableHandle;
+import io.prestosql.spi.connector.ConnectorOperationContext;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
 import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
 import io.prestosql.spi.connector.Constraint;
+import io.prestosql.spi.tracer.ConnectorEventEmitter;
+import io.prestosql.spi.tracer.ConnectorTracer;
+import io.prestosql.spi.tracer.Tracer;
+import io.prestosql.tracer.TracerManager;
 
 import javax.inject.Inject;
 
@@ -39,6 +44,7 @@ import static java.util.Objects.requireNonNull;
 public class SplitManager
 {
     private final ConcurrentMap<CatalogName, ConnectorSplitManager> splitManagers = new ConcurrentHashMap<>();
+    private final TracerManager tracerManager;
     private final int minScheduleSplitBatchSize;
 
     // NOTE: This only used for filling in the table layout if none is present by the time we
@@ -47,10 +53,11 @@ public class SplitManager
     private final Metadata metadata;
 
     @Inject
-    public SplitManager(QueryManagerConfig config, Metadata metadata)
+    public SplitManager(QueryManagerConfig config, Metadata metadata, TracerManager tracerManager)
     {
         this.minScheduleSplitBatchSize = config.getMinScheduleSplitBatchSize();
         this.metadata = metadata;
+        this.tracerManager = tracerManager;
     }
 
     public void addConnectorSplitManager(CatalogName catalogName, ConnectorSplitManager connectorSplitManager)
@@ -65,10 +72,11 @@ public class SplitManager
         splitManagers.remove(catalogName);
     }
 
-    public SplitSource getSplits(Session session, TableHandle table, SplitSchedulingStrategy splitSchedulingStrategy)
+    public SplitSource getSplits(Session session, TableHandle table, SplitSchedulingStrategy splitSchedulingStrategy, Tracer engineTracer)
     {
         CatalogName catalogName = table.getCatalogName();
         ConnectorSplitManager splitManager = getConnectorSplitManager(catalogName);
+        Optional<ConnectorTracer> tracer = tracerManager.getConnectorTracer(catalogName, new ConnectorEventEmitter(engineTracer));
 
         ConnectorSession connectorSession = session.toConnectorSession(catalogName);
 
@@ -83,7 +91,8 @@ public class SplitManager
             source = splitManager.getSplits(table.getTransaction(), connectorSession, layout, splitSchedulingStrategy);
         }
         else {
-            source = splitManager.getSplits(table.getTransaction(), connectorSession, table.getConnectorHandle(), splitSchedulingStrategy);
+            ConnectorOperationContext connectorOperationContext = (new ConnectorOperationContext.Builder()).withConnectorTracer(tracer).build();
+            source = splitManager.getSplits(table.getTransaction(), connectorSession, table.getConnectorHandle(), splitSchedulingStrategy, connectorOperationContext);
         }
 
         SplitSource splitSource = new ConnectorAwareSplitSource(catalogName, source);

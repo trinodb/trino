@@ -60,6 +60,7 @@ import static io.prestosql.operator.JoinBridgeManager.lookupAllAtOnce;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
+import static io.prestosql.tracer.NoOpTracerFactory.createNoOpTracer;
 import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -323,7 +324,7 @@ public class BenchmarkHashBuildAndJoinOperators
                 false,
                 SingleStreamSpillerFactory.unsupportedSingleStreamSpillerFactory());
 
-        Operator operator = hashBuilderOperatorFactory.createOperator(driverContext);
+        Operator operator = hashBuilderOperatorFactory.createOperator(driverContext, createNoOpTracer());
         for (Page page : buildContext.getBuildPages()) {
             operator.addInput(page);
         }
@@ -342,7 +343,7 @@ public class BenchmarkHashBuildAndJoinOperators
             throws Exception
     {
         DriverContext driverContext = joinContext.createTaskContext().addPipelineContext(0, true, true, false).addDriverContext();
-        Operator joinOperator = joinContext.getJoinOperatorFactory().createOperator(driverContext);
+        Operator joinOperator = joinContext.getJoinOperatorFactory().createOperator(driverContext, createNoOpTracer());
 
         Iterator<Page> input = joinContext.getProbePages().iterator();
         ImmutableList.Builder<Page> outputPages = ImmutableList.builder();

@@ -45,6 +45,7 @@ import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.prestosql.operator.PageAssertions.assertPageEquals;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static io.prestosql.tracer.NoOpTracerFactory.createNoOpTracer;
 import static io.prestosql.util.StructuralTestUtil.appendToBlockBuilder;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -162,7 +163,7 @@ public final class OperatorAssertion
 
     public static List<Page> toPages(OperatorFactory operatorFactory, DriverContext driverContext, List<Page> input, boolean revokeMemoryWhenAddingPages)
     {
-        try (Operator operator = operatorFactory.createOperator(driverContext)) {
+        try (Operator operator = operatorFactory.createOperator(driverContext, createNoOpTracer())) {
             operatorFactory.noMoreOperators();
             return toPages(operator, input.iterator(), revokeMemoryWhenAddingPages);
         }

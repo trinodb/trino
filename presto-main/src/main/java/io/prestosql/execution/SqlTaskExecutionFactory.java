@@ -20,6 +20,7 @@ import io.prestosql.execution.buffer.OutputBuffer;
 import io.prestosql.execution.executor.TaskExecutor;
 import io.prestosql.memory.QueryContext;
 import io.prestosql.operator.TaskContext;
+import io.prestosql.spi.tracer.Tracer;
 import io.prestosql.sql.planner.LocalExecutionPlanner;
 import io.prestosql.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import io.prestosql.sql.planner.PlanFragment;
@@ -31,6 +32,8 @@ import java.util.concurrent.Executor;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static io.prestosql.execution.SqlTaskExecution.createSqlTaskExecution;
+import static io.prestosql.spi.tracer.TracerEventType.CREATE_LOCAL_PLAN_END;
+import static io.prestosql.spi.tracer.TracerEventType.CREATE_LOCAL_PLAN_START;
 import static java.util.Objects.requireNonNull;
 
 public class SqlTaskExecutionFactory
@@ -60,7 +63,7 @@ public class SqlTaskExecutionFactory
         this.cpuTimerEnabled = config.isTaskCpuTimerEnabled();
     }
 
-    public SqlTaskExecution create(Session session, QueryContext queryContext, TaskStateMachine taskStateMachine, OutputBuffer outputBuffer, PlanFragment fragment, List<TaskSource> sources, OptionalInt totalPartitions)
+    public SqlTaskExecution create(Session session, QueryContext queryContext, TaskStateMachine taskStateMachine, OutputBuffer outputBuffer, PlanFragment fragment, List<TaskSource> sources, OptionalInt totalPartitions, Tracer tracer)
     {
         TaskContext taskContext = queryContext.addTaskContext(
                 taskStateMachine,
@@ -72,6 +75,7 @@ public class SqlTaskExecutionFactory
         LocalExecutionPlan localExecutionPlan;
         try (SetThreadName ignored = new SetThreadName("Task-%s", taskStateMachine.getTaskId())) {
             try {
+                tracer.emitEvent(CREATE_LOCAL_PLAN_START, null);
                 localExecutionPlan = planner.plan(
                         taskContext,
                         fragment.getRoot(),
@@ -80,6 +84,7 @@ public class SqlTaskExecutionFactory
                         fragment.getStageExecutionDescriptor(),
                         fragment.getPartitionedSources(),
                         outputBuffer);
+                tracer.emitEvent(CREATE_LOCAL_PLAN_END, null);
             }
             catch (Throwable e) {
                 // planning failed
@@ -96,6 +101,7 @@ public class SqlTaskExecutionFactory
                 localExecutionPlan,
                 taskExecutor,
                 taskNotificationExecutor,
-                splitMonitor);
+                splitMonitor,
+                tracer);
     }
 }

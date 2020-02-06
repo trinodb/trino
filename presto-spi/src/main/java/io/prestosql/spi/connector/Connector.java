@@ -15,6 +15,7 @@ package io.prestosql.spi.connector;
 
 import io.prestosql.spi.procedure.Procedure;
 import io.prestosql.spi.session.PropertyMetadata;
+import io.prestosql.spi.tracer.ConnectorTracerFactory;
 import io.prestosql.spi.transaction.IsolationLevel;
 
 import java.util.List;
@@ -47,6 +48,14 @@ public interface Connector
      * @throws UnsupportedOperationException if this connector does not support tables with splits
      */
     default ConnectorSplitManager getSplitManager()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
+     * @throws UnsupportedOperationException if this connector does not support tracer factories
+     */
+    default ConnectorTracerFactory getTracerFactory()
     {
         throw new UnsupportedOperationException();
     }

@@ -15,6 +15,7 @@ package io.prestosql.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
+import io.prestosql.spi.tracer.Tracer;
 
 import java.io.Closeable;
 
@@ -26,6 +27,8 @@ public interface SplitRunner
     ListenableFuture<?> processFor(Duration duration);
 
     String getInfo();
+
+    Tracer getTracer();
 
     @Override
     void close();

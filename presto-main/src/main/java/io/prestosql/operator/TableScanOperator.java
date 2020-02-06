@@ -14,6 +14,7 @@
 package io.prestosql.operator;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.prestosql.Session;
@@ -26,6 +27,7 @@ import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.UpdatablePageSource;
 import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.tracer.Tracer;
 import io.prestosql.split.EmptySplit;
 import io.prestosql.split.EmptySplitPageSource;
 import io.prestosql.split.PageSourceProvider;
@@ -41,6 +43,7 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
+import static io.prestosql.spi.tracer.TracerEventType.ADD_SPLIT_TO_OPERATOR;
 import static java.util.Objects.requireNonNull;
 
 public class TableScanOperator
@@ -95,16 +98,18 @@ public class TableScanOperator
         }
 
         @Override
-        public SourceOperator createOperator(DriverContext driverContext)
+        public SourceOperator createOperator(DriverContext driverContext, Tracer pipelineTracer)
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, sourceId, getOperatorType());
+            Tracer tracer = pipelineTracer.withOperatorId(String.valueOf(operatorId));
             return new TableScanOperator(
                     operatorContext,
                     sourceId,
                     pageSourceProvider,
                     table,
-                    columns);
+                    columns,
+                    tracer);
         }
 
         @Override
@@ -112,7 +117,8 @@ public class TableScanOperator
                 Session session,
                 MemoryTrackingContext memoryTrackingContext,
                 DriverYieldSignal yieldSignal,
-                WorkProcessor<Split> splits)
+                WorkProcessor<Split> splits,
+                Tracer tracer)
         {
             return new TableScanWorkProcessorOperator(
                     session,
@@ -137,6 +143,7 @@ public class TableScanOperator
     private final List<ColumnHandle> columns;
     private final LocalMemoryContext systemMemoryContext;
     private final SettableFuture<?> blocked = SettableFuture.create();
+    private final Tracer tracer;
 
     private Split split;
     private ConnectorPageSource source;
@@ -151,7 +158,8 @@ public class TableScanOperator
             PlanNodeId planNodeId,
             PageSourceProvider pageSourceProvider,
             TableHandle table,
-            Iterable<ColumnHandle> columns)
+            Iterable<ColumnHandle> columns,
+            Tracer tracer)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -159,6 +167,7 @@ public class TableScanOperator
         this.table = requireNonNull(table, "table is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext(TableScanOperator.class.getSimpleName());
+        this.tracer = requireNonNull(tracer, "tracer is null");
     }
 
     @Override
@@ -182,6 +191,8 @@ public class TableScanOperator
         if (finished) {
             return Optional::empty;
         }
+
+        tracer.emitEvent(ADD_SPLIT_TO_OPERATOR, () -> ImmutableMap.of("split", split));
 
         this.split = split;
 
@@ -281,7 +292,7 @@ public class TableScanOperator
             return null;
         }
         if (source == null) {
-            source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, table, columns, TupleDomain::all);
+            source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, table, columns, TupleDomain::all, tracer);
         }
 
         Page page = source.getNextPage();

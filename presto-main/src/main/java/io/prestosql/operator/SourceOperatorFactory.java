@@ -13,6 +13,7 @@
  */
 package io.prestosql.operator;
 
+import io.prestosql.spi.tracer.Tracer;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
 public interface SourceOperatorFactory
@@ -21,7 +22,7 @@ public interface SourceOperatorFactory
     PlanNodeId getSourceId();
 
     @Override
-    SourceOperator createOperator(DriverContext driverContext);
+    SourceOperator createOperator(DriverContext driverContext, Tracer pipelineTracer);
 
     @Override
     default OperatorFactory duplicate()

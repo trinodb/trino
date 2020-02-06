@@ -22,6 +22,7 @@ import io.airlift.stats.CpuTimer;
 import io.airlift.stats.TimeStat;
 import io.airlift.units.Duration;
 import io.prestosql.execution.SplitRunner;
+import io.prestosql.spi.tracer.Tracer;
 
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -29,6 +30,16 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static io.prestosql.operator.Operator.NOT_BLOCKED;
+import static io.prestosql.spi.tracer.TracerEventType.SPLIT_ADDED;
+import static io.prestosql.spi.tracer.TracerEventType.SPLIT_BLOCKED;
+import static io.prestosql.spi.tracer.TracerEventType.SPLIT_DESTROY_INVOKED;
+import static io.prestosql.spi.tracer.TracerEventType.SPLIT_DRIVER_CREATED;
+import static io.prestosql.spi.tracer.TracerEventType.SPLIT_ENDS_WAITING;
+import static io.prestosql.spi.tracer.TracerEventType.SPLIT_FINISHED;
+import static io.prestosql.spi.tracer.TracerEventType.SPLIT_SCHEDULED;
+import static io.prestosql.spi.tracer.TracerEventType.SPLIT_STARTS_WAITING;
+import static io.prestosql.spi.tracer.TracerEventType.SPLIT_UNBLOCKED;
+import static io.prestosql.spi.tracer.TracerEventType.SPLIT_UNSCHEDULED;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -72,6 +83,8 @@ public class PrioritizedSplitRunner
     private final TimeStat blockedQuantaWallTime;
     private final TimeStat unblockedQuantaWallTime;
 
+    private final Tracer tracer;
+
     PrioritizedSplitRunner(
             TaskHandle taskHandle,
             SplitRunner split,
@@ -90,6 +103,7 @@ public class PrioritizedSplitRunner
         this.globalScheduledTimeMicros = globalScheduledTimeMicros;
         this.blockedQuantaWallTime = blockedQuantaWallTime;
         this.unblockedQuantaWallTime = unblockedQuantaWallTime;
+        this.tracer = split.getTracer().withSplitId(String.valueOf(splitId));
 
         this.updateLevelPriority();
     }
@@ -118,6 +132,7 @@ public class PrioritizedSplitRunner
         catch (RuntimeException e) {
             log.error(e, "Error closing split for task %s", taskHandle.getTaskId());
         }
+        tracer.emitEvent(SPLIT_DESTROY_INVOKED, null);
     }
 
     public long getCreatedNanos()
@@ -238,6 +253,51 @@ public class PrioritizedSplitRunner
     public Priority getPriority()
     {
         return priority.get();
+    }
+
+    public void splitDriverCreated()
+    {
+        tracer.emitEvent(SPLIT_DRIVER_CREATED, null);
+    }
+
+    public void added()
+    {
+        tracer.emitEvent(SPLIT_ADDED, null);
+    }
+
+    public void addedToRunning()
+    {
+        tracer.emitEvent(SPLIT_SCHEDULED, null);
+    }
+
+    public void addedToWaiting()
+    {
+        tracer.emitEvent(SPLIT_STARTS_WAITING, null);
+    }
+
+    public void addedToBlocked()
+    {
+        tracer.emitEvent(SPLIT_BLOCKED, null);
+    }
+
+    public void removedFromRunning()
+    {
+        tracer.emitEvent(SPLIT_UNSCHEDULED, null);
+    }
+
+    public void removedFromWaiting()
+    {
+        tracer.emitEvent(SPLIT_ENDS_WAITING, null);
+    }
+
+    public void removedFromBlocked()
+    {
+        tracer.emitEvent(SPLIT_UNBLOCKED, null);
+    }
+
+    public void removed()
+    {
+        tracer.emitEvent(SPLIT_FINISHED, null);
     }
 
     public String getInfo()

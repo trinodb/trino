@@ -135,6 +135,8 @@ public class FeaturesConfig
     private int filterAndProjectMinOutputPageRowCount = 256;
     private int maxGroupingSets = 2048;
 
+    private boolean queryDebuggingTracerEnabled;
+
     public enum JoinReorderingStrategy
     {
         NONE,
@@ -1012,5 +1014,17 @@ public class FeaturesConfig
     {
         this.ignoreDownstreamPreferences = ignoreDownstreamPreferences;
         return this;
+    }
+
+    @Config("query-debugging-tracer-enabled")
+    public FeaturesConfig setQueryDebuggingTracerEnabled(boolean queryDebuggingTracerEnabled)
+    {
+        this.queryDebuggingTracerEnabled = queryDebuggingTracerEnabled;
+        return this;
+    }
+
+    public boolean isQueryDebuggingTracerEnabled()
+    {
+        return queryDebuggingTracerEnabled;
     }
 }

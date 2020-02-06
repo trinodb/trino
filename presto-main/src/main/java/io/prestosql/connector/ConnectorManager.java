@@ -48,11 +48,13 @@ import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.SystemTable;
 import io.prestosql.spi.procedure.Procedure;
 import io.prestosql.spi.session.PropertyMetadata;
+import io.prestosql.spi.tracer.ConnectorTracerFactory;
 import io.prestosql.split.PageSinkManager;
 import io.prestosql.split.PageSourceManager;
 import io.prestosql.split.RecordPageSourceProvider;
 import io.prestosql.split.SplitManager;
 import io.prestosql.sql.planner.NodePartitioningManager;
+import io.prestosql.tracer.TracerManager;
 import io.prestosql.transaction.TransactionManager;
 import io.prestosql.type.InternalTypeManager;
 import io.prestosql.version.EmbedVersion;
@@ -100,6 +102,7 @@ public class ConnectorManager
     private final NodeInfo nodeInfo;
     private final VersionEmbedder versionEmbedder;
     private final TransactionManager transactionManager;
+    private final TracerManager tracerManager;
 
     @GuardedBy("this")
     private final ConcurrentMap<String, InternalConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
@@ -125,7 +128,8 @@ public class ConnectorManager
             EmbedVersion embedVersion,
             PageSorter pageSorter,
             PageIndexerFactory pageIndexerFactory,
-            TransactionManager transactionManager)
+            TransactionManager transactionManager,
+            TracerManager tracerManager)
     {
         this.metadataManager = metadataManager;
         this.catalogManager = catalogManager;
@@ -142,6 +146,7 @@ public class ConnectorManager
         this.nodeInfo = nodeInfo;
         this.versionEmbedder = embedVersion;
         this.transactionManager = transactionManager;
+        this.tracerManager = tracerManager;
     }
 
     @PreDestroy
@@ -263,6 +268,9 @@ public class ConnectorManager
         connector.getSplitManager()
                 .ifPresent(connectorSplitManager -> splitManager.addConnectorSplitManager(catalogName, connectorSplitManager));
 
+        connector.getTracerFactory()
+            .ifPresent(connectorTracerFactory -> tracerManager.addConnectorTracerFactory(catalogName, connectorTracerFactory));
+
         connector.getPageSourceProvider()
                 .ifPresent(pageSourceProvider -> pageSourceManager.addConnectorPageSourceProvider(catalogName, pageSourceProvider));
 
@@ -303,6 +311,7 @@ public class ConnectorManager
     private synchronized void removeConnectorInternal(CatalogName catalogName)
     {
         splitManager.removeConnectorSplitManager(catalogName);
+        tracerManager.removeConnectorTracerFactory(catalogName);
         pageSourceManager.removeConnectorPageSourceProvider(catalogName);
         pageSinkManager.removeConnectorPageSinkProvider(catalogName);
         indexManager.removeIndexProvider(catalogName);
@@ -377,6 +386,7 @@ public class ConnectorManager
         private final Set<SystemTable> systemTables;
         private final Set<Procedure> procedures;
         private final Optional<ConnectorSplitManager> splitManager;
+        private final Optional<ConnectorTracerFactory> tracerFactory;
         private final Optional<ConnectorPageSourceProvider> pageSourceProvider;
         private final Optional<ConnectorPageSinkProvider> pageSinkProvider;
         private final Optional<ConnectorIndexProvider> indexProvider;
@@ -408,6 +418,14 @@ public class ConnectorManager
             catch (UnsupportedOperationException ignored) {
             }
             this.splitManager = Optional.ofNullable(splitManager);
+
+            ConnectorTracerFactory tracerFactory = null;
+            try {
+                tracerFactory = connector.getTracerFactory();
+            }
+            catch (UnsupportedOperationException ignored) {
+            }
+            this.tracerFactory = Optional.ofNullable(tracerFactory);
 
             ConnectorPageSourceProvider connectorPageSourceProvider = null;
             try {
@@ -506,6 +524,11 @@ public class ConnectorManager
         public Optional<ConnectorSplitManager> getSplitManager()
         {
             return splitManager;
+        }
+
+        public Optional<ConnectorTracerFactory> getTracerFactory()
+        {
+            return tracerFactory;
         }
 
         public Optional<ConnectorPageSourceProvider> getPageSourceProvider()

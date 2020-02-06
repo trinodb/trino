@@ -111,6 +111,7 @@ import static io.prestosql.sql.relational.Expressions.field;
 import static io.prestosql.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.testing.TestingTaskContext.createTaskContext;
+import static io.prestosql.tracer.NoOpTracerFactory.createNoOpTracer;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -497,7 +498,8 @@ public class TestOrcPageSourceMemoryTracking
                     TYPE_MANAGER,
                     ImmutableMap.of(),
                     Optional.empty(),
-                    false)
+                    false,
+                    Optional.empty())
                     .get();
         }
 
@@ -507,10 +509,10 @@ public class TestOrcPageSourceMemoryTracking
             SourceOperatorFactory sourceOperatorFactory = new TableScanOperatorFactory(
                     0,
                     new PlanNodeId("0"),
-                    (session, split, table, columnHandles, dynamicFilter) -> pageSource,
+                    (session, split, table, columnHandles, dynamicFilter, engineTracer) -> pageSource,
                     TEST_TABLE_HANDLE,
                     columns.stream().map(columnHandle -> (ColumnHandle) columnHandle).collect(toImmutableList()));
-            SourceOperator operator = sourceOperatorFactory.createOperator(driverContext);
+            SourceOperator operator = sourceOperatorFactory.createOperator(driverContext, createNoOpTracer());
             operator.addSplit(new Split(new CatalogName("test"), TestingSplit.createLocalSplit(), Lifespan.taskWide()));
             return operator;
         }
@@ -528,7 +530,7 @@ public class TestOrcPageSourceMemoryTracking
                     0,
                     new PlanNodeId("test"),
                     new PlanNodeId("0"),
-                    (session, split, table, columnHandles, dynamicFilter) -> pageSource,
+                    (session, split, table, columnHandles, dynamicFilter, engineTracer) -> pageSource,
                     cursorProcessor,
                     pageProcessor,
                     TEST_TABLE_HANDLE,
@@ -537,7 +539,7 @@ public class TestOrcPageSourceMemoryTracking
                     types,
                     new DataSize(0, BYTE),
                     0);
-            SourceOperator operator = sourceOperatorFactory.createOperator(driverContext);
+            SourceOperator operator = sourceOperatorFactory.createOperator(driverContext, createNoOpTracer());
             operator.addSplit(new Split(new CatalogName("test"), TestingSplit.createLocalSplit(), Lifespan.taskWide()));
             operator.noMoreSplits();
             return operator;

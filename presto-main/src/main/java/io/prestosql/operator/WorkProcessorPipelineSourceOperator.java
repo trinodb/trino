@@ -28,6 +28,7 @@ import io.prestosql.operator.OperationTimer.OperationTiming;
 import io.prestosql.operator.WorkProcessor.ProcessState;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.connector.UpdatablePageSource;
+import io.prestosql.spi.tracer.Tracer;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import javax.annotation.Nullable;
@@ -103,7 +104,8 @@ public class WorkProcessorPipelineSourceOperator
             int operatorId,
             DriverContext driverContext,
             WorkProcessorSourceOperatorFactory sourceOperatorFactory,
-            List<WorkProcessorOperatorFactory> operatorFactories)
+            List<WorkProcessorOperatorFactory> operatorFactories,
+            Tracer tracer)
     {
         requireNonNull(driverContext, "driverContext is null");
         requireNonNull(sourceOperatorFactory, "sourceOperatorFactory is null");
@@ -124,7 +126,8 @@ public class WorkProcessorPipelineSourceOperator
                 operatorContext.getSession(),
                 sourceOperatorMemoryTrackingContext,
                 operatorContext.getDriverContext().getYieldSignal(),
-                splits);
+                splits,
+                tracer);
         workProcessorOperatorContexts.add(new WorkProcessorOperatorContext(
                 sourceOperator,
                 sourceOperatorFactory.getOperatorId(),
@@ -704,10 +707,11 @@ public class WorkProcessorPipelineSourceOperator
         }
 
         @Override
-        public SourceOperator createOperator(DriverContext driverContext)
+        public SourceOperator createOperator(DriverContext driverContext, Tracer pipelineTracer)
         {
             checkState(!closed, "Factory is already closed");
-            return new WorkProcessorPipelineSourceOperator(operatorId, driverContext, sourceOperatorFactory, operatorFactories);
+            Tracer tracer = pipelineTracer.withOperatorId(String.valueOf(operatorId));
+            return new WorkProcessorPipelineSourceOperator(operatorId, driverContext, sourceOperatorFactory, operatorFactories, tracer);
         }
 
         @Override

@@ -18,6 +18,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.Duration;
 import io.prestosql.execution.SplitRunner;
+import io.prestosql.spi.tracer.Tracer;
 
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
@@ -27,6 +28,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static io.airlift.units.Duration.succinctNanos;
 import static io.prestosql.operator.Operator.NOT_BLOCKED;
+import static io.prestosql.tracer.NoOpTracerFactory.createNoOpTracer;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -204,6 +206,12 @@ abstract class SimulationSplit
         }
 
         @Override
+        public Tracer getTracer()
+        {
+            return createNoOpTracer();
+        }
+
+        @Override
         public String getInfo()
         {
             double pct = (100.0 * getCompletedProcessNanos() / super.scheduledTimeNanos);
@@ -282,6 +290,12 @@ abstract class SimulationSplit
                 return doneFuture;
             }
             return future;
+        }
+
+        @Override
+        public Tracer getTracer()
+        {
+            return createNoOpTracer();
         }
 
         @Override

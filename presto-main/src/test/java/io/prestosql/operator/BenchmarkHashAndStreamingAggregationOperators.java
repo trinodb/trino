@@ -63,6 +63,7 @@ import static io.prestosql.operator.BenchmarkHashAndStreamingAggregationOperator
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.prestosql.tracer.NoOpTracerFactory.createNoOpTracer;
 import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -207,7 +208,7 @@ public class BenchmarkHashAndStreamingAggregationOperators
     public List<Page> benchmark(Context context)
     {
         DriverContext driverContext = context.createTaskContext().addPipelineContext(0, true, true, false).addDriverContext();
-        Operator operator = context.getOperatorFactory().createOperator(driverContext);
+        Operator operator = context.getOperatorFactory().createOperator(driverContext, createNoOpTracer());
 
         Iterator<Page> input = context.getPages().iterator();
         ImmutableList.Builder<Page> outputPages = ImmutableList.builder();

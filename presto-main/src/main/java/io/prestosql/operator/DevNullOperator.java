@@ -14,6 +14,7 @@
 package io.prestosql.operator;
 
 import io.prestosql.spi.Page;
+import io.prestosql.spi.tracer.Tracer;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import static java.util.Objects.requireNonNull;
@@ -34,7 +35,7 @@ public class DevNullOperator
         }
 
         @Override
-        public Operator createOperator(DriverContext driverContext)
+        public Operator createOperator(DriverContext driverContext, Tracer pipelineTracer)
         {
             return new DevNullOperator(driverContext.addOperatorContext(operatorId, planNodeId, DevNullOperator.class.getSimpleName()));
         }

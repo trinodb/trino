@@ -15,6 +15,7 @@ package io.prestosql.orc;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
@@ -33,6 +34,7 @@ import io.prestosql.orc.metadata.PostScript.HiveWriterVersion;
 import io.prestosql.orc.stream.OrcChunkLoader;
 import io.prestosql.orc.stream.OrcInputStream;
 import io.prestosql.spi.Page;
+import io.prestosql.spi.tracer.ConnectorTracer;
 import io.prestosql.spi.type.Type;
 import org.joda.time.DateTimeZone;
 
@@ -49,6 +51,10 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.orc.OrcDecompressor.createOrcDecompressor;
+import static io.prestosql.orc.OrcTracerEventType.READ_ORC_COMPLETE_FOOTER_END;
+import static io.prestosql.orc.OrcTracerEventType.READ_ORC_COMPLETE_FOOTER_START;
+import static io.prestosql.orc.OrcTracerEventType.READ_ORC_TAIL_END;
+import static io.prestosql.orc.OrcTracerEventType.READ_ORC_TAIL_START;
 import static io.prestosql.orc.metadata.OrcColumnId.ROOT_COLUMN;
 import static io.prestosql.orc.metadata.PostScript.MAGIC;
 import static java.lang.Math.min;
@@ -77,19 +83,21 @@ public class OrcReader
     private final Footer footer;
     private final Metadata metadata;
     private final OrcColumn rootColumn;
+    private final Optional<ConnectorTracer> tracer;
 
     private final Optional<OrcWriteValidation> writeValidation;
 
-    public OrcReader(OrcDataSource orcDataSource, OrcReaderOptions options)
+    public OrcReader(OrcDataSource orcDataSource, OrcReaderOptions options, Optional<ConnectorTracer> tracer)
             throws IOException
     {
-        this(orcDataSource, options, Optional.empty());
+        this(orcDataSource, options, Optional.empty(), tracer);
     }
 
     private OrcReader(
             OrcDataSource orcDataSource,
             OrcReaderOptions options,
-            Optional<OrcWriteValidation> writeValidation)
+            Optional<OrcWriteValidation> writeValidation,
+            Optional<ConnectorTracer> tracer)
             throws IOException
     {
         this.options = requireNonNull(options, "options is null");
@@ -98,6 +106,7 @@ public class OrcReader
         this.metadataReader = new ExceptionWrappingMetadataReader(orcDataSource.getId(), new OrcMetadataReader());
 
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
+        this.tracer = requireNonNull(tracer, "tracer is null");
 
         //
         // Read the file tail:
@@ -115,7 +124,13 @@ public class OrcReader
 
         // Read the tail of the file
         int expectedBufferSize = toIntExact(min(size, EXPECTED_FOOTER_SIZE));
+        String path = orcDataSource.getId().toString();
+        tracer.ifPresent(connectorTracer -> connectorTracer.emitEvent(READ_ORC_TAIL_START, () -> ImmutableMap.of("path", path)));
         Slice buffer = orcDataSource.readFully(size - expectedBufferSize, expectedBufferSize);
+        tracer.ifPresent(connectorTracer -> connectorTracer.emitEvent(READ_ORC_TAIL_END,
+                () -> buffer == null ? null : (new ImmutableMap.Builder<String, Object>())
+                    .put("path", path)
+                    .put("orc tail", buffer.toString()).build()));
 
         // get length of PostScript - last byte of the file
         int postScriptSize = buffer.getUnsignedByte(buffer.length() - SIZE_OF_BYTE);
@@ -157,7 +172,10 @@ public class OrcReader
         int completeFooterSize = footerSize + metadataSize + postScriptSize + SIZE_OF_BYTE;
         if (completeFooterSize > buffer.length()) {
             // initial read was not large enough, so just read again with the correct size
+            tracer.ifPresent(connectorTracer -> connectorTracer.emitEvent(READ_ORC_COMPLETE_FOOTER_START, null));
             completeFooterSlice = orcDataSource.readFully(size - completeFooterSize, completeFooterSize);
+            tracer.ifPresent(connectorTracer -> connectorTracer.emitEvent(READ_ORC_COMPLETE_FOOTER_END,
+                    () -> completeFooterSlice == null ? null : ImmutableMap.of("orc footer", completeFooterSlice.toString())));
         }
         else {
             // footer is already in the bytes in buffer, just adjust position, length
@@ -276,7 +294,8 @@ public class OrcReader
                 systemMemoryUsage,
                 writeValidation,
                 initialBatchSize,
-                exceptionTransform);
+                exceptionTransform,
+                tracer);
     }
 
     private static OrcDataSource wrapWithCacheIfTiny(OrcDataSource dataSource, DataSize maxCacheSize)
@@ -373,7 +392,7 @@ public class OrcReader
             throws OrcCorruptionException
     {
         try {
-            OrcReader orcReader = new OrcReader(input, new OrcReaderOptions(), Optional.of(writeValidation));
+            OrcReader orcReader = new OrcReader(input, new OrcReaderOptions(), Optional.of(writeValidation), Optional.empty());
             try (OrcRecordReader orcRecordReader = orcReader.createRecordReader(
                     orcReader.getRootColumn().getNestedColumns(),
                     readTypes,

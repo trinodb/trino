@@ -50,6 +50,7 @@ import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.SystemSessionProperties.getDynamicFilteringMaxPerDriverRowCount;
 import static io.prestosql.SystemSessionProperties.getDynamicFilteringMaxPerDriverSize;
 import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.tracer.NoOpTracerFactory.createNoOpTracer;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
@@ -142,7 +143,7 @@ public class BenchmarkDynamicFilterSourceOperator
     public List<Page> dynamicFilterCollect(BenchmarkContext context)
     {
         DriverContext driverContext = context.createTaskContext().addPipelineContext(0, true, true, false).addDriverContext();
-        Operator operator = context.getOperatorFactory().createOperator(driverContext);
+        Operator operator = context.getOperatorFactory().createOperator(driverContext, createNoOpTracer());
 
         Iterator<Page> input = context.getPages().iterator();
         ImmutableList.Builder<Page> outputPages = ImmutableList.builder();

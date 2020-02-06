@@ -13,10 +13,18 @@
  */
 package io.prestosql.execution;
 
+import io.prestosql.spi.tracer.TracerEventType;
+
 import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.prestosql.spi.tracer.TracerEventType.TASK_STATE_CHANGE_ABORTED;
+import static io.prestosql.spi.tracer.TracerEventType.TASK_STATE_CHANGE_CANCELED;
+import static io.prestosql.spi.tracer.TracerEventType.TASK_STATE_CHANGE_FAILED;
+import static io.prestosql.spi.tracer.TracerEventType.TASK_STATE_CHANGE_FINISHED;
+import static io.prestosql.spi.tracer.TracerEventType.TASK_STATE_CHANGE_PLANNED;
+import static io.prestosql.spi.tracer.TracerEventType.TASK_STATE_CHANGE_RUNNING;
 
 public enum TaskState
 {
@@ -25,28 +33,70 @@ public enum TaskState
      * be in the planned state until, the dependencies of the task
      * have begun producing output.
      */
-    PLANNED(false),
+    PLANNED(false)
+    {
+        @Override
+        public TracerEventType toTracerEventType()
+        {
+            return TASK_STATE_CHANGE_PLANNED;
+        }
+    },
     /**
      * Task is running.
      */
-    RUNNING(false),
+    RUNNING(false)
+    {
+        @Override
+        public TracerEventType toTracerEventType()
+        {
+            return TASK_STATE_CHANGE_RUNNING;
+        }
+    },
     /**
      * Task has finished executing and all output has been consumed.
      */
-    FINISHED(true),
+    FINISHED(true)
+    {
+        @Override
+        public TracerEventType toTracerEventType()
+        {
+            return TASK_STATE_CHANGE_FINISHED;
+        }
+    },
     /**
      * Task was canceled by a user.
      */
-    CANCELED(true),
+    CANCELED(true)
+    {
+        @Override
+        public TracerEventType toTracerEventType()
+        {
+            return TASK_STATE_CHANGE_CANCELED;
+        }
+    },
     /**
      * Task was aborted due to a failure in the query.  The failure
      * was not in this task.
      */
-    ABORTED(true),
+    ABORTED(true)
+    {
+        @Override
+        public TracerEventType toTracerEventType()
+        {
+            return TASK_STATE_CHANGE_ABORTED;
+        }
+    },
     /**
      * Task execution failed.
      */
-    FAILED(true);
+    FAILED(true)
+    {
+        @Override
+        public TracerEventType toTracerEventType()
+        {
+            return TASK_STATE_CHANGE_FAILED;
+        }
+    };
 
     public static final Set<TaskState> TERMINAL_TASK_STATES = Stream.of(TaskState.values()).filter(TaskState::isDone).collect(toImmutableSet());
 
@@ -55,6 +105,11 @@ public enum TaskState
     TaskState(boolean doneState)
     {
         this.doneState = doneState;
+    }
+
+    public TracerEventType toTracerEventType()
+    {
+        throw new UnsupportedOperationException();
     }
 
     /**

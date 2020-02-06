@@ -61,6 +61,7 @@ import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.tracer.NoOpTracerFactory.createNoOpTracer;
 import static io.prestosql.util.StructuralTestUtil.mapType;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -207,7 +208,7 @@ public class BenchmarkUnnestOperator
     public List<Page> unnest(BenchmarkContext context)
     {
         DriverContext driverContext = context.createTaskContext().addPipelineContext(0, true, true, false).addDriverContext();
-        Operator operator = context.getOperatorFactory().createOperator(driverContext);
+        Operator operator = context.getOperatorFactory().createOperator(driverContext, createNoOpTracer());
 
         Iterator<Page> input = context.getPages().iterator();
         ImmutableList.Builder<Page> outputPages = ImmutableList.builder();

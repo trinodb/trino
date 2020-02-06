@@ -35,6 +35,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.FixedPageSource;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.tracer.ConnectorTracer;
 import io.prestosql.spi.type.Type;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -74,6 +75,8 @@ import static io.prestosql.plugin.hive.HiveSessionProperties.isOrcBloomFiltersEn
 import static io.prestosql.plugin.hive.HiveSessionProperties.isOrcNestedLazy;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isUseOrcColumnNames;
 import static io.prestosql.plugin.hive.orc.OrcPageSource.handleException;
+import static io.prestosql.plugin.hive.tracer.HiveTracerEventType.ORC_OPEN_FILE_END;
+import static io.prestosql.plugin.hive.tracer.HiveTracerEventType.ORC_OPEN_FILE_START;
 import static io.prestosql.plugin.hive.util.HiveUtil.isDeserializerClass;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -114,7 +117,8 @@ public class OrcPageSourceFactory
             Properties schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
-            DateTimeZone hiveStorageTimeZone)
+            DateTimeZone hiveStorageTimeZone,
+            Optional<ConnectorTracer> tracer)
     {
         if (!isDeserializerClass(schema, OrcSerde.class)) {
             return Optional.empty();
@@ -146,7 +150,8 @@ public class OrcPageSourceFactory
                         .withLazyReadSmallRanges(getOrcLazyReadSmallRanges(session))
                         .withNestedLazy(isOrcNestedLazy(session))
                         .withBloomFiltersEnabled(isOrcBloomFiltersEnabled(session)),
-                stats));
+                stats,
+                tracer));
     }
 
     private static OrcPageSource createOrcPageSource(
@@ -162,7 +167,8 @@ public class OrcPageSourceFactory
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone,
             OrcReaderOptions options,
-            FileFormatDataSourceStats stats)
+            FileFormatDataSourceStats stats,
+            Optional<ConnectorTracer> tracer)
     {
         for (HiveColumnHandle column : columns) {
             checkArgument(column.getColumnType() == REGULAR, "column type must be regular: %s", column);
@@ -172,7 +178,9 @@ public class OrcPageSourceFactory
         OrcDataSource orcDataSource;
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(sessionUser, path, configuration);
+            tracer.ifPresent(connectorTracer -> connectorTracer.emitEvent(ORC_OPEN_FILE_START, null));
             FSDataInputStream inputStream = hdfsEnvironment.doAs(sessionUser, () -> fileSystem.open(path));
+            tracer.ifPresent(connectorTracer -> connectorTracer.emitEvent(ORC_OPEN_FILE_END, null));
             orcDataSource = new HdfsOrcDataSource(
                     new OrcDataSourceId(path.toString()),
                     fileSize,
@@ -190,7 +198,7 @@ public class OrcPageSourceFactory
 
         AggregatedMemoryContext systemMemoryUsage = newSimpleAggregatedMemoryContext();
         try {
-            OrcReader reader = new OrcReader(orcDataSource, options);
+            OrcReader reader = new OrcReader(orcDataSource, options, tracer);
 
             if (useOrcColumnNames) {
                 verifyFileHasColumnNames(reader.getColumnNames(), path);

@@ -22,6 +22,7 @@ import io.prestosql.spi.eventlistener.EventListenerFactory;
 import io.prestosql.spi.eventlistener.QueryCompletedEvent;
 import io.prestosql.spi.eventlistener.QueryCreatedEvent;
 import io.prestosql.spi.eventlistener.SplitCompletedEvent;
+import io.prestosql.spi.eventlistener.TracerEvent;
 
 import java.io.File;
 import java.util.HashMap;
@@ -108,6 +109,13 @@ public class EventListenerManager
     {
         if (configuredEventListener.get().isPresent()) {
             configuredEventListener.get().get().splitCompleted(splitCompletedEvent);
+        }
+    }
+
+    public void tracerEventOccurred(TracerEvent tracerEvent)
+    {
+        if (configuredEventListener.get().isPresent()) {
+            configuredEventListener.get().get().tracerEventOccurred(tracerEvent);
         }
     }
 }

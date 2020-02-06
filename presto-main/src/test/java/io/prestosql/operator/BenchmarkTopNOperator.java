@@ -54,6 +54,7 @@ import static io.prestosql.spi.block.SortOrder.DESC_NULLS_LAST;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.tracer.NoOpTracerFactory.createNoOpTracer;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
@@ -156,7 +157,7 @@ public class BenchmarkTopNOperator
     public List<Page> topN(BenchmarkContext context)
     {
         DriverContext driverContext = context.createTaskContext().addPipelineContext(0, true, true, false).addDriverContext();
-        Operator operator = context.getOperatorFactory().createOperator(driverContext);
+        Operator operator = context.getOperatorFactory().createOperator(driverContext, createNoOpTracer());
 
         Iterator<Page> input = context.getPages().iterator();
         ImmutableList.Builder<Page> outputPages = ImmutableList.builder();

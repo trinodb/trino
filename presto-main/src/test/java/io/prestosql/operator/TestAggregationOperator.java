@@ -47,6 +47,7 @@ import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.TestingTaskContext.createTaskContext;
+import static io.prestosql.tracer.NoOpTracerFactory.createNoOpTracer;
 import static java.util.Collections.emptyIterator;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -183,7 +184,7 @@ public class TestAggregationOperator
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
 
-        try (Operator operator = operatorFactory.createOperator(driverContext)) {
+        try (Operator operator = operatorFactory.createOperator(driverContext, createNoOpTracer())) {
             assertTrue(operator.needsInput());
             operator.addInput(input);
 

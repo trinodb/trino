@@ -37,6 +37,7 @@ import io.prestosql.spiller.SpillSpaceTracker;
 import io.prestosql.sql.planner.LocalExecutionPlanner;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.testing.TestingSession;
+import io.prestosql.tracer.NoOpTracerFactory;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -306,6 +307,7 @@ public class TestMemoryRevokingScheduler
                 executor,
                 Functions.identity(),
                 new DataSize(32, MEGABYTE),
-                new CounterStat());
+                new CounterStat(),
+                new NoOpTracerFactory());
     }
 }

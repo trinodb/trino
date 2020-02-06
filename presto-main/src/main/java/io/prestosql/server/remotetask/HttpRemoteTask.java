@@ -16,6 +16,7 @@ package io.prestosql.server.remotetask;
 import com.google.common.base.Ticker;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 import com.google.common.net.HttpHeaders;
@@ -49,6 +50,7 @@ import io.prestosql.execution.buffer.PageBufferInfo;
 import io.prestosql.metadata.Split;
 import io.prestosql.operator.TaskStats;
 import io.prestosql.server.TaskUpdateRequest;
+import io.prestosql.spi.tracer.Tracer;
 import io.prestosql.sql.planner.PlanFragment;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanNodeId;
@@ -91,6 +93,8 @@ import static io.prestosql.execution.TaskState.ABORTED;
 import static io.prestosql.execution.TaskState.FAILED;
 import static io.prestosql.execution.TaskStatus.failWith;
 import static io.prestosql.server.remotetask.RequestErrorTracker.logError;
+import static io.prestosql.spi.tracer.TracerEventType.SEND_UPDATE_TASK_REQUEST_END;
+import static io.prestosql.spi.tracer.TracerEventType.SEND_UPDATE_TASK_REQUEST_START;
 import static io.prestosql.util.Failures.toFailure;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -114,6 +118,7 @@ public final class HttpRemoteTask
     private final RemoteTaskStats stats;
     private final TaskInfoFetcher taskInfoFetcher;
     private final ContinuousTaskStatusFetcher taskStatusFetcher;
+    private final Tracer tracer;
 
     @GuardedBy("this")
     private Future<?> currentRequest;
@@ -177,7 +182,8 @@ public final class HttpRemoteTask
             JsonCodec<TaskInfo> taskInfoCodec,
             JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
-            RemoteTaskStats stats)
+            RemoteTaskStats stats,
+            Tracer tracer)
     {
         requireNonNull(session, "session is null");
         requireNonNull(taskId, "taskId is null");
@@ -193,6 +199,7 @@ public final class HttpRemoteTask
         requireNonNull(taskUpdateRequestCodec, "taskUpdateRequestCodec is null");
         requireNonNull(partitionedSplitCountTracker, "partitionedSplitCountTracker is null");
         requireNonNull(stats, "stats is null");
+        requireNonNull(tracer, "tracer is null");
 
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             this.taskId = taskId;
@@ -210,6 +217,7 @@ public final class HttpRemoteTask
             this.updateErrorTracker = new RequestErrorTracker(taskId, location, maxErrorDuration, errorScheduledExecutor, "updating task");
             this.partitionedSplitCountTracker = requireNonNull(partitionedSplitCountTracker, "partitionedSplitCountTracker is null");
             this.stats = stats;
+            this.tracer = tracer;
 
             for (Entry<PlanNodeId, Split> entry : requireNonNull(initialSplits, "initialSplits is null").entries()) {
                 ScheduledSplit scheduledSplit = new ScheduledSplit(nextSplitId.getAndIncrement(), entry.getKey(), entry.getValue());
@@ -524,6 +532,8 @@ public final class HttpRemoteTask
 
         updateErrorTracker.startRequest();
 
+        tracer.emitEvent(SEND_UPDATE_TASK_REQUEST_START, () -> ImmutableMap.of("request", request.toString()));
+
         ListenableFuture<JsonResponse<TaskInfo>> future = httpClient.executeAsync(request, createFullJsonResponseHandler(taskInfoCodec));
         currentRequest = future;
         currentRequestStartNanos = System.nanoTime();
@@ -532,7 +542,7 @@ public final class HttpRemoteTask
         // and does so without grabbing the instance lock.
         needsUpdate.set(false);
 
-        Futures.addCallback(future, new SimpleHttpResponseHandler<>(new UpdateResponseHandler(sources), request.getUri(), stats), executor);
+        Futures.addCallback(future, new SimpleHttpResponseHandler<>(new UpdateResponseHandler(sources, tracer), request.getUri(), stats), executor);
     }
 
     private synchronized List<TaskSource> getSources()
@@ -754,16 +764,20 @@ public final class HttpRemoteTask
             implements SimpleHttpResponseCallback<TaskInfo>
     {
         private final List<TaskSource> sources;
+        private final Tracer tracer;
 
-        private UpdateResponseHandler(List<TaskSource> sources)
+        private UpdateResponseHandler(List<TaskSource> sources, Tracer tracer)
         {
             this.sources = ImmutableList.copyOf(requireNonNull(sources, "sources is null"));
+            this.tracer = requireNonNull(tracer, "tracer is null");
         }
 
         @Override
         public void success(TaskInfo value)
         {
             try (SetThreadName ignored = new SetThreadName("UpdateResponseHandler-%s", taskId)) {
+                tracer.emitEvent(SEND_UPDATE_TASK_REQUEST_END, () -> ImmutableMap.of("response", value.toString()));
+
                 try {
                     long currentRequestStartNanos;
                     synchronized (HttpRemoteTask.this) {
@@ -785,6 +799,8 @@ public final class HttpRemoteTask
         public void failed(Throwable cause)
         {
             try (SetThreadName ignored = new SetThreadName("UpdateResponseHandler-%s", taskId)) {
+                tracer.emitEvent(SEND_UPDATE_TASK_REQUEST_END, () -> ImmutableMap.of("error", cause == null ? null : cause.toString()));
+
                 try {
                     long currentRequestStartNanos;
                     synchronized (HttpRemoteTask.this) {
@@ -818,6 +834,8 @@ public final class HttpRemoteTask
         @Override
         public void fatal(Throwable cause)
         {
+            tracer.emitEvent(SEND_UPDATE_TASK_REQUEST_END, () -> ImmutableMap.of("error", cause == null ? null : cause.toString()));
+
             try (SetThreadName ignored = new SetThreadName("UpdateResponseHandler-%s", taskId)) {
                 failTask(cause);
             }

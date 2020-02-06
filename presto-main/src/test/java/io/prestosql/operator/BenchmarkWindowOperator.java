@@ -54,6 +54,7 @@ import static io.prestosql.operator.BenchmarkWindowOperator.Context.TOTAL_PAGES;
 import static io.prestosql.operator.TestWindowOperator.ROW_NUMBER;
 import static io.prestosql.operator.TestWindowOperator.createFactoryUnbounded;
 import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.tracer.NoOpTracerFactory.createNoOpTracer;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -231,7 +232,7 @@ public class BenchmarkWindowOperator
     public List<Page> benchmark(BenchmarkWindowOperator.Context context)
     {
         DriverContext driverContext = context.createTaskContext().addPipelineContext(0, true, true, false).addDriverContext();
-        Operator operator = context.getOperatorFactory().createOperator(driverContext);
+        Operator operator = context.getOperatorFactory().createOperator(driverContext, createNoOpTracer());
 
         Iterator<Page> input = context.getPages().iterator();
         ImmutableList.Builder<Page> outputPages = ImmutableList.builder();

@@ -19,12 +19,20 @@ import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.Split;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorOperationContext;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
 import io.prestosql.spi.connector.FixedPageSource;
 import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.tracer.ConnectorEventEmitter;
+import io.prestosql.spi.tracer.ConnectorTracer;
+import io.prestosql.spi.tracer.Tracer;
+import io.prestosql.tracer.TracerManager;
+
+import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Supplier;
@@ -37,6 +45,13 @@ public class PageSourceManager
         implements PageSourceProvider
 {
     private final ConcurrentMap<CatalogName, ConnectorPageSourceProvider> pageSourceProviders = new ConcurrentHashMap<>();
+    private final TracerManager tracerManager;
+
+    @Inject
+    public PageSourceManager(TracerManager tracerManager)
+    {
+        this.tracerManager = requireNonNull(tracerManager, "tracerManager is null");
+    }
 
     public void addConnectorPageSourceProvider(CatalogName catalogName, ConnectorPageSourceProvider pageSourceProvider)
     {
@@ -51,13 +66,15 @@ public class PageSourceManager
     }
 
     @Override
-    public ConnectorPageSource createPageSource(Session session, Split split, TableHandle table, List<ColumnHandle> columns, Supplier<TupleDomain<ColumnHandle>> dynamicFilter)
+    public ConnectorPageSource createPageSource(Session session, Split split, TableHandle table, List<ColumnHandle> columns, Supplier<TupleDomain<ColumnHandle>> dynamicFilter, Tracer engineTracer)
     {
         requireNonNull(columns, "columns is null");
         checkArgument(split.getCatalogName().equals(table.getCatalogName()), "mismatched split and table");
         CatalogName catalogName = split.getCatalogName();
 
         ConnectorPageSourceProvider provider = getPageSourceProvider(catalogName);
+        Optional<ConnectorTracer> tracer = tracerManager.getConnectorTracer(catalogName, new ConnectorEventEmitter(engineTracer));
+        ConnectorOperationContext connectorOperationContext = (new ConnectorOperationContext.Builder()).withConnectorTracer(tracer).build();
         TupleDomain<ColumnHandle> constraint = dynamicFilter.get();
         if (constraint.isAll()) {
             return provider.createPageSource(
@@ -65,7 +82,8 @@ public class PageSourceManager
                     session.toConnectorSession(catalogName),
                     split.getConnectorSplit(),
                     table.getConnectorHandle(),
-                    columns);
+                    columns,
+                    connectorOperationContext);
         }
         if (constraint.isNone()) {
             return new FixedPageSource(ImmutableList.of());
@@ -76,7 +94,8 @@ public class PageSourceManager
                 split.getConnectorSplit(),
                 table.getConnectorHandle(),
                 columns,
-                constraint);
+                constraint,
+                connectorOperationContext);
     }
 
     private ConnectorPageSourceProvider getPageSourceProvider(CatalogName catalogName)

@@ -49,6 +49,7 @@ import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.tracer.NoOpTracerFactory.createNoOpTracer;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -233,7 +234,7 @@ public class IndexLoader
 
         PageBuffer pageBuffer = new PageBuffer(100);
         DriverFactory driverFactory = indexBuildDriverFactoryProvider.createStreaming(pageBuffer, indexKeyTuple);
-        Driver driver = driverFactory.createDriver(pipelineContext.addDriverContext());
+        Driver driver = driverFactory.createDriver(pipelineContext.addDriverContext(), createNoOpTracer());
 
         PageRecordSet pageRecordSet = new PageRecordSet(keyTypes, indexKeyTuple);
         PlanNodeId planNodeId = driverFactory.getSourceId().get();
@@ -328,7 +329,7 @@ public class IndexLoader
             UnloadedIndexKeyRecordSet recordSetForLookupSource = new UnloadedIndexKeyRecordSet(pipelineContext.getSession(), indexSnapshotReference.get(), lookupSourceInputChannels, indexTypes, requests, joinCompiler);
 
             // Drive index lookup to produce the output (landing in indexSnapshotBuilder)
-            try (Driver driver = driverFactory.createDriver(pipelineContext.addDriverContext())) {
+            try (Driver driver = driverFactory.createDriver(pipelineContext.addDriverContext(), createNoOpTracer())) {
                 PlanNodeId sourcePlanNodeId = driverFactory.getSourceId().get();
                 ScheduledSplit split = new ScheduledSplit(0, sourcePlanNodeId, new Split(INDEX_CONNECTOR_ID, new IndexSplit(recordSetForLookupSource), Lifespan.taskWide()));
                 driver.updateSource(new TaskSource(sourcePlanNodeId, ImmutableSet.of(split), true));

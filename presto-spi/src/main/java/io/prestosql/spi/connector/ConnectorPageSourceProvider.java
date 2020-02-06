@@ -27,7 +27,8 @@ public interface ConnectorPageSourceProvider
             ConnectorSession session,
             ConnectorSplit split,
             ConnectorTableHandle table,
-            List<ColumnHandle> columns)
+            List<ColumnHandle> columns,
+            ConnectorOperationContext connectorOperationContext)
     {
         throw new UnsupportedOperationException("createPageSource() must be implemented");
     }
@@ -42,9 +43,10 @@ public interface ConnectorPageSourceProvider
             ConnectorSplit split,
             ConnectorTableHandle table,
             List<ColumnHandle> columns,
-            TupleDomain<ColumnHandle> dynamicFilter)
+            TupleDomain<ColumnHandle> dynamicFilter,
+            ConnectorOperationContext connectorOperationContext)
     {
         // By default, ignore dynamic filter (as it is an optimization and doesn't affect correctness).
-        return createPageSource(transaction, session, split, table, columns);
+        return createPageSource(transaction, session, split, table, columns, connectorOperationContext);
     }
 }

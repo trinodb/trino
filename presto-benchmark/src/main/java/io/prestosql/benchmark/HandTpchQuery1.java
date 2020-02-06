@@ -27,6 +27,7 @@ import io.prestosql.operator.aggregation.InternalAggregationFunction;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.block.Block;
+import io.prestosql.spi.tracer.Tracer;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.plan.AggregationNode.Step;
 import io.prestosql.sql.planner.plan.PlanNodeId;
@@ -152,7 +153,7 @@ public class HandTpchQuery1
             }
 
             @Override
-            public Operator createOperator(DriverContext driverContext)
+            public Operator createOperator(DriverContext driverContext, Tracer pipelineTracer)
             {
                 OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, new PlanNodeId("test"), TpchQuery1Operator.class.getSimpleName());
                 return new TpchQuery1Operator(operatorContext);

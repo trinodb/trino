@@ -23,6 +23,7 @@ import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.ValueSet;
+import io.prestosql.spi.tracer.Tracer;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeUtils;
 import io.prestosql.sql.planner.plan.PlanNodeId;
@@ -95,7 +96,7 @@ public class DynamicFilterSourceOperator
         }
 
         @Override
-        public Operator createOperator(DriverContext driverContext)
+        public Operator createOperator(DriverContext driverContext, Tracer pipelineTracer)
         {
             checkState(!closed, "Factory is already closed");
             return new DynamicFilterSourceOperator(

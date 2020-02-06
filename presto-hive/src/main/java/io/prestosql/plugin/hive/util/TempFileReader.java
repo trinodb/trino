@@ -26,6 +26,7 @@ import io.prestosql.spi.type.Type;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.util.List;
+import java.util.Optional;
 
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.orc.OrcReader.INITIAL_BATCH_SIZE;
@@ -43,7 +44,7 @@ public class TempFileReader
         requireNonNull(types, "types is null");
 
         try {
-            OrcReader orcReader = new OrcReader(dataSource, new OrcReaderOptions());
+            OrcReader orcReader = new OrcReader(dataSource, new OrcReaderOptions(), Optional.empty());
             reader = orcReader.createRecordReader(
                     orcReader.getRootColumn().getNestedColumns(),
                     types,

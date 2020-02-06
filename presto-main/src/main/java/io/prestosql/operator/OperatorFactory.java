@@ -14,10 +14,11 @@
 package io.prestosql.operator;
 
 import io.prestosql.execution.Lifespan;
+import io.prestosql.spi.tracer.Tracer;
 
 public interface OperatorFactory
 {
-    Operator createOperator(DriverContext driverContext);
+    Operator createOperator(DriverContext driverContext, Tracer pipelineTracer);
 
     /**
      * Declare that createOperator will not be called any more and release

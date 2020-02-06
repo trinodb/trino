@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.google.sheets;
 
+import io.prestosql.spi.connector.ConnectorOperationContext;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorSplitManager;
@@ -47,7 +48,8 @@ public class SheetsSplitManager
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorTableHandle connectorTableHandle,
-            SplitSchedulingStrategy splitSchedulingStrategy)
+            SplitSchedulingStrategy splitSchedulingStrategy,
+            ConnectorOperationContext connectorOperationContext)
     {
         SheetsTableHandle tableHandle = (SheetsTableHandle) connectorTableHandle;
         Optional<SheetsTable> table = sheetsClient.getTable(tableHandle.getTableName());

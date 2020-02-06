@@ -30,6 +30,7 @@ import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.SystemTable;
 import io.prestosql.spi.procedure.Procedure;
 import io.prestosql.spi.session.PropertyMetadata;
+import io.prestosql.spi.tracer.ConnectorTracerFactory;
 import io.prestosql.spi.transaction.IsolationLevel;
 
 import java.util.List;
@@ -51,6 +52,7 @@ public class HiveConnector
     private final ConnectorPageSourceProvider pageSourceProvider;
     private final ConnectorPageSinkProvider pageSinkProvider;
     private final ConnectorNodePartitioningProvider nodePartitioningProvider;
+    private final ConnectorTracerFactory tracerFactory;
     private final Set<SystemTable> systemTables;
     private final Set<Procedure> procedures;
     private final List<PropertyMetadata<?>> sessionProperties;
@@ -71,6 +73,7 @@ public class HiveConnector
             ConnectorPageSourceProvider pageSourceProvider,
             ConnectorPageSinkProvider pageSinkProvider,
             ConnectorNodePartitioningProvider nodePartitioningProvider,
+            ConnectorTracerFactory tracerFactory,
             Set<SystemTable> systemTables,
             Set<Procedure> procedures,
             List<PropertyMetadata<?>> sessionProperties,
@@ -87,6 +90,7 @@ public class HiveConnector
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
         this.nodePartitioningProvider = requireNonNull(nodePartitioningProvider, "nodePartitioningProvider is null");
+        this.tracerFactory = requireNonNull(tracerFactory, "connectorTracerFactory is null");
         this.systemTables = ImmutableSet.copyOf(requireNonNull(systemTables, "systemTables is null"));
         this.procedures = ImmutableSet.copyOf(requireNonNull(procedures, "procedures is null"));
         this.sessionProperties = ImmutableList.copyOf(requireNonNull(sessionProperties, "sessionProperties is null"));
@@ -115,6 +119,12 @@ public class HiveConnector
     public ConnectorSplitManager getSplitManager()
     {
         return splitManager;
+    }
+
+    @Override
+    public ConnectorTracerFactory getTracerFactory()
+    {
+        return tracerFactory;
     }
 
     @Override

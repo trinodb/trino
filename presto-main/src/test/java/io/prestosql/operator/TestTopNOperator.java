@@ -42,6 +42,7 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.TestingTaskContext.createTaskContext;
+import static io.prestosql.tracer.NoOpTracerFactory.createNoOpTracer;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertFalse;
@@ -173,7 +174,7 @@ public class TestTopNOperator
                 ImmutableList.of(0),
                 ImmutableList.of(DESC_NULLS_LAST));
 
-        try (Operator operator = factory.createOperator(driverContext)) {
+        try (Operator operator = factory.createOperator(driverContext, createNoOpTracer())) {
             assertNull(operator.getOutput());
             assertTrue(operator.isFinished());
             assertFalse(operator.needsInput());
@@ -198,7 +199,7 @@ public class TestTopNOperator
                 100,
                 ImmutableList.of(0),
                 ImmutableList.of(ASC_NULLS_LAST));
-        try (Operator operator = operatorFactory.createOperator(smallDiverContext)) {
+        try (Operator operator = operatorFactory.createOperator(smallDiverContext, createNoOpTracer())) {
             operator.addInput(input.get(0));
             operator.getOutput();
             fail("must fail because of exceeding local memory limit");

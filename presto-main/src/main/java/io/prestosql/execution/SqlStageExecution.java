@@ -28,6 +28,7 @@ import io.prestosql.failuredetector.FailureDetector;
 import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.Split;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.tracer.Tracer;
 import io.prestosql.split.RemoteSplit;
 import io.prestosql.sql.planner.PlanFragment;
 import io.prestosql.sql.planner.plan.PlanFragmentId;
@@ -65,6 +66,8 @@ import static io.prestosql.failuredetector.FailureDetector.State.GONE;
 import static io.prestosql.operator.ExchangeOperator.REMOTE_CONNECTOR_ID;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.StandardErrorCode.REMOTE_HOST_GONE;
+import static io.prestosql.spi.tracer.TracerEventType.ADD_SPLITS_TO_TASK;
+import static io.prestosql.spi.tracer.TracerEventType.SCHEDULE_TASK_WITH_SPLITS;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -103,6 +106,8 @@ public final class SqlStageExecution
 
     private final ListenerManager<Set<Lifespan>> completedLifespansChangeListeners = new ListenerManager<>();
 
+    private final Tracer tracer;
+
     public static SqlStageExecution createSqlStageExecution(
             StageId stageId,
             PlanFragment fragment,
@@ -113,7 +118,8 @@ public final class SqlStageExecution
             NodeTaskMap nodeTaskMap,
             ExecutorService executor,
             FailureDetector failureDetector,
-            SplitSchedulerStats schedulerStats)
+            SplitSchedulerStats schedulerStats,
+            Tracer tracer)
     {
         requireNonNull(stageId, "stageId is null");
         requireNonNull(fragment, "fragment is null");
@@ -131,12 +137,13 @@ public final class SqlStageExecution
                 nodeTaskMap,
                 summarizeTaskInfo,
                 executor,
-                failureDetector);
+                failureDetector,
+                tracer);
         sqlStageExecution.initialize();
         return sqlStageExecution;
     }
 
-    private SqlStageExecution(StageStateMachine stateMachine, RemoteTaskFactory remoteTaskFactory, NodeTaskMap nodeTaskMap, boolean summarizeTaskInfo, Executor executor, FailureDetector failureDetector)
+    private SqlStageExecution(StageStateMachine stateMachine, RemoteTaskFactory remoteTaskFactory, NodeTaskMap nodeTaskMap, boolean summarizeTaskInfo, Executor executor, FailureDetector failureDetector, Tracer tracer)
     {
         this.stateMachine = stateMachine;
         this.remoteTaskFactory = requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
@@ -152,6 +159,8 @@ public final class SqlStageExecution
             }
         }
         this.exchangeSources = fragmentToExchangeSource.build();
+        this.tracer = requireNonNull(tracer, "tracer is null");
+        this.stateMachine.addStateChangeListener((state) -> tracer.emitEvent(state.toTracerEventType(), null));
     }
 
     // this is a separate method to ensure that the `this` reference is not leaked during construction
@@ -394,6 +403,8 @@ public final class SqlStageExecution
         else {
             task = tasks.iterator().next();
             task.addSplits(splits);
+            Tracer taskTracer = tracer.withTaskId(String.valueOf(task.getTaskId().getId()));
+            taskTracer.emitEvent(ADD_SPLITS_TO_TASK, () -> ImmutableMap.of("splits", splits));
         }
         if (noMoreSplitsNotification.size() > 1) {
             // The assumption that `noMoreSplitsNotification.size() <= 1` currently holds.
@@ -433,7 +444,10 @@ public final class SqlStageExecution
                 totalPartitions,
                 outputBuffers,
                 nodeTaskMap.createPartitionedSplitCountTracker(node, taskId),
-                summarizeTaskInfo);
+                summarizeTaskInfo,
+                tracer);
+        Tracer taskTracer = tracer.withTaskId(String.valueOf(taskId.getId()));
+        taskTracer.emitEvent(SCHEDULE_TASK_WITH_SPLITS, () -> ImmutableMap.of("splits", sourceSplits));
 
         completeSources.forEach(task::noMoreSplits);
 

@@ -16,6 +16,7 @@ package io.prestosql.operator;
 import io.prestosql.Session;
 import io.prestosql.memory.context.MemoryTrackingContext;
 import io.prestosql.metadata.Split;
+import io.prestosql.spi.tracer.Tracer;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
 public interface WorkProcessorSourceOperatorFactory
@@ -32,5 +33,6 @@ public interface WorkProcessorSourceOperatorFactory
             Session session,
             MemoryTrackingContext memoryTrackingContext,
             DriverYieldSignal yieldSignal,
-            WorkProcessor<Split> splits);
+            WorkProcessor<Split> splits,
+            Tracer tracer);
 }

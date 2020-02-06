@@ -15,6 +15,7 @@ package io.prestosql.plugin.kudu;
 
 import com.google.inject.Inject;
 import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorOperationContext;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -39,7 +40,7 @@ public class KuduPageSourceProvider
     }
 
     @Override
-    public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<ColumnHandle> columns)
+    public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<ColumnHandle> columns, ConnectorOperationContext connectorOperationContext)
     {
         KuduRecordSet recordSet = (KuduRecordSet) recordSetProvider.getRecordSet(transaction, session, split, table, columns);
         if (columns.contains(KuduColumnHandle.ROW_ID_HANDLE)) {
