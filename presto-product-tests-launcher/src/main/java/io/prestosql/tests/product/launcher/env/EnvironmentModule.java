@@ -61,7 +61,6 @@ public final class EnvironmentModule
     public void configure(Binder binder)
     {
         binder.bind(EnvironmentFactory.class);
-        binder.bind(SelectedEnvironmentProvider.class);
         binder.bind(Standard.class);
         binder.bind(Hadoop.class);
         binder.bind(Kerberos.class);

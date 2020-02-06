@@ -22,10 +22,10 @@ import io.airlift.log.Logger;
 import io.prestosql.tests.product.launcher.Extensions;
 import io.prestosql.tests.product.launcher.LauncherModule;
 import io.prestosql.tests.product.launcher.env.Environment;
+import io.prestosql.tests.product.launcher.env.EnvironmentFactory;
 import io.prestosql.tests.product.launcher.env.EnvironmentModule;
 import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
 import io.prestosql.tests.product.launcher.env.Environments;
-import io.prestosql.tests.product.launcher.env.SelectedEnvironmentProvider;
 import io.prestosql.tests.product.launcher.testcontainers.TestcontainersUtil;
 import org.testcontainers.DockerClientFactory;
 
@@ -74,6 +74,9 @@ public final class EnvironmentUp
         @Option(name = "--background", title = "background", description = "keep containers running in the background once they are started")
         public boolean background;
 
+        @Option(name = "--environment", title = "environment", description = "the name of the environment to start", required = true)
+        public String environment;
+
         public Module toModule()
         {
             return binder -> binder.bind(EnvironmentUpOptions.class).toInstance(this);
@@ -83,16 +86,17 @@ public final class EnvironmentUp
     public static class Execution
             implements Runnable
     {
-        private final SelectedEnvironmentProvider selectedEnvironmentProvider;
+        private final EnvironmentFactory environmentFactory;
         private final boolean withoutPrestoMaster;
         private final boolean background;
+        private final String environment;
 
-        @Inject
-        public Execution(SelectedEnvironmentProvider selectedEnvironmentProvider, EnvironmentOptions options, EnvironmentUpOptions environmentUpOptions)
+        public Execution(EnvironmentFactory environmentFactory, EnvironmentOptions options, EnvironmentUpOptions environmentUpOptions)
         {
-            this.selectedEnvironmentProvider = requireNonNull(selectedEnvironmentProvider, "selectedEnvironmentProvider is null");
+            this.environmentFactory = requireNonNull(environmentFactory, "environmentFactory is null");
             this.withoutPrestoMaster = options.withoutPrestoMaster;
             this.background = environmentUpOptions.background;
+            this.environment = environmentUpOptions.environment;
         }
 
         @Override
@@ -101,7 +105,7 @@ public final class EnvironmentUp
             log.info("Pruning old environment(s)");
             Environments.pruneEnvironment();
 
-            Environment.Builder builder = selectedEnvironmentProvider.getEnvironment()
+            Environment.Builder builder = environmentFactory.get(environment)
                     .removeContainer("tests");
 
             if (withoutPrestoMaster) {
@@ -110,9 +114,9 @@ public final class EnvironmentUp
 
             Environment environment = builder.build();
 
-            log.info("Starting the environment '%s'", selectedEnvironmentProvider.getEnvironmentName());
+            log.info("Starting the environment '%s'", this.environment);
             environment.start();
-            log.info("Environment '%s' started", selectedEnvironmentProvider.getEnvironmentName());
+            log.info("Environment '%s' started", this.environment);
 
             if (background) {
                 killContainersReaperContainer();
