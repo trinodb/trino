@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
+import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
@@ -119,7 +120,7 @@ public class HiveConfig
     private Duration fileStatusCacheExpireAfterWrite = new Duration(1, MINUTES);
     private long fileStatusCacheMaxSize = 1000 * 1000;
     private List<String> fileStatusCacheTables = ImmutableList.of();
-    private boolean hiveViewsEnabled;
+    private boolean translateHiveViews;
 
     private Optional<Duration> hiveTransactionHeartbeatInterval = Optional.empty();
     private int hiveTransactionHeartbeatThreads = 5;
@@ -592,16 +593,17 @@ public class HiveConfig
         return this;
     }
 
-    public boolean isHiveViewsEnabled()
+    public boolean isTranslateHiveViews()
     {
-        return hiveViewsEnabled;
+        return translateHiveViews;
     }
 
-    @Config("hive.views-execution.enabled")
-    @ConfigDescription("Allow execution of Hive views")
-    public HiveConfig setHiveViewsEnabled(boolean hiveViewsEnabled)
+    @LegacyConfig("hive.views-execution.enabled")
+    @Config("hive.translate-hive-views")
+    @ConfigDescription("Experimental: Allow translation of Hive views into Presto views")
+    public HiveConfig setTranslateHiveViews(boolean translateHiveViews)
     {
-        this.hiveViewsEnabled = hiveViewsEnabled;
+        this.translateHiveViews = translateHiveViews;
         return this;
     }
 
