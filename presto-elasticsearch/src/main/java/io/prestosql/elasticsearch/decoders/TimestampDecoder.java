@@ -16,7 +16,6 @@ package io.prestosql.elasticsearch.decoders;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
-import org.elasticsearch.common.document.DocumentField;
 import org.elasticsearch.search.SearchHit;
 
 import java.time.DateTimeException;
@@ -34,10 +33,8 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static java.lang.String.format;
-import static java.time.format.DateTimeFormatter.ISO_DATE_TIME;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 import static java.time.temporal.ChronoField.HOUR_OF_DAY;
 import static java.time.temporal.ChronoField.MINUTE_OF_HOUR;
@@ -109,78 +106,43 @@ public class TimestampDecoder
     @Override
     public void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output)
     {
-        if (false) {
-
-            DocumentField documentField = hit.getFields().get(path);
-            if (documentField == null) {
-                output.appendNull();
-            }
-            else if (documentField.getValues().size() > 1) {
-                throw new PrestoException(TYPE_MISMATCH, "Expected single value for column: " + path);
+        Map<String, Object> documentMap = hit.getSourceAsMap();
+        Object documentField = null;
+        for (String subPath : path.split("\\.")) {
+            Object val = documentMap.get(subPath);
+            if (val instanceof Map) {
+                documentMap = ((Map<String, Object>) val);
             }
             else {
-                Object value = documentField.getValue();
-
-                LocalDateTime timestamp;
-                if (value instanceof String) {
-                    timestamp = ISO_DATE_TIME.parse((String) value, LocalDateTime::from);
-                }
-                else if (value instanceof Number) {
-                    timestamp = LocalDateTime.ofInstant(Instant.ofEpochMilli(((Number) value).longValue()), ZULU);
-                }
-                else {
-                    throw new PrestoException(NOT_SUPPORTED, format(
-                            "Unsupported representation for timestamp type: %s [%s]",
-                            value.getClass().getSimpleName(),
-                            value));
-                }
-
-                long epochMillis = timestamp.atZone(zoneId)
-                        .toInstant()
-                        .toEpochMilli();
-
-                TIMESTAMP.writeLong(output, epochMillis);
+                documentField = val;
             }
         }
-        else {
-            Map<String, Object> documentMap = hit.getSourceAsMap();
-            Object documentField = null;
-            for (String subPath : path.split("\\.")) {
-                Object val = documentMap.get(subPath);
-                if (val instanceof Map) {
-                    documentMap = ((Map<String, Object>) val);
-                }
-                else {
-                    documentField = val;
-                }
-            }
 
-            if (documentField == null) {
-                output.appendNull();
+        if (documentField == null) {
+            output.appendNull();
+        }
+        else {
+            Object value = documentField;
+
+            LocalDateTime timestamp;
+            if (value instanceof String) {
+                timestamp = STRICT_DATE_OPTIONAL_TIME_FORMATTER.parse((String) value, TimestampDecoder::query);
+            }
+            else if (value instanceof Number) {
+                timestamp = LocalDateTime.ofInstant(Instant.ofEpochMilli(((Number) value).longValue()), ZULU);
             }
             else {
-                Object value = documentField;
-
-                LocalDateTime timestamp;
-                if (value instanceof String) {
-                    timestamp = STRICT_DATE_OPTIONAL_TIME_FORMATTER.parse((String) value, TimestampDecoder::query);
-                }
-                else if (value instanceof Number) {
-                    timestamp = LocalDateTime.ofInstant(Instant.ofEpochMilli(((Number) value).longValue()), ZULU);
-                }
-                else {
-                    throw new PrestoException(NOT_SUPPORTED, format(
-                            "Unsupported representation for timestamp type: %s [%s]",
-                            value.getClass().getSimpleName(),
-                            value));
-                }
-
-                long epochMillis = timestamp.atZone(zoneId)
-                        .toInstant()
-                        .toEpochMilli();
-
-                TIMESTAMP.writeLong(output, epochMillis);
+                throw new PrestoException(NOT_SUPPORTED, format(
+                        "Unsupported representation for timestamp type: %s [%s]",
+                        value.getClass().getSimpleName(),
+                        value));
             }
+
+            long epochMillis = timestamp.atZone(zoneId)
+                    .toInstant()
+                    .toEpochMilli();
+
+            TIMESTAMP.writeLong(output, epochMillis);
         }
     }
 }
