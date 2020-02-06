@@ -544,6 +544,73 @@ public class TestElasticsearchIntegrationSmokeTest
     }
 
     @Test
+    public void testNestedTypeDataTypesNested()
+            throws IOException
+    {
+        String indexName = "nested_type_nested";
+
+        String mapping = "" +
+                "{" +
+                "  \"mappings\": {" +
+                "    \"doc\": {" +
+                "      \"properties\": {" +
+                "        \"nested_field\": {" +
+                "          \"type\":\"nested\"," +
+                "          \"properties\": {" +
+                "            \"boolean_column\":   { \"type\": \"boolean\" }," +
+                "            \"float_column\":     { \"type\": \"float\" }," +
+                "            \"double_column\":    { \"type\": \"double\" }," +
+                "            \"integer_column\":   { \"type\": \"integer\" }," +
+                "            \"long_column\":      { \"type\": \"long\" }," +
+                "            \"keyword_column\":   { \"type\": \"keyword\" }," +
+                "            \"text_column\":      { \"type\": \"text\" }," +
+                "            \"binary_column\":    { \"type\": \"binary\" }," +
+                "            \"timestamp_column\": { \"type\": \"date\" }" +
+                "          }" +
+                "        }" +
+                "      }" +
+                "    }" +
+                "  }" +
+                "}";
+
+        createIndex(indexName, mapping);
+
+        index(indexName, ImmutableMap.of(
+                "nested_field",
+                ImmutableMap.<String, Object>builder()
+                        .put("boolean_column", true)
+                        .put("float_column", 1.0f)
+                        .put("double_column", 1.0d)
+                        .put("integer_column", 1)
+                        .put("long_column", 1L)
+                        .put("keyword_column", "cool")
+                        .put("text_column", "some text")
+                        .put("binary_column", new byte[] {(byte) 0xCA, (byte) 0xFE})
+                        .put("timestamp_column", 0)
+                        .build()));
+
+        MaterializedResult rows = computeActual("" +
+                "SELECT " +
+                "nested_field.boolean_column, " +
+                "nested_field.float_column, " +
+                "nested_field.double_column, " +
+                "nested_field.integer_column, " +
+                "nested_field.long_column, " +
+                "nested_field.keyword_column, " +
+                "nested_field.text_column, " +
+                "nested_field.binary_column, " +
+                "nested_field.timestamp_column " +
+                "FROM nested_type_nested");
+
+        MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
+                .row(true, 1.0f, 1.0d, 1, 1L, "cool", "some text", new byte[] {(byte) 0xCA, (byte) 0xFE},
+                        LocalDateTime.of(1970, 1, 1, 0, 0))
+                .build();
+
+        assertEquals(rows.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
     public void testQueryString()
     {
         MaterializedResult actual = computeActual("SELECT count(*) FROM \"orders: +packages -slyly\"");
