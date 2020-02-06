@@ -388,9 +388,11 @@ class StatementAnalyzer
                     .collect(toImmutableList());
 
             if (!typesMatchForInsert(tableTypes, queryTypes)) {
-                throw semanticException(TYPE_MISMATCH, insert, "Insert query has mismatched column types: " +
-                        "Table: [" + Joiner.on(", ").join(tableTypes) + "], " +
-                        "Query: [" + Joiner.on(", ").join(queryTypes) + "]");
+                throw semanticException(TYPE_MISMATCH,
+                        insert,
+                        "Insert query has mismatched column types: Table: [%s], Query: [%s]",
+                        Joiner.on(", ").join(tableTypes),
+                        Joiner.on(", ").join(queryTypes));
             }
 
             return createAndAssignScope(insert, scope, Field.newUnqualified("rows", BIGINT));
@@ -2023,7 +2025,7 @@ class StatementAnalyzer
                     // analyze prefix as an 'asterisked identifier chain'
                     Optional<AsteriskedIdentifierChainBasis> identifierChainBasis = scope.resolveAsteriskedIdentifierChainBasis(prefix, allColumns);
                     if (!identifierChainBasis.isPresent()) {
-                        throw semanticException(TABLE_NOT_FOUND, allColumns, "Unable to resolve reference " + prefix);
+                        throw semanticException(TABLE_NOT_FOUND, allColumns, "Unable to resolve reference %s", prefix);
                     }
                     if (identifierChainBasis.get().getBasisType() == TABLE) {
                         RelationType relationType = identifierChainBasis.get().getRelationType().get();
