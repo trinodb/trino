@@ -26,6 +26,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
 import io.prestosql.hadoop.TextLineLengthLimitExceededException;
+import io.prestosql.plugin.hive.HiveCatalogName;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HivePartitionKey;
 import io.prestosql.plugin.hive.HiveType;
@@ -45,6 +46,7 @@ import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeId;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.VarbinaryType;
 import io.prestosql.spi.type.VarcharType;
@@ -123,6 +125,7 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static io.prestosql.plugin.hive.HiveMetadata.SKIP_FOOTER_COUNT_KEY;
 import static io.prestosql.plugin.hive.HiveMetadata.SKIP_HEADER_COUNT_KEY;
 import static io.prestosql.plugin.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
+import static io.prestosql.plugin.hive.HiveQlTranslation.translateHiveQlToPrestoSql;
 import static io.prestosql.plugin.hive.HiveType.toHiveTypes;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.copy;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.toJobConf;
@@ -663,6 +666,20 @@ public final class HiveUtil
         data = data.substring(0, data.length() - VIEW_SUFFIX.length());
         byte[] bytes = Base64.getDecoder().decode(data);
         return VIEW_CODEC.fromJson(bytes);
+    }
+
+    public static ConnectorViewDefinition buildHiveViewConnectorDefinition(HiveCatalogName catalogName, Table view)
+    {
+        return new ConnectorViewDefinition(
+                translateHiveQlToPrestoSql(view.getViewExpandedText().get()),
+                Optional.of(catalogName.toString()),
+                Optional.ofNullable(view.getDatabaseName()),
+                view.getDataColumns().stream()
+                        .map(column -> new ConnectorViewDefinition.ViewColumn(column.getName(), TypeId.of(column.getType().getTypeSignature().toString())))
+                        .collect(toImmutableList()),
+                Optional.ofNullable(view.getOwner()),
+                Optional.empty(), // no comment
+                false); // don't run as invoker);
     }
 
     public static Optional<DecimalType> getDecimalType(HiveType hiveType)

@@ -115,7 +115,7 @@ public final class SqlServerQueryRunner
                 ImmutableMap.of(),
                 ImmutableList.of());
 
-        Logger log = Logger.get(DistributedQueryRunner.class);
+        Logger log = Logger.get(SqlServerQueryRunner.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }

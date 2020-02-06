@@ -16,6 +16,7 @@ package io.prestosql.server;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ListMultimap;
 
+import javax.annotation.Nullable;
 import javax.servlet.AsyncContext;
 import javax.servlet.DispatcherType;
 import javax.servlet.RequestDispatcher;
@@ -36,6 +37,8 @@ import java.util.Collection;
 import java.util.Enumeration;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 import static java.util.Collections.emptyEnumeration;
 import static java.util.Collections.enumeration;
@@ -46,11 +49,20 @@ public class MockHttpServletRequest
 {
     private final ListMultimap<String, String> headers;
     private final String remoteAddress;
+    @Nullable
+    private final Principal userPrincipal;
+    private final ConcurrentMap<String, Object> attributes = new ConcurrentHashMap<>();
 
     public MockHttpServletRequest(ListMultimap<String, String> headers, String remoteAddress)
     {
+        this(headers, remoteAddress, null);
+    }
+
+    public MockHttpServletRequest(ListMultimap<String, String> headers, String remoteAddress, Principal userPrincipal)
+    {
         this.headers = ImmutableListMultimap.copyOf(requireNonNull(headers, "headers is null"));
         this.remoteAddress = requireNonNull(remoteAddress, "remoteAddress is null");
+        this.userPrincipal = userPrincipal;
     }
 
     @Override
@@ -146,7 +158,7 @@ public class MockHttpServletRequest
     @Override
     public Principal getUserPrincipal()
     {
-        return null;
+        return userPrincipal;
     }
 
     @Override
@@ -254,13 +266,13 @@ public class MockHttpServletRequest
     @Override
     public Object getAttribute(String name)
     {
-        throw new UnsupportedOperationException();
+        return attributes.get(name);
     }
 
     @Override
     public Enumeration<String> getAttributeNames()
     {
-        throw new UnsupportedOperationException();
+        return enumeration(attributes.keySet());
     }
 
     @Override
@@ -368,13 +380,13 @@ public class MockHttpServletRequest
     @Override
     public void setAttribute(String name, Object o)
     {
-        throw new UnsupportedOperationException();
+        attributes.put(name, o);
     }
 
     @Override
     public void removeAttribute(String name)
     {
-        throw new UnsupportedOperationException();
+        attributes.remove(name);
     }
 
     @Override

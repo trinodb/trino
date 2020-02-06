@@ -66,23 +66,17 @@ public class HiveModule
     @Override
     public void configure(Binder binder)
     {
+        binder.install(new HiveHdfsModule());
+
         binder.bind(TypeTranslator.class).toInstance(new HiveTypeTranslator());
         binder.bind(CoercionPolicy.class).to(HiveCoercionPolicy.class).in(Scopes.SINGLETON);
 
-        binder.bind(HdfsConfigurationInitializer.class).in(Scopes.SINGLETON);
-        newSetBinder(binder, DynamicConfigurationProvider.class);
-        binder.bind(HdfsConfiguration.class).to(HiveHdfsConfiguration.class).in(Scopes.SINGLETON);
-        binder.bind(HdfsEnvironment.class).in(Scopes.SINGLETON);
         binder.bind(DirectoryLister.class).to(CachingDirectoryLister.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(HiveConfig.class);
-        configBinder(binder).bindConfig(HdfsConfig.class);
 
         binder.bind(HiveSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(HiveTableProperties.class).in(Scopes.SINGLETON);
         binder.bind(HiveAnalyzeProperties.class).in(Scopes.SINGLETON);
-
-        binder.bind(NamenodeStats.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(NamenodeStats.class).withGeneratedName();
 
         binder.bind(PrestoS3ClientFactory.class).in(Scopes.SINGLETON);
 

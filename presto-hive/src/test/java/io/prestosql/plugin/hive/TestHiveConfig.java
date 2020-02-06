@@ -54,6 +54,7 @@ public class TestHiveConfig
                 .setMaxConcurrentFileRenames(20)
                 .setMaxConcurrentMetastoreDrops(20)
                 .setRecursiveDirWalkerEnabled(false)
+                .setIgnoreAbsentPartitions(false)
                 .setHiveStorageFormat(HiveStorageFormat.ORC)
                 .setHiveCompressionCodec(HiveCompressionCodec.GZIP)
                 .setRespectTableFormat(true)
@@ -87,6 +88,7 @@ public class TestHiveConfig
                 .setFileStatusCacheExpireAfterWrite(new Duration(1, TimeUnit.MINUTES))
                 .setFileStatusCacheMaxSize(1000 * 1000)
                 .setFileStatusCacheTables("")
+                .setHiveViewsEnabled(false)
                 .setHiveTransactionHeartbeatInterval(null)
                 .setHiveTransactionHeartbeatThreads(5));
     }
@@ -112,6 +114,7 @@ public class TestHiveConfig
                 .put("hive.domain-compaction-threshold", "42")
                 .put("hive.writer-sort-buffer-size", "13MB")
                 .put("hive.recursive-directories", "true")
+                .put("hive.ignore-absent-partitions", "true")
                 .put("hive.storage-format", "SEQUENCEFILE")
                 .put("hive.compression-codec", "NONE")
                 .put("hive.respect-table-format", "false")
@@ -148,6 +151,7 @@ public class TestHiveConfig
                 .put("hive.file-status-cache-tables", "foo.bar1, foo.bar2")
                 .put("hive.file-status-cache-size", "1000")
                 .put("hive.file-status-cache-expire-time", "30m")
+                .put("hive.views-execution.enabled", "true")
                 .put("hive.transaction-heartbeat-interval", "10s")
                 .put("hive.transaction-heartbeat-threads", "10")
                 .build();
@@ -173,6 +177,7 @@ public class TestHiveConfig
                 .setMaxConcurrentFileRenames(100)
                 .setMaxConcurrentMetastoreDrops(100)
                 .setRecursiveDirWalkerEnabled(true)
+                .setIgnoreAbsentPartitions(true)
                 .setHiveStorageFormat(HiveStorageFormat.SEQUENCEFILE)
                 .setHiveCompressionCodec(HiveCompressionCodec.NONE)
                 .setRespectTableFormat(false)
@@ -206,6 +211,7 @@ public class TestHiveConfig
                 .setFileStatusCacheTables("foo.bar1,foo.bar2")
                 .setFileStatusCacheMaxSize(1000)
                 .setFileStatusCacheExpireAfterWrite(new Duration(30, TimeUnit.MINUTES))
+                .setHiveViewsEnabled(true)
                 .setHiveTransactionHeartbeatInterval(new Duration(10, TimeUnit.SECONDS))
                 .setHiveTransactionHeartbeatThreads(10);
 

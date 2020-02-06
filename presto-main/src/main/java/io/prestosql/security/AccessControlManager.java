@@ -180,6 +180,16 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanImpersonateUser(Identity identity, String userName)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(userName, "userName is null");
+
+        systemAuthorizationCheck(control -> control.checkCanImpersonateUser(new SystemSecurityContext(identity), userName));
+    }
+
+    @Override
+    @Deprecated
     public void checkCanSetUser(Optional<Principal> principal, String userName)
     {
         requireNonNull(principal, "principal is null");
@@ -787,6 +797,12 @@ public class AccessControlManager
     {
         @Override
         public void checkCanSetUser(Optional<Principal> principal, String userName)
+        {
+            throw new PrestoException(SERVER_STARTING_UP, "Presto server is still initializing");
+        }
+
+        @Override
+        public void checkCanImpersonateUser(SystemSecurityContext context, String userName)
         {
             throw new PrestoException(SERVER_STARTING_UP, "Presto server is still initializing");
         }

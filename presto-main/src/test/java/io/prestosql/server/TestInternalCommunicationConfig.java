@@ -29,13 +29,12 @@ public class TestInternalCommunicationConfig
     {
         assertRecordedDefaults(recordDefaults(InternalCommunicationConfig.class)
                 .setSharedSecret(null)
+                .setInternalJwtEnabled(true)
                 .setHttpsRequired(false)
                 .setKeyStorePath(null)
                 .setKeyStorePassword(null)
                 .setTrustStorePath(null)
-                .setTrustStorePassword(null)
-                .setKerberosEnabled(false)
-                .setKerberosUseCanonicalHostname(true));
+                .setTrustStorePassword(null));
     }
 
     @Test
@@ -43,24 +42,22 @@ public class TestInternalCommunicationConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("internal-communication.shared-secret", "secret")
+                .put("internal-communication.jwt.enabled", "false")
                 .put("internal-communication.https.required", "true")
                 .put("internal-communication.https.keystore.path", "key-path")
                 .put("internal-communication.https.keystore.key", "key-key")
                 .put("internal-communication.https.truststore.path", "trust-path")
                 .put("internal-communication.https.truststore.key", "trust-key")
-                .put("internal-communication.kerberos.enabled", "true")
-                .put("internal-communication.kerberos.use-canonical-hostname", "false")
                 .build();
 
         InternalCommunicationConfig expected = new InternalCommunicationConfig()
                 .setSharedSecret("secret")
+                .setInternalJwtEnabled(false)
                 .setHttpsRequired(true)
                 .setKeyStorePath("key-path")
                 .setKeyStorePassword("key-key")
                 .setTrustStorePath("trust-path")
-                .setTrustStorePassword("trust-key")
-                .setKerberosEnabled(true)
-                .setKerberosUseCanonicalHostname(false);
+                .setTrustStorePassword("trust-key");
 
         assertFullMapping(properties, expected);
     }

@@ -40,7 +40,7 @@ broken.
 * Install [Docker for Mac](https://docs.docker.com/docker-for-mac/)
 
 * Add entries in `/etc/hosts` for all services running in docker containers:
-`hadoop-master`, `mysql`, `postgres`, `cassandra`, `presto-master`.
+`hadoop-master`, `postgres`, `cassandra`, `presto-master`.
 They should point to your external IP address (shown by `ifconfig` on your Mac, not inside Docker).
 
 * The default memory setting of 2GB might not be sufficient for some profiles like `singlenode-ldap`.
@@ -110,12 +110,6 @@ where profile is one of either:
  OpenLDAP server, one running with SSL/TLS certificates installed on top of a
  single node Presto installation, and one with a pseudo-distributed Hadoop
  installation.
-- **singlenode-sqlserver** - pseudo-distributed Hadoop installation running on
- a single Docker container, a single node installation of Presto
- also running on a single Docker container and one running SQL Server server.
- While running tests on ``singlenode-sqlserver`` make sure to exclude
- `mysql` and `postgresql` tests i.e.
- `-x mysql, postgresql`.
 - **two-kerberos-hives** - two pseudo-distributed Hadoop installations running on
  a single Docker containers. Both Hadoop (Hive) installations are kerberized.
  A single node installation of kerberized Presto also
@@ -183,7 +177,6 @@ groups.
 | HDFS impersonation    | ``hdfs_impersonation``    | ``singlenode-hdfs-impersonation``, ``singlenode-kerberos-hdfs-impersonation``    |
 | No HDFS impersonation | ``hdfs_no_impersonation`` | ``singlenode``, ``singlenode-kerberos-hdfs-no_impersonation``                    |
 | LDAP                  | ``ldap``                  | ``singlenode-ldap``                                                              |
-| SQL Server            | ``sqlserver``             | ``singlenode-sqlserver``                                                         |
 
 Below is a list of commands that explain how to run these profile specific tests
 and also the entire test suite:
@@ -208,11 +201,6 @@ and also the entire test suite:
 
     ```
     presto-product-tests/bin/run_on_docker.sh singlenode-ldap -g ldap
-    ```
-* Run **SQL Server** tests:
-
-    ```
-    presto-product-tests/bin/run_on_docker.sh singlenode-sqlserver -g sqlserver
     ```
 
 * Run the **entire test suite** excluding all profile specific tests, where &lt;profile> can

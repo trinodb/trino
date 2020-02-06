@@ -40,5 +40,5 @@ public abstract class AbstractEnvironmentProvider
         return builder;
     }
 
-    protected void extendEnvironment(Environment.Builder builder) {}
+    protected abstract void extendEnvironment(Environment.Builder builder);
 }

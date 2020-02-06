@@ -40,6 +40,7 @@ import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.text.NumberFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -49,6 +50,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -1248,6 +1250,17 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip(uuidDataType, java.util.UUID.fromString("123e4567-e89b-12d3-a456-426655440000"));
     }
 
+    @Test
+    public void testMoney()
+    {
+        DataTypeTest.create()
+                .addRoundTrip(moneyDataType(), null)
+                .addRoundTrip(moneyDataType(), 10.)
+                .addRoundTrip(moneyDataType(), 10.54)
+                .addRoundTrip(moneyDataType(), 10_000_000.42)
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.presto_test_money"));
+    }
+
     private void testUnsupportedDataTypeAsIgnored(String dataTypeName, String databaseValue)
     {
         JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl());
@@ -1408,6 +1421,18 @@ public class TestPostgreSqlTypeMapping
                 VARBINARY,
                 bytes -> format("bytea E'\\\\x%s'", base16().encode(bytes)),
                 identity());
+    }
+
+    private static DataType<Double> moneyDataType()
+    {
+        return dataType(
+                "money",
+                VARCHAR,
+                String::valueOf,
+                amount -> {
+                    NumberFormat numberFormat = NumberFormat.getCurrencyInstance(Locale.US);
+                    return numberFormat.format(amount);
+                });
     }
 
     private Session sessionWithArrayAsArray()

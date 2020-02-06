@@ -68,11 +68,13 @@ public final class EnvironmentUp
             implements Runnable
     {
         private final SelectedEnvironmentProvider selectedEnvironmentProvider;
+        private final boolean withoutPrestoMaster;
 
         @Inject
-        public Execution(SelectedEnvironmentProvider selectedEnvironmentProvider)
+        public Execution(SelectedEnvironmentProvider selectedEnvironmentProvider, EnvironmentOptions options)
         {
             this.selectedEnvironmentProvider = requireNonNull(selectedEnvironmentProvider, "selectedEnvironmentProvider is null");
+            this.withoutPrestoMaster = options.withoutPrestoMaster;
         }
 
         @Override
@@ -81,9 +83,14 @@ public final class EnvironmentUp
             log.info("Pruning old environment(s)");
             Environments.pruneEnvironment();
 
-            Environment environment = selectedEnvironmentProvider.getEnvironment()
-                    .removeContainer("tests")
-                    .build();
+            Environment.Builder builder = selectedEnvironmentProvider.getEnvironment()
+                    .removeContainer("tests");
+
+            if (withoutPrestoMaster) {
+                builder.removeContainer("presto-master");
+            }
+
+            Environment environment = builder.build();
 
             log.info("Starting the environment '%s'", selectedEnvironmentProvider.getEnvironmentName());
             environment.start();

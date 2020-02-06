@@ -146,6 +146,10 @@ Property Name                                      Description                  
                                                    ignored. This is equivalent to the
                                                    ``hive.mapred.supports.subdirectories`` property in Hive.
 
+``hive.ignore-absent-partitions``                  Ignore partitions when the file system location does not     ``false``
+                                                   exist rather than failing the query. This skips data that
+                                                   may be expected to be part of the table.
+
 ``hive.storage-format``                            The default file format used when creating new tables.       ``ORC``
 
 ``hive.compression-codec``                         The compression codec to use when writing files.             ``GZIP``
@@ -201,7 +205,7 @@ Property Name                                      Description                  
                                                    tables in the schemas ``schema1`` and ``schema2``.
                                                    ``*`` to cache directory listing for all tables.
 
-``hive.file-status-cache-size``                    Maximum no. of file status entries cached for a path.        10,00,000
+``hive.file-status-cache-size``                    Maximum no. of file status entries cached for a path.        1,000,000
 
 ``hive.file-status-cache-expire-time``             Duration of time after a directory listing is cached that it ``1m``
                                                    should be automatically removed from cache.

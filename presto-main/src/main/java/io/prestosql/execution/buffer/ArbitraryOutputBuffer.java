@@ -371,7 +371,6 @@ public class ArbitraryOutputBuffer
         }
     }
 
-    @GuardedBy("this")
     private void checkFlushComplete()
     {
         // This buffer type assigns each page to a single, arbitrary reader,

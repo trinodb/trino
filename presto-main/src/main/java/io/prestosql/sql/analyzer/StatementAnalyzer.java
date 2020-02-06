@@ -344,7 +344,7 @@ class StatementAnalyzer
                     .map(ColumnMetadata::getName)
                     .collect(toImmutableList());
 
-            // analyze target table layout
+            // analyze target table layout, table columns should contain all partition columns
             Optional<NewTableLayout> newTableLayout = metadata.getInsertLayout(session, targetTableHandle.get());
             newTableLayout.ifPresent(layout -> {
                 if (!ImmutableSet.copyOf(tableColumns).containsAll(layout.getPartitionColumns())) {
@@ -594,11 +594,18 @@ class StatementAnalyzer
                     .map(ColumnMetadata::getName)
                     .collect(toImmutableSet());
 
-            newTableLayout.ifPresent(layout -> {
+            if (newTableLayout.isPresent()) {
+                NewTableLayout layout = newTableLayout.get();
                 if (!columnNames.containsAll(layout.getPartitionColumns())) {
-                    throw new PrestoException(NOT_SUPPORTED, "INSERT must write all distribution columns: " + layout.getPartitionColumns());
+                    if (layout.getLayout().getPartitioning().isPresent()) {
+                        throw new PrestoException(NOT_SUPPORTED, "INSERT must write all distribution columns: " + layout.getPartitionColumns());
+                    }
+                    else {
+                        // created table does not contain all columns required by preferred layout
+                        newTableLayout = Optional.empty();
+                    }
                 }
-            });
+            }
 
             analysis.setCreate(new Analysis.Create(
                     Optional.of(targetTable),

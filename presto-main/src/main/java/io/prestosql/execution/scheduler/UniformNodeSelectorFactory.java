@@ -41,7 +41,7 @@ import static java.util.Objects.requireNonNull;
 public class UniformNodeSelectorFactory
         implements NodeSelectorFactory
 {
-    private static final Logger LOG = Logger.get(NodeScheduler.class);
+    private static final Logger LOG = Logger.get(UniformNodeSelectorFactory.class);
 
     private final Cache<InternalNode, Boolean> inaccessibleNodeLogCache = CacheBuilder.newBuilder()
             .expireAfterWrite(30, TimeUnit.SECONDS)

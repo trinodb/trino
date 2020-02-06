@@ -49,6 +49,13 @@ public abstract class ForwardingAccessControl
     protected abstract AccessControl delegate();
 
     @Override
+    public void checkCanImpersonateUser(Identity identity, String userName)
+    {
+        delegate().checkCanImpersonateUser(identity, userName);
+    }
+
+    @Override
+    @Deprecated
     public void checkCanSetUser(Optional<Principal> principal, String userName)
     {
         delegate().checkCanSetUser(principal, userName);

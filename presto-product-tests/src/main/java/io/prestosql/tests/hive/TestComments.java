@@ -13,7 +13,6 @@
  */
 package io.prestosql.tests.hive;
 
-import io.airlift.log.Logger;
 import io.prestosql.tempto.AfterTestWithContext;
 import io.prestosql.tempto.BeforeTestWithContext;
 import io.prestosql.tempto.ProductTest;
@@ -35,13 +34,8 @@ public class TestComments
     @AfterTestWithContext
     public void dropTestTable()
     {
-        try {
-            query("DROP TABLE IF EXISTS " + COMMENT_TABLE_NAME);
-            query("DROP TABLE IF EXISTS " + COMMENT_COLUMN_NAME);
-        }
-        catch (Exception e) {
-            Logger.get(getClass()).warn(e, "failed to drop table");
-        }
+        query("DROP TABLE IF EXISTS " + COMMENT_TABLE_NAME);
+        query("DROP TABLE IF EXISTS " + COMMENT_COLUMN_NAME);
     }
 
     @Test(groups = COMMENT)

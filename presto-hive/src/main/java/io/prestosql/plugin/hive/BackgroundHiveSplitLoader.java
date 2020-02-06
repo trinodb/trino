@@ -122,6 +122,7 @@ public class BackgroundHiveSplitLoader
     private final DirectoryLister directoryLister;
     private final int loaderConcurrency;
     private final boolean recursiveDirWalkerEnabled;
+    private final boolean ignoreAbsentPartitions;
     private final Executor executor;
     private final ConnectorSession session;
     private final ConcurrentLazyQueue<HivePartitionMetadata> partitions;
@@ -160,6 +161,7 @@ public class BackgroundHiveSplitLoader
             Executor executor,
             int loaderConcurrency,
             boolean recursiveDirWalkerEnabled,
+            boolean ignoreAbsentPartitions,
             Optional<ValidWriteIdList> validWriteIds)
     {
         this.table = table;
@@ -171,6 +173,7 @@ public class BackgroundHiveSplitLoader
         this.namenodeStats = namenodeStats;
         this.directoryLister = directoryLister;
         this.recursiveDirWalkerEnabled = recursiveDirWalkerEnabled;
+        this.ignoreAbsentPartitions = ignoreAbsentPartitions;
         this.executor = executor;
         this.partitions = new ConcurrentLazyQueue<>(partitions);
         this.hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
@@ -467,7 +470,7 @@ public class BackgroundHiveSplitLoader
 
     private Iterator<InternalHiveSplit> createInternalHiveSplitIterator(Path path, FileSystem fileSystem, InternalHiveSplitFactory splitFactory, boolean splittable)
     {
-        return Streams.stream(new HiveFileIterator(table, path, fileSystem, directoryLister, namenodeStats, recursiveDirWalkerEnabled ? RECURSE : IGNORED))
+        return Streams.stream(new HiveFileIterator(table, path, fileSystem, directoryLister, namenodeStats, recursiveDirWalkerEnabled ? RECURSE : IGNORED, ignoreAbsentPartitions))
                 .map(status -> splitFactory.createInternalHiveSplit(status, splittable))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
@@ -484,7 +487,7 @@ public class BackgroundHiveSplitLoader
         // list all files in the partition
         List<LocatedFileStatus> files = new ArrayList<>(partitionBucketCount);
         try {
-            Iterators.addAll(files, new HiveFileIterator(table, path, fileSystem, directoryLister, namenodeStats, FAIL));
+            Iterators.addAll(files, new HiveFileIterator(table, path, fileSystem, directoryLister, namenodeStats, FAIL, ignoreAbsentPartitions));
         }
         catch (NestedDirectoryNotAllowedException e) {
             // Fail here to be on the safe side. This seems to be the same as what Hive does

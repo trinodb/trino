@@ -18,7 +18,7 @@ import io.airlift.airline.CommandFactory;
 import io.airlift.airline.Help;
 import io.prestosql.tests.product.launcher.Extensions;
 
-public final class Launcher
+public class Launcher
 {
     public static void main(String[] args)
     {

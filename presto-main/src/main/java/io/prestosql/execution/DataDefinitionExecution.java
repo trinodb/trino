@@ -242,6 +242,12 @@ public class DataDefinitionExecution<T extends Statement>
     }
 
     @Override
+    public boolean shouldWaitForMinWorkers()
+    {
+        return false;
+    }
+
+    @Override
     public void pruneInfo()
     {
         // no-op

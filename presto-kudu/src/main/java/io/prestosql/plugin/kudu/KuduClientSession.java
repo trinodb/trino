@@ -76,8 +76,8 @@ import static org.apache.kudu.client.KuduPredicate.ComparisonOp.LESS_EQUAL;
 
 public class KuduClientSession
 {
+    private static final Logger log = Logger.get(KuduClientSession.class);
     public static final String DEFAULT_SCHEMA = "default";
-    private final Logger log = Logger.get(getClass());
     private final KuduClient client;
     private final SchemaEmulation schemaEmulation;
 

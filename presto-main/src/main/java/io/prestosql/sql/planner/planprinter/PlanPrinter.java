@@ -39,7 +39,6 @@ import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.statistics.ColumnStatisticMetadata;
 import io.prestosql.spi.statistics.TableStatisticType;
 import io.prestosql.spi.type.Type;
-import io.prestosql.sql.DynamicFilters;
 import io.prestosql.sql.planner.OrderingScheme;
 import io.prestosql.sql.planner.Partitioning;
 import io.prestosql.sql.planner.PartitioningScheme;
@@ -802,13 +801,6 @@ public class PlanPrinter
 
             sourceNode.accept(this, context);
             return null;
-        }
-
-        private String printDynamicFilters(Collection<DynamicFilters.Descriptor> filters)
-        {
-            return filters.stream()
-                    .map(filter -> filter.getId() + " -> " + filter.getInput())
-                    .collect(Collectors.joining(", ", "{", "}"));
         }
 
         private String printDynamicFilterAssignments(Map<String, Symbol> filters)

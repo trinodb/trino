@@ -64,6 +64,51 @@ public class TestFileBasedSystemAccessControl
     private static final CatalogSchemaName aliceSchema = new CatalogSchemaName("alice-catalog", "schema");
 
     @Test
+    public void testCanImpersonateUserOperations()
+    {
+        TransactionManager transactionManager = createTestTransactionManager();
+        AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "catalog_impersonation.json");
+
+        accessControlManager.checkCanImpersonateUser(Identity.ofUser("alice"), "bob");
+        accessControlManager.checkCanImpersonateUser(Identity.ofUser("alice"), "charlie");
+        try {
+            accessControlManager.checkCanImpersonateUser(Identity.ofUser("alice"), "admin");
+            throw new AssertionError("expected AccessDeniedException");
+        }
+        catch (AccessDeniedException expected) {
+        }
+
+        accessControlManager.checkCanImpersonateUser(Identity.ofUser("admin"), "alice");
+        accessControlManager.checkCanImpersonateUser(Identity.ofUser("admin"), "bob");
+        accessControlManager.checkCanImpersonateUser(Identity.ofUser("admin"), "anything");
+        accessControlManager.checkCanImpersonateUser(Identity.ofUser("admin-other"), "anything");
+        try {
+            accessControlManager.checkCanImpersonateUser(Identity.ofUser("admin-test"), "alice");
+            throw new AssertionError("expected AccessDeniedException");
+        }
+        catch (AccessDeniedException expected) {
+        }
+
+        try {
+            accessControlManager.checkCanImpersonateUser(Identity.ofUser("invalid"), "alice");
+            throw new AssertionError("expected AccessDeniedException");
+        }
+        catch (AccessDeniedException expected) {
+        }
+
+        accessControlManager.checkCanImpersonateUser(Identity.ofUser("anything"), "test");
+        try {
+            accessControlManager.checkCanImpersonateUser(Identity.ofUser("invalid-other"), "test");
+            throw new AssertionError("expected AccessDeniedException");
+        }
+        catch (AccessDeniedException expected) {
+        }
+
+        accessControlManager = newAccessControlManager(transactionManager, "catalog_principal.json");
+        accessControlManager.checkCanImpersonateUser(Identity.ofUser("anything"), "anythingElse");
+    }
+
+    @Test
     public void testCanSetUserOperations()
     {
         TransactionManager transactionManager = createTestTransactionManager();

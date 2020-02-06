@@ -44,7 +44,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -208,11 +207,21 @@ public class ElasticsearchMetadata
         else if (type instanceof ObjectType) {
             ObjectType objectType = (ObjectType) type;
 
-            List<RowType.Field> fields = objectType.getFields().stream()
-                    .map(field -> RowType.field(field.getName(), toPrestoType(field)))
-                    .collect(toImmutableList());
+            ImmutableList.Builder<RowType.Field> builder = ImmutableList.builder();
+            for (IndexMetadata.Field field : objectType.getFields()) {
+                Type prestoType = toPrestoType(field);
+                if (prestoType != null) {
+                    builder.add(RowType.field(field.getName(), prestoType));
+                }
+            }
 
-            return RowType.from(fields);
+            List<RowType.Field> fields = builder.build();
+
+            if (!fields.isEmpty()) {
+                return RowType.from(fields);
+            }
+
+            // otherwise, skip -- row types must have at least 1 field
         }
 
         return null;

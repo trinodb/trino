@@ -49,6 +49,12 @@ public abstract class ForwardingSystemAccessControl
     protected abstract SystemAccessControl delegate();
 
     @Override
+    public void checkCanImpersonateUser(SystemSecurityContext context, String userName)
+    {
+        delegate().checkCanImpersonateUser(context, userName);
+    }
+
+    @Override
     public void checkCanSetUser(Optional<Principal> principal, String userName)
     {
         delegate().checkCanSetUser(principal, userName);

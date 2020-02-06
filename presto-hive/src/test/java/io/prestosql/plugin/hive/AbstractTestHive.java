@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.json.JsonCodec;
-import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
@@ -65,6 +64,7 @@ import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorInsertTableHandle;
 import io.prestosql.spi.connector.ConnectorMetadata;
+import io.prestosql.spi.connector.ConnectorNewTableLayout;
 import io.prestosql.spi.connector.ConnectorOutputTableHandle;
 import io.prestosql.spi.connector.ConnectorPageSink;
 import io.prestosql.spi.connector.ConnectorPageSinkProvider;
@@ -718,7 +718,7 @@ public abstract class AbstractTestHive
 
         hdfsEnvironment = new HdfsEnvironment(createTestHdfsConfiguration(), new HdfsConfig(), new NoHdfsAuthentication());
         HiveMetastore metastore = cachingHiveMetastore(
-                new BridgingHiveMetastore(new ThriftHiveMetastore(metastoreLocator, new ThriftMetastoreConfig(), new HiveAuthenticationConfig(), hdfsEnvironment)),
+                new BridgingHiveMetastore(new ThriftHiveMetastore(metastoreLocator, new HiveConfig(), new ThriftMetastoreConfig(), new HiveAuthenticationConfig(), hdfsEnvironment)),
                 executor,
                 Duration.valueOf("1m"),
                 Optional.of(Duration.valueOf("15s")),
@@ -737,6 +737,7 @@ public abstract class AbstractTestHive
         locationService = new HiveLocationService(hdfsEnvironment);
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
         metadataFactory = new HiveMetadataFactory(
+                new HiveCatalogName("hive"),
                 metastoreClient,
                 hdfsEnvironment,
                 partitionManager,
@@ -748,6 +749,7 @@ public abstract class AbstractTestHive
                 false,
                 false,
                 true,
+                false,
                 1000,
                 Optional.empty(),
                 TYPE_MANAGER,
@@ -3021,6 +3023,7 @@ public abstract class AbstractTestHive
                 Optional.empty(),
                 ImmutableList.of(new ViewColumn("test", BIGINT.getTypeId())),
                 Optional.empty(),
+                Optional.empty(),
                 true);
 
         try (Transaction transaction = newTransaction()) {
@@ -4211,9 +4214,6 @@ public abstract class AbstractTestHive
 
             transaction.commit();
         }
-        catch (Exception e) {
-            Logger.get(getClass()).warn(e, "failed to drop table");
-        }
     }
 
     protected ConnectorTableHandle getTableHandle(ConnectorMetadata metadata, SchemaTableName tableName)
@@ -4574,6 +4574,58 @@ public abstract class AbstractTestHive
                         .add(new TransactionDeleteInsertTestCase(true, false, COMMIT, Optional.of(new DropPartitionFailure())))
                         .add(new TransactionDeleteInsertTestCase(true, true, COMMIT, Optional.empty()))
                         .build());
+    }
+
+    @Test
+    public void testPreferredInsertLayout()
+            throws Exception
+    {
+        SchemaTableName tableName = temporaryTable("empty_partitioned_table");
+
+        try {
+            Column partitioningColumn = new Column("column2", HIVE_STRING, Optional.empty());
+            List<Column> columns = ImmutableList.of(
+                    new Column("column1", HIVE_STRING, Optional.empty()),
+                    partitioningColumn);
+            createEmptyTable(tableName, ORC, columns, ImmutableList.of(partitioningColumn));
+
+            try (Transaction transaction = newTransaction()) {
+                ConnectorMetadata metadata = transaction.getMetadata();
+                ConnectorSession session = newSession();
+                ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
+                Optional<ConnectorNewTableLayout> insertLayout = metadata.getInsertLayout(session, tableHandle);
+                assertTrue(insertLayout.isPresent());
+                assertFalse(insertLayout.get().getPartitioning().isPresent());
+                assertEquals(insertLayout.get().getPartitionColumns(), ImmutableList.of(partitioningColumn.getName()));
+            }
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testPreferredCreateTableLayout()
+    {
+        try (Transaction transaction = newTransaction()) {
+            ConnectorMetadata metadata = transaction.getMetadata();
+            ConnectorSession session = newSession();
+            Optional<ConnectorNewTableLayout> newTableLayout = metadata.getNewTableLayout(
+                    session,
+                    new ConnectorTableMetadata(
+                            new SchemaTableName("schema", "table"),
+                            ImmutableList.of(
+                                    new ColumnMetadata("column1", BIGINT),
+                                    new ColumnMetadata("column2", BIGINT)),
+                            ImmutableMap.of(
+                                    PARTITIONED_BY_PROPERTY, ImmutableList.of("column2"),
+                                    BUCKETED_BY_PROPERTY, ImmutableList.of(),
+                                    BUCKET_COUNT_PROPERTY, 0,
+                                    SORTED_BY_PROPERTY, ImmutableList.of())));
+            assertTrue(newTableLayout.isPresent());
+            assertFalse(newTableLayout.get().getPartitioning().isPresent());
+            assertEquals(newTableLayout.get().getPartitionColumns(), ImmutableList.of("column2"));
+        }
     }
 
     protected void doTestTransactionDeleteInsert(HiveStorageFormat storageFormat, boolean allowInsertExisting, List<TransactionDeleteInsertTestCase> testCases)

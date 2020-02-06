@@ -71,6 +71,7 @@
         <dependency>
             <groupId>redis.clients</groupId>
             <artifactId>jedis</artifactId>
+            <version>2.6.2</version>
         </dependency>
 
         <dependency>
@@ -167,8 +168,8 @@
         </dependency>
 
         <dependency>
-            <groupId>com.orange.redis-embedded</groupId>
-            <artifactId>embedded-redis</artifactId>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
             <scope>test</scope>
         </dependency>
 
