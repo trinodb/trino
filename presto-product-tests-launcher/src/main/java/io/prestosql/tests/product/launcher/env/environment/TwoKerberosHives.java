@@ -102,6 +102,16 @@ public final class TwoKerberosHives
                     .withFileSystemBind(
                             dockerFiles.getDockerFilesHostPath("conf/environment/two-kerberos-hives/hive2.properties"),
                             CONTAINER_PRESTO_ETC + "/catalog/hive2.properties",
+                            READ_ONLY)
+
+                    .withFileSystemBind(
+                            dockerFiles.getDockerFilesHostPath("conf/environment/two-kerberos-hives/iceberg1.properties"),
+                            CONTAINER_PRESTO_ETC + "/catalog/iceberg1.properties",
+                            READ_ONLY)
+
+                    .withFileSystemBind(
+                            dockerFiles.getDockerFilesHostPath("conf/environment/two-kerberos-hives/iceberg2.properties"),
+                            CONTAINER_PRESTO_ETC + "/catalog/iceberg2.properties",
                             READ_ONLY);
         });
 
