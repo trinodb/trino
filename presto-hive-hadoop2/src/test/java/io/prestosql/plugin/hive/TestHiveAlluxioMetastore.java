@@ -210,6 +210,12 @@ public class TestHiveAlluxioMetastore
     }
 
     @Override
+    public void testPreferredInsertLayout()
+    {
+        // Alluxio metastore does not support insert operations
+    }
+
+    @Override
     public void testStorePartitionWithStatistics()
     {
         // Alluxio metastore does not support create operations
