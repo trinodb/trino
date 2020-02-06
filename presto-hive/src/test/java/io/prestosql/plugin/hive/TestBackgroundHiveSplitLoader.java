@@ -52,7 +52,6 @@ import java.io.File;
 import java.net.URI;
 import java.nio.file.Files;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -404,34 +403,31 @@ public class TestBackgroundHiveSplitLoader
                 tablePath + "/delta_0000002_0000002_0000/bucket_00000",
                 tablePath + "/delta_0000003_0000003_0000/bucket_00000");
 
-        try {
-            for (String path : filePaths) {
-                File file = new File(path);
-                assertTrue(file.getParentFile().mkdirs(), "Failed creating directory " + file.getParentFile());
-                file.createNewFile();
-            }
-
-            // ValidWriteIdList is of format <currentTxn>$<schema>.<table>:<highWatermark>:<minOpenWriteId>::<AbortedTxns>
-            // This writeId list has high watermark transaction=3 and aborted transaction=2
-            String validWriteIdsList = format("4$%s.%s:3:9223372036854775807::2", table.getDatabaseName(), table.getTableName());
-
-            BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
-                    HDFS_ENVIRONMENT,
-                    TupleDomain.none(),
-                    Optional.empty(),
-                    table,
-                    Optional.empty(),
-                    Optional.of(new ValidReaderWriteIdList(validWriteIdsList)));
-
-            HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
-            backgroundHiveSplitLoader.start(hiveSplitSource);
-            List<String> splits = drain(hiveSplitSource);
-            assertTrue(splits.stream().anyMatch(p -> p.contains(filePaths.get(0))), format("%s not found in splits %s", filePaths.get(0), splits));
-            assertTrue(splits.stream().anyMatch(p -> p.contains(filePaths.get(2))), format("%s not found in splits %s", filePaths.get(2), splits));
+        for (String path : filePaths) {
+            File file = new File(path);
+            assertTrue(file.getParentFile().mkdirs(), "Failed creating directory " + file.getParentFile());
+            assertTrue(file.createNewFile(), "Failed to create file");
         }
-        finally {
-            Files.walk(tablePath).sorted(Comparator.reverseOrder()).map(java.nio.file.Path::toFile).forEach(File::delete);
-        }
+
+        // ValidWriteIdList is of format <currentTxn>$<schema>.<table>:<highWatermark>:<minOpenWriteId>::<AbortedTxns>
+        // This writeId list has high watermark transaction=3 and aborted transaction=2
+        String validWriteIdsList = format("4$%s.%s:3:9223372036854775807::2", table.getDatabaseName(), table.getTableName());
+
+        BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
+                HDFS_ENVIRONMENT,
+                TupleDomain.none(),
+                Optional.empty(),
+                table,
+                Optional.empty(),
+                Optional.of(new ValidReaderWriteIdList(validWriteIdsList)));
+
+        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
+        backgroundHiveSplitLoader.start(hiveSplitSource);
+        List<String> splits = drain(hiveSplitSource);
+        assertTrue(splits.stream().anyMatch(p -> p.contains(filePaths.get(0))), format("%s not found in splits %s", filePaths.get(0), splits));
+        assertTrue(splits.stream().anyMatch(p -> p.contains(filePaths.get(2))), format("%s not found in splits %s", filePaths.get(2), splits));
+
+        deleteRecursively(tablePath, ALLOW_INSECURE);
     }
 
     @Test
