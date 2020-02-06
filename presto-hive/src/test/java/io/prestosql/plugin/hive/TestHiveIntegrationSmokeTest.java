@@ -1177,6 +1177,40 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testUnregisterRegisterPartition()
+    {
+        String tableName = "test_register_partition_for_table";
+        assertUpdate("" +
+                "CREATE TABLE " + tableName + " (" +
+                "  dummy_col bigint," +
+                "  part varchar)" +
+                "WITH (" +
+                "  partitioned_by = ARRAY['part'] " +
+                ")");
+
+        assertQuery(format("SELECT count(*) FROM \"%s$partitions\"", tableName), "SELECT 0");
+
+        assertUpdate(format("INSERT INTO %s (dummy_col, part) VALUES (1, 'first'), (2, 'second'), (3, 'third')", tableName), 3);
+        List<MaterializedRow> paths = getQueryRunner().execute(getSession(), "SELECT \"$path\" FROM " + tableName + " ORDER BY \"$path\" ASC").toTestTypes().getMaterializedRows();
+        assertEquals(paths.size(), 3);
+
+        String firstPartition = new Path((String) paths.get(0).getField(0)).getParent().toString();
+
+        assertQueryFails(format("CALL system.unregister_partition('%s', '%s', ARRAY['part'], ARRAY['empty'])", TPCH_SCHEMA, tableName), "Partition part=empty does not exist");
+        assertUpdate(format("CALL system.unregister_partition('%s', '%s', ARRAY['part'], ARRAY['first'])", TPCH_SCHEMA, tableName));
+
+        assertQuery(getSession(), format("SELECT count(*) FROM \"%s$partitions\"", tableName), "SELECT 2");
+        assertQuery(getSession(), "SELECT count(*) FROM " + tableName, "SELECT 2");
+
+        assertUpdate(format("CALL system.register_partition('%s', '%s', ARRAY['part'], ARRAY['first'], '%s')", TPCH_SCHEMA, tableName, firstPartition));
+
+        assertQuery(getSession(), format("SELECT count(*) FROM \"%s$partitions\"", tableName), "SELECT 3");
+        assertQuery(getSession(), "SELECT count(*) FROM " + tableName, "SELECT 3");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testCreateEmptyBucketedPartition()
     {
         for (TestingHiveStorageFormat storageFormat : getAllTestingHiveStorageFormat()) {

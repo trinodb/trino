@@ -738,6 +738,15 @@ Procedures
     ``create_empty_partition``). A null value for the ``partition_values`` argument indicates that stats
     should be dropped for the entire table.
 
+* ``system.register_partition(schema_name, table_name, partition_columns, partition_values, location)``
+
+    Registers existing location as a new partition in the metastore for the specified table.
+
+* ``system.unregister_partition(schema_name, table_name, partition_columns, partition_values)``
+
+    Unregisters given, existing partition in the metastore for the specified table.
+    The partition data is not deleted.
+
 Examples
 --------
 
