@@ -5,7 +5,7 @@ set -euo pipefail -x
 . "${BASH_SOURCE%/*}/common.sh"
 
 export ALLUXIO_BASE_IMAGE="alluxio/alluxio"
-export ALLUXIO_IMAGE_TAG="2.1.1"
+export ALLUXIO_IMAGE_TAG="2.1.2"
 
 ALLUXIO_DOCKER_COMPOSE_LOCATION="${INTEGRATION_TESTS_ROOT}/conf/alluxio-docker.yml"
 

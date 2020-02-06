@@ -122,6 +122,18 @@ public class TestHiveAlluxioMetastore
     }
 
     @Override
+    public void testGetPartitions()
+    {
+        // Alluxio metastore treats null comment as empty comment
+    }
+
+    @Override
+    public void testGetPartitionsWithBindings()
+    {
+        // Alluxio metastore treats null comment as empty comment
+    }
+
+    @Override
     public void testGetPartitionSplitsTableOfflinePartition()
     {
         if (getHiveVersionMajor() >= 2) {
