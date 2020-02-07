@@ -1239,6 +1239,14 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testCreateEmptyPartitionOnNonExistingTable()
+    {
+        assertQueryFails(
+                format("CALL system.create_empty_partition('%s', '%s', ARRAY['part'], ARRAY['%s'])", TPCH_SCHEMA, "non_existing_table", "empty"),
+                format("Table %s.%s does not exist", TPCH_SCHEMA, "non_existing_table"));
+    }
+
+    @Test
     public void testInsertPartitionedBucketedTable()
     {
         testInsertPartitionedBucketedTable(HiveStorageFormat.RCBINARY);
@@ -4938,6 +4946,9 @@ public class TestHiveIntegrationSmokeTest
         assertQueryFails(
                 format("CALL system.drop_stats('%s', '%s', ARRAY[ARRAY['WRONG', 'KEY']])", TPCH_SCHEMA, partitionedTableName),
                 "Partition '.*' not found");
+        assertQueryFails(
+                format("CALL system.drop_stats('%s', '%s', ARRAY[ARRAY['WRONG', 'KEY']])", TPCH_SCHEMA, "non_existing_table"),
+                format("Table %s.non_existing_table does not exist", TPCH_SCHEMA));
 
         assertUpdate("DROP TABLE " + unpartitionedTableName);
         assertUpdate("DROP TABLE " + partitionedTableName);
