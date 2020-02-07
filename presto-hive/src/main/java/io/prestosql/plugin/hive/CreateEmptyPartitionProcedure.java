@@ -44,6 +44,7 @@ import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.prestosql.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static io.prestosql.spi.block.MethodHandleUtil.methodHandle;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class CreateEmptyPartitionProcedure
@@ -97,6 +98,9 @@ public class CreateEmptyPartitionProcedure
     {
         TransactionalMetadata hiveMetadata = hiveMetadataFactory.get();
         HiveTableHandle tableHandle = (HiveTableHandle) hiveMetadata.getTableHandle(session, new SchemaTableName(schemaName, tableName));
+        if (tableHandle == null) {
+            throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, format("Table %s does not exist", new SchemaTableName(schemaName, tableName)));
+        }
 
         List<String> actualPartitionColumnNames = tableHandle.getPartitionColumns().stream()
                 .map(HiveColumnHandle::getName)
