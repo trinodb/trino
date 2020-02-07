@@ -51,7 +51,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Supplier;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.prestosql.RowPagesBuilder.rowPagesBuilder;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
@@ -113,7 +112,7 @@ public class TestScanFilterAndProjectOperator
                 ImmutableList.of(),
                 TupleDomain::all,
                 ImmutableList.of(VARCHAR),
-                new DataSize(0, BYTE),
+                DataSize.ofBytes(0),
                 0);
 
         SourceOperator operator = factory.createOperator(driverContext);
@@ -157,7 +156,7 @@ public class TestScanFilterAndProjectOperator
                 ImmutableList.of(),
                 TupleDomain::all,
                 ImmutableList.of(BIGINT),
-                new DataSize(64, KILOBYTE),
+                DataSize.of(64, KILOBYTE),
                 2);
 
         SourceOperator operator = factory.createOperator(newDriverContext());
@@ -202,7 +201,7 @@ public class TestScanFilterAndProjectOperator
                 ImmutableList.of(),
                 TupleDomain::all,
                 ImmutableList.of(BIGINT),
-                new DataSize(0, BYTE),
+                DataSize.ofBytes(0),
                 0);
 
         SourceOperator operator = factory.createOperator(driverContext);
@@ -237,7 +236,7 @@ public class TestScanFilterAndProjectOperator
                 ImmutableList.of(),
                 TupleDomain::all,
                 ImmutableList.of(VARCHAR),
-                new DataSize(0, BYTE),
+                DataSize.ofBytes(0),
                 0);
 
         SourceOperator operator = factory.createOperator(driverContext);
@@ -290,7 +289,7 @@ public class TestScanFilterAndProjectOperator
                 ImmutableList.of(),
                 TupleDomain::all,
                 ImmutableList.of(BIGINT),
-                new DataSize(0, BYTE),
+                DataSize.ofBytes(0),
                 0);
 
         SourceOperator operator = factory.createOperator(driverContext);
@@ -356,7 +355,7 @@ public class TestScanFilterAndProjectOperator
                 ImmutableList.of(),
                 TupleDomain::all,
                 ImmutableList.of(BIGINT),
-                new DataSize(0, BYTE),
+                DataSize.ofBytes(0),
                 0);
 
         SourceOperator operator = factory.createOperator(driverContext);

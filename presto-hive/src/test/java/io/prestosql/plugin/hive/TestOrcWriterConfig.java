@@ -24,7 +24,6 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
@@ -34,13 +33,13 @@ public class TestOrcWriterConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(OrcWriterConfig.class)
-                .setStripeMinSize(new DataSize(32, MEGABYTE))
-                .setStripeMaxSize(new DataSize(64, MEGABYTE))
+                .setStripeMinSize(DataSize.of(32, MEGABYTE))
+                .setStripeMaxSize(DataSize.of(64, MEGABYTE))
                 .setStripeMaxRowCount(10_000_000)
                 .setRowGroupMaxRowCount(10_000)
-                .setDictionaryMaxMemory(new DataSize(16, MEGABYTE))
-                .setStringStatisticsLimit(new DataSize(64, BYTE))
-                .setMaxCompressionBufferSize(new DataSize(256, KILOBYTE))
+                .setDictionaryMaxMemory(DataSize.of(16, MEGABYTE))
+                .setStringStatisticsLimit(DataSize.ofBytes(64))
+                .setMaxCompressionBufferSize(DataSize.of(256, KILOBYTE))
                 .setDefaultBloomFilterFpp(0.05)
                 .setUseLegacyVersion(false)
                 .setValidationPercentage(0.0)
@@ -65,13 +64,13 @@ public class TestOrcWriterConfig
                 .build();
 
         OrcWriterConfig expected = new OrcWriterConfig()
-                .setStripeMinSize(new DataSize(13, MEGABYTE))
-                .setStripeMaxSize(new DataSize(27, MEGABYTE))
+                .setStripeMinSize(DataSize.of(13, MEGABYTE))
+                .setStripeMaxSize(DataSize.of(27, MEGABYTE))
                 .setStripeMaxRowCount(44)
                 .setRowGroupMaxRowCount(11)
-                .setDictionaryMaxMemory(new DataSize(13, MEGABYTE))
-                .setStringStatisticsLimit(new DataSize(17, MEGABYTE))
-                .setMaxCompressionBufferSize(new DataSize(19, MEGABYTE))
+                .setDictionaryMaxMemory(DataSize.of(13, MEGABYTE))
+                .setStringStatisticsLimit(DataSize.of(17, MEGABYTE))
+                .setMaxCompressionBufferSize(DataSize.of(19, MEGABYTE))
                 .setDefaultBloomFilterFpp(0.96)
                 .setUseLegacyVersion(true)
                 .setValidationPercentage(0.16)

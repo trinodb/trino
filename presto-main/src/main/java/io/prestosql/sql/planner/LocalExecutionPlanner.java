@@ -225,7 +225,6 @@ import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Range.closedOpen;
 import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.prestosql.SystemSessionProperties.getAggregationOperatorUnspillMemoryLimit;
 import static io.prestosql.SystemSessionProperties.getDynamicFilteringMaxPerDriverRowCount;
 import static io.prestosql.SystemSessionProperties.getDynamicFilteringMaxPerDriverSize;
@@ -1250,7 +1249,7 @@ public class LocalExecutionPlanner
                     TableScanNode tableScanNode = (TableScanNode) sourceNode;
                     LocalDynamicFiltersCollector collector = context.getDynamicFiltersCollector();
                     dynamicFilterSupplier = () -> {
-                        TupleDomain<Symbol> predicate = collector.getPredicate();
+                        TupleDomain<Symbol> predicate = collector.getDynamicFilter(tableScanNode.getAssignments().keySet());
                         return predicate.transform(tableScanNode.getAssignments()::get);
                     };
                 }
@@ -2108,11 +2107,11 @@ public class LocalExecutionPlanner
             log.debug("[Join] Dynamic filters: %s", node.getDynamicFilters());
             LocalDynamicFiltersCollector collector = context.getDynamicFiltersCollector();
             return LocalDynamicFilter
-                    .create(node, partitionCount)
+                    .create(node, context.getTypes(), partitionCount)
                     .map(filter -> {
                         // Intersect dynamic filters' predicates when they become ready,
                         // in order to support multiple join nodes in the same plan fragment.
-                        addSuccessCallback(filter.getResultFuture(), collector::intersect);
+                        addSuccessCallback(filter.getResultFuture(), collector::addDynamicFilter);
                         return filter;
                     });
         }
@@ -2271,7 +2270,7 @@ public class LocalExecutionPlanner
                         false,
                         false,
                         false,
-                        new DataSize(0, BYTE),
+                        DataSize.ofBytes(0),
                         context,
                         STATS_START_CHANNEL,
                         outputMapping,
@@ -2350,7 +2349,7 @@ public class LocalExecutionPlanner
                         false,
                         false,
                         false,
-                        new DataSize(0, BYTE),
+                        DataSize.ofBytes(0),
                         context,
                         0,
                         outputMapping,

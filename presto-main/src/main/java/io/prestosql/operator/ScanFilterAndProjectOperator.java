@@ -51,7 +51,6 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.operator.PageUtils.recordMaterializedBytes;
 import static io.prestosql.operator.WorkProcessor.TransformationState.finished;
@@ -120,7 +119,7 @@ public class ScanFilterAndProjectOperator
     @Override
     public DataSize getPhysicalInputDataSize()
     {
-        return new DataSize(physicalBytes, BYTE);
+        return DataSize.ofBytes(physicalBytes);
     }
 
     @Override
@@ -132,7 +131,7 @@ public class ScanFilterAndProjectOperator
     @Override
     public DataSize getInputDataSize()
     {
-        return new DataSize(processedBytes, BYTE);
+        return DataSize.ofBytes(processedBytes);
     }
 
     @Override

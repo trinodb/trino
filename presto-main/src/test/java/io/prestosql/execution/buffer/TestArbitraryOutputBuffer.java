@@ -31,7 +31,6 @@ import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.prestosql.execution.buffer.BufferResult.emptyResults;
 import static io.prestosql.execution.buffer.BufferState.OPEN;
 import static io.prestosql.execution.buffer.BufferState.TERMINAL_BUFFER_STATES;
@@ -86,13 +85,13 @@ public class TestArbitraryOutputBuffer
     public void testInvalidConstructorArg()
     {
         try {
-            createArbitraryBuffer(createInitialEmptyOutputBuffers(ARBITRARY).withBuffer(FIRST, BROADCAST_PARTITION_ID).withNoMoreBufferIds(), new DataSize(0, BYTE));
+            createArbitraryBuffer(createInitialEmptyOutputBuffers(ARBITRARY).withBuffer(FIRST, BROADCAST_PARTITION_ID).withNoMoreBufferIds(), DataSize.ofBytes(0));
             fail("Expected IllegalStateException");
         }
         catch (IllegalArgumentException ignored) {
         }
         try {
-            createArbitraryBuffer(createInitialEmptyOutputBuffers(ARBITRARY), new DataSize(0, BYTE));
+            createArbitraryBuffer(createInitialEmptyOutputBuffers(ARBITRARY), DataSize.ofBytes(0));
             fail("Expected IllegalStateException");
         }
         catch (IllegalArgumentException ignored) {

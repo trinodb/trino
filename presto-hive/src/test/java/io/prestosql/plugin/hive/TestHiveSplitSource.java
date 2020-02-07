@@ -53,7 +53,7 @@ public class TestHiveSplitSource
                 "table",
                 10,
                 10,
-                new DataSize(1, MEGABYTE),
+                DataSize.of(1, MEGABYTE),
                 Integer.MAX_VALUE,
                 new TestingHiveSplitLoader(),
                 Executors.newFixedThreadPool(5),
@@ -87,7 +87,7 @@ public class TestHiveSplitSource
                 "table",
                 10,
                 10,
-                new DataSize(1, MEGABYTE),
+                DataSize.of(1, MEGABYTE),
                 Integer.MAX_VALUE,
                 new TestingHiveSplitLoader(),
                 Executors.newFixedThreadPool(5),
@@ -145,7 +145,7 @@ public class TestHiveSplitSource
                 "table",
                 10,
                 10,
-                new DataSize(1, MEGABYTE),
+                DataSize.of(1, MEGABYTE),
                 Integer.MAX_VALUE,
                 new TestingHiveSplitLoader(),
                 Executors.newFixedThreadPool(5),
@@ -197,7 +197,7 @@ public class TestHiveSplitSource
     @Test
     public void testOutstandingSplitSize()
     {
-        DataSize maxOutstandingSplitsSize = new DataSize(1, MEGABYTE);
+        DataSize maxOutstandingSplitsSize = DataSize.of(1, MEGABYTE);
         HiveSplitSource hiveSplitSource = HiveSplitSource.allAtOnce(
                 SESSION,
                 "database",
@@ -241,7 +241,7 @@ public class TestHiveSplitSource
                 "table",
                 10,
                 10,
-                new DataSize(1, MEGABYTE),
+                DataSize.of(1, MEGABYTE),
                 Integer.MAX_VALUE,
                 new TestingHiveSplitLoader(),
                 Executors.newFixedThreadPool(5),

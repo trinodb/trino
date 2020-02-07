@@ -51,10 +51,10 @@ public class HiveConfig
 
     private String timeZone = TimeZone.getDefault().getID();
 
-    private DataSize maxSplitSize = new DataSize(64, MEGABYTE);
+    private DataSize maxSplitSize = DataSize.of(64, MEGABYTE);
     private int maxPartitionsPerScan = 100_000;
     private int maxOutstandingSplits = 1_000;
-    private DataSize maxOutstandingSplitsSize = new DataSize(256, MEGABYTE);
+    private DataSize maxOutstandingSplitsSize = DataSize.of(256, MEGABYTE);
     private int maxSplitIteratorThreads = 1_000;
     private int minPartitionBatchSize = 10;
     private int maxPartitionBatchSize = 100;
@@ -63,7 +63,7 @@ public class HiveConfig
     private Integer maxSplitsPerSecond;
     private DataSize maxInitialSplitSize;
     private int domainCompactionThreshold = 100;
-    private DataSize writerSortBufferSize = new DataSize(64, MEGABYTE);
+    private DataSize writerSortBufferSize = DataSize.of(64, MEGABYTE);
     private boolean forceLocalScheduling;
     private boolean recursiveDirWalkerEnabled;
     private boolean ignoreAbsentPartitions;
@@ -84,7 +84,7 @@ public class HiveConfig
     private int maxOpenSortFiles = 50;
     private int writeValidationThreads = 16;
 
-    private DataSize textMaxLineLength = new DataSize(100, MEGABYTE);
+    private DataSize textMaxLineLength = DataSize.of(100, MEGABYTE);
 
     private boolean useParquetColumnNames;
 
@@ -119,6 +119,7 @@ public class HiveConfig
     private Duration fileStatusCacheExpireAfterWrite = new Duration(1, MINUTES);
     private long fileStatusCacheMaxSize = 1000 * 1000;
     private List<String> fileStatusCacheTables = ImmutableList.of();
+    private boolean hiveViewsEnabled;
 
     private Optional<Duration> hiveTransactionHeartbeatInterval = Optional.empty();
     private int hiveTransactionHeartbeatThreads = 5;
@@ -138,7 +139,7 @@ public class HiveConfig
     public DataSize getMaxInitialSplitSize()
     {
         if (maxInitialSplitSize == null) {
-            return new DataSize(maxSplitSize.getValue() / 2, maxSplitSize.getUnit());
+            return DataSize.ofBytes(maxSplitSize.toBytes() / 2).to(maxSplitSize.getUnit());
         }
         return maxInitialSplitSize;
     }
@@ -588,6 +589,19 @@ public class HiveConfig
     public HiveConfig setFileStatusCacheTables(String fileStatusCacheTables)
     {
         this.fileStatusCacheTables = SPLITTER.splitToList(fileStatusCacheTables);
+        return this;
+    }
+
+    public boolean isHiveViewsEnabled()
+    {
+        return hiveViewsEnabled;
+    }
+
+    @Config("hive.views-execution.enabled")
+    @ConfigDescription("Allow execution of Hive views")
+    public HiveConfig setHiveViewsEnabled(boolean hiveViewsEnabled)
+    {
+        this.hiveViewsEnabled = hiveViewsEnabled;
         return this;
     }
 

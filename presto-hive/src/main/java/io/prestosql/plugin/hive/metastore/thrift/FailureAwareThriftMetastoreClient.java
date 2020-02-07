@@ -94,6 +94,13 @@ public class FailureAwareThriftMetastoreClient
     }
 
     @Override
+    public List<String> getTableNamesByType(String databaseName, String tableType)
+            throws TException
+    {
+        return runWithHandle(() -> delegate.getTableNamesByType(databaseName, tableType));
+    }
+
+    @Override
     public void createDatabase(Database database)
             throws TException
     {

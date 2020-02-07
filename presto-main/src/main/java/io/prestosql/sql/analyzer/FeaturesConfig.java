@@ -67,7 +67,7 @@ public class FeaturesConfig
     private double memoryCostWeight = 10;
     private double networkCostWeight = 15;
     private boolean distributedIndexJoinsEnabled;
-    private DataSize joinMaxBroadcastTableSize = new DataSize(100, MEGABYTE);
+    private DataSize joinMaxBroadcastTableSize = DataSize.of(100, MEGABYTE);
     private JoinDistributionType joinDistributionType = JoinDistributionType.AUTOMATIC;
     private boolean colocatedJoinsEnabled;
     private boolean groupedExecutionEnabled;
@@ -80,7 +80,7 @@ public class FeaturesConfig
     private boolean redistributeWrites = true;
     private boolean usePreferredWritePartitioning;
     private boolean scaleWriters;
-    private DataSize writerMinSize = new DataSize(32, DataSize.Unit.MEGABYTE);
+    private DataSize writerMinSize = DataSize.of(32, DataSize.Unit.MEGABYTE);
     private boolean optimizeMetadataQueries;
     private boolean optimizeHashGeneration = true;
     private boolean enableIntermediateAggregations;
@@ -104,7 +104,7 @@ public class FeaturesConfig
     private boolean spillEnabled;
     private boolean spillOrderBy = true;
     private boolean spillWindowOperator = true;
-    private DataSize aggregationOperatorUnspillMemoryLimit = new DataSize(4, DataSize.Unit.MEGABYTE);
+    private DataSize aggregationOperatorUnspillMemoryLimit = DataSize.of(4, DataSize.Unit.MEGABYTE);
     private List<Path> spillerSpillPaths = ImmutableList.of();
     private int spillerThreads = 4;
     private double spillMaxUsedSpaceThreshold = 0.9;
@@ -129,9 +129,9 @@ public class FeaturesConfig
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
     private boolean enableDynamicFiltering;
     private int dynamicFilteringMaxPerDriverRowCount = 100;
-    private DataSize dynamicFilteringMaxPerDriverSize = new DataSize(10, KILOBYTE);
+    private DataSize dynamicFilteringMaxPerDriverSize = DataSize.of(10, KILOBYTE);
 
-    private DataSize filterAndProjectMinOutputPageSize = new DataSize(500, KILOBYTE);
+    private DataSize filterAndProjectMinOutputPageSize = DataSize.of(500, KILOBYTE);
     private int filterAndProjectMinOutputPageRowCount = 256;
     private int maxGroupingSets = 2048;
 

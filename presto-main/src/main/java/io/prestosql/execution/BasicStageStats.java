@@ -22,7 +22,6 @@ import java.util.HashSet;
 import java.util.OptionalDouble;
 import java.util.Set;
 
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
@@ -38,18 +37,18 @@ public class BasicStageStats
             0,
             0,
 
-            new DataSize(0, BYTE),
+            DataSize.ofBytes(0),
             0,
 
-            new DataSize(0, BYTE),
+            DataSize.ofBytes(0),
             0,
 
-            new DataSize(0, BYTE),
+            DataSize.ofBytes(0),
             0,
 
             0,
-            new DataSize(0, BYTE),
-            new DataSize(0, BYTE),
+            DataSize.ofBytes(0),
+            DataSize.ofBytes(0),
 
             new Duration(0, MILLISECONDS),
             new Duration(0, MILLISECONDS),

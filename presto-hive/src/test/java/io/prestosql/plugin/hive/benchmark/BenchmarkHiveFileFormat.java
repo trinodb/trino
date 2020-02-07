@@ -81,7 +81,7 @@ import static java.util.stream.Collectors.toList;
 @SuppressWarnings("UseOfSystemOutOrSystemErr")
 public class BenchmarkHiveFileFormat
 {
-    private static final long MIN_DATA_SIZE = new DataSize(50, MEGABYTE).toBytes();
+    private static final long MIN_DATA_SIZE = DataSize.of(50, MEGABYTE).toBytes();
 
     static {
         HadoopNative.requireHadoopNative();

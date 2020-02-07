@@ -620,6 +620,49 @@ public class TestReorderJoins
                         values(ImmutableMap.of("B1", 0))));
     }
 
+    @Test
+    public void testReorderAndReplicate()
+    {
+        Type symbolType = createUnboundedVarcharType(); // variable width so that average row size is respected
+        int aRows = 10;
+        int bRows = 10_000;
+
+        PlanNodeStatsEstimate probeSideStatsEstimate = PlanNodeStatsEstimate.builder()
+                .setOutputRowCount(aRows)
+                .addSymbolStatistics(ImmutableMap.of(new Symbol("A1"), new SymbolStatsEstimate(0, 100, 0, 640000, 10)))
+                .build();
+        PlanNodeStatsEstimate buildSideStatsEstimate = PlanNodeStatsEstimate.builder()
+                .setOutputRowCount(bRows)
+                .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 10)))
+                .build();
+
+        // A table is small enough to be replicated in AUTOMATIC_RESTRICTED mode
+        assertReorderJoins()
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, AUTOMATIC.name())
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, AUTOMATIC.name())
+                .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "10MB")
+                .on(p -> {
+                    Symbol a1 = p.symbol("A1", symbolType);
+                    Symbol b1 = p.symbol("B1", symbolType);
+                    return p.join(
+                            INNER,
+                            p.values(new PlanNodeId("valuesA"), aRows, a1),
+                            p.values(new PlanNodeId("valuesB"), bRows, b1),
+                            ImmutableList.of(new EquiJoinClause(a1, b1)),
+                            ImmutableList.of(a1, b1),
+                            Optional.empty());
+                })
+                .overrideStats("valuesA", probeSideStatsEstimate)
+                .overrideStats("valuesB", buildSideStatsEstimate)
+                .matches(join(
+                        INNER,
+                        ImmutableList.of(equiJoinClause("B1", "A1")),
+                        Optional.empty(),
+                        Optional.of(REPLICATED),
+                        values(ImmutableMap.of("B1", 0)),
+                        values(ImmutableMap.of("A1", 0))));
+    }
+
     private RuleAssert assertReorderJoins()
     {
         return tester.assertThat(new ReorderJoins(metadata, new CostComparator(1, 1, 1)));
