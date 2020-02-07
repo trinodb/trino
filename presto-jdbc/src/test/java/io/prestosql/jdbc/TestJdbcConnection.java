@@ -274,7 +274,6 @@ public class TestJdbcConnection
     {
         Map<String, String> credentials = ImmutableMap.of("test.token.foo", "bar", "test.token.abc", "xyz");
         Connection connection = createConnection("extraCredentials=test.token.foo:bar;test.token.abc:xyz");
-        assertTrue(connection instanceof PrestoConnection);
         PrestoConnection prestoConnection = connection.unwrap(PrestoConnection.class);
         assertEquals(prestoConnection.getExtraCredentials(), credentials);
         assertEquals(listExtraCredentials(connection), credentials);
