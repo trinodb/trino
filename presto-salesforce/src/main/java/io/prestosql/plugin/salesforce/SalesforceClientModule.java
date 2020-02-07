@@ -14,7 +14,6 @@
 package io.prestosql.plugin.salesforce;
 
 import com.google.inject.Binder;
-import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
@@ -42,12 +41,13 @@ public class SalesforceClientModule
     {
         binder.install(new ForceModule());
 
-        binder.bind(Key.get(JdbcClient.class, ForBaseJdbc.class))
-                .to(SalesforceClient.class).in(Scopes.SINGLETON);
+        binder.bind(JdbcClient.class)
+                .annotatedWith(ForBaseJdbc.class)
+                .to(SalesforceClient.class)
+                .in(Scopes.SINGLETON);
 
-        configBinder(binder).bindConfig(TypeHandlingJdbcConfig.class);
         configBinder(binder).bindConfig(BaseJdbcConfig.class);
-        configBinder(binder).bindConfig(CredentialConfig.class);
+        configBinder(binder).bindConfig(TypeHandlingJdbcConfig.class);
         configBinder(binder).bindConfig(SalesforceConfig.class);
     }
 
