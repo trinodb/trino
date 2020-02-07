@@ -94,6 +94,7 @@ import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Iterator;
@@ -208,7 +209,12 @@ public class PrestoS3FileSystem
         super.initialize(uri, conf);
         setConf(conf);
 
-        this.uri = URI.create(uri.getScheme() + "://" + uri.getAuthority());
+        try {
+            this.uri = new URI(uri.getScheme(), uri.getAuthority(), null, null, null);
+        }
+        catch (URISyntaxException e) {
+            throw new IllegalArgumentException("Invalid uri: " + uri, e);
+        }
         this.workingDirectory = new Path(PATH_SEPARATOR).makeQualified(this.uri, new Path(PATH_SEPARATOR));
 
         HiveS3Config defaults = new HiveS3Config();
