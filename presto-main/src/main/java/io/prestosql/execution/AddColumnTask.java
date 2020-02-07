@@ -69,14 +69,15 @@ public class AddColumnTask
             throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName);
         }
 
-        CatalogName catalogName = metadata.getCatalogHandle(session, tableName.getCatalogName())
-                .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + tableName.getCatalogName()));
+        CatalogName catalogName = metadata.getCatalogHandle(session, tableName.getLegacyCatalogName())
+                .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + tableName.getLegacyCatalogName()));
 
         accessControl.checkCanAddColumns(session.toSecurityContext(), tableName);
 
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());
 
         ColumnDefinition element = statement.getColumn();
+        String columnName = metadata.getNameCanonicalizer(session, catalogName.getCatalogName()).canonicalize(element.getName().getValue(), element.getName().isDelimited());
         Type type;
         try {
             type = metadata.getType(toTypeSignature(element.getType()));
@@ -97,14 +98,14 @@ public class AddColumnTask
         Map<String, Expression> sqlProperties = mapFromProperties(element.getProperties());
         Map<String, Object> columnProperties = metadata.getColumnPropertyManager().getProperties(
                 catalogName,
-                tableName.getCatalogName(),
+                tableName.getLegacyCatalogName(),
                 sqlProperties,
                 session,
                 metadata,
                 parameterExtractor(statement, parameters));
 
         ColumnMetadata column = ColumnMetadata.builder()
-                .setName(element.getName().getValue())
+                .setName(columnName)
                 .setType(type)
                 .setNullable(element.isNullable())
                 .setComment(element.getComment())

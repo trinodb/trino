@@ -76,7 +76,7 @@ public class TestDeallocateTask
     private Set<String> executeDeallocate(String statementName, String sqlString, Session session)
     {
         TransactionManager transactionManager = createTestTransactionManager();
-        AccessControl accessControl = new AccessControlManager(transactionManager, new AccessControlConfig());
+        AccessControl accessControl = new AccessControlManager(transactionManager, metadata, new AccessControlConfig());
         QueryStateMachine stateMachine = QueryStateMachine.begin(
                 sqlString,
                 Optional.empty(),

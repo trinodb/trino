@@ -25,10 +25,10 @@ import io.prestosql.transaction.TransactionManager;
 import java.util.List;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static io.prestosql.metadata.NameCanonicalizer.LEGACY_NAME_CANONICALIZER;
 import static io.prestosql.spi.StandardErrorCode.MISSING_CATALOG_NAME;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
-import static java.util.Locale.ENGLISH;
 
 public class UseTask
         implements DataDefinitionTask<Use>
@@ -48,15 +48,21 @@ public class UseTask
             throw semanticException(MISSING_CATALOG_NAME, statement, "Catalog must be specified when session catalog is not set");
         }
 
+        String catalog = null;
+
+        if (session.getCatalog().isPresent()) {
+            catalog = session.getCatalog().get();
+        }
+
         if (statement.getCatalog().isPresent()) {
-            String catalog = statement.getCatalog().get().getValue().toLowerCase(ENGLISH);
+            catalog = LEGACY_NAME_CANONICALIZER.canonicalize(statement.getCatalog().get().getValue(), statement.getCatalog().get().isDelimited());
             if (!metadata.getCatalogHandle(session, catalog).isPresent()) {
                 throw new PrestoException(NOT_FOUND, "Catalog does not exist: " + catalog);
             }
             stateMachine.setSetCatalog(catalog);
         }
 
-        stateMachine.setSetSchema(statement.getSchema().getValue().toLowerCase(ENGLISH));
+        stateMachine.setSetSchema(metadata.getNameCanonicalizer(session, catalog).canonicalize(statement.getSchema().getValue(), statement.getSchema().isDelimited()));
 
         return immediateFuture(null);
     }

@@ -102,8 +102,8 @@ public class CreateTableTask
             return immediateFuture(null);
         }
 
-        CatalogName catalogName = metadata.getCatalogHandle(session, tableName.getCatalogName())
-                .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + tableName.getCatalogName()));
+        CatalogName catalogName = metadata.getCatalogHandle(session, tableName.getLegacyCatalogName())
+                .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + tableName.getLegacyCatalogName()));
 
         LinkedHashMap<String, ColumnMetadata> columns = new LinkedHashMap<>();
         Map<String, Object> inheritedProperties = ImmutableMap.of();
@@ -111,7 +111,7 @@ public class CreateTableTask
         for (TableElement element : statement.getElements()) {
             if (element instanceof ColumnDefinition) {
                 ColumnDefinition column = (ColumnDefinition) element;
-                String name = column.getName().getValue().toLowerCase(Locale.ENGLISH);
+                String name = metadata.getNameCanonicalizer(session, catalogName.getCatalogName()).canonicalize(column.getName().getValue(), column.getName().isDelimited());
                 Type type;
                 try {
                     type = metadata.getType(toTypeSignature(column.getType()));
@@ -132,7 +132,7 @@ public class CreateTableTask
                 Map<String, Expression> sqlProperties = mapFromProperties(column.getProperties());
                 Map<String, Object> columnProperties = metadata.getColumnPropertyManager().getProperties(
                         catalogName,
-                        tableName.getCatalogName(),
+                        tableName.getLegacyCatalogName(),
                         sqlProperties,
                         session,
                         metadata,
@@ -149,10 +149,10 @@ public class CreateTableTask
             else if (element instanceof LikeClause) {
                 LikeClause likeClause = (LikeClause) element;
                 QualifiedObjectName likeTableName = createQualifiedObjectName(session, statement, likeClause.getTableName());
-                if (!metadata.getCatalogHandle(session, likeTableName.getCatalogName()).isPresent()) {
-                    throw semanticException(CATALOG_NOT_FOUND, statement, "LIKE table catalog '%s' does not exist", likeTableName.getCatalogName());
+                if (!metadata.getCatalogHandle(session, likeTableName.getLegacyCatalogName()).isPresent()) {
+                    throw semanticException(CATALOG_NOT_FOUND, statement, "LIKE table catalog '%s' does not exist", likeTableName.getLegacyCatalogName());
                 }
-                if (!tableName.getCatalogName().equals(likeTableName.getCatalogName())) {
+                if (!tableName.getLegacyCatalogName().equals(likeTableName.getLegacyCatalogName())) {
                     throw semanticException(NOT_SUPPORTED, statement, "LIKE table across catalogs is not supported");
                 }
                 TableHandle likeTable = metadata.getTableHandle(session, likeTableName)
@@ -188,7 +188,7 @@ public class CreateTableTask
         Map<String, Expression> sqlProperties = mapFromProperties(statement.getProperties());
         Map<String, Object> properties = metadata.getTablePropertyManager().getProperties(
                 catalogName,
-                tableName.getCatalogName(),
+                tableName.getLegacyCatalogName(),
                 sqlProperties,
                 session,
                 metadata,
@@ -196,9 +196,9 @@ public class CreateTableTask
 
         Map<String, Object> finalProperties = combineProperties(sqlProperties.keySet(), properties, inheritedProperties);
 
-        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName.asSchemaTableName(), ImmutableList.copyOf(columns.values()), finalProperties, statement.getComment());
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName.asSchemaTableName(metadata.getNameCanonicalizer(session, tableName.getLegacyCatalogName())), ImmutableList.copyOf(columns.values()), finalProperties, statement.getComment());
         try {
-            metadata.createTable(session, tableName.getCatalogName(), tableMetadata, statement.isNotExists());
+            metadata.createTable(session, tableName.getLegacyCatalogName(), tableMetadata, statement.isNotExists());
         }
         catch (PrestoException e) {
             // connectors are not required to handle the ignoreExisting flag

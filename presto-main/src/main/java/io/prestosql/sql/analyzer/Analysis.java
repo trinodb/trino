@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
+import io.prestosql.Session;
 import io.prestosql.metadata.NewTableLayout;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.ResolvedFunction;
@@ -50,7 +51,6 @@ import io.prestosql.sql.tree.SampledRelation;
 import io.prestosql.sql.tree.Statement;
 import io.prestosql.sql.tree.SubqueryExpression;
 import io.prestosql.sql.tree.Table;
-import io.prestosql.transaction.TransactionId;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
@@ -634,17 +634,17 @@ public class Analysis
         return joinUsing.get(NodeRef.of(node));
     }
 
-    public void addTableColumnReferences(AccessControl accessControl, Identity identity, Multimap<QualifiedObjectName, String> tableColumnMap)
+    public void addTableColumnReferences(AccessControl accessControl, Session session, Multimap<QualifiedObjectName, String> tableColumnMap)
     {
-        AccessControlInfo accessControlInfo = new AccessControlInfo(accessControl, identity);
+        AccessControlInfo accessControlInfo = new AccessControlInfo(accessControl, session.getIdentity());
         Map<QualifiedObjectName, Set<String>> references = tableColumnReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>());
         tableColumnMap.asMap()
                 .forEach((key, value) -> references.computeIfAbsent(key, k -> new HashSet<>()).addAll(value));
     }
 
-    public void addEmptyColumnReferencesForTable(AccessControl accessControl, Identity identity, QualifiedObjectName table)
+    public void addEmptyColumnReferencesForTable(AccessControl accessControl, Session session, QualifiedObjectName table)
     {
-        AccessControlInfo accessControlInfo = new AccessControlInfo(accessControl, identity);
+        AccessControlInfo accessControlInfo = new AccessControlInfo(accessControl, session.getIdentity());
         tableColumnReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>()).computeIfAbsent(table, k -> new HashSet<>());
     }
 
@@ -863,9 +863,9 @@ public class Analysis
             return accessControl;
         }
 
-        public SecurityContext getSecurityContext(TransactionId transactionId)
+        public SecurityContext getSecurityContext(Session session)
         {
-            return new SecurityContext(transactionId, identity);
+            return new SecurityContext(session.getRequiredTransactionId(), identity, session);
         }
 
         @Override

@@ -491,8 +491,8 @@ class StatementAnalyzer
             }
 
             validateProperties(node.getProperties(), scope);
-            CatalogName catalogName = metadata.getCatalogHandle(session, tableName.getCatalogName())
-                    .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog not found: " + tableName.getCatalogName()));
+            CatalogName catalogName = metadata.getCatalogHandle(session, tableName.getLegacyCatalogName())
+                    .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog not found: " + tableName.getLegacyCatalogName()));
 
             Map<String, Object> analyzeProperties = metadata.getAnalyzePropertyManager().getProperties(
                     catalogName,
@@ -507,7 +507,7 @@ class StatementAnalyzer
             // user must have read and insert permission in order to analyze stats of a table
             analysis.addTableColumnReferences(
                     accessControl,
-                    session.getIdentity(),
+                    session,
                     ImmutableMultimap.<QualifiedObjectName, String>builder()
                             .putAll(tableName, metadata.getColumnHandles(session, tableHandle).keySet())
                             .build());
@@ -574,21 +574,21 @@ class StatementAnalyzer
             }
 
             // create target table metadata
-            CatalogName catalogName = metadata.getCatalogHandle(session, targetTable.getCatalogName())
-                    .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + targetTable.getCatalogName()));
+            CatalogName catalogName = metadata.getCatalogHandle(session, targetTable.getLegacyCatalogName())
+                    .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + targetTable.getLegacyCatalogName()));
 
             Map<String, Object> properties = metadata.getTablePropertyManager().getProperties(
                     catalogName,
-                    targetTable.getCatalogName(),
+                    targetTable.getLegacyCatalogName(),
                     mapFromProperties(node.getProperties()),
                     session,
                     metadata,
                     analysis.getParameters());
 
-            ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(targetTable.asSchemaTableName(), columns.build(), properties, node.getComment());
+            ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(targetTable.asSchemaTableName(metadata.getNameCanonicalizer(session, targetTable.getLegacyCatalogName())), columns.build(), properties, node.getComment());
 
             // analyze target table layout
-            Optional<NewTableLayout> newTableLayout = metadata.getNewTableLayout(session, targetTable.getCatalogName(), tableMetadata);
+            Optional<NewTableLayout> newTableLayout = metadata.getNewTableLayout(session, targetTable.getLegacyCatalogName(), tableMetadata);
 
             Set<String> columnNames = columns.build().stream()
                     .map(ColumnMetadata::getName)
@@ -950,7 +950,7 @@ class StatementAnalyzer
             }
 
             QualifiedObjectName name = createQualifiedObjectName(session, table, table.getName());
-            analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), name);
+            analysis.addEmptyColumnReferencesForTable(accessControl, session, name);
 
             // is this a reference to a view?
             Optional<ConnectorViewDefinition> optionalView = metadata.getView(session, name);
@@ -960,11 +960,11 @@ class StatementAnalyzer
 
             Optional<TableHandle> tableHandle = metadata.getTableHandle(session, name);
             if (!tableHandle.isPresent()) {
-                if (!metadata.getCatalogHandle(session, name.getCatalogName()).isPresent()) {
-                    throw semanticException(CATALOG_NOT_FOUND, table, "Catalog %s does not exist", name.getCatalogName());
+                if (!metadata.getCatalogHandle(session, name.getLegacyCatalogName()).isPresent()) {
+                    throw semanticException(CATALOG_NOT_FOUND, table, "Catalog %s does not exist", name.getLegacyCatalogName());
                 }
-                if (!metadata.schemaExists(session, new CatalogSchemaName(name.getCatalogName(), name.getSchemaName()))) {
-                    throw semanticException(SCHEMA_NOT_FOUND, table, "Schema %s does not exist", name.getSchemaName());
+                if (!metadata.schemaExists(session, new CatalogSchemaName(name.getLegacyCatalogName(), name.getLegacySchemaName()))) {
+                    throw semanticException(SCHEMA_NOT_FOUND, table, "Schema %s does not exist", name.getLegacySchemaName());
                 }
                 throw semanticException(TABLE_NOT_FOUND, table, "Table %s does not exist", name);
             }
@@ -2294,7 +2294,7 @@ class StatementAnalyzer
 
                 StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, viewAccessControl, viewSession, warningCollector);
                 Scope queryScope = analyzer.analyze(query, Scope.create());
-                return queryScope.getRelationType().withAlias(name.getObjectName(), null);
+                return queryScope.getRelationType().withAlias(name.getLegacyObjectName(), null);
             }
             catch (RuntimeException e) {
                 throw semanticException(INVALID_VIEW, node, e, "Failed analyzing stored view '%s': %s", name, e.getMessage());

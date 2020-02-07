@@ -64,8 +64,9 @@ import static io.prestosql.connector.informationschema.InformationSchemaTable.TA
 import static io.prestosql.connector.informationschema.InformationSchemaTable.TABLE_PRIVILEGES;
 import static io.prestosql.connector.informationschema.InformationSchemaTable.VIEWS;
 import static io.prestosql.metadata.MetadataUtil.findColumnMetadata;
+import static io.prestosql.metadata.NamePart.createDefaultNamePart;
+import static io.prestosql.metadata.NamePart.createDelimitedNamePart;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
@@ -245,7 +246,6 @@ public class InformationSchemaMetadata
         Optional<Set<String>> schemas = filterString(constraint, SCHEMA_COLUMN_HANDLE).map(this::removeEmptyValues);
         if (schemas.isPresent()) {
             return schemas.get().stream()
-                    .filter(this::isLowerCase)
                     .filter(schema -> !predicate.isPresent() || predicate.get().test(schemaAsFixedValues(schema)))
                     .map(schema -> new QualifiedTablePrefix(catalogName, schema))
                     .collect(toImmutableSet());
@@ -278,11 +278,10 @@ public class InformationSchemaMetadata
                             .map(schemaName -> Stream.of(prefix))
                             .orElseGet(() -> listSchemaNames(session)))
                     .flatMap(prefix -> tables.get().stream()
-                            .filter(this::isLowerCase)
-                            .map(table -> new QualifiedObjectName(catalogName, prefix.getSchemaName().get(), table)))
+                            .map(table -> new QualifiedObjectName(createDefaultNamePart(catalogName), createDelimitedNamePart(prefix.getSchemaName().get()), createDelimitedNamePart(table))))
                     .filter(objectName -> !isColumnsEnumeratingTable(informationSchemaTable) || metadata.getTableHandle(session, objectName).isPresent() || metadata.getView(session, objectName).isPresent())
                     .filter(objectName -> !predicate.isPresent() || predicate.get().test(asFixedValues(objectName)))
-                    .map(QualifiedObjectName::asQualifiedTablePrefix)
+                    .map(name -> name.asQualifiedTablePrefix(metadata.getNameCanonicalizer(session, name.getLegacyCatalogName())))
                     .collect(toImmutableSet());
         }
 
@@ -295,7 +294,7 @@ public class InformationSchemaMetadata
                         metadata.listTables(session, prefix).stream(),
                         metadata.listViews(session, prefix).stream()))
                 .filter(objectName -> predicate.get().test(asFixedValues(objectName)))
-                .map(QualifiedObjectName::asQualifiedTablePrefix)
+                .map(qualifiedObjectName -> qualifiedObjectName.asQualifiedTablePrefix(metadata.getNameCanonicalizer(session, qualifiedObjectName.getLegacyCatalogName())))
                 .collect(toImmutableSet());
     }
 
@@ -355,14 +354,9 @@ public class InformationSchemaMetadata
     private Map<ColumnHandle, NullableValue> asFixedValues(QualifiedObjectName objectName)
     {
         return ImmutableMap.of(
-                CATALOG_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(objectName.getCatalogName())),
-                SCHEMA_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(objectName.getSchemaName())),
-                TABLE_NAME_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(objectName.getObjectName())));
-    }
-
-    private boolean isLowerCase(String value)
-    {
-        return value.toLowerCase(ENGLISH).equals(value);
+                CATALOG_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(objectName.getLegacyCatalogName())),
+                SCHEMA_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(objectName.getLegacySchemaName())),
+                TABLE_NAME_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(objectName.getLegacyObjectName())));
     }
 
     private Set<String> removeEmptyValues(Set<String> values)

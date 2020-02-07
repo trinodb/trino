@@ -256,7 +256,7 @@ public class TestStartTransactionTask
                 new ResourceGroupId("test"),
                 true,
                 transactionManager,
-                new AccessControlManager(transactionManager, new AccessControlConfig()),
+                new AccessControlManager(transactionManager, metadata, new AccessControlConfig()),
                 executor,
                 metadata,
                 WarningCollector.NOOP);

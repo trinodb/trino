@@ -14,7 +14,7 @@
 package io.prestosql.metadata;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonValue;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
@@ -26,13 +26,14 @@ import java.util.Objects;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.metadata.MetadataUtil.checkObjectName;
+import static io.prestosql.metadata.NameCanonicalizer.LEGACY_NAME_CANONICALIZER;
+import static io.prestosql.metadata.NamePart.createDefaultNamePart;
+import static io.prestosql.metadata.NamePart.createDelimitedNamePart;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class QualifiedObjectName
 {
-    @JsonCreator
     public static QualifiedObjectName valueOf(String name)
     {
         requireNonNull(name, "name is null");
@@ -43,46 +44,69 @@ public class QualifiedObjectName
         return new QualifiedObjectName(ids.get(0), ids.get(1), ids.get(2));
     }
 
-    private final String catalogName;
-    private final String schemaName;
-    private final String objectName;
+    private final NamePart catalogName;
+    private final NamePart schemaName;
+    private final NamePart objectName;
 
     public QualifiedObjectName(String catalogName, String schemaName, String objectName)
     {
-        checkObjectName(catalogName, schemaName, objectName);
+        this(createDefaultNamePart(catalogName), createDefaultNamePart(schemaName), createDefaultNamePart(objectName));
+    }
+
+    @JsonCreator
+    public QualifiedObjectName(@JsonProperty("catalogName") NamePart catalogName, @JsonProperty("schemaName") NamePart schemaName, @JsonProperty("objectName") NamePart objectName)
+    {
         this.catalogName = catalogName;
         this.schemaName = schemaName;
         this.objectName = objectName;
     }
 
-    public String getCatalogName()
+    @JsonProperty
+    public NamePart getCatalogName()
     {
         return catalogName;
     }
 
-    public String getSchemaName()
+    @JsonProperty
+    public NamePart getSchemaName()
     {
         return schemaName;
     }
 
-    public String getObjectName()
+    @JsonProperty
+    public NamePart getObjectName()
     {
         return objectName;
     }
 
-    public SchemaTableName asSchemaTableName()
+    public String getLegacyCatalogName()
     {
-        return new SchemaTableName(schemaName, objectName);
+        return catalogName.getLegacyName();
     }
 
-    public CatalogSchemaTableName asCatalogSchemaTableName()
+    public String getLegacySchemaName()
     {
-        return new CatalogSchemaTableName(catalogName, schemaName, objectName);
+        return schemaName.getLegacyName();
     }
 
-    public QualifiedTablePrefix asQualifiedTablePrefix()
+    public String getLegacyObjectName()
     {
-        return new QualifiedTablePrefix(catalogName, schemaName, objectName);
+        return objectName.getLegacyName();
+    }
+
+    public SchemaTableName asSchemaTableName(NameCanonicalizer canonicalizer)
+    {
+        return new SchemaTableName(canonicalizer.canonicalize(schemaName), canonicalizer.canonicalize(objectName));
+    }
+
+    public CatalogSchemaTableName asCatalogSchemaTableName(NameCanonicalizer canonicalizer)
+    {
+        return new CatalogSchemaTableName(LEGACY_NAME_CANONICALIZER.canonicalize(catalogName), canonicalizer.canonicalize(schemaName), canonicalizer.canonicalize(objectName));
+    }
+
+    public QualifiedTablePrefix asQualifiedTablePrefix(NameCanonicalizer canonicalizer)
+    {
+        return new QualifiedTablePrefix(LEGACY_NAME_CANONICALIZER.canonicalize(catalogName), canonicalizer.canonicalize(schemaName), canonicalizer.canonicalize(objectName));
     }
 
     @Override
@@ -106,15 +130,14 @@ public class QualifiedObjectName
         return Objects.hash(catalogName, schemaName, objectName);
     }
 
-    @JsonValue
     @Override
     public String toString()
     {
-        return catalogName + '.' + schemaName + '.' + objectName;
+        return catalogName.getLegacyName() + '.' + schemaName.getLegacyName() + '.' + objectName.getLegacyName();
     }
 
     public static Function<SchemaTableName, QualifiedObjectName> convertFromSchemaTableName(String catalogName)
     {
-        return input -> new QualifiedObjectName(catalogName, input.getSchemaName(), input.getTableName());
+        return input -> new QualifiedObjectName(createDefaultNamePart(catalogName), createDelimitedNamePart(input.getSchemaName()), createDelimitedNamePart(input.getTableName()));
     }
 }

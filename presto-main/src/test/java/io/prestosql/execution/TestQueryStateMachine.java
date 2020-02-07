@@ -492,7 +492,7 @@ public class TestQueryStateMachine
     {
         Metadata metadata = createTestMetadataManager();
         TransactionManager transactionManager = createTestTransactionManager();
-        AccessControl accessControl = new AccessControlManager(transactionManager, new AccessControlConfig());
+        AccessControl accessControl = new AccessControlManager(transactionManager, metadata, new AccessControlConfig());
         QueryStateMachine stateMachine = QueryStateMachine.beginWithTicker(
                 QUERY,
                 Optional.empty(),

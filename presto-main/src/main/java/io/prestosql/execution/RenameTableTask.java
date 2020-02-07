@@ -54,13 +54,13 @@ public class RenameTableTask
         }
 
         QualifiedObjectName target = createQualifiedObjectName(session, statement, statement.getTarget());
-        if (!metadata.getCatalogHandle(session, target.getCatalogName()).isPresent()) {
-            throw semanticException(CATALOG_NOT_FOUND, statement, "Target catalog '%s' does not exist", target.getCatalogName());
+        if (!metadata.getCatalogHandle(session, target.getLegacyCatalogName()).isPresent()) {
+            throw semanticException(CATALOG_NOT_FOUND, statement, "Target catalog '%s' does not exist", target.getLegacyCatalogName());
         }
         if (metadata.getTableHandle(session, target).isPresent()) {
             throw semanticException(TABLE_ALREADY_EXISTS, statement, "Target table '%s' already exists", target);
         }
-        if (!tableName.getCatalogName().equals(target.getCatalogName())) {
+        if (!tableName.getLegacyCatalogName().equals(target.getLegacyCatalogName())) {
             throw semanticException(NOT_SUPPORTED, statement, "Table rename across catalogs is not supported");
         }
         accessControl.checkCanRenameTable(session.toSecurityContext(), tableName, target);

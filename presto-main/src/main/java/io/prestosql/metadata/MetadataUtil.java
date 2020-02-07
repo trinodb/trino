@@ -25,6 +25,7 @@ import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.tree.GrantorSpecification;
+import io.prestosql.sql.tree.Identifier;
 import io.prestosql.sql.tree.Node;
 import io.prestosql.sql.tree.PrincipalSpecification;
 import io.prestosql.sql.tree.QualifiedName;
@@ -33,6 +34,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.metadata.NamePart.createDelimitedNamePart;
 import static io.prestosql.spi.StandardErrorCode.MISSING_CATALOG_NAME;
 import static io.prestosql.spi.StandardErrorCode.MISSING_SCHEMA_NAME;
 import static io.prestosql.spi.StandardErrorCode.SYNTAX_ERROR;
@@ -47,35 +49,9 @@ public final class MetadataUtil
 {
     private MetadataUtil() {}
 
-    public static void checkTableName(String catalogName, Optional<String> schemaName, Optional<String> tableName)
-    {
-        checkCatalogName(catalogName);
-        schemaName.ifPresent(name -> checkLowerCase(name, "schemaName"));
-        tableName.ifPresent(name -> checkLowerCase(name, "tableName"));
-
-        checkArgument(schemaName.isPresent() || !tableName.isPresent(), "tableName specified but schemaName is missing");
-    }
-
     public static String checkCatalogName(String catalogName)
     {
         return checkLowerCase(catalogName, "catalogName");
-    }
-
-    public static String checkSchemaName(String schemaName)
-    {
-        return checkLowerCase(schemaName, "schemaName");
-    }
-
-    public static String checkTableName(String tableName)
-    {
-        return checkLowerCase(tableName, "tableName");
-    }
-
-    public static void checkObjectName(String catalogName, String schemaName, String objectName)
-    {
-        checkLowerCase(catalogName, "catalogName");
-        checkLowerCase(schemaName, "schemaName");
-        checkLowerCase(objectName, "objectName");
     }
 
     public static String checkLowerCase(String value, String name)
@@ -108,20 +84,23 @@ public final class MetadataUtil
         return sessionCatalog.get();
     }
 
-    public static CatalogSchemaName createCatalogSchemaName(Session session, Node node, Optional<QualifiedName> schema)
+    public static CatalogSchemaName createCatalogSchemaName(Session session, Node node, Optional<QualifiedName> schema, Metadata metadata)
     {
         String catalogName = session.getCatalog().orElse(null);
         String schemaName = session.getSchema().orElse(null);
 
         if (schema.isPresent()) {
-            List<String> parts = schema.get().getParts();
+            List<Identifier> parts = schema.get().getOriginalParts();
             if (parts.size() > 2) {
                 throw semanticException(SYNTAX_ERROR, node, "Too many parts in schema name: %s", schema.get());
             }
             if (parts.size() == 2) {
-                catalogName = parts.get(0);
+                catalogName = parts.get(0).getValue().toLowerCase(ENGLISH);
             }
-            schemaName = schema.get().getSuffix();
+            if (catalogName == null) {
+                throw semanticException(MISSING_CATALOG_NAME, node, "Catalog must be specified when session catalog is not set");
+            }
+            schemaName = metadata.getNameCanonicalizer(session, catalogName).canonicalize(schema.get().getOriginalSuffix().getValue(), schema.get().getOriginalSuffix().isDelimited());
         }
 
         if (catalogName == null) {
@@ -142,12 +121,30 @@ public final class MetadataUtil
             throw new PrestoException(SYNTAX_ERROR, format("Too many dots in table name: %s", name));
         }
 
-        List<String> parts = Lists.reverse(name.getParts());
-        String objectName = parts.get(0);
-        String schemaName = (parts.size() > 1) ? parts.get(1) : session.getSchema().orElseThrow(() ->
-                semanticException(MISSING_SCHEMA_NAME, node, "Schema must be specified when session schema is not set"));
-        String catalogName = (parts.size() > 2) ? parts.get(2) : session.getCatalog().orElseThrow(() ->
-                semanticException(MISSING_CATALOG_NAME, node, "Catalog must be specified when session catalog is not set"));
+        List<Identifier> parts = Lists.reverse(name.getOriginalParts());
+        NamePart objectName = new NamePart(parts.get(0).getValue(), parts.get(0).isDelimited());
+
+        NamePart schemaName;
+        if (parts.size() > 1) {
+            schemaName = new NamePart(parts.get(1).getValue(), parts.get(1).isDelimited());
+        }
+        else if (session.getSchema().isPresent()) {
+            schemaName = createDelimitedNamePart(session.getSchema().get());
+        }
+        else {
+            throw semanticException(MISSING_SCHEMA_NAME, node, "Schema must be specified when session schema is not set");
+        }
+
+        NamePart catalogName;
+        if (parts.size() > 2) {
+            catalogName = new NamePart(parts.get(2).getValue(), parts.get(2).isDelimited());
+        }
+        else if (session.getCatalog().isPresent()) {
+            catalogName = createDelimitedNamePart(session.getCatalog().get());
+        }
+        else {
+            throw semanticException(MISSING_CATALOG_NAME, node, "Catalog must be specified when session catalog is not set");
+        }
 
         return new QualifiedObjectName(catalogName, schemaName, objectName);
     }

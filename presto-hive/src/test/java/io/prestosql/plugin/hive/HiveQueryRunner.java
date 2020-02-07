@@ -200,30 +200,30 @@ public final class HiveQueryRunner
     private static void copyTableBucketed(QueryRunner queryRunner, QualifiedObjectName table, Session session)
     {
         long start = System.nanoTime();
-        log.info("Running import for %s", table.getObjectName());
+        log.info("Running import for %s", table.getLegacyObjectName());
         @Language("SQL") String sql;
-        switch (table.getObjectName()) {
+        switch (table.getLegacyObjectName()) {
             case "part":
             case "partsupp":
             case "supplier":
             case "nation":
             case "region":
-                sql = format("CREATE TABLE %s AS SELECT * FROM %s", table.getObjectName(), table);
+                sql = format("CREATE TABLE %s AS SELECT * FROM %s", table.getLegacyObjectName(), table);
                 break;
             case "lineitem":
-                sql = format("CREATE TABLE %s WITH (bucketed_by=array['orderkey'], bucket_count=11) AS SELECT * FROM %s", table.getObjectName(), table);
+                sql = format("CREATE TABLE %s WITH (bucketed_by=array['orderkey'], bucket_count=11) AS SELECT * FROM %s", table.getLegacyObjectName(), table);
                 break;
             case "customer":
-                sql = format("CREATE TABLE %s WITH (bucketed_by=array['custkey'], bucket_count=11) AS SELECT * FROM %s", table.getObjectName(), table);
+                sql = format("CREATE TABLE %s WITH (bucketed_by=array['custkey'], bucket_count=11) AS SELECT * FROM %s", table.getLegacyObjectName(), table);
                 break;
             case "orders":
-                sql = format("CREATE TABLE %s WITH (bucketed_by=array['custkey'], bucket_count=11) AS SELECT * FROM %s", table.getObjectName(), table);
+                sql = format("CREATE TABLE %s WITH (bucketed_by=array['custkey'], bucket_count=11) AS SELECT * FROM %s", table.getLegacyObjectName(), table);
                 break;
             default:
                 throw new UnsupportedOperationException();
         }
         long rows = (Long) queryRunner.execute(session, sql).getMaterializedRows().get(0).getField(0);
-        log.info("Imported %s rows for %s in %s", rows, table.getObjectName(), nanosSince(start).convertToMostSuccinctTimeUnit());
+        log.info("Imported %s rows for %s in %s", rows, table.getLegacyObjectName(), nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 
     public static void main(String[] args)

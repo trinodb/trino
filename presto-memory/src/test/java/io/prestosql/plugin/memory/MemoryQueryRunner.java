@@ -45,7 +45,7 @@ public final class MemoryQueryRunner
     {
         Session session = testSessionBuilder()
                 .setCatalog(CATALOG)
-                .setSchema("default")
+                .setSchema("DEFAULT")
                 .build();
 
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)

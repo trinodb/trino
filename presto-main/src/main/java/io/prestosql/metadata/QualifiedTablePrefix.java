@@ -24,8 +24,8 @@ import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
 import static io.prestosql.metadata.MetadataUtil.checkCatalogName;
-import static io.prestosql.metadata.MetadataUtil.checkSchemaName;
-import static io.prestosql.metadata.MetadataUtil.checkTableName;
+import static io.prestosql.metadata.NamePart.createDefaultNamePart;
+import static io.prestosql.metadata.NamePart.createDelimitedNamePart;
 
 @Immutable
 public class QualifiedTablePrefix
@@ -44,15 +44,15 @@ public class QualifiedTablePrefix
     public QualifiedTablePrefix(String catalogName, String schemaName)
     {
         this.catalogName = checkCatalogName(catalogName);
-        this.schemaName = Optional.of(checkSchemaName(schemaName));
+        this.schemaName = Optional.of(schemaName);
         this.tableName = Optional.empty();
     }
 
     public QualifiedTablePrefix(String catalogName, String schemaName, String tableName)
     {
         this.catalogName = checkCatalogName(catalogName);
-        this.schemaName = Optional.of(checkSchemaName(schemaName));
-        this.tableName = Optional.of(checkTableName(tableName));
+        this.schemaName = Optional.of(schemaName);
+        this.tableName = Optional.of(tableName);
     }
 
     @JsonCreator
@@ -61,7 +61,6 @@ public class QualifiedTablePrefix
             @JsonProperty("schemaName") Optional<String> schemaName,
             @JsonProperty("tableName") Optional<String> tableName)
     {
-        checkTableName(catalogName, schemaName, tableName);
         this.catalogName = catalogName;
         this.schemaName = schemaName;
         this.tableName = tableName;
@@ -112,17 +111,17 @@ public class QualifiedTablePrefix
     {
         if (tableName.isPresent()) {
             verify(schemaName.isPresent());
-            return Optional.of(new QualifiedObjectName(catalogName, schemaName.get(), tableName.get()));
+            return Optional.of(new QualifiedObjectName(createDefaultNamePart(catalogName), createDelimitedNamePart(schemaName.get()), createDelimitedNamePart(tableName.get())));
         }
 
         return Optional.empty();
     }
 
-    public boolean matches(QualifiedObjectName objectName)
+    public boolean matches(QualifiedObjectName objectName, NameCanonicalizer nameCanonicalizer)
     {
-        return Objects.equals(catalogName, objectName.getCatalogName())
-                && schemaName.map(schema -> Objects.equals(schema, objectName.getSchemaName())).orElse(true)
-                && tableName.map(table -> Objects.equals(table, objectName.getObjectName())).orElse(true);
+        return Objects.equals(catalogName, objectName.getLegacyCatalogName())
+                && schemaName.map(schema -> Objects.equals(schema, nameCanonicalizer.canonicalize(objectName.getSchemaName()))).orElse(true)
+                && tableName.map(table -> Objects.equals(table, nameCanonicalizer.canonicalize(objectName.getObjectName()))).orElse(true);
     }
 
     @Override

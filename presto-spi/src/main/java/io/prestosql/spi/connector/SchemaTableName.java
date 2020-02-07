@@ -19,7 +19,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Objects;
 
 import static io.prestosql.spi.connector.SchemaUtil.checkNotEmpty;
-import static java.util.Locale.ENGLISH;
 
 public class SchemaTableName
 {
@@ -29,8 +28,8 @@ public class SchemaTableName
     @JsonCreator
     public SchemaTableName(@JsonProperty("schema") String schemaName, @JsonProperty("table") String tableName)
     {
-        this.schemaName = checkNotEmpty(schemaName, "schemaName").toLowerCase(ENGLISH);
-        this.tableName = checkNotEmpty(tableName, "tableName").toLowerCase(ENGLISH);
+        this.schemaName = checkNotEmpty(schemaName, "schemaName");
+        this.tableName = checkNotEmpty(tableName, "tableName");
     }
 
     @JsonProperty("schema")

@@ -25,7 +25,6 @@ import io.prestosql.transaction.TransactionManager;
 
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 
@@ -51,13 +50,13 @@ public class GrantRolesTask
     {
         Session session = stateMachine.getSession();
 
-        Set<String> roles = statement.getRoles().stream().map(role -> role.getValue().toLowerCase(Locale.ENGLISH)).collect(toImmutableSet());
+        String catalog = createCatalogName(session, statement);
+        Set<String> roles = statement.getRoles().stream().map(role -> metadata.getNameCanonicalizer(session, catalog).canonicalize(role.getValue(), role.isDelimited())).collect(toImmutableSet());
         Set<PrestoPrincipal> grantees = statement.getGrantees().stream()
                 .map(MetadataUtil::createPrincipal)
                 .collect(toImmutableSet());
         boolean withAdminOption = statement.isWithAdminOption();
         Optional<PrestoPrincipal> grantor = statement.getGrantor().map(specification -> createPrincipal(session, specification));
-        String catalog = createCatalogName(session, statement);
 
         Set<String> availableRoles = metadata.listRoles(session, catalog);
         Set<String> specifiedRoles = new LinkedHashSet<>();
