@@ -4603,11 +4603,6 @@ public class TestHiveIntegrationSmokeTest
         String tableName = "test_invalid_analyze_table";
         createUnpartitionedTableForAnalyzeTest(tableName);
 
-        // It doesn't make sense to analyze an empty subset of columns
-        assertQueryFails(
-                "ANALYZE " + tableName + " WITH (columns = ARRAY[])",
-                ".*Cannot analyze with empty column list.*");
-
         // Specifying a null column name is not cool
         assertQueryFails(
                 "ANALYZE " + tableName + " WITH (columns = ARRAY[null])",
@@ -4655,6 +4650,48 @@ public class TestHiveIntegrationSmokeTest
                         "('c_boolean', null, null, null, null, null, null), " +
                         "('c_bigint', null, 8.0, 0.375, null, '0', '7'), " +
                         "('c_double', null, 10.0, 0.375, null, '1.2', '7.7'), " +
+                        "('c_timestamp', null, null, null, null, null, null), " +
+                        "('c_varchar', null, null, null, null, null, null), " +
+                        "('c_varbinary', null, null, null, null, null, null), " +
+                        "('p_varchar', null, null, null, null, null, null), " +
+                        "('p_bigint', null, null, null, null, null, null), " +
+                        "(null, null, null, null, 16.0, null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testAnalyzeUnpartitionedTableWithEmptyColumnSubset()
+    {
+        String tableName = "test_analyze_columns_unpartitioned_table_with_empty_column_subset";
+        createUnpartitionedTableForAnalyzeTest(tableName);
+
+        // Clear table stats
+        assertUpdate(format("CALL system.drop_stats('%s', '%s', null)", TPCH_SCHEMA, tableName));
+
+        // No stats before ANALYZE
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "SELECT * FROM VALUES " +
+                        "('c_boolean', null, null, null, null, null, null), " +
+                        "('c_bigint', null, null, null, null, null, null), " +
+                        "('c_double', null, null, null, null, null, null), " +
+                        "('c_timestamp', null, null, null, null, null, null), " +
+                        "('c_varchar', null, null, null, null, null, null), " +
+                        "('c_varbinary', null, null, null, null, null, null), " +
+                        "('p_varchar', null, null, null, null, null, null), " +
+                        "('p_bigint', null, null, null, null, null, null), " +
+                        "(null, null, null, null, null, null, null)");
+
+        // Run analyze on the whole table
+        assertUpdate("ANALYZE " + tableName + " WITH (columns = ARRAY[])", 16);
+
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "SELECT * FROM VALUES " +
+                        "('c_boolean', null, null, null, null, null, null), " +
+                        "('c_bigint', null, null, null, null, null, null), " +
+                        "('c_double', null, null, null, null, null, null), " +
                         "('c_timestamp', null, null, null, null, null, null), " +
                         "('c_varchar', null, null, null, null, null, null), " +
                         "('c_varbinary', null, null, null, null, null, null), " +
