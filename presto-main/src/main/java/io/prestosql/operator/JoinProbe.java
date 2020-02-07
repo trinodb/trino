@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static com.google.common.base.Verify.verify;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 
 public class JoinProbe
@@ -73,8 +74,14 @@ public class JoinProbe
 
     public boolean advanceNextPosition()
     {
+        verify(position < positionCount, "already finished");
         position++;
-        return position < positionCount;
+        return !isFinished();
+    }
+
+    public boolean isFinished()
+    {
+        return position == positionCount;
     }
 
     public long getCurrentJoinPosition(LookupSource lookupSource)

@@ -54,6 +54,8 @@ import static java.util.Objects.requireNonNull;
 public final class PartitionedLookupSourceFactory
         implements LookupSourceFactory
 {
+    public static final long NO_SPILL_EPOCH = 0;
+
     private final List<Type> types;
     private final List<Type> outputTypes;
     private final List<Type> hashChannelTypes;
@@ -74,7 +76,7 @@ public final class PartitionedLookupSourceFactory
     private int partitionsSet;
 
     @GuardedBy("lock")
-    private SpillingInfo spillingInfo = new SpillingInfo(0, ImmutableSet.of());
+    private SpillingInfo spillingInfo = new SpillingInfo(NO_SPILL_EPOCH, ImmutableSet.of());
 
     @GuardedBy("lock")
     private final Map<Integer, SpilledLookupSourceHandle> spilledPartitions = new HashMap<>();
