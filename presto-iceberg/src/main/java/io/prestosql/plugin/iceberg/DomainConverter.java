@@ -49,9 +49,6 @@ public final class DomainConverter
         if (tupleDomain.isAll() || tupleDomain.isNone()) {
             return tupleDomain;
         }
-        if (!tupleDomain.getDomains().isPresent()) {
-            return tupleDomain;
-        }
 
         Map<IcebergColumnHandle, Domain> transformedMap = new HashMap<>();
         tupleDomain.getDomains().get().forEach((column, domain) -> {
@@ -86,6 +83,9 @@ public final class DomainConverter
                     transformedValueSet = SortedRangeSet.copyOf(valueSet.getType(), ranges);
                 }
                 transformedMap.put(column, Domain.create(transformedValueSet, domain.isNullAllowed()));
+            }
+            else {
+                transformedMap.put(column, domain);
             }
         });
         return TupleDomain.withColumnDomains(transformedMap);
