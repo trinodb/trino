@@ -380,9 +380,6 @@ public class HiveMetadata
 
         if (analyzeColumnNames.isPresent()) {
             Set<String> columnNames = analyzeColumnNames.get();
-            if (columnNames.isEmpty()) {
-                throw new PrestoException(INVALID_ANALYZE_PROPERTY, "Cannot analyze with empty column list");
-            }
             Set<String> allColumnNames = tableMetadata.getColumns().stream()
                     .map(ColumnMetadata::getName)
                     .collect(toImmutableSet());
