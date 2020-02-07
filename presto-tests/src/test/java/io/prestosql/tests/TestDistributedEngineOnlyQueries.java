@@ -15,6 +15,7 @@ package io.prestosql.tests;
 
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
+import org.testng.annotations.Test;
 
 public class TestDistributedEngineOnlyQueries
         extends AbstractTestEngineOnlyQueries
@@ -24,5 +25,12 @@ public class TestDistributedEngineOnlyQueries
             throws Exception
     {
         return TpchQueryRunnerBuilder.builder().build();
+    }
+
+    @Test
+    public void testUse()
+    {
+        assertQueryFails("USE invalid.xyz", "Catalog does not exist: invalid");
+        assertQueryFails("USE tpch.invalid", "Schema does not exist: tpch.invalid");
     }
 }
