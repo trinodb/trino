@@ -13,7 +13,6 @@
  */
 package io.prestosql.tests.hive.acid;
 
-import io.prestosql.tempto.query.QueryResult;
 import io.prestosql.tests.hive.HiveProductTest;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
@@ -29,44 +28,32 @@ import static io.prestosql.tests.utils.QueryExecutors.onHive;
 public class TestInsertOnlyAcidTableRead
         extends HiveProductTest
 {
-    @Test(dataProvider = "isTablePartitioned", groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL})
+    @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL}, dataProvider = "isTablePartitioned")
     public void testSelectFromInsertOnlyAcidTable(boolean isPartitioned)
     {
         if (getHiveVersionMajor() < 3) {
             throw new SkipException("Presto Hive transactional tables are supported with Hive version 3 or above");
         }
 
-        String tableName = "insert_only_acid_table" + (isPartitioned ? "_partitioned" : "");
-
-        String createTable = "CREATE TABLE IF NOT EXISTS " +
-                tableName +
-                " (col INT) " +
+        String tableName = "test_insert_only_table_read";
+        onHive().executeQuery("DROP TABLE IF EXISTS " + tableName);
+        onHive().executeQuery("CREATE TABLE " + tableName + " (col INT) " +
                 (isPartitioned ? "PARTITIONED BY (part_col INT) " : "") +
                 "STORED AS ORC " +
-                "TBLPROPERTIES ('transactional_properties'='insert_only', 'transactional'='true') ";
-
-        onHive().executeQuery(createTable);
-
+                "TBLPROPERTIES ('transactional_properties'='insert_only', 'transactional'='true') ");
         try {
             String hivePartitionString = isPartitioned ? " PARTITION (part_col=2) " : "";
             String predicate = isPartitioned ? " WHERE part_col = 2 " : "";
 
-            onHive().executeQuery(
-                    "INSERT OVERWRITE TABLE " + tableName + hivePartitionString + " select 1");
-
+            onHive().executeQuery("INSERT OVERWRITE TABLE " + tableName + hivePartitionString + " SELECT 1");
             String selectFromOnePartitionsSql = "SELECT col FROM " + tableName + predicate + " ORDER BY COL";
-            QueryResult onePartitionQueryResult = query(selectFromOnePartitionsSql);
-            assertThat(onePartitionQueryResult).containsOnly(row(1));
+            assertThat(query(selectFromOnePartitionsSql)).containsOnly(row(1));
 
-            onHive().executeQuery(
-                    "INSERT INTO TABLE " + tableName + hivePartitionString + " select 2");
-            onePartitionQueryResult = query(selectFromOnePartitionsSql);
-            assertThat(onePartitionQueryResult).containsExactly(row(1), row(2));
+            onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " SELECT 2");
+            assertThat(query(selectFromOnePartitionsSql)).containsExactly(row(1), row(2));
 
-            onHive().executeQuery(
-                    "INSERT OVERWRITE TABLE " + tableName + hivePartitionString + " select 3");
-            onePartitionQueryResult = query(selectFromOnePartitionsSql);
-            assertThat(onePartitionQueryResult).containsOnly(row(3));
+            onHive().executeQuery("INSERT OVERWRITE TABLE " + tableName + hivePartitionString + " SELECT 3");
+            assertThat(query(selectFromOnePartitionsSql)).containsOnly(row(3));
         }
         finally {
             onHive().executeQuery("DROP TABLE " + tableName);
