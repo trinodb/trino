@@ -110,6 +110,8 @@ public class BackgroundHiveSplitLoader
     private static final Iterable<Pattern> BUCKET_PATTERNS = ImmutableList.of(
             // Hive naming pattern per `org.apache.hadoop.hive.ql.exec.Utilities#getBucketIdFromFile()`
             Pattern.compile("(0\\d+)_\\d+.*"),
+            // Hive ACID
+            Pattern.compile("bucket_(\\d+)"),
             // legacy Presto naming pattern (current version matches Hive)
             Pattern.compile("\\d{8}_\\d{6}_\\d{5}_[a-z0-9]{5}_bucket-(\\d+)(?:[-_.].*)?"));
 
@@ -407,51 +409,64 @@ public class BackgroundHiveSplitLoader
             return addSplitsToSource(splits, splitFactory);
         }
 
+        List<Path> readPaths;
+        Optional<DeleteDeltaLocations> deleteDeltaLocations;
+        if (AcidUtils.isTransactionalTable(table.getParameters())) {
+            AcidUtils.Directory directory = hdfsEnvironment.doAs(hdfsContext.getIdentity().getUser(), () -> AcidUtils.getAcidState(
+                    path,
+                    configuration,
+                    validWriteIds.orElseThrow(() -> new IllegalStateException("No validWriteIds present")),
+                    false,
+                    true));
+
+            readPaths = new ArrayList<>();
+
+            if (!directory.getOriginalFiles().isEmpty()) {
+                throw new PrestoException(NOT_SUPPORTED, "Original non-ACID files in transactional tables are not supported");
+            }
+
+            // base
+            if (directory.getBaseDirectory() != null) {
+                readPaths.add(directory.getBaseDirectory());
+            }
+
+            // delta directories
+            for (AcidUtils.ParsedDelta delta : directory.getCurrentDirectories()) {
+                if (!delta.isDeleteDelta()) {
+                    readPaths.add(delta.getPath());
+                }
+            }
+
+            // Create a registry of delete_delta directories for the partition
+            DeleteDeltaLocations.Builder deleteDeltaLocationsBuilder = DeleteDeltaLocations.builder(path);
+            for (AcidUtils.ParsedDelta delta : directory.getCurrentDirectories()) {
+                if (delta.isDeleteDelta()) {
+                    deleteDeltaLocationsBuilder.addDeleteDelta(delta.getPath(), delta.getMinWriteId(), delta.getMaxWriteId(), delta.getStatementId());
+                }
+            }
+
+            deleteDeltaLocations = deleteDeltaLocationsBuilder.build();
+        }
+        else {
+            readPaths = ImmutableList.of(path);
+            deleteDeltaLocations = Optional.empty();
+        }
+
         // Bucketed partitions are fully loaded immediately since all files must be loaded to determine the file to bucket mapping
         if (tableBucketInfo.isPresent()) {
-            if (AcidUtils.isTransactionalTable(table.getParameters())) {
-                throw new PrestoException(NOT_SUPPORTED, "Bucketed Hive transactional tables are not supported: " + table.getSchemaTableName());
+            ListenableFuture<?> lastResult = immediateFuture(null); // TODO document in addToQueue() that it is sufficient to hold on to last returned future
+            for (Path readPath : readPaths) {
+                lastResult = hiveSplitSource.addToQueue(getBucketedSplits(readPath, fs, splitFactory, tableBucketInfo.get(), bucketConversion, deleteDeltaLocations));
             }
-            return hiveSplitSource.addToQueue(getBucketedSplits(path, fs, splitFactory, tableBucketInfo.get(), bucketConversion));
+            return lastResult;
         }
 
         // S3 Select pushdown works at the granularity of individual S3 objects,
         // therefore we must not split files when it is enabled.
         boolean splittable = getHeaderCount(schema) == 0 && getFooterCount(schema) == 0 && !s3SelectPushdownEnabled;
-        if (!AcidUtils.isTransactionalTable(table.getParameters())) {
-            fileIterators.addLast(createInternalHiveSplitIterator(path, fs, splitFactory, splittable, Optional.empty()));
-            return COMPLETED_FUTURE;
-        }
 
-        AcidUtils.Directory directory = hdfsEnvironment.doAs(hdfsContext.getIdentity().getUser(), () -> AcidUtils.getAcidState(
-                path,
-                configuration,
-                validWriteIds.orElseThrow(() -> new IllegalStateException("No validWriteIds present")),
-                false,
-                true));
-
-        if (!directory.getOriginalFiles().isEmpty()) {
-            throw new PrestoException(NOT_SUPPORTED, "Original non-ACID files in transactional tables are not supported");
-        }
-
-        // Create a registry of delete_delta directories for the partition
-        DeleteDeltaLocations.Builder deleteDeltaLocationsBuilder = DeleteDeltaLocations.builder(path);
-        for (AcidUtils.ParsedDelta delta : directory.getCurrentDirectories()) {
-            if (delta.isDeleteDelta()) {
-                deleteDeltaLocationsBuilder.addDeleteDelta(delta.getPath(), delta.getMinWriteId(), delta.getMaxWriteId(), delta.getStatementId());
-            }
-        }
-        Optional<DeleteDeltaLocations> deleteDeltaLocations = deleteDeltaLocationsBuilder.build();
-
-        for (AcidUtils.ParsedDelta delta : directory.getCurrentDirectories()) {
-            if (!delta.isDeleteDelta()) {
-                fileIterators.addLast(createInternalHiveSplitIterator(delta.getPath(), fs, splitFactory, splittable, deleteDeltaLocations));
-            }
-        }
-
-        // base
-        if (directory.getBaseDirectory() != null) {
-            fileIterators.addLast(createInternalHiveSplitIterator(directory.getBaseDirectory(), fs, splitFactory, splittable, deleteDeltaLocations));
+        for (Path readPath : readPaths) {
+            fileIterators.addLast(createInternalHiveSplitIterator(readPath, fs, splitFactory, splittable, deleteDeltaLocations));
         }
 
         return COMPLETED_FUTURE;
@@ -490,7 +505,7 @@ public class BackgroundHiveSplitLoader
                 .iterator();
     }
 
-    private List<InternalHiveSplit> getBucketedSplits(Path path, FileSystem fileSystem, InternalHiveSplitFactory splitFactory, BucketSplitInfo bucketSplitInfo, Optional<BucketConversion> bucketConversion)
+    private List<InternalHiveSplit> getBucketedSplits(Path path, FileSystem fileSystem, InternalHiveSplitFactory splitFactory, BucketSplitInfo bucketSplitInfo, Optional<BucketConversion> bucketConversion, Optional<DeleteDeltaLocations> deleteDeltaLocations)
     {
         int readBucketCount = bucketSplitInfo.getReadBucketCount();
         int tableBucketCount = bucketSplitInfo.getTableBucketCount();
@@ -576,7 +591,9 @@ public class BackgroundHiveSplitLoader
             }
             if (containsEligibleTableBucket) {
                 for (LocatedFileStatus file : bucketFiles.get(partitionBucketNumber)) {
-                    splitFactory.createInternalHiveSplit(file, readBucketNumber)
+                    // OrcDeletedRows will load only delete delta files matching current bucket (same file name),
+                    // so we can pass all delete delta locations here, without filtering.
+                    splitFactory.createInternalHiveSplit(file, readBucketNumber, deleteDeltaLocations)
                             .ifPresent(splitList::add);
                 }
             }
