@@ -11,9 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.tests.hive.acid;
+package io.prestosql.tests.hive;
 
-import io.prestosql.tests.hive.HiveProductTest;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -25,11 +24,51 @@ import static io.prestosql.tests.TestGroups.HIVE_TRANSACTIONAL;
 import static io.prestosql.tests.TestGroups.STORAGE_FORMATS;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
 
-public class TestInsertOnlyAcidTableRead
+public class TestHiveTransactionalTable
         extends HiveProductTest
 {
     @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL}, dataProvider = "isTablePartitioned")
-    public void testSelectFromInsertOnlyAcidTable(boolean isPartitioned)
+    public void testReadFullAcid(boolean isPartitioned)
+    {
+        if (getHiveVersionMajor() < 3) {
+            throw new SkipException("Presto Hive transactional tables are supported with Hive version 3 or above");
+        }
+
+        String tableName = "test_full_acid_table_read";
+        onHive().executeQuery("DROP TABLE IF EXISTS " + tableName);
+        onHive().executeQuery("CREATE TABLE " + tableName + " (col INT, fcol INT) " +
+                (isPartitioned ? "PARTITIONED BY (part_col INT) " : "") +
+                "STORED AS ORC " +
+                "TBLPROPERTIES ('transactional'='true') ");
+        try {
+            String hivePartitionString = isPartitioned ? " PARTITION (part_col=2) " : "";
+            onHive().executeQuery("INSERT OVERWRITE TABLE " + tableName + hivePartitionString + " VALUES (21, 1)");
+
+            String selectFromOnePartitionsSql = "SELECT col, fcol FROM " + tableName + " ORDER BY col";
+            assertThat(query(selectFromOnePartitionsSql)).containsOnly(row(21, 1));
+
+            onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " VALUES (22, 2)");
+            assertThat(query(selectFromOnePartitionsSql)).containsExactly(row(21, 1), row(22, 2));
+
+            // test filtering
+            assertThat(query("SELECT col, fcol FROM " + tableName + " WHERE fcol = 1 ORDER BY col")).containsOnly(row(21, 1));
+
+            // delete a row
+            onHive().executeQuery("DELETE FROM " + tableName + " WHERE fcol=2");
+            assertThat(query(selectFromOnePartitionsSql)).containsOnly(row(21, 1));
+
+            // update the existing row
+            String predicate = "fcol = 1" + (isPartitioned ? " AND part_col = 2 " : "");
+            onHive().executeQuery("UPDATE " + tableName + " SET col = 23 WHERE " + predicate);
+            assertThat(query(selectFromOnePartitionsSql)).containsOnly(row(23, 1));
+        }
+        finally {
+            onHive().executeQuery("DROP TABLE " + tableName);
+        }
+    }
+
+    @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL}, dataProvider = "isTablePartitioned")
+    public void testReadInsertOnly(boolean isPartitioned)
     {
         if (getHiveVersionMajor() < 3) {
             throw new SkipException("Presto Hive transactional tables are supported with Hive version 3 or above");
@@ -59,6 +98,7 @@ public class TestInsertOnlyAcidTableRead
             onHive().executeQuery("DROP TABLE " + tableName);
         }
     }
+
 
     @DataProvider
     public Object[][] isTablePartitioned()
