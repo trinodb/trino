@@ -13,7 +13,6 @@
  */
 package io.prestosql.tests.hive.acid;
 
-import io.prestosql.tempto.query.QueryResult;
 import io.prestosql.tests.hive.HiveProductTest;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
@@ -36,71 +35,45 @@ public class TestFullAcidTableRead
             throw new SkipException("Presto Hive transactional tables are supported with Hive version 3 or above");
         }
 
-        String tableName = isPartitioned ? "full_acid_read_partitioned" : "full_acid_read";
-        createTable(tableName, isPartitioned);
-
+        String tableName = "test_full_acid_table_read";
+        onHive().executeQuery("DROP TABLE IF EXISTS " + tableName);
+        onHive().executeQuery("CREATE TABLE " + tableName + " (col INT, fcol INT) " +
+                (isPartitioned ? "PARTITIONED BY (part_col INT) " : "") +
+                "STORED AS ORC " +
+                "TBLPROPERTIES ('transactional'='true') ");
         try {
-            onHive().executeQuery("INSERT OVERWRITE TABLE " + tableName + getHivePartitionString(isPartitioned) + " VALUES (21, 1)");
+            String hivePartitionString = isPartitioned ? " PARTITION (part_col=2) " : "";
+            onHive().executeQuery("INSERT OVERWRITE TABLE " + tableName + hivePartitionString + " VALUES (21, 1)");
 
             String selectFromOnePartitionsSql = "SELECT col, fcol FROM " + tableName + " ORDER BY col";
-            QueryResult onePartitionQueryResult = query(selectFromOnePartitionsSql);
-            assertThat(onePartitionQueryResult).containsOnly(row(21, 1));
+            assertThat(query(selectFromOnePartitionsSql)).containsOnly(row(21, 1));
 
-            onHive().executeQuery("INSERT INTO TABLE " + tableName + getHivePartitionString(isPartitioned) + " VALUES (22, 2)");
-            onePartitionQueryResult = query(selectFromOnePartitionsSql);
-            assertThat(onePartitionQueryResult).containsExactly(row(21, 1), row(22, 2));
+            onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " VALUES (22, 2)");
+            assertThat(query(selectFromOnePartitionsSql)).containsExactly(row(21, 1), row(22, 2));
 
             // test filtering
-            onePartitionQueryResult = query("SELECT col, fcol FROM " + tableName + " WHERE fcol = 1 ORDER BY col");
-            assertThat(onePartitionQueryResult).containsOnly(row(21, 1));
+            assertThat(query("SELECT col, fcol FROM " + tableName + " WHERE fcol = 1 ORDER BY col")).containsOnly(row(21, 1));
 
             // delete a row
             onHive().executeQuery("DELETE FROM " + tableName + " WHERE fcol=2");
-            onePartitionQueryResult = query(selectFromOnePartitionsSql);
-            assertThat(onePartitionQueryResult).containsOnly(row(21, 1));
+            assertThat(query(selectFromOnePartitionsSql)).containsOnly(row(21, 1));
 
             // update the existing row
-            onHive().executeQuery("UPDATE " + tableName + " SET col = 23 " + addPartitionPredicate(isPartitioned, "fcol = 1"));
-            onePartitionQueryResult = query(selectFromOnePartitionsSql);
-            assertThat(onePartitionQueryResult).containsOnly(row(23, 1));
+            String predicate = "fcol = 1" + (isPartitioned ? " AND part_col = 2 " : "");
+            onHive().executeQuery("UPDATE " + tableName + " SET col = 23 WHERE " + predicate);
+            assertThat(query(selectFromOnePartitionsSql)).containsOnly(row(23, 1));
         }
         finally {
             onHive().executeQuery("DROP TABLE " + tableName);
         }
     }
 
-    private static String getHivePartitionString(boolean isPartitioned)
-    {
-        if (!isPartitioned) {
-            return "";
-        }
-
-        return " PARTITION (part_col=2) ";
-    }
-
-    private static String addPartitionPredicate(boolean isPartitioned, String columnPredicate)
-    {
-        String predicate = " WHERE " + columnPredicate;
-        if (isPartitioned) {
-            predicate += " AND part_col = 2 ";
-        }
-        return predicate;
-    }
-
-    private static void createTable(String tableName, boolean isPartitioned)
-    {
-        onHive().executeQuery("CREATE TABLE IF NOT EXISTS " + tableName + " (col INT, fcol INT) " +
-                (isPartitioned ? "PARTITIONED BY (part_col INT) " : "") +
-                "STORED AS ORC " +
-                "TBLPROPERTIES ('transactional'='true') ");
-    }
-
     @DataProvider
     public Object[][] isTablePartitioned()
     {
         return new Object[][] {
-            {true},
-            {false}
+                {true},
+                {false}
         };
     }
 }
