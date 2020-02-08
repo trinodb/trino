@@ -97,9 +97,9 @@ public class InternalHiveSplitFactory
         return createInternalHiveSplit(status, OptionalInt.empty(), splittable, deleteDeltaLocations);
     }
 
-    public Optional<InternalHiveSplit> createInternalHiveSplit(LocatedFileStatus status, int bucketNumber)
+    public Optional<InternalHiveSplit> createInternalHiveSplit(LocatedFileStatus status, int bucketNumber, Optional<DeleteDeltaLocations> deleteDeltaLocations)
     {
-        return createInternalHiveSplit(status, OptionalInt.of(bucketNumber), false, Optional.empty());
+        return createInternalHiveSplit(status, OptionalInt.of(bucketNumber), false, deleteDeltaLocations);
     }
 
     private Optional<InternalHiveSplit> createInternalHiveSplit(LocatedFileStatus status, OptionalInt bucketNumber, boolean splittable, Optional<DeleteDeltaLocations> deleteDeltaLocations)

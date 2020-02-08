@@ -17,18 +17,23 @@ import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.util.stream.Stream;
+
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.HIVE_TRANSACTIONAL;
 import static io.prestosql.tests.TestGroups.STORAGE_FORMATS;
+import static io.prestosql.tests.hive.TransactionalTableType.ACID;
+import static io.prestosql.tests.hive.TransactionalTableType.INSERT_ONLY;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
+import static java.util.stream.Collectors.joining;
 
 public class TestHiveTransactionalTable
         extends HiveProductTest
 {
-    @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL}, dataProvider = "isTablePartitioned")
-    public void testReadFullAcid(boolean isPartitioned)
+    @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL}, dataProvider = "partitioningAndBucketingTypeDataProvider")
+    public void testReadFullAcid(boolean isPartitioned, BucketingType bucketingType)
     {
         if (getHiveVersionMajor() < 3) {
             throw new SkipException("Presto Hive transactional tables are supported with Hive version 3 or above");
@@ -38,8 +43,9 @@ public class TestHiveTransactionalTable
         onHive().executeQuery("DROP TABLE IF EXISTS " + tableName);
         onHive().executeQuery("CREATE TABLE " + tableName + " (col INT, fcol INT) " +
                 (isPartitioned ? "PARTITIONED BY (part_col INT) " : "") +
+                bucketingType.getHiveClustering("fcol", 4) + " " +
                 "STORED AS ORC " +
-                "TBLPROPERTIES ('transactional'='true') ");
+                hiveTableProperties(ACID, bucketingType));
         try {
             String hivePartitionString = isPartitioned ? " PARTITION (part_col=2) " : "";
             onHive().executeQuery("INSERT OVERWRITE TABLE " + tableName + hivePartitionString + " VALUES (21, 1)");
@@ -67,8 +73,8 @@ public class TestHiveTransactionalTable
         }
     }
 
-    @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL}, dataProvider = "isTablePartitioned")
-    public void testReadInsertOnly(boolean isPartitioned)
+    @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL}, dataProvider = "partitioningAndBucketingTypeDataProvider")
+    public void testReadInsertOnly(boolean isPartitioned, BucketingType bucketingType)
     {
         if (getHiveVersionMajor() < 3) {
             throw new SkipException("Presto Hive transactional tables are supported with Hive version 3 or above");
@@ -78,8 +84,9 @@ public class TestHiveTransactionalTable
         onHive().executeQuery("DROP TABLE IF EXISTS " + tableName);
         onHive().executeQuery("CREATE TABLE " + tableName + " (col INT) " +
                 (isPartitioned ? "PARTITIONED BY (part_col INT) " : "") +
+                bucketingType.getHiveClustering("col", 4) + " " +
                 "STORED AS ORC " +
-                "TBLPROPERTIES ('transactional_properties'='insert_only', 'transactional'='true') ");
+                hiveTableProperties(INSERT_ONLY, bucketingType));
         try {
             String hivePartitionString = isPartitioned ? " PARTITION (part_col=2) " : "";
             String predicate = isPartitioned ? " WHERE part_col = 2 " : "";
@@ -99,13 +106,21 @@ public class TestHiveTransactionalTable
         }
     }
 
-
     @DataProvider
-    public Object[][] isTablePartitioned()
+    public Object[][] partitioningAndBucketingTypeDataProvider()
     {
-        return new Object[][] {
-                {true},
-                {false}
-        };
+        return Stream.of(BucketingType.values())
+                .flatMap(value -> Stream.of(
+                        new Object[] {false, value},
+                        new Object[] {true, value}))
+                .toArray(Object[][]::new);
+    }
+
+    private static String hiveTableProperties(TransactionalTableType transactionalTableType, BucketingType bucketingType)
+    {
+        return Stream.concat(
+                transactionalTableType.getHiveTableProperties().stream(),
+                bucketingType.getHiveTableProperties().stream())
+                .collect(joining(",", "TBLPROPERTIES (", ")"));
     }
 }
