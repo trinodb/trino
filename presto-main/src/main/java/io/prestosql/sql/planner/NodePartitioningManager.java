@@ -203,7 +203,7 @@ public class NodePartitioningManager
 
         ConnectorBucketNodeMap connectorBucketNodeMap = partitioningProvider.getBucketNodeMap(
                 partitioningHandle.getTransactionHandle().orElse(null),
-                session.toConnectorSession(),
+                session.toConnectorSession(partitioningHandle.getConnectorId().get()),
                 partitioningHandle.getConnectorHandle());
 
         checkArgument(connectorBucketNodeMap != null, "No partition map %s", partitioningHandle);
@@ -217,7 +217,7 @@ public class NodePartitioningManager
 
         ToIntFunction<ConnectorSplit> splitBucketFunction = partitioningProvider.getSplitBucketFunction(
                 partitioningHandle.getTransactionHandle().orElse(null),
-                session.toConnectorSession(),
+                session.toConnectorSession(partitioningHandle.getConnectorId().get()),
                 partitioningHandle.getConnectorHandle());
         checkArgument(splitBucketFunction != null, "No partitioning %s", partitioningHandle);
 
