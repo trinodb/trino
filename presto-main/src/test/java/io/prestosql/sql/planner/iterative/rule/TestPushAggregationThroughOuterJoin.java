@@ -16,6 +16,7 @@ package io.prestosql.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.prestosql.sql.planner.iterative.rule.test.PlanBuilder;
@@ -38,6 +39,7 @@ import static io.prestosql.sql.planner.assertions.PlanMatchPattern.singleGroupin
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
 import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expressions;
 import static io.prestosql.sql.planner.plan.AggregationNode.Step.SINGLE;
+import static io.prestosql.sql.planner.plan.AggregationNode.groupingSets;
 
 public class TestPushAggregationThroughOuterJoin
         extends BaseRuleTest
@@ -160,6 +162,30 @@ public class TestPushAggregationThroughOuterJoin
                                                 Optional.empty(),
                                                 SINGLE,
                                                 values(ImmutableMap.of("null_literal", 0))))));
+    }
+
+    @Test
+    public void testDoesNotFireWhenMultipleGroupingSets()
+    {
+        tester().assertThat(new PushAggregationThroughOuterJoin())
+                .on(p -> p.aggregation(ab -> ab
+                        .source(
+                                p.join(
+                                        JoinNode.Type.LEFT,
+                                        p.values(
+                                                ImmutableList.of(p.symbol("COL1"), p.symbol("COL2")),
+                                                ImmutableList.of(expressions("1", "2"))),
+                                        p.values(
+                                                ImmutableList.of(p.symbol("COL3")),
+                                                ImmutableList.of(expressions("1"))),
+                                        ImmutableList.of(new JoinNode.EquiJoinClause(p.symbol("COL1"), p.symbol("COL3"))),
+                                        ImmutableList.of(p.symbol("COL1"), p.symbol("COL3")),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty()))
+                        .addAggregation(p.symbol("COUNT"), PlanBuilder.expression("count(*)"), ImmutableList.of())
+                        .groupingSets(groupingSets(ImmutableList.of(p.symbol("COL1"), p.symbol("COL2")), 2, ImmutableSet.of()))))
+                .doesNotFire();
     }
 
     @Test

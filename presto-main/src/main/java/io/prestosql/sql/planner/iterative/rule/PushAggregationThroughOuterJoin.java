@@ -214,7 +214,7 @@ public class PushAggregationThroughOuterJoin
 
     private static boolean groupsOnAllColumns(AggregationNode node, List<Symbol> columns)
     {
-        return new HashSet<>(node.getGroupingKeys()).equals(new HashSet<>(columns));
+        return node.getGroupingSetCount() == 1 && new HashSet<>(node.getGroupingKeys()).equals(new HashSet<>(columns));
     }
 
     // When the aggregation is done after the join, there will be a null value that gets aggregated over
