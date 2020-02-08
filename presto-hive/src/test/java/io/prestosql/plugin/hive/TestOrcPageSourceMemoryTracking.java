@@ -53,7 +53,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
-import org.apache.hadoop.hive.ql.io.HiveOutputFormat;
 import org.apache.hadoop.hive.ql.io.orc.OrcFile;
 import org.apache.hadoop.hive.ql.io.orc.OrcFile.WriterOptions;
 import org.apache.hadoop.hive.ql.io.orc.OrcInputFormat;
@@ -461,7 +460,7 @@ public class TestOrcPageSourceMemoryTracking
             columns = columnsBuilder.build();
             types = typesBuilder.build();
 
-            fileSplit = createTestFile(tempFilePath, new OrcOutputFormat(), serde, null, testColumns, numRows, stripeRows);
+            fileSplit = createTestFile(tempFilePath, serde, null, testColumns, numRows, stripeRows);
         }
 
         public ConnectorPageSource newPageSource()
@@ -554,7 +553,6 @@ public class TestOrcPageSourceMemoryTracking
 
     public static FileSplit createTestFile(
             String filePath,
-            HiveOutputFormat<?, ?> outputFormat,
             Serializer serializer,
             String compressionCodec,
             List<TestColumn> testColumns,
