@@ -26,7 +26,7 @@ jobs:
       - name: Install Hive Module
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl presto-hive-hadoop2
+          ./bin/retry ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl presto-hive-hadoop2
       - name: Run Hive Tests
         run: |
           source presto-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
