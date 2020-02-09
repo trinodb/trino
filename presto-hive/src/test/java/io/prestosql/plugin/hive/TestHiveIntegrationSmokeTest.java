@@ -2335,7 +2335,7 @@ public class TestHiveIntegrationSmokeTest
         File tempDir = createTempDir();
 
         @Language("SQL") String createTableSql = format("" +
-                        "CREATE TABLE test_create_external " +
+                        "CREATE TABLE test_create_external_with_data_not_allowed " +
                         "WITH (external_location = '%s') AS " +
                         "SELECT * FROM tpch.tiny.nation",
                 tempDir.toURI().toASCIIString());
