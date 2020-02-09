@@ -44,6 +44,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.SystemSessionProperties.shouldPushAggregationThroughJoin;
@@ -117,6 +118,9 @@ public class PushAggregationThroughOuterJoin
     @Override
     public Result apply(AggregationNode aggregation, Captures captures, Context context)
     {
+        // This rule doesn't deal with AggregationNode's hash symbol. Hash symbols are not yet present at this stage of optimization.
+        checkArgument(!aggregation.getHashSymbol().isPresent(), "unexpected hash symbol");
+
         JoinNode join = captures.get(JOIN);
 
         if (join.getFilter().isPresent()
