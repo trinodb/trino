@@ -127,7 +127,7 @@ public class PrestoResultSet
         this.columnInfoList = getColumnInfo(columns);
         this.resultSetMetaData = new PrestoResultSetMetaData(columnInfoList);
 
-        this.results = new AsyncIterator(flatten(new ResultsPageIterator(client, progressCallback, warningsManager), maxRows), client, Thread.currentThread());
+        this.results = new AsyncIterator<>(flatten(new ResultsPageIterator(client, progressCallback, warningsManager), maxRows), client, Thread.currentThread());
     }
 
     public String getQueryId()

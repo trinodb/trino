@@ -1268,6 +1268,7 @@ public class PlanPrinter
         return builder.toString();
     }
 
+    @SafeVarargs
     private static String formatHash(Optional<Symbol>... hashes)
     {
         List<Symbol> symbols = stream(hashes)

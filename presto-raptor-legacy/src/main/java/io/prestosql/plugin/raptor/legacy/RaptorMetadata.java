@@ -314,7 +314,7 @@ public class RaptorMetadata
             return Optional.empty();
         }
 
-        return Optional.of(new ConstraintApplicationResult(
+        return Optional.of(new ConstraintApplicationResult<>(
                 new RaptorTableHandle(table.getSchemaName(),
                         table.getTableName(),
                         table.getTableId(),

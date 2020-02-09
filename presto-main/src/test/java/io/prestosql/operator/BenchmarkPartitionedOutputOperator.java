@@ -171,6 +171,7 @@ public class BenchmarkPartitionedOutputOperator
         // copied & modifed from TestRowBlock
         private List<Object>[] generateTestRows(List<Type> fieldTypes, int numRows)
         {
+            @SuppressWarnings("unchecked")
             List<Object>[] testRows = new List[numRows];
             for (int i = 0; i < numRows; i++) {
                 List<Object> testRow = new ArrayList<>(fieldTypes.size());

@@ -458,9 +458,10 @@ public class TestEqualityInference
         return ImmutableSet.of(comparisonExpression.getLeft(), comparisonExpression.getRight());
     }
 
+    @SafeVarargs
     private static <E> Set<E> set(E... elements)
     {
-        return setCopy(Arrays.asList(elements));
+        return ImmutableSet.copyOf(elements);
     }
 
     private static <E> Set<E> setCopy(Iterable<E> elements)
