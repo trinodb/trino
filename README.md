@@ -1,4 +1,5 @@
 # Presto
+[![Presto Slack](https://img.shields.io/static/v1?logo=slack&logoColor=959DA5&label=Slack&labelColor=333a41&message=join%20conversation&color=3AC358)](https://prestosql.io/slack.html)
 
 Presto is a distributed SQL query engine for big data.
 
