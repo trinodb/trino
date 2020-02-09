@@ -57,6 +57,6 @@ public class KafkaConsumerFactory
         properties.put(VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
         properties.put(RECEIVE_BUFFER_CONFIG, Long.toString(kafkaBufferSize.toBytes()));
         properties.put(ENABLE_AUTO_COMMIT_CONFIG, Boolean.toString(false));
-        return new KafkaConsumer(properties);
+        return new KafkaConsumer<>(properties);
     }
 }

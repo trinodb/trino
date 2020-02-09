@@ -87,7 +87,8 @@ public class QueryTemplate
         return queries.stream();
     }
 
-    public void replaceAll(Consumer<String> queryConsumer, List<Parameter>... parametersLists)
+    @SafeVarargs
+    public final void replaceAll(Consumer<String> queryConsumer, List<Parameter>... parametersLists)
     {
         requireNonNull(queryConsumer, "queryConsumer is null");
         replaceAll(queryTemplate, queryConsumer, ImmutableList.copyOf(parametersLists));

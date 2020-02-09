@@ -4192,6 +4192,7 @@ public abstract class AbstractTestQueries
             assertEquals(rows.size(), 10);
 
             for (MaterializedRow row : rows) {
+                @SuppressWarnings("unchecked")
                 List<Integer> actual = (List<Integer>) row.getField(0);
 
                 // check if the result is a correct permutation
