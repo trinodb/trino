@@ -57,10 +57,10 @@ public final class Environments
     {
         try {
             return ClassPath.from(Environments.class.getClassLoader()).getTopLevelClassesRecursive(packageName).stream()
-            .map(ClassPath.ClassInfo::load)
-            .filter(clazz -> clazz.isAnnotationPresent(TestsEnvironment.class))
-            .map(clazz -> (Class<? extends EnvironmentProvider>) clazz.asSubclass(EnvironmentProvider.class))
-            .collect(toImmutableList());
+                    .map(ClassPath.ClassInfo::load)
+                    .filter(clazz -> clazz.isAnnotationPresent(TestsEnvironment.class))
+                    .map(clazz -> (Class<? extends EnvironmentProvider>) clazz.asSubclass(EnvironmentProvider.class))
+                    .collect(toImmutableList());
         }
         catch (IOException e) {
             throw new RuntimeException(e);
