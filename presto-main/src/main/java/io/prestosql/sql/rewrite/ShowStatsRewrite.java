@@ -25,6 +25,7 @@ import io.prestosql.security.AccessControl;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.Constraint;
+import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.statistics.ColumnStatistics;
 import io.prestosql.spi.statistics.DoubleRange;
 import io.prestosql.spi.statistics.Estimate;
@@ -98,7 +99,7 @@ public class ShowStatsRewrite
     @Override
     public Statement rewrite(Session session, Metadata metadata, SqlParser parser, Optional<QueryExplainer> queryExplainer, Statement node, List<Expression> parameters, Map<NodeRef<Parameter>, Expression> parameterLookup, AccessControl accessControl, WarningCollector warningCollector)
     {
-        return (Statement) new Visitor(metadata, session, parameters, queryExplainer, warningCollector).process(node, null);
+        return (Statement) new Visitor(metadata, session, parameters, queryExplainer, accessControl, warningCollector).process(node, null);
     }
 
     private static class Visitor
@@ -108,14 +109,16 @@ public class ShowStatsRewrite
         private final Session session;
         private final List<Expression> parameters;
         private final Optional<QueryExplainer> queryExplainer;
+        private final AccessControl accessControl;
         private final WarningCollector warningCollector;
 
-        public Visitor(Metadata metadata, Session session, List<Expression> parameters, Optional<QueryExplainer> queryExplainer, WarningCollector warningCollector)
+        public Visitor(Metadata metadata, Session session, List<Expression> parameters, Optional<QueryExplainer> queryExplainer, AccessControl accessControl, WarningCollector warningCollector)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.session = requireNonNull(session, "session is null");
             this.parameters = requireNonNull(parameters, "parameters is null");
             this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
+            this.accessControl = requireNonNull(accessControl, "accessControl is null");
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         }
 
@@ -138,6 +141,13 @@ public class ShowStatsRewrite
                 return rewriteShowStats(node, table, ImmutableList.of(new AllColumns()), Constraint.alwaysTrue());
             }
             throw new IllegalArgumentException("Expected either TableSubquery or Table as relation");
+        }
+
+        private AccessDeniedException rewriteAccessDeniedException(AccessDeniedException original)
+        {
+            return new AccessDeniedException(original.getMessage()
+                    .replace("Access Denied: ", "")
+                    .replace("Cannot select from", "Cannot show stats for"));
         }
 
         private void validateShowStatsSubquery(ShowStats node, Query query, QuerySpecification querySpecification, Plan plan)
@@ -172,8 +182,15 @@ public class ShowStatsRewrite
             TableMetadata tableMetadata = metadata.getTableMetadata(session, getTableHandle(node, table.getName()));
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
             Set<String> extractNamedResultColumns = extractStatsColumns(tableMetadata, selectItems);
-            List<Expression> resultRows = buildStatisticsRows(tableMetadata, columnHandles, extractNamedResultColumns, tableStatistics);
 
+            try {
+                accessControl.checkCanSelectFromColumns(session.toSecurityContext(), tableMetadata.getQualifiedName(), extractNamedResultColumns);
+            }
+            catch (AccessDeniedException e) {
+                throw rewriteAccessDeniedException(e);
+            }
+
+            List<Expression> resultRows = buildStatisticsRows(tableMetadata, columnHandles, extractNamedResultColumns, tableStatistics);
             return simpleQuery(selectAll(buildSelectItems(buildColumnsNames())),
                     aliased(new Values(resultRows),
                             "table_stats_for_" + table.getName(),
