@@ -16,7 +16,6 @@ package io.prestosql.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMultimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.prestosql.Session;
 import io.prestosql.spi.predicate.Domain;
@@ -62,19 +61,18 @@ public class TestLocalDynamicFilterConsumer
             throws Exception
     {
         LocalDynamicFilterConsumer filter = new LocalDynamicFilterConsumer(
-                ImmutableMultimap.of(new DynamicFilterId("123"), new Symbol("a")),
                 ImmutableMap.of(new DynamicFilterId("123"), 0),
                 ImmutableMap.of(new DynamicFilterId("123"), INTEGER),
                 1);
         assertEquals(filter.getBuildChannels(), ImmutableMap.of(new DynamicFilterId("123"), 0));
         Consumer<TupleDomain<DynamicFilterId>> consumer = filter.getTupleDomainConsumer();
-        ListenableFuture<Map<Symbol, Domain>> result = filter.getNodeLocalDynamicFilterForSymbols();
+        ListenableFuture<Map<DynamicFilterId, Domain>> result = filter.getDynamicFilterDomains();
         assertFalse(result.isDone());
 
         consumer.accept(TupleDomain.withColumnDomains(ImmutableMap.of(
                 new DynamicFilterId("123"), Domain.singleValue(INTEGER, 7L))));
         assertEquals(result.get(), ImmutableMap.of(
-                new Symbol("a"), Domain.singleValue(INTEGER, 7L)));
+                new DynamicFilterId("123"), Domain.singleValue(INTEGER, 7L)));
     }
 
     @Test
@@ -82,47 +80,22 @@ public class TestLocalDynamicFilterConsumer
             throws Exception
     {
         LocalDynamicFilterConsumer filter = new LocalDynamicFilterConsumer(
-                ImmutableMultimap.of(new DynamicFilterId("123"), new Symbol("a")),
                 ImmutableMap.of(new DynamicFilterId("123"), 0),
                 ImmutableMap.of(new DynamicFilterId("123"), INTEGER),
                 2);
 
         Consumer<TupleDomain<DynamicFilterId>> consumer = filter.getTupleDomainConsumer();
-        ListenableFuture<Map<Symbol, Domain>> localResult = filter.getNodeLocalDynamicFilterForSymbols();
         ListenableFuture<Map<DynamicFilterId, Domain>> result = filter.getDynamicFilterDomains();
-        assertFalse(localResult.isDone());
         assertFalse(result.isDone());
 
         consumer.accept(TupleDomain.withColumnDomains(ImmutableMap.of(
                 new DynamicFilterId("123"), Domain.all(INTEGER))));
-        assertEquals(localResult.get(), ImmutableMap.of());
         assertEquals(result.get(), ImmutableMap.of(new DynamicFilterId("123"), Domain.all(INTEGER)));
 
         // adding another partition domain won't change final domain
         consumer.accept(TupleDomain.withColumnDomains(ImmutableMap.of(
                 new DynamicFilterId("123"), Domain.singleValue(INTEGER, 1L))));
-        assertEquals(localResult.get(), ImmutableMap.of());
-    }
-
-    @Test
-    public void testMultipleProbeSymbols()
-            throws Exception
-    {
-        LocalDynamicFilterConsumer filter = new LocalDynamicFilterConsumer(
-                ImmutableMultimap.of(new DynamicFilterId("123"), new Symbol("a1"), new DynamicFilterId("123"), new Symbol("a2")),
-                ImmutableMap.of(new DynamicFilterId("123"), 0),
-                ImmutableMap.of(new DynamicFilterId("123"), INTEGER),
-                1);
-        assertEquals(filter.getBuildChannels(), ImmutableMap.of(new DynamicFilterId("123"), 0));
-        Consumer<TupleDomain<DynamicFilterId>> consumer = filter.getTupleDomainConsumer();
-        ListenableFuture<Map<Symbol, Domain>> result = filter.getNodeLocalDynamicFilterForSymbols();
-        assertFalse(result.isDone());
-
-        consumer.accept(TupleDomain.withColumnDomains(ImmutableMap.of(
-                new DynamicFilterId("123"), Domain.singleValue(INTEGER, 7L))));
-        assertEquals(result.get(), ImmutableMap.of(
-                new Symbol("a1"), Domain.singleValue(INTEGER, 7L),
-                new Symbol("a2"), Domain.singleValue(INTEGER, 7L)));
+        assertEquals(result.get(), ImmutableMap.of(new DynamicFilterId("123"), Domain.all(INTEGER)));
     }
 
     @Test
@@ -130,13 +103,12 @@ public class TestLocalDynamicFilterConsumer
             throws Exception
     {
         LocalDynamicFilterConsumer filter = new LocalDynamicFilterConsumer(
-                ImmutableMultimap.of(new DynamicFilterId("123"), new Symbol("a")),
                 ImmutableMap.of(new DynamicFilterId("123"), 0),
                 ImmutableMap.of(new DynamicFilterId("123"), INTEGER),
                 2);
         assertEquals(filter.getBuildChannels(), ImmutableMap.of(new DynamicFilterId("123"), 0));
         Consumer<TupleDomain<DynamicFilterId>> consumer = filter.getTupleDomainConsumer();
-        ListenableFuture<Map<Symbol, Domain>> result = filter.getNodeLocalDynamicFilterForSymbols();
+        ListenableFuture<Map<DynamicFilterId, Domain>> result = filter.getDynamicFilterDomains();
 
         assertFalse(result.isDone());
         consumer.accept(TupleDomain.withColumnDomains(ImmutableMap.of(
@@ -147,7 +119,7 @@ public class TestLocalDynamicFilterConsumer
                 new DynamicFilterId("123"), Domain.singleValue(INTEGER, 20L))));
 
         assertEquals(result.get(), ImmutableMap.of(
-                new Symbol("a"), Domain.multipleValues(INTEGER, ImmutableList.of(10L, 20L))));
+                new DynamicFilterId("123"), Domain.multipleValues(INTEGER, ImmutableList.of(10L, 20L))));
     }
 
     @Test
@@ -157,9 +129,6 @@ public class TestLocalDynamicFilterConsumer
         DynamicFilterId filter1 = new DynamicFilterId("123");
         DynamicFilterId filter2 = new DynamicFilterId("124");
         LocalDynamicFilterConsumer filter = new LocalDynamicFilterConsumer(
-                ImmutableMultimap.of(
-                        filter1, new Symbol("a"),
-                        filter2, new Symbol("b")),
                 ImmutableMap.of(
                         filter1, 0,
                         filter2, 1),
@@ -183,19 +152,18 @@ public class TestLocalDynamicFilterConsumer
             throws Exception
     {
         LocalDynamicFilterConsumer filter = new LocalDynamicFilterConsumer(
-                ImmutableMultimap.of(new DynamicFilterId("123"), new Symbol("a")),
                 ImmutableMap.of(new DynamicFilterId("123"), 0),
                 ImmutableMap.of(new DynamicFilterId("123"), INTEGER),
                 1);
         assertEquals(filter.getBuildChannels(), ImmutableMap.of(new DynamicFilterId("123"), 0));
         Consumer<TupleDomain<DynamicFilterId>> consumer = filter.getTupleDomainConsumer();
-        ListenableFuture<Map<Symbol, Domain>> result = filter.getNodeLocalDynamicFilterForSymbols();
+        ListenableFuture<Map<DynamicFilterId, Domain>> result = filter.getDynamicFilterDomains();
 
         assertFalse(result.isDone());
         consumer.accept(TupleDomain.none());
 
         assertEquals(result.get(), ImmutableMap.of(
-                new Symbol("a"), Domain.none(INTEGER)));
+                new DynamicFilterId("123"), Domain.none(INTEGER)));
     }
 
     @Test
@@ -203,21 +171,20 @@ public class TestLocalDynamicFilterConsumer
             throws Exception
     {
         LocalDynamicFilterConsumer filter = new LocalDynamicFilterConsumer(
-                ImmutableMultimap.of(new DynamicFilterId("123"), new Symbol("a"), new DynamicFilterId("456"), new Symbol("b")),
                 ImmutableMap.of(new DynamicFilterId("123"), 0, new DynamicFilterId("456"), 1),
                 ImmutableMap.of(new DynamicFilterId("123"), INTEGER, new DynamicFilterId("456"), INTEGER),
                 1);
         assertEquals(filter.getBuildChannels(), ImmutableMap.of(new DynamicFilterId("123"), 0, new DynamicFilterId("456"), 1));
         Consumer<TupleDomain<DynamicFilterId>> consumer = filter.getTupleDomainConsumer();
-        ListenableFuture<Map<Symbol, Domain>> result = filter.getNodeLocalDynamicFilterForSymbols();
+        ListenableFuture<Map<DynamicFilterId, Domain>> result = filter.getDynamicFilterDomains();
         assertFalse(result.isDone());
 
         consumer.accept(TupleDomain.withColumnDomains(ImmutableMap.of(
                 new DynamicFilterId("123"), Domain.singleValue(INTEGER, 10L),
                 new DynamicFilterId("456"), Domain.singleValue(INTEGER, 20L))));
         assertEquals(result.get(), ImmutableMap.of(
-                new Symbol("a"), Domain.singleValue(INTEGER, 10L),
-                new Symbol("b"), Domain.singleValue(INTEGER, 20L)));
+                new DynamicFilterId("123"), Domain.singleValue(INTEGER, 10L),
+                new DynamicFilterId("456"), Domain.singleValue(INTEGER, 20L)));
     }
 
     @Test
@@ -225,13 +192,12 @@ public class TestLocalDynamicFilterConsumer
             throws Exception
     {
         LocalDynamicFilterConsumer filter = new LocalDynamicFilterConsumer(
-                ImmutableMultimap.of(new DynamicFilterId("123"), new Symbol("a"), new DynamicFilterId("456"), new Symbol("b")),
                 ImmutableMap.of(new DynamicFilterId("123"), 0, new DynamicFilterId("456"), 1),
                 ImmutableMap.of(new DynamicFilterId("123"), INTEGER, new DynamicFilterId("456"), BIGINT),
                 2);
         assertEquals(filter.getBuildChannels(), ImmutableMap.of(new DynamicFilterId("123"), 0, new DynamicFilterId("456"), 1));
         Consumer<TupleDomain<DynamicFilterId>> consumer = filter.getTupleDomainConsumer();
-        ListenableFuture<Map<Symbol, Domain>> result = filter.getNodeLocalDynamicFilterForSymbols();
+        ListenableFuture<Map<DynamicFilterId, Domain>> result = filter.getDynamicFilterDomains();
 
         assertFalse(result.isDone());
         consumer.accept(TupleDomain.withColumnDomains(ImmutableMap.of(
@@ -244,8 +210,8 @@ public class TestLocalDynamicFilterConsumer
                 new DynamicFilterId("456"), Domain.singleValue(BIGINT, 200L))));
 
         assertEquals(result.get(), ImmutableMap.of(
-                new Symbol("a"), Domain.multipleValues(INTEGER, ImmutableList.of(10L, 20L)),
-                new Symbol("b"), Domain.multipleValues(BIGINT, ImmutableList.of(100L, 200L))));
+                new DynamicFilterId("123"), Domain.multipleValues(INTEGER, ImmutableList.of(10L, 20L)),
+                new DynamicFilterId("456"), Domain.multipleValues(BIGINT, ImmutableList.of(100L, 200L))));
     }
 
     @Test
@@ -260,12 +226,11 @@ public class TestLocalDynamicFilterConsumer
         JoinNode joinNode = searchJoins(subplan.getChildren().get(0).getFragment()).findOnlyElement();
         LocalDynamicFilterConsumer filter = LocalDynamicFilterConsumer.create(joinNode, ImmutableList.copyOf(subplan.getFragment().getSymbols().values()), 1);
         DynamicFilterId filterId = getOnlyElement(filter.getBuildChannels().keySet());
-        Symbol probeSymbol = getOnlyElement(joinNode.getCriteria()).getLeft();
 
         filter.getTupleDomainConsumer().accept(TupleDomain.withColumnDomains(ImmutableMap.of(
                 filterId, Domain.singleValue(BIGINT, 3L))));
-        assertEquals(filter.getNodeLocalDynamicFilterForSymbols().get(), ImmutableMap.of(
-                probeSymbol, Domain.singleValue(BIGINT, 3L)));
+        assertEquals(filter.getDynamicFilterDomains().get(), ImmutableMap.of(
+                filterId, Domain.singleValue(BIGINT, 3L)));
     }
 
     @Test
@@ -288,7 +253,6 @@ public class TestLocalDynamicFilterConsumer
 
         filter.getTupleDomainConsumer().accept(TupleDomain.withColumnDomains(ImmutableMap.of(
                 filterId, Domain.singleValue(BIGINT, 3L))));
-        assertEquals(filter.getNodeLocalDynamicFilterForSymbols().get(), ImmutableMap.of());
         assertEquals(filter.getDynamicFilterDomains().get(), ImmutableMap.of(
                 filterId, Domain.singleValue(BIGINT, 3L)));
     }
@@ -313,13 +277,13 @@ public class TestLocalDynamicFilterConsumer
                 .sorted(Map.Entry.comparingByValue())
                 .map(Map.Entry::getKey)
                 .collect(toImmutableList());
-        filter.getTupleDomainConsumer().accept(TupleDomain.withColumnDomains(ImmutableMap.of(
-                filterIds.get(0), Domain.singleValue(BIGINT, 4L),
-                filterIds.get(1), Domain.singleValue(BIGINT, 5L))));
 
-        assertEquals(filter.getNodeLocalDynamicFilterForSymbols().get(), ImmutableMap.of(
-                new Symbol("partkey"), Domain.singleValue(BIGINT, 4L),
-                new Symbol("suppkey"), Domain.singleValue(BIGINT, 5L)));
+        Map<DynamicFilterId, Domain> domainMap = ImmutableMap.of(
+                filterIds.get(0), Domain.singleValue(BIGINT, 4L),
+                filterIds.get(1), Domain.singleValue(BIGINT, 5L));
+        filter.getTupleDomainConsumer().accept(TupleDomain.withColumnDomains(domainMap));
+
+        assertEquals(filter.getDynamicFilterDomains().get(), domainMap);
     }
 
     @Test
@@ -338,12 +302,11 @@ public class TestLocalDynamicFilterConsumer
         for (JoinNode joinNode : joinNodes) {
             LocalDynamicFilterConsumer filter = LocalDynamicFilterConsumer.create(joinNode, ImmutableList.copyOf(subplan.getFragment().getSymbols().values()), 1);
             DynamicFilterId filterId = getOnlyElement(filter.getBuildChannels().keySet());
-            Symbol probeSymbol = getOnlyElement(joinNode.getCriteria()).getLeft();
 
             filter.getTupleDomainConsumer().accept(TupleDomain.withColumnDomains(ImmutableMap.of(
                     filterId, Domain.singleValue(BIGINT, 6L))));
-            assertEquals(filter.getNodeLocalDynamicFilterForSymbols().get(), ImmutableMap.of(
-                    probeSymbol, Domain.singleValue(BIGINT, 6L)));
+            assertEquals(filter.getDynamicFilterDomains().get(), ImmutableMap.of(
+                    filterId, Domain.singleValue(BIGINT, 6L)));
         }
     }
 
@@ -365,11 +328,8 @@ public class TestLocalDynamicFilterConsumer
 
         filter.getTupleDomainConsumer().accept(TupleDomain.withColumnDomains(ImmutableMap.of(
                 filterId, Domain.singleValue(BIGINT, 7L))));
-
-        // TODO: hard-coding symbol names makes tests brittle
-        assertEquals(filter.getNodeLocalDynamicFilterForSymbols().get(), ImmutableMap.of(
-                new Symbol("partkey_0"), Domain.singleValue(BIGINT, 7L),
-                new Symbol("suppkey"), Domain.singleValue(BIGINT, 7L)));
+        assertEquals(filter.getDynamicFilterDomains().get(), ImmutableMap.of(
+                filterId, Domain.singleValue(BIGINT, 7L)));
     }
 
     private PlanNodeSearcher searchJoins(PlanFragment fragment)

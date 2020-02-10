@@ -382,7 +382,7 @@ public class TaskContext
         return toIntExact(max(0, endFullGcCount - startFullGcCount));
     }
 
-    public synchronized void collectDynamicTupleDomain(Map<DynamicFilterId, Domain> dynamicFilterDomains)
+    public synchronized void collectDynamicFilterDomains(Map<DynamicFilterId, Domain> dynamicFilterDomains)
     {
         for (Map.Entry<DynamicFilterId, Domain> entry : dynamicFilterDomains.entrySet()) {
             dynamicTupleDomains.merge(entry.getKey(), entry.getValue(), Domain::intersect);
