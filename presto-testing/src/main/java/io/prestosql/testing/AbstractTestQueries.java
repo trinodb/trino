@@ -4712,6 +4712,9 @@ public abstract class AbstractTestQueries
         assertAccessDenied("SHOW STATS FOR (SELECT nationkey FROM nation)", "Cannot show stats for columns \\[nationkey\\] in table or view .*.nation", privilege("nationkey", SELECT_COLUMN));
         assertAccessDenied("SHOW STATS FOR (SELECT *, nationkey FROM nation)", "Cannot show stats for columns \\[nationkey, regionkey, name, comment\\] in table or view .*.nation", privilege("nationkey", SELECT_COLUMN));
         assertAccessDenied("SHOW STATS FOR (SELECT *, * FROM nation)", "Cannot show stats for columns \\[nationkey, regionkey, name, comment\\] in table or view .*.nation", privilege("nationkey", SELECT_COLUMN));
+        assertAccessDenied("SHOW STATS FOR (SELECT * FROM lineitem)", "Cannot select from columns \\[linenumber, orderkey] in table or view .*.lineitem.*", privilege("linenumber", SELECT_COLUMN), privilege("orderkey", SELECT_COLUMN));
+        assertAccessDenied("SHOW STATS FOR (SELECT nationkey FROM nation)", "Cannot select from columns \\[nationkey\\] in table or view .*.nation.*", privilege("nation", SELECT_COLUMN));
+        assertAccessDenied("SHOW STATS FOR (SELECT * FROM nation)", "Cannot select from columns \\[nationkey, regionkey, name, comment\\] in table or view .*.nation.*", privilege("nation", SELECT_COLUMN));
     }
 
     @Test
