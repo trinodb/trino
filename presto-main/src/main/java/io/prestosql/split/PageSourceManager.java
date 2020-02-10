@@ -20,13 +20,13 @@ import io.prestosql.metadata.TableHandle;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.EmptyPageSource;
 import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -50,14 +50,14 @@ public class PageSourceManager
     }
 
     @Override
-    public ConnectorPageSource createPageSource(Session session, Split split, TableHandle table, List<ColumnHandle> columns, Supplier<TupleDomain<ColumnHandle>> dynamicFilter)
+    public ConnectorPageSource createPageSource(Session session, Split split, TableHandle table, List<ColumnHandle> columns, DynamicFilter dynamicFilter)
     {
         requireNonNull(columns, "columns is null");
         checkArgument(split.getCatalogName().equals(table.getCatalogName()), "mismatched split and table");
         CatalogName catalogName = split.getCatalogName();
 
         ConnectorPageSourceProvider provider = getPageSourceProvider(catalogName);
-        TupleDomain<ColumnHandle> constraint = dynamicFilter.get();
+        TupleDomain<ColumnHandle> constraint = dynamicFilter.getCurrentPredicate();
         if (constraint.isNone()) {
             return new EmptyPageSource();
         }
@@ -67,7 +67,7 @@ public class PageSourceManager
                 split.getConnectorSplit(),
                 table.getConnectorHandle(),
                 columns,
-                constraint);
+                dynamicFilter);
     }
 
     private ConnectorPageSourceProvider getPageSourceProvider(CatalogName catalogName)

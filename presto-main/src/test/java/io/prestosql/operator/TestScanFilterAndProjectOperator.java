@@ -32,9 +32,9 @@ import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.LazyBlock;
 import io.prestosql.spi.connector.ConnectorPageSource;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.FixedPageSource;
 import io.prestosql.spi.connector.RecordPageSource;
-import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.sql.gen.ExpressionCompiler;
 import io.prestosql.sql.gen.PageFunctionCompiler;
 import io.prestosql.sql.planner.plan.PlanNodeId;
@@ -109,7 +109,7 @@ public class TestScanFilterAndProjectOperator
                 pageProcessor,
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(),
-                TupleDomain::all,
+                DynamicFilter.EMPTY,
                 ImmutableList.of(VARCHAR),
                 DataSize.ofBytes(0),
                 0);
@@ -152,7 +152,7 @@ public class TestScanFilterAndProjectOperator
                 pageProcessor,
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(),
-                TupleDomain::all,
+                DynamicFilter.EMPTY,
                 ImmutableList.of(BIGINT),
                 DataSize.of(64, KILOBYTE),
                 2);
@@ -197,7 +197,7 @@ public class TestScanFilterAndProjectOperator
                 () -> pageProcessor,
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(),
-                TupleDomain::all,
+                DynamicFilter.EMPTY,
                 ImmutableList.of(BIGINT),
                 DataSize.ofBytes(0),
                 0);
@@ -232,7 +232,7 @@ public class TestScanFilterAndProjectOperator
                 pageProcessor,
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(),
-                TupleDomain::all,
+                DynamicFilter.EMPTY,
                 ImmutableList.of(VARCHAR),
                 DataSize.ofBytes(0),
                 0);
@@ -285,7 +285,7 @@ public class TestScanFilterAndProjectOperator
                 pageProcessor,
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(),
-                TupleDomain::all,
+                DynamicFilter.EMPTY,
                 ImmutableList.of(BIGINT),
                 DataSize.ofBytes(0),
                 0);
@@ -350,7 +350,7 @@ public class TestScanFilterAndProjectOperator
                 pageProcessor,
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(),
-                TupleDomain::all,
+                DynamicFilter.EMPTY,
                 ImmutableList.of(BIGINT),
                 DataSize.ofBytes(0),
                 0);

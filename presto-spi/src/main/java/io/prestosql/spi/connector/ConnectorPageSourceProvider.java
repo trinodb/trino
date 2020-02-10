@@ -49,4 +49,20 @@ public interface ConnectorPageSourceProvider
         // By default, ignore dynamic filter (as it is an optimization and doesn't affect correctness).
         return createPageSource(transaction, session, split, table, columns);
     }
+
+    /**
+     * @param columns columns that should show up in the output page, in this order
+     * @param dynamicFilter optionally remove rows that don't satisfy this predicate
+     */
+    default ConnectorPageSource createPageSource(
+            ConnectorTransactionHandle transaction,
+            ConnectorSession session,
+            ConnectorSplit split,
+            ConnectorTableHandle table,
+            List<ColumnHandle> columns,
+            DynamicFilter dynamicFilter)
+    {
+        // By default, poll dynamic filtering without blocking for collection to complete.
+        return createPageSource(transaction, session, split, table, columns, dynamicFilter.getCurrentPredicate());
+    }
 }
