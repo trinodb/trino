@@ -39,6 +39,7 @@ import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.statistics.ColumnStatisticMetadata;
 import io.prestosql.spi.statistics.TableStatisticType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.sql.DynamicFilters;
 import io.prestosql.sql.planner.OrderingScheme;
 import io.prestosql.sql.planner.Partitioning;
 import io.prestosql.sql.planner.PartitioningScheme;
@@ -125,6 +126,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.execution.StageInfo.getAllStages;
 import static io.prestosql.operator.StageExecutionDescriptor.ungroupedExecution;
+import static io.prestosql.sql.DynamicFilters.extractDynamicFilters;
+import static io.prestosql.sql.ExpressionUtils.combineConjunctsWithDuplicates;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.prestosql.sql.planner.planprinter.PlanNodeStatsSummarizer.aggregateStageStats;
 import static io.prestosql.sql.planner.planprinter.TextRenderer.formatDouble;
@@ -757,7 +760,13 @@ public class PlanPrinter
             if (filterNode.isPresent()) {
                 operatorName += "Filter";
                 formatString += "filterPredicate = %s, ";
-                arguments.add(filterNode.get().getPredicate());
+                Expression predicate = filterNode.get().getPredicate();
+                DynamicFilters.ExtractResult extractResult = extractDynamicFilters(predicate);
+                arguments.add(combineConjunctsWithDuplicates(extractResult.getStaticConjuncts()));
+                if (!extractResult.getDynamicConjuncts().isEmpty()) {
+                    formatString += "dynamicFilter = %s, ";
+                    arguments.add(printDynamicFilters(extractResult.getDynamicConjuncts()));
+                }
             }
 
             if (formatString.length() > 1) {
@@ -801,6 +810,13 @@ public class PlanPrinter
 
             sourceNode.accept(this, context);
             return null;
+        }
+
+        private String printDynamicFilters(Collection<DynamicFilters.Descriptor> filters)
+        {
+            return filters.stream()
+                    .map(filter -> filter.getId() + " -> " + filter.getInput())
+                    .collect(Collectors.joining(", ", "{", "}"));
         }
 
         private String printDynamicFilterAssignments(Map<String, Symbol> filters)
