@@ -53,6 +53,7 @@ import org.apache.hadoop.hive.metastore.LockRequestBuilder;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.api.AlreadyExistsException;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
+import org.apache.hadoop.hive.metastore.api.ConfigValSecurityException;
 import org.apache.hadoop.hive.metastore.api.DataOperationType;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
@@ -1652,6 +1653,10 @@ public class ThriftHiveMetastore
                             return Optional.ofNullable(metastoreClient.get_config_value(name, null));
                         }
                     });
+        }
+        catch (ConfigValSecurityException e) {
+            log.debug(e, "Could not fetch value for config '%s' from Hive", name);
+            return Optional.empty();
         }
         catch (TException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
