@@ -105,21 +105,7 @@ final class PrestoSystemRequirements
             return;
         }
 
-        if (!Boolean.getBoolean("presto-temporarily-allow-java8")) {
-            failRequirement("" +
-                    "Future versions of Presto will require Java 11 after March 2020.\n\n" +
-                    "You may temporarily continue running on Java 8 by adding the following\n" +
-                    "JVM config option:\n\n" +
-                    "    -Dpresto-temporarily-allow-java8=true\n");
-        }
-
-        if ((version.getMajor() == 8 && version.getUpdate().isPresent() && version.getUpdate().getAsInt() >= 161) ||
-                (version.getMajor() > 8 && version.getMajor() < 11)) {
-            warnRequirement("Future versions of Presto will require Java 11+ (found: %s)", javaVersion);
-            return;
-        }
-
-        failRequirement("Presto requires Java 8u161+ (found %s)", javaVersion);
+        failRequirement("Presto requires Java 11+ (found %s)", javaVersion);
     }
 
     private static void verifyUsingG1Gc()

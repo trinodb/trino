@@ -34,8 +34,8 @@ After building Presto for the first time, you can load the project into your IDE
 After opening the project in IntelliJ, double check that the Java SDK is properly configured for the project:
 
 * Open the File menu and select Project Structure
-* In the SDKs section, ensure that a 1.8 JDK is selected (create one if none exist)
-* In the Project section, ensure the Project language level is set to 8.0 as Presto makes use of several Java 8 language features
+* In the SDKs section, ensure that JDK 11 is selected (create one if none exist)
+* In the Project section, ensure the Project language level is set to 8 (Presto does not yet use Java 11 language features)
 
 Presto comes with sample configuration that should work out-of-the-box for development. Use the following options to create a run configuration:
 
@@ -49,8 +49,6 @@ The working directory should be the `presto-main` subdirectory. In IntelliJ, usi
 Additionally, the Hive plugin must be configured with the location of your Hive metastore Thrift service. Add the following to the list of VM options, replacing `localhost:9083` with the correct host and port (or use the below value if you do not have a Hive metastore):
 
     -Dhive.metastore.uri=thrift://localhost:9083
-
-When running on Java 8, the VM Options must be supplemented with `-Dpresto-temporarily-allow-java8=true` in order for Presto to start.    
 
 ### Using SOCKS for Hive or HDFS
 
