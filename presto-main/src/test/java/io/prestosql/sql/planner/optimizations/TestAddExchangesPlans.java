@@ -24,6 +24,7 @@ import io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import io.prestosql.sql.planner.assertions.BasePlanTest;
 import io.prestosql.sql.planner.plan.ExchangeNode;
+import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.JoinNode.DistributionType;
 import io.prestosql.sql.planner.plan.MarkDistinctNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
@@ -156,7 +157,9 @@ public class TestAddExchangesPlans
                 anyTree(
                         join(INNER, ImmutableList.of(equiJoinClause("nationkey", "regionkey")), Optional.empty(), Optional.of(REPLICATED), Optional.of(false),
                                 anyNot(ExchangeNode.class,
-                                        tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))),
+                                        node(
+                                                FilterNode.class,
+                                                tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))),
                                 anyTree(
                                         exchange(REMOTE, REPLICATE,
                                                 anyTree(

@@ -5,7 +5,7 @@ local exchange (GATHER, SINGLE, [])
                 remote exchange (REPARTITION, HASH, ["ss_customer_sk"])
                     partial aggregation over (ss_customer_sk)
                         join (INNER, REPLICATED):
-                            join (LEFT, PARTITIONED):
+                            join (INNER, PARTITIONED):
                                 remote exchange (REPARTITION, HASH, ["ss_item_sk", "ss_ticket_number"])
                                     scan store_sales
                                 local exchange (GATHER, SINGLE, [])
