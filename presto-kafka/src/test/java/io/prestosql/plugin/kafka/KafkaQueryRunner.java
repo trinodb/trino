@@ -35,8 +35,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.airlift.units.Duration.nanosSince;
+import static io.prestosql.plugin.kafka.ConfigurationAwareModules.combine;
 import static io.prestosql.plugin.kafka.KafkaPlugin.DEFAULT_EXTENSION;
 import static io.prestosql.plugin.kafka.util.TestUtils.loadTpchTopicDescription;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -136,8 +138,11 @@ public final class KafkaQueryRunner
                     .putAll(extraTopicDescription)
                     .putAll(tpchTopicDescriptions)
                     .build();
-            KafkaPlugin kafkaPlugin = new KafkaPlugin(extensions);
-            kafkaPlugin.setTableDescriptionSupplier(() -> topicDescriptions);
+            KafkaPlugin kafkaPlugin = new KafkaPlugin(combine(
+                    extensions,
+                    binder -> newSetBinder(binder, TableDescriptionSupplier.class)
+                            .addBinding()
+                            .toInstance(new MapBasedTableDescriptionSupplier(topicDescriptions))));
             queryRunner.installPlugin(kafkaPlugin);
 
             Map<String, String> kafkaProperties = new HashMap<>(ImmutableMap.copyOf(extraKafkaProperties));
