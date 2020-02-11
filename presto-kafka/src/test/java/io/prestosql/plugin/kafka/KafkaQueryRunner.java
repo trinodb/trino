@@ -35,9 +35,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.airlift.units.Duration.nanosSince;
+import static io.prestosql.plugin.kafka.KafkaPlugin.DEFAULT_EXTENSION;
 import static io.prestosql.plugin.kafka.util.TestUtils.loadTpchTopicDescription;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
@@ -64,7 +64,7 @@ public final class KafkaQueryRunner
         private Map<String, String> extraKafkaProperties = ImmutableMap.of();
         private List<TpchTable<?>> tables = ImmutableList.of();
         private Map<SchemaTableName, KafkaTopicDescription> extraTopicDescription = ImmutableMap.of();
-        private Module extension = EMPTY_MODULE;
+        private Module extension = DEFAULT_EXTENSION;
 
         protected Builder(TestingKafka testingKafka)
         {
