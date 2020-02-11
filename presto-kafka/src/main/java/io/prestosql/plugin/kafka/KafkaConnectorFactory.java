@@ -14,6 +14,7 @@
 package io.prestosql.plugin.kafka;
 
 import com.google.inject.Injector;
+import com.google.inject.Module;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.Bootstrap;
@@ -35,10 +36,12 @@ import static java.util.Objects.requireNonNull;
 public class KafkaConnectorFactory
         implements ConnectorFactory
 {
+    private final Module extension;
     private final Optional<Supplier<Map<SchemaTableName, KafkaTopicDescription>>> tableDescriptionSupplier;
 
-    KafkaConnectorFactory(Optional<Supplier<Map<SchemaTableName, KafkaTopicDescription>>> tableDescriptionSupplier)
+    KafkaConnectorFactory(Module extension, Optional<Supplier<Map<SchemaTableName, KafkaTopicDescription>>> tableDescriptionSupplier)
     {
+        this.extension = requireNonNull(extension, "extension is null");
         this.tableDescriptionSupplier = requireNonNull(tableDescriptionSupplier, "tableDescriptionSupplier is null");
     }
 
@@ -63,6 +66,7 @@ public class KafkaConnectorFactory
         Bootstrap app = new Bootstrap(
                 new JsonModule(),
                 new KafkaConnectorModule(),
+                extension,
                 binder -> {
                     binder.bind(ClassLoader.class).toInstance(KafkaConnectorFactory.class.getClassLoader());
                     binder.bind(TypeManager.class).toInstance(context.getTypeManager());
