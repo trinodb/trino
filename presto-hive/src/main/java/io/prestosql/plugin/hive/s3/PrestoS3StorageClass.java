@@ -13,6 +13,23 @@
  */
 package io.prestosql.plugin.hive.s3;
 
+import com.amazonaws.services.s3.model.StorageClass;
+
+import static java.util.Objects.requireNonNull;
+
 public enum PrestoS3StorageClass {
-    STANDARD, IntelligentTiering,
+    STANDARD(StorageClass.Standard),
+    INTELLIGENT_TIERING(StorageClass.IntelligentTiering);
+
+    private StorageClass s3StorageClass;
+
+    PrestoS3StorageClass(StorageClass s3StorageClass)
+    {
+        this.s3StorageClass = requireNonNull(s3StorageClass, "s3StorageClass is null");
+    }
+
+    public StorageClass getS3StorageClass()
+    {
+        return s3StorageClass;
+    }
 }

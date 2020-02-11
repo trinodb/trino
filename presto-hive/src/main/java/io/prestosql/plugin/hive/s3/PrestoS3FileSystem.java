@@ -55,6 +55,7 @@ import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.amazonaws.services.s3.model.SSEAwsKeyManagementParams;
+import com.amazonaws.services.s3.model.StorageClass;
 import com.amazonaws.services.s3.transfer.Transfer;
 import com.amazonaws.services.s3.transfer.TransferManager;
 import com.amazonaws.services.s3.transfer.TransferManagerBuilder;
@@ -1173,7 +1174,7 @@ public class PrestoS3FileSystem
         private final String sseKmsKeyId;
         private final CannedAccessControlList aclType;
         private final boolean requesterPaysEnabled;
-        private final PrestoS3StorageClass s3StorageClass;
+        private final StorageClass s3StorageClass;
 
         private boolean closed;
 
@@ -1200,6 +1201,7 @@ public class PrestoS3FileSystem
                     .withMultipartUploadThreshold(multiPartUploadMinFileSize).build();
 
             requireNonNull(aclType, "aclType is null");
+            requireNonNull(s3StorageClass, "s3StorageClass is null");
             this.aclType = aclType.getCannedACL();
             this.host = requireNonNull(host, "host is null");
             this.key = requireNonNull(key, "key is null");
@@ -1208,7 +1210,7 @@ public class PrestoS3FileSystem
             this.sseType = requireNonNull(sseType, "sseType is null");
             this.sseKmsKeyId = sseKmsKeyId;
             this.requesterPaysEnabled = requesterPaysEnabled;
-            this.s3StorageClass = s3StorageClass;
+            this.s3StorageClass = s3StorageClass.getS3StorageClass();
 
             log.debug("OutputStream for key '%s' using file: %s", key, tempFile);
         }
@@ -1263,12 +1265,14 @@ public class PrestoS3FileSystem
                     }
                 }
                 switch (s3StorageClass) {
-                    case STANDARD:
+                    case Standard:
                         request.withStorageClass(Standard);
                         break;
                     case IntelligentTiering:
                         request.withStorageClass(IntelligentTiering);
                         break;
+                    default:
+                        throw new IllegalArgumentException(format("The specified storage class %s is not supported", s3StorageClass));
                 }
 
                 request.withCannedAcl(aclType);

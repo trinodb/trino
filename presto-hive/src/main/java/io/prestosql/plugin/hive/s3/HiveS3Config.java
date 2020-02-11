@@ -100,12 +100,14 @@ public class HiveS3Config
         return this;
     }
 
+    @NotNull
     public PrestoS3StorageClass getS3StorageClass()
     {
         return s3StorageClass;
     }
 
     @Config("hive.s3.storage-class")
+    @ConfigDescription("AWS S3 storage class to use when writing the data")
     public HiveS3Config setS3StorageClass(PrestoS3StorageClass s3StorageClass)
     {
         this.s3StorageClass = s3StorageClass;
