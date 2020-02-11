@@ -81,14 +81,7 @@ public class TestFileSingleStreamSpillerFactory
     {
         List<Type> types = ImmutableList.of(BIGINT);
         List<Path> spillPaths = ImmutableList.of(spillPath1.toPath(), spillPath2.toPath());
-        FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
-                executor, // executor won't be closed, because we don't call destroy() on the spiller factory
-                blockEncodingSerde,
-                new SpillerStats(),
-                spillPaths,
-                1.0,
-                false,
-                false);
+        FileSingleStreamSpillerFactory spillerFactory = spillerFactoryFactory(spillPaths);
 
         assertEquals(listFiles(spillPath1.toPath()).size(), 0);
         assertEquals(listFiles(spillPath2.toPath()).size(), 0);
@@ -114,14 +107,7 @@ public class TestFileSingleStreamSpillerFactory
     {
         List<Type> types = ImmutableList.of(BIGINT);
         List<Path> spillPaths = ImmutableList.of(spillPath1.toPath(), spillPath2.toPath());
-        FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
-                executor, // executor won't be closed, because we don't call destroy() on the spiller factory
-                blockEncodingSerde,
-                new SpillerStats(),
-                spillPaths,
-                1.0,
-                false,
-                false);
+        FileSingleStreamSpillerFactory spillerFactory = spillerFactoryFactory(spillPaths);
 
         assertEquals(listFiles(spillPath1.toPath()).size(), 0);
         assertEquals(listFiles(spillPath2.toPath()).size(), 0);
@@ -159,14 +145,7 @@ public class TestFileSingleStreamSpillerFactory
     {
         List<Type> types = ImmutableList.of(BIGINT);
         List<Path> spillPaths = ImmutableList.of(spillPath1.toPath(), spillPath2.toPath());
-        FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
-                executor, // executor won't be closed, because we don't call destroy() on the spiller factory
-                blockEncodingSerde,
-                new SpillerStats(),
-                spillPaths,
-                0.0,
-                false,
-                false);
+        FileSingleStreamSpillerFactory spillerFactory = spillerFactoryFactory(spillPaths, 0.0);
 
         spillerFactory.create(types, bytes -> {}, newSimpleAggregatedMemoryContext().newLocalMemoryContext("test"));
     }
@@ -176,14 +155,8 @@ public class TestFileSingleStreamSpillerFactory
     {
         List<Path> spillPaths = emptyList();
         List<Type> types = ImmutableList.of(BIGINT);
-        FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
-                executor, // executor won't be closed, because we don't call destroy() on the spiller factory
-                blockEncodingSerde,
-                new SpillerStats(),
-                spillPaths,
-                1.0,
-                false,
-                false);
+        FileSingleStreamSpillerFactory spillerFactory = spillerFactoryFactory(spillPaths);
+
         spillerFactory.create(types, bytes -> {}, newSimpleAggregatedMemoryContext().newLocalMemoryContext("test"));
     }
 
@@ -205,17 +178,27 @@ public class TestFileSingleStreamSpillerFactory
         assertEquals(listFiles(spillPath1.toPath()).size(), 3);
         assertEquals(listFiles(spillPath2.toPath()).size(), 3);
 
-        FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
-                executor, // executor won't be closed, because we don't call destroy() on the spiller factory
-                blockEncodingSerde,
-                new SpillerStats(),
-                spillPaths,
-                1.0,
-                false,
-                false);
+        FileSingleStreamSpillerFactory spillerFactory = spillerFactoryFactory(spillPaths);
         spillerFactory.cleanupOldSpillFiles();
 
         assertEquals(listFiles(spillPath1.toPath()).size(), 1);
         assertEquals(listFiles(spillPath2.toPath()).size(), 2);
+    }
+
+    private FileSingleStreamSpillerFactory spillerFactoryFactory(List<Path> paths)
+    {
+        return spillerFactoryFactory(paths, 1.0);
+    }
+
+    private FileSingleStreamSpillerFactory spillerFactoryFactory(List<Path> paths, Double maxUsedSpaceThreshold)
+    {
+        return new FileSingleStreamSpillerFactory(
+                executor, // executor won't be closed, because we don't call destroy() on the spiller factory
+                blockEncodingSerde,
+                new SpillerStats(),
+                paths,
+                maxUsedSpaceThreshold,
+                false,
+                false);
     }
 }
