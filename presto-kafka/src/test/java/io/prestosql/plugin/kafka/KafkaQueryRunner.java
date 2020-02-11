@@ -121,7 +121,7 @@ public final class KafkaQueryRunner
             return queryRunner;
         }
         catch (Throwable e) {
-            closeAllSuppress(e, queryRunner, testingKafka);
+            closeAllSuppress(e, queryRunner);
             throw e;
         }
     }
