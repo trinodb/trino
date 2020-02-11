@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.kafka;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.plugin.kafka.util.TestingKafka;
@@ -27,7 +26,6 @@ import org.testng.annotations.Test;
 
 import java.util.UUID;
 
-import static io.prestosql.plugin.kafka.KafkaQueryRunner.createKafkaQueryRunner;
 import static io.prestosql.plugin.kafka.util.TestUtils.createEmptyTopicDescription;
 import static org.testng.Assert.assertTrue;
 
@@ -44,12 +42,11 @@ public class TestMinimalFunctionality
     {
         testingKafka = new TestingKafka();
         topicName = "test_" + UUID.randomUUID().toString().replaceAll("-", "_");
-        QueryRunner queryRunner = createKafkaQueryRunner(
-                testingKafka,
-                ImmutableList.of(),
-                ImmutableMap.<SchemaTableName, KafkaTopicDescription>builder()
+        QueryRunner queryRunner = KafkaQueryRunner.builder(testingKafka)
+                .setExtraTopicDescription(ImmutableMap.<SchemaTableName, KafkaTopicDescription>builder()
                         .put(createEmptyTopicDescription(topicName, new SchemaTableName("default", topicName)))
-                        .build());
+                        .build())
+                .build();
         testingKafka.createTopics(topicName);
         return queryRunner;
     }

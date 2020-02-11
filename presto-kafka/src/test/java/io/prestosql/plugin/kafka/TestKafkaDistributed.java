@@ -20,8 +20,6 @@ import io.prestosql.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import static io.prestosql.plugin.kafka.KafkaQueryRunner.createKafkaQueryRunner;
-
 @Test
 public class TestKafkaDistributed
         extends AbstractTestQueries
@@ -33,7 +31,9 @@ public class TestKafkaDistributed
             throws Exception
     {
         testingKafka = new TestingKafka();
-        return createKafkaQueryRunner(testingKafka, TpchTable.getTables());
+        return KafkaQueryRunner.builder(testingKafka)
+                .setTables(TpchTable.getTables())
+                .build();
     }
 
     @AfterClass(alwaysRun = true)

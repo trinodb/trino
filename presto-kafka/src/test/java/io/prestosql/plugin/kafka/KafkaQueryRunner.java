@@ -19,7 +19,6 @@ import io.airlift.json.JsonCodec;
 import io.airlift.log.Level;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
-import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.plugin.kafka.util.CodecSupplier;
@@ -32,6 +31,7 @@ import io.prestosql.testing.TestingPrestoClient;
 import io.prestosql.tpch.TpchTable;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
@@ -40,6 +40,7 @@ import static io.prestosql.plugin.kafka.util.TestUtils.loadTpchTopicDescription;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public final class KafkaQueryRunner
@@ -49,38 +50,67 @@ public final class KafkaQueryRunner
     private static final Logger log = Logger.get(KafkaQueryRunner.class);
     private static final String TPCH_SCHEMA = "tpch";
 
-    static DistributedQueryRunner createKafkaQueryRunner(TestingKafka testingKafka, TpchTable<?>... tables)
-            throws Exception
+    public static Builder builder(TestingKafka testingKafka)
     {
-        return createKafkaQueryRunner(testingKafka, ImmutableList.copyOf(tables));
+        return new Builder(testingKafka);
     }
 
-    static DistributedQueryRunner createKafkaQueryRunner(TestingKafka testingKafka, Iterable<TpchTable<?>> tables)
-            throws Exception
+    public static class Builder
+            extends DistributedQueryRunner.Builder
     {
-        return createKafkaQueryRunner(testingKafka, tables, ImmutableMap.of());
+        private final TestingKafka testingKafka;
+        private Map<String, String> extraKafkaProperties = ImmutableMap.of();
+        private List<TpchTable<?>> tables = ImmutableList.of();
+        private Map<SchemaTableName, KafkaTopicDescription> extraTopicDescription = ImmutableMap.of();
+
+        protected Builder(TestingKafka testingKafka)
+        {
+            super(testSessionBuilder()
+                    .setCatalog("kafka")
+                    .setSchema(TPCH_SCHEMA)
+                    .build());
+            this.testingKafka = requireNonNull(testingKafka, "testingKafka is null");
+        }
+
+        public Builder setExtraKafkaProperties(Map<String, String> extraKafkaProperties)
+        {
+            this.extraKafkaProperties = ImmutableMap.copyOf(requireNonNull(extraKafkaProperties, "extraKafkaProperties is null"));
+            return this;
+        }
+
+        public Builder setTables(Iterable<TpchTable<?>> tables)
+        {
+            this.tables = ImmutableList.copyOf(requireNonNull(tables, "tables is null"));
+            return this;
+        }
+
+        public Builder setExtraTopicDescription(Map<SchemaTableName, KafkaTopicDescription> extraTopicDescription)
+        {
+            this.extraTopicDescription = ImmutableMap.copyOf(requireNonNull(extraTopicDescription, "extraTopicDescription is null"));
+            return this;
+        }
+
+        @Override
+        public DistributedQueryRunner build()
+                throws Exception
+        {
+            Logging logging = Logging.initialize();
+            logging.setLevel("org.apache.kafka", Level.WARN);
+
+            DistributedQueryRunner queryRunner = super.build();
+            return createKafkaQueryRunner(queryRunner, testingKafka, extraKafkaProperties, tables, extraTopicDescription);
+        }
     }
 
-    static DistributedQueryRunner createKafkaQueryRunner(TestingKafka testingKafka, Iterable<TpchTable<?>> tables, Map<SchemaTableName, KafkaTopicDescription> topicDescription)
-            throws Exception
-    {
-        return createKafkaQueryRunner(testingKafka, ImmutableMap.of(), tables, topicDescription);
-    }
-
-    static DistributedQueryRunner createKafkaQueryRunner(
+    private static DistributedQueryRunner createKafkaQueryRunner(
+            DistributedQueryRunner queryRunner,
             TestingKafka testingKafka,
             Map<String, String> extraKafkaProperties,
             Iterable<TpchTable<?>> tables,
             Map<SchemaTableName, KafkaTopicDescription> extraTopicDescription)
             throws Exception
     {
-        Logging logging = Logging.initialize();
-        logging.setLevel("org.apache.kafka", Level.WARN);
-
-        DistributedQueryRunner queryRunner = null;
         try {
-            queryRunner = DistributedQueryRunner.builder(createSession()).build();
-
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
@@ -152,19 +182,13 @@ public final class KafkaQueryRunner
         return topicDescriptions.build();
     }
 
-    private static Session createSession()
-    {
-        return testSessionBuilder()
-                .setCatalog("kafka")
-                .setSchema(TPCH_SCHEMA)
-                .build();
-    }
-
     public static void main(String[] args)
             throws Exception
     {
         Logging.initialize();
-        DistributedQueryRunner queryRunner = createKafkaQueryRunner(new TestingKafka(), TpchTable.getTables());
+        DistributedQueryRunner queryRunner = builder(new TestingKafka())
+                .setTables(TpchTable.getTables())
+                .build();
         Logger log = Logger.get(KafkaQueryRunner.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
