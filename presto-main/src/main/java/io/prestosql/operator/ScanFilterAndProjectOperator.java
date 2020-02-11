@@ -42,6 +42,8 @@ import io.prestosql.split.EmptySplitPageSource;
 import io.prestosql.split.PageSourceProvider;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
+import javax.annotation.Nullable;
+
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
@@ -64,7 +66,9 @@ public class ScanFilterAndProjectOperator
 {
     private final WorkProcessor<Page> pages;
 
+    @Nullable
     private RecordCursor cursor;
+    @Nullable
     private ConnectorPageSource pageSource;
 
     private long processedPositions;

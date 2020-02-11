@@ -31,6 +31,8 @@ import io.prestosql.spi.connector.UpdatablePageSource;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.split.PageSourceProvider;
 
+import javax.annotation.Nullable;
+
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
@@ -128,6 +130,7 @@ public class TableScanWorkProcessorOperator
         long processedBytes;
         long processedPositions;
 
+        @Nullable
         ConnectorPageSource source;
 
         SplitToPages(
