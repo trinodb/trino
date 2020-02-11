@@ -110,7 +110,7 @@ public class TestFeaturesConfig
                 .setLateMaterializationEnabled(false)
                 .setSkipRedundantSort(true)
                 .setPredicatePushdownUseTableProperties(true)
-                .setEnableDynamicFiltering(false)
+                .setEnableDynamicFiltering(true)
                 .setDynamicFilteringMaxPerDriverRowCount(100)
                 .setDynamicFilteringMaxPerDriverSize(DataSize.of(10, KILOBYTE))
                 .setIgnoreDownstreamPreferences(false));
@@ -183,9 +183,9 @@ public class TestFeaturesConfig
                 .put("experimental.late-materialization.enabled", "true")
                 .put("optimizer.skip-redundant-sort", "false")
                 .put("optimizer.predicate-pushdown-use-table-properties", "false")
-                .put("experimental.enable-dynamic-filtering", "true")
-                .put("experimental.dynamic-filtering-max-per-driver-row-count", "256")
-                .put("experimental.dynamic-filtering-max-per-driver-size", "64kB")
+                .put("enable-dynamic-filtering", "false")
+                .put("dynamic-filtering-max-per-driver-row-count", "256")
+                .put("dynamic-filtering-max-per-driver-size", "64kB")
                 .put("optimizer.ignore-downstream-preferences", "true")
                 .build();
 
@@ -253,7 +253,7 @@ public class TestFeaturesConfig
                 .setLateMaterializationEnabled(true)
                 .setSkipRedundantSort(false)
                 .setPredicatePushdownUseTableProperties(false)
-                .setEnableDynamicFiltering(true)
+                .setEnableDynamicFiltering(false)
                 .setDynamicFilteringMaxPerDriverRowCount(256)
                 .setDynamicFilteringMaxPerDriverSize(DataSize.of(64, KILOBYTE))
                 .setIgnoreDownstreamPreferences(true);
