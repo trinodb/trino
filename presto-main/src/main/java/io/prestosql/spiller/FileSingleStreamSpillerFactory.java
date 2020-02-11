@@ -168,7 +168,15 @@ public class FileSingleStreamSpillerFactory
             spillCipher = Optional.of(new AesSpillCipher());
         }
         PagesSerde serde = serdeFactory.createPagesSerdeForSpill(spillCipher);
-        return new FileSingleStreamSpiller(serde, executor, getNextSpillPath(), spillerStats, spillContext, memoryContext, spillCipher);
+        return new FileSingleStreamSpiller(
+                serde,
+                executor,
+                getNextSpillPath(),
+                spillerStats,
+                spillContext,
+                memoryContext,
+                spillCipher,
+                spillPathHealthCache::invalidateAll);
     }
 
     private synchronized Path getNextSpillPath()
@@ -214,5 +222,11 @@ public class FileSingleStreamSpillerFactory
             log.warn(e, "Health check failed for spill %s", path);
             return false;
         }
+    }
+
+    @VisibleForTesting
+    long getSpillPathCacheSize()
+    {
+        return spillPathHealthCache.size();
     }
 }
