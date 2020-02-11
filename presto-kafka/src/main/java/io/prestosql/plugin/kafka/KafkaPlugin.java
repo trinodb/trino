@@ -13,16 +13,10 @@
  */
 package io.prestosql.plugin.kafka;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Module;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.ConnectorFactory;
-import io.prestosql.spi.connector.SchemaTableName;
-
-import java.util.Map;
-import java.util.Optional;
-import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 
@@ -34,7 +28,6 @@ public class KafkaPlugin
     };
 
     private final Module extension;
-    private Optional<Supplier<Map<SchemaTableName, KafkaTopicDescription>>> tableDescriptionSupplier = Optional.empty();
 
     public KafkaPlugin()
     {
@@ -46,15 +39,9 @@ public class KafkaPlugin
         this.extension = requireNonNull(extension, "extension is null");
     }
 
-    @VisibleForTesting
-    public synchronized void setTableDescriptionSupplier(Supplier<Map<SchemaTableName, KafkaTopicDescription>> tableDescriptionSupplier)
-    {
-        this.tableDescriptionSupplier = Optional.of(requireNonNull(tableDescriptionSupplier, "tableDescriptionSupplier is null"));
-    }
-
     @Override
     public synchronized Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new KafkaConnectorFactory(extension, tableDescriptionSupplier));
+        return ImmutableList.of(new KafkaConnectorFactory(extension));
     }
 }
