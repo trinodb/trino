@@ -16,7 +16,6 @@ package io.prestosql.plugin.kafka;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Module;
-import com.google.inject.util.Modules;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.ConnectorFactory;
 import io.prestosql.spi.connector.SchemaTableName;
@@ -30,12 +29,16 @@ import static java.util.Objects.requireNonNull;
 public class KafkaPlugin
         implements Plugin
 {
+    public static final Module DEFAULT_EXTENSION = binder -> {
+        binder.install(new KafkaConsumerModule());
+    };
+
     private final Module extension;
     private Optional<Supplier<Map<SchemaTableName, KafkaTopicDescription>>> tableDescriptionSupplier = Optional.empty();
 
     public KafkaPlugin()
     {
-        this(Modules.EMPTY_MODULE);
+        this(DEFAULT_EXTENSION);
     }
 
     public KafkaPlugin(Module extension)
