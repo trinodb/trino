@@ -11,9 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive;
+package io.prestosql.plugin.hive.procedure;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.plugin.hive.HiveMetadata;
+import io.prestosql.plugin.hive.HiveMetastoreClosure;
+import io.prestosql.plugin.hive.TransactionalMetadata;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.Partition;
@@ -35,8 +38,8 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.function.Supplier;
 
-import static io.prestosql.plugin.hive.ProceduresUtil.checkIsPartitionedTable;
-import static io.prestosql.plugin.hive.ProceduresUtil.checkPartitionColumns;
+import static io.prestosql.plugin.hive.procedure.Procedures.checkIsPartitionedTable;
+import static io.prestosql.plugin.hive.procedure.Procedures.checkPartitionColumns;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static io.prestosql.spi.block.MethodHandleUtil.methodHandle;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;

@@ -32,6 +32,7 @@ import io.prestosql.plugin.hive.azure.HiveAzureModule;
 import io.prestosql.plugin.hive.gcs.HiveGcsModule;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.HiveMetastoreModule;
+import io.prestosql.plugin.hive.procedure.HiveProcedureModule;
 import io.prestosql.plugin.hive.s3.HiveS3Module;
 import io.prestosql.plugin.hive.security.HiveSecurityModule;
 import io.prestosql.plugin.hive.security.SystemTableAwareAccessControl;

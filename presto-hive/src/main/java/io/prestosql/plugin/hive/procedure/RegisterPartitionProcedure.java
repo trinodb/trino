@@ -11,11 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive;
+package io.prestosql.plugin.hive.procedure;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.prestosql.plugin.hive.HiveMetadata;
+import io.prestosql.plugin.hive.HiveMetastoreClosure;
+import io.prestosql.plugin.hive.PartitionStatistics;
+import io.prestosql.plugin.hive.TransactionalMetadata;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.Partition;
@@ -41,8 +46,8 @@ import java.util.Optional;
 import java.util.function.Supplier;
 
 import static io.prestosql.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
-import static io.prestosql.plugin.hive.ProceduresUtil.checkIsPartitionedTable;
-import static io.prestosql.plugin.hive.ProceduresUtil.checkPartitionColumns;
+import static io.prestosql.plugin.hive.procedure.Procedures.checkIsPartitionedTable;
+import static io.prestosql.plugin.hive.procedure.Procedures.checkPartitionColumns;
 import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.prestosql.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static io.prestosql.spi.block.MethodHandleUtil.methodHandle;
