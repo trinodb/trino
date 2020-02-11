@@ -49,8 +49,6 @@ public class KafkaConnectorModule
         binder.bind(ConnectorRecordSetProvider.class).to(ClassLoaderSafeConnectorRecordSetProvider.class).in(Scopes.SINGLETON);
         binder.bind(KafkaConnector.class).in(Scopes.SINGLETON);
 
-        binder.bind(KafkaConsumerFactory.class).in(Scopes.SINGLETON);
-
         configBinder(binder).bindConfig(KafkaConfig.class);
 
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);

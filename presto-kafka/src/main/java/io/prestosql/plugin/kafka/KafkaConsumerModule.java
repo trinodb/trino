@@ -11,19 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.prestosql.plugin.kafka;
 
-import org.apache.kafka.clients.consumer.KafkaConsumer;
+import com.google.inject.Binder;
+import com.google.inject.Module;
+import com.google.inject.Scopes;
 
-import java.util.Properties;
-
-public interface KafkaConsumerFactory
+public class KafkaConsumerModule
+        implements Module
 {
-    default KafkaConsumer<byte[], byte[]> create()
+    @Override
+    public void configure(Binder binder)
     {
-        return new KafkaConsumer<>(configure());
+        binder.bind(KafkaConsumerFactory.class).to(PlainTextKafkaConsumerFactory.class).in(Scopes.SINGLETON);
     }
-
-    Properties configure();
 }
