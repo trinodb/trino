@@ -328,7 +328,7 @@ Property Name                                Description
                                              (e.g., ``http[s]://<bucket>.s3-<AWS-region>.amazonaws.com``).
 
 ``hive.s3.storage-class``                    The S3 storage class to use when writing the data. Currently only
-                                             ``Standard`` and ``IntelligentTiering`` storage classes are supported.
+                                             ``STANDARD`` and ``INTELLIGENT_TIERING`` storage classes are supported.
                                              Default storage class is ``Standard``
 
 ``hive.s3.signer-type``                      Specify a different signer type for S3-compatible storage.
