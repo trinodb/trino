@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive;
+package io.prestosql.plugin.hive.procedure;
 
 import io.prestosql.plugin.hive.metastore.Column;
 import io.prestosql.plugin.hive.metastore.Table;
@@ -24,11 +24,11 @@ import java.util.Objects;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 
-final class ProceduresUtil
+final class Procedures
 {
-    private ProceduresUtil() {}
+    private Procedures() {}
 
-    static void checkIsPartitionedTable(Table table)
+    public static void checkIsPartitionedTable(Table table)
     {
         if (table.getTableType().equals(TableType.VIRTUAL_VIEW.name())) {
             throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, "Table is a view: " + table.getSchemaTableName());
@@ -43,7 +43,7 @@ final class ProceduresUtil
         }
     }
 
-    static void checkPartitionColumns(Table table, List<String> expectedPartitions)
+    public static void checkPartitionColumns(Table table, List<String> expectedPartitions)
     {
         List<String> actualPartitionColumnNames = table.getPartitionColumns().stream()
                 .map(Column::getName)

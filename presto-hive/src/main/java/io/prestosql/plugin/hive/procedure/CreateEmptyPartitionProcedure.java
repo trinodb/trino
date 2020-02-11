@@ -11,14 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive;
+package io.prestosql.plugin.hive.procedure;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.prestosql.plugin.hive.HiveColumnHandle;
+import io.prestosql.plugin.hive.HiveInsertTableHandle;
+import io.prestosql.plugin.hive.HiveMetastoreClosure;
+import io.prestosql.plugin.hive.HiveTableHandle;
+import io.prestosql.plugin.hive.LocationService;
 import io.prestosql.plugin.hive.LocationService.WriteInfo;
+import io.prestosql.plugin.hive.PartitionUpdate;
 import io.prestosql.plugin.hive.PartitionUpdate.UpdateMode;
+import io.prestosql.plugin.hive.TransactionalMetadata;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.spi.PrestoException;
