@@ -15,6 +15,7 @@ package io.prestosql.plugin.kafka;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Module;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Level;
 import io.airlift.log.Logger;
@@ -34,6 +35,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.airlift.units.Duration.nanosSince;
 import static io.prestosql.plugin.kafka.util.TestUtils.loadTpchTopicDescription;
@@ -62,6 +64,7 @@ public final class KafkaQueryRunner
         private Map<String, String> extraKafkaProperties = ImmutableMap.of();
         private List<TpchTable<?>> tables = ImmutableList.of();
         private Map<SchemaTableName, KafkaTopicDescription> extraTopicDescription = ImmutableMap.of();
+        private Module extension = EMPTY_MODULE;
 
         protected Builder(TestingKafka testingKafka)
         {
@@ -90,6 +93,12 @@ public final class KafkaQueryRunner
             return this;
         }
 
+        public Builder setExtension(Module extension)
+        {
+            this.extension = requireNonNull(extension, "extension is null");
+            return this;
+        }
+
         @Override
         public DistributedQueryRunner build()
                 throws Exception
@@ -98,7 +107,7 @@ public final class KafkaQueryRunner
             logging.setLevel("org.apache.kafka", Level.WARN);
 
             DistributedQueryRunner queryRunner = super.build();
-            return createKafkaQueryRunner(queryRunner, testingKafka, extraKafkaProperties, tables, extraTopicDescription);
+            return createKafkaQueryRunner(queryRunner, testingKafka, extraKafkaProperties, tables, extraTopicDescription, extension);
         }
     }
 
@@ -107,7 +116,8 @@ public final class KafkaQueryRunner
             TestingKafka testingKafka,
             Map<String, String> extraKafkaProperties,
             Iterable<TpchTable<?>> tables,
-            Map<SchemaTableName, KafkaTopicDescription> extraTopicDescription)
+            Map<SchemaTableName, KafkaTopicDescription> extraTopicDescription,
+            Module extensions)
             throws Exception
     {
         try {
@@ -126,7 +136,7 @@ public final class KafkaQueryRunner
                     .putAll(extraTopicDescription)
                     .putAll(tpchTopicDescriptions)
                     .build();
-            KafkaPlugin kafkaPlugin = new KafkaPlugin();
+            KafkaPlugin kafkaPlugin = new KafkaPlugin(extensions);
             kafkaPlugin.setTableDescriptionSupplier(() -> topicDescriptions);
             queryRunner.installPlugin(kafkaPlugin);
 
