@@ -33,7 +33,7 @@ public class KafkaConnectorFactory
 {
     private final Module extension;
 
-    KafkaConnectorFactory(Module extension)
+    public KafkaConnectorFactory(Module extension)
     {
         this.extension = requireNonNull(extension, "extension is null");
     }
