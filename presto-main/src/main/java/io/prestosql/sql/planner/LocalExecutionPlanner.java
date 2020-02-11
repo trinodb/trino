@@ -2042,7 +2042,7 @@ public class LocalExecutionPlanner
             ImmutableList.Builder<OperatorFactory> factoriesBuilder = new ImmutableList.Builder<>();
             factoriesBuilder.addAll(buildSource.getOperatorFactories());
 
-            createDynamicFilter(node, context, partitionCount).ifPresent(
+            createDynamicFilter(buildSource, node, context, partitionCount).ifPresent(
                     filter -> factoriesBuilder.add(createDynamicFilterSourceOperatorFactory(filter, node, buildSource, buildContext)));
 
             HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(
@@ -2095,11 +2095,14 @@ public class LocalExecutionPlanner
                     getDynamicFilteringMaxPerDriverSize(context.getSession()));
         }
 
-        private Optional<LocalDynamicFilter> createDynamicFilter(JoinNode node, LocalExecutionPlanContext context, int partitionCount)
+        private Optional<LocalDynamicFilter> createDynamicFilter(PhysicalOperation buildSource, JoinNode node, LocalExecutionPlanContext context, int partitionCount)
         {
             if (node.getDynamicFilters().isEmpty()) {
                 return Optional.empty();
             }
+            checkState(
+                    buildSource.getPipelineExecutionStrategy() != GROUPED_EXECUTION,
+                    "Dynamic filtering cannot be used with grouped execution");
             log.debug("[Join] Dynamic filters: %s", node.getDynamicFilters());
             LocalDynamicFiltersCollector collector = context.getDynamicFiltersCollector();
             return LocalDynamicFilter
