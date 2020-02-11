@@ -249,7 +249,7 @@ public class PrestoS3FileSystem
         String userAgentPrefix = conf.get(S3_USER_AGENT_PREFIX, defaults.getS3UserAgentPrefix());
         this.skipGlacierObjects = conf.getBoolean(S3_SKIP_GLACIER_OBJECTS, defaults.isSkipGlacierObjects());
         this.requesterPaysEnabled = conf.getBoolean(S3_REQUESTER_PAYS_ENABLED, defaults.isRequesterPaysEnabled());
-        this.s3StorageClass = PrestoS3StorageClass.valueOf(conf.get(S3_STORAGE_CLASS, defaults.getS3StorageClass().name()));
+        this.s3StorageClass = conf.getEnum(S3_STORAGE_CLASS, defaults.getS3StorageClass());
 
         ClientConfiguration configuration = new ClientConfiguration()
                 .withMaxErrorRetry(maxErrorRetries)
