@@ -156,4 +156,8 @@ Maven pom has already moved to the next SNAPSHOT version.
 - Different installation methods for Sphinx result in different versions, and
   hence in sometimes different problems. Especially when also using
   sphinx-autobuild we recommend using the `pip`-based installation.
-
+- Sphinx 2.x+ fails due to requiring parallel write support, which our sitemap extension
+  does not support. We recommend installing an older version by running
+  `pip3 install sphinx==1.8.2`. Alternatively, you clear `SPHINXOPTS` when running
+  Sphinx by using `make SPHINXOPTS="" clean html`, but this may result in other
+  compatibility issues or differences from the output produced by the Maven plugin.
