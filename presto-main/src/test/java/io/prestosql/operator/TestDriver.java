@@ -32,6 +32,7 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.FixedPageSource;
+import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
 import io.prestosql.split.PageSourceProvider;
 import io.prestosql.sql.planner.plan.PlanNodeId;
@@ -173,7 +174,8 @@ public class TestDriver
                         .addSequencePage(10, 20, 30, 40)
                         .build()),
                 TEST_TABLE_HANDLE,
-                ImmutableList.of());
+                ImmutableList.of(),
+                TupleDomain::all);
 
         PageConsumerOperator sink = createSinkOperator(types);
         Driver driver = Driver.createDriver(driverContext, source, sink);
@@ -467,7 +469,7 @@ public class TestDriver
                 TableHandle table,
                 Iterable<ColumnHandle> columns)
         {
-            super(operatorContext, planNodeId, pageSourceProvider, table, columns);
+            super(operatorContext, planNodeId, pageSourceProvider, table, columns, TupleDomain::all);
         }
 
         @Override
@@ -492,7 +494,7 @@ public class TestDriver
                 TableHandle table,
                 Iterable<ColumnHandle> columns)
         {
-            super(operatorContext, planNodeId, pageSourceProvider, table, columns);
+            super(operatorContext, planNodeId, pageSourceProvider, table, columns, TupleDomain::all);
         }
 
         @Override
