@@ -51,12 +51,14 @@ import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.TextInputFormat;
+import org.apache.hadoop.mapreduce.MRConfig;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.lang.annotation.Annotation;
 import java.nio.charset.StandardCharsets;
+import java.security.Principal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Deque;
@@ -316,7 +318,10 @@ public class BackgroundHiveSplitLoader
 
             // TODO: This should use an iterator like the HiveFileIterator
             ListenableFuture<?> lastResult = COMPLETED_FUTURE;
-            for (Path targetPath : getTargetPathsFromSymlink(fs, path)) {
+            List<Path> targetPaths = hdfsEnvironment.doAs(
+                    hdfsContext.getIdentity().getUser(),
+                    () -> getTargetPathsFromSymlink(fs, path));
+            for (Path targetPath : targetPaths) {
                 // The input should be in TextInputFormat.
                 TextInputFormat targetInputFormat = new TextInputFormat();
                 // the splits must be generated using the file system for the target path
@@ -324,9 +329,16 @@ public class BackgroundHiveSplitLoader
                 FileSystem targetFilesystem = hdfsEnvironment.getFileSystem(hdfsContext, targetPath);
                 JobConf targetJob = toJobConf(targetFilesystem.getConf());
                 targetJob.setInputFormat(TextInputFormat.class);
+                Optional<Principal> principal = hdfsContext.getIdentity().getPrincipal();
+                if (principal.isPresent()) {
+                    targetJob.set(MRConfig.FRAMEWORK_NAME, MRConfig.CLASSIC_FRAMEWORK_NAME);
+                    targetJob.set(MRConfig.MASTER_USER_NAME, principal.get().getName());
+                }
                 targetInputFormat.configure(targetJob);
                 FileInputFormat.setInputPaths(targetJob, targetPath);
-                InputSplit[] targetSplits = targetInputFormat.getSplits(targetJob, 0);
+                InputSplit[] targetSplits = hdfsEnvironment.doAs(
+                        hdfsContext.getIdentity().getUser(),
+                        () -> targetInputFormat.getSplits(targetJob, 0));
 
                 InternalHiveSplitFactory splitFactory = new InternalHiveSplitFactory(
                         targetFilesystem,
