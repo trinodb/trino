@@ -332,9 +332,6 @@ public class GlueHiveMetastore
         Table table = getExistingTable(identity, databaseName, tableName);
         PartitionStatistics currentStatistics = getTableStatistics(identity, table);
         PartitionStatistics updatedStatistics = update.apply(currentStatistics);
-        if (!updatedStatistics.getColumnStatistics().isEmpty()) {
-            throw new PrestoException(NOT_SUPPORTED, "Glue metastore does not support column level statistics");
-        }
 
         try {
             TableInput tableInput = GlueInputConverter.convertTable(table);
@@ -362,9 +359,6 @@ public class GlueHiveMetastore
 
         PartitionStatistics currentStatistics = getPartitionStatistics(partition);
         PartitionStatistics updatedStatistics = update.apply(currentStatistics);
-        if (!updatedStatistics.getColumnStatistics().isEmpty()) {
-            throw new PrestoException(NOT_SUPPORTED, "Glue metastore does not support column level statistics");
-        }
 
         try {
             PartitionInput partitionInput = GlueInputConverter.convertPartition(partition);
