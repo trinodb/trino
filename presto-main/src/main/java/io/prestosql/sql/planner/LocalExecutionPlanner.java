@@ -1239,7 +1239,6 @@ public class LocalExecutionPlanner
                     .map(DynamicFilters.ExtractResult::getStaticConjuncts)
                     .map(filter -> combineConjuncts(metadata, filter));
 
-            // TODO: Execution must be plugged in here
             Optional<List<DynamicFilters.Descriptor>> dynamicFilters = extractDynamicFilterResult.map(DynamicFilters.ExtractResult::getDynamicConjuncts);
             Supplier<TupleDomain<ColumnHandle>> dynamicFilterSupplier = TupleDomain::all;
             if (dynamicFilters.isPresent() && !dynamicFilters.get().isEmpty()) {
