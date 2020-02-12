@@ -251,6 +251,10 @@ Property Name                                      Description                  
 AWS Glue Catalog Configuration Properties
 -----------------------------------------
 
+In order to use a Glue catalog, ensure to configure the metastore with
+``hive.metastore=glue`` and provide further details with the following
+properties:
+
 ==================================================== ============================================================
 Property Name                                        Description
 ==================================================== ============================================================
