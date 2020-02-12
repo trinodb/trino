@@ -21,7 +21,7 @@ import io.airlift.bootstrap.Bootstrap;
 import io.airlift.discovery.client.Announcer;
 import io.airlift.discovery.client.DiscoveryModule;
 import io.airlift.discovery.client.ServiceAnnouncement;
-import io.airlift.event.client.HttpEventModule;
+import io.airlift.event.client.EventModule;
 import io.airlift.event.client.JsonEventModule;
 import io.airlift.http.server.HttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
@@ -105,8 +105,8 @@ public class PrestoServer
                 new JmxHttpModule(),
                 new LogJmxModule(),
                 new TraceTokenModule(),
+                new EventModule(),
                 new JsonEventModule(),
-                new HttpEventModule(),
                 new ServerSecurityModule(),
                 new AccessControlModule(),
                 new EventListenerModule(),
