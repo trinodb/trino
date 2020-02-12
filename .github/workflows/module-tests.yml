@@ -42,6 +42,15 @@ jobs:
             source presto-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
               presto-hive-hadoop2/bin/run_hive_s3_tests.sh
           fi
+      - name: Run Hive Glue Tests
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AwsAccessKey }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AwsSecretKey }}
+          AWS_REGION: us-east-2
+        run: |
+          if [ "${AWS_ACCESS_KEY_ID}" != "" ]; then
+            ./mvnw test -B -Dair.check.skip-all -pl presto-hive -P test-hive-glue
+          fi
 
   kudu-tests:
     runs-on: ubuntu-latest
