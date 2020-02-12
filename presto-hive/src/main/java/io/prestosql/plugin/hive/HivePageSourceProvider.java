@@ -117,7 +117,7 @@ public class HivePageSourceProvider
                 hiveSplit.getFileSize(),
                 hiveSplit.getFileModifiedTime(),
                 hiveSplit.getSchema(),
-                hiveTable.getCompactEffectivePredicate().intersect(dynamicFilter.transform(HiveColumnHandle.class::cast)),
+                hiveTable.getCompactEffectivePredicate().intersect(dynamicFilter.transform(HiveColumnHandle.class::cast).simplify()),
                 hiveColumns,
                 hiveSplit.getPartitionKeys(),
                 hiveStorageTimeZone,
