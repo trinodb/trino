@@ -84,6 +84,7 @@ public class TestSystemConnector
                 "  processed_input_rows," +
                 "  output_bytes," +
                 "  output_rows," +
+                "  physical_input_bytes," +
                 "  physical_written_bytes," +
                 "  created," +
                 "  start," +
@@ -93,7 +94,7 @@ public class TestSystemConnector
         assertThat(query(sql))
                 .hasColumns(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR,
                         BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT,
-                        BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP)
+                        BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP)
                 .hasAnyRows();
     }
 
