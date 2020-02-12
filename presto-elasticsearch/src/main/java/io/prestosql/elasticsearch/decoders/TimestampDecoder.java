@@ -47,13 +47,16 @@ public class TimestampDecoder
     public void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output)
     {
         DocumentField documentField = hit.getFields().get(path);
-        Object value = getter.get();
+        Object value = null;
 
         if (documentField != null) {
             if (documentField.getValues().size() > 1) {
                 throw new PrestoException(TYPE_MISMATCH, "Expected single value for column: " + path);
             }
             value = documentField.getValue();
+        }
+        else {
+            value = getter.get();
         }
 
         if (value == null) {
