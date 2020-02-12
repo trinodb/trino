@@ -254,6 +254,7 @@ import static io.prestosql.spi.StandardErrorCode.COMPILER_ERROR;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
 import static io.prestosql.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
+import static io.prestosql.sql.DynamicFilters.extractDynamicFilters;
 import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
 import static io.prestosql.sql.gen.LambdaBytecodeGenerator.compileLambdaProvider;
 import static io.prestosql.sql.planner.ExpressionNodeInliner.replaceExpression;
@@ -1151,6 +1152,11 @@ public class LocalExecutionPlanner
         {
             PlanNode sourceNode = node.getSource();
 
+            if (node.getSource() instanceof TableScanNode && !getStaticFilter(node.getPredicate()).isPresent()) {
+                // filter node contains only dynamic filter, fallback to normal table scan
+                return visitTableScan((TableScanNode) node.getSource(), node.getPredicate(), context);
+            }
+
             Expression filterExpression = node.getPredicate();
             List<Symbol> outputSymbols = node.getOutputSymbols();
 
@@ -1234,24 +1240,11 @@ public class LocalExecutionPlanner
             }
             Map<Symbol, Integer> outputMappings = outputMappingsBuilder.build();
 
-            Optional<DynamicFilters.ExtractResult> extractDynamicFilterResult = filterExpression.map(DynamicFilters::extractDynamicFilters);
-            Optional<Expression> staticFilters = extractDynamicFilterResult
-                    .map(DynamicFilters.ExtractResult::getStaticConjuncts)
-                    .map(filter -> combineConjuncts(metadata, filter));
-
-            Optional<List<DynamicFilters.Descriptor>> dynamicFilters = extractDynamicFilterResult.map(DynamicFilters.ExtractResult::getDynamicConjuncts);
-            Supplier<TupleDomain<ColumnHandle>> dynamicFilterSupplier = TupleDomain::all;
-            if (dynamicFilters.isPresent() && !dynamicFilters.get().isEmpty()) {
-                log.debug("[TableScan] Dynamic filters: %s", dynamicFilters);
-                if (sourceNode instanceof TableScanNode) {
-                    TableScanNode tableScanNode = (TableScanNode) sourceNode;
-                    LocalDynamicFiltersCollector collector = context.getDynamicFiltersCollector();
-                    dynamicFilterSupplier = () -> {
-                        TupleDomain<Symbol> predicate = collector.getDynamicFilter(tableScanNode.getAssignments().keySet());
-                        return predicate.transform(tableScanNode.getAssignments()::get);
-                    };
-                }
-            }
+            Optional<Expression> staticFilters = filterExpression.flatMap(this::getStaticFilter);
+            Supplier<TupleDomain<ColumnHandle>> dynamicFilterSupplier = filterExpression
+                    .filter(expression -> sourceNode instanceof TableScanNode)
+                    .map(expression -> getDynamicFilter((TableScanNode) sourceNode, expression, context))
+                    .orElse(TupleDomain::all);
 
             List<Expression> projections = new ArrayList<>();
             for (Symbol symbol : outputSymbols) {
@@ -1319,13 +1312,46 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitTableScan(TableScanNode node, LocalExecutionPlanContext context)
         {
+            return visitTableScan(node, TRUE_LITERAL, context);
+        }
+
+        private PhysicalOperation visitTableScan(TableScanNode node, Expression filterExpression, LocalExecutionPlanContext context)
+        {
             List<ColumnHandle> columns = new ArrayList<>();
             for (Symbol symbol : node.getOutputSymbols()) {
                 columns.add(node.getAssignments().get(symbol));
             }
 
-            OperatorFactory operatorFactory = new TableScanOperatorFactory(context.getNextOperatorId(), node.getId(), pageSourceProvider, node.getTable(), columns);
+            Supplier<TupleDomain<ColumnHandle>> dynamicFilter = getDynamicFilter(node, filterExpression, context);
+            OperatorFactory operatorFactory = new TableScanOperatorFactory(context.getNextOperatorId(), node.getId(), pageSourceProvider, node.getTable(), columns, dynamicFilter);
             return new PhysicalOperation(operatorFactory, makeLayout(node), context, stageExecutionDescriptor.isScanGroupedExecution(node.getId()) ? GROUPED_EXECUTION : UNGROUPED_EXECUTION);
+        }
+
+        private Optional<Expression> getStaticFilter(Expression filterExpression)
+        {
+            DynamicFilters.ExtractResult extractDynamicFilterResult = extractDynamicFilters(filterExpression);
+            Expression staticFilter = combineConjuncts(metadata, extractDynamicFilterResult.getStaticConjuncts());
+            if (staticFilter.equals(TRUE_LITERAL)) {
+                return Optional.empty();
+            }
+            return Optional.of(staticFilter);
+        }
+
+        private Supplier<TupleDomain<ColumnHandle>> getDynamicFilter(
+                TableScanNode tableScanNode,
+                Expression filterExpression,
+                LocalExecutionPlanContext context)
+        {
+            DynamicFilters.ExtractResult extractDynamicFilterResult = extractDynamicFilters(filterExpression);
+            List<DynamicFilters.Descriptor> dynamicFilters = extractDynamicFilterResult.getDynamicConjuncts();
+            if (dynamicFilters.isEmpty()) {
+                return TupleDomain::all;
+            }
+            log.debug("[TableScan] Dynamic filters: %s", dynamicFilters);
+            return () -> {
+                TupleDomain<Symbol> predicate = context.getDynamicFiltersCollector().getDynamicFilter(tableScanNode.getAssignments().keySet());
+                return predicate.transform(tableScanNode.getAssignments()::get);
+            };
         }
 
         @Override

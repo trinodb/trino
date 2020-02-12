@@ -509,7 +509,8 @@ public class TestOrcPageSourceMemoryTracking
                     new PlanNodeId("0"),
                     (session, split, table, columnHandles, dynamicFilter) -> pageSource,
                     TEST_TABLE_HANDLE,
-                    columns.stream().map(columnHandle -> (ColumnHandle) columnHandle).collect(toImmutableList()));
+                    columns.stream().map(columnHandle -> (ColumnHandle) columnHandle).collect(toImmutableList()),
+                    TupleDomain::all);
             SourceOperator operator = sourceOperatorFactory.createOperator(driverContext);
             operator.addSplit(new Split(new CatalogName("test"), TestingSplit.createLocalSplit(), Lifespan.taskWide()));
             return operator;
