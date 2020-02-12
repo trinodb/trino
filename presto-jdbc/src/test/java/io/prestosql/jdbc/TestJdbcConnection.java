@@ -50,6 +50,7 @@ import static io.prestosql.spi.connector.SystemTable.Distribution.ALL_NODES;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -189,6 +190,22 @@ public class TestJdbcConnection
             assertThat(connection.getCatalog()).isEqualTo("system");
             assertThat(connection.getSchema()).isEqualTo("runtime");
 
+            // invalid catalog
+            try (Statement statement = connection.createStatement()) {
+                assertThatThrownBy(() -> statement.execute("USE abc.xyz"))
+                        .hasMessageEndingWith("Catalog does not exist: abc");
+            }
+
+            // invalid schema
+            try (Statement statement = connection.createStatement()) {
+                assertThatThrownBy(() -> statement.execute("USE hive.xyz"))
+                        .hasMessageEndingWith("Schema does not exist: hive.xyz");
+            }
+
+            // catalog and schema are unchanged
+            assertThat(connection.getCatalog()).isEqualTo("system");
+            assertThat(connection.getSchema()).isEqualTo("runtime");
+
             // run multiple queries
             assertThat(listTables(connection)).contains("nodes");
             assertThat(listTables(connection)).contains("queries");
@@ -272,12 +289,12 @@ public class TestJdbcConnection
     public void testExtraCredentials()
             throws SQLException
     {
-        Map<String, String> credentials = ImmutableMap.of("test.token.foo", "bar", "test.token.abc", "xyz");
-        Connection connection = createConnection("extraCredentials=test.token.foo:bar;test.token.abc:xyz");
-        assertTrue(connection instanceof PrestoConnection);
-        PrestoConnection prestoConnection = connection.unwrap(PrestoConnection.class);
-        assertEquals(prestoConnection.getExtraCredentials(), credentials);
-        assertEquals(listExtraCredentials(connection), credentials);
+        try (Connection connection = createConnection("extraCredentials=test.token.foo:bar;test.token.abc:xyz")) {
+            Map<String, String> expectedCredentials = ImmutableMap.of("test.token.foo", "bar", "test.token.abc", "xyz");
+            PrestoConnection prestoConnection = connection.unwrap(PrestoConnection.class);
+            assertEquals(prestoConnection.getExtraCredentials(), expectedCredentials);
+            assertEquals(listExtraCredentials(connection), expectedCredentials);
+        }
     }
 
     private Connection createConnection()

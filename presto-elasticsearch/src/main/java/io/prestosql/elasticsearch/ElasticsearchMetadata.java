@@ -29,6 +29,7 @@ import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.ConstraintApplicationResult;
+import io.prestosql.spi.connector.LimitApplicationResult;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.predicate.Domain;
@@ -43,6 +44,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -307,6 +309,25 @@ public class ElasticsearchMetadata
     }
 
     @Override
+    public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorSession session, ConnectorTableHandle table, long limit)
+    {
+        ElasticsearchTableHandle handle = (ElasticsearchTableHandle) table;
+
+        if (handle.getLimit().isPresent() && handle.getLimit().getAsLong() <= limit) {
+            return Optional.empty();
+        }
+
+        handle = new ElasticsearchTableHandle(
+                handle.getSchema(),
+                handle.getIndex(),
+                handle.getConstraint(),
+                handle.getQuery(),
+                OptionalLong.of(limit));
+
+        return Optional.of(new LimitApplicationResult<>(handle, false));
+    }
+
+    @Override
     public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
     {
         ElasticsearchTableHandle handle = (ElasticsearchTableHandle) table;
@@ -336,7 +357,8 @@ public class ElasticsearchMetadata
                 handle.getSchema(),
                 handle.getIndex(),
                 newDomain,
-                handle.getQuery());
+                handle.getQuery(),
+                handle.getLimit());
 
         return Optional.of(new ConstraintApplicationResult<>(handle, TupleDomain.withColumnDomains(unsupported)));
     }

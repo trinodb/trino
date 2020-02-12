@@ -20,6 +20,7 @@ import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
 import io.prestosql.tests.product.launcher.env.common.AbstractEnvironmentProvider;
 import io.prestosql.tests.product.launcher.env.common.Hadoop;
 import io.prestosql.tests.product.launcher.env.common.Standard;
+import io.prestosql.tests.product.launcher.env.common.TestsEnvironment;
 
 import javax.inject.Inject;
 
@@ -29,6 +30,7 @@ import static org.testcontainers.containers.BindMode.READ_ONLY;
 
 // HDP 3.1 images (code) + HDP 3.1-like configuration.
 // See https://github.com/prestosql/presto/issues/1841 for more information.
+@TestsEnvironment
 public class SinglenodeHdp3
         extends AbstractEnvironmentProvider
 {

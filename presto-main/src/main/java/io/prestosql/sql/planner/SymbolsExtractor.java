@@ -105,6 +105,7 @@ public final class SymbolsExtractor
         }
         aggregation.getFilter().ifPresent(builder::add);
         aggregation.getOrderingScheme().ifPresent(orderBy -> builder.addAll(orderBy.getOrderBy()));
+        aggregation.getMask().ifPresent(builder::add);
         return builder.build();
     }
 

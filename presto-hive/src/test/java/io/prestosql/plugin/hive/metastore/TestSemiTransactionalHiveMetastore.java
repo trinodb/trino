@@ -47,7 +47,8 @@ public class TestSemiTransactionalHiveMetastore
             IntStream.range(0, partitionsToDrop).forEach(i -> semiTransactionalHiveMetastore.dropPartition(SESSION,
                     "test",
                     "test",
-                    ImmutableList.of(String.valueOf(i))));
+                    ImmutableList.of(String.valueOf(i)),
+                    true));
             semiTransactionalHiveMetastore.commit();
         });
     }

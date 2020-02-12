@@ -29,6 +29,8 @@ public class HiveProcedureModule
     {
         Multibinder<Procedure> procedures = newSetBinder(binder, Procedure.class);
         procedures.addBinding().toProvider(CreateEmptyPartitionProcedure.class).in(Scopes.SINGLETON);
+        procedures.addBinding().toProvider(RegisterPartitionProcedure.class).in(Scopes.SINGLETON);
+        procedures.addBinding().toProvider(UnregisterPartitionProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(SyncPartitionMetadataProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(DropStatsProcedure.class).in(Scopes.SINGLETON);
     }

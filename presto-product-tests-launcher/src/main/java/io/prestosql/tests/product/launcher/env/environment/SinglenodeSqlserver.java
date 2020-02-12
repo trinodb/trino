@@ -20,6 +20,7 @@ import io.prestosql.tests.product.launcher.env.DockerContainer;
 import io.prestosql.tests.product.launcher.env.Environment;
 import io.prestosql.tests.product.launcher.env.common.AbstractEnvironmentProvider;
 import io.prestosql.tests.product.launcher.env.common.Standard;
+import io.prestosql.tests.product.launcher.env.common.TestsEnvironment;
 import io.prestosql.tests.product.launcher.testcontainers.SelectedPortWaitStrategy;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 
@@ -30,7 +31,8 @@ import static io.prestosql.tests.product.launcher.testcontainers.TestcontainersU
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
 
-public final class SinglenodeSqlServer
+@TestsEnvironment
+public final class SinglenodeSqlserver
         extends AbstractEnvironmentProvider
 {
     public static final int SQLSERVER_PORT = 1433;
@@ -38,7 +40,7 @@ public final class SinglenodeSqlServer
     private final DockerFiles dockerFiles;
 
     @Inject
-    public SinglenodeSqlServer(Standard standard, DockerFiles dockerFiles)
+    public SinglenodeSqlserver(Standard standard, DockerFiles dockerFiles)
     {
         super(ImmutableList.of(standard));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");

@@ -17,14 +17,16 @@ import com.github.dockerjava.api.DockerClient;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Module;
 import io.airlift.airline.Command;
+import io.airlift.airline.Option;
 import io.airlift.log.Logger;
 import io.prestosql.tests.product.launcher.Extensions;
 import io.prestosql.tests.product.launcher.LauncherModule;
 import io.prestosql.tests.product.launcher.env.Environment;
+import io.prestosql.tests.product.launcher.env.EnvironmentFactory;
 import io.prestosql.tests.product.launcher.env.EnvironmentModule;
 import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
 import io.prestosql.tests.product.launcher.env.Environments;
-import io.prestosql.tests.product.launcher.env.SelectedEnvironmentProvider;
+import io.prestosql.tests.product.launcher.testcontainers.TestcontainersUtil;
 import org.testcontainers.DockerClientFactory;
 
 import javax.inject.Inject;
@@ -33,7 +35,6 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
-import static io.prestosql.tests.product.launcher.testcontainers.TestcontainersUtil.killContainersReaperContainer;
 import static java.util.Objects.requireNonNull;
 
 @Command(name = "up", description = "start an environment")
@@ -44,6 +45,9 @@ public final class EnvironmentUp
 
     @Inject
     public EnvironmentOptions environmentOptions = new EnvironmentOptions();
+
+    @Inject
+    public EnvironmentUpOptions environmentUpOptions = new EnvironmentUpOptions();
 
     private Module additionalEnvironments;
 
@@ -60,21 +64,39 @@ public final class EnvironmentUp
                         .add(new LauncherModule())
                         .add(new EnvironmentModule(additionalEnvironments))
                         .add(environmentOptions.toModule())
+                        .add(environmentUpOptions.toModule())
                         .build(),
                 EnvironmentUp.Execution.class);
+    }
+
+    public static class EnvironmentUpOptions
+    {
+        @Option(name = "--background", title = "background", description = "keep containers running in the background once they are started")
+        public boolean background;
+
+        @Option(name = "--environment", title = "environment", description = "the name of the environment to start", required = true)
+        public String environment;
+
+        public Module toModule()
+        {
+            return binder -> binder.bind(EnvironmentUpOptions.class).toInstance(this);
+        }
     }
 
     public static class Execution
             implements Runnable
     {
-        private final SelectedEnvironmentProvider selectedEnvironmentProvider;
+        private final EnvironmentFactory environmentFactory;
         private final boolean withoutPrestoMaster;
+        private final boolean background;
+        private final String environment;
 
-        @Inject
-        public Execution(SelectedEnvironmentProvider selectedEnvironmentProvider, EnvironmentOptions options)
+        public Execution(EnvironmentFactory environmentFactory, EnvironmentOptions options, EnvironmentUpOptions environmentUpOptions)
         {
-            this.selectedEnvironmentProvider = requireNonNull(selectedEnvironmentProvider, "selectedEnvironmentProvider is null");
+            this.environmentFactory = requireNonNull(environmentFactory, "environmentFactory is null");
             this.withoutPrestoMaster = options.withoutPrestoMaster;
+            this.background = environmentUpOptions.background;
+            this.environment = environmentUpOptions.environment;
         }
 
         @Override
@@ -83,7 +105,7 @@ public final class EnvironmentUp
             log.info("Pruning old environment(s)");
             Environments.pruneEnvironment();
 
-            Environment.Builder builder = selectedEnvironmentProvider.getEnvironment()
+            Environment.Builder builder = environmentFactory.get(environment)
                     .removeContainer("tests");
 
             if (withoutPrestoMaster) {
@@ -92,16 +114,41 @@ public final class EnvironmentUp
 
             Environment environment = builder.build();
 
-            log.info("Starting the environment '%s'", selectedEnvironmentProvider.getEnvironmentName());
+            log.info("Starting the environment '%s'", this.environment);
             environment.start();
-            log.info("Environment '%s' started", selectedEnvironmentProvider.getEnvironmentName());
+            log.info("Environment '%s' started", this.environment);
 
+            if (background) {
+                killContainersReaperContainer();
+                return;
+            }
+
+            sleepUntilInterrupted();
+            log.info("Exiting, the containers will exit too");
+        }
+
+        private void killContainersReaperContainer()
+        {
             try (DockerClient dockerClient = DockerClientFactory.lazyClient()) {
                 log.info("Killing the testcontainers reaper container (Ryuk) so that environment can stay alive");
-                killContainersReaperContainer(dockerClient);
+                TestcontainersUtil.killContainersReaperContainer(dockerClient);
             }
             catch (IOException e) {
                 throw new UncheckedIOException(e);
+            }
+        }
+
+        private void sleepUntilInterrupted()
+        {
+            try {
+                //noinspection InfiniteLoopStatement
+                while (true) {
+                    Thread.sleep(Long.MAX_VALUE);
+                }
+            }
+            catch (InterruptedException e) {
+                log.info("Interrupted");
+                // It's OK not to restore interrupt flag here. When we return we're exiting the process.
             }
         }
     }

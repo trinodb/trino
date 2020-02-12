@@ -738,6 +738,15 @@ Procedures
     ``create_empty_partition``). A null value for the ``partition_values`` argument indicates that stats
     should be dropped for the entire table.
 
+* ``system.register_partition(schema_name, table_name, partition_columns, partition_values, location)``
+
+    Registers existing location as a new partition in the metastore for the specified table.
+
+* ``system.unregister_partition(schema_name, table_name, partition_columns, partition_values)``
+
+    Unregisters given, existing partition in the metastore for the specified table.
+    The partition data is not deleted.
+
 Examples
 --------
 
@@ -834,4 +843,6 @@ Drop a schema::
 Hive Connector Limitations
 --------------------------
 
-:doc:`/sql/delete` is only supported if the ``WHERE`` clause matches entire partitions.
+* :doc:`/sql/delete` is only supported if the ``WHERE`` clause matches entire partitions.
+* :doc:`/sql/alter-schema` usage fails, since the Hive metastore does not support renaming schemas.
+

@@ -37,7 +37,8 @@ public class Launcher
                 .withGroup("env")
                 .withDefaultCommand(Help.class) // TODO should be group aware https://github.com/airlift/airline/issues/72? Otherwise it's required until https://github.com/airlift/airline/pull/71
                 .withCommand(EnvironmentUp.class)
-                .withCommand(EnvironmentDown.class);
+                .withCommand(EnvironmentDown.class)
+                .withCommand(EnvironmentList.class);
 
         cli
                 .withGroup("test")

@@ -63,6 +63,8 @@ public class ServerIT
         String command = "" +
                 // install RPM
                 "yum localinstall -q -y " + rpm + "\n" +
+                // temporary hack to allow Java 8
+                "#JAVA8\n" +
                 // create Hive catalog file
                 "mkdir /etc/presto/catalog\n" +
                 "cat > /etc/presto/catalog/hive.properties <<\"EOT\"\n" +
@@ -77,6 +79,10 @@ public class ServerIT
                 "/etc/init.d/presto start\n" +
                 // allow tail to work with Docker's non-local file system
                 "tail ---disable-inotify -F /var/log/presto/server.log\n";
+
+        if (expectedJavaVersion.equals("1.8")) {
+            command = command.replace("#JAVA8", "echo '-Dpresto-temporarily-allow-java8=true' >> /etc/presto/jvm.config");
+        }
 
         try (GenericContainer<?> container = new GenericContainer<>(baseImage)) {
             container.withExposedPorts(8080)

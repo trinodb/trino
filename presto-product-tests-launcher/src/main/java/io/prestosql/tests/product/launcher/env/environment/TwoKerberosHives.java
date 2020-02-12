@@ -23,6 +23,7 @@ import io.prestosql.tests.product.launcher.env.common.AbstractEnvironmentProvide
 import io.prestosql.tests.product.launcher.env.common.Hadoop;
 import io.prestosql.tests.product.launcher.env.common.Kerberos;
 import io.prestosql.tests.product.launcher.env.common.Standard;
+import io.prestosql.tests.product.launcher.env.common.TestsEnvironment;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 
 import javax.annotation.PreDestroy;
@@ -47,6 +48,7 @@ import static org.testcontainers.containers.BindMode.READ_WRITE;
  * Two pseudo-distributed, kerberized Hadoop installations running on side-by-side,
  * each within single container, with single-node, kerberized Presto.
  */
+@TestsEnvironment
 public final class TwoKerberosHives
         extends AbstractEnvironmentProvider
 {

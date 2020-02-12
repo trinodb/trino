@@ -479,6 +479,20 @@ public class TestElasticsearchIntegrationSmokeTest
     }
 
     @Test
+    public void testLimitPushdown()
+            throws IOException
+    {
+        String indexName = "limit_pushdown";
+
+        index(indexName, ImmutableMap.of("c1", "v1"));
+        index(indexName, ImmutableMap.of("c1", "v2"));
+        index(indexName, ImmutableMap.of("c1", "v3"));
+        assertEquals(computeActual("SELECT * FROM limit_pushdown").getRowCount(), 3);
+        assertEquals(computeActual("SELECT * FROM limit_pushdown LIMIT 1").getRowCount(), 1);
+        assertEquals(computeActual("SELECT * FROM limit_pushdown LIMIT 2").getRowCount(), 2);
+    }
+
+    @Test
     public void testDataTypesNested()
             throws IOException
     {

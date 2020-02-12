@@ -11,6 +11,7 @@ set -x
 
 tar xf /docker/presto-server.tar.gz -C /docker
 exec /docker/presto-server-*/bin/launcher \
+  -Dpresto-temporarily-allow-java8=true \
   -Dnode.id="${HOSTNAME}" \
   --etc-dir="/docker/presto-product-tests/conf/presto/etc" \
   --data-dir=/var/presto \

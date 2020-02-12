@@ -53,7 +53,7 @@ public final class Coercer
         }
 
         @Override
-        public Expression rewriteExpression(Expression expression, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        protected Expression rewriteExpression(Expression expression, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
             Type target = coercions.get(NodeRef.of(expression));
 

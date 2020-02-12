@@ -770,7 +770,7 @@ public class ExpressionAnalyzer
                 type = metadata.fromSqlType(node.getType());
             }
             catch (TypeNotFoundException e) {
-                throw semanticException(TYPE_NOT_FOUND, node, "Unknown type: " + node.getType());
+                throw semanticException(TYPE_NOT_FOUND, node, "Unknown type: %s", node.getType());
             }
 
             if (!JSON.equals(type)) {
@@ -1111,7 +1111,7 @@ public class ExpressionAnalyzer
                 type = metadata.getType(toTypeSignature(node.getType()));
             }
             catch (TypeNotFoundException e) {
-                throw semanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
+                throw semanticException(TYPE_MISMATCH, node, "Unknown type: %s", node.getType());
             }
 
             if (type.equals(UNKNOWN)) {
@@ -1322,20 +1322,20 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitExpression(Expression node, StackableAstVisitorContext<Context> context)
         {
-            throw semanticException(NOT_SUPPORTED, node, "not yet implemented: " + node.getClass().getName());
+            throw semanticException(NOT_SUPPORTED, node, "not yet implemented: %s", node.getClass().getName());
         }
 
         @Override
         protected Type visitNode(Node node, StackableAstVisitorContext<Context> context)
         {
-            throw semanticException(NOT_SUPPORTED, node, "not yet implemented: " + node.getClass().getName());
+            throw semanticException(NOT_SUPPORTED, node, "not yet implemented: %s", node.getClass().getName());
         }
 
         @Override
         public Type visitGroupingOperation(GroupingOperation node, StackableAstVisitorContext<Context> context)
         {
             if (node.getGroupingColumns().size() > MAX_NUMBER_GROUPING_ARGUMENTS_BIGINT) {
-                throw semanticException(TOO_MANY_ARGUMENTS, node, format("GROUPING supports up to %d column arguments", MAX_NUMBER_GROUPING_ARGUMENTS_BIGINT));
+                throw semanticException(TOO_MANY_ARGUMENTS, node, "GROUPING supports up to %d column arguments", MAX_NUMBER_GROUPING_ARGUMENTS_BIGINT);
             }
 
             for (Expression columnArgument : node.getGroupingColumns()) {
@@ -1379,7 +1379,7 @@ public class ExpressionAnalyzer
         {
             if (!actualType.equals(expectedType)) {
                 if (!typeCoercion.canCoerce(actualType, expectedType)) {
-                    throw semanticException(TYPE_MISMATCH, expression, message + " must evaluate to a %s (actual: %s)", expectedType, actualType);
+                    throw semanticException(TYPE_MISMATCH, expression, "%s must evaluate to a %s (actual: %s)", message, expectedType, actualType);
                 }
                 addOrReplaceExpressionCoercion(expression, actualType, expectedType);
             }

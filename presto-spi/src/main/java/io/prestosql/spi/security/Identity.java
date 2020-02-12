@@ -133,7 +133,7 @@ public class Identity
 
     public static class Builder
     {
-        private final String user;
+        private String user;
         private Optional<Principal> principal = Optional.empty();
         private Map<String, SelectedRole> roles = new HashMap<>();
         private Map<String, String> extraCredentials = new HashMap<>();
@@ -141,6 +141,12 @@ public class Identity
         public Builder(String user)
         {
             this.user = requireNonNull(user, "user is null");
+        }
+
+        public Builder withUser(String user)
+        {
+            this.user = requireNonNull(user, "user is null");
+            return this;
         }
 
         public Builder withPrincipal(Principal principal)
@@ -170,9 +176,21 @@ public class Identity
             return this;
         }
 
+        public Builder withAdditionalRoles(Map<String, SelectedRole> roles)
+        {
+            this.roles.putAll(requireNonNull(roles, "roles is null"));
+            return this;
+        }
+
         public Builder withExtraCredentials(Map<String, String> extraCredentials)
         {
             this.extraCredentials = new HashMap<>(requireNonNull(extraCredentials, "extraCredentials is null"));
+            return this;
+        }
+
+        public Builder withAdditionalExtraCredentials(Map<String, String> extraCredentials)
+        {
+            this.extraCredentials.putAll(requireNonNull(extraCredentials, "extraCredentials is null"));
             return this;
         }
 

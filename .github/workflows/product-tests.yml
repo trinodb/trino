@@ -44,7 +44,7 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!presto-docs,!presto-server-rpm'
+          ./bin/retry ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!presto-docs,!presto-server-rpm'
       - name: Product Tests
         run: |
           source presto-product-tests/conf/product-tests-${{ matrix.config }}.sh &&

@@ -56,7 +56,7 @@ public final class ExtractCommonPredicatesExpressionRewriter
         }
 
         @Override
-        public Expression rewriteExpression(Expression node, NodeContext context, ExpressionTreeRewriter<NodeContext> treeRewriter)
+        protected Expression rewriteExpression(Expression node, NodeContext context, ExpressionTreeRewriter<NodeContext> treeRewriter)
         {
             if (context.isRootNode()) {
                 return treeRewriter.rewrite(node, NodeContext.NOT_ROOT_NODE);
