@@ -29,9 +29,6 @@ public final class EnvironmentOptions
     @Option(name = "--server-package", title = "server-package", description = "path to Presto server package")
     public File serverPackage = new File("presto-server/target/presto-server-${project.version}.tar.gz");
 
-    @Option(name = "--environment", title = "environment", description = "the name of the environment to start", required = true)
-    public String environment;
-
     @Option(name = "--without-presto", title = "without Presto", description = "do not start presto-master")
     public boolean withoutPrestoMaster;
 

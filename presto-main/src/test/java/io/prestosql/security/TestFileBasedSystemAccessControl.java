@@ -69,43 +69,61 @@ public class TestFileBasedSystemAccessControl
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "catalog_impersonation.json");
 
-        accessControlManager.canImpersonateUser(Identity.ofUser("alice"), "bob");
-        accessControlManager.canImpersonateUser(Identity.ofUser("alice"), "charlie");
+        accessControlManager.checkCanImpersonateUser(Identity.ofUser("alice"), "bob");
+        accessControlManager.checkCanImpersonateUser(Identity.ofUser("alice"), "charlie");
         try {
-            accessControlManager.canImpersonateUser(Identity.ofUser("alice"), "admin");
+            accessControlManager.checkCanImpersonateUser(Identity.ofUser("alice"), "admin");
             throw new AssertionError("expected AccessDeniedException");
         }
         catch (AccessDeniedException expected) {
         }
 
-        accessControlManager.canImpersonateUser(Identity.ofUser("admin"), "alice");
-        accessControlManager.canImpersonateUser(Identity.ofUser("admin"), "bob");
-        accessControlManager.canImpersonateUser(Identity.ofUser("admin"), "anything");
-        accessControlManager.canImpersonateUser(Identity.ofUser("admin-other"), "anything");
+        accessControlManager.checkCanImpersonateUser(Identity.ofUser("admin"), "alice");
+        accessControlManager.checkCanImpersonateUser(Identity.ofUser("admin"), "bob");
+        accessControlManager.checkCanImpersonateUser(Identity.ofUser("admin"), "anything");
+        accessControlManager.checkCanImpersonateUser(Identity.ofUser("admin-other"), "anything");
         try {
-            accessControlManager.canImpersonateUser(Identity.ofUser("admin-test"), "alice");
+            accessControlManager.checkCanImpersonateUser(Identity.ofUser("admin-test"), "alice");
             throw new AssertionError("expected AccessDeniedException");
         }
         catch (AccessDeniedException expected) {
         }
 
         try {
-            accessControlManager.canImpersonateUser(Identity.ofUser("invalid"), "alice");
+            accessControlManager.checkCanImpersonateUser(Identity.ofUser("invalid"), "alice");
             throw new AssertionError("expected AccessDeniedException");
         }
         catch (AccessDeniedException expected) {
         }
 
-        accessControlManager.canImpersonateUser(Identity.ofUser("anything"), "test");
+        accessControlManager.checkCanImpersonateUser(Identity.ofUser("anything"), "test");
         try {
-            accessControlManager.canImpersonateUser(Identity.ofUser("invalid-other"), "test");
+            accessControlManager.checkCanImpersonateUser(Identity.ofUser("invalid-other"), "test");
             throw new AssertionError("expected AccessDeniedException");
         }
         catch (AccessDeniedException expected) {
         }
 
         accessControlManager = newAccessControlManager(transactionManager, "catalog_principal.json");
-        accessControlManager.canImpersonateUser(Identity.ofUser("anything"), "anythingElse");
+        accessControlManager.checkCanImpersonateUser(Identity.ofUser("anything"), "anythingElse");
+    }
+
+    @Test
+    public void testDocsExample()
+    {
+        TransactionManager transactionManager = createTestTransactionManager();
+        AccessControlManager accessControlManager = new AccessControlManager(transactionManager, new AccessControlConfig());
+        accessControlManager.setSystemAccessControl(
+                FileBasedSystemAccessControl.NAME,
+                ImmutableMap.of("security.config-file", new File("../presto-docs/src/main/sphinx/security/user-impersonation.json").getAbsolutePath()));
+
+        accessControlManager.checkCanImpersonateUser(Identity.ofUser("alice"), "charlie");
+        accessControlManager.checkCanImpersonateUser(Identity.ofUser("bob"), "charlie");
+        assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanImpersonateUser(Identity.ofUser("alice"), "bob"));
+        assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanImpersonateUser(Identity.ofUser("bob"), "alice"));
+
+        assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanImpersonateUser(Identity.ofUser("charlie"), "doris"));
+        accessControlManager.checkCanImpersonateUser(Identity.ofUser("charlie"), "test");
     }
 
     @Test

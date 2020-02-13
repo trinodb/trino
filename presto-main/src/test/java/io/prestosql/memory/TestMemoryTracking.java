@@ -57,11 +57,11 @@ import static org.testng.Assert.fail;
 @Test(singleThreaded = true)
 public class TestMemoryTracking
 {
-    private static final DataSize queryMaxMemory = new DataSize(1, GIGABYTE);
-    private static final DataSize queryMaxTotalMemory = new DataSize(1, GIGABYTE);
-    private static final DataSize memoryPoolSize = new DataSize(1, GIGABYTE);
-    private static final DataSize maxSpillSize = new DataSize(1, GIGABYTE);
-    private static final DataSize queryMaxSpillSize = new DataSize(1, GIGABYTE);
+    private static final DataSize queryMaxMemory = DataSize.of(1, GIGABYTE);
+    private static final DataSize queryMaxTotalMemory = DataSize.of(1, GIGABYTE);
+    private static final DataSize memoryPoolSize = DataSize.of(1, GIGABYTE);
+    private static final DataSize maxSpillSize = DataSize.of(1, GIGABYTE);
+    private static final DataSize queryMaxSpillSize = DataSize.of(1, GIGABYTE);
     private static final SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(maxSpillSize);
 
     private QueryContext queryContext;

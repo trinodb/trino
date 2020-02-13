@@ -31,6 +31,8 @@ import io.prestosql.split.EmptySplitPageSource;
 import io.prestosql.split.PageSourceProvider;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
+import javax.annotation.Nullable;
+
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -138,7 +140,9 @@ public class TableScanOperator
     private final LocalMemoryContext systemMemoryContext;
     private final SettableFuture<?> blocked = SettableFuture.create();
 
+    @Nullable
     private Split split;
+    @Nullable
     private ConnectorPageSource source;
 
     private boolean finished;

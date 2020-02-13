@@ -58,6 +58,7 @@ import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -1176,6 +1177,40 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testUnregisterRegisterPartition()
+    {
+        String tableName = "test_register_partition_for_table";
+        assertUpdate("" +
+                "CREATE TABLE " + tableName + " (" +
+                "  dummy_col bigint," +
+                "  part varchar)" +
+                "WITH (" +
+                "  partitioned_by = ARRAY['part'] " +
+                ")");
+
+        assertQuery(format("SELECT count(*) FROM \"%s$partitions\"", tableName), "SELECT 0");
+
+        assertUpdate(format("INSERT INTO %s (dummy_col, part) VALUES (1, 'first'), (2, 'second'), (3, 'third')", tableName), 3);
+        List<MaterializedRow> paths = getQueryRunner().execute(getSession(), "SELECT \"$path\" FROM " + tableName + " ORDER BY \"$path\" ASC").toTestTypes().getMaterializedRows();
+        assertEquals(paths.size(), 3);
+
+        String firstPartition = new Path((String) paths.get(0).getField(0)).getParent().toString();
+
+        assertQueryFails(format("CALL system.unregister_partition('%s', '%s', ARRAY['part'], ARRAY['empty'])", TPCH_SCHEMA, tableName), "Partition part=empty does not exist");
+        assertUpdate(format("CALL system.unregister_partition('%s', '%s', ARRAY['part'], ARRAY['first'])", TPCH_SCHEMA, tableName));
+
+        assertQuery(getSession(), format("SELECT count(*) FROM \"%s$partitions\"", tableName), "SELECT 2");
+        assertQuery(getSession(), "SELECT count(*) FROM " + tableName, "SELECT 2");
+
+        assertUpdate(format("CALL system.register_partition('%s', '%s', ARRAY['part'], ARRAY['first'], '%s')", TPCH_SCHEMA, tableName, firstPartition));
+
+        assertQuery(getSession(), format("SELECT count(*) FROM \"%s$partitions\"", tableName), "SELECT 3");
+        assertQuery(getSession(), "SELECT count(*) FROM " + tableName, "SELECT 3");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testCreateEmptyBucketedPartition()
     {
         for (TestingHiveStorageFormat storageFormat : getAllTestingHiveStorageFormat()) {
@@ -1201,6 +1236,14 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate("DROP TABLE " + tableName);
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+    }
+
+    @Test
+    public void testCreateEmptyPartitionOnNonExistingTable()
+    {
+        assertQueryFails(
+                format("CALL system.create_empty_partition('%s', '%s', ARRAY['part'], ARRAY['%s'])", TPCH_SCHEMA, "non_existing_table", "empty"),
+                format("Table %s.%s does not exist", TPCH_SCHEMA, "non_existing_table"));
     }
 
     @Test
@@ -2118,25 +2161,48 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testScaleWriters()
     {
+        testWithAllStorageFormats(this::testSingleWriter);
+        testWithAllStorageFormats(this::testMultipleWriters);
+    }
+
+    private void testSingleWriter(Session session, HiveStorageFormat storageFormat)
+    {
         try {
             // small table that will only have one writer
+            @Language("SQL") String createTableSql = format("" +
+                            "CREATE TABLE scale_writers_small WITH (format = '%s') AS " +
+                            "SELECT * FROM tpch.tiny.orders",
+                    storageFormat);
             assertUpdate(
-                    Session.builder(getSession())
+                    Session.builder(session)
                             .setSystemProperty("scale_writers", "true")
                             .setSystemProperty("writer_min_size", "32MB")
                             .build(),
-                    "CREATE TABLE scale_writers_small AS SELECT * FROM tpch.tiny.orders",
+                    createTableSql,
                     (long) computeActual("SELECT count(*) FROM tpch.tiny.orders").getOnlyValue());
 
             assertEquals(computeActual("SELECT count(DISTINCT \"$path\") FROM scale_writers_small").getOnlyValue(), 1L);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS scale_writers_small");
+        }
+    }
 
+    private void testMultipleWriters(Session session, HiveStorageFormat storageFormat)
+    {
+        try {
             // large table that will scale writers to multiple machines
+            @Language("SQL") String createTableSql = format("" +
+                            "CREATE TABLE scale_writers_large WITH (format = '%s') AS " +
+                            "SELECT * FROM tpch.sf1.orders",
+                    storageFormat);
             assertUpdate(
-                    Session.builder(getSession())
+                    Session.builder(session)
                             .setSystemProperty("scale_writers", "true")
                             .setSystemProperty("writer_min_size", "1MB")
+                            .setCatalogSessionProperty(catalog, "parquet_writer_block_size", "4MB")
                             .build(),
-                    "CREATE TABLE scale_writers_large WITH (format = 'RCBINARY') AS SELECT * FROM tpch.sf1.orders",
+                    createTableSql,
                     (long) computeActual("SELECT count(*) FROM tpch.sf1.orders").getOnlyValue());
 
             long files = (long) computeScalar("SELECT count(DISTINCT \"$path\") FROM scale_writers_large");
@@ -2145,7 +2211,6 @@ public class TestHiveIntegrationSmokeTest
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS scale_writers_large");
-            assertUpdate("DROP TABLE IF EXISTS scale_writers_small");
         }
     }
 
@@ -2282,6 +2347,22 @@ public class TestHiveIntegrationSmokeTest
         // file should still exist after drop
         assertFile(dataFile);
 
+        deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
+    }
+
+    @Test
+    public void testCreateExternalTableWithDataNotAllowed()
+            throws IOException
+    {
+        File tempDir = createTempDir();
+
+        @Language("SQL") String createTableSql = format("" +
+                        "CREATE TABLE test_create_external_with_data_not_allowed " +
+                        "WITH (external_location = '%s') AS " +
+                        "SELECT * FROM tpch.tiny.nation",
+                tempDir.toURI().toASCIIString());
+
+        assertQueryFails(createTableSql, "Cannot create a non-managed Hive table using CREATE TABLE AS");
         deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
     }
 
@@ -4522,11 +4603,6 @@ public class TestHiveIntegrationSmokeTest
         String tableName = "test_invalid_analyze_table";
         createUnpartitionedTableForAnalyzeTest(tableName);
 
-        // It doesn't make sense to analyze an empty subset of columns
-        assertQueryFails(
-                "ANALYZE " + tableName + " WITH (columns = ARRAY[])",
-                ".*Cannot analyze with empty column list.*");
-
         // Specifying a null column name is not cool
         assertQueryFails(
                 "ANALYZE " + tableName + " WITH (columns = ARRAY[null])",
@@ -4574,6 +4650,48 @@ public class TestHiveIntegrationSmokeTest
                         "('c_boolean', null, null, null, null, null, null), " +
                         "('c_bigint', null, 8.0, 0.375, null, '0', '7'), " +
                         "('c_double', null, 10.0, 0.375, null, '1.2', '7.7'), " +
+                        "('c_timestamp', null, null, null, null, null, null), " +
+                        "('c_varchar', null, null, null, null, null, null), " +
+                        "('c_varbinary', null, null, null, null, null, null), " +
+                        "('p_varchar', null, null, null, null, null, null), " +
+                        "('p_bigint', null, null, null, null, null, null), " +
+                        "(null, null, null, null, 16.0, null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testAnalyzeUnpartitionedTableWithEmptyColumnSubset()
+    {
+        String tableName = "test_analyze_columns_unpartitioned_table_with_empty_column_subset";
+        createUnpartitionedTableForAnalyzeTest(tableName);
+
+        // Clear table stats
+        assertUpdate(format("CALL system.drop_stats('%s', '%s', null)", TPCH_SCHEMA, tableName));
+
+        // No stats before ANALYZE
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "SELECT * FROM VALUES " +
+                        "('c_boolean', null, null, null, null, null, null), " +
+                        "('c_bigint', null, null, null, null, null, null), " +
+                        "('c_double', null, null, null, null, null, null), " +
+                        "('c_timestamp', null, null, null, null, null, null), " +
+                        "('c_varchar', null, null, null, null, null, null), " +
+                        "('c_varbinary', null, null, null, null, null, null), " +
+                        "('p_varchar', null, null, null, null, null, null), " +
+                        "('p_bigint', null, null, null, null, null, null), " +
+                        "(null, null, null, null, null, null, null)");
+
+        // Run analyze on the whole table
+        assertUpdate("ANALYZE " + tableName + " WITH (columns = ARRAY[])", 16);
+
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "SELECT * FROM VALUES " +
+                        "('c_boolean', null, null, null, null, null, null), " +
+                        "('c_bigint', null, null, null, null, null, null), " +
+                        "('c_double', null, null, null, null, null, null), " +
                         "('c_timestamp', null, null, null, null, null, null), " +
                         "('c_varchar', null, null, null, null, null, null), " +
                         "('c_varbinary', null, null, null, null, null, null), " +
@@ -4887,6 +5005,9 @@ public class TestHiveIntegrationSmokeTest
         assertQueryFails(
                 format("CALL system.drop_stats('%s', '%s', ARRAY[ARRAY['WRONG', 'KEY']])", TPCH_SCHEMA, partitionedTableName),
                 "Partition '.*' not found");
+        assertQueryFails(
+                format("CALL system.drop_stats('%s', '%s', ARRAY[ARRAY['WRONG', 'KEY']])", TPCH_SCHEMA, "non_existing_table"),
+                format("Table %s.non_existing_table does not exist", TPCH_SCHEMA));
 
         assertUpdate("DROP TABLE " + unpartitionedTableName);
         assertUpdate("DROP TABLE " + partitionedTableName);

@@ -1597,7 +1597,7 @@ public abstract class AbstractTestParquetReader
     public void testStructMaxReadBytes()
             throws Exception
     {
-        DataSize maxReadBlockSize = new DataSize(1_000, DataSize.Unit.BYTE);
+        DataSize maxReadBlockSize = DataSize.ofBytes(1_000);
         List<List<?>> structValues = createTestStructs(
                 Collections.nCopies(500, join("", Collections.nCopies(33, "test"))),
                 Collections.nCopies(500, join("", Collections.nCopies(1, "test"))));
@@ -1616,7 +1616,7 @@ public abstract class AbstractTestParquetReader
     public void testArrayMaxReadBytes()
             throws Exception
     {
-        DataSize maxReadBlockSize = new DataSize(1_000, DataSize.Unit.BYTE);
+        DataSize maxReadBlockSize = DataSize.ofBytes(1_000);
         Iterable<List<Integer>> values = createFixedTestArrays(limit(cycle(asList(1, null, 3, 5, null, null, null, 7, 11, null, 13, 17)), 30_000));
         testMaxReadBytes(getStandardListObjectInspector(javaIntObjectInspector), values, values, new ArrayType(INTEGER), maxReadBlockSize);
     }
@@ -1625,7 +1625,7 @@ public abstract class AbstractTestParquetReader
     public void testMapMaxReadBytes()
             throws Exception
     {
-        DataSize maxReadBlockSize = new DataSize(1_000, DataSize.Unit.BYTE);
+        DataSize maxReadBlockSize = DataSize.ofBytes(1_000);
         Iterable<Map<String, Long>> values = createFixedTestMaps(Collections.nCopies(5_000, join("", Collections.nCopies(33, "test"))), longsBetween(0, 5_000));
         testMaxReadBytes(getStandardMapObjectInspector(javaStringObjectInspector, javaLongObjectInspector), values, values, mapType(VARCHAR, BIGINT), maxReadBlockSize);
     }

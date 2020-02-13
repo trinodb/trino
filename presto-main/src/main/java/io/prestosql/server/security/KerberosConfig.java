@@ -32,8 +32,8 @@ public class KerberosConfig
     private File keytab;
     private String principalHostname;
     private KerberosNameType nameType = HOSTBASED_SERVICE;
-    private Optional<String> userExtractionPattern = Optional.empty();
-    private Optional<File> userExtractionFile = Optional.empty();
+    private Optional<String> userMappingPattern = Optional.empty();
+    private Optional<File> userMappingFile = Optional.empty();
 
     @NotNull
     public File getKerberosConfig()
@@ -103,27 +103,27 @@ public class KerberosConfig
         return this;
     }
 
-    public Optional<String> getUserExtractionPattern()
+    public Optional<String> getUserMappingPattern()
     {
-        return userExtractionPattern;
+        return userMappingPattern;
     }
 
-    @Config("http-server.authentication.krb5.user-extraction.pattern")
-    public KerberosConfig setUserExtractionPattern(String userExtractionPattern)
+    @Config("http-server.authentication.krb5.user-mapping.pattern")
+    public KerberosConfig setUserMappingPattern(String userMappingPattern)
     {
-        this.userExtractionPattern = Optional.ofNullable(userExtractionPattern);
+        this.userMappingPattern = Optional.ofNullable(userMappingPattern);
         return this;
     }
 
-    public Optional<File> getUserExtractionFile()
+    public Optional<File> getUserMappingFile()
     {
-        return userExtractionFile;
+        return userMappingFile;
     }
 
-    @Config("http-server.authentication.krb5.user-extraction.file")
-    public KerberosConfig setUserExtractionFile(File userExtractionFile)
+    @Config("http-server.authentication.krb5.user-mapping.file")
+    public KerberosConfig setUserMappingFile(File userMappingFile)
     {
-        this.userExtractionFile = Optional.ofNullable(userExtractionFile);
+        this.userMappingFile = Optional.ofNullable(userMappingFile);
         return this;
     }
 }

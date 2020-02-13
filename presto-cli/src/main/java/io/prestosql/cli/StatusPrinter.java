@@ -32,7 +32,6 @@ import java.util.OptionalInt;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.base.Verify.verify;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.Duration.nanosSince;
 import static io.airlift.units.Duration.succinctDuration;
 import static io.prestosql.cli.FormatUtils.formatCount;
@@ -408,7 +407,7 @@ Spilled: 20GB
         String bytesPerSecond;
         String rowsPerSecond;
         if (stage.isDone()) {
-            bytesPerSecond = formatDataRate(new DataSize(0, BYTE), new Duration(0, SECONDS), false);
+            bytesPerSecond = formatDataRate(DataSize.ofBytes(0), new Duration(0, SECONDS), false);
             rowsPerSecond = formatCountRate(0, new Duration(0, SECONDS), false);
         }
         else {
@@ -470,7 +469,7 @@ Spilled: 20GB
 
     private static DataSize bytes(long bytes)
     {
-        return new DataSize(bytes, BYTE);
+        return DataSize.ofBytes(bytes);
     }
 
     private static double percentage(double count, double total)

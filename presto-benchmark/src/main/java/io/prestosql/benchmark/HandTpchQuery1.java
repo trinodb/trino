@@ -122,7 +122,7 @@ public class HandTpchQuery1
                 Optional.empty(),
                 Optional.empty(),
                 10_000,
-                Optional.of(new DataSize(16, MEGABYTE)),
+                Optional.of(DataSize.of(16, MEGABYTE)),
                 JOIN_COMPILER,
                 false);
 

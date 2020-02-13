@@ -26,13 +26,12 @@ import io.prestosql.plugin.hive.metastore.Partition;
 import io.prestosql.plugin.hive.metastore.PartitionWithStatistics;
 import io.prestosql.plugin.hive.metastore.Storage;
 import io.prestosql.plugin.hive.metastore.Table;
-import io.prestosql.spi.PrestoException;
+import io.prestosql.plugin.hive.metastore.glue.GlueColumnStatisticsProvider;
 
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public final class GlueInputConverter
 {
@@ -62,13 +61,11 @@ public final class GlueInputConverter
         return input;
     }
 
-    public static PartitionInput convertPartition(PartitionWithStatistics partitionWithStatistics)
+    public static PartitionInput convertPartition(PartitionWithStatistics partitionWithStatistics, GlueColumnStatisticsProvider columnStatisticsProvider)
     {
         PartitionInput input = convertPartition(partitionWithStatistics.getPartition());
         PartitionStatistics statistics = partitionWithStatistics.getStatistics();
-        if (!statistics.getColumnStatistics().isEmpty()) {
-            throw new PrestoException(NOT_SUPPORTED, "Glue metastore does not support column level statistics");
-        }
+        columnStatisticsProvider.updatePartitionStatistics(input, statistics.getColumnStatistics());
         input.setParameters(updateStatisticsParameters(input.getParameters(), statistics.getBasicStatistics()));
         return input;
     }

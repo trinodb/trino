@@ -50,6 +50,9 @@ public interface ThriftMetastoreClient
     List<String> getTableNamesByFilter(String databaseName, String filter)
             throws TException;
 
+    List<String> getTableNamesByType(String databaseName, String tableType)
+            throws TException;
+
     void createDatabase(Database database)
             throws TException;
 

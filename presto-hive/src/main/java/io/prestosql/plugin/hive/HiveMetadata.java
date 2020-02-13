@@ -192,9 +192,12 @@ import static io.prestosql.plugin.hive.util.CompressionConfigUtil.configureCompr
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.toJobConf;
 import static io.prestosql.plugin.hive.util.HiveBucketing.containsTimestampBucketedV2;
 import static io.prestosql.plugin.hive.util.HiveBucketing.getHiveBucketHandle;
+import static io.prestosql.plugin.hive.util.HiveUtil.PRESTO_VIEW_FLAG;
+import static io.prestosql.plugin.hive.util.HiveUtil.buildHiveViewConnectorDefinition;
 import static io.prestosql.plugin.hive.util.HiveUtil.columnExtraInfo;
 import static io.prestosql.plugin.hive.util.HiveUtil.getPartitionKeyColumnHandles;
 import static io.prestosql.plugin.hive.util.HiveUtil.hiveColumnHandles;
+import static io.prestosql.plugin.hive.util.HiveUtil.isPrestoView;
 import static io.prestosql.plugin.hive.util.HiveUtil.toPartitionValues;
 import static io.prestosql.plugin.hive.util.HiveUtil.verifyPartitionTypeSupported;
 import static io.prestosql.plugin.hive.util.HiveWriteUtils.checkTableIsWritable;
@@ -253,6 +256,7 @@ public class HiveMetadata
     private static final String CSV_ESCAPE_KEY = OpenCSVSerde.ESCAPECHAR;
 
     private final boolean allowCorruptWritesForTesting;
+    private final HiveCatalogName catalogName;
     private final SemiTransactionalHiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
     private final HivePartitionManager partitionManager;
@@ -262,12 +266,14 @@ public class HiveMetadata
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
     private final boolean writesToNonManagedTablesEnabled;
     private final boolean createsOfNonManagedTablesEnabled;
+    private final boolean translateHiveViews;
     private final TypeTranslator typeTranslator;
     private final String prestoVersion;
     private final HiveStatisticsProvider hiveStatisticsProvider;
     private final AccessControlMetadata accessControlMetadata;
 
     public HiveMetadata(
+            HiveCatalogName catalogName,
             SemiTransactionalHiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             HivePartitionManager partitionManager,
@@ -275,6 +281,7 @@ public class HiveMetadata
             boolean allowCorruptWritesForTesting,
             boolean writesToNonManagedTablesEnabled,
             boolean createsOfNonManagedTablesEnabled,
+            boolean translateHiveViews,
             TypeManager typeManager,
             LocationService locationService,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
@@ -285,6 +292,7 @@ public class HiveMetadata
     {
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
 
+        this.catalogName = requireNonNull(catalogName, "hiveCatalogName is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
@@ -294,6 +302,7 @@ public class HiveMetadata
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
         this.writesToNonManagedTablesEnabled = writesToNonManagedTablesEnabled;
         this.createsOfNonManagedTablesEnabled = createsOfNonManagedTablesEnabled;
+        this.translateHiveViews = translateHiveViews;
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
         this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
         this.hiveStatisticsProvider = requireNonNull(hiveStatisticsProvider, "hiveStatisticsProvider is null");
@@ -367,9 +376,6 @@ public class HiveMetadata
 
         if (analyzeColumnNames.isPresent()) {
             Set<String> columnNames = analyzeColumnNames.get();
-            if (columnNames.isEmpty()) {
-                throw new PrestoException(INVALID_ANALYZE_PROPERTY, "Cannot analyze with empty column list");
-            }
             Set<String> allColumnNames = tableMetadata.getColumns().stream()
                     .map(ColumnMetadata::getName)
                     .collect(toImmutableSet());
@@ -1168,8 +1174,8 @@ public class HiveMetadata
     {
         verifyJvmTimeZone();
 
-        if (getExternalLocation(tableMetadata.getProperties()) != null) {
-            throw new PrestoException(NOT_SUPPORTED, "External tables cannot be created using CREATE TABLE AS");
+        if ((!writesToNonManagedTablesEnabled || !createsOfNonManagedTablesEnabled) && getExternalLocation(tableMetadata.getProperties()) != null) {
+            throw new PrestoException(NOT_SUPPORTED, "Cannot create a non-managed Hive table using CREATE TABLE AS");
         }
 
         if (getAvroSchemaUrl(tableMetadata.getProperties()) != null) {
@@ -1542,7 +1548,7 @@ public class HiveMetadata
                     throw new PrestoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Partition format changed during insert");
                 }
                 if (partitionUpdate.getUpdateMode() == OVERWRITE) {
-                    metastore.dropPartition(session, handle.getSchemaName(), handle.getTableName(), partition.getValues());
+                    metastore.dropPartition(session, handle.getSchemaName(), handle.getTableName(), partition.getValues(), true);
                 }
                 PartitionStatistics partitionStatistics = createPartitionStatistics(
                         session,
@@ -1692,6 +1698,11 @@ public class HiveMetadata
                 .map(HiveUtil::buildViewDefinition);
     }
 
+    private boolean isHiveOrPrestoView(Table table)
+    {
+        return table.getTableType().equals(TableType.VIRTUAL_VIEW.name());
+    }
+
     @Override
     public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
@@ -1725,7 +1736,7 @@ public class HiveMetadata
         }
         else {
             for (HivePartition hivePartition : partitionManager.getOrLoadPartitions(metastore, new HiveIdentity(session), handle)) {
-                metastore.dropPartition(session, handle.getSchemaName(), handle.getTableName(), toPartitionValues(hivePartition.getPartitionId()));
+                metastore.dropPartition(session, handle.getSchemaName(), handle.getTableName(), toPartitionValues(hivePartition.getPartitionId()), true);
             }
         }
         // it is too expensive to determine the exact number of deleted rows

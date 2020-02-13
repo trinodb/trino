@@ -22,8 +22,6 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static io.prestosql.server.security.SecurityConfig.AuthenticationType.KERBEROS;
-import static io.prestosql.server.security.SecurityConfig.AuthenticationType.PASSWORD;
 
 public class TestSecurityConfig
 {
@@ -45,7 +43,7 @@ public class TestSecurityConfig
 
         SecurityConfig expected = new SecurityConfig()
                 .setEnableForwardingHttps(true)
-                .setAuthenticationTypes(ImmutableList.of(KERBEROS, PASSWORD));
+                .setAuthenticationTypes(ImmutableList.of("KERBEROS", "PASSWORD"));
 
         assertFullMapping(properties, expected);
     }

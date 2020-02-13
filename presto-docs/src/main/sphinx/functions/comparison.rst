@@ -2,6 +2,8 @@
 Comparison Functions and Operators
 ==================================
 
+.. contents:: :local:
+
 .. _comparison_operators:
 
 Comparison Operators
@@ -168,3 +170,49 @@ Expression              Meaning
 ====================    ===========
 
 ``ANY`` and ``SOME`` have the same meaning and can be used interchangeably.
+
+.. _like_operator:
+
+Pattern Comparison: LIKE
+------------------------
+
+The ``LIKE`` operator can be used to compare values with a pattern::
+
+    ... column [NOT] LIKE 'pattern' ESCAPE 'character';
+
+Matching characters is case sensitive, and the pattern supports two symbols for
+matching:
+
+- ``_`` matches any single character
+- ``%`` matches zero or more characters
+
+Typically it is often used as a condition in ``WHERE`` statements. An example is
+a query to find all continents starting with ``E``, which returns ``Europe``::
+
+    SELECT * FROM (VALUES 'America', 'Asia', 'Africa', 'Europe', 'Australia', 'Antarctica') AS t (continent)
+    WHERE continent LIKE 'E%';
+
+You can negate the result by adding ``NOT``, and get all other continents, all
+not starting with ``E``::
+
+    SELECT * FROM (VALUES 'America', 'Asia', 'Africa', 'Europe', 'Australia', 'Antarctica') AS t (continent)
+    WHERE continent NOT LIKE 'E%';
+
+If you only have one specific character to match, you can use the ``_`` symbol
+for each character. The following query uses two underscores and produces only
+``Asia`` as result::
+
+    SELECT * FROM (VALUES 'America', 'Asia', 'Africa', 'Europe', 'Australia', 'Antarctica') AS t (continent)
+    WHERE continent LIKE 'A__A';
+
+The wildcard characters ``_`` and ``%`` must be escaped to allow you to match
+them as literals. This can be achieved by specifying the ``ESCAPE`` character to
+use::
+
+    SELECT 'South_America' LIKE 'South\_America' ESCAPE '\';
+
+The above query returns ``true`` since the escaped underscore symbol matches. If
+you need to match the used escape character as well, you can escape it.
+
+If you want to match for the chosen escape character, you simply escape itself.
+For example, you can use ``\\`` to match for ''\''.

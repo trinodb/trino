@@ -20,30 +20,30 @@ import java.util.Optional;
 
 public class PasswordAuthenticatorConfig
 {
-    private Optional<String> userExtractionPattern = Optional.empty();
-    private Optional<File> userExtractionFile = Optional.empty();
+    private Optional<String> userMappingPattern = Optional.empty();
+    private Optional<File> userMappingFile = Optional.empty();
 
-    public Optional<String> getUserExtractionPattern()
+    public Optional<String> getUserMappingPattern()
     {
-        return userExtractionPattern;
+        return userMappingPattern;
     }
 
-    @Config("http-server.authentication.password.user-extraction.pattern")
-    public PasswordAuthenticatorConfig setUserExtractionPattern(String userExtractionPattern)
+    @Config("http-server.authentication.password.user-mapping.pattern")
+    public PasswordAuthenticatorConfig setUserMappingPattern(String userMappingPattern)
     {
-        this.userExtractionPattern = Optional.ofNullable(userExtractionPattern);
+        this.userMappingPattern = Optional.ofNullable(userMappingPattern);
         return this;
     }
 
-    public Optional<File> getUserExtractionFile()
+    public Optional<File> getUserMappingFile()
     {
-        return userExtractionFile;
+        return userMappingFile;
     }
 
-    @Config("http-server.authentication.password.user-extraction.file")
-    public PasswordAuthenticatorConfig setUserExtractionFile(File userExtractionFile)
+    @Config("http-server.authentication.password.user-mapping.file")
+    public PasswordAuthenticatorConfig setUserMappingFile(File userMappingFile)
     {
-        this.userExtractionFile = Optional.ofNullable(userExtractionFile);
+        this.userMappingFile = Optional.ofNullable(userMappingFile);
         return this;
     }
 }

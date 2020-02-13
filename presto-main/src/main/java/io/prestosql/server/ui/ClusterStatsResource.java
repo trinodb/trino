@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.server;
+package io.prestosql.server.ui;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -21,18 +21,18 @@ import io.prestosql.execution.scheduler.NodeSchedulerConfig;
 import io.prestosql.memory.ClusterMemoryManager;
 import io.prestosql.metadata.InternalNodeManager;
 import io.prestosql.metadata.NodeState;
+import io.prestosql.server.BasicQueryInfo;
 
 import javax.inject.Inject;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-@Path("/v1/cluster")
+@Path("/ui/api/stats")
 public class ClusterStatsResource
 {
     private final InternalNodeManager nodeManager;
@@ -107,24 +107,6 @@ public class ClusterStatsResource
                 totalInputRows,
                 totalInputBytes,
                 totalCpuTimeSecs);
-    }
-
-    @GET
-    @Path("memory")
-    public Response getClusterMemoryPoolInfo()
-    {
-        return Response.ok()
-                .entity(clusterMemoryManager.getMemoryPoolInfo())
-                .build();
-    }
-
-    @GET
-    @Path("workerMemory")
-    public Response getWorkerMemoryInfo()
-    {
-        return Response.ok()
-                .entity(clusterMemoryManager.getWorkerMemoryInfo())
-                .build();
     }
 
     public static class ClusterStats

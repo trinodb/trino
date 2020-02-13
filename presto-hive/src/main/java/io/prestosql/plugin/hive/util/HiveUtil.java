@@ -27,6 +27,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
 import io.prestosql.hadoop.TextLineLengthLimitExceededException;
+import io.prestosql.plugin.hive.HiveCatalogName;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HivePartitionKey;
 import io.prestosql.plugin.hive.HiveType;
@@ -36,6 +37,7 @@ import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.spi.ErrorCodeSupplier;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorViewDefinition;
+import io.prestosql.spi.connector.ConnectorViewDefinition.ViewColumn;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.predicate.NullableValue;
@@ -47,6 +49,7 @@ import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeId;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.VarbinaryType;
 import io.prestosql.spi.type.VarcharType;
@@ -131,6 +134,7 @@ import static io.prestosql.plugin.hive.HiveMetadata.SKIP_HEADER_COUNT_KEY;
 import static io.prestosql.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.prestosql.plugin.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static io.prestosql.plugin.hive.HiveType.HIVE_STRING;
+import static io.prestosql.plugin.hive.HiveQlTranslation.translateHiveQlToPrestoSql;
 import static io.prestosql.plugin.hive.HiveType.toHiveTypes;
 import static io.prestosql.plugin.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.copy;
@@ -672,6 +676,22 @@ public final class HiveUtil
         data = data.substring(0, data.length() - VIEW_SUFFIX.length());
         byte[] bytes = Base64.getDecoder().decode(data);
         return VIEW_CODEC.fromJson(bytes);
+    }
+
+    public static ConnectorViewDefinition buildHiveViewConnectorDefinition(HiveCatalogName catalogName, Table view)
+    {
+        String viewText = view.getViewExpandedText()
+                .orElseThrow(() -> new PrestoException(HIVE_INVALID_METADATA, "No view expanded text: " + view.getSchemaTableName()));
+        return new ConnectorViewDefinition(
+                translateHiveQlToPrestoSql(viewText),
+                Optional.of(catalogName.toString()),
+                Optional.ofNullable(view.getDatabaseName()),
+                view.getDataColumns().stream()
+                        .map(column -> new ViewColumn(column.getName(), TypeId.of(column.getType().getTypeSignature().toString())))
+                        .collect(toImmutableList()),
+                Optional.ofNullable(view.getParameters().get(TABLE_COMMENT)),
+                Optional.of(view.getOwner()),
+                false); // don't run as invoker
     }
 
     public static Optional<DecimalType> getDecimalType(HiveType hiveType)

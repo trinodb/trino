@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.server;
+package io.prestosql.server.ui;
 
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
@@ -20,6 +20,7 @@ import io.prestosql.execution.TaskId;
 import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.InternalNodeManager;
 import io.prestosql.metadata.NodeState;
+import io.prestosql.server.ForWorkerInfo;
 
 import javax.inject.Inject;
 import javax.ws.rs.GET;
@@ -40,7 +41,7 @@ import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON_TYPE;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 
-@Path("/v1/worker")
+@Path("/ui/api/worker")
 public class WorkerResource
 {
     private final InternalNodeManager nodeManager;

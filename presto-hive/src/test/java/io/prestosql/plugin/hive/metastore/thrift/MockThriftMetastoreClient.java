@@ -234,6 +234,12 @@ public class MockThriftMetastoreClient
     }
 
     @Override
+    public List<String> getTableNamesByType(String databaseName, String tableType)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public List<String> getPartitionNames(String dbName, String tableName)
     {
         accessCount.incrementAndGet();

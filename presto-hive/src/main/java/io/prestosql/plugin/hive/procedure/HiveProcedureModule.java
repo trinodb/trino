@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive;
+package io.prestosql.plugin.hive.procedure;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
@@ -29,6 +29,8 @@ public class HiveProcedureModule
     {
         Multibinder<Procedure> procedures = newSetBinder(binder, Procedure.class);
         procedures.addBinding().toProvider(CreateEmptyPartitionProcedure.class).in(Scopes.SINGLETON);
+        procedures.addBinding().toProvider(RegisterPartitionProcedure.class).in(Scopes.SINGLETON);
+        procedures.addBinding().toProvider(UnregisterPartitionProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(SyncPartitionMetadataProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(DropStatsProcedure.class).in(Scopes.SINGLETON);
     }

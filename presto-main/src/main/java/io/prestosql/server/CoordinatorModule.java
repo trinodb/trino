@@ -106,6 +106,10 @@ import io.prestosql.metadata.CatalogManager;
 import io.prestosql.operator.ForScheduler;
 import io.prestosql.server.protocol.ExecutingStatementResource;
 import io.prestosql.server.remotetask.RemoteTaskStats;
+import io.prestosql.server.ui.ClusterResource;
+import io.prestosql.server.ui.ClusterStatsResource;
+import io.prestosql.server.ui.UiQueryResource;
+import io.prestosql.server.ui.WorkerResource;
 import io.prestosql.spi.memory.ClusterMemoryPoolManager;
 import io.prestosql.spi.resourcegroups.QueryType;
 import io.prestosql.spi.security.SelectedRole;
@@ -265,8 +269,10 @@ public class CoordinatorModule
         binder.bind(CostCalculator.class).annotatedWith(EstimatedExchanges.class).to(CostCalculatorWithEstimatedExchanges.class).in(Scopes.SINGLETON);
         binder.bind(CostComparator.class).in(Scopes.SINGLETON);
 
-        // cluster statistics
+        // Web UI
+        jaxrsBinder(binder).bind(ClusterResource.class);
         jaxrsBinder(binder).bind(ClusterStatsResource.class);
+        jaxrsBinder(binder).bind(UiQueryResource.class);
 
         // planner
         binder.bind(PlanFragmenter.class).in(Scopes.SINGLETON);

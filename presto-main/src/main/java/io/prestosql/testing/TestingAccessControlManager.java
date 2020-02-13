@@ -32,8 +32,10 @@ import java.util.HashSet;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.spi.security.AccessDeniedException.denyAddColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyCommentTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateSchema;
@@ -83,6 +85,7 @@ public class TestingAccessControlManager
         extends AccessControlManager
 {
     private final Set<TestingPrivilege> denyPrivileges = new HashSet<>();
+    private Predicate<String> deniedCatalogs = s -> true;
 
     @Inject
     public TestingAccessControlManager(TransactionManager transactionManager)
@@ -109,16 +112,32 @@ public class TestingAccessControlManager
     public void reset()
     {
         denyPrivileges.clear();
+        deniedCatalogs = s -> true;
+    }
+
+    public void denyCatalogs(Predicate<String> deniedCatalogs)
+    {
+        this.deniedCatalogs = this.deniedCatalogs.and(deniedCatalogs);
     }
 
     @Override
-    public void canImpersonateUser(Identity identity, String userName)
+    public Set<String> filterCatalogs(Identity identity, Set<String> catalogs)
+    {
+        return super.filterCatalogs(
+                identity,
+                catalogs.stream()
+                        .filter(this.deniedCatalogs)
+                        .collect(toImmutableSet()));
+    }
+
+    @Override
+    public void checkCanImpersonateUser(Identity identity, String userName)
     {
         if (shouldDenyPrivilege(userName, userName, IMPERSONATE_USER)) {
             denyImpersonateUser(identity.getUser(), userName);
         }
         if (denyPrivileges.isEmpty()) {
-            super.canImpersonateUser(identity, userName);
+            super.checkCanImpersonateUser(identity, userName);
         }
     }
 

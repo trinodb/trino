@@ -44,7 +44,7 @@ export class PageTitle extends React.Component<Props, State> {
 
     refreshLoop() {
         clearTimeout(this.timeoutId);
-        fetch("/v1/info")
+        fetch("/ui/api/cluster")
             .then(response => response.json())
             .then(info => {
                 this.setState({

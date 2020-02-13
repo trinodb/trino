@@ -96,7 +96,6 @@ import java.util.function.Supplier;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.testing.Assertions.assertInstanceOf;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.block.BlockAssertions.createBooleansBlock;
 import static io.prestosql.block.BlockAssertions.createDoublesBlock;
@@ -745,7 +744,7 @@ public final class FunctionAssertions
         try {
             Supplier<PageProcessor> processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of());
 
-            return new FilterAndProjectOperatorFactory(0, new PlanNodeId("test"), processor, ImmutableList.of(), new DataSize(0, BYTE), 0);
+            return new FilterAndProjectOperatorFactory(0, new PlanNodeId("test"), processor, ImmutableList.of(), DataSize.ofBytes(0), 0);
         }
         catch (Throwable e) {
             if (e instanceof UncheckedExecutionException) {
@@ -759,7 +758,7 @@ public final class FunctionAssertions
     {
         try {
             Supplier<PageProcessor> processor = compiler.compilePageProcessor(filter, ImmutableList.of(projection));
-            return new FilterAndProjectOperatorFactory(0, new PlanNodeId("test"), processor, ImmutableList.of(projection.getType()), new DataSize(0, BYTE), 0);
+            return new FilterAndProjectOperatorFactory(0, new PlanNodeId("test"), processor, ImmutableList.of(projection.getType()), DataSize.ofBytes(0), 0);
         }
         catch (Throwable e) {
             if (e instanceof UncheckedExecutionException) {
@@ -792,7 +791,7 @@ public final class FunctionAssertions
                     ImmutableList.of(),
                     TupleDomain::all,
                     ImmutableList.of(projection.getType()),
-                    new DataSize(0, BYTE),
+                    DataSize.ofBytes(0),
                     0);
         }
         catch (Throwable e) {

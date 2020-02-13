@@ -35,7 +35,6 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.prestosql.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory;
 import static java.util.Objects.requireNonNull;
 
@@ -87,7 +86,7 @@ public class DynamicTupleFilterFactory
     {
         Page filterTuple = getFilterTuple(tuplePage);
         Supplier<PageProcessor> processor = createPageProcessor(filterTuple, OptionalInt.empty());
-        return new FilterAndProjectOperatorFactory(filterOperatorId, planNodeId, processor, outputTypes, new DataSize(0, BYTE), 0);
+        return new FilterAndProjectOperatorFactory(filterOperatorId, planNodeId, processor, outputTypes, DataSize.ofBytes(0), 0);
     }
 
     @VisibleForTesting

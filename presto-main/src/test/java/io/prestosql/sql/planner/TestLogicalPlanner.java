@@ -1286,24 +1286,52 @@ public class TestLogicalPlanner
     @Test
     public void testRemoveRedundantCrossJoin()
     {
-        assertPlan("SELECT regionkey from nation, (SELECT 1 as a) temp WHERE regionkey = temp.a",
+        assertPlan("SELECT regionkey FROM nation, (SELECT 1 as a) temp WHERE regionkey = temp.a",
                 output(
                         filter("REGIONKEY = BIGINT '1'",
                                 tableScan("nation", ImmutableMap.of("REGIONKEY", "regionkey")))));
 
-        assertPlan("SELECT regionkey from (SELECT 1 as a) temp, nation WHERE regionkey > temp.a",
+        assertPlan("SELECT regionkey FROM (SELECT 1 as a) temp, nation WHERE regionkey > temp.a",
                 output(
                         filter("REGIONKEY > BIGINT '1'",
                                 tableScan("nation", ImmutableMap.of("REGIONKEY", "regionkey")))));
 
         //TODO (https://github.com/prestosql/presto/issues/2480) Inline constants
-        assertPlan("SELECT * from nation, (SELECT 1 as a) temp WHERE regionkey = a",
+        assertPlan("SELECT * FROM nation, (SELECT 1 as a) temp WHERE regionkey = a",
                 output(
                         node(JoinNode.class,
                                 filter("REGIONKEY = BIGINT '1'",
                                         tableScan("nation", ImmutableMap.of("REGIONKEY", "regionkey"))),
                                 node(ProjectNode.class,
                                         values(ImmutableMap.of())))));
+    }
+
+    @Test
+    public void testRemoveRedundantInnerJoin()
+    {
+        assertPlan("SELECT regionkey FROM nation INNER JOIN (SELECT nationkey FROM customer LIMIT 0) USING (nationkey)",
+                output(
+                        values(ImmutableList.of("regionkey"))));
+
+        assertPlan("SELECT regionkey FROM (SELECT * FROM nation LIMIT 0) INNER JOIN customer USING (nationkey)",
+                output(
+                        values(ImmutableList.of("regionkey"))));
+    }
+
+    @Test
+    public void testRemoveRedundantLeftJoin()
+    {
+        assertPlan("SELECT regionkey FROM (SELECT * FROM nation LIMIT 0) LEFT JOIN customer USING (nationkey)",
+                output(
+                        values(ImmutableList.of("regionkey"))));
+    }
+
+    @Test
+    public void testRemoveRedundantRightJoin()
+    {
+        assertPlan("SELECT regionkey FROM nation RIGHT JOIN (SELECT nationkey FROM customer LIMIT 0) USING (nationkey)",
+                output(
+                        values(ImmutableList.of("regionkey"))));
     }
 
     private Session noJoinReordering()

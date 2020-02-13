@@ -125,7 +125,7 @@ public final class ExpressionTestUtils
             }
 
             @Override
-            public Expression rewriteExpression(Expression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            protected Expression rewriteExpression(Expression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
                 Expression rewrittenExpression = treeRewriter.defaultRewrite(node, context);
                 rewrittenExpression = coerceIfNecessary(node, rewrittenExpression);

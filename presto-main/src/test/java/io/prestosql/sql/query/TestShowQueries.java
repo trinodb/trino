@@ -81,4 +81,14 @@ public class TestShowQueries
                 "SHOW SESSION LIKE '%page$_row$_c%' ESCAPE '$'",
                 "VALUES ('filter_and_project_min_output_page_row_count', cast('256' as VARCHAR(14)), cast('256' as VARCHAR(14)), 'integer', cast('Experimental: Minimum output page row count for filter and project operators' as VARCHAR(118)))");
     }
+
+    @Test
+    public void testListingEmptyCatalogs()
+    {
+        assertions.executeExclusively(() -> {
+            assertions.getQueryRunner().getAccessControl().denyCatalogs(catalog -> false);
+            assertions.assertQueryReturnsEmptyResult("SHOW CATALOGS");
+            assertions.getQueryRunner().getAccessControl().reset();
+        });
+    }
 }

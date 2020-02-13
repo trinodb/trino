@@ -299,9 +299,6 @@ public class LookupJoinOperator
             // create probe
             inputPageSpillEpoch = spillInfoSnapshot.getSpillEpoch();
             probe = joinProbeFactory.createJoinProbe(page);
-
-            // initialize to invalid join position to force output code to advance the cursors
-            joinPosition = -1;
         }
 
         private boolean tryFetchLookupSourceProvider()
@@ -527,7 +524,6 @@ public class LookupJoinOperator
                             (oldValue, newValue) -> {
                                 throw new IllegalStateException(format("Partition %s is already spilled", currentRowPartition));
                             });
-                    joinSourcePositions = 0;
                     Page unprocessed = pageTail(currentPage, currentPosition + 1);
                     addInput(unprocessed, spillInfoSnapshot);
                 }
@@ -542,7 +538,7 @@ public class LookupJoinOperator
         {
             verifyNotNull(probe);
 
-            while (!yieldSignal.isSet()) {
+            do {
                 if (probe.getPosition() >= 0) {
                     if (!joinCurrentPosition(lookupSource, yieldSignal)) {
                         break;
@@ -553,14 +549,13 @@ public class LookupJoinOperator
                             break;
                         }
                     }
+                    statisticsCounter.recordProbe(joinSourcePositions);
                 }
-                currentProbePositionProducedRow = false;
                 if (!advanceProbePosition(lookupSource)) {
                     break;
                 }
-                statisticsCounter.recordProbe(joinSourcePositions);
-                joinSourcePositions = 0;
             }
+            while (!yieldSignal.isSet());
         }
 
         private void restoreProbe(Page probePage, long joinPosition, boolean currentProbePositionProducedRow, int joinSourcePositions, SpillInfoSnapshot spillInfoSnapshot)
@@ -642,6 +637,9 @@ public class LookupJoinOperator
 
             // update join position
             joinPosition = probe.getCurrentJoinPosition(lookupSource);
+            // reset row join state for next row
+            joinSourcePositions = 0;
+            currentProbePositionProducedRow = false;
             return true;
         }
 

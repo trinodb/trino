@@ -19,7 +19,6 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.security.AccessControl;
-import io.prestosql.spi.PrestoException;
 import io.prestosql.sql.tree.Comment;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.transaction.TransactionManager;
@@ -51,7 +50,7 @@ public class CommentTask
             QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
             Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
             if (!tableHandle.isPresent()) {
-                throw semanticException(TABLE_NOT_FOUND, statement, "Table does not exist: " + tableName);
+                throw semanticException(TABLE_NOT_FOUND, statement, "Table does not exist: %s", tableName);
             }
 
             accessControl.checkCanSetTableComment(session.toSecurityContext(), tableName);
@@ -59,7 +58,7 @@ public class CommentTask
             metadata.setTableComment(session, tableHandle.get(), statement.getComment());
         }
         else {
-            throw new PrestoException(NOT_SUPPORTED, "Unsupported comment type: " + statement.getType());
+            throw semanticException(NOT_SUPPORTED, statement, "Unsupported comment type: %s", statement.getType());
         }
 
         return immediateFuture(null);

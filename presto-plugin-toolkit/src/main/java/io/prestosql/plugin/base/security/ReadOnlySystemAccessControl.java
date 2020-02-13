@@ -56,7 +56,7 @@ public class ReadOnlySystemAccessControl
     }
 
     @Override
-    public void canImpersonateUser(SystemSecurityContext context, String userName)
+    public void checkCanImpersonateUser(SystemSecurityContext context, String userName)
     {
     }
 

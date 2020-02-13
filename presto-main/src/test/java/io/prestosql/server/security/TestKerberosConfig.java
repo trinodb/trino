@@ -36,8 +36,8 @@ public class TestKerberosConfig
                 .setKeytab(null)
                 .setPrincipalHostname(null)
                 .setNameType(HOSTBASED_SERVICE)
-                .setUserExtractionPattern(null)
-                .setUserExtractionFile(null));
+                .setUserMappingPattern(null)
+                .setUserMappingFile(null));
     }
 
     @Test
@@ -49,8 +49,8 @@ public class TestKerberosConfig
                 .put("http-server.authentication.krb5.keytab", "/tmp/presto.keytab")
                 .put("http-server.authentication.krb5.principal-hostname", "presto.prestosql.io")
                 .put("http-server.authentication.krb5.name-type", "USER_NAME")
-                .put("http-server.authentication.krb5.user-extraction.pattern", "(.*)@something")
-                .put("http-server.authentication.krb5.user-extraction.file", "some-file")
+                .put("http-server.authentication.krb5.user-mapping.pattern", "(.*)@something")
+                .put("http-server.authentication.krb5.user-mapping.file", "some-file")
                 .build();
 
         KerberosConfig expected = new KerberosConfig()
@@ -59,8 +59,8 @@ public class TestKerberosConfig
                 .setKeytab(new File("/tmp/presto.keytab"))
                 .setPrincipalHostname("presto.prestosql.io")
                 .setNameType(USER_NAME)
-                .setUserExtractionPattern("(.*)@something")
-                .setUserExtractionFile(new File("some-file"));
+                .setUserMappingPattern("(.*)@something")
+                .setUserMappingFile(new File("some-file"));
 
         assertFullMapping(properties, expected);
     }
