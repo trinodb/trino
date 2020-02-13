@@ -197,6 +197,7 @@ public class TestQueryStats
 
             DataSize.ofBytes(241),
             251,
+            new Duration(23, NANOSECONDS),
 
             DataSize.ofBytes(242),
             252,
