@@ -15,6 +15,7 @@ package io.prestosql.plugin.bigquery;
 
 import com.google.api.gax.core.FixedCredentialsProvider;
 import com.google.api.gax.rpc.HeaderProvider;
+import com.google.auth.Credentials;
 import com.google.cloud.bigquery.storage.v1beta1.BigQueryStorageClient;
 import com.google.cloud.bigquery.storage.v1beta1.BigQueryStorageSettings;
 
@@ -22,6 +23,7 @@ import javax.inject.Inject;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.Optional;
 
 /**
  * Since Guice recommends to avoid injecting closeable resources (see
@@ -30,13 +32,13 @@ import java.io.UncheckedIOException;
  */
 public class BigQueryStorageClientFactory
 {
-    private final BigQueryConfig config;
+    private final Optional<Credentials> credentials;
     private final HeaderProvider headerProvider;
 
     @Inject
     public BigQueryStorageClientFactory(BigQueryConfig config, HeaderProvider headerProvider)
     {
-        this.config = config;
+        this.credentials = config.createCredentials();
         this.headerProvider = headerProvider;
     }
 
@@ -48,7 +50,7 @@ public class BigQueryStorageClientFactory
                             BigQueryStorageSettings.defaultGrpcTransportProviderBuilder()
                                     .setHeaderProvider(headerProvider)
                                     .build());
-            config.createCredentials().ifPresent(credentials ->
+            credentials.ifPresent(credentials ->
                     clientSettings.setCredentialsProvider(FixedCredentialsProvider.create(credentials)));
             return BigQueryStorageClient.create(clientSettings.build());
         }

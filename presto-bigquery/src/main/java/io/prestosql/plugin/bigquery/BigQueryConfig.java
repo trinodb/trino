@@ -223,4 +223,15 @@ public class BigQueryConfig
         this.maxReadRowsRetries = maxReadRowsRetries;
         return this;
     }
+
+    ReadSessionCreatorConfig createReadSessionCreatorConfig()
+    {
+        return new ReadSessionCreatorConfig(
+                getParentProject(),
+                isViewsEnabled(),
+                getViewMaterializationProject(),
+                getViewMaterializationProject(),
+                getViewExpirationTimeInHours(),
+                getMaxReadRowsRetries());
+    }
 }

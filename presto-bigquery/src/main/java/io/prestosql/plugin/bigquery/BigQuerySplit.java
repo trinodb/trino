@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public class BigQuerySplit
         implements ConnectorSplit
@@ -38,9 +39,9 @@ public class BigQuerySplit
             @JsonProperty("avroSchema") String avroSchema,
             @JsonProperty("columns") List<ColumnHandle> columns)
     {
-        this.streamName = streamName;
-        this.avroSchema = avroSchema;
-        this.columns = columns;
+        this.streamName = requireNonNull(streamName, "streamName cannot be null");
+        this.avroSchema = requireNonNull(avroSchema, "avroSchema cannot be null");
+        this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns cannot be null"));
     }
 
     @JsonProperty

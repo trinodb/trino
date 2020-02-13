@@ -26,32 +26,35 @@ import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.FixedSplitSource;
 
-import javax.annotation.Nonnull;
 import javax.inject.Inject;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Objects.requireNonNull;
 
 public class BigQuerySplitManager
         implements ConnectorSplitManager
 {
     private static final Logger log = Logger.get(BigQuerySplitManager.class);
 
-    private final BigQueryConfig config;
     private final BigQuery bigquery;
     private final BigQueryStorageClientFactory bigQueryStorageClientFactory;
-    private final NodeManager nodeManager;
+    private final int parallelism;
+    private final ReadSessionCreatorConfig readSessionCreatorConfig;
 
     @Inject
     public BigQuerySplitManager(
-            @Nonnull BigQueryConfig config,
-            @Nonnull BigQuery bigquery,
-            @Nonnull BigQueryStorageClientFactory bigQueryStorageClientFactory,
-            @Nonnull NodeManager nodeManager)
+            BigQueryConfig config,
+            BigQuery bigquery,
+            BigQueryStorageClientFactory bigQueryStorageClientFactory,
+            NodeManager nodeManager)
     {
-        this.config = config;
-        this.bigquery = bigquery;
-        this.bigQueryStorageClientFactory = bigQueryStorageClientFactory;
-        this.nodeManager = nodeManager;
+        requireNonNull(config, "config cannot be null");
+        requireNonNull(nodeManager, "nodeManager cannot be null");
+
+        this.bigquery = requireNonNull(bigquery, "bigquery cannot be null");
+        this.bigQueryStorageClientFactory = requireNonNull(bigQueryStorageClientFactory, "bigQueryStorageClientFactory cannot be null");
+        this.parallelism = config.getParallelism().orElse(nodeManager.getRequiredWorkerNodes().size());
+        this.readSessionCreatorConfig = config.createReadSessionCreatorConfig();
     }
 
     @Override
@@ -65,19 +68,19 @@ public class BigQuerySplitManager
         BigQueryTableHandle bigQueryTableHandle = (BigQueryTableHandle) table;
 
         TableId tableId = bigQueryTableHandle.getTableId();
-        int parallelism = config.getParallelism().orElse(nodeManager.getRequiredWorkerNodes().size());
         ImmutableList<String> requiredColumns = bigQueryTableHandle.getDesiredColumns()
                 .orElse(ImmutableList.of()).stream()
                 .map(column -> ((BigQueryColumnHandle) column).getName())
                 .collect(toImmutableList());
 
-        final ReadSession readSession = new ReadSessionCreator(config, bigquery, bigQueryStorageClientFactory)
+        ReadSession readSession = new ReadSessionCreator(readSessionCreatorConfig, bigquery, bigQueryStorageClientFactory)
                 .create(tableId, requiredColumns, null, parallelism);
 
-        ImmutableList<BigQuerySplit> splits = readSession.getStreamsList().stream().map(stream -> new BigQuerySplit(
-                stream.getName(),
-                readSession.getAvroSchema().getSchema(),
-                bigQueryTableHandle.getDesiredColumns().orElse(ImmutableList.of())))
+        ImmutableList<BigQuerySplit> splits = readSession.getStreamsList().stream()
+                .map(stream -> new BigQuerySplit(
+                        stream.getName(),
+                        readSession.getAvroSchema().getSchema(),
+                        bigQueryTableHandle.getDesiredColumns().orElse(ImmutableList.of())))
                 .collect(toImmutableList());
 
         return new FixedSplitSource(splits);

@@ -49,7 +49,7 @@ public class BigQueryColumnHandle
     {
         this.name = requireNonNull(name, "column name cannot be null");
         this.bigQueryType = requireNonNull(bigQueryType, () -> format("column type cannot be null for column [%s]", name));
-        this.mode = mode != null ? mode : Field.Mode.NULLABLE;
+        this.mode = requireNonNull(mode, "Field mode cannot be null");
         this.subColumns = ImmutableList.copyOf(requireNonNull(subColumns, "subColumns is null"));
         this.description = description;
     }

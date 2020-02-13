@@ -57,12 +57,12 @@ public class ReadSessionCreator
                     .maximumSize(1000)
                     .build();
 
-    private final BigQueryConfig config;
+    private final ReadSessionCreatorConfig config;
     private final BigQuery bigquery;
     private final BigQueryStorageClientFactory bigQueryStorageClientFactory;
 
     public ReadSessionCreator(
-            @Nonnull BigQueryConfig config,
+            @Nonnull ReadSessionCreatorConfig config,
             @Nonnull BigQuery bigquery,
             @Nonnull BigQueryStorageClientFactory bigQueryStorageClientFactory)
     {
@@ -86,7 +86,7 @@ public class ReadSessionCreator
 
             final Storage.ReadSession readSession = bigQueryStorageClient.createReadSession(
                     Storage.CreateReadSessionRequest.newBuilder()
-                            .setParent("projects/" + config.getParentProject())
+                            .setParent("projects/" + config.parentProject)
                             .setFormat(Storage.DataFormat.AVRO)
                             .setRequestedStreams(parallelism)
                             .setReadOptions(readOptions)
@@ -120,7 +120,7 @@ public class ReadSessionCreator
             return table;
         }
         else if (TableDefinition.Type.VIEW == tableType) {
-            if (config.isViewsEnabled()) {
+            if (config.viewsEnabled) {
                 // get it from the view
                 String querySql = createSql(table.getTableId(), requiredColumns, filters);
                 log.debug("querySql is %s", querySql);
@@ -167,11 +167,11 @@ public class ReadSessionCreator
             implements Callable<TableInfo>
     {
         final BigQuery bigquery;
-        final BigQueryConfig config;
+        final ReadSessionCreatorConfig config;
         final String querySql;
         final TableId table;
 
-        DestinationTableBuilder(BigQuery bigquery, BigQueryConfig config, String querySql, TableId table)
+        DestinationTableBuilder(BigQuery bigquery, ReadSessionCreatorConfig config, String querySql, TableId table)
         {
             this.bigquery = bigquery;
             this.config = config;
@@ -203,7 +203,7 @@ public class ReadSessionCreator
             // add expiration time to the table
             Table createdTable = bigquery.getTable(destinationTable);
             long expirationTime = createdTable.getCreationTime() +
-                    TimeUnit.HOURS.toMillis(config.getViewExpirationTimeInHours());
+                    TimeUnit.HOURS.toMillis(config.viewExpirationTimeInHours);
             Table updatedTable = bigquery.update(createdTable.toBuilder()
                     .setExpirationTime(expirationTime)
                     .build());
@@ -222,8 +222,8 @@ public class ReadSessionCreator
 
         TableId createDestinationTable()
         {
-            String project = config.getViewMaterializationProject().orElse(table.getProject());
-            String dataset = config.getViewMaterializationDataset().orElse(table.getDataset());
+            String project = config.viewMaterializationProject.orElse(table.getProject());
+            String dataset = config.viewMaterializationDataset.orElse(table.getDataset());
             UUID uuid = randomUUID();
             String name = format("_sbc_%s%s", Long.toHexString(uuid.getMostSignificantBits()), Long.toHexString(uuid.getLeastSignificantBits()));
             return TableId.of(project, dataset, name);

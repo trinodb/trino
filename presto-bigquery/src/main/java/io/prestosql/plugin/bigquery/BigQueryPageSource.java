@@ -223,8 +223,9 @@ public class BigQueryPageSource
         if (type instanceof ArrayType && value instanceof List<?>) {
             BlockBuilder builder = output.beginBlockEntry();
 
-            ((List<?>) value).forEach(element ->
-                    appendTo(type.getTypeParameters().get(0), element, builder));
+            for (Object element : (List<?>) value) {
+                appendTo(type.getTypeParameters().get(0), element, builder);
+            }
 
             output.closeEntry();
             return;
