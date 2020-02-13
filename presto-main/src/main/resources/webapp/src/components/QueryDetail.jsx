@@ -1361,6 +1361,14 @@ export class QueryDetail extends React.Component {
                                     </tr>
                                     <tr>
                                         <td className="info-title">
+                                            Physical Input Read Time
+                                        </td>
+                                        <td className="info-text">
+                                            {query.queryStats.physicalInputReadTime}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
                                             Internal Network Rows
                                         </td>
                                         <td className="info-text">

@@ -57,6 +57,7 @@ public class TestTaskStats
 
             DataSize.ofBytes(191),
             201,
+            new Duration(15, NANOSECONDS),
 
             DataSize.ofBytes(192),
             202,
@@ -117,7 +118,7 @@ public class TestTaskStats
 
         assertEquals(actual.getPhysicalInputDataSize(), DataSize.ofBytes(191));
         assertEquals(actual.getPhysicalInputPositions(), 201);
-
+        assertEquals(actual.getPhysicalInputReadTime(), new Duration(15, NANOSECONDS));
         assertEquals(actual.getInternalNetworkInputDataSize(), DataSize.ofBytes(192));
         assertEquals(actual.getInternalNetworkInputPositions(), 202);
 
