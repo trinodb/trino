@@ -351,10 +351,10 @@ public class GlueHiveMetastore
     }
 
     @Override
-    public void updatePartitionStatistics(HiveIdentity identity, String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    public void updatePartitionStatistics(HiveIdentity identity, Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
     {
         List<String> partitionValues = toPartitionValues(partitionName);
-        Partition partition = getPartition(databaseName, tableName, partitionValues)
+        Partition partition = getPartition(table.getDatabaseName(), table.getTableName(), partitionValues)
                 .orElseThrow(() -> new PrestoException(HIVE_PARTITION_DROPPED_DURING_QUERY, "Statistics result does not contain entry for partition: " + partitionName));
 
         PartitionStatistics currentStatistics = getPartitionStatistics(partition);
@@ -366,13 +366,13 @@ public class GlueHiveMetastore
             columnStatisticsProvider.updatePartitionStatistics(partitionInput, updatedStatistics.getColumnStatistics());
             glueClient.updatePartition(new UpdatePartitionRequest()
                     .withCatalogId(catalogId)
-                    .withDatabaseName(databaseName)
-                    .withTableName(tableName)
+                    .withDatabaseName(table.getDatabaseName())
+                    .withTableName(table.getTableName())
                     .withPartitionValueList(partition.getValues())
                     .withPartitionInput(partitionInput));
         }
         catch (EntityNotFoundException e) {
-            throw new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), partitionValues);
+            throw new PartitionNotFoundException(new SchemaTableName(table.getDatabaseName(), table.getTableName()), partitionValues);
         }
         catch (AmazonServiceException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);

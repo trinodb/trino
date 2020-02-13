@@ -299,7 +299,7 @@ public class TestCachingHiveMetastore
         assertEquals(mockClient.getAccessCount(), 1);
 
         hiveMetastoreClosure.updatePartitionStatistics(IDENTITY, table.getDatabaseName(), table.getTableName(), TEST_PARTITION1, identity());
-        assertEquals(mockClient.getAccessCount(), 6);
+        assertEquals(mockClient.getAccessCount(), 5);
     }
 
     @Test
