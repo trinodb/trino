@@ -624,6 +624,12 @@
             </dependency>
 
             <dependency>
+                <groupId>io.airlift</groupId>
+                <artifactId>parameternames</artifactId>
+                <version>1.4</version>
+            </dependency>
+
+            <dependency>
                 <groupId>io.airlift.drift</groupId>
                 <artifactId>drift-api</artifactId>
                 <version>${dep.drift.version}</version>
