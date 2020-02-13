@@ -110,14 +110,14 @@ Property                                  Description                           
 ``bigquery.project-id``                   The Google Cloud Project ID where the data reside              Taken from the service account
 ``bigquery.parent-project``               The project ID Google Cloud Project to bill for the export     Taken from the service account
 ``bigquery.parallelism``                  The number of partitions to split the data into                The number of executors
-``bigquery.views-enabled``                Enables the connector to read from views and not only tables.  ````false````
-                                          Please read ``this section <#reading-from-views>``_ before
+``bigquery.views-enabled``                Enables the connector to read from views and not only tables.  ``false``
+                                          Please read `this section <#reading-from-views>`_ before
                                           enabling this feature.
 ``bigquery.view-materialization-project`` The project where the materialized view is going to be created The view's project
 ``bigquery.view-materialization-dataset`` The dataset where the materialized view is going to be created The view's dataset
-``bigquery.max-read-rows-retries``        The number of retries in case of retryable server issues       ````3````
-``bigquery.credentials-key``              The base64 encoded credentials key                             None. See ``authentication <#authentication>``_
-``bigquery.credentials-file``             The path to the JSON credentials file                          None. See ``authentication <#authentication>``_
+``bigquery.max-read-rows-retries``        The number of retries in case of retryable server issues       ``3``
+``bigquery.credentials-key``              The base64 encoded credentials key                             None. See `authentication <#authentication>`_
+``bigquery.credentials-file``             The path to the JSON credentials file                          None. See `authentication <#authentication>`_
 ========================================= ============================================================== ==============================================
 
 Data Types
@@ -134,9 +134,9 @@ BigQuery       Presto                       Notes
 ``DATE``       ``DATE``
 ``DATETIME``   ``VARCHAR``                  In "yyyy-MM-dd'T'HH:mm:ss.SSSSS" format
 ``FLOAT``      ``DOUBLE``
-``GEOGRAPHY``  ``VARCHAR``                  In ``Well-known text (WKT) <https://en.wikipedia.org/wiki/Well-known_text_representation_of_geometry>``_ format
+``GEOGRAPHY``  ``VARCHAR``                  In `Well-known text (WKT) <https://en.wikipedia.org/wiki/Well-known_text_representation_of_geometry>`_ format
 ``INTEGER``    ``BIGINT``
-``NUMERIC``    ``DECIMAL(38,9)````
+``NUMERIC``    ``DECIMAL(38,9)``
 ``RECORD``     ``ROW``
 ``STRING``     ``VARCHAR``
 ``TIME``       ``TIME_WITH_TIME_ZONE``      Time zone is UTC
