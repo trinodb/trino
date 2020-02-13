@@ -33,13 +33,18 @@ public class JdbcConnectorFactory
         implements ConnectorFactory
 {
     private final String name;
-    private final Module module;
+    private final JdbcModuleProvider moduleProvider;
 
     public JdbcConnectorFactory(String name, Module module)
     {
+        this(name, JdbcModuleProvider.of(module));
+    }
+
+    public JdbcConnectorFactory(String name, JdbcModuleProvider moduleProvider)
+    {
         checkArgument(!isNullOrEmpty(name), "name is null or empty");
         this.name = name;
-        this.module = requireNonNull(module, "module is null");
+        this.moduleProvider = requireNonNull(moduleProvider, "moduleProvider is null");
     }
 
     @Override
@@ -63,7 +68,7 @@ public class JdbcConnectorFactory
                 binder -> binder.bind(TypeManager.class).toInstance(context.getTypeManager()),
                 new JdbcModule(catalogName),
                 new CredentialProviderModule(),
-                module);
+                moduleProvider.getModule(catalogName));
 
         Injector injector = app
                 .strictConfig()
@@ -72,5 +77,16 @@ public class JdbcConnectorFactory
                 .initialize();
 
         return injector.getInstance(JdbcConnector.class);
+    }
+
+    public interface JdbcModuleProvider
+    {
+        Module getModule(String catalogName);
+
+        static JdbcModuleProvider of(Module module)
+        {
+            requireNonNull(module, "module is null");
+            return catalogName -> module;
+        }
     }
 }
