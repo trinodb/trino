@@ -35,12 +35,19 @@ public class StorageFormat
     private final String serDe;
     private final String inputFormat;
     private final String outputFormat;
+    private final String fileExtension;
 
     private StorageFormat(String serDe, String inputFormat, String outputFormat)
+    {
+        this(serDe, inputFormat, outputFormat, null);
+    }
+
+    private StorageFormat(String serDe, String inputFormat, String outputFormat, String fileExtension)
     {
         this.serDe = serDe;
         this.inputFormat = inputFormat;
         this.outputFormat = outputFormat;
+        this.fileExtension = fileExtension;
     }
 
     public String getSerDe()
@@ -67,6 +74,11 @@ public class StorageFormat
         return outputFormat;
     }
 
+    public String getFileExtension()
+    {
+        return fileExtension;
+    }
+
     @JsonProperty("serDe")
     public String getSerDeNullable()
     {
@@ -87,7 +99,7 @@ public class StorageFormat
 
     public static StorageFormat fromHiveStorageFormat(HiveStorageFormat hiveStorageFormat)
     {
-        return new StorageFormat(hiveStorageFormat.getSerDe(), hiveStorageFormat.getInputFormat(), hiveStorageFormat.getOutputFormat());
+        return new StorageFormat(hiveStorageFormat.getSerDe(), hiveStorageFormat.getInputFormat(), hiveStorageFormat.getOutputFormat(), hiveStorageFormat.getFileExtension());
     }
 
     public static StorageFormat create(String serde, String inputFormat, String outputFormat)
