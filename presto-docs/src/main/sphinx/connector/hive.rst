@@ -782,6 +782,41 @@ Procedures
     Unregisters given, existing partition in the metastore for the specified table.
     The partition data is not deleted.
 
+Special Columns
+---------------
+
+In addition to the defined columns, the Hive connector automatically exposes
+metadata in a number of hidden columns in each table. You can use these columns
+in your SQL statements like any other column, e.g., they can be selected
+directly or used in conditional statements.
+
+* ``$bucket``
+    Bucket number for this row.
+
+* ``$path``
+    Full file system path name of the file for this row.
+
+* ``$file_modified_time``
+    Date and time of the last modification of the file for this row.
+
+* ``$file_size``
+    Size of the file for this row.
+
+Special Tables
+----------------
+
+Table Properties
+^^^^^^^^^^^^^^^^
+
+The raw Hive table properties are available as a hidden table, containing a
+separate column per table property, with a single row containing the property
+values. The properties table name is the same as the table name with
+``$properties`` appended.
+
+You can inspect the property names and values with a simple query::
+
+    SELECT * FROM hive.web."page_views$properties";
+
 Examples
 --------
 
