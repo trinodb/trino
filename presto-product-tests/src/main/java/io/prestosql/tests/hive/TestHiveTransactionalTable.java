@@ -106,6 +106,28 @@ public class TestHiveTransactionalTable
         }
     }
 
+    @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL})
+    public void testFailAcidBeforeHive3()
+    {
+        if (getHiveVersionMajor() >= 3) {
+            throw new SkipException("This tests behavior of ACID table before Hive 3 ");
+        }
+
+        String tableName = "test_fail_acid_before_hive_3";
+        onHive().executeQuery("" +
+                "CREATE TABLE " + tableName + "(a bigint) " +
+                "CLUSTERED BY(a) INTO 4 BUCKETS " +
+                "STORED AS ORC " +
+                "TBLPROPERTIES ('transactional'='true')");
+        try {
+            assertThat(() -> query("SELECT * FROM " + tableName))
+                    .failsWithMessage("Failed to open transaction. Transactional tables support requires Hive metastore version at least 3.0");
+        }
+        finally {
+            onHive().executeQuery("DROP TABLE " + tableName);
+        }
+    }
+
     @DataProvider
     public Object[][] partitioningAndBucketingTypeDataProvider()
     {
