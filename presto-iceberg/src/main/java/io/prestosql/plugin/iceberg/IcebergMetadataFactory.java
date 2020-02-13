@@ -15,6 +15,7 @@ package io.prestosql.plugin.iceberg;
 
 import io.airlift.json.JsonCodec;
 import io.prestosql.plugin.hive.HdfsEnvironment;
+import io.prestosql.plugin.hive.NodeVersion;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.spi.type.TypeManager;
 
@@ -30,6 +31,7 @@ public class IcebergMetadataFactory
     private final TypeManager typeManager;
     private final JsonCodec<CommitTaskData> commitTaskCodec;
     private final long metastoreTransactionCacheSize;
+    private final String prestoVersion;
 
     @Inject
     public IcebergMetadataFactory(
@@ -37,13 +39,15 @@ public class IcebergMetadataFactory
             HiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
-            JsonCodec<CommitTaskData> commitTaskDataJsonCodec)
+            JsonCodec<CommitTaskData> commitTaskDataJsonCodec,
+            NodeVersion nodeVersion)
     {
         this(metastore,
                 hdfsEnvironment,
                 typeManager,
                 commitTaskDataJsonCodec,
-                config.getMetastoreTransactionCacheSize());
+                config.getMetastoreTransactionCacheSize(),
+                nodeVersion.toString());
     }
 
     public IcebergMetadataFactory(
@@ -51,13 +55,15 @@ public class IcebergMetadataFactory
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
             JsonCodec<CommitTaskData> commitTaskCodec,
-            long metastoreTransactionCacheSize)
+            long metastoreTransactionCacheSize,
+            String prestoVersion)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
         this.metastoreTransactionCacheSize = metastoreTransactionCacheSize;
+        this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
     }
 
     public IcebergMetadata create()
@@ -66,6 +72,7 @@ public class IcebergMetadataFactory
                 memoizeMetastore(metastore, metastoreTransactionCacheSize),
                 hdfsEnvironment,
                 typeManager,
-                commitTaskCodec);
+                commitTaskCodec,
+                prestoVersion);
     }
 }

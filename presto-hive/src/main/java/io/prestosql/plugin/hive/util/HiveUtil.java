@@ -17,6 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.compress.lzo.LzoCodec;
 import io.airlift.compress.lzo.LzopCodec;
 import io.airlift.json.JsonCodec;
@@ -36,6 +37,7 @@ import io.prestosql.spi.ErrorCodeSupplier;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.spi.connector.RecordCursor;
+import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.CharType;
@@ -52,6 +54,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.JavaUtils;
+import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.ql.exec.Utilities;
 import org.apache.hadoop.hive.ql.io.IOConstants;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
@@ -92,6 +95,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
@@ -120,10 +124,15 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALU
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_VIEW_DATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_SERDE_NOT_FOUND;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
+import static io.prestosql.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
+import static io.prestosql.plugin.hive.HiveMetadata.PRESTO_VERSION_NAME;
 import static io.prestosql.plugin.hive.HiveMetadata.SKIP_FOOTER_COUNT_KEY;
 import static io.prestosql.plugin.hive.HiveMetadata.SKIP_HEADER_COUNT_KEY;
+import static io.prestosql.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.prestosql.plugin.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
+import static io.prestosql.plugin.hive.HiveType.HIVE_STRING;
 import static io.prestosql.plugin.hive.HiveType.toHiveTypes;
+import static io.prestosql.plugin.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.copy;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.toJobConf;
 import static io.prestosql.plugin.hive.util.HiveBucketing.containsTimestampBucketedV2;
@@ -1017,5 +1026,50 @@ public final class HiveUtil
     public static List<HiveType> getColumnTypes(Properties schema)
     {
         return toHiveTypes(schema.getProperty(IOConstants.COLUMNS_TYPES, ""));
+    }
+
+    public static Table buildViewTable(ConnectorViewDefinition definition, SchemaTableName viewName, String owner, String queryId, String prestoVersion)
+    {
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put(TABLE_COMMENT, "Presto View")
+                .put(PRESTO_VIEW_FLAG, "true")
+                .put(PRESTO_VERSION_NAME, prestoVersion)
+                .put(PRESTO_QUERY_ID_NAME, queryId)
+                .build();
+
+        Column dummyColumn = new Column("dummy", HIVE_STRING, Optional.empty());
+
+        return Table.builder()
+                .setDatabaseName(viewName.getSchemaName())
+                .setTableName(viewName.getTableName())
+                .setOwner(owner)
+                .setTableType(TableType.VIRTUAL_VIEW.name())
+                .setDataColumns(ImmutableList.of(dummyColumn))
+                .setPartitionColumns(ImmutableList.of())
+                .setParameters(properties)
+                .setViewOriginalText(Optional.of(encodeViewData(definition)))
+                .setViewExpandedText(Optional.of("/* Presto View */"))
+                .withStorage(storage -> storage
+                        .setStorageFormat(VIEW_STORAGE_FORMAT)
+                        .setLocation(""))
+                .build();
+    }
+
+    public static ConnectorViewDefinition buildViewDefinition(Table view)
+    {
+        ConnectorViewDefinition definition = decodeViewData(view.getViewOriginalText()
+                .orElseThrow(() -> new PrestoException(HIVE_INVALID_METADATA, "No view original text: " + view.getTableName())));
+        // use owner from table metadata if it exists
+        if (view.getOwner() != null && !definition.isRunAsInvoker()) {
+            definition = new ConnectorViewDefinition(
+                    definition.getOriginalSql(),
+                    definition.getCatalog(),
+                    definition.getSchema(),
+                    definition.getColumns(),
+                    definition.getComment(),
+                    Optional.of(view.getOwner()),
+                    false);
+        }
+        return definition;
     }
 }
