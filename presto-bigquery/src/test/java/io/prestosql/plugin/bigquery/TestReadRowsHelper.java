@@ -26,16 +26,16 @@ import org.testng.annotations.Test;
 import java.util.Iterator;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 
 @Test
 public class TestReadRowsHelper
 {
-    // it is not used, we just need the reference
-    BigQueryStorageClient client;
-
     private static final ReadRowsRequest.Builder request = ReadRowsRequest.newBuilder().setReadPosition(
             StreamPosition.newBuilder().setStream(
                     Stream.newBuilder().setName("test")));
+    // it is not used, we just need the reference
+    BigQueryStorageClient client = mock(BigQueryStorageClient.class);
 
     @Test
     void testNoFailures()
@@ -71,7 +71,7 @@ public class TestReadRowsHelper
         assertThat(responses.stream().mapToLong(ReadRowsResponse::getRowCount).sum()).isEqualTo(21);
     }
 
-    private final static class MockReadRowsHelper
+    private static final class MockReadRowsHelper
             extends ReadRowsHelper
     {
         Iterator<MockResponsesBatch> responses;

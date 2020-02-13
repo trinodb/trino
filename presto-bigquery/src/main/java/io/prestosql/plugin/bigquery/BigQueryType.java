@@ -28,8 +28,6 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarbinaryType;
 import io.prestosql.spi.type.VarcharType;
 
-import javax.annotation.Nonnull;
-
 import java.util.List;
 import java.util.Map;
 
@@ -37,7 +35,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.plugin.bigquery.BigQueryMetadata.NUMERIC_DATA_TYPE_PRECISION;
 import static io.prestosql.plugin.bigquery.BigQueryMetadata.NUMERIC_DATA_TYPE_SCALE;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
-import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public enum BigQueryType
