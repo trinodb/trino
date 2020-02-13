@@ -17,7 +17,6 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.prestosql.plugin.jdbc.credential.CredentialProviderModule;
-import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorContext;
 import io.prestosql.spi.connector.ConnectorFactory;
@@ -35,14 +34,12 @@ public class JdbcConnectorFactory
 {
     private final String name;
     private final Module module;
-    private final ClassLoader classLoader;
 
-    public JdbcConnectorFactory(String name, Module module, ClassLoader classLoader)
+    public JdbcConnectorFactory(String name, Module module)
     {
         checkArgument(!isNullOrEmpty(name), "name is null or empty");
         this.name = name;
         this.module = requireNonNull(module, "module is null");
-        this.classLoader = requireNonNull(classLoader, "classLoader is null");
     }
 
     @Override
@@ -62,20 +59,18 @@ public class JdbcConnectorFactory
     {
         requireNonNull(requiredConfig, "requiredConfig is null");
 
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            Bootstrap app = new Bootstrap(
-                    binder -> binder.bind(TypeManager.class).toInstance(context.getTypeManager()),
-                    new JdbcModule(catalogName),
-                    new CredentialProviderModule(),
-                    module);
+        Bootstrap app = new Bootstrap(
+                binder -> binder.bind(TypeManager.class).toInstance(context.getTypeManager()),
+                new JdbcModule(catalogName),
+                new CredentialProviderModule(),
+                module);
 
-            Injector injector = app
-                    .strictConfig()
-                    .doNotInitializeLogging()
-                    .setRequiredConfigurationProperties(requiredConfig)
-                    .initialize();
+        Injector injector = app
+                .strictConfig()
+                .doNotInitializeLogging()
+                .setRequiredConfigurationProperties(requiredConfig)
+                .initialize();
 
-            return injector.getInstance(JdbcConnector.class);
-        }
+        return injector.getInstance(JdbcConnector.class);
     }
 }
