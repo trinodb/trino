@@ -1633,7 +1633,9 @@ public class ThriftHiveMetastore
                     }));
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            // When calling Hive metastore < 3, the call fails with
+            // Required field 'open_txns' is unset! Struct:GetOpenTxnsResponse(txn_high_water_mark:4, open_txns:null, min_open_txn:4, abortedBits:null)
+            throw new PrestoException(HIVE_METASTORE_ERROR, "Failed to open transaction. Transactional tables support requires Hive metastore version at least 3.0", e);
         }
         catch (Exception e) {
             throw propagate(e);
