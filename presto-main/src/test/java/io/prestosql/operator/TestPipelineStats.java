@@ -64,6 +64,7 @@ public class TestPipelineStats
 
             DataSize.ofBytes(141),
             151,
+            new Duration(14, NANOSECONDS),
 
             DataSize.ofBytes(142),
             152,
@@ -122,6 +123,7 @@ public class TestPipelineStats
 
         assertEquals(actual.getPhysicalInputDataSize(), DataSize.ofBytes(141));
         assertEquals(actual.getPhysicalInputPositions(), 151);
+        assertEquals(actual.getPhysicalInputReadTime(), new Duration(14, NANOSECONDS));
 
         assertEquals(actual.getInternalNetworkInputDataSize(), DataSize.ofBytes(142));
         assertEquals(actual.getInternalNetworkInputPositions(), 152);
