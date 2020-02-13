@@ -73,12 +73,11 @@ public enum BigQueryType
         return RowType.field(name, prestoType);
     }
 
-    public Type getNativeType(@Nonnull BigQueryType.Adaptor typeAdaptor)
+    public Type getNativeType(BigQueryType.Adaptor typeAdaptor)
     {
         switch (this) {
             case RECORD:
                 // create the row
-                requireNonNull(typeAdaptor, "A type BigQueryType.Adaptor is needed in order to convert a record or struct");
                 ImmutableMap<String, BigQueryType.Adaptor> subTypes = typeAdaptor.getBigQuerySubTypes();
                 checkArgument(!subTypes.isEmpty(), "a record or struct must have sub-fields");
                 List<RowType.Field> fields = subTypes.entrySet().stream().map(BigQueryType::toRawTypeField).collect(toList());

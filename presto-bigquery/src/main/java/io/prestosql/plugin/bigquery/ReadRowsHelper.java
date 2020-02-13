@@ -22,6 +22,8 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
+import static java.util.Objects.requireNonNull;
+
 public class ReadRowsHelper
 {
     private BigQueryStorageClient client;
@@ -30,8 +32,8 @@ public class ReadRowsHelper
 
     public ReadRowsHelper(BigQueryStorageClient client, ReadRowsRequest.Builder request, int maxReadRowsRetries)
     {
-        this.client = client;
-        this.request = request;
+        this.client = requireNonNull(client, "client cannot be null");
+        this.request = requireNonNull(request, "client cannot be null");
         this.maxReadRowsRetries = maxReadRowsRetries;
     }
 
@@ -48,16 +50,17 @@ public class ReadRowsHelper
                 readRowsCount += response.getRowCount();
                 readRowResponses.add(response);
             }
-            catch (Exception e) {
+            catch (RuntimeException e) {
                 // if relevant, retry the read, from the last read position
                 if (BigQueryUtil.isRetryable(e) && retries < maxReadRowsRetries) {
-                    serverResponses = fetchResponses(request.setReadPosition(
-                            readPosition.setOffset(readRowsCount)));
-                    retries += 1;
+                    serverResponses = fetchResponses(request.setReadPosition(readPosition.setOffset(readRowsCount)));
+                    retries++;
                 }
                 else {
-                    client.close();
-                    throw e;
+                    // to safely close the client
+                    try (BigQueryStorageClient ignored = client) {
+                        throw e;
+                    }
                 }
             }
         }

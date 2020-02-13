@@ -23,7 +23,6 @@ import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import org.testng.annotations.Test;
 
-import java.util.Arrays;
 import java.util.Iterator;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -34,7 +33,7 @@ public class TestReadRowsHelper
     // it is not used, we just need the reference
     BigQueryStorageClient client;
 
-    ReadRowsRequest.Builder request = ReadRowsRequest.newBuilder().setReadPosition(
+    private static final ReadRowsRequest.Builder request = ReadRowsRequest.newBuilder().setReadPosition(
             StreamPosition.newBuilder().setStream(
                     Stream.newBuilder().setName("test")));
 
@@ -47,11 +46,11 @@ public class TestReadRowsHelper
 
         // so we can run multiple tests
         ImmutableList<ReadRowsResponse> responses = ImmutableList.copyOf(
-                new MockReadRowsHelper(client, request, 3, Arrays.asList(batch1))
+                new MockReadRowsHelper(client, request, 3, ImmutableList.of(batch1))
                         .readRows());
 
         assertThat(responses.size()).isEqualTo(2);
-        assertThat(responses.stream().mapToLong(r -> r.getRowCount()).sum()).isEqualTo(21);
+        assertThat(responses.stream().mapToLong(ReadRowsResponse::getRowCount).sum()).isEqualTo(21);
     }
 
     @Test
@@ -65,14 +64,14 @@ public class TestReadRowsHelper
         batch2.addResponse(ReadRowsResponse.newBuilder().setRowCount(11).build());
 
         ImmutableList<ReadRowsResponse> responses = ImmutableList.copyOf(
-                new MockReadRowsHelper(client, request, 3, Arrays.asList(batch1, batch2))
+                new MockReadRowsHelper(client, request, 3, ImmutableList.of(batch1, batch2))
                         .readRows());
 
         assertThat(responses.size()).isEqualTo(2);
-        assertThat(responses.stream().mapToLong(r -> r.getRowCount()).sum()).isEqualTo(21);
+        assertThat(responses.stream().mapToLong(ReadRowsResponse::getRowCount).sum()).isEqualTo(21);
     }
 
-    static class MockReadRowsHelper
+    private final static class MockReadRowsHelper
             extends ReadRowsHelper
     {
         Iterator<MockResponsesBatch> responses;

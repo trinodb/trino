@@ -57,8 +57,7 @@ public class TestTypeConversions
     @Test
     public void testConvertDateTimeField()
     {
-        // TODO(davidrabinowitz): decide what type to convert it to
-        //assertSimpleTypConversion(LegacySQLTypeName.DATETIME, DateType.DATE);
+        assertSimpleFieldTypeConversion(LegacySQLTypeName.DATETIME, VarcharType.VARCHAR);
     }
 
     @Test
@@ -181,8 +180,7 @@ public class TestTypeConversions
     @Test
     public void testConvertDateTimeColumn()
     {
-        // TODO(davidrabinowitz): decide what type to convert it to
-        //assertSimpleTypConversion(LegacySQLTypeName.DATETIME, DateType.DATE);
+        assertSimpleColumnTypeConversion(LegacySQLTypeName.DATETIME, VarcharType.VARCHAR);
     }
 
     @Test

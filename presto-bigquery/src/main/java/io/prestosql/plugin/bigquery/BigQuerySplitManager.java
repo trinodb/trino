@@ -74,7 +74,7 @@ public class BigQuerySplitManager
                 .collect(toImmutableList());
 
         ReadSession readSession = new ReadSessionCreator(readSessionCreatorConfig, bigquery, bigQueryStorageClientFactory)
-                .create(tableId, requiredColumns, null, parallelism);
+                .create(tableId, requiredColumns, "", parallelism);
 
         ImmutableList<BigQuerySplit> splits = readSession.getStreamsList().stream()
                 .map(stream -> new BigQuerySplit(

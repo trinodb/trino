@@ -2,12 +2,15 @@
 BigQuery Connector
 ==================
 
-The BigQuery connector allows querying the data stored in `BigQuery <https://cloud.google.com/bigquery/>`_. This can be
-used to join data between different systems like BigQuery and Hive. The connector uses the
-`BigQuery Storage API <https://cloud.google.com/bigquery/docs/reference/storage/>`_ to read the data from the tables.
+The BigQuery connector allows querying the data stored in `BigQuery
+<https://cloud.google.com/bigquery/>`_. This can be used to join data between
+different systems like BigQuery and Hive. The connector uses the `BigQuery
+Storage API <https://cloud.google.com/bigquery/docs/reference/storage/>`_ to
+read the data from the tables.
 
 Beta Disclaimer
 ---------------
+
 The BigQuery Storage API and this connector are in Beta and are subject to change.
 
 Changes may include, but are not limited to:
@@ -18,86 +21,110 @@ Changes may include, but are not limited to:
 
 BigQuery Storage API
 --------------------
-The Storage API streams data in parallel directly from BigQuery via gRPC without using Google Cloud Storage as an intermediary.
 
-It has a number of advantages over using the previous export-based read flow that should generally lead to better read performance:
+The Storage API streams data in parallel directly from BigQuery via gRPC without
+using Google Cloud Storage as an intermediary.
+
+It has a number of advantages over using the previous export-based read flow
+that should generally lead to better read performance:
 
 Direct Streaming
 ^^^^^^^^^^^^^^^^
-It does not leave any temporary files in Google Cloud Storage. Rows are read directly from BigQuery servers using an Avro wire format.
+
+It does not leave any temporary files in Google Cloud Storage. Rows are read
+directly from BigQuery servers using an Avro wire format.
 
 Column Filtering
 ^^^^^^^^^^^^^^^^
+
 The new API allows column filtering to only read the data you are interested in.
 `Backed by a columnar datastore <https://cloud.google.com/blog/big-data/2016/04/inside-capacitor-bigquerys-next-generation-columnar-storage-format>`_,
 it can efficiently stream data without reading all columns.
 
 Dynamic Sharding
 ^^^^^^^^^^^^^^^^
-The API rebalances records between readers until they all complete. This means that all Map phases will finish nearly concurrently.
-See this blog article on `how dynamic sharding is similarly used in Google Cloud Dataflow <https://cloud.google.com/blog/big-data/2016/05/no-shard-left-behind-dynamic-work-rebalancing-in-google-cloud-dataflow>`_.
+
+The API rebalances records between readers until they all complete. This means
+that all Map phases will finish nearly concurrently. See this blog article on
+`how dynamic sharding is similarly used in Google Cloud Dataflow
+<https://cloud.google.com/blog/big-data/2016/05/no-shard-left-behind-dynamic-work-rebalancing-in-google-cloud-dataflow>`_.
 
 Requirements
 ------------
 
 Enable the BigQuery Storage API
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 Follow `these instructions <https://cloud.google.com/bigquery/docs/reference/storage/#enabling_the_api>`_.
 
 Authentication
 ^^^^^^^^^^^^^^
+
 **On GCE/Dataproc** the authentication is taken from the machine's role.
 
 **Outside GCE/Dataproc** you have 3 options:
 
-* Use a service account JSON key and ``GOOGLE_APPLICATION_CREDENTIALS`` as described `here <https://cloud.google.com/docs/authentication/getting-started>`_.
-* You can set the ``credentials`` key in the catalog properties file. It should be set to the JSON contents, converted using base64: ``credentials=<SERVICE_ACCOUNT_JSON_IN_BASE64>``
-* You can set the ``credentials-file`` key in the catalog properties file. It should point to the location of the JSON file ``credentials-file=</path/to/key/file>``
+* Use a service account JSON key and ``GOOGLE_APPLICATION_CREDENTIALS`` as
+  described `here <https://cloud.google.com/docs/authentication/getting-started>`_.
+* You can set the ``credentials`` key in the catalog properties file. It should
+  be set to the JSON contents, converted using base64:
+  ``credentials=<SERVICE_ACCOUNT_JSON_IN_BASE64>``
+* You can set the ``credentials-file`` key in the catalog properties file. It
+  should point to the location of the JSON file ``credentials-file=</path/to/key/file>``
 
 Configuration
 -------------
 
-To configure the BigQuery connector, create a catalog properties file
-in ``etc/catalog`` named, for example, ``bigquery.properties``, to
-mount the BigQuery connector as the ``bigquery`` catalog.
-Create the file with the following contents, replacing the
-connection properties as appropriate for your setup:
+To configure the BigQuery connector, create a catalog properties file in
+``etc/catalog`` named, for example, ``bigquery.properties``, to mount the
+BigQuery connector as the ``bigquery`` catalog. Create the file with the
+following contents, replacing the connection properties as appropriate for
+your setup:
 
 .. code-block:: none
 
     connector.name=bigquery
     project-id=<your Google Cloud Platform project id>
 
-
-
-
 Multiple GCP Projects
 ^^^^^^^^^^^^^^^^^^^^^
 
 The BigQuery connector can only access a single GCP project.Thus, if you have
-data in multiple GCP projects, You need to create several catalogs, each pointing
-to a different GCP project. For example, if you have two GCP projects, one for
-the sales and one for analytics, you can create two properties files in ``etc/catalog``
-named ``sales.properties`` and ``analytics.properties``, both having
-``connector.name=bigquery`` but with different ``project-id``. This will create the two
-catalogs, ``sales`` and ``analytics`` respectively.
+data in multiple GCP projects, You need to create several catalogs, each
+pointingto a different GCP project. For example, if you have two GCP projects,
+one for the sales and one for analytics, you can create two properties files in
+``etc/catalog`` named ``sales.properties`` and ``analytics.properties``, both
+having ``connector.name=bigquery`` but with different ``project-id``. This will
+create the two catalogs, ``sales`` and ``analytics`` respectively.
 
 Configuring Partitioning
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-By default the connector creates one partition per 400MB in the table being read (before filtering). This should roughly correspond to the maximum number of readers supported by
-the BigQuery Storage API. This can be configured explicitly with the ``parallelism`` property. BigQuery may limit the number of partitions based on server constraints.
+By default the connector creates one partition per 400MB in the table being
+read (before filtering). This should roughly correspond to the maximum number
+of readers supported by the BigQuery Storage API. This can be configured
+explicitly with the ``parallelism`` property. BigQuery may limit the number of
+partitions based on server constraints.
 
 Reading From Views
 ^^^^^^^^^^^^^^^^^^
-The connector has a preliminary support for reading from `BigQuery views <https://cloud.google.com/bigquery/docs/views-intro>`_. Please note there are a few caveats:
 
-* BigQuery views are not materialized by default, which means that the connector needs to materialize them before it can read them. This process affects the read performance.
-* The materialization process can also incur additional costs to your BigQuery bill.
-* By default, the materialized views are created in the same project and dataset. Those can be configured by the optional ``bigquery.view-materialization-project``
-  and ``bigquery.view-materialization-dataset`` properties, respectively. The service account must have write permission to the project and the dataset in order to materialize the
-  view.
-* Reading from views is disabled by default. In order to enable it, set the ``views-enabled`` property in the catalog configuration file to ``true``.
+The connector has a preliminary support for reading from `BigQuery views
+<https://cloud.google.com/bigquery/docs/views-intro>`_. Please note there are
+a few caveats:
+
+* BigQuery views are not materialized by default, which means that the
+  connector needs to materialize them before it can read them. This process
+  affects the read performance.
+* The materialization process can also incur additional costs to your BigQuery
+  bill.
+* By default, the materialized views are created in the same project and
+  dataset. Those can be configured by the optional ``bigquery.view-materialization-project``
+  and ``bigquery.view-materialization-dataset`` properties, respectively. The
+  service account must have write permission to the project and the dataset in
+  order to materialize the view.
+* Reading from views is disabled by default. In order to enable it, set the
+  ``views-enabled`` property in the catalog configuration file to ``true``.
 
 Configuration Properties
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -123,8 +150,8 @@ Property                                  Description                           
 Data Types
 ----------
 
-With a few exceptions, all BigQuery types are mapped directly to their Presto counterparts.
-Here are all the mappings:
+With a few exceptions, all BigQuery types are mapped directly to their Presto
+counterparts. Here are all the mappings:
 
 =============  ============================ =============================================================================================================
 BigQuery       Presto                       Notes
@@ -148,10 +175,15 @@ FAQ
 
 What is the Pricing for the Storage API?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-See the `BigQuery pricing documentation <https://cloud.google.com/bigquery/pricing#storage-api>`_.
+
+See the `BigQuery pricing documentation
+<https://cloud.google.com/bigquery/pricing#storage-api>`_.
 
 Calling count(*) takes a long time
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-When calling ``SELECT count(*) FROM table``, Presto loads all the data from the table and then counts the records. Unfortunately we cannot push this down to the BigQuery side. The
-best workaround is to run the count on the smallest field in the table (ideally a BOOLEAN or BIGINT) like this: ``SELECT count(some_field) FROM table``. This approach will load
-less data then running count(*) in the usual manner.
+When calling ``SELECT count(*) FROM table``, Presto loads all the data from the
+table and then counts the records. Unfortunately we cannot push this down to
+the BigQuery side. The best workaround is to run the count on the smallest field
+in the table (ideally a ``BOOLEAN`` or ``BIGINT``) like this: ``SELECT
+count(some_field) FROM table``. This approach will load less data then running
+``count(*)`` in the usual manner.

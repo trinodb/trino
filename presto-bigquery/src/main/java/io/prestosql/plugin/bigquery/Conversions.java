@@ -72,9 +72,7 @@ class Conversions
                 if (subFields == null) {
                     return ImmutableMap.of();
                 }
-                else {
-                    return subFields.stream().collect(toImmutableMap(Field::getName, Conversions::adapt));
-                }
+                return subFields.stream().collect(toImmutableMap(Field::getName, Conversions::adapt));
             }
 
             @Override

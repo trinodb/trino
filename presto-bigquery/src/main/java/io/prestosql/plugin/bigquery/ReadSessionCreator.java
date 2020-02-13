@@ -33,18 +33,19 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.prestosql.spi.PrestoException;
 
-import javax.annotation.Nonnull;
-
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 import static io.prestosql.plugin.bigquery.BigQueryErrorCode.BIGQUERY_VIEW_DESTINATION_TABLE_CREATION_FAILED;
+import static io.prestosql.plugin.bigquery.BigQueryUtil.convertToBigQueryException;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.UUID.randomUUID;
+import static java.util.stream.Collectors.joining;
 
 // A helper class, also handles view materialization
 public class ReadSessionCreator
@@ -62,9 +63,9 @@ public class ReadSessionCreator
     private final BigQueryStorageClientFactory bigQueryStorageClientFactory;
 
     public ReadSessionCreator(
-            @Nonnull ReadSessionCreatorConfig config,
-            @Nonnull BigQuery bigquery,
-            @Nonnull BigQueryStorageClientFactory bigQueryStorageClientFactory)
+            ReadSessionCreatorConfig config,
+            BigQuery bigquery,
+            BigQueryStorageClientFactory bigQueryStorageClientFactory)
     {
         this.config = config;
         this.bigquery = bigquery;
@@ -80,19 +81,19 @@ public class ReadSessionCreator
         try (BigQueryStorageClient bigQueryStorageClient = bigQueryStorageClientFactory.createBigQueryStorageClient()) {
             ReadOptions.TableReadOptions readOptions = ReadOptions.TableReadOptions.newBuilder()
                     .addAllSelectedFields(selectedFields)
-                    //.setRowRestriction(filter)
+                    .setRowRestriction(filter)
                     .build();
             TableReferenceProto.TableReference tableReference = toTableReference(actualTable.getTableId());
 
-            final Storage.ReadSession readSession = bigQueryStorageClient.createReadSession(
+            Storage.ReadSession readSession = bigQueryStorageClient.createReadSession(
                     Storage.CreateReadSessionRequest.newBuilder()
                             .setParent("projects/" + config.parentProject)
                             .setFormat(Storage.DataFormat.AVRO)
                             .setRequestedStreams(parallelism)
                             .setReadOptions(readOptions)
                             .setTableReference(tableReference)
-                            // The BALANCED sharding strategy causes the server to assign roughly the same
-                            // number of rows to each stream.
+                            // The BALANCED sharding strategy causes the server to
+                            // assign roughly the same number of rows to each stream.
                             .setShardingStrategy(Storage.ShardingStrategy.BALANCED)
                             .build());
 
@@ -119,27 +120,25 @@ public class ReadSessionCreator
         if (TableDefinition.Type.TABLE == tableType) {
             return table;
         }
-        else if (TableDefinition.Type.VIEW == tableType) {
-            if (config.viewsEnabled) {
-                // get it from the view
-                String querySql = createSql(table.getTableId(), requiredColumns, filters);
-                log.debug("querySql is %s", querySql);
-                try {
-                    return destinationTableCache.get(querySql, new DestinationTableBuilder(bigquery, config, querySql, table.getTableId()));
-                }
-                catch (ExecutionException e) {
-                    throw new PrestoException(BIGQUERY_VIEW_DESTINATION_TABLE_CREATION_FAILED, "Error creating destination table", e);
-                }
-            }
-            else {
-                throw new IllegalArgumentException(format(
-                        "Views were not enabled. You can enable views by setting '%s' to true. Notice additional cost may occur.",
+        if (TableDefinition.Type.VIEW == tableType) {
+            if (!config.viewsEnabled) {
+                throw new PrestoException(NOT_SUPPORTED, format(
+                        "Views are not enabled. You can enable views by setting '%s' to true. Notice additional cost may occur.",
                         BigQueryConfig.VIEWS_ENABLED));
+            }
+            // get it from the view
+            String querySql = createSql(table.getTableId(), requiredColumns, filters);
+            log.debug("querySql is %s", querySql);
+            try {
+                return destinationTableCache.get(querySql, new DestinationTableBuilder(bigquery, config, querySql, table.getTableId()));
+            }
+            catch (ExecutionException e) {
+                throw new PrestoException(BIGQUERY_VIEW_DESTINATION_TABLE_CREATION_FAILED, "Error creating destination table", e);
             }
         }
         else {
             // not regular table or a view
-            throw new IllegalArgumentException(format("Table type '%s' of table '%s.%s' is not supported",
+            throw new PrestoException(NOT_SUPPORTED, format("Table type '%s' of table '%s.%s' is not supported",
                     tableType, table.getTableId().getDataset(), table.getTableId().getTable()));
         }
     }
@@ -147,8 +146,8 @@ public class ReadSessionCreator
     String createSql(TableId table, ImmutableList<String> requiredColumns, String[] filters)
     {
         String tableName = format("%s.%s.%s", table.getProject(), table.getDataset(), table.getTable());
-        String columns = (requiredColumns.isEmpty()) ? "*" :
-                requiredColumns.stream().map(column -> format("`%s`", column)).collect(Collectors.joining(","));
+        String columns = requiredColumns.isEmpty() ? "*" :
+                requiredColumns.stream().map(column -> format("`%s`", column)).collect(joining(","));
 
         String whereClause = createWhereClause(filters)
                 .map(clause -> "WHERE " + clause)
@@ -198,7 +197,7 @@ public class ReadSessionCreator
             Job job = waitForJob(bigquery.create(jobInfo));
             log.debug("job has finished. %s", job);
             if (job.getStatus().getError() != null) {
-                BigQueryUtil.convertAndThrow(job.getStatus().getError());
+                throw convertToBigQueryException(job.getStatus().getError());
             }
             // add expiration time to the table
             Table createdTable = bigquery.getTable(destinationTable);
@@ -216,6 +215,7 @@ public class ReadSessionCreator
                 return job.waitFor();
             }
             catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
                 throw new BigQueryException(BaseServiceException.UNKNOWN_CODE, format("Job %s has been interrupted", job.getJobId()), e);
             }
         }
@@ -225,7 +225,7 @@ public class ReadSessionCreator
             String project = config.viewMaterializationProject.orElse(table.getProject());
             String dataset = config.viewMaterializationDataset.orElse(table.getDataset());
             UUID uuid = randomUUID();
-            String name = format("_sbc_%s%s", Long.toHexString(uuid.getMostSignificantBits()), Long.toHexString(uuid.getLeastSignificantBits()));
+            String name = format("_pbc_%s%s", randomUUID().toString().toLowerCase(ENGLISH).replace("-", ""));
             return TableId.of(project, dataset, name);
         }
     }

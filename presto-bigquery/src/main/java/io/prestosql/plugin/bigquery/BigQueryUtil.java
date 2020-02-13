@@ -20,6 +20,7 @@ import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 
 import static com.google.cloud.http.BaseHttpServiceException.UNKNOWN_CODE;
+import static com.google.common.base.Throwables.getCausalChain;
 
 class BigQueryUtil
 {
@@ -32,15 +33,7 @@ class BigQueryUtil
 
     static boolean isRetryable(Throwable cause)
     {
-        Throwable c = cause;
-        while (c != null) {
-            if (isRetryableInternalError(c)) {
-                return true;
-            }
-            c = c.getCause();
-        }
-        // failed
-        return false;
+        return getCausalChain(cause).stream().anyMatch(BigQueryUtil::isRetryableInternalError);
     }
 
     static boolean isRetryableInternalError(Throwable t)
@@ -49,13 +42,13 @@ class BigQueryUtil
             StatusRuntimeException statusRuntimeException = (StatusRuntimeException) t;
             return statusRuntimeException.getStatus().getCode() == Status.Code.INTERNAL &&
                     INTERNAL_ERROR_MESSAGES.stream()
-                            .anyMatch(errorMsg -> statusRuntimeException.getMessage().contains(errorMsg));
+                            .anyMatch(message -> statusRuntimeException.getMessage().contains(message));
         }
         return false;
     }
 
-    static void convertAndThrow(BigQueryError error)
+    static BigQueryException convertToBigQueryException(BigQueryError error)
     {
-        throw new BigQueryException(UNKNOWN_CODE, error.getMessage(), error);
+        return new BigQueryException(UNKNOWN_CODE, error.getMessage(), error);
     }
 }
