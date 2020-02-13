@@ -16,6 +16,7 @@ package io.prestosql.plugin.bigquery;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.cloud.bigquery.Field;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -25,7 +26,8 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static java.util.Collections.emptyList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class BigQueryColumnHandle
@@ -46,9 +48,9 @@ public class BigQueryColumnHandle
             @JsonProperty("description") String description)
     {
         this.name = requireNonNull(name, "column name cannot be null");
-        this.bigQueryType = requireNonNull(bigQueryType, "column type cannot be null for column [" + name + "]");
+        this.bigQueryType = requireNonNull(bigQueryType, () -> format("column type cannot be null for column [%s]", name));
         this.mode = mode != null ? mode : Field.Mode.NULLABLE;
-        this.subColumns = subColumns != null ? subColumns : emptyList();
+        this.subColumns = ImmutableList.copyOf(requireNonNull(subColumns, "subColumns is null"));
         this.description = description;
     }
 
@@ -68,7 +70,7 @@ public class BigQueryColumnHandle
     @Override
     public ImmutableMap<String, BigQueryType.Adaptor> getBigQuerySubTypes()
     {
-        return subColumns.stream().collect(ImmutableMap.toImmutableMap(BigQueryColumnHandle::getName, column -> column));
+        return subColumns.stream().collect(toImmutableMap(BigQueryColumnHandle::getName, column -> column));
     }
 
     @Override

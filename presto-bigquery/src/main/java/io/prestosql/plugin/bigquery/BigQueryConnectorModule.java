@@ -25,7 +25,6 @@ import com.google.inject.Singleton;
 import io.prestosql.spi.NodeManager;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static java.lang.String.format;
 
 public class BigQueryConnectorModule
         implements Module
@@ -37,15 +36,17 @@ public class BigQueryConnectorModule
         this.nodeManager = nodeManager;
     }
 
+    @Provides
+    @Singleton
+    public static HeaderProvider createHeaderProvider(NodeManager nodeManager)
+    {
+        return FixedHeaderProvider.create("prestosql/" + nodeManager.getCurrentNode().getVersion());
+    }
+
     @Override
     public void configure(Binder binder)
     {
-        // presto internal services
-        binder.bind(NodeManager.class).toInstance(this.nodeManager);
-
         // BigQuery related
-        System.out.printf("version is %s\n", nodeManager.getCurrentNode().getVersion());
-        binder.bind(HeaderProvider.class).toInstance(FixedHeaderProvider.create("user-agent", userAgent()));
         binder.bind(BigQueryStorageClientFactory.class).in(Scopes.SINGLETON);
 
         // Connector implementation
@@ -61,25 +62,11 @@ public class BigQueryConnectorModule
     @Singleton
     public BigQuery provideBigQuery(BigQueryConfig config, HeaderProvider headerProvider)
     {
-        BigQueryOptions.Builder bigQueryOptionsBuilder =
-                BigQueryOptions.newBuilder()
-                        .setHeaderProvider(headerProvider)
-                        .setProjectId(config.getParentProject());
+        BigQueryOptions.Builder options = BigQueryOptions.newBuilder()
+                .setHeaderProvider(headerProvider)
+                .setProjectId(config.getParentProject());
         // set credentials of provided
-        config.createCredentials().ifPresent(bigQueryOptionsBuilder::setCredentials);
-        return bigQueryOptionsBuilder.build().getService();
-    }
-
-    private String userAgent()
-    {
-        String name = getClass().getPackage().getName();
-        if (name.startsWith("io.prestosql")) {
-            name = "prestosql";
-        }
-        else if (name.startsWith("com.facebook.presto")) {
-            name = "prestodb";
-        }
-        // else leave it as is
-        return format("%s/%s", name, nodeManager.getCurrentNode().getVersion());
+        config.createCredentials().ifPresent(options::setCredentials);
+        return options.build().getService();
     }
 }

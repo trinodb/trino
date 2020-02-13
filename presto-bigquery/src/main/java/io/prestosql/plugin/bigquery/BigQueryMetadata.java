@@ -65,7 +65,6 @@ public class BigQueryMetadata
     {
         this.bigQuery = bigQuery;
         this.projectId = config.getProjectId().orElse(bigQuery.getOptions().getProjectId());
-        log.debug("Creating new BigQueryMetadata instance %s", System.identityHashCode(this));
     }
 
     @Override
@@ -109,29 +108,26 @@ public class BigQueryMetadata
         return BigQueryTableHandle.from(table);
     }
 
-    public ConnectorTableMetadata getTableMetadata(ConnectorSession session,
-            SchemaTableName tableName)
+    public ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName tableName)
     {
         ConnectorTableHandle table = getTableHandle(session, tableName);
         return getTableMetadata(session, table);
     }
 
     @Override
-    public ConnectorTableMetadata getTableMetadata(ConnectorSession session,
-            ConnectorTableHandle tableHandle)
+    public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         log.debug("getTableMetadata(session=%s, tableHandle=%s)", session, tableHandle);
         Table table = bigQuery.getTable(((BigQueryTableHandle) tableHandle).getTableId());
         SchemaTableName schemaTableName = new SchemaTableName(table.getTableId().getDataset(), table.getTableId().getTable());
-        ImmutableList<ColumnMetadata> columns = table.getDefinition().getSchema().getFields().stream()
+        List<ColumnMetadata> columns = table.getDefinition().getSchema().getFields().stream()
                 .map(Conversions::toColumnMetadata)
                 .collect(toImmutableList());
         return new ConnectorTableMetadata(schemaTableName, columns);
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session,
-            ConnectorTableHandle tableHandle)
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         log.debug("getColumnHandles(session=%s, tableHandle=%s)", session, tableHandle);
         Table table = bigQuery.getTable(((BigQueryTableHandle) tableHandle).getTableId());
@@ -140,16 +136,17 @@ public class BigQueryMetadata
     }
 
     @Override
-    public ColumnMetadata getColumnMetadata(ConnectorSession session,
-            ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
+    public ColumnMetadata getColumnMetadata(
+            ConnectorSession session,
+            ConnectorTableHandle tableHandle,
+            ColumnHandle columnHandle)
     {
         log.debug("getColumnMetadata(session=%s, tableHandle=%s, columnHandle=%s)", session, columnHandle, columnHandle);
         return ((BigQueryColumnHandle) columnHandle).getColumnMetadata();
     }
 
     @Override
-    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session,
-            SchemaTablePrefix prefix)
+    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         log.debug("listTableColumns(session=%s, prefix=%s)", session, prefix);
         requireNonNull(prefix, "prefix is null");
@@ -188,12 +185,15 @@ public class BigQueryMetadata
     }
 
     @Override
-    public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorSession session, ConnectorTableHandle handle, long limit)
+    public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(
+            ConnectorSession session,
+            ConnectorTableHandle handle,
+            long limit)
     {
         log.debug("applyLimit(session=%s, handle=%s, limit=%s)", session, handle, limit);
         BigQueryTableHandle bigQueryTableHandle = (BigQueryTableHandle) handle;
 
-        if (bigQueryTableHandle.getLimit().isPresent()) {
+        if (bigQueryTableHandle.getLimit().isPresent() && bigQueryTableHandle.getLimit().getAsLong() <= limit) {
             return Optional.empty();
         }
 
@@ -203,9 +203,14 @@ public class BigQueryMetadata
     }
 
     @Override
-    public Optional<ProjectionApplicationResult<ConnectorTableHandle>> applyProjection(ConnectorSession session, ConnectorTableHandle handle, List<ConnectorExpression> projections, Map<String, ColumnHandle> assignments)
+    public Optional<ProjectionApplicationResult<ConnectorTableHandle>> applyProjection(
+            ConnectorSession session,
+            ConnectorTableHandle handle,
+            List<ConnectorExpression> projections,
+            Map<String, ColumnHandle> assignments)
     {
-        log.debug("applyProjection(session=%s, handle=%s, projections=%s, assignments=%s)", session, handle, projections, assignments);
+        log.debug("applyProjection(session=%s, handle=%s, projections=%s, assignments=%s)",
+                session, handle, projections, assignments);
         BigQueryTableHandle bigQueryTableHandle = (BigQueryTableHandle) handle;
 
         if (bigQueryTableHandle.getDesiredColumns().isPresent()) {

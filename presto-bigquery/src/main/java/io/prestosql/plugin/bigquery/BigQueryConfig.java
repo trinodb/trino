@@ -23,6 +23,7 @@ import com.google.common.collect.Streams;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 
+import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.Min;
 
 import java.io.ByteArrayInputStream;
@@ -49,23 +50,14 @@ public class BigQueryConfig
 
     // lazy creation, cache once it's created
     private Supplier<Optional<Credentials>> credentialsCreator = Suppliers.memoize(() -> {
-        Optional<Credentials> credentialsFromKey = credentialsKey.map(this::createCredentialsFromKey);
-        Optional<Credentials> credentialsFromFile = credentialsFile.map(this::createCredentialsFromFile);
+        Optional<Credentials> credentialsFromKey = credentialsKey.map(BigQueryConfig::createCredentialsFromKey);
+        Optional<Credentials> credentialsFromFile = credentialsFile.map(BigQueryConfig::createCredentialsFromFile);
         return Stream.of(credentialsFromKey, credentialsFromFile)
                 .flatMap(Streams::stream)
                 .findFirst();
     });
 
-    public Optional<Credentials> createCredentials()
-    {
-        if (credentialsKey.isPresent() && credentialsFile.isPresent()) {
-            throw new IllegalArgumentException(
-                    "Only one of credentials or credentialsFile can be specified in the configuration.");
-        }
-        return credentialsCreator.get();
-    }
-
-    private Credentials createCredentialsFromKey(String key)
+    private static Credentials createCredentialsFromKey(String key)
     {
         try {
             return GoogleCredentials.fromStream(new ByteArrayInputStream(Base64.decodeBase64(key)));
@@ -75,7 +67,7 @@ public class BigQueryConfig
         }
     }
 
-    private Credentials createCredentialsFromFile(String file)
+    private static Credentials createCredentialsFromFile(String file)
     {
         try {
             return GoogleCredentials.fromStream(new FileInputStream(file));
@@ -83,6 +75,30 @@ public class BigQueryConfig
         catch (IOException e) {
             throw new UncheckedIOException("Failed to create Credentials from file", e);
         }
+    }
+
+    public Optional<Credentials> createCredentials()
+    {
+        return credentialsCreator.get();
+    }
+
+    @AssertTrue(message = "Exactly one of 'credentials-key' or 'credentials-file' must be specified, or the default GoogleCredentials could be created")
+    public boolean isCredentialsConfigurationValid()
+    {
+        // only one of them (at most) should be present
+        if (credentialsKey.isPresent() && credentialsFile.isPresent()) {
+            return false;
+        }
+        // if no credentials were supplied, let's check if we can create the default ones
+        if (!credentialsKey.isPresent() && !credentialsFile.isPresent()) {
+            try {
+                GoogleCredentials.getApplicationDefault();
+            }
+            catch (IOException e) {
+                return false;
+            }
+        }
+        return true;
     }
 
     public Optional<String> getCredentialsKey()
@@ -175,8 +191,7 @@ public class BigQueryConfig
 
     @Config("bigquery.view-materialization-project")
     @ConfigDescription("The project where the materialized view is going to be created")
-    public BigQueryConfig setViewMaterializationProject(
-            String viewMaterializationProject)
+    public BigQueryConfig setViewMaterializationProject(String viewMaterializationProject)
     {
         this.viewMaterializationProject = Optional.of(viewMaterializationProject);
         return this;
@@ -189,8 +204,7 @@ public class BigQueryConfig
 
     @Config("bigquery.view-materialization-dataset")
     @ConfigDescription("The dataset where the materialized view is going to be created")
-    public BigQueryConfig setViewMaterializationDataset(
-            String viewMaterializationDataset)
+    public BigQueryConfig setViewMaterializationDataset(String viewMaterializationDataset)
     {
         this.viewMaterializationDataset = Optional.of(viewMaterializationDataset);
         return this;
@@ -204,8 +218,7 @@ public class BigQueryConfig
 
     @Config("bigquery.max-read-rows-retries")
     @ConfigDescription("The number of retries in case of retryable server issues")
-    public BigQueryConfig setMaxReadRowsRetries(
-            int maxReadRowsRetries)
+    public BigQueryConfig setMaxReadRowsRetries(int maxReadRowsRetries)
     {
         this.maxReadRowsRetries = maxReadRowsRetries;
         return this;

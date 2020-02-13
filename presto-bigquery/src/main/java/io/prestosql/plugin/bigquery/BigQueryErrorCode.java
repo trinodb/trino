@@ -22,13 +22,13 @@ import static io.prestosql.spi.ErrorType.EXTERNAL;
 public enum BigQueryErrorCode
         implements ErrorCodeSupplier
 {
-    VIEW_DESTINATION_TABLE_CREATION_FAILED(1, EXTERNAL);
+    BIGQUERY_VIEW_DESTINATION_TABLE_CREATION_FAILED(0, EXTERNAL);
 
     private final ErrorCode errorCode;
 
     BigQueryErrorCode(int code, ErrorType type)
     {
-        errorCode = new ErrorCode(code, name(), type);
+        errorCode = new ErrorCode(code + 0x0509_0000, name(), type);
     }
 
     @Override

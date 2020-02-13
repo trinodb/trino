@@ -35,7 +35,7 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignatureParameter;
 import io.prestosql.spi.type.VarbinaryType;
 import io.prestosql.spi.type.VarcharType;
-import org.apache.avro.Conversions;
+import org.apache.avro.Conversions.DecimalConversion;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericRecord;
@@ -98,7 +98,14 @@ public class BigQueryPageSource
         this.readBytes = new AtomicLong();
         this.columnTypes = columns.stream().map(BigQueryColumnHandle::getPrestoType).collect(toImmutableList());
         this.pageBuilder = new PageBuilder(columnTypes);
-        initialize();
+
+        log.debug("Starting to read from %s", split.getStreamName());
+        Storage.ReadRowsRequest.Builder readRowsRequest = Storage.ReadRowsRequest.newBuilder()
+                .setReadPosition(Storage.StreamPosition.newBuilder()
+                        .setStream(Storage.Stream.newBuilder()
+                                .setName(split.getStreamName())));
+        responses = new ReadRowsHelper(bigQueryStorageClient, readRowsRequest, maxReadRowsRetries).readRows();
+        closed = false;
     }
 
     @Override
@@ -167,7 +174,7 @@ public class BigQueryPageSource
                     type.writeLong(output, DateTimeEncoding.packDateTimeWithZone(((Long) value).longValue() / 1000, TimeZoneKey.UTC_KEY));
                 }
                 else {
-                    throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unhandled type for " + javaType.getSimpleName() + ":" + type.getTypeSignature());
+                    throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Unhandled type for %s: %s", javaType.getSimpleName(), type));
                 }
             }
             else if (javaType == double.class) {
@@ -180,7 +187,7 @@ public class BigQueryPageSource
                 writeBlock(output, type, value);
             }
             else {
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unhandled type for " + javaType.getSimpleName() + ":" + type.getTypeSignature());
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Unhandled type for %s: %s", javaType.getSimpleName(), type));
             }
         }
         catch (ClassCastException ignore) {
@@ -222,7 +229,7 @@ public class BigQueryPageSource
             output.closeEntry();
             return;
         }
-        else if (type instanceof RowType && value instanceof GenericRecord) {
+        if (type instanceof RowType && value instanceof GenericRecord) {
             GenericRecord record = (GenericRecord) value;
             BlockBuilder builder = output.beginBlockEntry();
 
@@ -238,12 +245,7 @@ public class BigQueryPageSource
             output.closeEntry();
             return;
         }
-        else {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Block: " + type.getTypeSignature());
-        }
-
-        // not a convertible value
-        // output.appendNull();
+        throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Block: " + type.getTypeSignature());
     }
 
     @Override
@@ -258,17 +260,6 @@ public class BigQueryPageSource
     {
         bigQueryStorageClient.close();
         closed = true;
-    }
-
-    void initialize()
-    {
-        log.debug("Starting to read from %s", split.getStreamName());
-        Storage.ReadRowsRequest.Builder readRowsRequest = Storage.ReadRowsRequest.newBuilder()
-                .setReadPosition(Storage.StreamPosition.newBuilder()
-                        .setStream(Storage.Stream.newBuilder()
-                                .setName(split.getStreamName())));
-        responses = new ReadRowsHelper(bigQueryStorageClient, readRowsRequest, maxReadRowsRetries).readRows();
-        closed = false;
     }
 
     Iterable<GenericRecord> parse(Storage.ReadRowsResponse response)
@@ -327,8 +318,10 @@ public class BigQueryPageSource
 
     static class AvroDecimalConverter
     {
-        private static final Conversions.DecimalConversion AVRO_DECIMAL_CONVERSION = new Conversions.DecimalConversion();
-        private static final Schema AVRO_DECIMAL_SCHEMA = new Schema.Parser().parse(format("{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":%d,\"scale\":%d}", NUMERIC_DATA_TYPE_PRECISION, NUMERIC_DATA_TYPE_SCALE));
+        private static final DecimalConversion AVRO_DECIMAL_CONVERSION = new DecimalConversion();
+        private static final Schema AVRO_DECIMAL_SCHEMA = new Schema.Parser().parse(format(
+                "{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":%d,\"scale\":%d}",
+                NUMERIC_DATA_TYPE_PRECISION, NUMERIC_DATA_TYPE_SCALE));
 
         BigDecimal convert(Object value)
         {

@@ -17,11 +17,8 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <dep.gax.version>1.49.1</dep.gax.version>
-        <dep.grpc.version>1.24.1</dep.grpc.version>
         <dep.google-auth-library.version>0.18.0</dep.google-auth-library.version>
         <dep.google-cloud-core.version>1.91.3</dep.google-cloud-core.version>
-        <dep.bigquery.version>1.101.0</dep.bigquery.version>
-        <dep.bigquerystorage.version>0.119.0-beta</dep.bigquerystorage.version>
     </properties>
 
     <dependencyManagement>
@@ -35,7 +32,7 @@
             <dependency>
                 <groupId>io.grpc</groupId>
                 <artifactId>grpc-bom</artifactId>
-                <version>${dep.grpc.version}</version>
+                <version>1.24.1</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -132,7 +129,7 @@
         <dependency>
             <groupId>com.google.cloud</groupId>
             <artifactId>google-cloud-bigquery</artifactId>
-            <version>${dep.bigquery.version}</version>
+            <version>1.101.0</version>
             <exclusions>
                 <exclusion>
                     <groupId>com.google.guava</groupId>
@@ -152,7 +149,7 @@
         <dependency>
             <groupId>com.google.cloud</groupId>
             <artifactId>google-cloud-bigquerystorage</artifactId>
-            <version>${dep.bigquerystorage.version}</version>
+            <version>0.119.0-beta</version>
             <exclusions>
                 <exclusion>
                     <groupId>com.google.guava</groupId>

@@ -34,7 +34,6 @@ public class BigQueryConnector
 
     private final BigQueryMetadata metadata;
     private final BigQuerySplitManager splitManager;
-    //private final BigQueryRecordSetProvider recordSetProvider;
     private final BigQueryPageSourceProvider pageSourceProvider;
 
     @Inject
@@ -49,8 +48,7 @@ public class BigQueryConnector
     }
 
     @Override
-    public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel,
-            boolean readOnly)
+    public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
     {
         log.debug("beginTransaction(isolationLevel=%s, readOnly=%s)", isolationLevel, readOnly);
         checkConnectorSupports(READ_COMMITTED, isolationLevel);

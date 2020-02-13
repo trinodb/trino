@@ -94,8 +94,9 @@ The connector has a preliminary support for reading from `BigQuery views <https:
 
 * BigQuery views are not materialized by default, which means that the connector needs to materialize them before it can read them. This process affects the read performance.
 * The materialization process can also incur additional costs to your BigQuery bill.
-* By default, the materialized views are created in the same project and dataset. Those can be configured by the optional ``view-materialization-project``
-  and ``view-materialization-dataset`` properties, respectively. The service account must have write permission to the project and the dataset in order to materialize the view.
+* By default, the materialized views are created in the same project and dataset. Those can be configured by the optional ``bigquery.view-materialization-project``
+  and ``bigquery.view-materialization-dataset`` properties, respectively. The service account must have write permission to the project and the dataset in order to materialize the
+  view.
 * Reading from views is disabled by default. In order to enable it, set the ``views-enabled`` property in the catalog configuration file to ``true``.
 
 Configuration Properties
@@ -103,21 +104,21 @@ Configuration Properties
 
 All configuration properties are optional.
 
-===================================== ============================================================== ==============================================
-Property                              Description                                                    Default
-===================================== ============================================================== ==============================================
-bigquery.project-id                   The Google Cloud Project ID where the data reside              Taken from the service account
-bigquery.parent-project               The project ID Google Cloud Project to bill for the export     Taken from the service account
-bigquery.parallelism                  The number of partitions to split the data into                The number of executors
-bigquery.views-enabled                Enables the connector to read from views and not only tables.  ``false``
-                                      Please read `this section <#reading-from-views>`_ before
-                                      enabling this feature.
-bigquery.view-materialization-project The project where the materialized view is going to be created The view's project
-bigquery.view-materialization-dataset The dataset where the materialized view is going to be created The view's dataset
-bigquery.max-read-rows-retries        The number of retries in case of retryable server issues       ``3``
-bigquery.credentials-key              The base64 encoded credentials key                             None. See `authentication <#authentication>`_
-bigquery.credentials-file             The path to the JSON credentials file                          None. See `authentication <#authentication>`_
-===================================== ============================================================== ==============================================
+========================================= ============================================================== ==============================================
+Property                                  Description                                                    Default
+========================================= ============================================================== ==============================================
+``bigquery.project-id``                   The Google Cloud Project ID where the data reside              Taken from the service account
+``bigquery.parent-project``               The project ID Google Cloud Project to bill for the export     Taken from the service account
+``bigquery.parallelism``                  The number of partitions to split the data into                The number of executors
+``bigquery.views-enabled``                Enables the connector to read from views and not only tables.  ````false````
+                                          Please read ``this section <#reading-from-views>``_ before
+                                          enabling this feature.
+``bigquery.view-materialization-project`` The project where the materialized view is going to be created The view's project
+``bigquery.view-materialization-dataset`` The dataset where the materialized view is going to be created The view's dataset
+``bigquery.max-read-rows-retries``        The number of retries in case of retryable server issues       ````3````
+``bigquery.credentials-key``              The base64 encoded credentials key                             None. See ``authentication <#authentication>``_
+``bigquery.credentials-file``             The path to the JSON credentials file                          None. See ``authentication <#authentication>``_
+========================================= ============================================================== ==============================================
 
 Data Types
 ----------
@@ -125,22 +126,22 @@ Data Types
 With a few exceptions, all BigQuery types are mapped directly to their Presto counterparts.
 Here are all the mappings:
 
-=========  ======================== =============================================================================================================
-BigQuery   Presto                   Notes
-=========  ======================== =============================================================================================================
-BOOLEAN    BOOLEAN
-BYTES      VARBINARY
-DATE       DATE
-DATETIME   VARCHAR                  In "yyyy-MM-dd'T'HH:mm:ss.SSSSS" format
-FLOAT      DOUBLE
-GEOGRAPHY  VARCHAR                  In `Well-known text (WKT) <https://en.wikipedia.org/wiki/Well-known_text_representation_of_geometry>`_ format
-INTEGER    BIGINT
-NUMERIC    DECIMAL(38,9)
-RECORD     ROW
-STRING     VARCHAR
-TIME       TIME_WITH_TIME_ZONE      Time zone is UTC
-TIMESTAMP  TIMESTAMP_WITH_TIME_ZONE Time zone is UTC
-=========  ======================== =============================================================================================================
+=============  ============================ =============================================================================================================
+BigQuery       Presto                       Notes
+=============  ============================ =============================================================================================================
+``BOOLEAN``    ``BOOLEAN``
+``BYTES``      ``VARBINARY``
+``DATE``       ``DATE``
+``DATETIME``   ``VARCHAR``                  In "yyyy-MM-dd'T'HH:mm:ss.SSSSS" format
+``FLOAT``      ``DOUBLE``
+``GEOGRAPHY``  ``VARCHAR``                  In ``Well-known text (WKT) <https://en.wikipedia.org/wiki/Well-known_text_representation_of_geometry>``_ format
+``INTEGER``    ``BIGINT``
+``NUMERIC``    ``DECIMAL(38,9)````
+``RECORD``     ``ROW``
+``STRING``     ``VARCHAR``
+``TIME``       ``TIME_WITH_TIME_ZONE``      Time zone is UTC
+``TIMESTAMP``  ``TIMESTAMP_WITH_TIME_ZONE`` Time zone is UTC
+=============  ============================ =============================================================================================================
 
 FAQ
 ---

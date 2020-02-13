@@ -43,8 +43,7 @@ public class BigQueryConnectorFactory
     }
 
     @Override
-    public Connector create(String catalogName, Map<String, String> config,
-            ConnectorContext context)
+    public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(config, "config is null");
@@ -55,14 +54,6 @@ public class BigQueryConnectorFactory
                 binder -> {
                     binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                     binder.bind(NodeManager.class).toInstance(context.getNodeManager());
-//                    if (tableDescriptionSupplier.isPresent()) {
-//                        binder.bind(new TypeLiteral<Supplier<Map<SchemaTableName, BigQueryTableDescription>>>() {}).toInstance(tableDescriptionSupplier.get());
-//                    }
-//                    else {
-//                        binder.bind(new TypeLiteral<Supplier<Map<SchemaTableName, BigQueryTableDescription>>>() {})
-//                                .to(BigQueryTableDescriptionSupplier.class)
-//                                .in(Scopes.SINGLETON);
-//                    }
                 });
 
         Injector injector = app.strictConfig()

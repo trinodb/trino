@@ -42,7 +42,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import static io.prestosql.plugin.bigquery.BigQueryErrorCode.VIEW_DESTINATION_TABLE_CREATION_FAILED;
+import static io.prestosql.plugin.bigquery.BigQueryErrorCode.BIGQUERY_VIEW_DESTINATION_TABLE_CREATION_FAILED;
 import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
 
@@ -128,7 +128,7 @@ public class ReadSessionCreator
                     return destinationTableCache.get(querySql, new DestinationTableBuilder(bigquery, config, querySql, table.getTableId()));
                 }
                 catch (ExecutionException e) {
-                    throw new PrestoException(VIEW_DESTINATION_TABLE_CREATION_FAILED, "Error creating destination table", e);
+                    throw new PrestoException(BIGQUERY_VIEW_DESTINATION_TABLE_CREATION_FAILED, "Error creating destination table", e);
                 }
             }
             else {
