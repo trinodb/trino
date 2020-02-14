@@ -13,12 +13,17 @@
  */
 package io.prestosql.dispatcher;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
 import io.prestosql.execution.ExecutionFailureInfo;
+import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.QueryState;
+import io.prestosql.execution.QueryStats;
 import io.prestosql.execution.StateMachine.StateChangeListener;
 import io.prestosql.server.BasicQueryInfo;
 import io.prestosql.spi.ErrorCode;
@@ -33,14 +38,16 @@ import java.util.concurrent.Executor;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.prestosql.execution.QueryState.FAILED;
-import static io.prestosql.server.BasicQueryInfo.immediateFailureQueryInfo;
+import static io.prestosql.memory.LocalMemoryManager.GENERAL_POOL;
+import static io.prestosql.util.Failures.toFailure;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class FailedDispatchQuery
         implements DispatchQuery
 {
-    private final BasicQueryInfo queryInfo;
+    private final QueryInfo fullQueryInfo;
+    private final BasicQueryInfo basicQueryInfo;
     private final Session session;
     private final Executor executor;
     private final DispatchInfo dispatchInfo;
@@ -48,32 +55,40 @@ public class FailedDispatchQuery
     public FailedDispatchQuery(
             Session session,
             String query,
+            Optional<String> preparedQuery,
             URI self,
             Optional<ResourceGroupId> resourceGroup,
-            ExecutionFailureInfo failure,
+            Throwable cause,
             Executor executor)
     {
         requireNonNull(session, "session is null");
         requireNonNull(query, "query is null");
         requireNonNull(self, "self is null");
         requireNonNull(resourceGroup, "resourceGroup is null");
-        requireNonNull(failure, "failure is null");
+        requireNonNull(cause, "cause is null");
         requireNonNull(executor, "executor is null");
 
-        this.queryInfo = immediateFailureQueryInfo(session, query, self, resourceGroup, failure.getErrorCode());
+        this.fullQueryInfo = immediateFailureQueryInfo(session, query, preparedQuery, self, resourceGroup, cause);
+        this.basicQueryInfo = new BasicQueryInfo(fullQueryInfo);
         this.session = requireNonNull(session, "session is null");
         this.executor = requireNonNull(executor, "executor is null");
 
         this.dispatchInfo = DispatchInfo.failed(
-                failure,
-                queryInfo.getQueryStats().getElapsedTime(),
-                queryInfo.getQueryStats().getQueuedTime());
+                fullQueryInfo.getFailureInfo(),
+                basicQueryInfo.getQueryStats().getElapsedTime(),
+                basicQueryInfo.getQueryStats().getQueuedTime());
     }
 
     @Override
     public BasicQueryInfo getBasicQueryInfo()
     {
-        return queryInfo;
+        return basicQueryInfo;
+    }
+
+    @Override
+    public QueryInfo getFullQueryInfo()
+    {
+        return fullQueryInfo;
     }
 
     @Override
@@ -115,7 +130,7 @@ public class FailedDispatchQuery
     @Override
     public QueryId getQueryId()
     {
-        return queryInfo.getQueryId();
+        return basicQueryInfo.getQueryId();
     }
 
     @Override
@@ -127,7 +142,7 @@ public class FailedDispatchQuery
     @Override
     public Optional<ErrorCode> getErrorCode()
     {
-        return Optional.ofNullable(queryInfo.getErrorCode());
+        return Optional.ofNullable(basicQueryInfo.getErrorCode());
     }
 
     @Override
@@ -136,13 +151,13 @@ public class FailedDispatchQuery
     @Override
     public DateTime getLastHeartbeat()
     {
-        return queryInfo.getQueryStats().getEndTime();
+        return basicQueryInfo.getQueryStats().getEndTime();
     }
 
     @Override
     public DateTime getCreateTime()
     {
-        return queryInfo.getQueryStats().getCreateTime();
+        return basicQueryInfo.getQueryStats().getCreateTime();
     }
 
     @Override
@@ -154,7 +169,7 @@ public class FailedDispatchQuery
     @Override
     public Optional<DateTime> getEndTime()
     {
-        return Optional.ofNullable(queryInfo.getQueryStats().getEndTime());
+        return Optional.ofNullable(basicQueryInfo.getQueryStats().getEndTime());
     }
 
     @Override
@@ -173,5 +188,103 @@ public class FailedDispatchQuery
     public DataSize getUserMemoryReservation()
     {
         return new DataSize(0, BYTE);
+    }
+
+    private static QueryInfo immediateFailureQueryInfo(Session session,
+            String query,
+            Optional<String> preparedQuery,
+            URI self,
+            Optional<ResourceGroupId> resourceGroupId,
+            Throwable throwable)
+    {
+        ExecutionFailureInfo failureCause = toFailure(throwable);
+        QueryInfo queryInfo = new QueryInfo(
+                session.getQueryId(),
+                session.toSessionRepresentation(),
+                FAILED,
+                GENERAL_POOL,
+                false,
+                self,
+                ImmutableList.of(),
+                query,
+                preparedQuery,
+                immediateFailureQueryStats(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableMap.of(),
+                ImmutableSet.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableSet.of(),
+                Optional.empty(),
+                false,
+                null,
+                Optional.empty(),
+                failureCause,
+                failureCause.getErrorCode(),
+                ImmutableList.of(),
+                ImmutableSet.of(),
+                Optional.empty(),
+                true,
+                resourceGroupId);
+
+        return queryInfo;
+    }
+
+    private static QueryStats immediateFailureQueryStats()
+    {
+        DateTime now = DateTime.now();
+        return new QueryStats(
+                now,
+                now,
+                now,
+                now,
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                new DataSize(0, BYTE),
+                new DataSize(0, BYTE),
+                new DataSize(0, BYTE),
+                new DataSize(0, BYTE),
+                new DataSize(0, BYTE),
+                new DataSize(0, BYTE),
+                new DataSize(0, BYTE),
+                new DataSize(0, BYTE),
+                new DataSize(0, BYTE),
+                false,
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                false,
+                ImmutableSet.of(),
+                new DataSize(0, BYTE),
+                0,
+                new DataSize(0, BYTE),
+                0,
+                new DataSize(0, BYTE),
+                0,
+                new DataSize(0, BYTE),
+                0,
+                new DataSize(0, BYTE),
+                0,
+                new DataSize(0, BYTE),
+                ImmutableList.of(),
+                ImmutableList.of());
     }
 }
