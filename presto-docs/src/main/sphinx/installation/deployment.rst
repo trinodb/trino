@@ -92,6 +92,12 @@ Because an ``OutOfMemoryError`` typically leaves the JVM in an
 inconsistent state, we write a heap dump, for debugging, and forcibly
 terminate the process when this occurs.
 
+The temporary directory used by the JVM must allow execution of code.
+Specifically, the mount must not have the ``noexec`` flag set. The default
+``/tmp`` directory is mounted with this flag in some installations, which
+prevents Presto from starting. You can workaround this by overriding the
+temporary directory by adding ``-Djava.io.tmpdir=/path/to/other/tmpdir`` to the
+list of JVM options.
 
 .. _config_properties:
 
