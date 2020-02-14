@@ -54,8 +54,10 @@ public class TestMinimalFunctionality
     @AfterClass(alwaysRun = true)
     public void stopKafka()
     {
-        testingKafka.close();
-        testingKafka = null;
+        if (testingKafka != null) {
+            testingKafka.close();
+            testingKafka = null;
+        }
     }
 
     @Test
