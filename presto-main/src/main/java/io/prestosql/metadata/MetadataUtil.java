@@ -35,6 +35,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.StandardErrorCode.MISSING_CATALOG_NAME;
 import static io.prestosql.spi.StandardErrorCode.MISSING_SCHEMA_NAME;
+import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.prestosql.spi.security.PrincipalType.ROLE;
 import static io.prestosql.spi.security.PrincipalType.USER;
@@ -97,15 +98,16 @@ public final class MetadataUtil
         return null;
     }
 
-    public static String createCatalogName(Session session, Node node)
+    public static String getSessionCatalog(Metadata metadata, Session session, Node node)
     {
-        Optional<String> sessionCatalog = session.getCatalog();
+        String catalog = session.getCatalog().orElseThrow(() ->
+                semanticException(MISSING_CATALOG_NAME, node, "Session catalog must be set"));
 
-        if (!sessionCatalog.isPresent()) {
-            throw semanticException(MISSING_CATALOG_NAME, node, "Session catalog must be set");
+        if (!metadata.getCatalogHandle(session, catalog).isPresent()) {
+            throw new PrestoException(NOT_FOUND, "Catalog does not exist: " + catalog);
         }
 
-        return sessionCatalog.get();
+        return catalog;
     }
 
     public static CatalogSchemaName createCatalogSchemaName(Session session, Node node, Optional<QualifiedName> schema)

@@ -43,15 +43,18 @@ Presto is first installed. The following is a minimal ``etc/node.properties``:
 The above properties are described below:
 
 * ``node.environment``:
-  The name of the environment. All Presto nodes in a cluster must
-  have the same environment name.
+  The name of the environment. All Presto nodes in a cluster must have the same
+  environment name. The name must start with an alphanumeric character and
+  only contain alphanumeric, ``-``, or ``_`` characters.
 
 * ``node.id``:
   The unique identifier for this installation of Presto. This must be
   unique for every node. This identifier should remain consistent across
   reboots or upgrades of Presto. If running multiple installations of
   Presto on a single machine (i.e. multiple nodes on the same machine),
-  each installation must have a unique identifier.
+  each installation must have a unique identifier. The identifier must start
+  with an alphanumeric character and only contain alphanumeric, ``-``, or ``_``
+  characters.
 
 * ``node.data-dir``:
   The location (filesystem path) of the data directory. Presto stores

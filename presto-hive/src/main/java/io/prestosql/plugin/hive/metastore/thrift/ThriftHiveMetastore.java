@@ -162,7 +162,7 @@ public class ThriftHiveMetastore
     private final boolean impersonationEnabled;
     private final boolean deleteFilesOnDrop;
     private final HiveMetastoreAuthenticationType authenticationType;
-    private final boolean hiveViewsEnabled;
+    private final boolean translateHiveViews;
 
     private final AtomicInteger chosenGetTableAlternative = new AtomicInteger(Integer.MAX_VALUE);
     private final AtomicInteger chosenTableParamAlternative = new AtomicInteger(Integer.MAX_VALUE);
@@ -188,7 +188,7 @@ public class ThriftHiveMetastore
         this.impersonationEnabled = thriftConfig.isImpersonationEnabled();
         this.deleteFilesOnDrop = thriftConfig.isDeleteFilesOnDrop();
         this.authenticationType = authenticationConfig.getHiveMetastoreAuthenticationType();
-        this.hiveViewsEnabled = hiveConfig.isHiveViewsEnabled();
+        this.translateHiveViews = hiveConfig.isTranslateHiveViews();
         this.maxWaitForLock = thriftConfig.getMaxWaitForTransactionLock();
     }
 
@@ -297,7 +297,7 @@ public class ThriftHiveMetastore
                     .stopOnIllegalExceptions()
                     .run("getTable", stats.getGetTable().wrap(() -> {
                         Table table = getTableFromMetastore(identity, databaseName, tableName);
-                        if (!hiveViewsEnabled && table.getTableType().equals(TableType.VIRTUAL_VIEW.name()) && !isPrestoView(table)) {
+                        if (!translateHiveViews && table.getTableType().equals(TableType.VIRTUAL_VIEW.name()) && !isPrestoView(table)) {
                             throw new HiveViewNotSupportedException(new SchemaTableName(databaseName, tableName));
                         }
                         return Optional.of(table);
@@ -856,7 +856,7 @@ public class ThriftHiveMetastore
                     .stopOn(UnknownDBException.class)
                     .stopOnIllegalExceptions()
                     .run("getAllViews", stats.getGetAllViews().wrap(() -> {
-                        if (hiveViewsEnabled) {
+                        if (translateHiveViews) {
                             return alternativeCall(
                                     this::createMetastoreClient,
                                     exception -> !isUnknownMethodExceptionalResponse(exception),

@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.airlift.log.Logging;
+import io.prestosql.client.ClientSelectedRole;
 import io.prestosql.plugin.hive.HiveHadoop2Plugin;
 import io.prestosql.server.testing.TestingPrestoServer;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -41,6 +42,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
@@ -50,6 +52,7 @@ import static io.prestosql.spi.connector.SystemTable.Distribution.ALL_NODES;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -189,6 +192,22 @@ public class TestJdbcConnection
             assertThat(connection.getCatalog()).isEqualTo("system");
             assertThat(connection.getSchema()).isEqualTo("runtime");
 
+            // invalid catalog
+            try (Statement statement = connection.createStatement()) {
+                assertThatThrownBy(() -> statement.execute("USE abc.xyz"))
+                        .hasMessageEndingWith("Catalog does not exist: abc");
+            }
+
+            // invalid schema
+            try (Statement statement = connection.createStatement()) {
+                assertThatThrownBy(() -> statement.execute("USE hive.xyz"))
+                        .hasMessageEndingWith("Schema does not exist: hive.xyz");
+            }
+
+            // catalog and schema are unchanged
+            assertThat(connection.getCatalog()).isEqualTo("system");
+            assertThat(connection.getSchema()).isEqualTo("runtime");
+
             // run multiple queries
             assertThat(listTables(connection)).contains("nodes");
             assertThat(listTables(connection)).contains("queries");
@@ -272,12 +291,62 @@ public class TestJdbcConnection
     public void testExtraCredentials()
             throws SQLException
     {
-        Map<String, String> credentials = ImmutableMap.of("test.token.foo", "bar", "test.token.abc", "xyz");
-        Connection connection = createConnection("extraCredentials=test.token.foo:bar;test.token.abc:xyz");
-        assertTrue(connection instanceof PrestoConnection);
-        PrestoConnection prestoConnection = connection.unwrap(PrestoConnection.class);
-        assertEquals(prestoConnection.getExtraCredentials(), credentials);
-        assertEquals(listExtraCredentials(connection), credentials);
+        try (Connection connection = createConnection("extraCredentials=test.token.foo:bar;test.token.abc:xyz;colon:-::-")) {
+            Map<String, String> expectedCredentials = ImmutableMap.<String, String>builder()
+                    .put("test.token.foo", "bar")
+                    .put("test.token.abc", "xyz")
+                    .put("colon", "-::-")
+                    .build();
+            PrestoConnection prestoConnection = connection.unwrap(PrestoConnection.class);
+            assertEquals(prestoConnection.getExtraCredentials(), expectedCredentials);
+            assertEquals(listExtraCredentials(connection), expectedCredentials);
+        }
+    }
+
+    @Test
+    public void testRole()
+            throws SQLException
+    {
+        testRole("admin", new ClientSelectedRole(ClientSelectedRole.Type.ROLE, Optional.of("admin")), ImmutableSet.of("public", "admin"));
+    }
+
+    @Test
+    public void testAllRole()
+            throws SQLException
+    {
+        testRole("all", new ClientSelectedRole(ClientSelectedRole.Type.ALL, Optional.empty()), ImmutableSet.of("public"));
+    }
+
+    @Test
+    public void testNoneRole()
+            throws SQLException
+    {
+        testRole("none", new ClientSelectedRole(ClientSelectedRole.Type.NONE, Optional.empty()), ImmutableSet.of("public"));
+    }
+
+    private void testRole(String roleParameterValue, ClientSelectedRole clientSelectedRole, ImmutableSet<String> currentRoles)
+            throws SQLException
+    {
+        try (Connection connection = createConnection("roles=hive:" + roleParameterValue)) {
+            PrestoConnection prestoConnection = connection.unwrap(PrestoConnection.class);
+            assertEquals(prestoConnection.getRoles(), ImmutableMap.of("hive", clientSelectedRole));
+            assertEquals(listCurrentRoles(connection), currentRoles);
+        }
+    }
+
+    @Test
+    public void testSessionProperties()
+            throws SQLException
+    {
+        try (Connection connection = createConnection("roles=hive:admin&sessionProperties=hive.temporary_staging_directory_path:/tmp;execution_policy:phased")) {
+            PrestoConnection prestoConnection = connection.unwrap(PrestoConnection.class);
+            assertThat(prestoConnection.getSessionProperties())
+                    .extractingByKeys("hive.temporary_staging_directory_path", "execution_policy")
+                    .containsExactly("/tmp", "phased");
+            assertThat(listSession(connection)).containsAll(ImmutableSet.of(
+                    "execution_policy|phased|all-at-once",
+                    "hive.temporary_staging_directory_path|/tmp|/tmp/presto-${USER}"));
+        }
     }
 
     private Connection createConnection()
@@ -325,10 +394,25 @@ public class TestJdbcConnection
     private static Map<String, String> listExtraCredentials(Connection connection)
             throws SQLException
     {
-        ResultSet rs = connection.createStatement().executeQuery("SELECT * FROM system.test.extra_credentials");
         ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-        while (rs.next()) {
-            builder.put(rs.getString("name"), rs.getString("value"));
+        try (Statement statement = connection.createStatement();
+                ResultSet rs = statement.executeQuery("SELECT * FROM system.test.extra_credentials")) {
+            while (rs.next()) {
+                builder.put(rs.getString("name"), rs.getString("value"));
+            }
+        }
+        return builder.build();
+    }
+
+    private static Set<String> listCurrentRoles(Connection connection)
+            throws SQLException
+    {
+        ImmutableSet.Builder<String> builder = ImmutableSet.builder();
+        try (Statement statement = connection.createStatement();
+                ResultSet rs = statement.executeQuery("SHOW CURRENT ROLES")) {
+            while (rs.next()) {
+                builder.add(rs.getString("role"));
+            }
         }
         return builder.build();
     }
@@ -358,7 +442,7 @@ public class TestJdbcConnection
     {
         private static final SchemaTableName NAME = new SchemaTableName("test", "extra_credentials");
 
-        public static final ConnectorTableMetadata METADATA = tableMetadataBuilder(NAME)
+        private static final ConnectorTableMetadata METADATA = tableMetadataBuilder(NAME)
                 .column("name", createUnboundedVarcharType())
                 .column("value", createUnboundedVarcharType())
                 .build();

@@ -343,14 +343,17 @@ final class ShowQueriesRewrite
         {
             List<Expression> rows = listCatalogs(session, metadata, accessControl).keySet().stream()
                     .map(name -> row(new StringLiteral(name)))
-                    .collect(toList());
+                    .collect(toImmutableList());
 
             Optional<Expression> predicate = Optional.empty();
-            Optional<String> likePattern = node.getLikePattern();
-            if (likePattern.isPresent()) {
+            if (rows.isEmpty()) {
+                rows = ImmutableList.of(new StringLiteral(""));
+                predicate = Optional.of(BooleanLiteral.FALSE_LITERAL);
+            }
+            else if (node.getLikePattern().isPresent()) {
                 predicate = Optional.of(new LikePredicate(
-                        identifier("Catalog"),
-                        new StringLiteral(likePattern.get()),
+                        identifier("catalog"),
+                        new StringLiteral(node.getLikePattern().get()),
                         node.getEscape().map(StringLiteral::new)));
             }
 

@@ -172,11 +172,19 @@ Unit              Description
 .. function:: date_add(unit, value, timestamp) -> [same as input]
 
     Adds an interval ``value`` of type ``unit`` to ``timestamp``.
-    Subtraction can be performed by using a negative value.
+    Subtraction can be performed by using a negative value::
+
+        SELECT date_add('second', 86, TIMESTAMP '2020-03-01 00:00:00'); -- 2020-03-01 00:01:26.000
+        SELECT date_add('hour', 9, TIMESTAMP '2020-03-01 00:00:00'); -- 2020-03-01 09:00:00.000
+        SELECT date_add('day', -1, TIMESTAMP '2020-03-01 00:00:00 UTC'); -- 2020-02-29 00:00:00.000 UTC
 
 .. function:: date_diff(unit, timestamp1, timestamp2) -> bigint
 
-    Returns ``timestamp2 - timestamp1`` expressed in terms of ``unit``.
+    Returns ``timestamp2 - timestamp1`` expressed in terms of ``unit``::
+
+        SELECT date_diff('second', TIMESTAMP '2020-03-01 00:00:00', TIMESTAMP '2020-03-02 00:00:00'); -- 86400
+        SELECT date_diff('hour', TIMESTAMP '2020-03-01 00:00:00 UTC', TIMESTAMP '2020-03-02 00:00:00 UTC'); -- 24
+        SELECT date_diff('day', DATE '2020-03-01', DATE '2020-03-02'); -- 1
 
 Duration Function
 -----------------

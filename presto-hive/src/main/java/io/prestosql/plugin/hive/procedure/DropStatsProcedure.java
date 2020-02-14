@@ -11,9 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive;
+package io.prestosql.plugin.hive.procedure;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.plugin.hive.HiveColumnHandle;
+import io.prestosql.plugin.hive.HiveTableHandle;
+import io.prestosql.plugin.hive.PartitionStatistics;
+import io.prestosql.plugin.hive.TransactionalMetadata;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.spi.PrestoException;
@@ -91,6 +95,9 @@ public class DropStatsProcedure
     {
         TransactionalMetadata hiveMetadata = hiveMetadataFactory.get();
         HiveTableHandle handle = (HiveTableHandle) hiveMetadata.getTableHandle(session, new SchemaTableName(schema, table));
+        if (handle == null) {
+            throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, format("Table %s does not exist", new SchemaTableName(schema, table)));
+        }
         Map<String, ColumnHandle> columns = hiveMetadata.getColumnHandles(session, handle);
         List<String> partitionColumns = columns.values().stream()
                 .map(HiveColumnHandle.class::cast)

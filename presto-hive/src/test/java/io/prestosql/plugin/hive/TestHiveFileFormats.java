@@ -38,6 +38,7 @@ import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.testing.TestingConnectorSession;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
+import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.hive.serde2.objectinspector.ListObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.MapObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
@@ -376,6 +377,26 @@ public class TestHiveFileFormats
                 .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
     }
 
+    @Test(dataProvider = "rowCount")
+    public void testAvroFileInSymlinkTable(int rowCount)
+            throws Exception
+    {
+        File file = File.createTempFile("presto_test", AVRO.name());
+        //noinspection ResultOfMethodCallIgnored
+        file.delete();
+        try {
+            FileSplit split = createTestFile(file.getAbsolutePath(), AVRO, HiveCompressionCodec.NONE, getTestColumnsSupportedByAvro(), rowCount);
+            Properties splitProperties = new Properties();
+            splitProperties.setProperty(FILE_INPUT_FORMAT, SymlinkTextInputFormat.class.getName());
+            splitProperties.setProperty(SERIALIZATION_LIB, AVRO.getSerDe());
+            testCursorProvider(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT), split, splitProperties, getTestColumnsSupportedByAvro(), SESSION, rowCount);
+        }
+        finally {
+            //noinspection ResultOfMethodCallIgnored
+            file.delete();
+        }
+    }
+
     private static List<TestColumn> getTestColumnsSupportedByAvro()
     {
         // Avro only supports String for Map keys, and doesn't support smallint or tinyint.
@@ -541,6 +562,17 @@ public class TestHiveFileFormats
         Properties splitProperties = new Properties();
         splitProperties.setProperty(FILE_INPUT_FORMAT, storageFormat.getInputFormat());
         splitProperties.setProperty(SERIALIZATION_LIB, storageFormat.getSerDe());
+        testCursorProvider(cursorProvider, split, splitProperties, testColumns, session, rowCount);
+    }
+
+    private void testCursorProvider(
+            HiveRecordCursorProvider cursorProvider,
+            FileSplit split,
+            Properties splitProperties,
+            List<TestColumn> testColumns,
+            ConnectorSession session,
+            int rowCount)
+    {
         splitProperties.setProperty(
                 "columns",
                 testColumns.stream()

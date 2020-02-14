@@ -25,10 +25,10 @@ import io.prestosql.tests.product.launcher.Extensions;
 import io.prestosql.tests.product.launcher.LauncherModule;
 import io.prestosql.tests.product.launcher.PathResolver;
 import io.prestosql.tests.product.launcher.env.Environment;
+import io.prestosql.tests.product.launcher.env.EnvironmentFactory;
 import io.prestosql.tests.product.launcher.env.EnvironmentModule;
 import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
 import io.prestosql.tests.product.launcher.env.Environments;
-import io.prestosql.tests.product.launcher.env.SelectedEnvironmentProvider;
 import org.testcontainers.containers.Container;
 
 import javax.inject.Inject;
@@ -82,6 +82,9 @@ public final class TestRun
         @Option(name = "--test-jar", title = "test jar", description = "path to test jar")
         public File testJar = new File("presto-product-tests/target/presto-product-tests-${project.version}-executable.jar");
 
+        @Option(name = "--environment", title = "environment", description = "the name of the environment to start", required = true)
+        public String environment;
+
         @Arguments(description = "test arguments")
         public List<String> testArguments = new ArrayList<>();
 
@@ -98,18 +101,20 @@ public final class TestRun
     {
         private static final int TESTS_READY_PORT = 1970;
 
-        private final SelectedEnvironmentProvider selectedEnvironmentProvider;
         private final PathResolver pathResolver;
         private final File testJar;
         private final List<String> testArguments;
+        private final EnvironmentFactory environmentFactory;
+        private final String environment;
 
         @Inject
-        public Execution(SelectedEnvironmentProvider selectedEnvironmentProvider, PathResolver pathResolver, TestRunOptions testRunOptions)
+        public Execution(EnvironmentFactory environmentFactory, PathResolver pathResolver, TestRunOptions testRunOptions)
         {
-            this.selectedEnvironmentProvider = requireNonNull(selectedEnvironmentProvider, "selectedEnvironmentProvider is null");
+            this.environmentFactory = requireNonNull(environmentFactory, "environmentFactory is null");
             this.pathResolver = requireNonNull(pathResolver, "pathResolver is null");
             this.testJar = requireNonNull(testRunOptions.testJar, "testOptions.testJar is null");
             this.testArguments = ImmutableList.copyOf(requireNonNull(testRunOptions.testArguments, "testOptions.testArguments is null"));
+            this.environment = requireNonNull(testRunOptions.environment, "testRunOptions.environment is null");
         }
 
         @Override
@@ -121,9 +126,9 @@ public final class TestRun
 
                 Environment environment = getEnvironment();
 
-                log.info("Starting the environment '%s'", selectedEnvironmentProvider.getEnvironmentName());
+                log.info("Starting the environment '%s'", environment);
                 environment.start();
-                log.info("Environment '%s' started", selectedEnvironmentProvider.getEnvironmentName());
+                log.info("Environment '%s' started", environment);
 
                 runTests(environment);
             }
@@ -142,7 +147,7 @@ public final class TestRun
 
         private Environment getEnvironment()
         {
-            Environment.Builder environment = selectedEnvironmentProvider.getEnvironment();
+            Environment.Builder environment = environmentFactory.get(this.environment);
 
             environment.configureContainer("tests", container -> {
                 container.addExposedPort(TESTS_READY_PORT);

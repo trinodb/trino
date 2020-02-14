@@ -883,9 +883,20 @@ public class FileHiveMetastore
 
         List<String> partitionNames = partitions.stream()
                 .map(partitionValues -> makePartitionName(table.getPartitionColumns(), ImmutableList.copyOf(partitionValues)))
+                .filter(partitionName -> isValidPartition(table, partitionName))
                 .collect(toList());
 
         return Optional.of(ImmutableList.copyOf(partitionNames));
+    }
+
+    private boolean isValidPartition(Table table, String partitionName)
+    {
+        try {
+            return metadataFileSystem.exists(new Path(getPartitionMetadataDirectory(table, partitionName), PRESTO_SCHEMA_FILE_NAME));
+        }
+        catch (IOException e) {
+            return false;
+        }
     }
 
     private List<ArrayDeque<String>> listPartitions(Path director, List<Column> partitionColumns)

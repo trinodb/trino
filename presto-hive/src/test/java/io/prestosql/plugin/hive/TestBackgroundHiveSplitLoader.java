@@ -159,7 +159,7 @@ public class TestBackgroundHiveSplitLoader
                 StorageFormat.fromHiveStorageFormat(storageFormat));
 
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
-                ImmutableList.of(locatedFileStatus(new Path(SAMPLE_PATH), new DataSize(2.0, GIGABYTE).toBytes())),
+                ImmutableList.of(locatedFileStatus(new Path(SAMPLE_PATH), DataSize.of(2, GIGABYTE).toBytes())),
                 TupleDomain.all(),
                 Optional.empty(),
                 table,
@@ -535,7 +535,7 @@ public class TestBackgroundHiveSplitLoader
                         ImmutableMap.of()));
 
         ConnectorSession connectorSession = getHiveSession(new HiveConfig()
-                .setMaxSplitSize(new DataSize(1.0, GIGABYTE)));
+                .setMaxSplitSize(DataSize.of(1, GIGABYTE)));
 
         return new BackgroundHiveSplitLoader(
                 SIMPLE_TABLE,
@@ -556,7 +556,7 @@ public class TestBackgroundHiveSplitLoader
     private static BackgroundHiveSplitLoader backgroundHiveSplitLoaderOfflinePartitions()
     {
         ConnectorSession connectorSession = getHiveSession(new HiveConfig()
-                .setMaxSplitSize(new DataSize(1.0, GIGABYTE)));
+                .setMaxSplitSize(DataSize.of(1, GIGABYTE)));
 
         return new BackgroundHiveSplitLoader(
                 SIMPLE_TABLE,
@@ -610,7 +610,7 @@ public class TestBackgroundHiveSplitLoader
                 SIMPLE_TABLE.getTableName(),
                 1,
                 1,
-                new DataSize(32, MEGABYTE),
+                DataSize.of(32, MEGABYTE),
                 Integer.MAX_VALUE,
                 hiveSplitLoader,
                 EXECUTOR,

@@ -322,8 +322,11 @@ public final class HttpPageBufferClient
                         }
 
                         if (!isNullOrEmpty(taskInstanceId) && !result.getTaskInstanceId().equals(taskInstanceId)) {
-                            // TODO: update error message
-                            throw new PrestoException(REMOTE_TASK_MISMATCH, format("%s (%s)", REMOTE_TASK_MISMATCH_ERROR, fromUri(uri)));
+                            throw new PrestoException(REMOTE_TASK_MISMATCH, format("%s (%s). Expected taskInstanceId: %s, received taskInstanceId: %s",
+                                    REMOTE_TASK_MISMATCH_ERROR,
+                                    fromUri(uri),
+                                    taskInstanceId,
+                                    result.getTaskInstanceId()));
                         }
 
                         if (result.getToken() == token) {

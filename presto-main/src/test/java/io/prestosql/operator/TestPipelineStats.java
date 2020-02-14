@@ -23,7 +23,6 @@ import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.prestosql.operator.TestDriverStats.assertExpectedDriverStats;
 import static io.prestosql.operator.TestOperatorStats.assertExpectedOperatorStats;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -50,9 +49,9 @@ public class TestPipelineStats
             19,
             4,
 
-            new DataSize(5, BYTE),
-            new DataSize(6, BYTE),
-            new DataSize(7, BYTE),
+            DataSize.ofBytes(5),
+            DataSize.ofBytes(6),
+            DataSize.ofBytes(7),
 
             getTestDistribution(8),
             getTestDistribution(9),
@@ -63,22 +62,23 @@ public class TestPipelineStats
             false,
             ImmutableSet.of(),
 
-            new DataSize(141, BYTE),
+            DataSize.ofBytes(141),
             151,
+            new Duration(14, NANOSECONDS),
 
-            new DataSize(142, BYTE),
+            DataSize.ofBytes(142),
             152,
 
-            new DataSize(14, BYTE),
+            DataSize.ofBytes(14),
             15,
 
-            new DataSize(16, BYTE),
+            DataSize.ofBytes(16),
             17,
 
-            new DataSize(18, BYTE),
+            DataSize.ofBytes(18),
             19,
 
-            new DataSize(20, BYTE),
+            DataSize.ofBytes(20),
 
             ImmutableList.of(TestOperatorStats.EXPECTED),
             ImmutableList.of(TestDriverStats.EXPECTED));
@@ -110,9 +110,9 @@ public class TestPipelineStats
         assertEquals(actual.getBlockedDrivers(), 19);
         assertEquals(actual.getCompletedDrivers(), 4);
 
-        assertEquals(actual.getUserMemoryReservation(), new DataSize(5, BYTE));
-        assertEquals(actual.getRevocableMemoryReservation(), new DataSize(6, BYTE));
-        assertEquals(actual.getSystemMemoryReservation(), new DataSize(7, BYTE));
+        assertEquals(actual.getUserMemoryReservation(), DataSize.ofBytes(5));
+        assertEquals(actual.getRevocableMemoryReservation(), DataSize.ofBytes(6));
+        assertEquals(actual.getSystemMemoryReservation(), DataSize.ofBytes(7));
 
         assertEquals(actual.getQueuedTime().getCount(), 8.0);
         assertEquals(actual.getElapsedTime().getCount(), 9.0);
@@ -121,22 +121,23 @@ public class TestPipelineStats
         assertEquals(actual.getTotalCpuTime(), new Duration(11, NANOSECONDS));
         assertEquals(actual.getTotalBlockedTime(), new Duration(13, NANOSECONDS));
 
-        assertEquals(actual.getPhysicalInputDataSize(), new DataSize(141, BYTE));
+        assertEquals(actual.getPhysicalInputDataSize(), DataSize.ofBytes(141));
         assertEquals(actual.getPhysicalInputPositions(), 151);
+        assertEquals(actual.getPhysicalInputReadTime(), new Duration(14, NANOSECONDS));
 
-        assertEquals(actual.getInternalNetworkInputDataSize(), new DataSize(142, BYTE));
+        assertEquals(actual.getInternalNetworkInputDataSize(), DataSize.ofBytes(142));
         assertEquals(actual.getInternalNetworkInputPositions(), 152);
 
-        assertEquals(actual.getRawInputDataSize(), new DataSize(14, BYTE));
+        assertEquals(actual.getRawInputDataSize(), DataSize.ofBytes(14));
         assertEquals(actual.getRawInputPositions(), 15);
 
-        assertEquals(actual.getProcessedInputDataSize(), new DataSize(16, BYTE));
+        assertEquals(actual.getProcessedInputDataSize(), DataSize.ofBytes(16));
         assertEquals(actual.getProcessedInputPositions(), 17);
 
-        assertEquals(actual.getOutputDataSize(), new DataSize(18, BYTE));
+        assertEquals(actual.getOutputDataSize(), DataSize.ofBytes(18));
         assertEquals(actual.getOutputPositions(), 19);
 
-        assertEquals(actual.getPhysicalWrittenDataSize(), new DataSize(20, BYTE));
+        assertEquals(actual.getPhysicalWrittenDataSize(), DataSize.ofBytes(20));
 
         assertEquals(actual.getOperatorSummaries().size(), 1);
         assertExpectedOperatorStats(actual.getOperatorSummaries().get(0));

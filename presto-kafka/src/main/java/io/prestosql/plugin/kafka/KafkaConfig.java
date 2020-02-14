@@ -39,7 +39,7 @@ public class KafkaConfig
 
     private Set<HostAddress> nodes = ImmutableSet.of();
     private Duration kafkaConnectTimeout = Duration.valueOf("10s");
-    private DataSize kafkaBufferSize = new DataSize(64, Unit.KILOBYTE);
+    private DataSize kafkaBufferSize = DataSize.of(64, Unit.KILOBYTE);
     private String defaultSchema = "default";
     private Set<String> tableNames = ImmutableSet.of();
     private File tableDescriptionDir = new File("etc/kafka/");

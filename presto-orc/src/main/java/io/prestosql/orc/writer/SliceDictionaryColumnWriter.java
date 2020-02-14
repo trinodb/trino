@@ -65,7 +65,7 @@ public class SliceDictionaryColumnWriter
         implements ColumnWriter, DictionaryColumn
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceDictionaryColumnWriter.class).instanceSize();
-    private static final int DIRECT_CONVERSION_CHUNK_MAX_LOGICAL_BYTES = toIntExact(new DataSize(32, MEGABYTE).toBytes());
+    private static final int DIRECT_CONVERSION_CHUNK_MAX_LOGICAL_BYTES = toIntExact(DataSize.of(32, MEGABYTE).toBytes());
 
     private final OrcColumnId columnId;
     private final Type type;

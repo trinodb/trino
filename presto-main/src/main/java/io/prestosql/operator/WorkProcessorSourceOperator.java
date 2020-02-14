@@ -20,7 +20,6 @@ import io.prestosql.spi.connector.UpdatablePageSource;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 // TODO: support spill
@@ -31,7 +30,7 @@ public interface WorkProcessorSourceOperator
 
     default DataSize getPhysicalInputDataSize()
     {
-        return new DataSize(0, BYTE);
+        return DataSize.ofBytes(0);
     }
 
     default long getPhysicalInputPositions()
@@ -41,7 +40,7 @@ public interface WorkProcessorSourceOperator
 
     default DataSize getInternalNetworkInputDataSize()
     {
-        return new DataSize(0, BYTE);
+        return DataSize.ofBytes(0);
     }
 
     default long getInternalNetworkPositions()
@@ -51,7 +50,7 @@ public interface WorkProcessorSourceOperator
 
     default DataSize getInputDataSize()
     {
-        return new DataSize(0, BYTE);
+        return DataSize.ofBytes(0);
     }
 
     default long getInputPositions()

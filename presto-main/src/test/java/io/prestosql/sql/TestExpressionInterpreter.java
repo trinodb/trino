@@ -1549,10 +1549,10 @@ public class TestExpressionInterpreter
     }
 
     private static class FailedFunctionRewriter
-            extends ExpressionRewriter<Object>
+            extends ExpressionRewriter<Void>
     {
         @Override
-        public Expression rewriteFunctionCall(FunctionCall node, Object context, ExpressionTreeRewriter<Object> treeRewriter)
+        public Expression rewriteFunctionCall(FunctionCall node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
             if (getFunctionName(node).equals(QualifiedName.of("fail"))) {
                 return new FunctionCallBuilder(METADATA)

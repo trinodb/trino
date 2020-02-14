@@ -89,6 +89,32 @@ public abstract class AbstractTestAggregations
                 "VALUES 1");
     }
 
+    /**
+     * This case tests that Aggregation isn't incorrectly pushed down into the inner source of JoinNode
+     * in the case when it uses symbols from the outer source of JoinNode.
+     */
+    @Test
+    public void testAggregationUsingOuterTableSymbols()
+    {
+        assertQuery(
+                "SELECT max_by(n.nationkey, r.regionkey) FROM (SELECT DISTINCT regionkey FROM region) r LEFT JOIN nation n ON n.regionkey = r.regionkey GROUP BY r.regionkey",
+                "VALUES 16, 20, 21, 23, 24");
+    }
+
+    /**
+     * In this case, Aggregation count(*) can be pushed down into the inner source of JoinNode.
+     */
+    @Test
+    public void testCountAllOverJoin()
+    {
+        assertQuery(
+                "SELECT count(*) " +
+                        "FROM (SELECT DISTINCT a, b FROM (VALUES (1, 1), (1, 2)) l(a, b)) l " +
+                        "LEFT JOIN (SELECT 1 a) r ON l.a = r.a " +
+                        "GROUP BY l.a, l.b",
+                "VALUES 1, 1");
+    }
+
     @Test
     public void testCountWithCoalescePredicate()
     {

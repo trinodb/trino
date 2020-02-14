@@ -42,6 +42,8 @@ import io.prestosql.split.EmptySplitPageSource;
 import io.prestosql.split.PageSourceProvider;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
+import javax.annotation.Nullable;
+
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
@@ -51,7 +53,6 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.operator.PageUtils.recordMaterializedBytes;
 import static io.prestosql.operator.WorkProcessor.TransformationState.finished;
@@ -65,7 +66,9 @@ public class ScanFilterAndProjectOperator
 {
     private final WorkProcessor<Page> pages;
 
+    @Nullable
     private RecordCursor cursor;
+    @Nullable
     private ConnectorPageSource pageSource;
 
     private long processedPositions;
@@ -120,7 +123,7 @@ public class ScanFilterAndProjectOperator
     @Override
     public DataSize getPhysicalInputDataSize()
     {
-        return new DataSize(physicalBytes, BYTE);
+        return DataSize.ofBytes(physicalBytes);
     }
 
     @Override
@@ -132,7 +135,7 @@ public class ScanFilterAndProjectOperator
     @Override
     public DataSize getInputDataSize()
     {
-        return new DataSize(processedBytes, BYTE);
+        return DataSize.ofBytes(processedBytes);
     }
 
     @Override

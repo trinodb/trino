@@ -32,8 +32,8 @@ public class TestJsonWebTokenConfig
                 .setKeyFile(null)
                 .setRequiredAudience(null)
                 .setRequiredIssuer(null)
-                .setUserExtractionPattern(null)
-                .setUserExtractionFile(null));
+                .setUserMappingPattern(null)
+                .setUserMappingFile(null));
     }
 
     @Test
@@ -43,16 +43,16 @@ public class TestJsonWebTokenConfig
                 .put("http.authentication.jwt.key-file", "public.pem")
                 .put("http.authentication.jwt.required-audience", "some-audience")
                 .put("http.authentication.jwt.required-issuer", "some-issuer")
-                .put("http-server.authentication.jwt.user-extraction.pattern", "(.*)@something")
-                .put("http-server.authentication.jwt.user-extraction.file", "some-file")
+                .put("http-server.authentication.jwt.user-mapping.pattern", "(.*)@something")
+                .put("http-server.authentication.jwt.user-mapping.file", "some-file")
                 .build();
 
         JsonWebTokenConfig expected = new JsonWebTokenConfig()
                 .setKeyFile("public.pem")
                 .setRequiredAudience("some-audience")
                 .setRequiredIssuer("some-issuer")
-                .setUserExtractionPattern("(.*)@something")
-                .setUserExtractionFile(new File("some-file"));
+                .setUserMappingPattern("(.*)@something")
+                .setUserMappingFile(new File("some-file"));
 
         assertFullMapping(properties, expected);
     }

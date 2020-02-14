@@ -158,11 +158,13 @@ public class GlueHiveMetastore
     private final int partitionSegments;
     private final Executor executor;
     private final GlueMetastoreStats stats = new GlueMetastoreStats();
+    private final GlueColumnStatisticsProvider columnStatisticsProvider;
 
     @Inject
     public GlueHiveMetastore(
             HdfsEnvironment hdfsEnvironment,
             GlueHiveMetastoreConfig glueConfig,
+            GlueColumnStatisticsProvider columnStatisticsProvider,
             @ForGlueHiveMetastore Executor executor)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -172,6 +174,7 @@ public class GlueHiveMetastore
         this.catalogId = glueConfig.getCatalogId().orElse(null);
         this.partitionSegments = glueConfig.getPartitionSegments();
         this.executor = requireNonNull(executor, "executor is null");
+        this.columnStatisticsProvider = requireNonNull(columnStatisticsProvider, "columnStatisticsProvider is null");
     }
 
     private static AWSGlueAsync createAsyncGlueClient(GlueHiveMetastoreConfig config)
@@ -297,7 +300,7 @@ public class GlueHiveMetastore
     @Override
     public Set<ColumnStatisticType> getSupportedColumnStatistics(Type type)
     {
-        return ImmutableSet.of();
+        return columnStatisticsProvider.getSupportedColumnStatistics(type);
     }
 
     private Table getExistingTable(HiveIdentity identity, String databaseName, String tableName)
@@ -309,7 +312,7 @@ public class GlueHiveMetastore
     @Override
     public PartitionStatistics getTableStatistics(HiveIdentity identity, Table table)
     {
-        return new PartitionStatistics(getHiveBasicStatistics(table.getParameters()), ImmutableMap.of());
+        return new PartitionStatistics(getHiveBasicStatistics(table.getParameters()), columnStatisticsProvider.getTableColumnStatistics(table));
     }
 
     @Override
@@ -320,7 +323,7 @@ public class GlueHiveMetastore
 
     private PartitionStatistics getPartitionStatistics(Partition partition)
     {
-        return new PartitionStatistics(getHiveBasicStatistics(partition.getParameters()), ImmutableMap.of());
+        return new PartitionStatistics(getHiveBasicStatistics(partition.getParameters()), columnStatisticsProvider.getPartitionColumnStatistics(partition));
     }
 
     @Override
@@ -329,13 +332,11 @@ public class GlueHiveMetastore
         Table table = getExistingTable(identity, databaseName, tableName);
         PartitionStatistics currentStatistics = getTableStatistics(identity, table);
         PartitionStatistics updatedStatistics = update.apply(currentStatistics);
-        if (!updatedStatistics.getColumnStatistics().isEmpty()) {
-            throw new PrestoException(NOT_SUPPORTED, "Glue metastore does not support column level statistics");
-        }
 
         try {
             TableInput tableInput = GlueInputConverter.convertTable(table);
             tableInput.setParameters(updateStatisticsParameters(table.getParameters(), updatedStatistics.getBasicStatistics()));
+            columnStatisticsProvider.updateTableColumnStatistics(tableInput, updatedStatistics.getColumnStatistics());
             glueClient.updateTable(new UpdateTableRequest()
                     .withCatalogId(catalogId)
                     .withDatabaseName(databaseName)
@@ -358,13 +359,11 @@ public class GlueHiveMetastore
 
         PartitionStatistics currentStatistics = getPartitionStatistics(partition);
         PartitionStatistics updatedStatistics = update.apply(currentStatistics);
-        if (!updatedStatistics.getColumnStatistics().isEmpty()) {
-            throw new PrestoException(NOT_SUPPORTED, "Glue metastore does not support column level statistics");
-        }
 
         try {
             PartitionInput partitionInput = GlueInputConverter.convertPartition(partition);
             partitionInput.setParameters(updateStatisticsParameters(partition.getParameters(), updatedStatistics.getBasicStatistics()));
+            columnStatisticsProvider.updatePartitionStatistics(partitionInput, updatedStatistics.getColumnStatistics());
             glueClient.updatePartition(new UpdatePartitionRequest()
                     .withCatalogId(catalogId)
                     .withDatabaseName(databaseName)
@@ -854,7 +853,9 @@ public class GlueHiveMetastore
                 List<Future<BatchCreatePartitionResult>> futures = new ArrayList<>();
 
                 for (List<PartitionWithStatistics> partitionBatch : batchedPartitions) {
-                    List<PartitionInput> partitionInputs = partitionBatch.stream().map(GlueInputConverter::convertPartition).collect(toList());
+                    List<PartitionInput> partitionInputs = partitionBatch.stream()
+                            .map(partition -> GlueInputConverter.convertPartition(partition, columnStatisticsProvider))
+                            .collect(toList());
                     futures.add(glueClient.batchCreatePartitionAsync(new BatchCreatePartitionRequest()
                             .withCatalogId(catalogId)
                             .withDatabaseName(databaseName)
@@ -927,7 +928,7 @@ public class GlueHiveMetastore
     public void alterPartition(HiveIdentity identity, String databaseName, String tableName, PartitionWithStatistics partition)
     {
         try {
-            PartitionInput newPartition = GlueInputConverter.convertPartition(partition);
+            PartitionInput newPartition = GlueInputConverter.convertPartition(partition, columnStatisticsProvider);
             stats.getAlterPartition().call(() ->
                     glueClient.updatePartition(new UpdatePartitionRequest()
                             .withCatalogId(catalogId)

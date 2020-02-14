@@ -114,7 +114,7 @@ public class TestStaticSelector
                                 new ResourceEstimates(
                                         Optional.of(java.time.Duration.ofMinutes(4)),
                                         Optional.empty(),
-                                        Optional.of(new DataSize(400, MEGABYTE).toBytes()))))
+                                        Optional.of(DataSize.of(400, MEGABYTE).toBytes()))))
                         .map(SelectionContext::getResourceGroupId),
                 Optional.of(resourceGroupId));
 
@@ -127,7 +127,7 @@ public class TestStaticSelector
                                 new ResourceEstimates(
                                         Optional.of(java.time.Duration.ofMinutes(4)),
                                         Optional.empty(),
-                                        Optional.of(new DataSize(600, MEGABYTE).toBytes()))))
+                                        Optional.of(DataSize.of(600, MEGABYTE).toBytes()))))
                         .map(SelectionContext::getResourceGroupId),
                 Optional.empty());
 
@@ -166,7 +166,7 @@ public class TestStaticSelector
                                 new ResourceEstimates(
                                         Optional.of(java.time.Duration.ofHours(100)),
                                         Optional.empty(),
-                                        Optional.of(new DataSize(4, TERABYTE).toBytes()))))
+                                        Optional.of(DataSize.of(4, TERABYTE).toBytes()))))
                         .map(SelectionContext::getResourceGroupId),
                 Optional.empty());
 
@@ -179,7 +179,7 @@ public class TestStaticSelector
                                 new ResourceEstimates(
                                         Optional.empty(),
                                         Optional.empty(),
-                                        Optional.of(new DataSize(6, TERABYTE).toBytes()))))
+                                        Optional.of(DataSize.of(6, TERABYTE).toBytes()))))
                         .map(SelectionContext::getResourceGroupId),
                 Optional.of(resourceGroupId));
 
@@ -192,7 +192,7 @@ public class TestStaticSelector
                                 new ResourceEstimates(
                                         Optional.of(java.time.Duration.ofSeconds(1)),
                                         Optional.of(java.time.Duration.ofSeconds(1)),
-                                        Optional.of(new DataSize(6, TERABYTE).toBytes()))))
+                                        Optional.of(DataSize.of(6, TERABYTE).toBytes()))))
                         .map(SelectionContext::getResourceGroupId),
                 Optional.of(resourceGroupId));
     }

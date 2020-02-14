@@ -34,7 +34,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Supplier;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.prestosql.RowPagesBuilder.rowPagesBuilder;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
@@ -108,7 +107,7 @@ public class TestFilterAndProjectOperator
                 new PlanNodeId("test"),
                 processor,
                 ImmutableList.of(VARCHAR, BIGINT),
-                new DataSize(0, BYTE),
+                DataSize.ofBytes(0),
                 0);
 
         MaterializedResult expected = MaterializedResult.resultBuilder(driverContext.getSession(), VARCHAR, BIGINT)
@@ -152,7 +151,7 @@ public class TestFilterAndProjectOperator
                 new PlanNodeId("test"),
                 processor,
                 ImmutableList.of(BIGINT),
-                new DataSize(64, KILOBYTE),
+                DataSize.of(64, KILOBYTE),
                 2);
 
         List<Page> expected = rowPagesBuilder(BIGINT)

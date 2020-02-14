@@ -13,8 +13,11 @@
  */
 package io.prestosql.tests.product.launcher.env;
 
+import com.google.common.collect.Ordering;
+
 import javax.inject.Inject;
 
+import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -32,8 +35,13 @@ public final class EnvironmentFactory
 
     public Environment.Builder get(String environmentName)
     {
-        checkArgument(environmentProviders.containsKey(environmentName), "No environment with name '%s'. Those do exist, however: %s", environmentName, environmentProviders.keySet());
+        checkArgument(environmentProviders.containsKey(environmentName), "No environment with name '%s'. Those do exist, however: %s", environmentName, list());
         return environmentProviders.get(environmentName)
                 .createEnvironment();
+    }
+
+    public List<String> list()
+    {
+        return Ordering.natural().sortedCopy(environmentProviders.keySet());
     }
 }

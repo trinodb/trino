@@ -54,47 +54,47 @@ public enum HiveStorageFormat
             OrcSerde.class.getName(),
             OrcInputFormat.class.getName(),
             OrcOutputFormat.class.getName(),
-            new DataSize(256, Unit.MEGABYTE)),
+            DataSize.of(256, Unit.MEGABYTE)),
     PARQUET(
             ParquetHiveSerDe.class.getName(),
             MapredParquetInputFormat.class.getName(),
             MapredParquetOutputFormat.class.getName(),
-            new DataSize(128, Unit.MEGABYTE)),
+            DataSize.of(128, Unit.MEGABYTE)),
     AVRO(
             AvroSerDe.class.getName(),
             AvroContainerInputFormat.class.getName(),
             AvroContainerOutputFormat.class.getName(),
-            new DataSize(64, Unit.MEGABYTE)),
+            DataSize.of(64, Unit.MEGABYTE)),
     RCBINARY(
             LazyBinaryColumnarSerDe.class.getName(),
             RCFileInputFormat.class.getName(),
             RCFileOutputFormat.class.getName(),
-            new DataSize(8, Unit.MEGABYTE)),
+            DataSize.of(8, Unit.MEGABYTE)),
     RCTEXT(
             ColumnarSerDe.class.getName(),
             RCFileInputFormat.class.getName(),
             RCFileOutputFormat.class.getName(),
-            new DataSize(8, Unit.MEGABYTE)),
+            DataSize.of(8, Unit.MEGABYTE)),
     SEQUENCEFILE(
             LazySimpleSerDe.class.getName(),
             SequenceFileInputFormat.class.getName(),
             HiveSequenceFileOutputFormat.class.getName(),
-            new DataSize(8, Unit.MEGABYTE)),
+            DataSize.of(8, Unit.MEGABYTE)),
     JSON(
             JsonSerDe.class.getName(),
             TextInputFormat.class.getName(),
             HiveIgnoreKeyTextOutputFormat.class.getName(),
-            new DataSize(8, Unit.MEGABYTE)),
+            DataSize.of(8, Unit.MEGABYTE)),
     TEXTFILE(
             LazySimpleSerDe.class.getName(),
             TextInputFormat.class.getName(),
             HiveIgnoreKeyTextOutputFormat.class.getName(),
-            new DataSize(8, Unit.MEGABYTE)),
+            DataSize.of(8, Unit.MEGABYTE)),
     CSV(
             OpenCSVSerde.class.getName(),
             TextInputFormat.class.getName(),
             HiveIgnoreKeyTextOutputFormat.class.getName(),
-            new DataSize(8, Unit.MEGABYTE));
+            DataSize.of(8, Unit.MEGABYTE));
 
     private final String serde;
     private final String inputFormat;

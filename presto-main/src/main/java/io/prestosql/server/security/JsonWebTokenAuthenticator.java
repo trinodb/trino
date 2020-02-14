@@ -26,6 +26,7 @@ import io.jsonwebtoken.SignatureException;
 import io.jsonwebtoken.SigningKeyResolver;
 import io.jsonwebtoken.UnsupportedJwtException;
 import io.prestosql.spi.security.BasicPrincipal;
+import io.prestosql.spi.security.Identity;
 
 import javax.crypto.spec.SecretKeySpec;
 import javax.inject.Inject;
@@ -44,7 +45,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.io.Files.asCharSource;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
-import static io.prestosql.server.security.UserExtraction.createUserExtraction;
+import static io.prestosql.server.security.UserMapping.createUserMapping;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Base64.getMimeDecoder;
@@ -59,13 +60,13 @@ public class JsonWebTokenAuthenticator
 
     private final JwtParser jwtParser;
     private final Function<JwsHeader<?>, Key> keyLoader;
-    private final UserExtraction userExtraction;
+    private final UserMapping userMapping;
 
     @Inject
     public JsonWebTokenAuthenticator(JsonWebTokenConfig config)
     {
         requireNonNull(config, "config is null");
-        this.userExtraction = createUserExtraction(config.getUserExtractionPattern(), config.getUserExtractionFile());
+        this.userMapping = createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile());
 
         if (config.getKeyFile().contains(KEY_ID_VARIABLE)) {
             keyLoader = new DynamicKeyLoader(config.getKeyFile());
@@ -103,7 +104,7 @@ public class JsonWebTokenAuthenticator
     }
 
     @Override
-    public AuthenticatedPrincipal authenticate(HttpServletRequest request)
+    public Identity authenticate(HttpServletRequest request)
             throws AuthenticationException
     {
         String header = nullToEmpty(request.getHeader(AUTHORIZATION));
@@ -120,10 +121,12 @@ public class JsonWebTokenAuthenticator
         try {
             Jws<Claims> claimsJws = jwtParser.parseClaimsJws(token);
             String subject = claimsJws.getBody().getSubject();
-            String authenticatedUser = userExtraction.extractUser(subject);
-            return new AuthenticatedPrincipal(authenticatedUser, new BasicPrincipal(subject));
+            String authenticatedUser = userMapping.mapUser(subject);
+            return Identity.forUser(authenticatedUser)
+                    .withPrincipal(new BasicPrincipal(subject))
+                    .build();
         }
-        catch (JwtException | UserExtractionException e) {
+        catch (JwtException | UserMappingException e) {
             throw needAuthentication(e.getMessage());
         }
         catch (RuntimeException e) {

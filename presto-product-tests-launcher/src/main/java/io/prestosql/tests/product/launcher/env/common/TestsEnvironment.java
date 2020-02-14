@@ -11,13 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.server.security;
+package io.prestosql.tests.product.launcher.env.common;
 
-public class UserExtractionException
-        extends Exception
-{
-    public UserExtractionException(String message)
-    {
-        super(message);
-    }
-}
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.TYPE)
+public @interface TestsEnvironment {}

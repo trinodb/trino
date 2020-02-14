@@ -57,7 +57,6 @@ import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
 import static io.prestosql.sql.ParameterUtils.parameterExtractor;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static io.prestosql.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
-import static java.lang.String.format;
 import static java.util.Arrays.asList;
 
 public class CallTask
@@ -123,7 +122,7 @@ public class CallTask
                 .map(Argument::getName)
                 .findFirst()
                 .ifPresent(argument -> {
-                    throw semanticException(INVALID_ARGUMENTS, call, format("Required procedure argument '%s' is missing", argument));
+                    throw semanticException(INVALID_ARGUMENTS, call, "Required procedure argument '%s' is missing", argument);
                 });
 
         // get argument values

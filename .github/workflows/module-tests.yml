@@ -26,7 +26,7 @@ jobs:
       - name: Install Hive Module
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl presto-hive-hadoop2
+          ./bin/retry ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl presto-hive-hadoop2
       - name: Run Hive Tests
         run: |
           source presto-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
@@ -46,6 +46,15 @@ jobs:
         run: |
           source presto-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
             presto-hive-hadoop2/bin/run_hive_alluxio_tests.sh
+      - name: Run Hive Glue Tests
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AwsAccessKey }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AwsSecretKey }}
+          AWS_REGION: us-east-2
+        run: |
+          if [ "${AWS_ACCESS_KEY_ID}" != "" ]; then
+            ./mvnw test -B -Dair.check.skip-all -pl presto-hive -P test-hive-glue
+          fi
 
   kudu-tests:
     runs-on: ubuntu-latest
@@ -57,7 +66,7 @@ jobs:
       - name: Install Kudu Module
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl presto-kudu
+          ./bin/retry ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl presto-kudu
       - name: Run Kudu Tests -- disable InferSchema
         run: presto-kudu/bin/run_kudu_tests.sh "null"
       - name: Run Kudu Tests -- enable InferSchema, empty prefix
@@ -75,7 +84,7 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!presto-docs,!presto-server,!presto-server-rpm'
+          ./bin/retry ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!presto-docs,!presto-server,!presto-server-rpm'
       - name: Maven Tests
         run: |
           ./mvnw test -B -Dair.check.skip-all -pl '
@@ -118,6 +127,6 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl $(echo '${{ matrix.modules }}' | cut -d' ' -f1)
+          ./bin/retry ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl $(echo '${{ matrix.modules }}' | cut -d' ' -f1)
       - name: Maven Tests
         run: ./mvnw test -B -Dair.check.skip-all -pl ${{ matrix.modules }}

@@ -230,8 +230,6 @@ public final class HiveQueryRunner
             throws Exception
     {
         // You need to add "--user admin" to your CLI and execute "SET ROLE admin" for queries to work
-        Logging.initialize();
-
         Optional<Path> baseDataDir = Optional.empty();
         if (args.length > 0) {
             if (args.length != 1) {
@@ -246,7 +244,6 @@ public final class HiveQueryRunner
 
         DistributedQueryRunner queryRunner = createQueryRunner(TpchTable.getTables(), ImmutableMap.of("http-server.http.port", "8080"), baseDataDir);
         Thread.sleep(10);
-        Logger log = Logger.get(HiveQueryRunner.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }

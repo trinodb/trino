@@ -14,6 +14,7 @@
 package io.prestosql.server.security;
 
 import io.prestosql.spi.security.AccessDeniedException;
+import io.prestosql.spi.security.Identity;
 
 import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
@@ -21,27 +22,27 @@ import javax.servlet.http.HttpServletRequest;
 import java.security.Principal;
 
 import static io.prestosql.server.security.BasicAuthCredentials.extractBasicAuthCredentials;
-import static io.prestosql.server.security.UserExtraction.createUserExtraction;
+import static io.prestosql.server.security.UserMapping.createUserMapping;
 import static java.util.Objects.requireNonNull;
 
 public class PasswordAuthenticator
         implements Authenticator
 {
     private final PasswordAuthenticatorManager authenticatorManager;
-    private final UserExtraction userExtraction;
+    private final UserMapping userMapping;
 
     @Inject
     public PasswordAuthenticator(PasswordAuthenticatorManager authenticatorManager, PasswordAuthenticatorConfig config)
     {
         requireNonNull(config, "config is null");
-        this.userExtraction = createUserExtraction(config.getUserExtractionPattern(), config.getUserExtractionFile());
+        this.userMapping = createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile());
 
         this.authenticatorManager = requireNonNull(authenticatorManager, "authenticatorManager is null");
         authenticatorManager.setRequired();
     }
 
     @Override
-    public AuthenticatedPrincipal authenticate(HttpServletRequest request)
+    public Identity authenticate(HttpServletRequest request)
             throws AuthenticationException
     {
         BasicAuthCredentials basicAuthCredentials = extractBasicAuthCredentials(request)
@@ -51,10 +52,12 @@ public class PasswordAuthenticator
                     basicAuthCredentials.getUser(),
                     basicAuthCredentials.getPassword()
                             .orElseThrow(() -> new AuthenticationException("Malformed credentials: password is empty")));
-            String authenticatedUser = userExtraction.extractUser(principal.toString());
-            return new AuthenticatedPrincipal(authenticatedUser, principal);
+            String authenticatedUser = userMapping.mapUser(principal.toString());
+            return Identity.forUser(authenticatedUser)
+                    .withPrincipal(principal)
+                    .build();
         }
-        catch (UserExtractionException | AccessDeniedException e) {
+        catch (UserMappingException | AccessDeniedException e) {
             throw needAuthentication(e.getMessage());
         }
         catch (RuntimeException e) {

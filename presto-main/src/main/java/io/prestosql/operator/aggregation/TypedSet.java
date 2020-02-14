@@ -41,7 +41,7 @@ import static java.util.Objects.requireNonNull;
 public class TypedSet
 {
     @VisibleForTesting
-    public static final DataSize MAX_FUNCTION_MEMORY = new DataSize(4, MEGABYTE);
+    public static final DataSize MAX_FUNCTION_MEMORY = DataSize.of(4, MEGABYTE);
 
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(TypedSet.class).instanceSize();
     private static final int INT_ARRAY_LIST_INSTANCE_SIZE = ClassLayout.parseClass(IntArrayList.class).instanceSize();

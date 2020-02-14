@@ -65,6 +65,7 @@ import static io.prestosql.connector.informationschema.InformationSchemaTable.TA
 import static io.prestosql.connector.informationschema.InformationSchemaTable.VIEWS;
 import static io.prestosql.metadata.MetadataUtil.findColumnMetadata;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
+import static java.util.Collections.emptyList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -96,11 +97,9 @@ public class InformationSchemaMetadata
     @Override
     public ConnectorTableHandle getTableHandle(ConnectorSession connectorSession, SchemaTableName tableName)
     {
-        Optional<InformationSchemaTable> informationSchemaTable = InformationSchemaTable.of(tableName);
-        if (informationSchemaTable.isPresent()) {
-            return new InformationSchemaTableHandle(catalogName, informationSchemaTable.get(), defaultPrefixes(catalogName), OptionalLong.empty());
-        }
-        return null;
+        return InformationSchemaTable.of(tableName)
+                .map(table -> new InformationSchemaTableHandle(catalogName, table, defaultPrefixes(catalogName), OptionalLong.empty()))
+                .orElse(null);
     }
 
     @Override
@@ -164,7 +163,13 @@ public class InformationSchemaMetadata
     @Override
     public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
     {
-        return new ConnectorTableProperties();
+        InformationSchemaTableHandle tableHandle = (InformationSchemaTableHandle) table;
+        return new ConnectorTableProperties(
+                tableHandle.getPrefixes().isEmpty() ? TupleDomain.none() : TupleDomain.all(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                emptyList());
     }
 
     @Override

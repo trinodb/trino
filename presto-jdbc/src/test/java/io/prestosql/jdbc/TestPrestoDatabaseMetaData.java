@@ -110,12 +110,16 @@ public class TestPrestoDatabaseMetaData
         try (Connection connection = createConnection();
                 Statement statement = connection.createStatement()) {
             statement.executeUpdate("CREATE SCHEMA blackhole.blackhole");
+        }
 
-            statement.execute("USE hive.default");
-            statement.execute("SET ROLE admin");
-            statement.execute("CREATE SCHEMA default");
-            statement.execute("CREATE TABLE default.test_table(a varchar)");
-            statement.execute("CREATE VIEW default.test_view AS SELECT * FROM hive.default.test_table");
+        try (Connection connection = createConnection()) {
+            connection.setCatalog("hive");
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("SET ROLE admin");
+                statement.execute("CREATE SCHEMA default");
+                statement.execute("CREATE TABLE default.test_table (a varchar)");
+                statement.execute("CREATE VIEW default.test_view AS SELECT * FROM hive.default.test_table");
+            }
         }
     }
 

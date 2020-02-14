@@ -270,7 +270,7 @@ public class HiveMetadata
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
     private final boolean writesToNonManagedTablesEnabled;
     private final boolean createsOfNonManagedTablesEnabled;
-    private final boolean isHiveViewsEnabled;
+    private final boolean translateHiveViews;
     private final TypeTranslator typeTranslator;
     private final String prestoVersion;
     private final HiveStatisticsProvider hiveStatisticsProvider;
@@ -285,7 +285,7 @@ public class HiveMetadata
             boolean allowCorruptWritesForTesting,
             boolean writesToNonManagedTablesEnabled,
             boolean createsOfNonManagedTablesEnabled,
-            boolean isHiveViewsEnabled,
+            boolean translateHiveViews,
             TypeManager typeManager,
             LocationService locationService,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
@@ -306,7 +306,7 @@ public class HiveMetadata
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
         this.writesToNonManagedTablesEnabled = writesToNonManagedTablesEnabled;
         this.createsOfNonManagedTablesEnabled = createsOfNonManagedTablesEnabled;
-        this.isHiveViewsEnabled = isHiveViewsEnabled;
+        this.translateHiveViews = translateHiveViews;
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
         this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
         this.hiveStatisticsProvider = requireNonNull(hiveStatisticsProvider, "hiveStatisticsProvider is null");
@@ -380,9 +380,6 @@ public class HiveMetadata
 
         if (analyzeColumnNames.isPresent()) {
             Set<String> columnNames = analyzeColumnNames.get();
-            if (columnNames.isEmpty()) {
-                throw new PrestoException(INVALID_ANALYZE_PROPERTY, "Cannot analyze with empty column list");
-            }
             Set<String> allColumnNames = tableMetadata.getColumns().stream()
                     .map(ColumnMetadata::getName)
                     .collect(toImmutableSet());
@@ -1555,7 +1552,7 @@ public class HiveMetadata
                     throw new PrestoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Partition format changed during insert");
                 }
                 if (partitionUpdate.getUpdateMode() == OVERWRITE) {
-                    metastore.dropPartition(session, handle.getSchemaName(), handle.getTableName(), partition.getValues());
+                    metastore.dropPartition(session, handle.getSchemaName(), handle.getTableName(), partition.getValues(), true);
                 }
                 PartitionStatistics partitionStatistics = createPartitionStatistics(
                         session,
@@ -1736,7 +1733,7 @@ public class HiveMetadata
                         }
                         return Optional.of(definition);
                     }
-                    else if (isHiveViewsEnabled && isHiveOrPrestoView(view)) {
+                    if (translateHiveViews && isHiveOrPrestoView(view)) {
                         return Optional.of(buildHiveViewConnectorDefinition(catalogName, view));
                     }
                     return Optional.empty();
@@ -1781,7 +1778,7 @@ public class HiveMetadata
         }
         else {
             for (HivePartition hivePartition : partitionManager.getOrLoadPartitions(metastore, new HiveIdentity(session), handle)) {
-                metastore.dropPartition(session, handle.getSchemaName(), handle.getTableName(), toPartitionValues(hivePartition.getPartitionId()));
+                metastore.dropPartition(session, handle.getSchemaName(), handle.getTableName(), toPartitionValues(hivePartition.getPartitionId()), true);
             }
         }
         // it is too expensive to determine the exact number of deleted rows
