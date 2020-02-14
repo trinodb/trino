@@ -681,3 +681,78 @@ The following properties allow tuning the :doc:`/functions/regexp`.
     to hit the limit on matches for subsequent rows as well, you want to use the
     correct algorithm from the beginning so as not to waste time and resources.
     The more rows you are processing, the larger this value should be.
+
+
+Logging Properties
+------------------
+
+``log.path``
+^^^^^^^^^^^^
+
+    * **Type:** ``string``
+    * **Default value:** ``var/log/server.log``
+
+    The path to the log file used by Presto. The path is relative to the data
+    directory, configured by the launcher script as detailed in
+    :ref:`running_presto`.
+
+``log.max-history``
+^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``integer``
+    * **Default value:** ``30``
+
+    The maximum number of general application log files to use, before log
+    rotation replaces old content.
+
+``log.max-size``
+^^^^^^^^^^^^^^^^
+    * **Type:** ``data size``
+    * **Default value:** ``100MB``
+
+    The maximum file size for the general application log file.
+
+``http-server.log.enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``true``
+
+    Flag to enable or disable logging for the HTTP server.
+
+``http-server.log.compression.enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``true``
+
+    Flag to enable or disable compression of the log files of the HTTP server.
+
+``http-server.log.path``
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``string``
+    * **Default value:** ``var/log/http-request.log``
+
+    The path to the log file used by the HTTP server. The path is relative to
+    the data directory, configured by the launcher script as detailed in
+    :ref:`running_presto`.
+
+``http-server.log.max-history``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``integer``
+    * **Default value:** ``15``
+
+    The maxiumum number of log files for the HTTP server to use, before
+    log rotation replaces old content.
+
+``http-server.log.max-size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``data size``
+    * **Default value:** ``unlimited``
+
+    The maximum file size for the log file of the HTTP server.
+
+
