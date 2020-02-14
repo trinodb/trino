@@ -57,6 +57,9 @@ public class TestKafkaIntegrationSmokeTest
     @AfterClass(alwaysRun = true)
     public void destroy()
     {
-        testingKafka.close();
+        if (testingKafka != null) {
+            testingKafka.close();
+            testingKafka = null;
+        }
     }
 }
